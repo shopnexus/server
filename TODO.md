@@ -1,0 +1,2 @@
+- xoá hết field code, dùng "slug" instead và chỉ những table cần SEO thì mới thêm còn lại vẫn sử dụng int64 autoincrease để identify record
+- dùng hashid để encode/decode id khi expose ra ngoài
