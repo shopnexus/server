@@ -8,23 +8,26 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type AccountBiz struct {
-	storage *pgutil.Storage
+	storage      *pgutil.Storage
+	promotionBiz *promotionbiz.PromotionBiz
 }
 
 // NewAccountBiz creates a new instance of AccountBiz.
-func NewAccountBiz(storage *pgutil.Storage) *AccountBiz {
+func NewAccountBiz(storage *pgutil.Storage, promotionBiz *promotionbiz.PromotionBiz) *AccountBiz {
 	return &AccountBiz{
-		storage: storage,
+		storage:      storage,
+		promotionBiz: promotionBiz,
 	}
 }
 
 type FindParams struct {
+	ID       *int64
 	Code     *string
 	Username *string
 	Email    *string
@@ -32,12 +35,12 @@ type FindParams struct {
 }
 
 func (s *AccountBiz) Find(ctx context.Context, params FindParams) (db.AccountBase, error) {
-	if params.Code == nil && params.Username == nil && params.Email == nil && params.Phone == nil {
+	if params.Code == nil && params.Username == nil && params.Email == nil && params.Phone == nil && params.ID == nil {
 		return db.AccountBase{}, fmt.Errorf("at least one of username, email, or phone must be provided")
 	}
 
 	account, err := s.storage.GetAccountBase(ctx, db.GetAccountBaseParams{
-		Code:     pgutil.PtrToPgtype(params.Code, pgutil.StringToPgText),
+		ID:       pgutil.PtrToPgtype(params.ID, pgutil.Int64ToPgInt8),
 		Username: pgutil.PtrToPgtype(params.Username, pgutil.StringToPgText),
 		Email:    pgutil.PtrToPgtype(params.Email, pgutil.StringToPgText),
 		Phone:    pgutil.PtrToPgtype(params.Phone, pgutil.StringToPgText),
@@ -61,9 +64,7 @@ type CreateParams struct {
 }
 
 func (s *AccountBiz) Create(ctx context.Context, params CreateParams) error {
-	code := uuid.New().String()
-	_, err := s.storage.CreateDefaultAccountBase(ctx, []db.CreateDefaultAccountBaseParams{{
-		Code:     code,
+	_, err := s.storage.CreateCopyDefaultAccountBase(ctx, []db.CreateCopyDefaultAccountBaseParams{{
 		Type:     params.Type,
 		Phone:    pgutil.PtrToPgtype(params.Phone, pgutil.StringToPgText),
 		Email:    pgutil.PtrToPgtype(params.Email, pgutil.StringToPgText),

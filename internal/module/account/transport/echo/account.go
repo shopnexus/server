@@ -22,18 +22,18 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	api.GET("/", h.GetAccount)
 	api.GET("/me", h.GetMe)
 
+	api.GET("/cart", h.GetCart)
+
 	return h
 }
 
 type GetAccountRequest struct {
-	Code     *string `query:"code" validate:"omitempty,uuid4"`
 	Username *string `query:"username" validate:"omitempty,min=1,max=255"`
 	Email    *string `query:"email" validate:"omitempty,email"`
 	Phone    *string `query:"phone" validate:"omitempty,e164"`
 }
 
 type GetAccountResponse struct {
-	Code        string           `json:"code"`
 	Type        db.AccountType   `json:"type"`
 	Status      db.AccountStatus `json:"status"`
 	Phone       *string          `json:"phone"`
@@ -55,7 +55,6 @@ func (h *Handler) GetAccount(c echo.Context) error {
 	fmt.Println(req)
 
 	result, err := h.biz.Find(c.Request().Context(), accountbiz.FindParams{
-		Code:     req.Code,
 		Username: req.Username,
 		Email:    req.Email,
 		Phone:    req.Phone,
@@ -65,7 +64,6 @@ func (h *Handler) GetAccount(c echo.Context) error {
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, GetAccountResponse{
-		Code:        result.Code,
 		Type:        result.Type,
 		Status:      result.Status,
 		Phone:       pgutil.PgtypeToPtr[string](result.Phone),
@@ -83,14 +81,13 @@ func (h *Handler) GetMe(c echo.Context) error {
 	}
 
 	result, err := h.biz.Find(c.Request().Context(), accountbiz.FindParams{
-		Code: &claims.Code,
+		ID: &claims.Account.ID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, GetAccountResponse{
-		Code:        result.Code,
 		Type:        result.Type,
 		Status:      result.Status,
 		Phone:       pgutil.PgtypeToPtr[string](result.Phone),
