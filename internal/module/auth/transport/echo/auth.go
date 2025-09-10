@@ -85,7 +85,7 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 		Password: &req.Password,
 	})
 	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusCreated, RegisterBasicResponse{

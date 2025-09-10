@@ -33,8 +33,10 @@ func NewAuthBiz(accountBiz *accountbiz.AccountBiz) *AuthBiz {
 // CreateClaims generates JWT claims for the given account.
 func (a *AuthBiz) CreateClaims(account db.AccountBase) authmodel.Claims {
 	return authmodel.Claims{
-		Type: account.Type,
-		Code: account.Code,
+		Account: authmodel.AuthenticatedAccount{
+			Type: account.Type,
+			ID:   account.ID,
+		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "shopnexus",
 			Subject:   strconv.Itoa(int(account.ID)),
