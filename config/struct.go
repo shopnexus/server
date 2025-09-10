@@ -12,13 +12,20 @@ type Config struct {
 }
 
 type App struct {
-	Name string `yaml:"name" mapstructure:"name" validate:"required"`
-	JWT  JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
+	Name  string `yaml:"name" mapstructure:"name" validate:"required"`
+	JWT   JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
+	Vnpay Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
 }
 
 type JWT struct {
 	Secret              string `yaml:"secret" mapstructure:"secret" validate:"required"`
 	AccessTokenDuration int64  `yaml:"accessTokenDuration" mapstructure:"accessTokenDuration" validate:"required,gte=1"`
+}
+
+type Vnpay struct {
+	TmnCode    string `yaml:"tmnCode" mapstructure:"tmnCode" validate:"required"`
+	HashSecret string `yaml:"hashSecret" mapstructure:"hashSecret" validate:"required"`
+	ReturnURL  string `yaml:"returnUrl" mapstructure:"returnUrl" validate:"required,url"`
 }
 
 type Log struct {
