@@ -47,6 +47,6 @@ func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (*pgutil.Storage, error) {
 			return nil
 		},
 	})
-
+	
 	return pgutil.NewStorage(pool), nil
 }

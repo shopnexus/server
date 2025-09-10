@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	orderecho "shopnexus-remastered/internal/module/order/transport/echo"
 	"shopnexus-remastered/internal/module/shared/transport/echo/binder"
 
 	"shopnexus-remastered/config"
@@ -36,6 +37,7 @@ type RouteParams struct {
 	Account *accountecho.Handler
 	Auth    *authecho.Handler
 	Catalog *catalogecho.Handler
+	Order   *orderecho.Handler
 	// Add more handlers as needed
 }
 

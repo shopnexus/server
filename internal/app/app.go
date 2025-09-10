@@ -6,6 +6,9 @@ import (
 	"shopnexus-remastered/internal/module/account"
 	"shopnexus-remastered/internal/module/auth"
 	"shopnexus-remastered/internal/module/catalog"
+	"shopnexus-remastered/internal/module/order"
+	"shopnexus-remastered/internal/module/promotion"
+	"shopnexus-remastered/internal/module/shared"
 
 	"go.uber.org/fx"
 )
@@ -20,9 +23,12 @@ var Module = fx.Module("main",
 	),
 
 	// Business modules
+	shared.Module,
 	account.Module,
 	auth.Module,
 	catalog.Module,
+	order.Module,
+	promotion.Module,
 
 	// HTTP server
 	fx.Invoke(
