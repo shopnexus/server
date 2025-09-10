@@ -1,7 +1,22 @@
--- name: Create{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :copyfrom
+-- name: Create{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :one
+INSERT INTO {{.GetFullTableName}} ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}{{quotedName $col}}{{end}})
+VALUES ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}${{increment $i}}{{end}})
+RETURNING *;
+
+-- name: CreateBatch{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :batchone
+INSERT INTO {{.GetFullTableName}} ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}{{quotedName $col}}{{end}})
+VALUES ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}${{increment $i}}{{end}})
+RETURNING *;
+
+-- name: CreateCopy{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :copyfrom
 INSERT INTO {{.GetFullTableName}} ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}{{quotedName $col}}{{end}})
 VALUES ({{range $i, $col := .GetNonSerialColumns}}{{if $i}}, {{end}}${{increment $i}}{{end}});
 
--- name: CreateDefault{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :copyfrom
+-- name: CreateDefault{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :one
+INSERT INTO {{.GetFullTableName}} ({{range $i, $col := .GetNonSerialNonDefaultColumns}}{{if $i}}, {{end}}{{quotedName $col}}{{end}})
+VALUES ({{range $i, $col := .GetNonSerialNonDefaultColumns}}{{if $i}}, {{end}}${{increment $i}}{{end}})
+RETURNING *;
+
+-- name: CreateCopyDefault{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :copyfrom
 INSERT INTO {{.GetFullTableName}} ({{range $i, $col := .GetNonSerialNonDefaultColumns}}{{if $i}}, {{end}}{{quotedName $col}}{{end}})
 VALUES ({{range $i, $col := .GetNonSerialNonDefaultColumns}}{{if $i}}, {{end}}${{increment $i}}{{end}});
