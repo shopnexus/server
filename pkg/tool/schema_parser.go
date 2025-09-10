@@ -155,7 +155,7 @@ func (p *SchemaParser) parseColumn(line string) *Column {
 
 	// Check for DEFAULT values
 	if defaultIdx := strings.Index(strings.ToUpper(fullLine), "DEFAULT"); defaultIdx != -1 {
-		// Find the actual DEFAULT keyword in the original case
+		// FindAccount the actual DEFAULT keyword in the original case
 		defaultStart := strings.Index(fullLine, "DEFAULT")
 		if defaultStart == -1 {
 			defaultStart = strings.Index(fullLine, "default")
@@ -203,7 +203,7 @@ func (p *SchemaParser) parseConstraint(line string, table *Table) {
 			colParts := strings.Split(columnsStr, ",")
 			for _, colPart := range colParts {
 				colName := strings.Trim(strings.TrimSpace(colPart), "\"")
-				// Find the column in the table and mark it as primary key
+				// FindAccount the column in the table and mark it as primary key
 				for _, col := range table.Columns {
 					if col.Name == colName {
 						col.IsPrimaryKey = true
@@ -223,7 +223,7 @@ func (p *SchemaParser) parseUniqueIndexes(filename string, tables []*Table) erro
 	}
 	defer file.Close()
 
-	// Create a map for quick table lookup
+	// CreateAccount a map for quick table lookup
 	tableMap := make(map[string]*Table)
 	for _, table := range tables {
 		key := fmt.Sprintf("%s.%s", table.Schema, table.Name)
@@ -255,7 +255,7 @@ func (p *SchemaParser) parseUniqueIndex(line string, tableMap map[string]*Table)
 	tableName := matches[3]
 	columnsStr := matches[4]
 
-	// Find the table
+	// FindAccount the table
 	tableKey := fmt.Sprintf("%s.%s", schema, tableName)
 	table, exists := tableMap[tableKey]
 	if !exists {
@@ -364,7 +364,7 @@ func (t *Table) GetAllIdentifierConstraints() [][]*Column {
 	for _, uniqueConstraint := range t.UniqueConstraints {
 		var constraintCols []*Column
 		for _, colName := range uniqueConstraint.Columns {
-			// Find the column in the table
+			// FindAccount the column in the table
 			for _, col := range t.Columns {
 				if col.Name == colName {
 					constraintCols = append(constraintCols, col)

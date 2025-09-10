@@ -87,7 +87,7 @@ func (g *QueryGenerator) GenerateFromSchema(schemaFile, outputDir, specificTable
 		return fmt.Errorf("failed to load templates: %w", err)
 	}
 
-	// Create output directory
+	// CreateAccount output directory
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}

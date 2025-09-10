@@ -22,7 +22,7 @@ func NewTemplateManager(templateDir string) *TemplateManager {
 }
 
 func (tm *TemplateManager) LoadTemplates() error {
-	// Create template directory if it doesn't exist
+	// CreateAccount template directory if it doesn't exist
 	if err := os.MkdirAll(tm.templateDir, 0755); err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func isRangeFilterableColumn(col *Column) bool {
 		"decimal", "numeric", "real", "float4", "double", "float8",
 		"timestamp", "timestamptz", "date", "time", "timetz",
 	}
-	
+
 	for _, rangeType := range rangeTypes {
 		if strings.Contains(lowerType, rangeType) {
 			return true
@@ -188,7 +188,7 @@ func isRangeFilterableColumn(col *Column) bool {
 // Helper function to generate filter conditions combining exact match (ANY) and range (from/to)
 func generateFilterConditions(table *Table) string {
 	var conditions []string
-	
+
 	for _, col := range table.GetFilterableColumns() {
 		if isRangeFilterableColumn(col) {
 			// For range filterable columns, add both exact match and range conditions
@@ -200,7 +200,7 @@ func generateFilterConditions(table *Table) string {
 			conditions = append(conditions, fmt.Sprintf("(%s = ANY(sqlc.slice('%s')) OR sqlc.slice('%s') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
 		}
 	}
-	
+
 	if len(conditions) > 0 {
 		return "WHERE (\n    " + strings.Join(conditions, " AND\n    ") + "\n)"
 	}
