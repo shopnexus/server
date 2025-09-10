@@ -21,7 +21,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 
 	var skuIDs []int64
-	var skusDetail []catalogmodel.SkuDetail
+	var skusDetail []catalogmodel.ProductDetailSku
 	skus, err := c.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
 		SpuID: []int64{spu.ID},
 	})
@@ -49,7 +49,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 
 	for _, sku := range skus {
-		skusDetail = append(skusDetail, catalogmodel.SkuDetail{
+		skusDetail = append(skusDetail, catalogmodel.ProductDetailSku{
 			ID:            sku.ID,
 			Price:         sku.Price,
 			OriginalPrice: sku.Price,
@@ -72,7 +72,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 
 	// get rating
 	rating, err := c.storage.DetailRating(ctx, db.DetailRatingParams{
-		RefType: db.CatalogCommentRefTypeProductSPU,
+		RefType: db.CatalogCommentRefTypeProductSpu,
 		RefID:   spu.ID,
 	})
 	ratingBreakdown := make(map[int]int)
@@ -133,7 +133,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		Description: spu.Description,
 		Images:      images,
 		Category:    category.Name,
-		Rating: catalogmodel.RatingDetail{
+		Rating: catalogmodel.ProductDetailRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,

@@ -22,54 +22,9 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	api.GET("/product-spu", h.ListProductSpu)
 	api.GET("/product-sku", h.ListProductSku)
 	api.GET("/product-sku-attribute", h.ListProductSkuAttribute)
+	api.GET("/comment", h.ListComment)
 
 	return h
-}
-
-type GetProductDetailRequest struct {
-	ID int64 `query:"id" validate:"required,gt=0"`
-}
-
-func (h *Handler) GetProductDetail(c echo.Context) error {
-	var req GetProductDetailRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	result, err := h.biz.GetProductDetail(c.Request().Context(), catalogbiz.GetProductDetailParams{
-		ID: req.ID,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-}
-
-type ListProductCardRequest struct {
-	sharedmodel.PaginationParams
-}
-
-func (h *Handler) ListProductCard(c echo.Context) error {
-	var req ListProductCardRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	result, err := h.biz.ListProductCard(c.Request().Context(), catalogbiz.ListProductCardParams{
-		PaginationParams: req.PaginationParams,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromPaginate(c.Response().Writer, result)
 }
 
 type ListProductSpuParams struct {
