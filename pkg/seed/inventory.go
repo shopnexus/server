@@ -72,7 +72,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 			})
 		}
 
-		// Create serial numbers for some products (typically electronics, valuable items)
+		// CreateAccount serial numbers for some products (typically electronics, valuable items)
 		// Let's say 30% of products have serial numbers
 		if fake.RandomDigit()%10 < 3 {
 			serialCount := int(currentStock)

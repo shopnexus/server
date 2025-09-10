@@ -42,7 +42,7 @@ func SeedPromotionSchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 		promotionType := promotionTypes[fake.RandomDigit()%len(promotionTypes)]
 		promotionRefType := promotionRefTypes[fake.RandomDigit()%len(promotionRefTypes)]
 
-		// Create promotion period (some are active, some are expired, some are future)
+		// CreateAccount promotion period (some are active, some are expired, some are future)
 		var startDate, endDate time.Time
 		now := time.Now()
 

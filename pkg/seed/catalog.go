@@ -42,7 +42,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		Comments:      make([]db.CatalogComment, 0),
 	}
 
-	// Create brands
+	// CreateAccount brands
 	brandNames := []string{"Apple", "Samsung", "Nike", "Adidas", "Sony", "LG", "Canon", "Nikon", "Dell", "HP", "Asus", "MSI", "Razer", "Logitech", "Microsoft"}
 	brandParams := make([]db.CreateCopyCatalogBrandParams, len(brandNames))
 	for i, brandName := range brandNames {
@@ -81,7 +81,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create categories
+	// CreateAccount categories
 	categoryNames := []string{"Electronics", "Clothing", "Sports", "Books", "Home & Garden", "Toys", "Automotive", "Health", "Beauty", "Food & Beverages"}
 	categoryParams := make([]db.CreateCopyCatalogCategoryParams, len(categoryNames))
 	for i, categoryName := range categoryNames {
@@ -121,7 +121,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create subcategories
+	// CreateAccount subcategories
 	subCategories := map[string][]string{
 		"Electronics": {"Smartphones", "Laptops", "Tablets", "Cameras", "Headphones"},
 		"Clothing":    {"T-Shirts", "Jeans", "Dresses", "Shoes", "Accessories"},
@@ -179,7 +179,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create tags
+	// CreateAccount tags
 	tagNames := []string{"new", "popular", "bestseller", "premium", "eco-friendly", "limited-edition", "sale", "trending", "featured", "recommended"}
 	tagParams := make([]db.CreateCopyCatalogTagParams, len(tagNames))
 	for i, tagName := range tagNames {
@@ -217,7 +217,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create product SPUs (only vendors can create products)
+	// CreateAccount product SPUs (only vendors can create products)
 	if len(accountData.Vendors) == 0 {
 		return data, fmt.Errorf("no vendors available to create products")
 	}
@@ -402,7 +402,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create comments for products with business rules:
+	// CreateAccount comments for products with business rules:
 	// 1. Each account can only comment once per product SPU
 	// 2. Only allow 1 nested comment from shop (vendor) per customer comment
 	// 3. Simple structure without complex nesting like social media
@@ -410,7 +410,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		var commentParams []db.CreateCopyCatalogCommentParams
 		var vendorCommentParams []db.CreateCopyCatalogCommentParams
 
-		// Create customer comments for products (1 comment per customer per product)
+		// CreateAccount customer comments for products (1 comment per customer per product)
 		for _, spu := range data.ProductSpus {
 			// Select random customers for this product (max 3 customers per product)
 			customerCount := fake.RandomDigit()%3 + 1 // 1-3 customers per product
@@ -418,7 +418,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 			for j := 0; j < customerCount && len(selectedCustomers) < len(accountData.Customers); j++ {
 				var customer db.AccountCustomer
-				// Find a customer that hasn't been selected yet
+				// FindAccount a customer that hasn't been selected yet
 				for {
 					customer = accountData.Customers[fake.RandomDigit()%len(accountData.Customers)]
 					if !selectedCustomers[customer.ID] {
@@ -429,7 +429,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 				commentParams = append(commentParams, db.CreateCopyCatalogCommentParams{
 					AccountID:   customer.ID,
-					RefType:     db.CatalogCommentRefTypeProductSPU,
+					RefType:     db.CatalogCommentRefTypeProductSpu,
 					RefID:       spu.ID,
 					Body:        generateCommentBody(fake),
 					Upvote:      int64(fake.RandomDigit() % 50),
@@ -457,7 +457,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				return nil, fmt.Errorf("failed to query back created customer comments: %w", err)
 			}
 
-			// Create vendor replies to some customer comments (only 1 reply per customer comment)
+			// CreateAccount vendor replies to some customer comments (only 1 reply per customer comment)
 			if len(accountData.Vendors) > 0 && len(customerComments) > 0 {
 				replyCount := len(customerComments) / 2 // 50% of customer comments get vendor replies
 				for i := 0; i < replyCount && i < len(customerComments); i++ {

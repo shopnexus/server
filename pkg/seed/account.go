@@ -229,7 +229,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	// Prepare bulk address data
 	var addressParams []db.CreateCopyAccountAddressParams
 
-	// Create addresses for customers (1-3 addresses each)
+	// CreateAccount addresses for customers (1-3 addresses each)
 	for _, customer := range data.Customers {
 		addressCount := fake.RandomDigit()%3 + 1
 		for j := 0; j < addressCount; j++ {
@@ -259,7 +259,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create addresses for vendors (1-2 addresses each)
+	// CreateAccount addresses for vendors (1-2 addresses each)
 	for _, vendor := range data.Vendors {
 		addressCount := fake.RandomDigit()%2 + 1
 		for j := 0; j < addressCount; j++ {
@@ -302,7 +302,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		data.Addresses = addresses
 	}
 
-	// Create income histories for vendors
+	// CreateAccount income histories for vendors
 	if len(data.Vendors) > 0 {
 		var incomeHistoryParams []db.CreateCopyAccountIncomeHistoryParams
 
@@ -375,7 +375,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Create notifications for all accounts
+	// CreateAccount notifications for all accounts
 	if len(data.Accounts) > 0 {
 		var notificationParams []db.CreateCopyAccountNotificationParams
 

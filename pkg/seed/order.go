@@ -58,7 +58,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		customer := accountData.Customers[fake.RandomDigit()%len(accountData.Customers)]
 		customerAddress := ""
 
-		// Find an address for this customer
+		// FindAccount an address for this customer
 		for _, addr := range accountData.Addresses {
 			if addr.AccountID == customer.ID {
 				customerAddress = fmt.Sprintf("%s, %s, %s, %s",
@@ -110,7 +110,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	orderTotals := make(map[int64]int64) // order ID -> total
 
-	// Create order items for each order
+	// CreateAccount order items for each order
 	for _, order := range data.Orders {
 		itemCount := fake.RandomDigit()%5 + 1
 		orderTotal := int64(0)
@@ -259,7 +259,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		// This is a simplified approach - we'll just create serials for the first few items
 		serialIndex := 0
 		for _, orderItem := range data.OrderItems {
-			// Find available serials for this SKU
+			// FindAccount available serials for this SKU
 			var availableSerials []db.InventorySkuSerial
 			for _, serial := range inventoryData.ProductSerials {
 				if serial.SkuID == orderItem.SkuID && serial.Status == "Active" {

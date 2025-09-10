@@ -26,7 +26,7 @@ func SeedCartItems(ctx context.Context, storage db.Querier, fake *faker.Faker, c
 	// Prepare bulk cart item data
 	var cartItemParams []db.CreateCopyAccountCartItemParams
 
-	// Create cart items for some customers (50% of customers have items in cart)
+	// CreateAccount cart items for some customers (50% of customers have items in cart)
 	for _, customer := range accountData.Customers {
 		if fake.RandomDigit()%2 == 0 { // 50% chance
 			continue

@@ -32,12 +32,12 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		SearchSyncs: make([]db.SystemSearchSync, 0),
 	}
 
-	// Create search sync records for different search engines
+	// CreateAccount search sync records for different search engines
 	searchEngines := []string{"Elasticsearch", "Algolia", "Meilisearch", "Solr", "Typesense"}
 	searchSyncParams := make([]db.CreateCopySystemSearchSyncParams, len(searchEngines))
 
 	for i, engine := range searchEngines {
-		// Create some with recent sync times, some with older sync times
+		// CreateAccount some with recent sync times, some with older sync times
 		var lastSynced time.Time
 		if fake.Boolean().Bool() {
 			// Recent sync (within last 24 hours)
@@ -81,7 +81,7 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		}
 	}
 
-	// Create system events
+	// CreateAccount system events
 	eventTypes := db.AllSystemEventTypeValues()
 	aggregateTypes := []string{
 		"Account", "Customer", "Vendor", "Product", "Order", "Payment",

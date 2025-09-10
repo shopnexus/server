@@ -34,7 +34,7 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		"application/pdf", "text/plain", "application/json",
 	}
 
-	// Create resources
+	// CreateAccount resources
 	resourceCount := cfg.AccountCount + cfg.ProductCount // Resources for avatars and product images
 	resourceParams := make([]db.CreateCopySharedResourceParams, resourceCount)
 
