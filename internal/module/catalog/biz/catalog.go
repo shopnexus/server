@@ -4,30 +4,32 @@ import (
 	"context"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/slice"
 
 	"shopnexus-remastered/internal/db"
+	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CatalogBiz struct {
-	storage *pgutil.Storage
+	storage      *pgutil.Storage
+	promotionBiz *promotionbiz.PromotionBiz
 }
 
-func NewCatalogBiz(storage *pgutil.Storage) *CatalogBiz {
+func NewCatalogBiz(storage *pgutil.Storage, promotionBiz *promotionbiz.PromotionBiz) *CatalogBiz {
 	return &CatalogBiz{
-		storage: storage,
+		storage:      storage,
+		promotionBiz: promotionBiz,
 	}
 }
 
-type ListProductParams struct {
+type ListProductCardParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (c *CatalogBiz) ListProduct(ctx context.Context, params ListProductParams) (sharedmodel.PaginateResult[catalogmodel.Product], error) {
-	var zero sharedmodel.PaginateResult[catalogmodel.Product]
-	var products []catalogmodel.Product
+func (c *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
+	var products []catalogmodel.ProductCard
 
 	total, err := c.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{})
 	if err != nil {
@@ -42,90 +44,72 @@ func (c *CatalogBiz) ListProduct(ctx context.Context, params ListProductParams) 
 	if err != nil {
 		return zero, err
 	}
+	spuMap := slice.NewSliceMapID(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 
-	// Get price
+	// Get flagship products
+	flagships, err := c.storage.GetFlagshipProduct(ctx, spuMap.IDs)
+	if err != nil {
+		return zero, err
+	}
+	// map[spuID]flagshipProduct
+	flagshipMap := slice.NewMap(flagships, func(f db.GetFlagshipProductRow) int64 { return f.SpuID })
 
-	//// List only some SKUs for compact data
-	var skuMap = make(map[int64][]db.CatalogProductSku) // map[spuID][]SKU
-	skus, err := c.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		SpuID: func() []int64 {
-			ids := make([]int64, len(spus))
-			for i, spu := range spus {
-				ids[i] = spu.ID
-			}
-			return ids
-		}(),
+	// map[skuID]*ProductPrice
+	priceMap, err := c.promotionBiz.CalculatePromotedPrices(ctx, slice.Map(flagships, func(f db.GetFlagshipProductRow) db.CatalogProductSku {
+		return db.CatalogProductSku{
+			ID:          f.ID,
+			SpuID:       f.SpuID,
+			Price:       f.Price,
+			CanCombine:  f.CanCombine,
+			DateCreated: f.DateCreated,
+			DateDeleted: f.DateDeleted,
+		}
+	}), spuMap.Map)
+	if err != nil {
+		return zero, err
+	}
+
+	// Calculate rating score
+	ratings, err := c.storage.ListRating(ctx, db.ListRatingParams{
+		RefType: db.CatalogCommentRefTypeProductSPU,
+		RefID:   spuMap.IDs,
 	})
-	if err != nil {
-		return zero, err
-	}
-	for _, sku := range skus {
-		skuMap[sku.SpuID] = append(skuMap[sku.SpuID], sku)
-	}
-
-	// Calculate price
-	lowestPrices, err := c.storage.LowestPriceProductSku(ctx, func() []int64 {
-		ids := make([]int64, len(spus))
-		for i, spu := range spus {
-			ids[i] = spu.ID
-		}
-		return ids
-	}())
-	if err != nil {
-		return zero, err
-	}
-	flagshipPrice := make(map[int64]*catalogmodel.FlagshipPrice)
-	for _, lp := range lowestPrices {
-		flagshipPrice[lp.SpuID] = &catalogmodel.FlagshipPrice{
-			OriginalPrice: lp.Price,
-			Price:         lp.Price,
-			SkuID:         lp.ID,
+	ratingMap := make(map[int64]catalogmodel.Rating) // map[spuID]Rating
+	for _, rating := range ratings {
+		ratingMap[rating.RefID] = catalogmodel.Rating{
+			Score: float32(rating.Score),
+			Total: int(rating.Count),
 		}
 	}
 
-	// -- Calculate sale price
-
-	// Get all active promotions
-	promotions, err := c.storage.ListActivePromotion(ctx, db.ListActivePromotionParams{})
-	if err != nil {
-		return zero, err
-	}
-
-	// Get all applicable promotions for each product
-	applicablePromotions := make(map[int64][]db.PromotionBase) // map[spuID][]Promotion
-	for _, spu := range spus {
-		fp := flagshipPrice[spu.ID]
-		for _, promo := range promotions {
-			if catalogmodel.IsPromotionApplicable(promo, spu, fp.SkuID) {
-				applicablePromotions[spu.ID] = append(applicablePromotions[spu.ID], promo)
-			}
-		}
-	}
-
-	// Calculate the price after applying the best promotion of each type (Voucher, Flash Sale, ...)\
-	// First with voucher:
-	discountPromotions, err := c.storage.ListPromotionDiscount(ctx, db.ListPromotionDiscountParams{
-		ID: func() []int64 {
-			var ids []int64
-			for _, promo := range promotions {
-				if promo.Type == db.PromotionTypeDiscount {
-					ids = append(ids, promo.ID)
-				}
-			}
-			return ids
-		}(),
+	// Get first image of the product
+	resources, err := c.storage.ListSharedResourceFirst(ctx, db.ListSharedResourceFirstParams{
+		OwnerType: db.SharedResourceTypeProductSpu,
+		OwnerID:   spuMap.IDs,
 	})
+	resourceMap := make(map[int64]string) // map[ownerID]url
+	for _, res := range resources {
+		resourceMap[res.OwnerID] = res.Url
+	}
 
-	for _, spu := range spus {
-		fp := flagshipPrice[spu.ID]
+	// Map promotion to ProductCardPromo
+	promoCardsMap := make(map[int64][]catalogmodel.ProductCardPromo) // map[spuID]ProductCardPromo
+	for _, flagship := range flagships {
+		price := priceMap[flagship.SkuID]
 
-		for _, promo := range discountPromotions {
-			fp.Price = min(catalogmodel.CalculateDiscountedPrice(fp.OriginalPrice, promo), fp.Price)
-		}
+		promoCardsMap[flagship.SpuID] = slice.Map(price.Promotions, func(p db.PromotionBase) catalogmodel.ProductCardPromo {
+			return catalogmodel.ProductCardPromo{
+				ID:          p.ID,
+				Title:       p.Title,
+				Description: p.Description.String,
+			}
+		})
 	}
 
 	for _, spu := range spus {
-		products = append(products, catalogmodel.Product{
+		price := priceMap[flagshipMap[spu.ID].SkuID]
+
+		products = append(products, catalogmodel.ProductCard{
 			ID:               spu.ID,
 			Code:             spu.Code,
 			VendorID:         spu.AccountID,
@@ -133,21 +117,22 @@ func (c *CatalogBiz) ListProduct(ctx context.Context, params ListProductParams) 
 			BrandID:          spu.BrandID,
 			Name:             spu.Name,
 			Description:      spu.Description,
-			IsActive:         false,
-			DateManufactured: pgtype.Timestamptz{},
-			DateCreated:      pgtype.Timestamptz{},
-			DateUpdated:      pgtype.Timestamptz{},
-			DateDeleted:      pgtype.Timestamptz{},
+			IsActive:         spu.IsActive,
+			DateManufactured: spu.DateManufactured,
+			DateCreated:      spu.DateCreated,
+			DateUpdated:      spu.DateUpdated,
+			DateDeleted:      spu.DateDeleted,
 
-			Price:         flagshipPrice[spu.ID].Price,
-			OriginalPrice: flagshipPrice[spu.ID].OriginalPrice,
-
-			Skus: nil,
+			Promotions:    promoCardsMap[spu.ID],
+			Price:         price.Price,
+			OriginalPrice: price.OriginalPrice,
+			Rating:        ratingMap[spu.ID],
+			Image:         resourceMap[spu.ID],
 		})
 	}
 
 	// List some attributes for compact data
-	return sharedmodel.PaginateResult[catalogmodel.Product]{
+	return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
 		Data:       products,
 		Limit:      params.GetLimit(),
 		Page:       params.GetPage(),
@@ -205,7 +190,6 @@ func (c *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 type ListProductSkuParams struct {
 	sharedmodel.PaginationParams
-	Code       []string
 	SpuID      []int64
 	SpuIDFrom  *int64
 	SpuIDTo    *int64
@@ -219,7 +203,6 @@ func (c *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	var zero sharedmodel.PaginateResult[db.CatalogProductSku]
 
 	total, err := c.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{
-		Code:       params.Code,
 		SpuID:      params.SpuID,
 		SpuIDFrom:  pgutil.PtrToPgtype(params.SpuIDFrom, pgutil.Int64ToPgInt8),
 		SpuIDTo:    pgutil.PtrToPgtype(params.SpuIDTo, pgutil.Int64ToPgInt8),
@@ -235,7 +218,6 @@ func (c *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	skus, err := c.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
 		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset:     pgutil.Int32ToPgInt4(params.GetOffset()),
-		Code:       params.Code,
 		SpuID:      params.SpuID,
 		SpuIDFrom:  pgutil.PtrToPgtype(params.SpuIDFrom, pgutil.Int64ToPgInt8),
 		SpuIDTo:    pgutil.PtrToPgtype(params.SpuIDTo, pgutil.Int64ToPgInt8),

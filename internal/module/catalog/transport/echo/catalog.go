@@ -16,7 +16,8 @@ type Handler struct {
 func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	h := &Handler{biz: catalogbiz}
 	api := e.Group("/api/v1/catalog")
-	api.GET("/product", h.ListProduct)
+	api.GET("/product-detail", h.GetProductDetail)
+	api.GET("/product-card", h.ListProductCard)
 
 	api.GET("/product-spu", h.ListProductSpu)
 	api.GET("/product-sku", h.ListProductSku)
@@ -25,12 +26,12 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	return h
 }
 
-type ListProductRequest struct {
-	sharedmodel.PaginationParams
+type GetProductDetailRequest struct {
+	ID int64 `query:"id" validate:"required,gt=0"`
 }
 
-func (h *Handler) ListProduct(c echo.Context) error {
-	var req ListProductRequest
+func (h *Handler) GetProductDetail(c echo.Context) error {
+	var req GetProductDetailRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -38,7 +39,30 @@ func (h *Handler) ListProduct(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.ListProduct(c.Request().Context(), catalogbiz.ListProductParams{
+	result, err := h.biz.GetProductDetail(c.Request().Context(), catalogbiz.GetProductDetailParams{
+		ID: req.ID,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type ListProductCardRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListProductCard(c echo.Context) error {
+	var req ListProductCardRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.ListProductCard(c.Request().Context(), catalogbiz.ListProductCardParams{
 		PaginationParams: req.PaginationParams,
 	})
 	if err != nil {
@@ -83,9 +107,8 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 
 type ListProductSkuRequest struct {
 	sharedmodel.PaginationParams
-	Code  []string `query:"code" comma_separated:"true" validate:"omitempty,dive,min=1,max=100"`
-	SpuID []int64  `query:"spu_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
-	Price []int64  `query:"price" comma_separated:"true" validate:"omitempty,dive,gt=0"`
+	SpuID []int64 `query:"spu_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
+	Price []int64 `query:"price" comma_separated:"true" validate:"omitempty,dive,gt=0"`
 }
 
 func (h *Handler) ListProductSku(c echo.Context) error {
@@ -99,7 +122,6 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 
 	result, err := h.biz.ListProductSku(c.Request().Context(), catalogbiz.ListProductSkuParams{
 		PaginationParams: req.PaginationParams,
-		Code:             req.Code,
 		SpuID:            req.SpuID,
 		Price:            req.Price,
 	})
