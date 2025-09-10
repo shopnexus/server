@@ -43,7 +43,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Prepare bulk account data
-	accountParams := make([]db.CreateAccountBaseParams, cfg.AccountCount)
+	accountParams := make([]db.CreateCopyAccountBaseParams, cfg.AccountCount)
 	customerAccountIDs := make([]int64, 0)
 	vendorAccountIDs := make([]int64, 0)
 
@@ -55,8 +55,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			accountType = "Customer"
 		}
 
-		accountParams[i] = db.CreateAccountBaseParams{
-			Code:        generateUniqueCodeWithTracker(fake, "ACC", tracker),
+		accountParams[i] = db.CreateCopyAccountBaseParams{
 			Type:        accountType,
 			Status:      db.AccountStatusActive,
 			Phone:       pgtype.Text{String: generateUniquePhoneWithTracker(fake, tracker), Valid: true},
@@ -69,7 +68,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Bulk insert accounts
-	_, err := storage.CreateAccountBase(ctx, accountParams)
+	_, err := storage.CreateCopyAccountBase(ctx, accountParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create accounts: %w", err)
 	}
@@ -83,27 +82,18 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		return nil, fmt.Errorf("failed to query back created accounts: %w", err)
 	}
 
-	// Match created accounts with our parameters by code (unique identifier)
-	accountCodeMap := make(map[string]db.AccountBase)
+	// Populate data.Accounts directly and split IDs by type
+	data.Accounts = accounts
 	for _, account := range accounts {
-		accountCodeMap[account.Code] = account
-	}
-
-	// Populate data.Accounts with actual database records
-	for _, params := range accountParams {
-		if account, exists := accountCodeMap[params.Code]; exists {
-			data.Accounts = append(data.Accounts, account)
-
-			if params.Type == "Customer" {
-				customerAccountIDs = append(customerAccountIDs, account.ID)
-			} else {
-				vendorAccountIDs = append(vendorAccountIDs, account.ID)
-			}
+		if account.Type == "Customer" {
+			customerAccountIDs = append(customerAccountIDs, account.ID)
+		} else {
+			vendorAccountIDs = append(vendorAccountIDs, account.ID)
 		}
 	}
 
 	// Prepare bulk profile data
-	profileParams := make([]db.CreateAccountProfileParams, cfg.AccountCount)
+	profileParams := make([]db.CreateCopyAccountProfileParams, cfg.AccountCount)
 	for i, account := range data.Accounts {
 		person := fake.Person()
 
@@ -120,7 +110,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			time.Date(2005, 12, 31, 0, 0, 0, 0, time.UTC),
 		)
 
-		profileParams[i] = db.CreateAccountProfileParams{
+		profileParams[i] = db.CreateCopyAccountProfileParams{
 			ID:            account.ID,
 			Gender:        db.NullAccountGender{AccountGender: gender, Valid: true},
 			Name:          pgtype.Text{String: person.Name(), Valid: true},
@@ -133,7 +123,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Bulk insert profiles
-	_, err = storage.CreateAccountProfile(ctx, profileParams)
+	_, err = storage.CreateCopyAccountProfile(ctx, profileParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create profiles: %w", err)
 	}
@@ -162,14 +152,14 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk create customers
 	if len(customerAccountIDs) > 0 {
-		customerParams := make([]db.CreateDefaultAccountCustomerParams, len(customerAccountIDs))
+		customerParams := make([]db.CreateCopyDefaultAccountCustomerParams, len(customerAccountIDs))
 		for i, accountID := range customerAccountIDs {
-			customerParams[i] = db.CreateDefaultAccountCustomerParams{
+			customerParams[i] = db.CreateCopyDefaultAccountCustomerParams{
 				ID: accountID,
 			}
 		}
 
-		_, err = storage.CreateDefaultAccountCustomer(ctx, customerParams)
+		_, err = storage.CreateCopyDefaultAccountCustomer(ctx, customerParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create customers: %w", err)
 		}
@@ -199,16 +189,16 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk create vendors
 	if len(vendorAccountIDs) > 0 {
-		vendorParams := make([]db.CreateAccountVendorParams, len(vendorAccountIDs))
+		vendorParams := make([]db.CreateCopyAccountVendorParams, len(vendorAccountIDs))
 		for i, accountID := range vendorAccountIDs {
 			company := fake.Company()
-			vendorParams[i] = db.CreateAccountVendorParams{
+			vendorParams[i] = db.CreateCopyAccountVendorParams{
 				ID:          accountID,
 				Description: company.CatchPhrase(),
 			}
 		}
 
-		_, err = storage.CreateAccountVendor(ctx, vendorParams)
+		_, err = storage.CreateCopyAccountVendor(ctx, vendorParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create vendors: %w", err)
 		}
@@ -237,7 +227,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Prepare bulk address data
-	var addressParams []db.CreateAccountAddressParams
+	var addressParams []db.CreateCopyAccountAddressParams
 
 	// Create addresses for customers (1-3 addresses each)
 	for _, customer := range data.Customers {
@@ -253,8 +243,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				addressType = db.AccountAddressTypeWork
 			}
 
-			addressParams = append(addressParams, db.CreateAccountAddressParams{
-				Code:          generateUniqueCodeWithTracker(fake, "ADDR", tracker),
+			addressParams = append(addressParams, db.CreateCopyAccountAddressParams{
 				AccountID:     customer.ID,
 				Type:          addressType,
 				FullName:      person.Name(),
@@ -277,8 +266,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			address := fake.Address()
 			company := fake.Company()
 
-			addressParams = append(addressParams, db.CreateAccountAddressParams{
-				Code:          generateUniqueCodeWithTracker(fake, "ADDR", tracker),
+			addressParams = append(addressParams, db.CreateCopyAccountAddressParams{
 				AccountID:     vendor.ID,
 				Type:          db.AccountAddressTypeWork,
 				FullName:      company.Name(),
@@ -296,7 +284,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert addresses
 	if len(addressParams) > 0 {
-		_, err = storage.CreateAccountAddress(ctx, addressParams)
+		_, err = storage.CreateCopyAccountAddress(ctx, addressParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create addresses: %w", err)
 		}
@@ -310,23 +298,13 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created addresses: %w", err)
 		}
 
-		// Match addresses with our parameters by code (unique identifier)
-		addressCodeMap := make(map[string]db.AccountAddress)
-		for _, address := range addresses {
-			addressCodeMap[address.Code] = address
-		}
-
-		// Populate data.Addresses with actual database records
-		for _, params := range addressParams {
-			if address, exists := addressCodeMap[params.Code]; exists {
-				data.Addresses = append(data.Addresses, address)
-			}
-		}
+		// Populate data.Addresses directly
+		data.Addresses = addresses
 	}
 
 	// Create income histories for vendors
 	if len(data.Vendors) > 0 {
-		var incomeHistoryParams []db.CreateAccountIncomeHistoryParams
+		var incomeHistoryParams []db.CreateCopyAccountIncomeHistoryParams
 
 		for _, vendor := range data.Vendors {
 			// Each vendor has 5-15 income history entries
@@ -363,7 +341,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 					prevHash = []byte("genesis")
 				}
 
-				incomeHistoryParams = append(incomeHistoryParams, db.CreateAccountIncomeHistoryParams{
+				incomeHistoryParams = append(incomeHistoryParams, db.CreateCopyAccountIncomeHistoryParams{
 					AccountID:      vendor.ID,
 					Type:           incomeType,
 					Income:         income,
@@ -378,7 +356,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 		// Bulk insert income histories
 		if len(incomeHistoryParams) > 0 {
-			_, err = storage.CreateAccountIncomeHistory(ctx, incomeHistoryParams)
+			_, err = storage.CreateCopyAccountIncomeHistory(ctx, incomeHistoryParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create income histories: %w", err)
 			}
@@ -399,7 +377,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Create notifications for all accounts
 	if len(data.Accounts) > 0 {
-		var notificationParams []db.CreateAccountNotificationParams
+		var notificationParams []db.CreateCopyAccountNotificationParams
 
 		for _, account := range data.Accounts {
 			// Each account has 2-8 notifications
@@ -429,7 +407,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 					dateSent = &sentTime
 				}
 
-				notificationParams = append(notificationParams, db.CreateAccountNotificationParams{
+				notificationParams = append(notificationParams, db.CreateCopyAccountNotificationParams{
 					AccountID:     account.ID,
 					Type:          notificationType,
 					Channel:       channel,
@@ -445,7 +423,7 @@ func SeedAccountSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 		// Bulk insert notifications
 		if len(notificationParams) > 0 {
-			_, err = storage.CreateAccountNotification(ctx, notificationParams)
+			_, err = storage.CreateCopyAccountNotification(ctx, notificationParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create notifications: %w", err)
 			}

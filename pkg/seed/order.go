@@ -72,8 +72,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 
 		orderParams[i] = db.CreateOrderBaseParams{
-			Code:          generateUniqueCodeWithTracker(fake, "ORDER", tracker),
-			CustomerID:    customer.ID,
+			AccountID:     customer.ID,
 			PaymentMethod: paymentMethods[fake.RandomDigit()%len(paymentMethods)],
 			Status:        statuses[fake.RandomDigit()%len(statuses)],
 			Address:       customerAddress,
@@ -97,18 +96,8 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		return nil, fmt.Errorf("failed to query back created orders: %w", err)
 	}
 
-	// Match orders with our parameters by code (unique identifier)
-	orderCodeMap := make(map[string]db.OrderBase)
-	for _, order := range orders {
-		orderCodeMap[order.Code] = order
-	}
-
-	// Populate data.Orders with actual database records
-	for _, params := range orderParams {
-		if order, exists := orderCodeMap[params.Code]; exists {
-			data.Orders = append(data.Orders, order)
-		}
-	}
+	// Không còn dùng code, lấy toàn bộ orders
+	data.Orders = orders
 
 	// Prepare bulk order items and related data
 	var orderItemParams []db.CreateOrderItemParams
@@ -119,23 +108,19 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	var invoiceParams []db.CreateOrderInvoiceParams
 	var invoiceItemParams []db.CreateOrderInvoiceItemParams
 
-	orderTotals := make(map[int64]int64)                            // order ID -> total
-	orderItemMapping := make(map[string][]db.CreateOrderItemParams) // order code -> order items
+	orderTotals := make(map[int64]int64) // order ID -> total
 
 	// Create order items for each order
 	for _, order := range data.Orders {
 		itemCount := fake.RandomDigit()%5 + 1
 		orderTotal := int64(0)
-		orderItems := make([]db.OrderItem, 0)
 
 		var currentOrderItems []db.CreateOrderItemParams
 		for j := 0; j < itemCount; j++ {
 			sku := catalogData.ProductSkus[fake.RandomDigit()%len(catalogData.ProductSkus)]
 			quantity := int64(fake.RandomDigit()%3 + 1) // 1-3 items
 
-			itemCode := generateUniqueCodeWithTracker(fake, "ITEM", tracker)
 			orderItemParam := db.CreateOrderItemParams{
-				Code:     itemCode,
 				OrderID:  order.ID,
 				SkuID:    sku.ID,
 				Quantity: quantity,
@@ -168,7 +153,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				}
 			}
 		}
-		orderItemMapping[order.Code] = currentOrderItems
+		_ = currentOrderItems
 		orderTotals[order.ID] = orderTotal
 
 		// Prepare VNPay payment for Card/EWallet orders (50% chance)
@@ -178,19 +163,19 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				VnpAmount:            fmt.Sprintf("%d", orderTotal),
 				VnpBankCode:          fake.Payment().CreditCardType(),
 				VnpCardType:          "ATM",
-				VnpOrderInfo:         fmt.Sprintf("Payment for order %s", order.Code),
+				VnpOrderInfo:         fmt.Sprintf("Payment for order #%d", order.ID),
 				VnpPayDate:           "20241201120000",
 				VnpResponseCode:      "00",
 				VnpSecureHash:        fake.Hash().SHA256(),
 				VnpTmnCode:           "2QXUI4J4",
 				VnpTransactionNo:     fmt.Sprintf("%d", fake.RandomDigit()%1000000+1000000),
 				VnpTransactionStatus: "00",
-				VnpTxnRef:            order.Code,
+				VnpTxnRef:            fmt.Sprintf("ORDER-%d", order.ID),
 			})
 		}
 
 		// Prepare refunds for some order items (10% chance)
-		for _, orderItem := range orderItems {
+		for _, orderItem := range data.OrderItems {
 			if fake.RandomDigit()%10 == 0 && order.Status == "Success" {
 				refundMethods := db.AllOrderRefundMethodValues()
 				refundStatuses := db.AllSharedStatusValues()
@@ -207,7 +192,6 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				}
 
 				refundParams = append(refundParams, db.CreateOrderRefundParams{
-					Code:         generateUniqueCodeWithTracker(fake, "REFUND", tracker),
 					OrderItemID:  orderItem.ID,
 					ReviewedByID: pgtype.Int8{Int64: ptr.DerefDefault(reviewerID, 0), Valid: reviewerID != nil},
 					Method:       refundMethods[fake.RandomDigit()%len(refundMethods)],
@@ -222,7 +206,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		// Prepare invoice for completed orders
 		if order.Status == "Success" {
 			invoiceTypes := db.AllOrderInvoiceTypeValues()
-			customer := getCustomerByID(accountData.Customers, order.CustomerID)
+			customer := getCustomerByID(accountData.Customers, order.AccountID)
 
 			// Generate hash for this invoice
 			hash := []byte(fake.Hash().SHA256())
@@ -234,7 +218,6 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			}
 
 			invoiceParams = append(invoiceParams, db.CreateOrderInvoiceParams{
-				Code:           generateUniqueCodeWithTracker(fake, "INV", tracker),
 				Type:           invoiceTypes[fake.RandomDigit()%len(invoiceTypes)],
 				RefType:        "Order",
 				RefID:          order.ID,
@@ -269,18 +252,8 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created order items: %w", err)
 		}
 
-		// Match order items with our parameters by code (unique identifier)
-		orderItemCodeMap := make(map[string]db.OrderItem)
-		for _, orderItem := range orderItems {
-			orderItemCodeMap[orderItem.Code] = orderItem
-		}
-
-		// Populate data.OrderItems with actual database records
-		for _, params := range orderItemParams {
-			if orderItem, exists := orderItemCodeMap[params.Code]; exists {
-				data.OrderItems = append(data.OrderItems, orderItem)
-			}
-		}
+		// No code field; just use fetched records
+		data.OrderItems = orderItems
 
 		// Update order item serial parameters with actual order item IDs
 		// This is a simplified approach - we'll just create serials for the first few items
@@ -374,30 +347,19 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created refunds: %w", err)
 		}
 
-		// Match refunds with our parameters by code (unique identifier)
-		refundCodeMap := make(map[string]db.OrderRefund)
-		for _, refund := range refunds {
-			refundCodeMap[refund.Code] = refund
-		}
-
-		// Populate data.Refunds with actual database records and prepare disputes
-		for _, params := range refundParams {
-			if refund, exists := refundCodeMap[params.Code]; exists {
-				data.Refunds = append(data.Refunds, refund)
-
-				// Create refund dispute (20% chance)
-				if fake.RandomDigit()%5 == 0 && len(accountData.Vendors) > 0 {
-					vendor := accountData.Vendors[fake.RandomDigit()%len(accountData.Vendors)]
-					refundDisputeParams = append(refundDisputeParams, db.CreateOrderRefundDisputeParams{
-						Code:        generateUniqueCodeWithTracker(fake, "DISPUTE", tracker),
-						RefundID:    refund.ID,
-						IssuedByID:  vendor.ID,
-						Reason:      generateDisputeReason(fake),
-						Status:      "Pending",
-						DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-						DateUpdated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-					})
-				}
+		// Populate data.Refunds and prepare disputes
+		data.Refunds = refunds
+		for _, refund := range data.Refunds {
+			if fake.RandomDigit()%5 == 0 && len(accountData.Vendors) > 0 {
+				vendor := accountData.Vendors[fake.RandomDigit()%len(accountData.Vendors)]
+				refundDisputeParams = append(refundDisputeParams, db.CreateOrderRefundDisputeParams{
+					RefundID:    refund.ID,
+					IssuedByID:  vendor.ID,
+					Reason:      generateDisputeReason(fake),
+					Status:      "Pending",
+					DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+					DateUpdated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+				})
 			}
 		}
 	}
@@ -438,46 +400,35 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created invoices: %w", err)
 		}
 
-		// Match invoices with our parameters by code (unique identifier)
-		invoiceCodeMap := make(map[string]db.OrderInvoice)
-		for _, invoice := range invoices {
-			invoiceCodeMap[invoice.Code] = invoice
-		}
-
-		// Populate data.Invoices with actual database records and prepare invoice items
-		for _, params := range invoiceParams {
-			if invoice, exists := invoiceCodeMap[params.Code]; exists {
-				data.Invoices = append(data.Invoices, invoice)
-
-				// Prepare invoice items for this invoice
-				for _, orderItem := range data.OrderItems {
-					if orderItem.OrderID == params.RefID {
-						sku := getSKUByID(catalogData.ProductSkus, orderItem.SkuID)
-						if sku != nil {
-							spu := getSPUByID(catalogData.ProductSpus, sku.SpuID)
-							snapshotData := map[string]interface{}{
-								"product_name": "",
-								"product_code": sku.Code,
-								"price":        sku.Price,
-							}
-							if spu != nil {
-								snapshotData["product_name"] = spu.Name
-							}
-							snapshotMarshal, _ := json.Marshal(snapshotData)
-
-							unitPrice := sku.Price
-							subtotal := unitPrice * orderItem.Quantity
-							total := subtotal
-
-							invoiceItemParams = append(invoiceItemParams, db.CreateOrderInvoiceItemParams{
-								InvoiceID: invoice.ID,
-								Snapshot:  snapshotMarshal,
-								Quantity:  orderItem.Quantity,
-								UnitPrice: unitPrice,
-								Subtotal:  subtotal,
-								Total:     total,
-							})
+		// Populate data.Invoices and prepare invoice items
+		data.Invoices = invoices
+		for _, invoice := range data.Invoices {
+			for _, orderItem := range data.OrderItems {
+				if orderItem.OrderID == invoice.RefID {
+					sku := getSKUByID(catalogData.ProductSkus, orderItem.SkuID)
+					if sku != nil {
+						spu := getSPUByID(catalogData.ProductSpus, sku.SpuID)
+						snapshotData := map[string]interface{}{
+							"product_name": "",
+							"price":        sku.Price,
 						}
+						if spu != nil {
+							snapshotData["product_name"] = spu.Name
+						}
+						snapshotMarshal, _ := json.Marshal(snapshotData)
+
+						unitPrice := sku.Price
+						subtotal := unitPrice * orderItem.Quantity
+						total := subtotal
+
+						invoiceItemParams = append(invoiceItemParams, db.CreateOrderInvoiceItemParams{
+							InvoiceID: invoice.ID,
+							Snapshot:  snapshotMarshal,
+							Quantity:  orderItem.Quantity,
+							UnitPrice: unitPrice,
+							Subtotal:  subtotal,
+							Total:     total,
+						})
 					}
 				}
 			}

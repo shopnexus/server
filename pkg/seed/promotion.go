@@ -35,8 +35,8 @@ func SeedPromotionSchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 	promotionRefTypes := db.AllPromotionRefTypeValues()
 
 	// Prepare bulk promotion data
-	promotionParams := make([]db.CreatePromotionBaseParams, cfg.PromotionCount)
-	discountParams := make([]db.CreatePromotionDiscountParams, 0)
+	promotionParams := make([]db.CreateCopyPromotionBaseParams, cfg.PromotionCount)
+	discountParams := make([]db.CreateCopyPromotionDiscountParams, 0)
 
 	for i := 0; i < cfg.PromotionCount; i++ {
 		promotionType := promotionTypes[fake.RandomDigit()%len(promotionTypes)]
@@ -126,8 +126,10 @@ func SeedPromotionSchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 			scheduleDuration = &duration
 		}
 
-		promotionParams[i] = db.CreatePromotionBaseParams{
-			Code:             generatePromotionCodeWithTracker(fake, promotionType, tracker),
+		// Tạo code có thể đọc/SEO từ title
+		promoSlug := generateSlugWithTracker(fmt.Sprintf("%s %s", title, string(promotionType)), tracker, "PROMO_SLUG")
+		promotionParams[i] = db.CreateCopyPromotionBaseParams{
+			Code:             promoSlug,
 			OwnerID:          pgtype.Int8{Int64: ptr.DerefDefault(ownerID, 0), Valid: ownerID != nil},
 			RefType:          promotionRefType,
 			RefID:            pgtype.Int8{Int64: ptr.DerefDefault(refID, 0), Valid: refID != nil},
@@ -146,7 +148,7 @@ func SeedPromotionSchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 	}
 
 	// Bulk insert promotions
-	_, err := storage.CreatePromotionBase(ctx, promotionParams)
+	_, err := storage.CreateCopyPromotionBase(ctx, promotionParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create promotions: %w", err)
 	}
@@ -160,49 +162,42 @@ func SeedPromotionSchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 		return nil, fmt.Errorf("failed to query back created promotions: %w", err)
 	}
 
-	// Match promotions with our parameters by code (unique identifier)
-	promotionCodeMap := make(map[string]db.PromotionBase)
-	for _, promotion := range promotions {
-		promotionCodeMap[promotion.Code] = promotion
-	}
+	// Không cần map theo code, lấy trực tiếp danh sách
+	data.Promotions = promotions
 
-	// Populate data.Promotions with actual database records
-	for _, params := range promotionParams {
-		if promotion, exists := promotionCodeMap[params.Code]; exists {
-			data.Promotions = append(data.Promotions, promotion)
+	// Prepare discount details for Discount type promotions
+	for _, promotion := range data.Promotions {
+		if promotion.Type == "Discount" {
+			minSpend := int64(fake.RandomFloat(2, 100, 1000) * 100)  // $1-$10 minimum spend
+			maxDiscount := int64(fake.RandomFloat(2, 50, 500) * 100) // $0.50-$5 max discount
 
-			// Prepare discount details for Discount type promotions
-			if params.Type == "Discount" {
-				minSpend := int64(fake.RandomFloat(2, 100, 1000) * 100)  // $1-$10 minimum spend
-				maxDiscount := int64(fake.RandomFloat(2, 50, 500) * 100) // $0.50-$5 max discount
+			var discountPercent *int32
+			var discountPrice *int64
 
-				var discountPercent *int32
-				var discountPrice *int64
-
-				if fake.Boolean().Bool() {
-					// Percentage discount
-					percent := int32(fake.RandomDigit()%50 + 5) // 5-54% discount
-					discountPercent = &percent
-				} else {
-					// Fixed price discount
-					price := int64(fake.RandomFloat(2, 10, 100) * 100) // $0.10-$1 discount
-					discountPrice = &price
-				}
-
-				discountParams = append(discountParams, db.CreatePromotionDiscountParams{
-					ID:              promotion.ID,
-					MinSpend:        minSpend,
-					MaxDiscount:     maxDiscount,
-					DiscountPercent: pgtype.Int4{Int32: ptr.DerefDefault(discountPercent, 0), Valid: discountPercent != nil},
-					DiscountPrice:   pgtype.Int8{Int64: ptr.DerefDefault(discountPrice, 0), Valid: discountPrice != nil},
-				})
+			if fake.Boolean().Bool() {
+				// Percentage discount
+				percent := int32(fake.RandomDigit()%50 + 5) // 5-54% discount
+				discountPercent = &percent
+			} else {
+				// Fixed price discount
+				price := int64(fake.RandomFloat(2, 10, 100) * 100) // $0.10-$1 discount
+				discountPrice = &price
 			}
+
+			discountParams = append(discountParams, db.CreateCopyPromotionDiscountParams{
+				ID:              promotion.ID,
+				OrderWide:       fake.Bool(),
+				MinSpend:        minSpend,
+				MaxDiscount:     maxDiscount,
+				DiscountPercent: pgtype.Int4{Int32: ptr.DerefDefault(discountPercent, 0), Valid: discountPercent != nil},
+				DiscountPrice:   pgtype.Int8{Int64: ptr.DerefDefault(discountPrice, 0), Valid: discountPrice != nil},
+			})
 		}
 	}
 
 	// Bulk insert discounts
 	if len(discountParams) > 0 {
-		_, err = storage.CreatePromotionDiscount(ctx, discountParams)
+		_, err = storage.CreateCopyPromotionDiscount(ctx, discountParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create promotion discounts: %w", err)
 		}

@@ -24,7 +24,7 @@ func SeedCartItems(ctx context.Context, storage db.Querier, fake *faker.Faker, c
 	// tracker := NewUniqueTracker()
 
 	// Prepare bulk cart item data
-	var cartItemParams []db.CreateAccountCartItemParams
+	var cartItemParams []db.CreateCopyAccountCartItemParams
 
 	// Create cart items for some customers (50% of customers have items in cart)
 	for _, customer := range accountData.Customers {
@@ -47,7 +47,7 @@ func SeedCartItems(ctx context.Context, storage db.Querier, fake *faker.Faker, c
 
 			quantity := int64(fake.RandomDigit()%3 + 1) // 1-3 quantity
 
-			cartItemParams = append(cartItemParams, db.CreateAccountCartItemParams{
+			cartItemParams = append(cartItemParams, db.CreateCopyAccountCartItemParams{
 				CartID:      customer.ID, // cart_id is customer.id
 				SkuID:       sku.ID,
 				Quantity:    quantity,
@@ -59,7 +59,7 @@ func SeedCartItems(ctx context.Context, storage db.Querier, fake *faker.Faker, c
 
 	// Bulk insert cart items
 	if len(cartItemParams) > 0 {
-		_, err := storage.CreateAccountCartItem(ctx, cartItemParams)
+		_, err := storage.CreateCopyAccountCartItem(ctx, cartItemParams)
 		if err != nil {
 			return fmt.Errorf("failed to bulk create cart items: %w", err)
 		}

@@ -2,6 +2,7 @@ package seed
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -100,6 +101,43 @@ func generateUniqueCodeWithTracker(fake *faker.Faker, prefix string, tracker *Un
 	code := fmt.Sprintf("%s_%d_%s", prefix, timestamp, randomPart)
 	tracker.Add(valueType, code)
 	return code
+}
+
+// generateSlug tạo slug SEO-friendly từ chuỗi đầu vào
+func generateSlug(input string) string {
+    // Chuyển về lowercase
+    s := strings.ToLower(strings.TrimSpace(input))
+    // Thay thế các ký tự không phải chữ/số bằng dấu gạch ngang
+    nonAlnum := regexp.MustCompile(`[^a-z0-9]+`)
+    s = nonAlnum.ReplaceAllString(s, "-")
+    // Loại bỏ gạch ngang thừa ở đầu/cuối
+    s = strings.Trim(s, "-")
+    // Gom các gạch ngang liên tiếp về một
+    multiDash := regexp.MustCompile(`-+`)
+    s = multiDash.ReplaceAllString(s, "-")
+    if s == "" {
+        s = "item"
+    }
+    return s
+}
+
+// generateSlugWithTracker tạo slug unique với tracker (thêm hậu tố ngắn nếu trùng)
+func generateSlugWithTracker(base string, tracker *UniqueTracker, valueType string) string {
+    slug := generateSlug(base)
+    if tracker == nil {
+        return slug
+    }
+    // đảm bảo unique
+    attempt := 0
+    current := slug
+    for {
+        if tracker.IsUnique(valueType, current) {
+            tracker.Add(valueType, current)
+            return current
+        }
+        attempt++
+        current = fmt.Sprintf("%s-%d", slug, attempt)
+    }
 }
 
 // generateUniqueEmail generates a unique email with timestamp

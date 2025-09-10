@@ -34,7 +34,7 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 
 	// Create search sync records for different search engines
 	searchEngines := []string{"Elasticsearch", "Algolia", "Meilisearch", "Solr", "Typesense"}
-	searchSyncParams := make([]db.CreateSystemSearchSyncParams, len(searchEngines))
+	searchSyncParams := make([]db.CreateCopySystemSearchSyncParams, len(searchEngines))
 
 	for i, engine := range searchEngines {
 		// Create some with recent sync times, some with older sync times
@@ -47,14 +47,14 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 			lastSynced = time.Now().AddDate(0, 0, -(fake.RandomDigit()%30 + 1))
 		}
 
-		searchSyncParams[i] = db.CreateSystemSearchSyncParams{
+		searchSyncParams[i] = db.CreateCopySystemSearchSyncParams{
 			Name:       engine,
 			LastSynced: pgtype.Timestamptz{Time: lastSynced, Valid: true},
 		}
 	}
 
 	// Bulk insert search syncs
-	_, err := storage.CreateSystemSearchSync(ctx, searchSyncParams)
+	_, err := storage.CreateCopySystemSearchSync(ctx, searchSyncParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create search syncs: %w", err)
 	}
@@ -89,7 +89,7 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	}
 
 	eventCount := cfg.AccountCount + cfg.ProductCount + cfg.OrderCount // Generate events for major entities
-	eventParams := make([]db.CreateSystemEventParams, eventCount)
+	eventParams := make([]db.CreateCopySystemEventParams, eventCount)
 
 	for i := 0; i < eventCount; i++ {
 		eventType := eventTypes[fake.RandomDigit()%len(eventTypes)]
@@ -111,7 +111,7 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		// Event time within the last 30 days
 		eventTime := time.Now().Add(-time.Duration(fake.RandomDigit()%30*24) * time.Hour)
 
-		eventParams[i] = db.CreateSystemEventParams{
+		eventParams[i] = db.CreateCopySystemEventParams{
 			AccountID:     pgtype.Int8{Int64: ptr.DerefDefault(accountID, 0), Valid: accountID != nil},
 			AggregateID:   aggregateID,
 			AggregateType: aggregateType,
@@ -123,7 +123,7 @@ func SeedSystemSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	}
 
 	// Bulk insert system events
-	_, err = storage.CreateSystemEvent(ctx, eventParams)
+	_, err = storage.CreateCopySystemEvent(ctx, eventParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create system events: %w", err)
 	}

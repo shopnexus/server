@@ -38,9 +38,9 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 	}
 
 	// Prepare bulk stock data
-	stockParams := make([]db.CreateInventoryStockParams, len(catalogData.ProductSkus))
-	stockHistoryParams := make([]db.CreateInventoryStockHistoryParams, 0)
-	serialParams := make([]db.CreateInventorySkuSerialParams, 0)
+	stockParams := make([]db.CreateCopyInventoryStockParams, len(catalogData.ProductSkus))
+	stockHistoryParams := make([]db.CreateCopyInventoryStockHistoryParams, 0)
+	serialParams := make([]db.CreateCopyInventorySkuSerialParams, 0)
 
 	baseStockID := int64(8000)
 
@@ -48,8 +48,8 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 		currentStock := int64(fake.RandomDigit()%200 + 10) // 10-209 items in stock
 		sold := int64(fake.RandomDigit() % 50)             // 0-49 items sold
 
-		stockParams[i] = db.CreateInventoryStockParams{
-			RefType:      db.InventoryStockTypeProductSKU,
+		stockParams[i] = db.CreateCopyInventoryStockParams{
+			RefType:      db.InventoryStockTypeProductSku,
 			RefID:        sku.ID,
 			CurrentStock: currentStock,
 			Sold:         sold,
@@ -65,7 +65,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 				change = -change // Negative number (stock removed)
 			}
 
-			stockHistoryParams = append(stockHistoryParams, db.CreateInventoryStockHistoryParams{
+			stockHistoryParams = append(stockHistoryParams, db.CreateCopyInventoryStockHistoryParams{
 				StockID:     stockID,
 				Change:      change,
 				DateCreated: pgtype.Timestamptz{Time: time.Now().Add(-time.Duration(fake.RandomDigit()%720) * time.Hour), Valid: true}, // Within last 30 days
@@ -84,7 +84,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 			for j := 0; j < serialCount; j++ {
 				var status = statuses[fake.RandomDigit()%len(statuses)]
 
-				serialParams = append(serialParams, db.CreateInventorySkuSerialParams{
+				serialParams = append(serialParams, db.CreateCopyInventorySkuSerialParams{
 					SerialNumber: generateUniqueSerialNumberWithTracker(fake, tracker),
 					SkuID:        sku.ID,
 					Status:       status,
@@ -95,7 +95,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 	}
 
 	// Bulk insert stocks
-	_, err := storage.CreateInventoryStock(ctx, stockParams)
+	_, err := storage.CreateCopyInventoryStock(ctx, stockParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create stocks: %w", err)
 	}
@@ -137,7 +137,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 	// Bulk insert stock histories
 	if len(stockHistoryParams) > 0 {
 		// Filter out histories without valid stock IDs
-		validHistoryParams := make([]db.CreateInventoryStockHistoryParams, 0)
+		validHistoryParams := make([]db.CreateCopyInventoryStockHistoryParams, 0)
 		for _, history := range stockHistoryParams {
 			if history.StockID > 0 {
 				validHistoryParams = append(validHistoryParams, history)
@@ -145,7 +145,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 		}
 
 		if len(validHistoryParams) > 0 {
-			_, err = storage.CreateInventoryStockHistory(ctx, validHistoryParams)
+			_, err = storage.CreateCopyInventoryStockHistory(ctx, validHistoryParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create stock histories: %w", err)
 			}
@@ -166,7 +166,7 @@ func SeedInventorySchema(ctx context.Context, storage db.Querier, fake *faker.Fa
 
 	// Bulk insert product serials
 	if len(serialParams) > 0 {
-		_, err = storage.CreateInventorySkuSerial(ctx, serialParams)
+		_, err = storage.CreateCopyInventorySkuSerial(ctx, serialParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create product serials: %w", err)
 		}

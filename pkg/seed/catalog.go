@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"shopnexus-remastered/internal/utils/pgutil"
-	"strings"
 	"time"
 
 	"shopnexus-remastered/internal/db"
@@ -45,17 +44,17 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Create brands
 	brandNames := []string{"Apple", "Samsung", "Nike", "Adidas", "Sony", "LG", "Canon", "Nikon", "Dell", "HP", "Asus", "MSI", "Razer", "Logitech", "Microsoft"}
-	brandParams := make([]db.CreateCatalogBrandParams, len(brandNames))
+	brandParams := make([]db.CreateCopyCatalogBrandParams, len(brandNames))
 	for i, brandName := range brandNames {
-		brandParams[i] = db.CreateCatalogBrandParams{
-			Code:        generateUniqueCodeWithTracker(fake, "BRAND", tracker),
+		brandParams[i] = db.CreateCopyCatalogBrandParams{
+			Code:        generateSlugWithTracker(brandName, tracker, "BRAND_SLUG"),
 			Name:        brandName,
 			Description: fake.Lorem().Sentence(10),
 		}
 	}
 
 	// Bulk insert brands
-	_, err := storage.CreateCatalogBrand(ctx, brandParams)
+	_, err := storage.CreateCopyCatalogBrand(ctx, brandParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create brands: %w", err)
 	}
@@ -84,16 +83,16 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Create categories
 	categoryNames := []string{"Electronics", "Clothing", "Sports", "Books", "Home & Garden", "Toys", "Automotive", "Health", "Beauty", "Food & Beverages"}
-	categoryParams := make([]db.CreateCatalogCategoryParams, len(categoryNames))
+	categoryParams := make([]db.CreateCopyCatalogCategoryParams, len(categoryNames))
 	for i, categoryName := range categoryNames {
-		categoryParams[i] = db.CreateCatalogCategoryParams{
+		categoryParams[i] = db.CreateCopyCatalogCategoryParams{
 			Name:        categoryName,
 			Description: fake.Lorem().Sentence(8),
 		}
 	}
 
 	// Bulk insert main categories
-	_, err = storage.CreateCatalogCategory(ctx, categoryParams)
+	_, err = storage.CreateCopyCatalogCategory(ctx, categoryParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create categories: %w", err)
 	}
@@ -129,7 +128,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		"Sports":      {"Fitness", "Outdoor", "Team Sports", "Water Sports", "Winter Sports"},
 	}
 
-	var subCategoryParams []db.CreateCatalogCategoryParams
+	var subCategoryParams []db.CreateCopyCatalogCategoryParams
 	for parentName, subCats := range subCategories {
 		var parentID int64
 		for _, cat := range data.Categories {
@@ -140,7 +139,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 
 		for _, subCatName := range subCats {
-			subCategoryParams = append(subCategoryParams, db.CreateCatalogCategoryParams{
+			subCategoryParams = append(subCategoryParams, db.CreateCopyCatalogCategoryParams{
 				Name:        subCatName,
 				Description: fake.Lorem().Sentence(6),
 				ParentID:    pgtype.Int8{Int64: parentID, Valid: parentID != 0},
@@ -150,7 +149,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert subcategories
 	if len(subCategoryParams) > 0 {
-		_, err = storage.CreateCatalogCategory(ctx, subCategoryParams)
+		_, err = storage.CreateCopyCatalogCategory(ctx, subCategoryParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create subcategories: %w", err)
 		}
@@ -182,16 +181,16 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Create tags
 	tagNames := []string{"new", "popular", "bestseller", "premium", "eco-friendly", "limited-edition", "sale", "trending", "featured", "recommended"}
-	tagParams := make([]db.CreateCatalogTagParams, len(tagNames))
+	tagParams := make([]db.CreateCopyCatalogTagParams, len(tagNames))
 	for i, tagName := range tagNames {
-		tagParams[i] = db.CreateCatalogTagParams{
+		tagParams[i] = db.CreateCopyCatalogTagParams{
 			Tag:         tagName,
 			Description: fake.Lorem().Sentence(5),
 		}
 	}
 
 	// Bulk insert tags
-	_, err = storage.CreateCatalogTag(ctx, tagParams)
+	_, err = storage.CreateCopyCatalogTag(ctx, tagParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create tags: %w", err)
 	}
@@ -224,7 +223,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Prepare bulk SPU data
-	spuParams := make([]db.CreateCatalogProductSpuParams, cfg.ProductCount)
+	spuParams := make([]db.CreateCopyCatalogProductSpuParams, cfg.ProductCount)
 	for i := 0; i < cfg.ProductCount; i++ {
 		vendor := accountData.Vendors[fake.RandomDigit()%len(accountData.Vendors)]
 		category := data.Categories[fake.RandomDigit()%len(data.Categories)]
@@ -236,9 +235,10 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		)
 
 		productName := generateProductName(fake, brand.Name, category.Name)
+		spuSlug := generateSlugWithTracker(fmt.Sprintf("%s %s", brand.Name, productName), tracker, "SPU_SLUG")
 
-		spuParams[i] = db.CreateCatalogProductSpuParams{
-			Code:             generateUniqueCodeWithTracker(fake, "SPU", tracker),
+		spuParams[i] = db.CreateCopyCatalogProductSpuParams{
+			Code:             spuSlug,
 			AccountID:        vendor.ID,
 			CategoryID:       category.ID,
 			BrandID:          brand.ID,
@@ -252,7 +252,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Bulk insert SPUs
-	_, err = storage.CreateCatalogProductSpu(ctx, spuParams)
+	_, err = storage.CreateCopyCatalogProductSpu(ctx, spuParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create product SPUs: %w", err)
 	}
@@ -280,14 +280,14 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Prepare bulk product tag data
-	var productTagParams []db.CreateCatalogProductSpuTagParams
+	var productTagParams []db.CreateCopyCatalogProductSpuTagParams
 	for _, spu := range data.ProductSpus {
 		tagCount := fake.RandomDigit()%3 + 1
 		usedTags := make(map[int64]bool)
 		for j := 0; j < tagCount; j++ {
 			tag := data.Tags[fake.RandomDigit()%len(data.Tags)]
 			if !usedTags[tag.ID] {
-				productTagParams = append(productTagParams, db.CreateCatalogProductSpuTagParams{
+				productTagParams = append(productTagParams, db.CreateCopyCatalogProductSpuTagParams{
 					SpuID: spu.ID,
 					TagID: tag.ID,
 				})
@@ -298,7 +298,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert product tags
 	if len(productTagParams) > 0 {
-		_, err = storage.CreateCatalogProductSpuTag(ctx, productTagParams)
+		_, err = storage.CreateCopyCatalogProductSpuTag(ctx, productTagParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create product tags: %w", err)
 		}
@@ -317,54 +317,26 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Prepare bulk SKU data
-	var skuParams []db.CreateCatalogProductSkuParams
-	var skuAttributeParams []db.CreateCatalogProductSkuAttributeParams
+	var skuParams []db.CreateCopyCatalogProductSkuParams
 
 	for _, spu := range data.ProductSpus {
 		skuCount := fake.RandomDigit()%5 + 1
 		for j := 0; j < skuCount; j++ {
 			price := int64(fake.RandomFloat(2, 10, 5000) * 100) // Convert to cents
 
-			skuCode := generateUniqueCodeWithTracker(fake, "SKU", tracker)
-			skuParams = append(skuParams, db.CreateCatalogProductSkuParams{
-				Code:        skuCode,
+			skuParams = append(skuParams, db.CreateCopyCatalogProductSkuParams{
 				SpuID:       spu.ID,
 				Price:       price,
 				CanCombine:  fake.Boolean().Bool(),
 				DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
 				DateDeleted: pgtype.Timestamptz{Time: time.Time{}, Valid: false},
 			})
-
-			// Find category for this SPU to generate appropriate attributes
-			var categoryName string
-			for _, cat := range data.Categories {
-				if cat.ID == spu.CategoryID {
-					categoryName = cat.Name
-					break
-				}
-			}
-
-			// Store attributes info to be created later (after we get SKU IDs)
-			// We'll create a temporary mapping structure
-			attributes := generateSkuAttributes(fake, categoryName)
-			for attrName, attrValue := range attributes {
-				// We'll store the SKU code as a comment in the attribute code to match later
-				attrCode := fmt.Sprintf("%s_%s", generateUniqueCodeWithTracker(fake, "ATTR", tracker), skuCode)
-				skuAttributeParams = append(skuAttributeParams, db.CreateCatalogProductSkuAttributeParams{
-					Code:        attrCode,
-					SkuID:       0, // Will be filled after SKU creation
-					Name:        attrName,
-					Value:       attrValue,
-					DateUpdated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-					DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-				})
-			}
 		}
 	}
 
 	// Bulk insert SKUs
 	if len(skuParams) > 0 {
-		_, err = storage.CreateCatalogProductSku(ctx, skuParams)
+		_, err = storage.CreateCopyCatalogProductSku(ctx, skuParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create product SKUs: %w", err)
 		}
@@ -378,58 +350,54 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created SKUs: %w", err)
 		}
 
-		// Match SKUs with our parameters by code (unique identifier)
-		skuCodeMap := make(map[string]db.CatalogProductSku)
-		for _, sku := range skus {
-			skuCodeMap[sku.Code] = sku
-		}
-
 		// Populate data.ProductSkus with actual database records
-		for _, params := range skuParams {
-			if sku, exists := skuCodeMap[params.Code]; exists {
-				data.ProductSkus = append(data.ProductSkus, sku)
-			}
-		}
-
-		// Now update SKU attributes with actual SKU IDs
-		for i := range skuAttributeParams {
-			// Extract SKU code from attribute code (format: ATTR_xxx_SKU_code)
-			parts := strings.Split(skuAttributeParams[i].Code, "_")
-			if len(parts) >= 4 {
-				skuCode := strings.Join(parts[len(parts)-3:], "_") // Get last 3 parts as SKU code
-				if sku, exists := skuCodeMap[skuCode]; exists {
-					skuAttributeParams[i].SkuID = sku.ID
-				}
-			}
-		}
+		data.ProductSkus = skus
 	}
 
-	// Bulk insert SKU attributes
-	if len(skuAttributeParams) > 0 {
-		// Filter out attributes without valid SKU IDs
-		validAttributeParams := make([]db.CreateCatalogProductSkuAttributeParams, 0)
-		for _, attr := range skuAttributeParams {
-			if attr.SkuID > 0 {
-				validAttributeParams = append(validAttributeParams, attr)
+	// Tạo thuộc tính cho từng SKU sau khi đã có danh sách SKU
+	if len(data.ProductSkus) > 0 {
+		// Map SPU id -> category name
+		spuCategoryName := make(map[int64]string)
+		for _, spu := range data.ProductSpus {
+			var categoryName string
+			for _, cat := range data.Categories {
+				if cat.ID == spu.CategoryID {
+					categoryName = cat.Name
+					break
+				}
+			}
+			spuCategoryName[spu.ID] = categoryName
+		}
+
+		skuAttributeParams := make([]db.CreateCopyCatalogProductSkuAttributeParams, 0)
+		for _, sku := range data.ProductSkus {
+			categoryName := spuCategoryName[sku.SpuID]
+			attributes := generateSkuAttributes(fake, categoryName)
+			for attrName, attrValue := range attributes {
+				skuAttributeParams = append(skuAttributeParams, db.CreateCopyCatalogProductSkuAttributeParams{
+					SkuID:       sku.ID,
+					Name:        attrName,
+					Value:       attrValue,
+					DateUpdated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+					DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+				})
 			}
 		}
 
-		if len(validAttributeParams) > 0 {
-			_, err = storage.CreateCatalogProductSkuAttribute(ctx, validAttributeParams)
+		if len(skuAttributeParams) > 0 {
+			_, err = storage.CreateCopyCatalogProductSkuAttribute(ctx, skuAttributeParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create SKU attributes: %w", err)
 			}
 
 			// Query back created SKU attributes
 			skuAttributes, err := storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
-				Limit:  pgutil.Int32ToPgInt4(int32(len(validAttributeParams) * 2)),
+				Limit:  pgutil.Int32ToPgInt4(int32(len(skuAttributeParams) * 2)),
 				Offset: pgutil.Int32ToPgInt4(0),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to query back created SKU attributes: %w", err)
 			}
-
-			// Populate data.SkuAttributes with actual database records
 			data.SkuAttributes = skuAttributes
 		}
 	}
@@ -439,8 +407,8 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	// 2. Only allow 1 nested comment from shop (vendor) per customer comment
 	// 3. Simple structure without complex nesting like social media
 	if len(accountData.Customers) > 0 && len(data.ProductSpus) > 0 {
-		var commentParams []db.CreateCatalogCommentParams
-		var vendorCommentParams []db.CreateCatalogCommentParams
+		var commentParams []db.CreateCopyCatalogCommentParams
+		var vendorCommentParams []db.CreateCopyCatalogCommentParams
 
 		// Create customer comments for products (1 comment per customer per product)
 		for _, spu := range data.ProductSpus {
@@ -459,8 +427,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 					}
 				}
 
-				commentParams = append(commentParams, db.CreateCatalogCommentParams{
-					Code:        generateUniqueCodeWithTracker(fake, "COMMENT", tracker),
+				commentParams = append(commentParams, db.CreateCopyCatalogCommentParams{
 					AccountID:   customer.ID,
 					RefType:     db.CatalogCommentRefTypeProductSPU,
 					RefID:       spu.ID,
@@ -476,7 +443,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 		// Bulk insert customer comments first
 		if len(commentParams) > 0 {
-			_, err = storage.CreateCatalogComment(ctx, commentParams)
+			_, err = storage.CreateCopyCatalogComment(ctx, commentParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create customer comments: %w", err)
 			}
@@ -496,8 +463,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				for i := 0; i < replyCount && i < len(customerComments); i++ {
 					vendor := accountData.Vendors[fake.RandomDigit()%len(accountData.Vendors)]
 
-					vendorCommentParams = append(vendorCommentParams, db.CreateCatalogCommentParams{
-						Code:        generateUniqueCodeWithTracker(fake, "COMMENT", tracker),
+					vendorCommentParams = append(vendorCommentParams, db.CreateCopyCatalogCommentParams{
 						AccountID:   vendor.ID,
 						RefType:     db.CatalogCommentRefTypeComment,
 						RefID:       customerComments[i].ID, // Reference to customer comment
@@ -512,7 +478,7 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 				// Bulk insert vendor comments
 				if len(vendorCommentParams) > 0 {
-					_, err = storage.CreateCatalogComment(ctx, vendorCommentParams)
+					_, err = storage.CreateCopyCatalogComment(ctx, vendorCommentParams)
 					if err != nil {
 						return nil, fmt.Errorf("failed to bulk create vendor comments: %w", err)
 					}

@@ -75,15 +75,15 @@ func SeedAll(ctx context.Context, storage db.Querier, fake *faker.Faker, cfg *Se
 		return fmt.Errorf("failed to seed cart items: %w", err)
 	}
 
-	inventoryData, err := SeedInventorySchema(ctx, storage, fake, cfg, catalogData)
+	_, err = SeedInventorySchema(ctx, storage, fake, cfg, catalogData)
 	if err != nil {
 		return fmt.Errorf("failed to seed inventory schema: %w", err)
 	}
 
-	_, err = SeedPaymentSchema(ctx, storage, fake, cfg, accountData, catalogData, inventoryData)
-	if err != nil {
-		return fmt.Errorf("failed to seed payment schema: %w", err)
-	}
+	//_, err = SeedPaymentSchema(ctx, storage, fake, cfg, accountData, catalogData, inventoryData)
+	//if err != nil {
+	//	return fmt.Errorf("failed to seed payment schema: %w", err)
+	//}
 
 	_, err = SeedPromotionSchema(ctx, storage, fake, cfg, accountData, catalogData)
 	if err != nil {
