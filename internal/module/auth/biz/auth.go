@@ -91,7 +91,7 @@ type LoginResult struct {
 func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
 	var zero LoginResult
 
-	account, err := a.accountBiz.Find(ctx, accountbiz.FindParams{
+	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
 		Code:     params.Code,
 		Username: params.Username,
 		Email:    params.Email,
@@ -154,17 +154,18 @@ func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (Register
 		hashedPassword = &hashed
 	}
 
-	if err := a.accountBiz.Create(ctx, accountbiz.CreateParams{
+	account, err := a.accountBiz.CreateAccount(ctx, accountbiz.CreateAccountParams{
 		Type:     params.Type,
 		Username: params.Username,
 		Email:    params.Email,
 		Phone:    params.Phone,
 		Password: hashedPassword,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
-	account, err := a.accountBiz.Find(ctx, accountbiz.FindParams{
+	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
 		Username: params.Username,
 		Email:    params.Email,
 		Phone:    params.Phone,
