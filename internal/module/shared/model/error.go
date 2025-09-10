@@ -1,5 +1,7 @@
 package sharedmodel
 
+import "fmt"
+
 type ErrorWithCode interface {
 	Error() string
 	Code() string
@@ -16,6 +18,14 @@ func (e Error) Error() string {
 
 func (e Error) Code() string {
 	return e.ErrCode
+}
+
+// Fmt creates a new error from the base error template with provided arguments
+func (e Error) Fmt(args ...interface{}) Error {
+	return Error{
+		ErrCode: e.ErrCode,
+		Message: fmt.Sprintf(e.Message, args...),
+	}
 }
 
 func NewError(code, message string) Error {
