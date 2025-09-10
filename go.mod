@@ -20,7 +20,6 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/google/uuid v1.6.0
 	github.com/gorilla/pat v1.0.2
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/jaswdr/faker/v2 v2.8.0
@@ -29,7 +28,9 @@ require (
 	github.com/markbates/goth v1.82.0
 	github.com/nats-io/nats.go v1.45.0
 	github.com/redis/rueidis v1.0.64
+	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/spf13/viper v1.20.1
+	github.com/sqids/sqids-go v0.4.1
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.41.0
@@ -74,6 +75,7 @@ require (
 	github.com/go-pg/zerochecker v0.2.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
