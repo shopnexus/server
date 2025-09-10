@@ -10189,7 +10189,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "country" = COALESCE($9, "country"),
     "date_created" = COALESCE($10, "date_created"),
     "date_updated" = COALESCE($11, "date_updated")
-WHERE ("id" = $12)
+WHERE id = $12
 RETURNING id, account_id, type, full_name, phone, phone_verified, address_line, city, state_province, country, date_created, date_updated
 `
 
@@ -10205,7 +10205,7 @@ type UpdateAccountAddressParams struct {
 	Country       pgtype.Text            `json:"country"`
 	DateCreated   pgtype.Timestamptz     `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            pgtype.Int8            `json:"id"`
+	ID            int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateAccountAddress(ctx context.Context, arg UpdateAccountAddressParams) (AccountAddress, error) {
@@ -10251,7 +10251,7 @@ SET "type" = COALESCE($1, "type"),
     "password" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "password") END,
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated")
-WHERE ("id" = $13) OR ("phone" = $4) OR ("email" = $6) OR ("username" = $8)
+WHERE id = $13
 RETURNING id, type, status, phone, email, username, password, date_created, date_updated
 `
 
@@ -10268,7 +10268,7 @@ type UpdateAccountBaseParams struct {
 	Password     pgtype.Text        `json:"password"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
 	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
-	ID           pgtype.Int8        `json:"id"`
+	ID           int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountBase(ctx context.Context, arg UpdateAccountBaseParams) (AccountBase, error) {
@@ -10309,7 +10309,7 @@ SET "cart_id" = COALESCE($1, "cart_id"),
     "quantity" = COALESCE($3, "quantity"),
     "date_created" = COALESCE($4, "date_created"),
     "date_updated" = COALESCE($5, "date_updated")
-WHERE ("id" = $6) OR ("cart_id" = $1 AND "sku_id" = $2)
+WHERE id = $6
 RETURNING id, cart_id, sku_id, quantity, date_created, date_updated
 `
 
@@ -10319,7 +10319,7 @@ type UpdateAccountCartItemParams struct {
 	Quantity    pgtype.Int8        `json:"quantity"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountCartItem(ctx context.Context, arg UpdateAccountCartItemParams) (AccountCartItem, error) {
@@ -10348,7 +10348,7 @@ UPDATE "account"."customer"
 SET "default_address_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "default_address_id") END,
     "date_created" = COALESCE($3, "date_created"),
     "date_updated" = COALESCE($4, "date_updated")
-WHERE ("id" = $5)
+WHERE id = $5
 RETURNING id, default_address_id, date_created, date_updated
 `
 
@@ -10357,7 +10357,7 @@ type UpdateAccountCustomerParams struct {
 	DefaultAddressID     pgtype.Int8        `json:"default_address_id"`
 	DateCreated          pgtype.Timestamptz `json:"date_created"`
 	DateUpdated          pgtype.Timestamptz `json:"date_updated"`
-	ID                   pgtype.Int8        `json:"id"`
+	ID                   int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountCustomer(ctx context.Context, arg UpdateAccountCustomerParams) (AccountCustomer, error) {
@@ -10388,7 +10388,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "date_created" = COALESCE($7, "date_created"),
     "hash" = COALESCE($8, "hash"),
     "prev_hash" = COALESCE($9, "prev_hash")
-WHERE ("id" = $10) OR ("hash" = $8)
+WHERE id = $10
 RETURNING id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
 `
 
@@ -10402,7 +10402,7 @@ type UpdateAccountIncomeHistoryParams struct {
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	Hash           []byte             `json:"hash"`
 	PrevHash       []byte             `json:"prev_hash"`
-	ID             pgtype.Int8        `json:"id"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountIncomeHistory(ctx context.Context, arg UpdateAccountIncomeHistoryParams) (AccountIncomeHistory, error) {
@@ -10444,7 +10444,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "date_updated" = COALESCE($7, "date_updated"),
     "date_sent" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "date_sent") END,
     "date_scheduled" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "date_scheduled") END
-WHERE ("id" = $12)
+WHERE id = $12
 RETURNING id, account_id, type, channel, is_read, content, date_created, date_updated, date_sent, date_scheduled
 `
 
@@ -10460,7 +10460,7 @@ type UpdateAccountNotificationParams struct {
 	DateSent          pgtype.Timestamptz `json:"date_sent"`
 	NullDateScheduled bool               `json:"null_date_scheduled"`
 	DateScheduled     pgtype.Timestamptz `json:"date_scheduled"`
-	ID                pgtype.Int8        `json:"id"`
+	ID                int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountNotification(ctx context.Context, arg UpdateAccountNotificationParams) (AccountNotification, error) {
@@ -10504,7 +10504,7 @@ SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") E
     "phone_verified" = COALESCE($10, "phone_verified"),
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated")
-WHERE ("id" = $13) OR ("avatar_rs_id" = $8)
+WHERE id = $13
 RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, date_updated
 `
 
@@ -10521,7 +10521,7 @@ type UpdateAccountProfileParams struct {
 	PhoneVerified   pgtype.Bool        `json:"phone_verified"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	DateUpdated     pgtype.Timestamptz `json:"date_updated"`
-	ID              pgtype.Int8        `json:"id"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (AccountProfile, error) {
@@ -10558,13 +10558,13 @@ func (q *Queries) UpdateAccountProfile(ctx context.Context, arg UpdateAccountPro
 const updateAccountVendor = `-- name: UpdateAccountVendor :one
 UPDATE "account"."vendor"
 SET "description" = COALESCE($1, "description")
-WHERE ("id" = $2)
+WHERE id = $2
 RETURNING id, description
 `
 
 type UpdateAccountVendorParams struct {
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateAccountVendor(ctx context.Context, arg UpdateAccountVendorParams) (AccountVendor, error) {
@@ -10579,7 +10579,7 @@ UPDATE "catalog"."brand"
 SET "code" = COALESCE($1, "code"),
     "name" = COALESCE($2, "name"),
     "description" = COALESCE($3, "description")
-WHERE ("id" = $4) OR ("code" = $1)
+WHERE id = $4
 RETURNING id, code, name, description
 `
 
@@ -10587,7 +10587,7 @@ type UpdateCatalogBrandParams struct {
 	Code        pgtype.Text `json:"code"`
 	Name        pgtype.Text `json:"name"`
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error) {
@@ -10612,7 +10612,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE($1, "name"),
     "description" = COALESCE($2, "description"),
     "parent_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "parent_id") END
-WHERE ("id" = $5) OR ("name" = $1)
+WHERE id = $5
 RETURNING id, name, description, parent_id
 `
 
@@ -10621,7 +10621,7 @@ type UpdateCatalogCategoryParams struct {
 	Description  pgtype.Text `json:"description"`
 	NullParentID bool        `json:"null_parent_id"`
 	ParentID     pgtype.Int8 `json:"parent_id"`
-	ID           pgtype.Int8 `json:"id"`
+	ID           int64       `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogCategory(ctx context.Context, arg UpdateCatalogCategoryParams) (CatalogCategory, error) {
@@ -10653,7 +10653,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "score" = COALESCE($7, "score"),
     "date_created" = COALESCE($8, "date_created"),
     "date_updated" = COALESCE($9, "date_updated")
-WHERE ("id" = $10)
+WHERE id = $10
 RETURNING id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
@@ -10667,7 +10667,7 @@ type UpdateCatalogCommentParams struct {
 	Score       pgtype.Int4               `json:"score"`
 	DateCreated pgtype.Timestamptz        `json:"date_created"`
 	DateUpdated pgtype.Timestamptz        `json:"date_updated"`
-	ID          pgtype.Int8               `json:"id"`
+	ID          int64                     `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogComment(ctx context.Context, arg UpdateCatalogCommentParams) (CatalogComment, error) {
@@ -10706,7 +10706,7 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "can_combine" = COALESCE($3, "can_combine"),
     "date_created" = COALESCE($4, "date_created"),
     "date_deleted" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "date_deleted") END
-WHERE ("id" = $7)
+WHERE id = $7
 RETURNING id, spu_id, price, can_combine, date_created, date_deleted
 `
 
@@ -10717,7 +10717,7 @@ type UpdateCatalogProductSkuParams struct {
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
-	ID              pgtype.Int8        `json:"id"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalogProductSkuParams) (CatalogProductSku, error) {
@@ -10749,7 +10749,7 @@ SET "sku_id" = COALESCE($1, "sku_id"),
     "value" = COALESCE($3, "value"),
     "date_created" = COALESCE($4, "date_created"),
     "date_updated" = COALESCE($5, "date_updated")
-WHERE ("id" = $6)
+WHERE id = $6
 RETURNING id, sku_id, name, value, date_created, date_updated
 `
 
@@ -10759,7 +10759,7 @@ type UpdateCatalogProductSkuAttributeParams struct {
 	Value       pgtype.Text        `json:"value"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSkuAttribute(ctx context.Context, arg UpdateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error) {
@@ -10796,7 +10796,7 @@ SET "code" = COALESCE($1, "code"),
     "date_created" = COALESCE($9, "date_created"),
     "date_updated" = COALESCE($10, "date_updated"),
     "date_deleted" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_deleted") END
-WHERE ("id" = $13) OR ("code" = $1)
+WHERE id = $13
 RETURNING id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 `
 
@@ -10813,7 +10813,7 @@ type UpdateCatalogProductSpuParams struct {
 	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 	NullDateDeleted  bool               `json:"null_date_deleted"`
 	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	ID               pgtype.Int8        `json:"id"`
+	ID               int64              `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalogProductSpuParams) (CatalogProductSpu, error) {
@@ -10854,14 +10854,14 @@ const updateCatalogProductSpuTag = `-- name: UpdateCatalogProductSpuTag :one
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE($1, "spu_id"),
     "tag_id" = COALESCE($2, "tag_id")
-WHERE ("id" = $3) OR ("spu_id" = $1 AND "tag_id" = $2)
+WHERE id = $3
 RETURNING id, spu_id, tag_id
 `
 
 type UpdateCatalogProductSpuTagParams struct {
 	SpuID pgtype.Int8 `json:"spu_id"`
 	TagID pgtype.Int8 `json:"tag_id"`
-	ID    pgtype.Int8 `json:"id"`
+	ID    int64       `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSpuTag(ctx context.Context, arg UpdateCatalogProductSpuTagParams) (CatalogProductSpuTag, error) {
@@ -10875,14 +10875,14 @@ const updateCatalogTag = `-- name: UpdateCatalogTag :one
 UPDATE "catalog"."tag"
 SET "tag" = COALESCE($1, "tag"),
     "description" = COALESCE($2, "description")
-WHERE ("id" = $3) OR ("tag" = $1)
+WHERE id = $3
 RETURNING id, tag, description
 `
 
 type UpdateCatalogTagParams struct {
 	Tag         pgtype.Text `json:"tag"`
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogTag(ctx context.Context, arg UpdateCatalogTagParams) (CatalogTag, error) {
@@ -10898,7 +10898,7 @@ SET "serial_number" = COALESCE($1, "serial_number"),
     "sku_id" = COALESCE($2, "sku_id"),
     "status" = COALESCE($3, "status"),
     "date_created" = COALESCE($4, "date_created")
-WHERE ("id" = $5) OR ("serial_number" = $1)
+WHERE id = $5
 RETURNING id, serial_number, sku_id, status, date_created
 `
 
@@ -10907,7 +10907,7 @@ type UpdateInventorySkuSerialParams struct {
 	SkuID        pgtype.Int8                `json:"sku_id"`
 	Status       NullInventoryProductStatus `json:"status"`
 	DateCreated  pgtype.Timestamptz         `json:"date_created"`
-	ID           pgtype.Int8                `json:"id"`
+	ID           int64                      `json:"id"`
 }
 
 func (q *Queries) UpdateInventorySkuSerial(ctx context.Context, arg UpdateInventorySkuSerialParams) (InventorySkuSerial, error) {
@@ -10936,7 +10936,7 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "current_stock" = COALESCE($3, "current_stock"),
     "sold" = COALESCE($4, "sold"),
     "date_created" = COALESCE($5, "date_created")
-WHERE ("id" = $6) OR ("ref_id" = $2 AND "ref_type" = $1)
+WHERE id = $6
 RETURNING id, ref_type, ref_id, current_stock, sold, date_created
 `
 
@@ -10946,7 +10946,7 @@ type UpdateInventoryStockParams struct {
 	CurrentStock pgtype.Int8            `json:"current_stock"`
 	Sold         pgtype.Int8            `json:"sold"`
 	DateCreated  pgtype.Timestamptz     `json:"date_created"`
-	ID           pgtype.Int8            `json:"id"`
+	ID           int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateInventoryStock(ctx context.Context, arg UpdateInventoryStockParams) (InventoryStock, error) {
@@ -10975,7 +10975,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE($1, "stock_id"),
     "change" = COALESCE($2, "change"),
     "date_created" = COALESCE($3, "date_created")
-WHERE ("id" = $4)
+WHERE id = $4
 RETURNING id, stock_id, change, date_created
 `
 
@@ -10983,7 +10983,7 @@ type UpdateInventoryStockHistoryParams struct {
 	StockID     pgtype.Int8        `json:"stock_id"`
 	Change      pgtype.Int8        `json:"change"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateInventoryStockHistory(ctx context.Context, arg UpdateInventoryStockHistoryParams) (InventoryStockHistory, error) {
@@ -11011,7 +11011,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "address" = COALESCE($4, "address"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
-WHERE ("id" = $7)
+WHERE id = $7
 RETURNING id, account_id, payment_method, status, address, date_created, date_updated
 `
 
@@ -11022,7 +11022,7 @@ type UpdateOrderBaseParams struct {
 	Address       pgtype.Text            `json:"address"`
 	DateCreated   pgtype.Timestamptz     `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            pgtype.Int8            `json:"id"`
+	ID            int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateOrderBase(ctx context.Context, arg UpdateOrderBaseParams) (OrderBase, error) {
@@ -11067,7 +11067,7 @@ SET "type" = COALESCE($1, "type"),
     "date_created" = COALESCE($17, "date_created"),
     "hash" = COALESCE($18, "hash"),
     "prev_hash" = COALESCE($19, "prev_hash")
-WHERE ("id" = $20) OR ("hash" = $18)
+WHERE id = $20
 RETURNING id, type, ref_type, ref_id, issuer_id, receiver_id, status, payment_method, address, phone, note, metadata, subtotal, total, file_rs_id, date_created, hash, prev_hash
 `
 
@@ -11091,7 +11091,7 @@ type UpdateOrderInvoiceParams struct {
 	DateCreated   pgtype.Timestamptz      `json:"date_created"`
 	Hash          []byte                  `json:"hash"`
 	PrevHash      []byte                  `json:"prev_hash"`
-	ID            pgtype.Int8             `json:"id"`
+	ID            int64                   `json:"id"`
 }
 
 func (q *Queries) UpdateOrderInvoice(ctx context.Context, arg UpdateOrderInvoiceParams) (OrderInvoice, error) {
@@ -11146,7 +11146,7 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
     "quantity" = COALESCE($3, "quantity")
-WHERE ("id" = $4)
+WHERE id = $4
 RETURNING id, order_id, sku_id, quantity
 `
 
@@ -11154,7 +11154,7 @@ type UpdateOrderItemParams struct {
 	OrderID  pgtype.Int8 `json:"order_id"`
 	SkuID    pgtype.Int8 `json:"sku_id"`
 	Quantity pgtype.Int8 `json:"quantity"`
-	ID       pgtype.Int8 `json:"id"`
+	ID       int64       `json:"id"`
 }
 
 func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error) {
@@ -11178,14 +11178,14 @@ const updateOrderItemSerial = `-- name: UpdateOrderItemSerial :one
 UPDATE "order"."item_serial"
 SET "order_item_id" = COALESCE($1, "order_item_id"),
     "product_serial_id" = COALESCE($2, "product_serial_id")
-WHERE ("id" = $3) OR ("order_item_id" = $1 AND "product_serial_id" = $2)
+WHERE id = $3
 RETURNING id, order_item_id, product_serial_id
 `
 
 type UpdateOrderItemSerialParams struct {
 	OrderItemID     pgtype.Int8 `json:"order_item_id"`
 	ProductSerialID pgtype.Int8 `json:"product_serial_id"`
-	ID              pgtype.Int8 `json:"id"`
+	ID              int64       `json:"id"`
 }
 
 func (q *Queries) UpdateOrderItemSerial(ctx context.Context, arg UpdateOrderItemSerialParams) (OrderItemSerial, error) {
@@ -11204,7 +11204,7 @@ SET "order_item_id" = COALESCE($1, "order_item_id"),
     "reason" = COALESCE($6, "reason"),
     "address" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "address") END,
     "date_created" = COALESCE($9, "date_created")
-WHERE ("id" = $10)
+WHERE id = $10
 RETURNING id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
 `
 
@@ -11218,7 +11218,7 @@ type UpdateOrderRefundParams struct {
 	NullAddress      bool                  `json:"null_address"`
 	Address          pgtype.Text           `json:"address"`
 	DateCreated      pgtype.Timestamptz    `json:"date_created"`
-	ID               pgtype.Int8           `json:"id"`
+	ID               int64                 `json:"id"`
 }
 
 func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (OrderRefund, error) {
@@ -11256,7 +11256,7 @@ SET "refund_id" = COALESCE($1, "refund_id"),
     "status" = COALESCE($4, "status"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
-WHERE ("id" = $7)
+WHERE id = $7
 RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated
 `
 
@@ -11267,7 +11267,7 @@ type UpdateOrderRefundDisputeParams struct {
 	Status      NullSharedStatus   `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateOrderRefundDispute(ctx context.Context, arg UpdateOrderRefundDisputeParams) (OrderRefundDispute, error) {
@@ -11306,7 +11306,7 @@ SET "vnp_Amount" = COALESCE($1, "vnp_Amount"),
     "vnp_TransactionNo" = COALESCE($9, "vnp_TransactionNo"),
     "vnp_TransactionStatus" = COALESCE($10, "vnp_TransactionStatus"),
     "vnp_TxnRef" = COALESCE($11, "vnp_TxnRef")
-WHERE ("id" = $12)
+WHERE id = $12
 RETURNING id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
 `
 
@@ -11322,7 +11322,7 @@ type UpdateOrderVnpayParams struct {
 	VnpTransactionNo     pgtype.Text `json:"vnp_TransactionNo"`
 	VnpTransactionStatus pgtype.Text `json:"vnp_TransactionStatus"`
 	VnpTxnRef            pgtype.Text `json:"vnp_TxnRef"`
-	ID                   pgtype.Int8 `json:"id"`
+	ID                   int64       `json:"id"`
 }
 
 func (q *Queries) UpdateOrderVnpay(ctx context.Context, arg UpdateOrderVnpayParams) (OrderVnpay, error) {
@@ -11375,7 +11375,7 @@ SET "code" = COALESCE($1, "code"),
     "schedule_duration" = CASE WHEN $19::bool = TRUE THEN NULL ELSE COALESCE($20, "schedule_duration") END,
     "date_created" = COALESCE($21, "date_created"),
     "date_updated" = COALESCE($22, "date_updated")
-WHERE ("id" = $23) OR ("code" = $1)
+WHERE id = $23
 RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
 `
 
@@ -11402,7 +11402,7 @@ type UpdatePromotionBaseParams struct {
 	ScheduleDuration     pgtype.Int4          `json:"schedule_duration"`
 	DateCreated          pgtype.Timestamptz   `json:"date_created"`
 	DateUpdated          pgtype.Timestamptz   `json:"date_updated"`
-	ID                   pgtype.Int8          `json:"id"`
+	ID                   int64                `json:"id"`
 }
 
 func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error) {
@@ -11460,7 +11460,7 @@ SET "order_wide" = COALESCE($1, "order_wide"),
     "max_discount" = COALESCE($3, "max_discount"),
     "discount_percent" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "discount_percent") END,
     "discount_price" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "discount_price") END
-WHERE ("id" = $8)
+WHERE id = $8
 RETURNING id, order_wide, min_spend, max_discount, discount_percent, discount_price
 `
 
@@ -11472,7 +11472,7 @@ type UpdatePromotionDiscountParams struct {
 	DiscountPercent     pgtype.Int4 `json:"discount_percent"`
 	NullDiscountPrice   bool        `json:"null_discount_price"`
 	DiscountPrice       pgtype.Int8 `json:"discount_price"`
-	ID                  pgtype.Int8 `json:"id"`
+	ID                  int64       `json:"id"`
 }
 
 func (q *Queries) UpdatePromotionDiscount(ctx context.Context, arg UpdatePromotionDiscountParams) (PromotionDiscount, error) {
@@ -11505,7 +11505,7 @@ SET "mime_type" = COALESCE($1, "mime_type"),
     "owner_type" = COALESCE($3, "owner_type"),
     "url" = COALESCE($4, "url"),
     "order" = COALESCE($5, "order")
-WHERE ("id" = $6)
+WHERE id = $6
 RETURNING id, mime_type, owner_id, owner_type, url, "order"
 `
 
@@ -11515,7 +11515,7 @@ type UpdateSharedResourceParams struct {
 	OwnerType NullSharedResourceType `json:"owner_type"`
 	Url       pgtype.Text            `json:"url"`
 	Order     pgtype.Int4            `json:"order"`
-	ID        pgtype.Int8            `json:"id"`
+	ID        int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error) {
@@ -11548,7 +11548,7 @@ SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "accoun
     "payload" = COALESCE($6, "payload"),
     "version" = COALESCE($7, "version"),
     "date_created" = COALESCE($8, "date_created")
-WHERE ("id" = $9)
+WHERE id = $9
 RETURNING id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
 `
 
@@ -11561,7 +11561,7 @@ type UpdateSystemEventParams struct {
 	Payload       []byte              `json:"payload"`
 	Version       pgtype.Int8         `json:"version"`
 	DateCreated   pgtype.Timestamptz  `json:"date_created"`
-	ID            pgtype.Int8         `json:"id"`
+	ID            int64               `json:"id"`
 }
 
 func (q *Queries) UpdateSystemEvent(ctx context.Context, arg UpdateSystemEventParams) (SystemEvent, error) {
@@ -11594,14 +11594,14 @@ const updateSystemSearchSync = `-- name: UpdateSystemSearchSync :one
 UPDATE "system"."search_sync"
 SET "name" = COALESCE($1, "name"),
     "last_synced" = COALESCE($2, "last_synced")
-WHERE ("id" = $3)
+WHERE id = $3
 RETURNING id, name, last_synced
 `
 
 type UpdateSystemSearchSyncParams struct {
 	Name       pgtype.Text        `json:"name"`
 	LastSynced pgtype.Timestamptz `json:"last_synced"`
-	ID         pgtype.Int8        `json:"id"`
+	ID         int64              `json:"id"`
 }
 
 func (q *Queries) UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error) {

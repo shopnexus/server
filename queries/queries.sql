@@ -115,7 +115,7 @@ SET "type" = COALESCE(sqlc.narg('type'), "type"),
     "password" = CASE WHEN sqlc.arg('null_password')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('password'), "password") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("phone" = sqlc.narg('phone')) OR ("email" = sqlc.narg('email')) OR ("username" = sqlc.narg('username'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountBase :batchexec
@@ -128,7 +128,7 @@ SET "type" = COALESCE(sqlc.narg('type'), "type"),
     "password" = CASE WHEN sqlc.arg('null_password')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('password'), "password") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("phone" = sqlc.narg('phone')) OR ("email" = sqlc.narg('email')) OR ("username" = sqlc.narg('username'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountBase :batchexec
 DELETE FROM "account"."base"
@@ -259,7 +259,7 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountProfile :batchexec
@@ -272,7 +272,7 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountProfile :batchexec
 DELETE FROM "account"."profile"
@@ -377,7 +377,7 @@ UPDATE "account"."customer"
 SET "default_address_id" = CASE WHEN sqlc.arg('null_default_address_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_address_id'), "default_address_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountCustomer :batchexec
@@ -385,7 +385,7 @@ UPDATE "account"."customer"
 SET "default_address_id" = CASE WHEN sqlc.arg('null_default_address_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_address_id'), "default_address_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountCustomer :batchexec
 DELETE FROM "account"."customer"
@@ -464,13 +464,13 @@ VALUES ($1);
 -- name: UpdateAccountVendor :one
 UPDATE "account"."vendor"
 SET "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountVendor :batchexec
 UPDATE "account"."vendor"
 SET "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountVendor :batchexec
 DELETE FROM "account"."vendor"
@@ -601,7 +601,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountIncomeHistory :batchexec
@@ -614,7 +614,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountIncomeHistory :batchexec
 DELETE FROM "account"."income_history"
@@ -752,7 +752,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_sent" = CASE WHEN sqlc.arg('null_date_sent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_sent'), "date_sent") END,
     "date_scheduled" = CASE WHEN sqlc.arg('null_date_scheduled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_scheduled'), "date_scheduled") END
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountNotification :batchexec
@@ -766,7 +766,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_sent" = CASE WHEN sqlc.arg('null_date_sent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_sent'), "date_sent") END,
     "date_scheduled" = CASE WHEN sqlc.arg('null_date_scheduled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_scheduled'), "date_scheduled") END
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountNotification :batchexec
 DELETE FROM "account"."notification"
@@ -891,7 +891,7 @@ SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountCartItem :batchexec
@@ -901,7 +901,7 @@ SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountCartItem :batchexec
 DELETE FROM "account"."cart_item"
@@ -1038,7 +1038,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "country" = COALESCE(sqlc.narg('country'), "country"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountAddress :batchexec
@@ -1054,7 +1054,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "country" = COALESCE(sqlc.narg('country'), "country"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchAccountAddress :batchexec
 DELETE FROM "account"."address"
@@ -1135,7 +1135,7 @@ UPDATE "catalog"."brand"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogBrand :batchexec
@@ -1143,7 +1143,7 @@ UPDATE "catalog"."brand"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogBrand :batchexec
 DELETE FROM "catalog"."brand"
@@ -1233,7 +1233,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "parent_id" = CASE WHEN sqlc.arg('null_parent_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('parent_id'), "parent_id") END
-WHERE ("id" = sqlc.narg('id')) OR ("name" = sqlc.narg('name'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogCategory :batchexec
@@ -1241,7 +1241,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "parent_id" = CASE WHEN sqlc.arg('null_parent_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('parent_id'), "parent_id") END
-WHERE ("id" = sqlc.narg('id')) OR ("name" = sqlc.narg('name'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogCategory :batchexec
 DELETE FROM "catalog"."category"
@@ -1396,7 +1396,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogProductSpu :batchexec
@@ -1412,7 +1412,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogProductSpu :batchexec
 DELETE FROM "catalog"."product_spu"
@@ -1531,7 +1531,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogProductSku :batchexec
@@ -1541,7 +1541,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogProductSku :batchexec
 DELETE FROM "catalog"."product_sku"
@@ -1654,7 +1654,7 @@ SET "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "value" = COALESCE(sqlc.narg('value'), "value"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogProductSkuAttribute :batchexec
@@ -1664,7 +1664,7 @@ SET "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "value" = COALESCE(sqlc.narg('value'), "value"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogProductSkuAttribute :batchexec
 DELETE FROM "catalog"."product_sku_attribute"
@@ -1744,14 +1744,14 @@ VALUES ($1);
 UPDATE "catalog"."tag"
 SET "tag" = COALESCE(sqlc.narg('tag'), "tag"),
     "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id')) OR ("tag" = sqlc.narg('tag'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogTag :batchexec
 UPDATE "catalog"."tag"
 SET "tag" = COALESCE(sqlc.narg('tag'), "tag"),
     "description" = COALESCE(sqlc.narg('description'), "description")
-WHERE ("id" = sqlc.narg('id')) OR ("tag" = sqlc.narg('tag'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogTag :batchexec
 DELETE FROM "catalog"."tag"
@@ -1846,14 +1846,14 @@ VALUES ($1, $2);
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "tag_id" = COALESCE(sqlc.narg('tag_id'), "tag_id")
-WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag_id" = sqlc.narg('tag_id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogProductSpuTag :batchexec
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "tag_id" = COALESCE(sqlc.narg('tag_id'), "tag_id")
-WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag_id" = sqlc.narg('tag_id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogProductSpuTag :batchexec
 DELETE FROM "catalog"."product_spu_tag"
@@ -2003,7 +2003,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "score" = COALESCE(sqlc.narg('score'), "score"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogComment :batchexec
@@ -2017,7 +2017,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "score" = COALESCE(sqlc.narg('score'), "score"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchCatalogComment :batchexec
 DELETE FROM "catalog"."comment"
@@ -2120,7 +2120,7 @@ SET "serial_number" = COALESCE(sqlc.narg('serial_number'), "serial_number"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id')) OR ("serial_number" = sqlc.narg('serial_number'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchInventorySkuSerial :batchexec
@@ -2129,7 +2129,7 @@ SET "serial_number" = COALESCE(sqlc.narg('serial_number'), "serial_number"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id')) OR ("serial_number" = sqlc.narg('serial_number'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchInventorySkuSerial :batchexec
 DELETE FROM "inventory"."sku_serial"
@@ -2248,7 +2248,7 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "current_stock" = COALESCE(sqlc.narg('current_stock'), "current_stock"),
     "sold" = COALESCE(sqlc.narg('sold'), "sold"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id')) OR ("ref_id" = sqlc.narg('ref_id') AND "ref_type" = sqlc.narg('ref_type'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchInventoryStock :batchexec
@@ -2258,7 +2258,7 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "current_stock" = COALESCE(sqlc.narg('current_stock'), "current_stock"),
     "sold" = COALESCE(sqlc.narg('sold'), "sold"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id')) OR ("ref_id" = sqlc.narg('ref_id') AND "ref_type" = sqlc.narg('ref_type'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchInventoryStock :batchexec
 DELETE FROM "inventory"."stock"
@@ -2363,7 +2363,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE(sqlc.narg('stock_id'), "stock_id"),
     "change" = COALESCE(sqlc.narg('change'), "change"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchInventoryStockHistory :batchexec
@@ -2371,7 +2371,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE(sqlc.narg('stock_id'), "stock_id"),
     "change" = COALESCE(sqlc.narg('change'), "change"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchInventoryStockHistory :batchexec
 DELETE FROM "inventory"."stock_history"
@@ -2485,7 +2485,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderBase :batchexec
@@ -2496,7 +2496,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderBase :batchexec
 DELETE FROM "order"."base"
@@ -2601,7 +2601,7 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderItem :batchexec
@@ -2609,7 +2609,7 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderItem :batchexec
 DELETE FROM "order"."item"
@@ -2704,14 +2704,14 @@ VALUES ($1, $2);
 UPDATE "order"."item_serial"
 SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "product_serial_id" = COALESCE(sqlc.narg('product_serial_id'), "product_serial_id")
-WHERE ("id" = sqlc.narg('id')) OR ("order_item_id" = sqlc.narg('order_item_id') AND "product_serial_id" = sqlc.narg('product_serial_id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderItemSerial :batchexec
 UPDATE "order"."item_serial"
 SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "product_serial_id" = COALESCE(sqlc.narg('product_serial_id'), "product_serial_id")
-WHERE ("id" = sqlc.narg('id')) OR ("order_item_id" = sqlc.narg('order_item_id') AND "product_serial_id" = sqlc.narg('product_serial_id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderItemSerial :batchexec
 DELETE FROM "order"."item_serial"
@@ -2797,7 +2797,7 @@ SET "vnp_Amount" = COALESCE(sqlc.narg('vnp_Amount'), "vnp_Amount"),
     "vnp_TransactionNo" = COALESCE(sqlc.narg('vnp_TransactionNo'), "vnp_TransactionNo"),
     "vnp_TransactionStatus" = COALESCE(sqlc.narg('vnp_TransactionStatus'), "vnp_TransactionStatus"),
     "vnp_TxnRef" = COALESCE(sqlc.narg('vnp_TxnRef'), "vnp_TxnRef")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderVnpay :batchexec
@@ -2813,7 +2813,7 @@ SET "vnp_Amount" = COALESCE(sqlc.narg('vnp_Amount'), "vnp_Amount"),
     "vnp_TransactionNo" = COALESCE(sqlc.narg('vnp_TransactionNo'), "vnp_TransactionNo"),
     "vnp_TransactionStatus" = COALESCE(sqlc.narg('vnp_TransactionStatus'), "vnp_TransactionStatus"),
     "vnp_TxnRef" = COALESCE(sqlc.narg('vnp_TxnRef'), "vnp_TxnRef")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderVnpay :batchexec
 DELETE FROM "order"."vnpay"
@@ -2928,7 +2928,7 @@ SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "address" = CASE WHEN sqlc.arg('null_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('address'), "address") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderRefund :batchexec
@@ -2940,7 +2940,7 @@ SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "address" = CASE WHEN sqlc.arg('null_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('address'), "address") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderRefund :batchexec
 DELETE FROM "order"."refund"
@@ -3060,7 +3060,7 @@ SET "refund_id" = COALESCE(sqlc.narg('refund_id'), "refund_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderRefundDispute :batchexec
@@ -3071,7 +3071,7 @@ SET "refund_id" = COALESCE(sqlc.narg('refund_id'), "refund_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderRefundDispute :batchexec
 DELETE FROM "order"."refund_dispute"
@@ -3238,7 +3238,7 @@ SET "type" = COALESCE(sqlc.narg('type'), "type"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderInvoice :batchexec
@@ -3260,7 +3260,7 @@ SET "type" = COALESCE(sqlc.narg('type'), "type"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchOrderInvoice :batchexec
 DELETE FROM "order"."invoice"
@@ -3434,7 +3434,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "schedule_duration" = CASE WHEN sqlc.arg('null_schedule_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_duration'), "schedule_duration") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchPromotionBase :batchexec
@@ -3454,7 +3454,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "schedule_duration" = CASE WHEN sqlc.arg('null_schedule_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_duration'), "schedule_duration") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchPromotionBase :batchexec
 DELETE FROM "promotion"."base"
@@ -3573,7 +3573,7 @@ SET "order_wide" = COALESCE(sqlc.narg('order_wide'), "order_wide"),
     "max_discount" = COALESCE(sqlc.narg('max_discount'), "max_discount"),
     "discount_percent" = CASE WHEN sqlc.arg('null_discount_percent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_percent'), "discount_percent") END,
     "discount_price" = CASE WHEN sqlc.arg('null_discount_price')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_price'), "discount_price") END
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchPromotionDiscount :batchexec
@@ -3583,7 +3583,7 @@ SET "order_wide" = COALESCE(sqlc.narg('order_wide'), "order_wide"),
     "max_discount" = COALESCE(sqlc.narg('max_discount'), "max_discount"),
     "discount_percent" = CASE WHEN sqlc.arg('null_discount_percent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_percent'), "discount_percent") END,
     "discount_price" = CASE WHEN sqlc.arg('null_discount_price')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_price'), "discount_price") END
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchPromotionDiscount :batchexec
 DELETE FROM "promotion"."discount"
@@ -3684,7 +3684,7 @@ SET "mime_type" = COALESCE(sqlc.narg('mime_type'), "mime_type"),
     "owner_type" = COALESCE(sqlc.narg('owner_type'), "owner_type"),
     "url" = COALESCE(sqlc.narg('url'), "url"),
     "order" = COALESCE(sqlc.narg('order'), "order")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchSharedResource :batchexec
@@ -3694,7 +3694,7 @@ SET "mime_type" = COALESCE(sqlc.narg('mime_type'), "mime_type"),
     "owner_type" = COALESCE(sqlc.narg('owner_type'), "owner_type"),
     "url" = COALESCE(sqlc.narg('url'), "url"),
     "order" = COALESCE(sqlc.narg('order'), "order")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
@@ -3821,7 +3821,7 @@ SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL 
     "payload" = COALESCE(sqlc.narg('payload'), "payload"),
     "version" = COALESCE(sqlc.narg('version'), "version"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchSystemEvent :batchexec
@@ -3833,7 +3833,7 @@ SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL 
     "payload" = COALESCE(sqlc.narg('payload'), "payload"),
     "version" = COALESCE(sqlc.narg('version'), "version"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchSystemEvent :batchexec
 DELETE FROM "system"."event"
@@ -3922,14 +3922,14 @@ VALUES ($1);
 UPDATE "system"."search_sync"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "last_synced" = COALESCE(sqlc.narg('last_synced'), "last_synced")
-WHERE ("id" = sqlc.narg('id'))
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchSystemSearchSync :batchexec
 UPDATE "system"."search_sync"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "last_synced" = COALESCE(sqlc.narg('last_synced'), "last_synced")
-WHERE ("id" = sqlc.narg('id'));
+WHERE id = sqlc.arg('id');
 
 -- name: DeleteBatchSystemSearchSync :batchexec
 DELETE FROM "system"."search_sync"

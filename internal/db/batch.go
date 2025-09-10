@@ -3635,7 +3635,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "country" = COALESCE($9, "country"),
     "date_created" = COALESCE($10, "date_created"),
     "date_updated" = COALESCE($11, "date_updated")
-WHERE ("id" = $12)
+WHERE id = $12
 `
 
 type UpdateBatchAccountAddressBatchResults struct {
@@ -3656,7 +3656,7 @@ type UpdateBatchAccountAddressParams struct {
 	Country       pgtype.Text            `json:"country"`
 	DateCreated   pgtype.Timestamptz     `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            pgtype.Int8            `json:"id"`
+	ID            int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountAddress(ctx context.Context, arg []UpdateBatchAccountAddressParams) *UpdateBatchAccountAddressBatchResults {
@@ -3713,7 +3713,7 @@ SET "type" = COALESCE($1, "type"),
     "password" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "password") END,
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated")
-WHERE ("id" = $13) OR ("phone" = $4) OR ("email" = $6) OR ("username" = $8)
+WHERE id = $13
 `
 
 type UpdateBatchAccountBaseBatchResults struct {
@@ -3735,7 +3735,7 @@ type UpdateBatchAccountBaseParams struct {
 	Password     pgtype.Text        `json:"password"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
 	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
-	ID           pgtype.Int8        `json:"id"`
+	ID           int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountBase(ctx context.Context, arg []UpdateBatchAccountBaseParams) *UpdateBatchAccountBaseBatchResults {
@@ -3790,7 +3790,7 @@ SET "cart_id" = COALESCE($1, "cart_id"),
     "quantity" = COALESCE($3, "quantity"),
     "date_created" = COALESCE($4, "date_created"),
     "date_updated" = COALESCE($5, "date_updated")
-WHERE ("id" = $6) OR ("cart_id" = $1 AND "sku_id" = $2)
+WHERE id = $6
 `
 
 type UpdateBatchAccountCartItemBatchResults struct {
@@ -3805,7 +3805,7 @@ type UpdateBatchAccountCartItemParams struct {
 	Quantity    pgtype.Int8        `json:"quantity"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountCartItem(ctx context.Context, arg []UpdateBatchAccountCartItemParams) *UpdateBatchAccountCartItemBatchResults {
@@ -3851,7 +3851,7 @@ UPDATE "account"."customer"
 SET "default_address_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "default_address_id") END,
     "date_created" = COALESCE($3, "date_created"),
     "date_updated" = COALESCE($4, "date_updated")
-WHERE ("id" = $5)
+WHERE id = $5
 `
 
 type UpdateBatchAccountCustomerBatchResults struct {
@@ -3865,7 +3865,7 @@ type UpdateBatchAccountCustomerParams struct {
 	DefaultAddressID     pgtype.Int8        `json:"default_address_id"`
 	DateCreated          pgtype.Timestamptz `json:"date_created"`
 	DateUpdated          pgtype.Timestamptz `json:"date_updated"`
-	ID                   pgtype.Int8        `json:"id"`
+	ID                   int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountCustomer(ctx context.Context, arg []UpdateBatchAccountCustomerParams) *UpdateBatchAccountCustomerBatchResults {
@@ -3915,7 +3915,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "date_created" = COALESCE($7, "date_created"),
     "hash" = COALESCE($8, "hash"),
     "prev_hash" = COALESCE($9, "prev_hash")
-WHERE ("id" = $10) OR ("hash" = $8)
+WHERE id = $10
 `
 
 type UpdateBatchAccountIncomeHistoryBatchResults struct {
@@ -3934,7 +3934,7 @@ type UpdateBatchAccountIncomeHistoryParams struct {
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	Hash           []byte             `json:"hash"`
 	PrevHash       []byte             `json:"prev_hash"`
-	ID             pgtype.Int8        `json:"id"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountIncomeHistory(ctx context.Context, arg []UpdateBatchAccountIncomeHistoryParams) *UpdateBatchAccountIncomeHistoryBatchResults {
@@ -3990,7 +3990,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "date_updated" = COALESCE($7, "date_updated"),
     "date_sent" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "date_sent") END,
     "date_scheduled" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "date_scheduled") END
-WHERE ("id" = $12)
+WHERE id = $12
 `
 
 type UpdateBatchAccountNotificationBatchResults struct {
@@ -4011,7 +4011,7 @@ type UpdateBatchAccountNotificationParams struct {
 	DateSent          pgtype.Timestamptz `json:"date_sent"`
 	NullDateScheduled bool               `json:"null_date_scheduled"`
 	DateScheduled     pgtype.Timestamptz `json:"date_scheduled"`
-	ID                pgtype.Int8        `json:"id"`
+	ID                int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountNotification(ctx context.Context, arg []UpdateBatchAccountNotificationParams) *UpdateBatchAccountNotificationBatchResults {
@@ -4068,7 +4068,7 @@ SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") E
     "phone_verified" = COALESCE($10, "phone_verified"),
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated")
-WHERE ("id" = $13) OR ("avatar_rs_id" = $8)
+WHERE id = $13
 `
 
 type UpdateBatchAccountProfileBatchResults struct {
@@ -4090,7 +4090,7 @@ type UpdateBatchAccountProfileParams struct {
 	PhoneVerified   pgtype.Bool        `json:"phone_verified"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	DateUpdated     pgtype.Timestamptz `json:"date_updated"`
-	ID              pgtype.Int8        `json:"id"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountProfile(ctx context.Context, arg []UpdateBatchAccountProfileParams) *UpdateBatchAccountProfileBatchResults {
@@ -4141,7 +4141,7 @@ func (b *UpdateBatchAccountProfileBatchResults) Close() error {
 const updateBatchAccountVendor = `-- name: UpdateBatchAccountVendor :batchexec
 UPDATE "account"."vendor"
 SET "description" = COALESCE($1, "description")
-WHERE ("id" = $2)
+WHERE id = $2
 `
 
 type UpdateBatchAccountVendorBatchResults struct {
@@ -4152,7 +4152,7 @@ type UpdateBatchAccountVendorBatchResults struct {
 
 type UpdateBatchAccountVendorParams struct {
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountVendor(ctx context.Context, arg []UpdateBatchAccountVendorParams) *UpdateBatchAccountVendorBatchResults {
@@ -4194,7 +4194,7 @@ UPDATE "catalog"."brand"
 SET "code" = COALESCE($1, "code"),
     "name" = COALESCE($2, "name"),
     "description" = COALESCE($3, "description")
-WHERE ("id" = $4) OR ("code" = $1)
+WHERE id = $4
 `
 
 type UpdateBatchCatalogBrandBatchResults struct {
@@ -4207,7 +4207,7 @@ type UpdateBatchCatalogBrandParams struct {
 	Code        pgtype.Text `json:"code"`
 	Name        pgtype.Text `json:"name"`
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogBrand(ctx context.Context, arg []UpdateBatchCatalogBrandParams) *UpdateBatchCatalogBrandBatchResults {
@@ -4251,7 +4251,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE($1, "name"),
     "description" = COALESCE($2, "description"),
     "parent_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "parent_id") END
-WHERE ("id" = $5) OR ("name" = $1)
+WHERE id = $5
 `
 
 type UpdateBatchCatalogCategoryBatchResults struct {
@@ -4265,7 +4265,7 @@ type UpdateBatchCatalogCategoryParams struct {
 	Description  pgtype.Text `json:"description"`
 	NullParentID bool        `json:"null_parent_id"`
 	ParentID     pgtype.Int8 `json:"parent_id"`
-	ID           pgtype.Int8 `json:"id"`
+	ID           int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogCategory(ctx context.Context, arg []UpdateBatchCatalogCategoryParams) *UpdateBatchCatalogCategoryBatchResults {
@@ -4316,7 +4316,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "score" = COALESCE($7, "score"),
     "date_created" = COALESCE($8, "date_created"),
     "date_updated" = COALESCE($9, "date_updated")
-WHERE ("id" = $10)
+WHERE id = $10
 `
 
 type UpdateBatchCatalogCommentBatchResults struct {
@@ -4335,7 +4335,7 @@ type UpdateBatchCatalogCommentParams struct {
 	Score       pgtype.Int4               `json:"score"`
 	DateCreated pgtype.Timestamptz        `json:"date_created"`
 	DateUpdated pgtype.Timestamptz        `json:"date_updated"`
-	ID          pgtype.Int8               `json:"id"`
+	ID          int64                     `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogComment(ctx context.Context, arg []UpdateBatchCatalogCommentParams) *UpdateBatchCatalogCommentBatchResults {
@@ -4387,7 +4387,7 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "can_combine" = COALESCE($3, "can_combine"),
     "date_created" = COALESCE($4, "date_created"),
     "date_deleted" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "date_deleted") END
-WHERE ("id" = $7)
+WHERE id = $7
 `
 
 type UpdateBatchCatalogProductSkuBatchResults struct {
@@ -4403,7 +4403,7 @@ type UpdateBatchCatalogProductSkuParams struct {
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
-	ID              pgtype.Int8        `json:"id"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogProductSku(ctx context.Context, arg []UpdateBatchCatalogProductSkuParams) *UpdateBatchCatalogProductSkuBatchResults {
@@ -4452,7 +4452,7 @@ SET "sku_id" = COALESCE($1, "sku_id"),
     "value" = COALESCE($3, "value"),
     "date_created" = COALESCE($4, "date_created"),
     "date_updated" = COALESCE($5, "date_updated")
-WHERE ("id" = $6)
+WHERE id = $6
 `
 
 type UpdateBatchCatalogProductSkuAttributeBatchResults struct {
@@ -4467,7 +4467,7 @@ type UpdateBatchCatalogProductSkuAttributeParams struct {
 	Value       pgtype.Text        `json:"value"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogProductSkuAttribute(ctx context.Context, arg []UpdateBatchCatalogProductSkuAttributeParams) *UpdateBatchCatalogProductSkuAttributeBatchResults {
@@ -4521,7 +4521,7 @@ SET "code" = COALESCE($1, "code"),
     "date_created" = COALESCE($9, "date_created"),
     "date_updated" = COALESCE($10, "date_updated"),
     "date_deleted" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_deleted") END
-WHERE ("id" = $13) OR ("code" = $1)
+WHERE id = $13
 `
 
 type UpdateBatchCatalogProductSpuBatchResults struct {
@@ -4543,7 +4543,7 @@ type UpdateBatchCatalogProductSpuParams struct {
 	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 	NullDateDeleted  bool               `json:"null_date_deleted"`
 	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	ID               pgtype.Int8        `json:"id"`
+	ID               int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogProductSpu(ctx context.Context, arg []UpdateBatchCatalogProductSpuParams) *UpdateBatchCatalogProductSpuBatchResults {
@@ -4595,7 +4595,7 @@ const updateBatchCatalogProductSpuTag = `-- name: UpdateBatchCatalogProductSpuTa
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE($1, "spu_id"),
     "tag_id" = COALESCE($2, "tag_id")
-WHERE ("id" = $3) OR ("spu_id" = $1 AND "tag_id" = $2)
+WHERE id = $3
 `
 
 type UpdateBatchCatalogProductSpuTagBatchResults struct {
@@ -4607,7 +4607,7 @@ type UpdateBatchCatalogProductSpuTagBatchResults struct {
 type UpdateBatchCatalogProductSpuTagParams struct {
 	SpuID pgtype.Int8 `json:"spu_id"`
 	TagID pgtype.Int8 `json:"tag_id"`
-	ID    pgtype.Int8 `json:"id"`
+	ID    int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogProductSpuTag(ctx context.Context, arg []UpdateBatchCatalogProductSpuTagParams) *UpdateBatchCatalogProductSpuTagBatchResults {
@@ -4649,7 +4649,7 @@ const updateBatchCatalogTag = `-- name: UpdateBatchCatalogTag :batchexec
 UPDATE "catalog"."tag"
 SET "tag" = COALESCE($1, "tag"),
     "description" = COALESCE($2, "description")
-WHERE ("id" = $3) OR ("tag" = $1)
+WHERE id = $3
 `
 
 type UpdateBatchCatalogTagBatchResults struct {
@@ -4661,7 +4661,7 @@ type UpdateBatchCatalogTagBatchResults struct {
 type UpdateBatchCatalogTagParams struct {
 	Tag         pgtype.Text `json:"tag"`
 	Description pgtype.Text `json:"description"`
-	ID          pgtype.Int8 `json:"id"`
+	ID          int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogTag(ctx context.Context, arg []UpdateBatchCatalogTagParams) *UpdateBatchCatalogTagBatchResults {
@@ -4705,7 +4705,7 @@ SET "serial_number" = COALESCE($1, "serial_number"),
     "sku_id" = COALESCE($2, "sku_id"),
     "status" = COALESCE($3, "status"),
     "date_created" = COALESCE($4, "date_created")
-WHERE ("id" = $5) OR ("serial_number" = $1)
+WHERE id = $5
 `
 
 type UpdateBatchInventorySkuSerialBatchResults struct {
@@ -4719,7 +4719,7 @@ type UpdateBatchInventorySkuSerialParams struct {
 	SkuID        pgtype.Int8                `json:"sku_id"`
 	Status       NullInventoryProductStatus `json:"status"`
 	DateCreated  pgtype.Timestamptz         `json:"date_created"`
-	ID           pgtype.Int8                `json:"id"`
+	ID           int64                      `json:"id"`
 }
 
 func (q *Queries) UpdateBatchInventorySkuSerial(ctx context.Context, arg []UpdateBatchInventorySkuSerialParams) *UpdateBatchInventorySkuSerialBatchResults {
@@ -4766,7 +4766,7 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "current_stock" = COALESCE($3, "current_stock"),
     "sold" = COALESCE($4, "sold"),
     "date_created" = COALESCE($5, "date_created")
-WHERE ("id" = $6) OR ("ref_id" = $2 AND "ref_type" = $1)
+WHERE id = $6
 `
 
 type UpdateBatchInventoryStockBatchResults struct {
@@ -4781,7 +4781,7 @@ type UpdateBatchInventoryStockParams struct {
 	CurrentStock pgtype.Int8            `json:"current_stock"`
 	Sold         pgtype.Int8            `json:"sold"`
 	DateCreated  pgtype.Timestamptz     `json:"date_created"`
-	ID           pgtype.Int8            `json:"id"`
+	ID           int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateBatchInventoryStock(ctx context.Context, arg []UpdateBatchInventoryStockParams) *UpdateBatchInventoryStockBatchResults {
@@ -4827,7 +4827,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE($1, "stock_id"),
     "change" = COALESCE($2, "change"),
     "date_created" = COALESCE($3, "date_created")
-WHERE ("id" = $4)
+WHERE id = $4
 `
 
 type UpdateBatchInventoryStockHistoryBatchResults struct {
@@ -4840,7 +4840,7 @@ type UpdateBatchInventoryStockHistoryParams struct {
 	StockID     pgtype.Int8        `json:"stock_id"`
 	Change      pgtype.Int8        `json:"change"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchInventoryStockHistory(ctx context.Context, arg []UpdateBatchInventoryStockHistoryParams) *UpdateBatchInventoryStockHistoryBatchResults {
@@ -4887,7 +4887,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "address" = COALESCE($4, "address"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
-WHERE ("id" = $7)
+WHERE id = $7
 `
 
 type UpdateBatchOrderBaseBatchResults struct {
@@ -4903,7 +4903,7 @@ type UpdateBatchOrderBaseParams struct {
 	Address       pgtype.Text            `json:"address"`
 	DateCreated   pgtype.Timestamptz     `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            pgtype.Int8            `json:"id"`
+	ID            int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderBase(ctx context.Context, arg []UpdateBatchOrderBaseParams) *UpdateBatchOrderBaseBatchResults {
@@ -4964,7 +4964,7 @@ SET "type" = COALESCE($1, "type"),
     "date_created" = COALESCE($17, "date_created"),
     "hash" = COALESCE($18, "hash"),
     "prev_hash" = COALESCE($19, "prev_hash")
-WHERE ("id" = $20) OR ("hash" = $18)
+WHERE id = $20
 `
 
 type UpdateBatchOrderInvoiceBatchResults struct {
@@ -4993,7 +4993,7 @@ type UpdateBatchOrderInvoiceParams struct {
 	DateCreated   pgtype.Timestamptz      `json:"date_created"`
 	Hash          []byte                  `json:"hash"`
 	PrevHash      []byte                  `json:"prev_hash"`
-	ID            pgtype.Int8             `json:"id"`
+	ID            int64                   `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderInvoice(ctx context.Context, arg []UpdateBatchOrderInvoiceParams) *UpdateBatchOrderInvoiceBatchResults {
@@ -5053,7 +5053,7 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
     "quantity" = COALESCE($3, "quantity")
-WHERE ("id" = $4)
+WHERE id = $4
 `
 
 type UpdateBatchOrderItemBatchResults struct {
@@ -5066,7 +5066,7 @@ type UpdateBatchOrderItemParams struct {
 	OrderID  pgtype.Int8 `json:"order_id"`
 	SkuID    pgtype.Int8 `json:"sku_id"`
 	Quantity pgtype.Int8 `json:"quantity"`
-	ID       pgtype.Int8 `json:"id"`
+	ID       int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderItem(ctx context.Context, arg []UpdateBatchOrderItemParams) *UpdateBatchOrderItemBatchResults {
@@ -5109,7 +5109,7 @@ const updateBatchOrderItemSerial = `-- name: UpdateBatchOrderItemSerial :batchex
 UPDATE "order"."item_serial"
 SET "order_item_id" = COALESCE($1, "order_item_id"),
     "product_serial_id" = COALESCE($2, "product_serial_id")
-WHERE ("id" = $3) OR ("order_item_id" = $1 AND "product_serial_id" = $2)
+WHERE id = $3
 `
 
 type UpdateBatchOrderItemSerialBatchResults struct {
@@ -5121,7 +5121,7 @@ type UpdateBatchOrderItemSerialBatchResults struct {
 type UpdateBatchOrderItemSerialParams struct {
 	OrderItemID     pgtype.Int8 `json:"order_item_id"`
 	ProductSerialID pgtype.Int8 `json:"product_serial_id"`
-	ID              pgtype.Int8 `json:"id"`
+	ID              int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderItemSerial(ctx context.Context, arg []UpdateBatchOrderItemSerialParams) *UpdateBatchOrderItemSerialBatchResults {
@@ -5168,7 +5168,7 @@ SET "order_item_id" = COALESCE($1, "order_item_id"),
     "reason" = COALESCE($6, "reason"),
     "address" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "address") END,
     "date_created" = COALESCE($9, "date_created")
-WHERE ("id" = $10)
+WHERE id = $10
 `
 
 type UpdateBatchOrderRefundBatchResults struct {
@@ -5187,7 +5187,7 @@ type UpdateBatchOrderRefundParams struct {
 	NullAddress      bool                  `json:"null_address"`
 	Address          pgtype.Text           `json:"address"`
 	DateCreated      pgtype.Timestamptz    `json:"date_created"`
-	ID               pgtype.Int8           `json:"id"`
+	ID               int64                 `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderRefund(ctx context.Context, arg []UpdateBatchOrderRefundParams) *UpdateBatchOrderRefundBatchResults {
@@ -5240,7 +5240,7 @@ SET "refund_id" = COALESCE($1, "refund_id"),
     "status" = COALESCE($4, "status"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
-WHERE ("id" = $7)
+WHERE id = $7
 `
 
 type UpdateBatchOrderRefundDisputeBatchResults struct {
@@ -5256,7 +5256,7 @@ type UpdateBatchOrderRefundDisputeParams struct {
 	Status      NullSharedStatus   `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          pgtype.Int8        `json:"id"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderRefundDispute(ctx context.Context, arg []UpdateBatchOrderRefundDisputeParams) *UpdateBatchOrderRefundDisputeBatchResults {
@@ -5311,7 +5311,7 @@ SET "vnp_Amount" = COALESCE($1, "vnp_Amount"),
     "vnp_TransactionNo" = COALESCE($9, "vnp_TransactionNo"),
     "vnp_TransactionStatus" = COALESCE($10, "vnp_TransactionStatus"),
     "vnp_TxnRef" = COALESCE($11, "vnp_TxnRef")
-WHERE ("id" = $12)
+WHERE id = $12
 `
 
 type UpdateBatchOrderVnpayBatchResults struct {
@@ -5332,7 +5332,7 @@ type UpdateBatchOrderVnpayParams struct {
 	VnpTransactionNo     pgtype.Text `json:"vnp_TransactionNo"`
 	VnpTransactionStatus pgtype.Text `json:"vnp_TransactionStatus"`
 	VnpTxnRef            pgtype.Text `json:"vnp_TxnRef"`
-	ID                   pgtype.Int8 `json:"id"`
+	ID                   int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderVnpay(ctx context.Context, arg []UpdateBatchOrderVnpayParams) *UpdateBatchOrderVnpayBatchResults {
@@ -5396,7 +5396,7 @@ SET "code" = COALESCE($1, "code"),
     "schedule_duration" = CASE WHEN $19::bool = TRUE THEN NULL ELSE COALESCE($20, "schedule_duration") END,
     "date_created" = COALESCE($21, "date_created"),
     "date_updated" = COALESCE($22, "date_updated")
-WHERE ("id" = $23) OR ("code" = $1)
+WHERE id = $23
 `
 
 type UpdateBatchPromotionBaseBatchResults struct {
@@ -5428,7 +5428,7 @@ type UpdateBatchPromotionBaseParams struct {
 	ScheduleDuration     pgtype.Int4          `json:"schedule_duration"`
 	DateCreated          pgtype.Timestamptz   `json:"date_created"`
 	DateUpdated          pgtype.Timestamptz   `json:"date_updated"`
-	ID                   pgtype.Int8          `json:"id"`
+	ID                   int64                `json:"id"`
 }
 
 func (q *Queries) UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults {
@@ -5493,7 +5493,7 @@ SET "order_wide" = COALESCE($1, "order_wide"),
     "max_discount" = COALESCE($3, "max_discount"),
     "discount_percent" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "discount_percent") END,
     "discount_price" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "discount_price") END
-WHERE ("id" = $8)
+WHERE id = $8
 `
 
 type UpdateBatchPromotionDiscountBatchResults struct {
@@ -5510,7 +5510,7 @@ type UpdateBatchPromotionDiscountParams struct {
 	DiscountPercent     pgtype.Int4 `json:"discount_percent"`
 	NullDiscountPrice   bool        `json:"null_discount_price"`
 	DiscountPrice       pgtype.Int8 `json:"discount_price"`
-	ID                  pgtype.Int8 `json:"id"`
+	ID                  int64       `json:"id"`
 }
 
 func (q *Queries) UpdateBatchPromotionDiscount(ctx context.Context, arg []UpdateBatchPromotionDiscountParams) *UpdateBatchPromotionDiscountBatchResults {
@@ -5560,7 +5560,7 @@ SET "mime_type" = COALESCE($1, "mime_type"),
     "owner_type" = COALESCE($3, "owner_type"),
     "url" = COALESCE($4, "url"),
     "order" = COALESCE($5, "order")
-WHERE ("id" = $6)
+WHERE id = $6
 `
 
 type UpdateBatchSharedResourceBatchResults struct {
@@ -5575,7 +5575,7 @@ type UpdateBatchSharedResourceParams struct {
 	OwnerType NullSharedResourceType `json:"owner_type"`
 	Url       pgtype.Text            `json:"url"`
 	Order     pgtype.Int4            `json:"order"`
-	ID        pgtype.Int8            `json:"id"`
+	ID        int64                  `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
@@ -5625,7 +5625,7 @@ SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "accoun
     "payload" = COALESCE($6, "payload"),
     "version" = COALESCE($7, "version"),
     "date_created" = COALESCE($8, "date_created")
-WHERE ("id" = $9)
+WHERE id = $9
 `
 
 type UpdateBatchSystemEventBatchResults struct {
@@ -5643,7 +5643,7 @@ type UpdateBatchSystemEventParams struct {
 	Payload       []byte              `json:"payload"`
 	Version       pgtype.Int8         `json:"version"`
 	DateCreated   pgtype.Timestamptz  `json:"date_created"`
-	ID            pgtype.Int8         `json:"id"`
+	ID            int64               `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSystemEvent(ctx context.Context, arg []UpdateBatchSystemEventParams) *UpdateBatchSystemEventBatchResults {
@@ -5691,7 +5691,7 @@ const updateBatchSystemSearchSync = `-- name: UpdateBatchSystemSearchSync :batch
 UPDATE "system"."search_sync"
 SET "name" = COALESCE($1, "name"),
     "last_synced" = COALESCE($2, "last_synced")
-WHERE ("id" = $3)
+WHERE id = $3
 `
 
 type UpdateBatchSystemSearchSyncBatchResults struct {
@@ -5703,7 +5703,7 @@ type UpdateBatchSystemSearchSyncBatchResults struct {
 type UpdateBatchSystemSearchSyncParams struct {
 	Name       pgtype.Text        `json:"name"`
 	LastSynced pgtype.Timestamptz `json:"last_synced"`
-	ID         pgtype.Int8        `json:"id"`
+	ID         int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSystemSearchSync(ctx context.Context, arg []UpdateBatchSystemSearchSyncParams) *UpdateBatchSystemSearchSyncBatchResults {

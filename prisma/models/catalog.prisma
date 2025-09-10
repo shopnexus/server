@@ -141,7 +141,7 @@ model ProductTag {
 }
 
 enum CommentRefType {
-  ProductSPU
+  ProductSpu
   Comment
 
   @@map("comment_ref_type")

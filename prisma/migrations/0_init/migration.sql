@@ -32,7 +32,7 @@ CREATE TYPE "account"."gender" AS ENUM ('Male', 'Female', 'Other');
 CREATE TYPE "account"."address_type" AS ENUM ('Home', 'Work');
 
 -- CreateEnum
-CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSPU', 'Comment');
+CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
 
 -- CreateEnum
 CREATE TYPE "inventory"."stock_type" AS ENUM ('ProductSku', 'Promotion');

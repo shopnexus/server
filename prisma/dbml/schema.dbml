@@ -355,7 +355,7 @@ Enum AddressType {
 }
 
 Enum CommentRefType {
-  ProductSPU
+  ProductSpu
   Comment
 }
 

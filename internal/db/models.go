@@ -249,7 +249,7 @@ func AllAccountTypeValues() []AccountType {
 type CatalogCommentRefType string
 
 const (
-	CatalogCommentRefTypeProductSPU CatalogCommentRefType = "ProductSPU"
+	CatalogCommentRefTypeProductSpu CatalogCommentRefType = "ProductSpu"
 	CatalogCommentRefTypeComment    CatalogCommentRefType = "Comment"
 )
 
@@ -290,7 +290,7 @@ func (ns NullCatalogCommentRefType) Value() (driver.Value, error) {
 
 func (e CatalogCommentRefType) Valid() bool {
 	switch e {
-	case CatalogCommentRefTypeProductSPU,
+	case CatalogCommentRefTypeProductSpu,
 		CatalogCommentRefTypeComment:
 		return true
 	}
@@ -299,7 +299,7 @@ func (e CatalogCommentRefType) Valid() bool {
 
 func AllCatalogCommentRefTypeValues() []CatalogCommentRefType {
 	return []CatalogCommentRefType{
-		CatalogCommentRefTypeProductSPU,
+		CatalogCommentRefTypeProductSpu,
 		CatalogCommentRefTypeComment,
 	}
 }
