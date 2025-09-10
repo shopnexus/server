@@ -31,6 +31,7 @@
 - No use orchestration patterns, use choreography instead.
 - Use choreography pattern with compensating transactions to handle failures gracefully.
 - Always use events to communicate between services to microservice friendly and avoid tight coupling.
+- Use "sqids" instead of raw id to avoid data leak and make it harder to guess the total number of records. https://sqids.org/?hashids
 
 #### Early stage
 
@@ -77,12 +78,30 @@ Customer effectively paid: $300 - $60 = $240 for $300 item
 
 But customer still can pay only $240 for $300 item, which is not in the first discount rule.
 
-### Ack
+### Order flow
 
-"Interface values are comparable. Two interface values are equal if they have identical dynamic types and equal dynamic values or if both have value nil."
+```mermaid
+flowchart TD
+    A["Customer Clicks Buy Now"] --> B["Validate Cart & Promotions"]
+    B --> C["Reserve Inventory"]
+    C --> D["Authorize Payment"]
+    D --> E["Create Order in Database"]
+    E --> F["Return Order ID to Customer"]
+    F --> G["Publish OrderCreated Event"]
+    
+    G --> H["Send Email Confirmation"]
+    G --> I["Update Analytics Dashboard"]
+    G --> J["Initiate Shipping Process"]
+    G --> K["Update Recommendation Engine"]
+    G --> L["Execute Fraud Detection"]
+```
 
-- Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil.
+### Note
+
+- "Interface values are comparable. Two interface values are equal if they have identical dynamic types and equal dynamic values or if both have value nil."
+Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil.
 - Omitempty only works for pointer, slice, map, and interface types not zero value from struct.
+- If you’re using pgx/v5 you get its implicit support for prepared statements. No additional sqlc configuration is required.
 
 ## Develop Timeline
 
@@ -108,3 +127,8 @@ WHERE (
 
 ### 5-9-2025 List products with caculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
 ![img.png](images/img3.png)
+
+### 8-9-2025 Custom type need to be registered to pgx
+Any custom DB types made with CREATE TYPE need to be registered with pgx.
+https://github.com/kyleconroy/sqlc/issues/2116
+![img.png](images/img4.png)
