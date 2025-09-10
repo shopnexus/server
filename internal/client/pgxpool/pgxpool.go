@@ -73,10 +73,44 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 	defer conn.Release()
 
 	dataTypeNames := []string{
-		"shared.resource_type",
-		"shared._resource_type",
-		"inventory.stock_type",
-		"inventory._stock_type",
+		`"account"."type"`,
+		`"account"."_type"`,
+		`"account"."status"`,
+		`"account"."_status"`,
+		`"account"."gender"`,
+		`"account"."_gender"`,
+		`"account"."address_type"`,
+		`"account"."_address_type"`,
+
+		`"catalog"."comment_ref_type"`,
+		`"catalog"."_comment_ref_type"`,
+
+		`"inventory"."stock_type"`,
+		`"inventory"."_stock_type"`,
+		`"inventory"."product_status"`,
+		`"inventory"."_product_status"`,
+
+		`"order"."payment_method"`,
+		`"order"."_payment_method"`,
+		`"order"."refund_method"`,
+		`"order"."_refund_method"`,
+		`"order"."invoice_type"`,
+		`"order"."_invoice_type"`,
+		`"order"."invoice_ref_type"`,
+		`"order"."_invoice_ref_type"`,
+
+		`"promotion"."type"`,
+		`"promotion"."_type"`,
+		`"promotion"."ref_type"`,
+		`"promotion"."_ref_type"`,
+
+		`"shared"."resource_type"`,
+		`"shared"."_resource_type"`,
+		`"shared"."status"`,
+		`"shared"."_status"`,
+
+		`"system"."event_type"`,
+		`"system"."_event_type"`,
 	}
 
 	var typesToRegister []*pgtype.Type
