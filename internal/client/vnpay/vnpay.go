@@ -10,6 +10,7 @@ import (
 type ClientImpl struct {
 	tmnCode    string
 	hashSecret string
+	returnURL  string
 }
 
 type Client interface {
@@ -20,20 +21,21 @@ type Client interface {
 type ClientOptions struct {
 	TmnCode    string
 	HashSecret string
+	ReturnURL  string
 }
 
 func NewClient(cfg ClientOptions) Client {
 	return &ClientImpl{
 		tmnCode:    cfg.TmnCode,
 		hashSecret: cfg.HashSecret,
+		returnURL:  cfg.ReturnURL,
 	}
 }
 
 type CreateOrderParams struct {
-	PaymentID int64
-	Amount    int64
-	Info      string
-	ReturnUrl string
+	RefID  int64
+	Amount int64
+	Info   string
 }
 
 func (c *ClientImpl) CreateOrder(ctx context.Context, params CreateOrderParams) (url string, err error) {
@@ -55,9 +57,9 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params CreateOrderParams) 
 	q.Add("vnp_Locale", "vn")
 	q.Add("vnp_OrderInfo", params.Info)
 	q.Add("vnp_OrderType", "billpayment")
-	q.Add("vnp_ReturnUrl", params.ReturnUrl)
+	q.Add("vnp_ReturnUrl", c.returnURL)
 	q.Add("vnp_ExpireDate", formatTime(time.Now().Add(30*time.Minute)))
-	q.Add("vnp_TxnRef", fmt.Sprintf("%d", params.PaymentID))
+	q.Add("vnp_TxnRef", fmt.Sprintf("%d", params.RefID))
 	// q.Add("vnp_SecureHashType", "HMACSHA512")
 
 	encodedQuery := q.Encode()
