@@ -35,7 +35,7 @@ CREATE TYPE "account"."address_type" AS ENUM ('Home', 'Work');
 CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSPU', 'Comment');
 
 -- CreateEnum
-CREATE TYPE "inventory"."stock_type" AS ENUM ('ProductSKU', 'Promotion');
+CREATE TYPE "inventory"."stock_type" AS ENUM ('ProductSku', 'Promotion');
 
 -- CreateEnum
 CREATE TYPE "inventory"."product_status" AS ENUM ('Active', 'Inactive', 'Sold', 'Damaged');
@@ -59,7 +59,7 @@ CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'Bundle', 'BuyXGetY', 'Cashb
 CREATE TYPE "promotion"."ref_type" AS ENUM ('All', 'ProductSpu', 'ProductSku', 'Category', 'Brand');
 
 -- CreateEnum
-CREATE TYPE "shared"."resource_type" AS ENUM ('Avatar', 'ProductImage', 'BrandLogo', 'Refund', 'ReturnDispute');
+CREATE TYPE "shared"."resource_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute');
 
 -- CreateEnum
 CREATE TYPE "shared"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
@@ -70,7 +70,6 @@ CREATE TYPE "system"."event_type" AS ENUM ('Created', 'Updated', 'Deleted');
 -- CreateTable
 CREATE TABLE "account"."base" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "type" "account"."type" NOT NULL,
     "status" "account"."status" NOT NULL DEFAULT 'Active',
     "phone" VARCHAR(50),
@@ -162,7 +161,6 @@ CREATE TABLE "account"."cart_item" (
 -- CreateTable
 CREATE TABLE "account"."address" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "account_id" BIGINT NOT NULL,
     "type" "account"."address_type" NOT NULL DEFAULT 'Home',
     "full_name" VARCHAR(100) NOT NULL,
@@ -219,7 +217,6 @@ CREATE TABLE "catalog"."product_spu" (
 -- CreateTable
 CREATE TABLE "catalog"."product_sku" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "spu_id" BIGINT NOT NULL,
     "price" BIGINT NOT NULL,
     "can_combine" BOOLEAN NOT NULL DEFAULT false,
@@ -232,7 +229,6 @@ CREATE TABLE "catalog"."product_sku" (
 -- CreateTable
 CREATE TABLE "catalog"."product_sku_attribute" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "sku_id" BIGINT NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "value" VARCHAR(255) NOT NULL,
@@ -263,7 +259,6 @@ CREATE TABLE "catalog"."product_spu_tag" (
 -- CreateTable
 CREATE TABLE "catalog"."comment" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "account_id" BIGINT NOT NULL,
     "ref_type" "catalog"."comment_ref_type" NOT NULL,
     "ref_id" BIGINT NOT NULL,
@@ -313,13 +308,12 @@ CREATE TABLE "inventory"."stock_history" (
 -- CreateTable
 CREATE TABLE "order"."base" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
-    "customer_id" BIGINT NOT NULL,
+    "account_id" BIGINT NOT NULL,
     "payment_method" "order"."payment_method" NOT NULL,
     "status" "shared"."status" NOT NULL,
     "address" TEXT NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL,
+    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "base_pkey" PRIMARY KEY ("id")
 );
@@ -327,7 +321,6 @@ CREATE TABLE "order"."base" (
 -- CreateTable
 CREATE TABLE "order"."item" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "order_id" BIGINT NOT NULL,
     "sku_id" BIGINT NOT NULL,
     "quantity" BIGINT NOT NULL,
@@ -365,7 +358,6 @@ CREATE TABLE "order"."vnpay" (
 -- CreateTable
 CREATE TABLE "order"."refund" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "order_item_id" BIGINT NOT NULL,
     "reviewed_by_id" BIGINT,
     "method" "order"."refund_method" NOT NULL,
@@ -380,7 +372,6 @@ CREATE TABLE "order"."refund" (
 -- CreateTable
 CREATE TABLE "order"."refund_dispute" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "refund_id" BIGINT NOT NULL,
     "issued_by_id" BIGINT NOT NULL,
     "reason" TEXT NOT NULL,
@@ -394,16 +385,17 @@ CREATE TABLE "order"."refund_dispute" (
 -- CreateTable
 CREATE TABLE "order"."invoice" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "type" "order"."invoice_type" NOT NULL,
     "ref_type" "order"."invoice_ref_type" NOT NULL,
     "ref_id" BIGINT NOT NULL,
-    "seller_account_id" BIGINT,
-    "buyer_account_id" BIGINT NOT NULL,
+    "issuer_id" BIGINT,
+    "receiver_id" BIGINT NOT NULL,
     "status" "shared"."status" NOT NULL,
     "payment_method" "order"."payment_method" NOT NULL,
     "address" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
+    "note" TEXT,
+    "metadata" JSONB NOT NULL,
     "subtotal" BIGINT NOT NULL,
     "total" BIGINT NOT NULL,
     "file_rs_id" TEXT NOT NULL,
@@ -412,19 +404,6 @@ CREATE TABLE "order"."invoice" (
     "prev_hash" BYTEA NOT NULL,
 
     CONSTRAINT "invoice_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "order"."invoice_item" (
-    "id" BIGSERIAL NOT NULL,
-    "invoice_id" BIGINT NOT NULL,
-    "snapshot" JSONB NOT NULL,
-    "quantity" BIGINT NOT NULL,
-    "unit_price" BIGINT NOT NULL,
-    "subtotal" BIGINT NOT NULL,
-    "total" BIGINT NOT NULL,
-
-    CONSTRAINT "invoice_item_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -452,6 +431,7 @@ CREATE TABLE "promotion"."base" (
 -- CreateTable
 CREATE TABLE "promotion"."discount" (
     "id" BIGINT NOT NULL,
+    "order_wide" BOOLEAN NOT NULL,
     "min_spend" BIGINT NOT NULL DEFAULT 0,
     "max_discount" BIGINT NOT NULL DEFAULT 0,
     "discount_percent" INTEGER,
@@ -494,9 +474,6 @@ CREATE TABLE "system"."search_sync" (
 
     CONSTRAINT "search_sync_pkey" PRIMARY KEY ("id")
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "base_code_key" ON "account"."base"("code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "base_phone_key" ON "account"."base"("phone");
@@ -550,9 +527,6 @@ CREATE INDEX "cart_item_sku_id_idx" ON "account"."cart_item"("sku_id");
 CREATE UNIQUE INDEX "cart_item_cart_id_sku_id_key" ON "account"."cart_item"("cart_id", "sku_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "address_code_key" ON "account"."address"("code");
-
--- CreateIndex
 CREATE INDEX "address_account_id_idx" ON "account"."address"("account_id");
 
 -- CreateIndex
@@ -580,13 +554,7 @@ CREATE INDEX "product_spu_category_id_idx" ON "catalog"."product_spu"("category_
 CREATE INDEX "product_spu_brand_id_idx" ON "catalog"."product_spu"("brand_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_sku_code_key" ON "catalog"."product_sku"("code");
-
--- CreateIndex
 CREATE INDEX "product_sku_spu_id_idx" ON "catalog"."product_sku"("spu_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "product_sku_attribute_code_key" ON "catalog"."product_sku_attribute"("code");
 
 -- CreateIndex
 CREATE INDEX "product_sku_attribute_sku_id_idx" ON "catalog"."product_sku_attribute"("sku_id");
@@ -607,9 +575,6 @@ CREATE INDEX "product_spu_tag_tag_id_idx" ON "catalog"."product_spu_tag"("tag_id
 CREATE UNIQUE INDEX "product_spu_tag_spu_id_tag_id_key" ON "catalog"."product_spu_tag"("spu_id", "tag_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "comment_code_key" ON "catalog"."comment"("code");
-
--- CreateIndex
 CREATE UNIQUE INDEX "sku_serial_serial_number_key" ON "inventory"."sku_serial"("serial_number");
 
 -- CreateIndex
@@ -625,12 +590,6 @@ CREATE INDEX "stock_history_stock_id_idx" ON "inventory"."stock_history"("stock_
 CREATE INDEX "stock_history_date_created_idx" ON "inventory"."stock_history"("date_created");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "base_code_key" ON "order"."base"("code");
-
--- CreateIndex
-CREATE UNIQUE INDEX "item_code_key" ON "order"."item"("code");
-
--- CreateIndex
 CREATE INDEX "item_order_id_idx" ON "order"."item"("order_id");
 
 -- CreateIndex
@@ -640,16 +599,10 @@ CREATE INDEX "item_sku_id_idx" ON "order"."item"("sku_id");
 CREATE UNIQUE INDEX "item_serial_order_item_id_product_serial_id_key" ON "order"."item_serial"("order_item_id", "product_serial_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "refund_code_key" ON "order"."refund"("code");
-
--- CreateIndex
 CREATE INDEX "refund_order_item_id_idx" ON "order"."refund"("order_item_id");
 
 -- CreateIndex
 CREATE INDEX "refund_reviewed_by_id_idx" ON "order"."refund"("reviewed_by_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "refund_dispute_code_key" ON "order"."refund_dispute"("code");
 
 -- CreateIndex
 CREATE INDEX "refund_dispute_refund_id_idx" ON "order"."refund_dispute"("refund_id");
@@ -658,13 +611,16 @@ CREATE INDEX "refund_dispute_refund_id_idx" ON "order"."refund_dispute"("refund_
 CREATE INDEX "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute"("issued_by_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "invoice_code_key" ON "order"."invoice"("code");
-
--- CreateIndex
 CREATE UNIQUE INDEX "invoice_hash_key" ON "order"."invoice"("hash");
 
 -- CreateIndex
-CREATE INDEX "invoice_item_invoice_id_idx" ON "order"."invoice_item"("invoice_id");
+CREATE INDEX "invoice_issuer_id_idx" ON "order"."invoice"("issuer_id");
+
+-- CreateIndex
+CREATE INDEX "invoice_receiver_id_idx" ON "order"."invoice"("receiver_id");
+
+-- CreateIndex
+CREATE INDEX "invoice_ref_type_ref_id_idx" ON "order"."invoice"("ref_type", "ref_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "base_code_key" ON "promotion"."base"("code");
@@ -736,7 +692,7 @@ ALTER TABLE "inventory"."sku_serial" ADD CONSTRAINT "sku_serial_sku_id_fkey" FOR
 ALTER TABLE "inventory"."stock_history" ADD CONSTRAINT "stock_history_stock_id_fkey" FOREIGN KEY ("stock_id") REFERENCES "inventory"."stock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."base" ADD CONSTRAINT "base_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order"."base" ADD CONSTRAINT "base_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."item" ADD CONSTRAINT "item_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -764,9 +720,6 @@ ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_refund_id_fk
 
 -- AddForeignKey
 ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_issued_by_id_fkey" FOREIGN KEY ("issued_by_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "order"."invoice_item" ADD CONSTRAINT "invoice_item_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "order"."invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "promotion"."base" ADD CONSTRAINT "base_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;

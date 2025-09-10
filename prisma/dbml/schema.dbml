@@ -4,7 +4,6 @@
 
 Table Account {
   id BigInt [pk, increment]
-  code String [unique, not null]
   type AccountType [not null]
   status AccountStatus [not null, default: 'Active']
   phone String [unique]
@@ -79,7 +78,6 @@ Table CartItem {
 
 Table Address {
   id BigInt [pk, increment]
-  code String [unique, not null]
   account_id BigInt [not null]
   type AddressType [not null, default: 'Home']
   full_name String [not null]
@@ -124,7 +122,6 @@ Table ProductSpu {
 
 Table ProductSku {
   id BigInt [pk, increment]
-  code String [unique, not null]
   spu_id BigInt [not null]
   price BigInt [not null]
   can_combine Boolean [not null, default: false]
@@ -134,7 +131,6 @@ Table ProductSku {
 
 Table ProductSkuAttribute {
   id BigInt [pk, increment]
-  code String [unique, not null]
   sku_id BigInt [not null]
   name String [not null]
   value String [not null]
@@ -160,7 +156,6 @@ Table ProductTag {
 
 Table Comment {
   id BigInt [pk, increment]
-  code String [unique, not null]
   account_id BigInt [not null]
   ref_type CommentRefType [not null]
   ref_id BigInt [not null]
@@ -202,18 +197,16 @@ Table StockHistory {
 
 Table Order {
   id BigInt [pk, increment]
-  code String [unique, not null]
-  customer_id BigInt [not null]
+  account_id BigInt [not null]
   payment_method PaymentMethod [not null]
   status Status [not null]
   address String [not null]
   date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [not null]
+  date_updated DateTime [default: `now()`, not null]
 }
 
 Table OrderItem {
   id BigInt [pk, increment]
-  code String [unique, not null]
   order_id BigInt [not null]
   sku_id BigInt [not null]
   quantity BigInt [not null]
@@ -246,7 +239,6 @@ Table PaymentVnpay {
 
 Table Refund {
   id BigInt [pk, increment]
-  code String [unique, not null]
   order_item_id BigInt [not null]
   reviewed_by_id BigInt
   method RefundMethod [not null]
@@ -258,7 +250,6 @@ Table Refund {
 
 Table RefundDispute {
   id BigInt [pk, increment]
-  code String [unique, not null]
   refund_id BigInt [not null]
   issued_by_id BigInt [not null]
   reason String [not null]
@@ -269,32 +260,23 @@ Table RefundDispute {
 
 Table Invoice {
   id BigInt [pk, increment]
-  code String [unique, not null]
   type InvoiceType [not null]
   ref_type InvoiceRefType [not null]
   ref_id BigInt [not null]
-  seller_account_id BigInt
-  buyer_account_id BigInt [not null]
+  issuer_id BigInt
+  receiver_id BigInt [not null]
   status Status [not null]
   payment_method PaymentMethod [not null]
   address String [not null]
   phone String [not null]
+  note String
+  metadata Json [not null]
   subtotal BigInt [not null]
   total BigInt [not null]
   file_rs_id String [not null]
   date_created DateTime [default: `now()`, not null]
   hash Bytes [unique, not null]
   prev_hash Bytes [not null]
-}
-
-Table InvoiceItem {
-  id BigInt [pk, increment]
-  invoice_id BigInt [not null]
-  snapshot Json [not null]
-  quantity BigInt [not null]
-  unit_price BigInt [not null]
-  subtotal BigInt [not null]
-  total BigInt [not null]
 }
 
 Table Promotion {
@@ -318,6 +300,7 @@ Table Promotion {
 
 Table PromotionDiscount {
   id BigInt [pk]
+  order_wide Boolean [not null]
   min_spend BigInt [not null, default: 0]
   max_discount BigInt [not null, default: 0]
   discount_percent Int
@@ -377,7 +360,7 @@ Enum CommentRefType {
 }
 
 Enum StockType {
-  ProductSKU
+  ProductSku
   Promotion
 }
 
@@ -427,9 +410,10 @@ Enum PromotionRefType {
 }
 
 Enum ResourceType {
-  Avatar
-  ProductImage
-  BrandLogo
+  Account
+  ProductSpu
+  ProductSku
+  Brand
   Refund
   ReturnDispute
 }
@@ -484,7 +468,7 @@ Ref: ProductSerial.sku_id > ProductSku.id [delete: Cascade]
 
 Ref: StockHistory.stock_id > Stock.id [delete: Cascade]
 
-Ref: Order.customer_id > Customer.id [delete: Cascade]
+Ref: Order.account_id > Customer.id [delete: Cascade]
 
 Ref: OrderItem.order_id > Order.id [delete: Cascade]
 
@@ -503,8 +487,6 @@ Ref: Refund.reviewed_by_id > Vendor.id [delete: Set Null]
 Ref: RefundDispute.refund_id > Refund.id [delete: Cascade]
 
 Ref: RefundDispute.issued_by_id > Vendor.id [delete: No Action]
-
-Ref: InvoiceItem.invoice_id > Invoice.id [delete: Cascade]
 
 Ref: Promotion.owner_id > Vendor.id [delete: Set Null]
 

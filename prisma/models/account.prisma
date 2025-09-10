@@ -32,8 +32,7 @@ enum AddressType {
 }
 
 model Account {
-  id   BigInt @id @default(autoincrement())
-  code String @unique
+  id BigInt @id @default(autoincrement())
 
   type         AccountType
   status       AccountStatus @default(Active)
@@ -174,7 +173,6 @@ model CartItem {
 
 model Address {
   id         BigInt @id @default(autoincrement())
-  code       String @unique
   account_id BigInt
 
   type           AddressType @default(Home)

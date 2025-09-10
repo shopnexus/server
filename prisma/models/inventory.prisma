@@ -1,5 +1,5 @@
 enum StockType {
-  ProductSKU
+  ProductSku
   Promotion
 
   @@map("stock_type")

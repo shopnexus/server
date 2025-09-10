@@ -7,31 +7,177 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const lowestPriceProductSku = `-- name: LowestPriceProductSku :many
-SELECT DISTINCT ON (spu_id) spu_id, id, price
-FROM "catalog"."product_sku"
-WHERE spu_id = ANY($1)
-ORDER BY spu_id, price ASC
+const detailRating = `-- name: DetailRating :one
+SELECT ref_id, AVG(score) as score, COUNT(*) as count,
+    COUNT(CASE WHEN score = 10 THEN 1 END) as five_count,
+    COUNT(CASE WHEN score BETWEEN 8 AND 9 THEN 1 END) as four_count,
+    COUNT(CASE WHEN score BETWEEN 6 AND 7 THEN 1 END) as three_count,
+    COUNT(CASE WHEN score BETWEEN 4 AND 5 THEN 1 END) as two_count,
+    COUNT(CASE WHEN score BETWEEN 1 AND 3 THEN 1 END) as one_count
+FROM "catalog"."comment"
+WHERE (
+    ref_type = $1 AND
+    ref_id = $2
+)
+GROUP BY ref_id
 `
 
-type LowestPriceProductSkuRow struct {
-	SpuID int64 `json:"spu_id"`
-	ID    int64 `json:"id"`
-	Price int64 `json:"price"`
+type DetailRatingParams struct {
+	RefType CatalogCommentRefType `json:"ref_type"`
+	RefID   int64                 `json:"ref_id"`
 }
 
-func (q *Queries) LowestPriceProductSku(ctx context.Context, spuID []int64) ([]LowestPriceProductSkuRow, error) {
-	rows, err := q.db.Query(ctx, lowestPriceProductSku, spuID)
+type DetailRatingRow struct {
+	RefID      int64   `json:"ref_id"`
+	Score      float64 `json:"score"`
+	Count      int64   `json:"count"`
+	FiveCount  int64   `json:"five_count"`
+	FourCount  int64   `json:"four_count"`
+	ThreeCount int64   `json:"three_count"`
+	TwoCount   int64   `json:"two_count"`
+	OneCount   int64   `json:"one_count"`
+}
+
+func (q *Queries) DetailRating(ctx context.Context, arg DetailRatingParams) (DetailRatingRow, error) {
+	row := q.db.QueryRow(ctx, detailRating, arg.RefType, arg.RefID)
+	var i DetailRatingRow
+	err := row.Scan(
+		&i.RefID,
+		&i.Score,
+		&i.Count,
+		&i.FiveCount,
+		&i.FourCount,
+		&i.ThreeCount,
+		&i.TwoCount,
+		&i.OneCount,
+	)
+	return i, err
+}
+
+const getAvailableProducts = `-- name: GetAvailableProducts :many
+SELECT s.id, s.sku_id, s.serial_number
+FROM unnest($1::bigint[]) AS u(sku_id)
+JOIN LATERAL (
+    SELECT id, sku_id, serial_number
+    FROM "inventory"."sku_serial"
+    WHERE sku_id = u.sku_id AND "status" = 'Active'
+    ORDER BY date_created DESC LIMIT 5
+) s ON true
+`
+
+type GetAvailableProductsRow struct {
+	ID           int64  `json:"id"`
+	SkuID        int64  `json:"sku_id"`
+	SerialNumber string `json:"serial_number"`
+}
+
+func (q *Queries) GetAvailableProducts(ctx context.Context, skuID []int64) ([]GetAvailableProductsRow, error) {
+	rows, err := q.db.Query(ctx, getAvailableProducts, skuID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []LowestPriceProductSkuRow{}
+	items := []GetAvailableProductsRow{}
 	for rows.Next() {
-		var i LowestPriceProductSkuRow
-		if err := rows.Scan(&i.SpuID, &i.ID, &i.Price); err != nil {
+		var i GetAvailableProductsRow
+		if err := rows.Scan(&i.ID, &i.SkuID, &i.SerialNumber); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFlagshipProduct = `-- name: GetFlagshipProduct :many
+SELECT s.id, s.spu_id, s.price, s.can_combine, s.date_created, s.date_deleted, s.sku_id, s.sold
+FROM unnest($1::bigint[]) AS u(spu_id)
+JOIN LATERAL (
+    SELECT sku.id, sku.spu_id, sku.price, sku.can_combine, sku.date_created, sku.date_deleted, sku.id as sku_id, st.sold
+    FROM "catalog"."product_sku" sku
+    INNER JOIN "inventory"."stock" st ON sku.id = st.ref_id AND st.ref_type = 'ProductSku'
+    WHERE sku.spu_id = u.spu_id
+    ORDER BY st.sold DESC, sku.price ASC LIMIT 1
+) s ON true
+`
+
+type GetFlagshipProductRow struct {
+	ID          int64              `json:"id"`
+	SpuID       int64              `json:"spu_id"`
+	Price       int64              `json:"price"`
+	CanCombine  bool               `json:"can_combine"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SkuID       int64              `json:"sku_id"`
+	Sold        int64              `json:"sold"`
+}
+
+func (q *Queries) GetFlagshipProduct(ctx context.Context, spuID []int64) ([]GetFlagshipProductRow, error) {
+	rows, err := q.db.Query(ctx, getFlagshipProduct, spuID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetFlagshipProductRow{}
+	for rows.Next() {
+		var i GetFlagshipProductRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpuID,
+			&i.Price,
+			&i.CanCombine,
+			&i.DateCreated,
+			&i.DateDeleted,
+			&i.SkuID,
+			&i.Sold,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRating = `-- name: ListRating :many
+SELECT ref_id, AVG(score) as score, COUNT(*) as count
+FROM "catalog"."comment"
+WHERE (
+    ref_type = $1 AND
+    ref_id = ANY($2)
+)
+GROUP BY ref_id
+`
+
+type ListRatingParams struct {
+	RefType CatalogCommentRefType `json:"ref_type"`
+	RefID   []int64               `json:"ref_id"`
+}
+
+type ListRatingRow struct {
+	RefID int64   `json:"ref_id"`
+	Score float64 `json:"score"`
+	Count int64   `json:"count"`
+}
+
+func (q *Queries) ListRating(ctx context.Context, arg ListRatingParams) ([]ListRatingRow, error) {
+	rows, err := q.db.Query(ctx, listRating, arg.RefType, arg.RefID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRatingRow{}
+	for rows.Next() {
+		var i ListRatingRow
+		if err := rows.Scan(&i.RefID, &i.Score, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

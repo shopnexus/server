@@ -1,15 +1,14 @@
 model Order {
-  id          BigInt @id @default(autoincrement())
-  code        String @unique
-  customer_id BigInt
+  id         BigInt @id @default(autoincrement())
+  account_id BigInt
 
   payment_method PaymentMethod
   status         Status
   address        String
   date_created   DateTime      @default(now()) @db.Timestamptz(3)
-  date_updated   DateTime      @updatedAt @db.Timestamptz(3)
+  date_updated   DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
 
-  customer Customer      @relation(fields: [customer_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  customer Customer      @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   products OrderItem[]
   vnpay    PaymentVnpay?
 
@@ -19,7 +18,6 @@ model Order {
 
 model OrderItem {
   id       BigInt @id @default(autoincrement())
-  code     String @unique
   order_id BigInt
   sku_id   BigInt
 
@@ -91,7 +89,6 @@ model PaymentVnpay {
 
 model Refund {
   id             BigInt  @id @default(autoincrement())
-  code           String  @unique
   order_item_id  BigInt
   reviewed_by_id BigInt? // VendorProfile id who reviewed this refund request, null if not reviewed yet
 
@@ -114,7 +111,6 @@ model Refund {
 // Complaint about refund request for vendor
 model RefundDispute {
   id           BigInt @id @default(autoincrement())
-  code         String @unique
   refund_id    BigInt // Refund id that this dispute belongs to
   issued_by_id BigInt // Vendor id who issued this dispute
 
@@ -133,9 +129,9 @@ model RefundDispute {
 }
 
 enum InvoiceType {
-  Sale
-  Service
-  Adjustment
+  Sale // Regular sale invoice
+  Service // Service invoice, e.g. warranty, installation, etc.
+  Adjustment // Adjustment invoice, e.g. refund, credit note, etc.
 
   @@map("invoice_type")
   @@schema("order")
@@ -143,53 +139,40 @@ enum InvoiceType {
 
 enum InvoiceRefType {
   Order
-  Fee
+  Fee // TODO: create fee table
 
   @@map("invoice_ref_type")
   @@schema("order")
 }
 
 model Invoice {
-  id   BigInt @id @default(autoincrement())
-  code String @unique
+  id BigInt @id @default(autoincrement())
 
   type     InvoiceType
   ref_type InvoiceRefType
   ref_id   BigInt // Reference id, e.g. Order.id
 
-  seller_account_id BigInt? // VendorProfile, or System (Fee) id who sold this invoice
-  buyer_account_id  BigInt // CustomerProfile, or Vendor (Fee) id who bought this invoice
+  issuer_id   BigInt? // VendorProfile, or System (Fee) id who issue this invoice
+  receiver_id BigInt // CustomerProfile, or Vendor id who receive this invoice
 
   status         Status
   payment_method PaymentMethod
   address        String
   phone          String
-  subtotal       BigInt // Total amount before discount
-  total          BigInt // Total amount after discount
-  file_rs_id     String // invoice file (PDF, etc.)
-  date_created   DateTime      @default(now()) @db.Timestamptz(3)
+  note           String? // Optional note for the invoice
+  metadata       Json          @db.JsonB // Additional metadata for the invoice (e.g. items, promotions, applied promotions, etc.)
 
-  hash      Bytes         @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
-  prev_hash Bytes         @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
-  items     InvoiceItem[]
+  subtotal     BigInt // Total amount before discount
+  total        BigInt // Total amount after discount
+  file_rs_id   String // invoice file (PDF, etc.)
+  date_created DateTime @default(now()) @db.Timestamptz(3)
 
+  hash      Bytes @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
+  prev_hash Bytes @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
+
+  @@index([issuer_id])
+  @@index([receiver_id])
+  @@index([ref_type, ref_id])
   @@map("invoice")
-  @@schema("order")
-}
-
-model InvoiceItem {
-  id         BigInt @id @default(autoincrement())
-  invoice_id BigInt
-
-  snapshot   Json   @db.JsonB // Snapshot of the item at the time of invoicing, e.g. product name, description, etc.
-  quantity   BigInt
-  unit_price BigInt // Price per unit before discount
-  subtotal   BigInt // Total price before discount
-  total      BigInt // Total price after discount
-
-  invoice Invoice @relation(fields: [invoice_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@index([invoice_id])
-  @@map("invoice_item")
   @@schema("order")
 }

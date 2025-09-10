@@ -23,6 +23,30 @@ model ProductCategory {
   @@schema("catalog")
 }
 
+// model ProductSpec {
+//   id   BigInt @id @default(autoincrement())
+//   name String @unique @db.VarChar(100) // Name of the specification, e.g. weight, dimension, etc.
+//   unit String @db.VarChar(50) // Unit of the specification, e.g. kg, cm, etc.
+// }
+
+// TODO: add product specifications, e.g. weight, dimension, color, size, material, etc.
+// model ProductSpuSpec {
+//   id     BigInt @id @default(autoincrement())
+//   spu_id BigInt
+//
+//   name         String   @db.VarChar(100) // Name of the specification, e.g. weight, dimension, etc.
+//   value        String   @db.VarChar(255) // Value of the specification, can be JSON string if needed
+//   date_created DateTime @default(now()) @db.Timestamptz(3)
+//   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+//
+//   spu ProductSpu @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+//
+//   @@index([spu_id])
+//   @@index([name])
+//   @@map("product_spu_spec")
+//   @@schema("catalog")
+// }
+
 // Important data, only allow update name/description
 model ProductSpu {
   id          BigInt @id @default(autoincrement())
@@ -44,6 +68,7 @@ model ProductSpu {
   brand    Brand           @relation(fields: [brand_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   tags     ProductTag[]
   products ProductSku[]
+  // specs    ProductSpuSpec[]
 
   @@index([account_id])
   @@index([category_id])
@@ -54,7 +79,6 @@ model ProductSpu {
 
 model ProductSku {
   id     BigInt @id @default(autoincrement())
-  code   String @unique
   spu_id BigInt
 
   price        BigInt // Price of the item at this time
@@ -75,7 +99,6 @@ model ProductSku {
 
 model ProductSkuAttribute {
   id     BigInt @id @default(autoincrement())
-  code   String @unique
   sku_id BigInt
 
   name         String   @db.VarChar(100) // Name of the attribute, e.g. color, size, etc.
@@ -127,7 +150,6 @@ enum CommentRefType {
 
 model Comment {
   id         BigInt @id @default(autoincrement())
-  code       String @unique
   account_id BigInt
 
   ref_type CommentRefType

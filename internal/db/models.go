@@ -371,7 +371,7 @@ func AllInventoryProductStatusValues() []InventoryProductStatus {
 type InventoryStockType string
 
 const (
-	InventoryStockTypeProductSKU InventoryStockType = "ProductSKU"
+	InventoryStockTypeProductSku InventoryStockType = "ProductSku"
 	InventoryStockTypePromotion  InventoryStockType = "Promotion"
 )
 
@@ -412,7 +412,7 @@ func (ns NullInventoryStockType) Value() (driver.Value, error) {
 
 func (e InventoryStockType) Valid() bool {
 	switch e {
-	case InventoryStockTypeProductSKU,
+	case InventoryStockTypeProductSku,
 		InventoryStockTypePromotion:
 		return true
 	}
@@ -421,7 +421,7 @@ func (e InventoryStockType) Valid() bool {
 
 func AllInventoryStockTypeValues() []InventoryStockType {
 	return []InventoryStockType{
-		InventoryStockTypeProductSKU,
+		InventoryStockTypeProductSku,
 		InventoryStockTypePromotion,
 	}
 }
@@ -801,9 +801,10 @@ func AllPromotionTypeValues() []PromotionType {
 type SharedResourceType string
 
 const (
-	SharedResourceTypeAvatar        SharedResourceType = "Avatar"
-	SharedResourceTypeProductImage  SharedResourceType = "ProductImage"
-	SharedResourceTypeBrandLogo     SharedResourceType = "BrandLogo"
+	SharedResourceTypeAccount       SharedResourceType = "Account"
+	SharedResourceTypeProductSpu    SharedResourceType = "ProductSpu"
+	SharedResourceTypeProductSku    SharedResourceType = "ProductSku"
+	SharedResourceTypeBrand         SharedResourceType = "Brand"
 	SharedResourceTypeRefund        SharedResourceType = "Refund"
 	SharedResourceTypeReturnDispute SharedResourceType = "ReturnDispute"
 )
@@ -845,9 +846,10 @@ func (ns NullSharedResourceType) Value() (driver.Value, error) {
 
 func (e SharedResourceType) Valid() bool {
 	switch e {
-	case SharedResourceTypeAvatar,
-		SharedResourceTypeProductImage,
-		SharedResourceTypeBrandLogo,
+	case SharedResourceTypeAccount,
+		SharedResourceTypeProductSpu,
+		SharedResourceTypeProductSku,
+		SharedResourceTypeBrand,
 		SharedResourceTypeRefund,
 		SharedResourceTypeReturnDispute:
 		return true
@@ -857,9 +859,10 @@ func (e SharedResourceType) Valid() bool {
 
 func AllSharedResourceTypeValues() []SharedResourceType {
 	return []SharedResourceType{
-		SharedResourceTypeAvatar,
-		SharedResourceTypeProductImage,
-		SharedResourceTypeBrandLogo,
+		SharedResourceTypeAccount,
+		SharedResourceTypeProductSpu,
+		SharedResourceTypeProductSku,
+		SharedResourceTypeBrand,
 		SharedResourceTypeRefund,
 		SharedResourceTypeReturnDispute,
 	}
@@ -995,7 +998,6 @@ func AllSystemEventTypeValues() []SystemEventType {
 
 type AccountAddress struct {
 	ID            int64              `json:"id"`
-	Code          string             `json:"code"`
 	AccountID     int64              `json:"account_id"`
 	Type          AccountAddressType `json:"type"`
 	FullName      string             `json:"full_name"`
@@ -1011,7 +1013,6 @@ type AccountAddress struct {
 
 type AccountBase struct {
 	ID          int64              `json:"id"`
-	Code        string             `json:"code"`
 	Type        AccountType        `json:"type"`
 	Status      AccountStatus      `json:"status"`
 	Phone       pgtype.Text        `json:"phone"`
@@ -1096,7 +1097,6 @@ type CatalogCategory struct {
 
 type CatalogComment struct {
 	ID          int64                 `json:"id"`
-	Code        string                `json:"code"`
 	AccountID   int64                 `json:"account_id"`
 	RefType     CatalogCommentRefType `json:"ref_type"`
 	RefID       int64                 `json:"ref_id"`
@@ -1110,7 +1110,6 @@ type CatalogComment struct {
 
 type CatalogProductSku struct {
 	ID          int64              `json:"id"`
-	Code        string             `json:"code"`
 	SpuID       int64              `json:"spu_id"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
@@ -1120,7 +1119,6 @@ type CatalogProductSku struct {
 
 type CatalogProductSkuAttribute struct {
 	ID          int64              `json:"id"`
-	Code        string             `json:"code"`
 	SkuID       int64              `json:"sku_id"`
 	Name        string             `json:"name"`
 	Value       string             `json:"value"`
@@ -1181,8 +1179,7 @@ type InventoryStockHistory struct {
 
 type OrderBase struct {
 	ID            int64              `json:"id"`
-	Code          string             `json:"code"`
-	CustomerID    int64              `json:"customer_id"`
+	AccountID     int64              `json:"account_id"`
 	PaymentMethod OrderPaymentMethod `json:"payment_method"`
 	Status        SharedStatus       `json:"status"`
 	Address       string             `json:"address"`
@@ -1191,41 +1188,31 @@ type OrderBase struct {
 }
 
 type OrderInvoice struct {
-	ID              int64               `json:"id"`
-	Code            string              `json:"code"`
-	Type            OrderInvoiceType    `json:"type"`
-	RefType         OrderInvoiceRefType `json:"ref_type"`
-	RefID           int64               `json:"ref_id"`
-	SellerAccountID pgtype.Int8         `json:"seller_account_id"`
-	BuyerAccountID  int64               `json:"buyer_account_id"`
-	Status          SharedStatus        `json:"status"`
-	PaymentMethod   OrderPaymentMethod  `json:"payment_method"`
-	Address         string              `json:"address"`
-	Phone           string              `json:"phone"`
-	Subtotal        int64               `json:"subtotal"`
-	Total           int64               `json:"total"`
-	FileRsID        string              `json:"file_rs_id"`
-	DateCreated     pgtype.Timestamptz  `json:"date_created"`
-	Hash            []byte              `json:"hash"`
-	PrevHash        []byte              `json:"prev_hash"`
-}
-
-type OrderInvoiceItem struct {
-	ID        int64  `json:"id"`
-	InvoiceID int64  `json:"invoice_id"`
-	Snapshot  []byte `json:"snapshot"`
-	Quantity  int64  `json:"quantity"`
-	UnitPrice int64  `json:"unit_price"`
-	Subtotal  int64  `json:"subtotal"`
-	Total     int64  `json:"total"`
+	ID            int64               `json:"id"`
+	Type          OrderInvoiceType    `json:"type"`
+	RefType       OrderInvoiceRefType `json:"ref_type"`
+	RefID         int64               `json:"ref_id"`
+	IssuerID      pgtype.Int8         `json:"issuer_id"`
+	ReceiverID    int64               `json:"receiver_id"`
+	Status        SharedStatus        `json:"status"`
+	PaymentMethod OrderPaymentMethod  `json:"payment_method"`
+	Address       string              `json:"address"`
+	Phone         string              `json:"phone"`
+	Note          pgtype.Text         `json:"note"`
+	Metadata      []byte              `json:"metadata"`
+	Subtotal      int64               `json:"subtotal"`
+	Total         int64               `json:"total"`
+	FileRsID      string              `json:"file_rs_id"`
+	DateCreated   pgtype.Timestamptz  `json:"date_created"`
+	Hash          []byte              `json:"hash"`
+	PrevHash      []byte              `json:"prev_hash"`
 }
 
 type OrderItem struct {
-	ID       int64  `json:"id"`
-	Code     string `json:"code"`
-	OrderID  int64  `json:"order_id"`
-	SkuID    int64  `json:"sku_id"`
-	Quantity int64  `json:"quantity"`
+	ID       int64 `json:"id"`
+	OrderID  int64 `json:"order_id"`
+	SkuID    int64 `json:"sku_id"`
+	Quantity int64 `json:"quantity"`
 }
 
 type OrderItemSerial struct {
@@ -1236,7 +1223,6 @@ type OrderItemSerial struct {
 
 type OrderRefund struct {
 	ID           int64              `json:"id"`
-	Code         string             `json:"code"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	Method       OrderRefundMethod  `json:"method"`
@@ -1248,7 +1234,6 @@ type OrderRefund struct {
 
 type OrderRefundDispute struct {
 	ID          int64              `json:"id"`
-	Code        string             `json:"code"`
 	RefundID    int64              `json:"refund_id"`
 	IssuedByID  int64              `json:"issued_by_id"`
 	Reason      string             `json:"reason"`
@@ -1293,6 +1278,7 @@ type PromotionBase struct {
 
 type PromotionDiscount struct {
 	ID              int64       `json:"id"`
+	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
