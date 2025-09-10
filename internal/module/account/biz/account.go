@@ -26,7 +26,7 @@ func NewAccountBiz(storage *pgutil.Storage, promotionBiz *promotionbiz.Promotion
 	}
 }
 
-type FindParams struct {
+type FindAccountParams struct {
 	ID       *int64
 	Code     *string
 	Username *string
@@ -34,7 +34,7 @@ type FindParams struct {
 	Phone    *string
 }
 
-func (s *AccountBiz) Find(ctx context.Context, params FindParams) (db.AccountBase, error) {
+func (s *AccountBiz) FindAccount(ctx context.Context, params FindAccountParams) (db.AccountBase, error) {
 	if params.Code == nil && params.Username == nil && params.Email == nil && params.Phone == nil && params.ID == nil {
 		return db.AccountBase{}, fmt.Errorf("at least one of username, email, or phone must be provided")
 	}
@@ -55,7 +55,7 @@ func (s *AccountBiz) Find(ctx context.Context, params FindParams) (db.AccountBas
 	return account, nil
 }
 
-type CreateParams struct {
+type CreateAccountParams struct {
 	Type     db.AccountType
 	Username *string
 	Phone    *string
@@ -63,17 +63,42 @@ type CreateParams struct {
 	Password *string
 }
 
-func (s *AccountBiz) Create(ctx context.Context, params CreateParams) error {
-	_, err := s.storage.CreateCopyDefaultAccountBase(ctx, []db.CreateCopyDefaultAccountBaseParams{{
+func (s *AccountBiz) CreateAccount(ctx context.Context, params CreateAccountParams) (db.AccountBase, error) {
+	account, err := s.storage.CreateDefaultAccountBase(ctx, db.CreateDefaultAccountBaseParams{
 		Type:     params.Type,
 		Phone:    pgutil.PtrToPgtype(params.Phone, pgutil.StringToPgText),
 		Email:    pgutil.PtrToPgtype(params.Email, pgutil.StringToPgText),
 		Username: pgutil.PtrToPgtype(params.Username, pgutil.StringToPgText),
 		Password: pgutil.PtrToPgtype(params.Password, pgutil.StringToPgText),
-	}})
+	})
 	if err != nil {
-		return err
+		return db.AccountBase{}, err
 	}
 
-	return nil
+	return account, nil
+}
+
+type UpdateAccountParams struct {
+	ID       int64
+	Status   *db.AccountStatus
+	Username *string
+	Phone    *string
+	Email    *string
+	Password *string
+}
+
+func (s *AccountBiz) UpdateAccount(ctx context.Context, params UpdateAccountParams) (db.AccountBase, error) {
+	account, err := s.storage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
+		ID:       params.ID,
+		Status:   *pgutil.PtrBrandedToPgType(&db.NullAccountStatus{}, params.Status),
+		Phone:    pgutil.PtrToPgtype(params.Phone, pgutil.StringToPgText),
+		Email:    pgutil.PtrToPgtype(params.Email, pgutil.StringToPgText),
+		Username: pgutil.PtrToPgtype(params.Username, pgutil.StringToPgText),
+		Password: pgutil.PtrToPgtype(params.Password, pgutil.StringToPgText),
+	})
+	if err != nil {
+		return db.AccountBase{}, err
+	}
+
+	return account, nil
 }

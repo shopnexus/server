@@ -54,7 +54,7 @@ func (h *Handler) GetAccount(c echo.Context) error {
 
 	fmt.Println(req)
 
-	result, err := h.biz.Find(c.Request().Context(), accountbiz.FindParams{
+	result, err := h.biz.FindAccount(c.Request().Context(), accountbiz.FindAccountParams{
 		Username: req.Username,
 		Email:    req.Email,
 		Phone:    req.Phone,
@@ -80,7 +80,7 @@ func (h *Handler) GetMe(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.Find(c.Request().Context(), accountbiz.FindParams{
+	result, err := h.biz.FindAccount(c.Request().Context(), accountbiz.FindAccountParams{
 		ID: &claims.Account.ID,
 	})
 	if err != nil {
