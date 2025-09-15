@@ -1,26 +1,48 @@
-enum ResourceType {
+enum ResourceRefType {
   Account
   ProductSpu
   ProductSku
   Brand
   Refund
   ReturnDispute
+  Comment
 
-  @@map("resource_type")
+  @@map("resource_ref_type")
   @@schema("shared")
 }
 
-// TODO: should catch "remove" event and remove them in s3; https://chatgpt.com/c/67bea496-7388-800f-a564-9641dc54c520
+// TODO: should catch "remove" event and remove them in s3;
 model Resource {
-  id         BigInt       @id @default(autoincrement())
-  mime_type  String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
-  owner_id   BigInt
-  owner_type ResourceType // Must have owner type to identify the resource because same id can be used for different types
-  url        String
-  order      Int
+  id   BigInt @id @default(autoincrement())
+  code String @unique // unique code for the resource to identify on third party host (s3, cloudinary, or on local, etc.), e.g. "invoice_1234567890", "photo_1234567890", etc.
 
-  @@index([owner_id, owner_type])
+  mime        String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
+  url         String
+  file_size   BigInt?
+  width       Int? // for images
+  height      Int? // for images
+  duration    Float? // for videos/audio
+  checksum    String?
+  uploaded_by BigInt?
+  status      Status   @default(Pending)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+
+  author  Account? @relation("resource_upload_by", fields: [uploaded_by], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  profile Profile? @relation("profile_avatar")
+
   @@map("resource")
+  @@schema("shared")
+}
+
+model ResourceReference {
+  id         BigInt          @id @default(autoincrement())
+  rs_id      BigInt
+  ref_type   ResourceRefType
+  ref_id     BigInt
+  order      Int
+  is_primary Boolean
+
+  @@map("resource_reference")
   @@schema("shared")
 }
 

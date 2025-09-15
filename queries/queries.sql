@@ -130,6 +130,26 @@ SET "type" = COALESCE(sqlc.narg('type'), "type"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteAccountBase :exec
+DELETE FROM "account"."base"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("email" = ANY(sqlc.slice('email')) OR sqlc.slice('email') IS NULL) AND
+    ("username" = ANY(sqlc.slice('username')) OR sqlc.slice('username') IS NULL) AND
+    ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
 -- name: DeleteBatchAccountBase :batchexec
 DELETE FROM "account"."base"
 WHERE ("id" = sqlc.narg('id')) OR ("phone" = sqlc.narg('phone')) OR ("email" = sqlc.narg('email')) OR ("username" = sqlc.narg('username'));
@@ -274,6 +294,30 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteAccountProfile :exec
+DELETE FROM "account"."profile"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
+    ("avatar_rs_id" >= sqlc.narg('avatar_rs_id_from') OR sqlc.narg('avatar_rs_id_from') IS NULL) AND
+    ("avatar_rs_id" <= sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
+    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
 -- name: DeleteBatchAccountProfile :batchexec
 DELETE FROM "account"."profile"
 WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
@@ -387,6 +431,23 @@ SET "default_address_id" = CASE WHEN sqlc.arg('null_default_address_id')::bool =
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteAccountCustomer :exec
+DELETE FROM "account"."customer"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("default_address_id" = ANY(sqlc.slice('default_address_id')) OR sqlc.slice('default_address_id') IS NULL) AND
+    ("default_address_id" >= sqlc.narg('default_address_id_from') OR sqlc.narg('default_address_id_from') IS NULL) AND
+    ("default_address_id" <= sqlc.narg('default_address_id_to') OR sqlc.narg('default_address_id_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
 -- name: DeleteBatchAccountCustomer :batchexec
 DELETE FROM "account"."customer"
 WHERE ("id" = sqlc.narg('id'));
@@ -471,6 +532,15 @@ RETURNING *;
 UPDATE "account"."vendor"
 SET "description" = COALESCE(sqlc.narg('description'), "description")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteAccountVendor :exec
+DELETE FROM "account"."vendor"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
+);
 
 -- name: DeleteBatchAccountVendor :batchexec
 DELETE FROM "account"."vendor"
@@ -615,6 +685,30 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteAccountIncomeHistory :exec
+DELETE FROM "account"."income_history"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("income" = ANY(sqlc.slice('income')) OR sqlc.slice('income') IS NULL) AND
+    ("income" >= sqlc.narg('income_from') OR sqlc.narg('income_from') IS NULL) AND
+    ("income" <= sqlc.narg('income_to') OR sqlc.narg('income_to') IS NULL) AND
+    ("current_balance" = ANY(sqlc.slice('current_balance')) OR sqlc.slice('current_balance') IS NULL) AND
+    ("current_balance" >= sqlc.narg('current_balance_from') OR sqlc.narg('current_balance_from') IS NULL) AND
+    ("current_balance" <= sqlc.narg('current_balance_to') OR sqlc.narg('current_balance_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
+    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+);
 
 -- name: DeleteBatchAccountIncomeHistory :batchexec
 DELETE FROM "account"."income_history"
@@ -768,6 +862,32 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_scheduled" = CASE WHEN sqlc.arg('null_date_scheduled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_scheduled'), "date_scheduled") END
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteAccountNotification :exec
+DELETE FROM "account"."notification"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("channel" = ANY(sqlc.slice('channel')) OR sqlc.slice('channel') IS NULL) AND
+    ("is_read" = ANY(sqlc.slice('is_read')) OR sqlc.slice('is_read') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("date_sent" = ANY(sqlc.slice('date_sent')) OR sqlc.slice('date_sent') IS NULL) AND
+    ("date_sent" >= sqlc.narg('date_sent_from') OR sqlc.narg('date_sent_from') IS NULL) AND
+    ("date_sent" <= sqlc.narg('date_sent_to') OR sqlc.narg('date_sent_to') IS NULL) AND
+    ("date_scheduled" = ANY(sqlc.slice('date_scheduled')) OR sqlc.slice('date_scheduled') IS NULL) AND
+    ("date_scheduled" >= sqlc.narg('date_scheduled_from') OR sqlc.narg('date_scheduled_from') IS NULL) AND
+    ("date_scheduled" <= sqlc.narg('date_scheduled_to') OR sqlc.narg('date_scheduled_to') IS NULL)
+);
+
 -- name: DeleteBatchAccountNotification :batchexec
 DELETE FROM "account"."notification"
 WHERE ("id" = sqlc.narg('id'));
@@ -903,6 +1023,29 @@ SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteAccountCartItem :exec
+DELETE FROM "account"."cart_item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
+    ("cart_id" >= sqlc.narg('cart_id_from') OR sqlc.narg('cart_id_from') IS NULL) AND
+    ("cart_id" <= sqlc.narg('cart_id_to') OR sqlc.narg('cart_id_to') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("sku_id" >= sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
+    ("sku_id" <= sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
 -- name: DeleteBatchAccountCartItem :batchexec
 DELETE FROM "account"."cart_item"
 WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
@@ -1017,13 +1160,13 @@ INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "ph
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultAccountAddress :one
-INSERT INTO "account"."address" ("account_id", "full_name", "phone", "address_line", "city", "state_province", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "address_line", "city", "state_province", "country")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyDefaultAccountAddress :copyfrom
-INSERT INTO "account"."address" ("account_id", "full_name", "phone", "address_line", "city", "state_province", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "address_line", "city", "state_province", "country")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateAccountAddress :one
 UPDATE "account"."address"
@@ -1055,6 +1198,31 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteAccountAddress :exec
+DELETE FROM "account"."address"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("address_line" = ANY(sqlc.slice('address_line')) OR sqlc.slice('address_line') IS NULL) AND
+    ("city" = ANY(sqlc.slice('city')) OR sqlc.slice('city') IS NULL) AND
+    ("state_province" = ANY(sqlc.slice('state_province')) OR sqlc.slice('state_province') IS NULL) AND
+    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
 
 -- name: DeleteBatchAccountAddress :batchexec
 DELETE FROM "account"."address"
@@ -1145,6 +1313,15 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "description" = COALESCE(sqlc.narg('description'), "description")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteCatalogBrand :exec
+DELETE FROM "catalog"."brand"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL)
+);
+
 -- name: DeleteBatchCatalogBrand :batchexec
 DELETE FROM "catalog"."brand"
 WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
@@ -1220,13 +1397,13 @@ INSERT INTO "catalog"."category" ("name", "description", "parent_id")
 VALUES ($1, $2, $3);
 
 -- name: CreateDefaultCatalogCategory :one
-INSERT INTO "catalog"."category" ("name", "parent_id")
-VALUES ($1, $2)
+INSERT INTO "catalog"."category" ("name", "description", "parent_id")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogCategory :copyfrom
-INSERT INTO "catalog"."category" ("name", "parent_id")
-VALUES ($1, $2);
+INSERT INTO "catalog"."category" ("name", "description", "parent_id")
+VALUES ($1, $2, $3);
 
 -- name: UpdateCatalogCategory :one
 UPDATE "catalog"."category"
@@ -1242,6 +1419,18 @@ SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "parent_id" = CASE WHEN sqlc.arg('null_parent_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('parent_id'), "parent_id") END
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogCategory :exec
+DELETE FROM "catalog"."category"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL) AND
+    ("parent_id" >= sqlc.narg('parent_id_from') OR sqlc.narg('parent_id_from') IS NULL) AND
+    ("parent_id" <= sqlc.narg('parent_id_to') OR sqlc.narg('parent_id_to') IS NULL)
+);
 
 -- name: DeleteBatchCatalogCategory :batchexec
 DELETE FROM "catalog"."category"
@@ -1375,13 +1564,13 @@ INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateCatalogProductSpu :one
 UPDATE "catalog"."product_spu"
@@ -1413,6 +1602,37 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogProductSpu :exec
+DELETE FROM "catalog"."product_spu"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
+    ("category_id" >= sqlc.narg('category_id_from') OR sqlc.narg('category_id_from') IS NULL) AND
+    ("category_id" <= sqlc.narg('category_id_to') OR sqlc.narg('category_id_to') IS NULL) AND
+    ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
+    ("brand_id" >= sqlc.narg('brand_id_from') OR sqlc.narg('brand_id_from') IS NULL) AND
+    ("brand_id" <= sqlc.narg('brand_id_to') OR sqlc.narg('brand_id_to') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("date_manufactured" = ANY(sqlc.slice('date_manufactured')) OR sqlc.slice('date_manufactured') IS NULL) AND
+    ("date_manufactured" >= sqlc.narg('date_manufactured_from') OR sqlc.narg('date_manufactured_from') IS NULL) AND
+    ("date_manufactured" <= sqlc.narg('date_manufactured_to') OR sqlc.narg('date_manufactured_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+);
 
 -- name: DeleteBatchCatalogProductSpu :batchexec
 DELETE FROM "catalog"."product_spu"
@@ -1516,13 +1736,13 @@ INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_cre
 VALUES ($1, $2, $3, $4, $5);
 
 -- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "date_deleted")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_deleted")
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "date_deleted")
-VALUES ($1, $2, $3);
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_deleted")
+VALUES ($1, $2, $3, $4);
 
 -- name: UpdateCatalogProductSku :one
 UPDATE "catalog"."product_sku"
@@ -1542,6 +1762,27 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogProductSku :exec
+DELETE FROM "catalog"."product_sku"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
+    ("spu_id" >= sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
+    ("spu_id" <= sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
+    ("price" >= sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
+    ("price" <= sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
+    ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+);
 
 -- name: DeleteBatchCatalogProductSku :batchexec
 DELETE FROM "catalog"."product_sku"
@@ -1666,6 +1907,25 @@ SET "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteCatalogProductSkuAttribute :exec
+DELETE FROM "catalog"."product_sku_attribute"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("sku_id" >= sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
+    ("sku_id" <= sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("value" = ANY(sqlc.slice('value')) OR sqlc.slice('value') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
 -- name: DeleteBatchCatalogProductSkuAttribute :batchexec
 DELETE FROM "catalog"."product_sku_attribute"
 WHERE ("id" = sqlc.narg('id'));
@@ -1732,13 +1992,13 @@ INSERT INTO "catalog"."tag" ("tag", "description")
 VALUES ($1, $2);
 
 -- name: CreateDefaultCatalogTag :one
-INSERT INTO "catalog"."tag" ("tag")
-VALUES ($1)
+INSERT INTO "catalog"."tag" ("tag", "description")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogTag :copyfrom
-INSERT INTO "catalog"."tag" ("tag")
-VALUES ($1);
+INSERT INTO "catalog"."tag" ("tag", "description")
+VALUES ($1, $2);
 
 -- name: UpdateCatalogTag :one
 UPDATE "catalog"."tag"
@@ -1752,6 +2012,15 @@ UPDATE "catalog"."tag"
 SET "tag" = COALESCE(sqlc.narg('tag'), "tag"),
     "description" = COALESCE(sqlc.narg('description'), "description")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogTag :exec
+DELETE FROM "catalog"."tag"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
+);
 
 -- name: DeleteBatchCatalogTag :batchexec
 DELETE FROM "catalog"."tag"
@@ -1854,6 +2123,20 @@ UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "tag_id" = COALESCE(sqlc.narg('tag_id'), "tag_id")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogProductSpuTag :exec
+DELETE FROM "catalog"."product_spu_tag"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
+    ("spu_id" >= sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
+    ("spu_id" <= sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("tag_id" = ANY(sqlc.slice('tag_id')) OR sqlc.slice('tag_id') IS NULL) AND
+    ("tag_id" >= sqlc.narg('tag_id_from') OR sqlc.narg('tag_id_from') IS NULL) AND
+    ("tag_id" <= sqlc.narg('tag_id_to') OR sqlc.narg('tag_id_to') IS NULL)
+);
 
 -- name: DeleteBatchCatalogProductSpuTag :batchexec
 DELETE FROM "catalog"."product_spu_tag"
@@ -1984,13 +2267,13 @@ INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "up
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultCatalogComment :one
-INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogComment :copyfrom
-INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateCatalogComment :one
 UPDATE "catalog"."comment"
@@ -2018,6 +2301,36 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteCatalogComment :exec
+DELETE FROM "catalog"."comment"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
+    ("upvote" >= sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
+    ("upvote" <= sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
+    ("downvote" = ANY(sqlc.slice('downvote')) OR sqlc.slice('downvote') IS NULL) AND
+    ("downvote" >= sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
+    ("downvote" <= sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
+    ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
 
 -- name: DeleteBatchCatalogComment :batchexec
 DELETE FROM "catalog"."comment"
@@ -2130,6 +2443,22 @@ SET "serial_number" = COALESCE(sqlc.narg('serial_number'), "serial_number"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteInventorySkuSerial :exec
+DELETE FROM "inventory"."sku_serial"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("serial_number" = ANY(sqlc.slice('serial_number')) OR sqlc.slice('serial_number') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("sku_id" >= sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
+    ("sku_id" <= sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
 
 -- name: DeleteBatchInventorySkuSerial :batchexec
 DELETE FROM "inventory"."sku_serial"
@@ -2260,6 +2589,27 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteInventoryStock :exec
+DELETE FROM "inventory"."stock"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("current_stock" = ANY(sqlc.slice('current_stock')) OR sqlc.slice('current_stock') IS NULL) AND
+    ("current_stock" >= sqlc.narg('current_stock_from') OR sqlc.narg('current_stock_from') IS NULL) AND
+    ("current_stock" <= sqlc.narg('current_stock_to') OR sqlc.narg('current_stock_to') IS NULL) AND
+    ("sold" = ANY(sqlc.slice('sold')) OR sqlc.slice('sold') IS NULL) AND
+    ("sold" >= sqlc.narg('sold_from') OR sqlc.narg('sold_from') IS NULL) AND
+    ("sold" <= sqlc.narg('sold_to') OR sqlc.narg('sold_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
 -- name: DeleteBatchInventoryStock :batchexec
 DELETE FROM "inventory"."stock"
 WHERE ("id" = sqlc.narg('id')) OR ("ref_id" = sqlc.narg('ref_id') AND "ref_type" = sqlc.narg('ref_type'));
@@ -2373,6 +2723,23 @@ SET "stock_id" = COALESCE(sqlc.narg('stock_id'), "stock_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteInventoryStockHistory :exec
+DELETE FROM "inventory"."stock_history"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
+    ("stock_id" >= sqlc.narg('stock_id_from') OR sqlc.narg('stock_id_from') IS NULL) AND
+    ("stock_id" <= sqlc.narg('stock_id_to') OR sqlc.narg('stock_id_to') IS NULL) AND
+    ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
+    ("change" >= sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
+    ("change" <= sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
 -- name: DeleteBatchInventoryStockHistory :batchexec
 DELETE FROM "inventory"."stock_history"
 WHERE ("id" = sqlc.narg('id'));
@@ -2469,13 +2836,13 @@ INSERT INTO "order"."base" ("account_id", "payment_method", "status", "address",
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_method", "status", "address")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "order"."base" ("account_id", "payment_method", "address")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderBase :copyfrom
-INSERT INTO "order"."base" ("account_id", "payment_method", "status", "address")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "order"."base" ("account_id", "payment_method", "address")
+VALUES ($1, $2, $3);
 
 -- name: UpdateOrderBase :one
 UPDATE "order"."base"
@@ -2497,6 +2864,25 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteOrderBase :exec
+DELETE FROM "order"."base"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("payment_method" = ANY(sqlc.slice('payment_method')) OR sqlc.slice('payment_method') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
 
 -- name: DeleteBatchOrderBase :batchexec
 DELETE FROM "order"."base"
@@ -2611,6 +2997,23 @@ SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteOrderItem :exec
+DELETE FROM "order"."item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
+    ("order_id" >= sqlc.narg('order_id_from') OR sqlc.narg('order_id_from') IS NULL) AND
+    ("order_id" <= sqlc.narg('order_id_to') OR sqlc.narg('order_id_to') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("sku_id" >= sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
+    ("sku_id" <= sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
+);
+
 -- name: DeleteBatchOrderItem :batchexec
 DELETE FROM "order"."item"
 WHERE ("id" = sqlc.narg('id'));
@@ -2712,6 +3115,20 @@ UPDATE "order"."item_serial"
 SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "product_serial_id" = COALESCE(sqlc.narg('product_serial_id'), "product_serial_id")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteOrderItemSerial :exec
+DELETE FROM "order"."item_serial"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_item_id" >= sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
+    ("order_item_id" <= sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
+    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL) AND
+    ("product_serial_id" >= sqlc.narg('product_serial_id_from') OR sqlc.narg('product_serial_id_from') IS NULL) AND
+    ("product_serial_id" <= sqlc.narg('product_serial_id_to') OR sqlc.narg('product_serial_id_to') IS NULL)
+);
 
 -- name: DeleteBatchOrderItemSerial :batchexec
 DELETE FROM "order"."item_serial"
@@ -2815,6 +3232,14 @@ SET "vnp_Amount" = COALESCE(sqlc.narg('vnp_Amount'), "vnp_Amount"),
     "vnp_TxnRef" = COALESCE(sqlc.narg('vnp_TxnRef'), "vnp_TxnRef")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteOrderVnpay :exec
+DELETE FROM "order"."vnpay"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL)
+);
+
 -- name: DeleteBatchOrderVnpay :batchexec
 DELETE FROM "order"."vnpay"
 WHERE ("id" = sqlc.narg('id'));
@@ -2911,13 +3336,13 @@ INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "stat
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "status", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderRefund :copyfrom
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "status", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateOrderRefund :one
 UPDATE "order"."refund"
@@ -2941,6 +3366,25 @@ SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "address" = CASE WHEN sqlc.arg('null_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('address'), "address") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteOrderRefund :exec
+DELETE FROM "order"."refund"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_item_id" >= sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
+    ("order_item_id" <= sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
+    ("reviewed_by_id" = ANY(sqlc.slice('reviewed_by_id')) OR sqlc.slice('reviewed_by_id') IS NULL) AND
+    ("reviewed_by_id" >= sqlc.narg('reviewed_by_id_from') OR sqlc.narg('reviewed_by_id_from') IS NULL) AND
+    ("reviewed_by_id" <= sqlc.narg('reviewed_by_id_to') OR sqlc.narg('reviewed_by_id_to') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
 
 -- name: DeleteBatchOrderRefund :batchexec
 DELETE FROM "order"."refund"
@@ -3044,13 +3488,13 @@ INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "st
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultOrderRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "date_updated")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderRefundDispute :copyfrom
-INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "date_updated")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason")
+VALUES ($1, $2, $3);
 
 -- name: UpdateOrderRefundDispute :one
 UPDATE "order"."refund_dispute"
@@ -3072,6 +3516,27 @@ SET "refund_id" = COALESCE(sqlc.narg('refund_id'), "refund_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteOrderRefundDispute :exec
+DELETE FROM "order"."refund_dispute"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("refund_id" = ANY(sqlc.slice('refund_id')) OR sqlc.slice('refund_id') IS NULL) AND
+    ("refund_id" >= sqlc.narg('refund_id_from') OR sqlc.narg('refund_id_from') IS NULL) AND
+    ("refund_id" <= sqlc.narg('refund_id_to') OR sqlc.narg('refund_id_to') IS NULL) AND
+    ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
+    ("issued_by_id" >= sqlc.narg('issued_by_id_from') OR sqlc.narg('issued_by_id_from') IS NULL) AND
+    ("issued_by_id" <= sqlc.narg('issued_by_id_to') OR sqlc.narg('issued_by_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
 
 -- name: DeleteBatchOrderRefundDispute :batchexec
 DELETE FROM "order"."refund_dispute"
@@ -3096,26 +3561,15 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
     ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
-    ("issuer_id" = ANY(sqlc.slice('issuer_id')) OR sqlc.slice('issuer_id') IS NULL) AND
-    ("issuer_id" >= sqlc.narg('issuer_id_from') OR sqlc.narg('issuer_id_from') IS NULL) AND
-    ("issuer_id" <= sqlc.narg('issuer_id_to') OR sqlc.narg('issuer_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
     ("receiver_id" >= sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
     ("receiver_id" <= sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("payment_method" = ANY(sqlc.slice('payment_method')) OR sqlc.slice('payment_method') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("subtotal" = ANY(sqlc.slice('subtotal')) OR sqlc.slice('subtotal') IS NULL) AND
-    ("subtotal" >= sqlc.narg('subtotal_from') OR sqlc.narg('subtotal_from') IS NULL) AND
-    ("subtotal" <= sqlc.narg('subtotal_to') OR sqlc.narg('subtotal_to') IS NULL) AND
-    ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -3131,26 +3585,15 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
     ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
-    ("issuer_id" = ANY(sqlc.slice('issuer_id')) OR sqlc.slice('issuer_id') IS NULL) AND
-    ("issuer_id" >= sqlc.narg('issuer_id_from') OR sqlc.narg('issuer_id_from') IS NULL) AND
-    ("issuer_id" <= sqlc.narg('issuer_id_to') OR sqlc.narg('issuer_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
     ("receiver_id" >= sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
     ("receiver_id" <= sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("payment_method" = ANY(sqlc.slice('payment_method')) OR sqlc.slice('payment_method') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("subtotal" = ANY(sqlc.slice('subtotal')) OR sqlc.slice('subtotal') IS NULL) AND
-    ("subtotal" >= sqlc.narg('subtotal_from') OR sqlc.narg('subtotal_from') IS NULL) AND
-    ("subtotal" <= sqlc.narg('subtotal_to') OR sqlc.narg('subtotal_to') IS NULL) AND
-    ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -3165,26 +3608,15 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
     ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
-    ("issuer_id" = ANY(sqlc.slice('issuer_id')) OR sqlc.slice('issuer_id') IS NULL) AND
-    ("issuer_id" >= sqlc.narg('issuer_id_from') OR sqlc.narg('issuer_id_from') IS NULL) AND
-    ("issuer_id" <= sqlc.narg('issuer_id_to') OR sqlc.narg('issuer_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
     ("receiver_id" >= sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
     ("receiver_id" <= sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("payment_method" = ANY(sqlc.slice('payment_method')) OR sqlc.slice('payment_method') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("subtotal" = ANY(sqlc.slice('subtotal')) OR sqlc.slice('subtotal') IS NULL) AND
-    ("subtotal" >= sqlc.narg('subtotal_from') OR sqlc.narg('subtotal_from') IS NULL) AND
-    ("subtotal" <= sqlc.narg('subtotal_to') OR sqlc.narg('subtotal_to') IS NULL) AND
-    ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -3197,43 +3629,36 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderInvoice :one
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchOrderInvoice :batchone
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyOrderInvoice :copyfrom
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultOrderInvoice :one
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderInvoice :copyfrom
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateOrderInvoice :one
 UPDATE "order"."invoice"
-SET "type" = COALESCE(sqlc.narg('type'), "type"),
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
-    "issuer_id" = CASE WHEN sqlc.arg('null_issuer_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('issuer_id'), "issuer_id") END,
+    "type" = COALESCE(sqlc.narg('type'), "type"),
     "receiver_id" = COALESCE(sqlc.narg('receiver_id'), "receiver_id"),
-    "status" = COALESCE(sqlc.narg('status'), "status"),
-    "payment_method" = COALESCE(sqlc.narg('payment_method'), "payment_method"),
-    "address" = COALESCE(sqlc.narg('address'), "address"),
-    "phone" = COALESCE(sqlc.narg('phone'), "phone"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
-    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
-    "subtotal" = COALESCE(sqlc.narg('subtotal'), "subtotal"),
-    "total" = COALESCE(sqlc.narg('total'), "total"),
+    "data" = COALESCE(sqlc.narg('data'), "data"),
     "file_rs_id" = COALESCE(sqlc.narg('file_rs_id'), "file_rs_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
@@ -3243,24 +3668,39 @@ RETURNING *;
 
 -- name: UpdateBatchOrderInvoice :batchexec
 UPDATE "order"."invoice"
-SET "type" = COALESCE(sqlc.narg('type'), "type"),
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
-    "issuer_id" = CASE WHEN sqlc.arg('null_issuer_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('issuer_id'), "issuer_id") END,
+    "type" = COALESCE(sqlc.narg('type'), "type"),
     "receiver_id" = COALESCE(sqlc.narg('receiver_id'), "receiver_id"),
-    "status" = COALESCE(sqlc.narg('status'), "status"),
-    "payment_method" = COALESCE(sqlc.narg('payment_method'), "payment_method"),
-    "address" = COALESCE(sqlc.narg('address'), "address"),
-    "phone" = COALESCE(sqlc.narg('phone'), "phone"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
-    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
-    "subtotal" = COALESCE(sqlc.narg('subtotal'), "subtotal"),
-    "total" = COALESCE(sqlc.narg('total'), "total"),
+    "data" = COALESCE(sqlc.narg('data'), "data"),
     "file_rs_id" = COALESCE(sqlc.narg('file_rs_id'), "file_rs_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "hash" = COALESCE(sqlc.narg('hash'), "hash"),
     "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteOrderInvoice :exec
+DELETE FROM "order"."invoice"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
+    ("receiver_id" >= sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
+    ("receiver_id" <= sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
+    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+);
 
 -- name: DeleteBatchOrderInvoice :batchexec
 DELETE FROM "order"."invoice"
@@ -3409,13 +3849,13 @@ INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type"
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultPromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateCopyDefaultPromotionBase :copyfrom
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: UpdatePromotionBase :one
 UPDATE "promotion"."base"
@@ -3455,6 +3895,42 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
+
+-- name: DeletePromotionBase :exec
+DELETE FROM "promotion"."base"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
+    ("owner_id" >= sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
+    ("owner_id" <= sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
+    ("date_started" >= sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
+    ("date_started" <= sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
+    ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
+    ("date_ended" >= sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
+    ("date_ended" <= sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
+    ("schedule_start" = ANY(sqlc.slice('schedule_start')) OR sqlc.slice('schedule_start') IS NULL) AND
+    ("schedule_start" >= sqlc.narg('schedule_start_from') OR sqlc.narg('schedule_start_from') IS NULL) AND
+    ("schedule_start" <= sqlc.narg('schedule_start_to') OR sqlc.narg('schedule_start_to') IS NULL) AND
+    ("schedule_duration" = ANY(sqlc.slice('schedule_duration')) OR sqlc.slice('schedule_duration') IS NULL) AND
+    ("schedule_duration" >= sqlc.narg('schedule_duration_from') OR sqlc.narg('schedule_duration_from') IS NULL) AND
+    ("schedule_duration" <= sqlc.narg('schedule_duration_to') OR sqlc.narg('schedule_duration_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
 
 -- name: DeleteBatchPromotionBase :batchexec
 DELETE FROM "promotion"."base"
@@ -3558,13 +4034,13 @@ INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discou
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultPromotionDiscount :one
-INSERT INTO "promotion"."discount" ("id", "order_wide", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultPromotionDiscount :copyfrom
-INSERT INTO "promotion"."discount" ("id", "order_wide", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdatePromotionDiscount :one
 UPDATE "promotion"."discount"
@@ -3585,6 +4061,27 @@ SET "order_wide" = COALESCE(sqlc.narg('order_wide'), "order_wide"),
     "discount_price" = CASE WHEN sqlc.arg('null_discount_price')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_price'), "discount_price") END
 WHERE id = sqlc.arg('id');
 
+-- name: DeletePromotionDiscount :exec
+DELETE FROM "promotion"."discount"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("order_wide" = ANY(sqlc.slice('order_wide')) OR sqlc.slice('order_wide') IS NULL) AND
+    ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
+    ("min_spend" >= sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
+    ("min_spend" <= sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
+    ("max_discount" = ANY(sqlc.slice('max_discount')) OR sqlc.slice('max_discount') IS NULL) AND
+    ("max_discount" >= sqlc.narg('max_discount_from') OR sqlc.narg('max_discount_from') IS NULL) AND
+    ("max_discount" <= sqlc.narg('max_discount_to') OR sqlc.narg('max_discount_to') IS NULL) AND
+    ("discount_percent" = ANY(sqlc.slice('discount_percent')) OR sqlc.slice('discount_percent') IS NULL) AND
+    ("discount_percent" >= sqlc.narg('discount_percent_from') OR sqlc.narg('discount_percent_from') IS NULL) AND
+    ("discount_percent" <= sqlc.narg('discount_percent_to') OR sqlc.narg('discount_percent_to') IS NULL) AND
+    ("discount_price" = ANY(sqlc.slice('discount_price')) OR sqlc.slice('discount_price') IS NULL) AND
+    ("discount_price" >= sqlc.narg('discount_price_from') OR sqlc.narg('discount_price_from') IS NULL) AND
+    ("discount_price" <= sqlc.narg('discount_price_to') OR sqlc.narg('discount_price_to') IS NULL)
+);
+
 -- name: DeleteBatchPromotionDiscount :batchexec
 DELETE FROM "promotion"."discount"
 WHERE ("id" = sqlc.narg('id'));
@@ -3598,7 +4095,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetSharedResource :one
 SELECT *
 FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
 
 -- name: ExistsSharedResource :one
 SELECT EXISTS (
@@ -3608,13 +4105,26 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" >= sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" <= sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("owner_type" = ANY(sqlc.slice('owner_type')) OR sqlc.slice('owner_type') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
+    ("file_size" >= sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
+    ("file_size" <= sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
+    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
+    ("width" >= sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
+    ("width" <= sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
+    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
+    ("height" >= sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
+    ("height" <= sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" >= sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" <= sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 )
 ) as exists;
 
@@ -3625,13 +4135,26 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" >= sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" <= sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("owner_type" = ANY(sqlc.slice('owner_type')) OR sqlc.slice('owner_type') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
+    ("file_size" >= sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
+    ("file_size" <= sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
+    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
+    ("width" >= sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
+    ("width" <= sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
+    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
+    ("height" >= sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
+    ("height" <= sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" >= sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" <= sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 );
 
 -- name: ListSharedResource :many
@@ -3641,13 +4164,26 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" >= sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" <= sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("owner_type" = ANY(sqlc.slice('owner_type')) OR sqlc.slice('owner_type') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
+    ("file_size" >= sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
+    ("file_size" <= sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
+    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
+    ("width" >= sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
+    ("width" <= sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
+    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
+    ("height" >= sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
+    ("height" <= sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" >= sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" <= sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -3655,49 +4191,231 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
-SET "mime_type" = COALESCE(sqlc.narg('mime_type'), "mime_type"),
-    "owner_id" = COALESCE(sqlc.narg('owner_id'), "owner_id"),
-    "owner_type" = COALESCE(sqlc.narg('owner_type'), "owner_type"),
+SET "code" = COALESCE(sqlc.narg('code'), "code"),
+    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
     "url" = COALESCE(sqlc.narg('url'), "url"),
-    "order" = COALESCE(sqlc.narg('order'), "order")
+    "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
+    "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
+    "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
+    "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
+    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
+    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchSharedResource :batchexec
 UPDATE "shared"."resource"
-SET "mime_type" = COALESCE(sqlc.narg('mime_type'), "mime_type"),
-    "owner_id" = COALESCE(sqlc.narg('owner_id'), "owner_id"),
-    "owner_type" = COALESCE(sqlc.narg('owner_type'), "owner_type"),
+SET "code" = COALESCE(sqlc.narg('code'), "code"),
+    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
     "url" = COALESCE(sqlc.narg('url'), "url"),
-    "order" = COALESCE(sqlc.narg('order'), "order")
+    "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
+    "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
+    "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
+    "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
+    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
+    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteSharedResource :exec
+DELETE FROM "shared"."resource"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
+    ("file_size" >= sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
+    ("file_size" <= sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
+    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
+    ("width" >= sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
+    ("width" <= sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
+    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
+    ("height" >= sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
+    ("height" <= sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" >= sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" <= sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+);
 
 -- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
+WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+
+-- ========================================
+
+-- Queries for table: shared.resource_reference
+
+-- ========================================
+
+-- name: GetSharedResourceReference :one
+SELECT *
+FROM "shared"."resource_reference"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsSharedResourceReference :one
+SELECT EXISTS (
+SELECT 1
+FROM "shared"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("rs_id" >= sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
+    ("rs_id" <= sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+)
+) as exists;
+
+-- name: CountSharedResourceReference :one
+SELECT COUNT(*)
+FROM "shared"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("rs_id" >= sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
+    ("rs_id" <= sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+);
+
+-- name: ListSharedResourceReference :many
+SELECT *
+FROM "shared"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("rs_id" >= sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
+    ("rs_id" <= sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateSharedResourceReference :one
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateBatchSharedResourceReference :batchone
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopySharedResourceReference :copyfrom
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CreateDefaultSharedResourceReference :one
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyDefaultSharedResourceReference :copyfrom
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: UpdateSharedResourceReference :one
+UPDATE "shared"."resource_reference"
+SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
+    "order" = COALESCE(sqlc.narg('order'), "order"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchSharedResourceReference :batchexec
+UPDATE "shared"."resource_reference"
+SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
+    "order" = COALESCE(sqlc.narg('order'), "order"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteSharedResourceReference :exec
+DELETE FROM "shared"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("rs_id" >= sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
+    ("rs_id" <= sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" >= sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" <= sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+);
+
+-- name: DeleteBatchSharedResourceReference :batchexec
+DELETE FROM "shared"."resource_reference"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
@@ -3835,6 +4553,29 @@ SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL 
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
+-- name: DeleteSystemEvent :exec
+DELETE FROM "system"."event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" >= sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" <= sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("aggregate_id" = ANY(sqlc.slice('aggregate_id')) OR sqlc.slice('aggregate_id') IS NULL) AND
+    ("aggregate_id" >= sqlc.narg('aggregate_id_from') OR sqlc.narg('aggregate_id_from') IS NULL) AND
+    ("aggregate_id" <= sqlc.narg('aggregate_id_to') OR sqlc.narg('aggregate_id_to') IS NULL) AND
+    ("aggregate_type" = ANY(sqlc.slice('aggregate_type')) OR sqlc.slice('aggregate_type') IS NULL) AND
+    ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
+    ("payload" = ANY(sqlc.slice('payload')) OR sqlc.slice('payload') IS NULL) AND
+    ("version" = ANY(sqlc.slice('version')) OR sqlc.slice('version') IS NULL) AND
+    ("version" >= sqlc.narg('version_from') OR sqlc.narg('version_from') IS NULL) AND
+    ("version" <= sqlc.narg('version_to') OR sqlc.narg('version_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
 -- name: DeleteBatchSystemEvent :batchexec
 DELETE FROM "system"."event"
 WHERE ("id" = sqlc.narg('id'));
@@ -3930,6 +4671,18 @@ UPDATE "system"."search_sync"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "last_synced" = COALESCE(sqlc.narg('last_synced'), "last_synced")
 WHERE id = sqlc.arg('id');
+
+-- name: DeleteSystemSearchSync :exec
+DELETE FROM "system"."search_sync"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" >= sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" <= sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("last_synced" = ANY(sqlc.slice('last_synced')) OR sqlc.slice('last_synced') IS NULL) AND
+    ("last_synced" >= sqlc.narg('last_synced_from') OR sqlc.narg('last_synced_from') IS NULL) AND
+    ("last_synced" <= sqlc.narg('last_synced_to') OR sqlc.narg('last_synced_to') IS NULL)
+);
 
 -- name: DeleteBatchSystemSearchSync :batchexec
 DELETE FROM "system"."search_sync"

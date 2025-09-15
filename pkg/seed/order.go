@@ -23,7 +23,6 @@ type PaymentSeedData struct {
 	Refunds          []db.OrderRefund
 	RefundDisputes   []db.OrderRefundDispute
 	Invoices         []db.OrderInvoice
-	InvoiceItems     []db.OrderInvoiceItem
 }
 
 // SeedPaymentSchema seeds the payment schema with fake data
@@ -41,7 +40,6 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		Refunds:          make([]db.OrderRefund, 0),
 		RefundDisputes:   make([]db.OrderRefundDispute, 0),
 		Invoices:         make([]db.OrderInvoice, 0),
-		InvoiceItems:     make([]db.OrderInvoiceItem, 0),
 	}
 
 	if len(accountData.Customers) == 0 || len(catalogData.ProductSkus) == 0 {
@@ -53,7 +51,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	statuses := db.AllSharedStatusValues()
 
 	// Prepare bulk order data
-	orderParams := make([]db.CreateOrderBaseParams, cfg.OrderCount)
+	orderParams := make([]db.CreateCopyOrderBaseParams, cfg.OrderCount)
 	for i := 0; i < cfg.OrderCount; i++ {
 		customer := accountData.Customers[fake.RandomDigit()%len(accountData.Customers)]
 		customerAddress := ""
@@ -71,7 +69,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			customerAddress = fake.Address().Address()
 		}
 
-		orderParams[i] = db.CreateOrderBaseParams{
+		orderParams[i] = db.CreateCopyOrderBaseParams{
 			AccountID:     customer.ID,
 			PaymentMethod: paymentMethods[fake.RandomDigit()%len(paymentMethods)],
 			Status:        statuses[fake.RandomDigit()%len(statuses)],
@@ -82,7 +80,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	}
 
 	// Bulk insert orders
-	_, err := storage.CreateOrderBase(ctx, orderParams)
+	_, err := storage.CreateCopyOrderBase(ctx, orderParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create orders: %w", err)
 	}
@@ -100,13 +98,12 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	data.Orders = orders
 
 	// Prepare bulk order items and related data
-	var orderItemParams []db.CreateOrderItemParams
-	var orderItemSerialParams []db.CreateOrderItemSerialParams
-	var vnpayParams []db.CreateOrderVnpayParams
-	var refundParams []db.CreateOrderRefundParams
-	var refundDisputeParams []db.CreateOrderRefundDisputeParams
-	var invoiceParams []db.CreateOrderInvoiceParams
-	var invoiceItemParams []db.CreateOrderInvoiceItemParams
+	var orderItemParams []db.CreateCopyOrderItemParams
+	var orderItemSerialParams []db.CreateCopyOrderItemSerialParams
+	var vnpayParams []db.CreateCopyOrderVnpayParams
+	var refundParams []db.CreateCopyOrderRefundParams
+	var refundDisputeParams []db.CreateCopyOrderRefundDisputeParams
+	var invoiceParams []db.CreateCopyOrderInvoiceParams
 
 	orderTotals := make(map[int64]int64) // order ID -> total
 
@@ -115,12 +112,12 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		itemCount := fake.RandomDigit()%5 + 1
 		orderTotal := int64(0)
 
-		var currentOrderItems []db.CreateOrderItemParams
+		var currentOrderItems []db.CreateCopyOrderItemParams
 		for j := 0; j < itemCount; j++ {
 			sku := catalogData.ProductSkus[fake.RandomDigit()%len(catalogData.ProductSkus)]
 			quantity := int64(fake.RandomDigit()%3 + 1) // 1-3 items
 
-			orderItemParam := db.CreateOrderItemParams{
+			orderItemParam := db.CreateCopyOrderItemParams{
 				OrderID:  order.ID,
 				SkuID:    sku.ID,
 				Quantity: quantity,
@@ -146,7 +143,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				for k := 0; k < serialsToAssign; k++ {
 					serial := availableSerials[k]
 					// Store with item code as temporary reference
-					orderItemSerialParams = append(orderItemSerialParams, db.CreateOrderItemSerialParams{
+					orderItemSerialParams = append(orderItemSerialParams, db.CreateCopyOrderItemSerialParams{
 						OrderItemID:     0, // Will be filled after order item creation
 						ProductSerialID: serial.ID,
 					})
@@ -158,7 +155,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 		// Prepare VNPay payment for Card/EWallet orders (50% chance)
 		if (order.PaymentMethod == "Card" || order.PaymentMethod == "EWallet") && fake.Boolean().Bool() {
-			vnpayParams = append(vnpayParams, db.CreateOrderVnpayParams{
+			vnpayParams = append(vnpayParams, db.CreateCopyOrderVnpayParams{
 				ID:                   order.ID,
 				VnpAmount:            fmt.Sprintf("%d", orderTotal),
 				VnpBankCode:          fake.Payment().CreditCardType(),
@@ -191,7 +188,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 					refundAddress = fake.Address().Address()
 				}
 
-				refundParams = append(refundParams, db.CreateOrderRefundParams{
+				refundParams = append(refundParams, db.CreateCopyOrderRefundParams{
 					OrderItemID:  orderItem.ID,
 					ReviewedByID: pgtype.Int8{Int64: ptr.DerefDefault(reviewerID, 0), Valid: reviewerID != nil},
 					Method:       refundMethods[fake.RandomDigit()%len(refundMethods)],
@@ -203,42 +200,11 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			}
 		}
 
-		// Prepare invoice for completed orders
-		if order.Status == "Success" {
-			invoiceTypes := db.AllOrderInvoiceTypeValues()
-			customer := getCustomerByID(accountData.Customers, order.AccountID)
-
-			// Generate hash for this invoice
-			hash := []byte(fake.Hash().SHA256())
-			var prevHash []byte
-			if len(invoiceParams) > 0 {
-				prevHash = invoiceParams[len(invoiceParams)-1].Hash // Use previous invoice's hash
-			} else {
-				prevHash = []byte("genesis") // First invoice
-			}
-
-			invoiceParams = append(invoiceParams, db.CreateOrderInvoiceParams{
-				Type:           invoiceTypes[fake.RandomDigit()%len(invoiceTypes)],
-				RefType:        "Order",
-				RefID:          order.ID,
-				BuyerAccountID: customer.ID,
-				Status:         "Success",
-				PaymentMethod:  order.PaymentMethod,
-				Address:        order.Address,
-				Phone:          generateUniquePhoneWithTracker(fake, tracker),
-				Subtotal:       orderTotal,
-				Total:          orderTotal - int64(fake.RandomDigit()%100), // Small discount
-				FileRsID:       fake.UUID().V4(),
-				Hash:           hash,
-				PrevHash:       prevHash,
-				DateCreated:    pgtype.Timestamptz{Time: time.Now(), Valid: true},
-			})
-		}
 	}
 
 	// Bulk insert order items
 	if len(orderItemParams) > 0 {
-		_, err = storage.CreateOrderItem(ctx, orderItemParams)
+		_, err = storage.CreateCopyOrderItem(ctx, orderItemParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create order items: %w", err)
 		}
@@ -284,7 +250,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	// Bulk insert order item serials
 	if len(orderItemSerialParams) > 0 {
 		// Filter out serials without valid order item IDs
-		validSerialParams := make([]db.CreateOrderItemSerialParams, 0)
+		validSerialParams := make([]db.CreateCopyOrderItemSerialParams, 0)
 		for _, serial := range orderItemSerialParams {
 			if serial.OrderItemID > 0 {
 				validSerialParams = append(validSerialParams, serial)
@@ -292,7 +258,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 
 		if len(validSerialParams) > 0 {
-			_, err = storage.CreateOrderItemSerial(ctx, validSerialParams)
+			_, err = storage.CreateCopyOrderItemSerial(ctx, validSerialParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to bulk create order item serials: %w", err)
 			}
@@ -313,7 +279,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert VNPay payments
 	if len(vnpayParams) > 0 {
-		_, err = storage.CreateOrderVnpay(ctx, vnpayParams)
+		_, err = storage.CreateCopyOrderVnpay(ctx, vnpayParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create VNPay payments: %w", err)
 		}
@@ -333,7 +299,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert refunds
 	if len(refundParams) > 0 {
-		_, err = storage.CreateOrderRefund(ctx, refundParams)
+		_, err = storage.CreateCopyOrderRefund(ctx, refundParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create refunds: %w", err)
 		}
@@ -352,7 +318,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		for _, refund := range data.Refunds {
 			if fake.RandomDigit()%5 == 0 && len(accountData.Vendors) > 0 {
 				vendor := accountData.Vendors[fake.RandomDigit()%len(accountData.Vendors)]
-				refundDisputeParams = append(refundDisputeParams, db.CreateOrderRefundDisputeParams{
+				refundDisputeParams = append(refundDisputeParams, db.CreateCopyOrderRefundDisputeParams{
 					RefundID:    refund.ID,
 					IssuedByID:  vendor.ID,
 					Reason:      generateDisputeReason(fake),
@@ -366,7 +332,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 
 	// Bulk insert refund disputes
 	if len(refundDisputeParams) > 0 {
-		_, err = storage.CreateOrderRefundDispute(ctx, refundDisputeParams)
+		_, err = storage.CreateCopyOrderRefundDispute(ctx, refundDisputeParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create refund disputes: %w", err)
 		}
@@ -384,9 +350,88 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		data.RefundDisputes = refundDisputes
 	}
 
+	// Create invoices for completed orders after order items are created
+	for _, order := range data.Orders {
+		if order.Status == "Success" {
+			invoiceTypes := db.AllOrderInvoiceTypeValues()
+			customer := getCustomerByID(accountData.Customers, order.AccountID)
+			account := getAccountByID(accountData.Accounts, order.AccountID)
+			profile := getProfileByID(accountData.Profiles, order.AccountID)
+
+			// Generate hash for this invoice
+			hash := []byte(fake.Hash().SHA256())
+			var prevHash []byte
+			if len(invoiceParams) > 0 {
+				prevHash = invoiceParams[len(invoiceParams)-1].Hash // Use previous invoice's hash
+			} else {
+				prevHash = []byte("genesis") // First invoice
+			}
+
+			// Create comprehensive invoice data
+			invoiceData := map[string]interface{}{
+				"customer": map[string]interface{}{
+					"id":    customer.ID,
+					"name":  profile.Name,
+					"email": account.Email,
+					"phone": generateUniquePhoneWithTracker(fake, tracker),
+				},
+				"order": map[string]interface{}{
+					"id":             order.ID,
+					"payment_method": order.PaymentMethod,
+					"address":        order.Address,
+					"date_created":   order.DateCreated.Time,
+				},
+				"items": []map[string]interface{}{},
+				"totals": map[string]interface{}{
+					"subtotal": orderTotals[order.ID],
+					"total":    orderTotals[order.ID] - int64(fake.RandomDigit()%100), // Small discount
+				},
+			}
+
+			// Add order items to invoice data
+			for _, orderItem := range data.OrderItems {
+				if orderItem.OrderID == order.ID {
+					sku := getSKUByID(catalogData.ProductSkus, orderItem.SkuID)
+					if sku != nil {
+						spu := getSPUByID(catalogData.ProductSpus, sku.SpuID)
+						itemData := map[string]interface{}{
+							"sku_id":     sku.ID,
+							"quantity":   orderItem.Quantity,
+							"unit_price": sku.Price,
+							"subtotal":   sku.Price * orderItem.Quantity,
+						}
+						if spu != nil {
+							itemData["product_name"] = spu.Name
+						}
+						invoiceData["items"] = append(invoiceData["items"].([]map[string]interface{}), itemData)
+					}
+				}
+			}
+
+			// Marshal invoice data to JSON
+			invoiceDataJSON, err := json.Marshal(invoiceData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal invoice data: %w", err)
+			}
+
+			invoiceParams = append(invoiceParams, db.CreateCopyOrderInvoiceParams{
+				RefType:     "Order",
+				RefID:       order.ID,
+				Type:        invoiceTypes[fake.RandomDigit()%len(invoiceTypes)],
+				ReceiverID:  customer.ID,
+				Note:        pgtype.Text{String: fmt.Sprintf("Invoice for order #%d", order.ID), Valid: true},
+				Data:        invoiceDataJSON,
+				FileRsID:    fake.UUID().V4(),
+				Hash:        hash,
+				PrevHash:    prevHash,
+				DateCreated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			})
+		}
+	}
+
 	// Bulk insert invoices
 	if len(invoiceParams) > 0 {
-		_, err = storage.CreateOrderInvoice(ctx, invoiceParams)
+		_, err = storage.CreateCopyOrderInvoice(ctx, invoiceParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create invoices: %w", err)
 		}
@@ -400,64 +445,13 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			return nil, fmt.Errorf("failed to query back created invoices: %w", err)
 		}
 
-		// Populate data.Invoices and prepare invoice items
+		// Populate data.Invoices with actual database records
 		data.Invoices = invoices
-		for _, invoice := range data.Invoices {
-			for _, orderItem := range data.OrderItems {
-				if orderItem.OrderID == invoice.RefID {
-					sku := getSKUByID(catalogData.ProductSkus, orderItem.SkuID)
-					if sku != nil {
-						spu := getSPUByID(catalogData.ProductSpus, sku.SpuID)
-						snapshotData := map[string]interface{}{
-							"product_name": "",
-							"price":        sku.Price,
-						}
-						if spu != nil {
-							snapshotData["product_name"] = spu.Name
-						}
-						snapshotMarshal, _ := json.Marshal(snapshotData)
-
-						unitPrice := sku.Price
-						subtotal := unitPrice * orderItem.Quantity
-						total := subtotal
-
-						invoiceItemParams = append(invoiceItemParams, db.CreateOrderInvoiceItemParams{
-							InvoiceID: invoice.ID,
-							Snapshot:  snapshotMarshal,
-							Quantity:  orderItem.Quantity,
-							UnitPrice: unitPrice,
-							Subtotal:  subtotal,
-							Total:     total,
-						})
-					}
-				}
-			}
-		}
 	}
 
-	// Bulk insert invoice items
-	if len(invoiceItemParams) > 0 {
-		_, err = storage.CreateOrderInvoiceItem(ctx, invoiceItemParams)
-		if err != nil {
-			return nil, fmt.Errorf("failed to bulk create invoice items: %w", err)
-		}
-
-		// Query back created invoice items
-		invoiceItems, err := storage.ListOrderInvoiceItem(ctx, db.ListOrderInvoiceItemParams{
-			Limit:  pgutil.Int32ToPgInt4(int32(len(invoiceItemParams) * 2)),
-			Offset: pgutil.Int32ToPgInt4(0),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to query back created invoice items: %w", err)
-		}
-
-		// Populate data.InvoiceItems with actual database records
-		data.InvoiceItems = invoiceItems
-	}
-
-	fmt.Printf("✅ Payment schema seeded: %d orders, %d order items, %d order serials, %d vnpay payments, %d refunds, %d disputes, %d invoices, %d invoice items\n",
+	fmt.Printf("✅ Payment schema seeded: %d orders, %d order items, %d order serials, %d vnpay payments, %d refunds, %d disputes, %d invoices\n",
 		len(data.Orders), len(data.OrderItems), len(data.OrderItemSerials), len(data.VnpayPayments),
-		len(data.Refunds), len(data.RefundDisputes), len(data.Invoices), len(data.InvoiceItems))
+		len(data.Refunds), len(data.RefundDisputes), len(data.Invoices))
 
 	return data, nil
 }
@@ -485,6 +479,24 @@ func getCustomerByID(customers []db.AccountCustomer, id int64) *db.AccountCustom
 	for _, customer := range customers {
 		if customer.ID == id {
 			return &customer
+		}
+	}
+	return nil
+}
+
+func getAccountByID(accounts []db.AccountBase, id int64) *db.AccountBase {
+	for _, account := range accounts {
+		if account.ID == id {
+			return &account
+		}
+	}
+	return nil
+}
+
+func getProfileByID(profiles []db.AccountProfile, id int64) *db.AccountProfile {
+	for _, profile := range profiles {
+		if profile.ID == id {
+			return &profile
 		}
 	}
 	return nil

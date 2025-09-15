@@ -59,7 +59,7 @@ CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'Bundle', 'BuyXGetY', 'Cashb
 CREATE TYPE "promotion"."ref_type" AS ENUM ('All', 'ProductSpu', 'ProductSku', 'Category', 'Brand');
 
 -- CreateEnum
-CREATE TYPE "shared"."resource_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute');
+CREATE TYPE "shared"."resource_ref_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
 
 -- CreateEnum
 CREATE TYPE "shared"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
@@ -162,7 +162,7 @@ CREATE TABLE "account"."cart_item" (
 CREATE TABLE "account"."address" (
     "id" BIGSERIAL NOT NULL,
     "account_id" BIGINT NOT NULL,
-    "type" "account"."address_type" NOT NULL DEFAULT 'Home',
+    "type" "account"."address_type" NOT NULL,
     "full_name" VARCHAR(100) NOT NULL,
     "phone" VARCHAR(30) NOT NULL,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
@@ -190,7 +190,7 @@ CREATE TABLE "catalog"."brand" (
 CREATE TABLE "catalog"."category" (
     "id" BIGSERIAL NOT NULL,
     "name" VARCHAR(100) NOT NULL,
-    "description" TEXT NOT NULL DEFAULT '',
+    "description" TEXT NOT NULL,
     "parent_id" BIGINT,
 
     CONSTRAINT "category_pkey" PRIMARY KEY ("id")
@@ -205,7 +205,7 @@ CREATE TABLE "catalog"."product_spu" (
     "brand_id" BIGINT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_active" BOOLEAN NOT NULL,
     "date_manufactured" TIMESTAMPTZ(3) NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -219,7 +219,7 @@ CREATE TABLE "catalog"."product_sku" (
     "id" BIGSERIAL NOT NULL,
     "spu_id" BIGINT NOT NULL,
     "price" BIGINT NOT NULL,
-    "can_combine" BOOLEAN NOT NULL DEFAULT false,
+    "can_combine" BOOLEAN NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_deleted" TIMESTAMPTZ(3),
 
@@ -242,7 +242,7 @@ CREATE TABLE "catalog"."product_sku_attribute" (
 CREATE TABLE "catalog"."tag" (
     "id" BIGSERIAL NOT NULL,
     "tag" VARCHAR(50) NOT NULL,
-    "description" TEXT NOT NULL DEFAULT '',
+    "description" TEXT NOT NULL,
 
     CONSTRAINT "tag_pkey" PRIMARY KEY ("id")
 );
@@ -265,7 +265,7 @@ CREATE TABLE "catalog"."comment" (
     "body" TEXT NOT NULL,
     "upvote" BIGINT NOT NULL DEFAULT 0,
     "downvote" BIGINT NOT NULL DEFAULT 0,
-    "score" INTEGER NOT NULL DEFAULT 0,
+    "score" INTEGER NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -310,7 +310,7 @@ CREATE TABLE "order"."base" (
     "id" BIGSERIAL NOT NULL,
     "account_id" BIGINT NOT NULL,
     "payment_method" "order"."payment_method" NOT NULL,
-    "status" "shared"."status" NOT NULL,
+    "status" "shared"."status" NOT NULL DEFAULT 'Pending',
     "address" TEXT NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -361,7 +361,7 @@ CREATE TABLE "order"."refund" (
     "order_item_id" BIGINT NOT NULL,
     "reviewed_by_id" BIGINT,
     "method" "order"."refund_method" NOT NULL,
-    "status" "shared"."status" NOT NULL,
+    "status" "shared"."status" NOT NULL DEFAULT 'Pending',
     "reason" TEXT NOT NULL,
     "address" TEXT,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -377,7 +377,7 @@ CREATE TABLE "order"."refund_dispute" (
     "reason" TEXT NOT NULL,
     "status" "shared"."status" NOT NULL DEFAULT 'Pending',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL,
+    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "refund_dispute_pkey" PRIMARY KEY ("id")
 );
@@ -385,19 +385,12 @@ CREATE TABLE "order"."refund_dispute" (
 -- CreateTable
 CREATE TABLE "order"."invoice" (
     "id" BIGSERIAL NOT NULL,
-    "type" "order"."invoice_type" NOT NULL,
     "ref_type" "order"."invoice_ref_type" NOT NULL,
     "ref_id" BIGINT NOT NULL,
-    "issuer_id" BIGINT,
+    "type" "order"."invoice_type" NOT NULL,
     "receiver_id" BIGINT NOT NULL,
-    "status" "shared"."status" NOT NULL,
-    "payment_method" "order"."payment_method" NOT NULL,
-    "address" TEXT NOT NULL,
-    "phone" TEXT NOT NULL,
     "note" TEXT,
-    "metadata" JSONB NOT NULL,
-    "subtotal" BIGINT NOT NULL,
-    "total" BIGINT NOT NULL,
+    "data" JSONB NOT NULL,
     "file_rs_id" TEXT NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "hash" BYTEA NOT NULL,
@@ -416,14 +409,14 @@ CREATE TABLE "promotion"."base" (
     "type" "promotion"."type" NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "date_started" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "is_active" BOOLEAN NOT NULL,
+    "date_started" TIMESTAMPTZ(3) NOT NULL,
     "date_ended" TIMESTAMPTZ(3),
     "schedule_tz" TEXT,
     "schedule_start" TIMESTAMPTZ(3),
     "schedule_duration" INTEGER,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL,
+    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "base_pkey" PRIMARY KEY ("id")
 );
@@ -432,8 +425,8 @@ CREATE TABLE "promotion"."base" (
 CREATE TABLE "promotion"."discount" (
     "id" BIGINT NOT NULL,
     "order_wide" BOOLEAN NOT NULL,
-    "min_spend" BIGINT NOT NULL DEFAULT 0,
-    "max_discount" BIGINT NOT NULL DEFAULT 0,
+    "min_spend" BIGINT NOT NULL,
+    "max_discount" BIGINT NOT NULL,
     "discount_percent" INTEGER,
     "discount_price" BIGINT,
 
@@ -443,13 +436,31 @@ CREATE TABLE "promotion"."discount" (
 -- CreateTable
 CREATE TABLE "shared"."resource" (
     "id" BIGSERIAL NOT NULL,
-    "mime_type" TEXT NOT NULL,
-    "owner_id" BIGINT NOT NULL,
-    "owner_type" "shared"."resource_type" NOT NULL,
+    "code" TEXT NOT NULL,
+    "mime" TEXT NOT NULL,
     "url" TEXT NOT NULL,
-    "order" INTEGER NOT NULL,
+    "file_size" BIGINT,
+    "width" INTEGER,
+    "height" INTEGER,
+    "duration" DOUBLE PRECISION,
+    "checksum" TEXT,
+    "uploaded_by" BIGINT,
+    "status" "shared"."status" NOT NULL DEFAULT 'Pending',
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "resource_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "shared"."resource_reference" (
+    "id" BIGSERIAL NOT NULL,
+    "rs_id" BIGINT NOT NULL,
+    "ref_type" "shared"."resource_ref_type" NOT NULL,
+    "ref_id" BIGINT NOT NULL,
+    "order" INTEGER NOT NULL,
+    "is_primary" BOOLEAN NOT NULL,
+
+    CONSTRAINT "resource_reference_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -614,9 +625,6 @@ CREATE INDEX "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute"("issu
 CREATE UNIQUE INDEX "invoice_hash_key" ON "order"."invoice"("hash");
 
 -- CreateIndex
-CREATE INDEX "invoice_issuer_id_idx" ON "order"."invoice"("issuer_id");
-
--- CreateIndex
 CREATE INDEX "invoice_receiver_id_idx" ON "order"."invoice"("receiver_id");
 
 -- CreateIndex
@@ -626,7 +634,7 @@ CREATE INDEX "invoice_ref_type_ref_id_idx" ON "order"."invoice"("ref_type", "ref
 CREATE UNIQUE INDEX "base_code_key" ON "promotion"."base"("code");
 
 -- CreateIndex
-CREATE INDEX "resource_owner_id_owner_type_idx" ON "shared"."resource"("owner_id", "owner_type");
+CREATE UNIQUE INDEX "resource_code_key" ON "shared"."resource"("code");
 
 -- CreateIndex
 CREATE INDEX "event_aggregate_id_aggregate_type_idx" ON "system"."event"("aggregate_id", "aggregate_type");
@@ -639,6 +647,9 @@ CREATE INDEX "search_sync_last_synced_idx" ON "system"."search_sync"("last_synce
 
 -- AddForeignKey
 ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_avatar_rs_id_fkey" FOREIGN KEY ("avatar_rs_id") REFERENCES "shared"."resource"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "account"."customer" ADD CONSTRAINT "customer_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -722,10 +733,16 @@ ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_refund_id_fk
 ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_issued_by_id_fkey" FOREIGN KEY ("issued_by_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "order"."invoice" ADD CONSTRAINT "invoice_receiver_id_fkey" FOREIGN KEY ("receiver_id") REFERENCES "account"."base"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "promotion"."base" ADD CONSTRAINT "base_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "promotion"."discount" ADD CONSTRAINT "discount_id_fkey" FOREIGN KEY ("id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shared"."resource" ADD CONSTRAINT "resource_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "account"."base"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "system"."event" ADD CONSTRAINT "event_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."base"("id") ON DELETE SET NULL ON UPDATE CASCADE;

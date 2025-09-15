@@ -50,6 +50,8 @@ model Account {
   events           Event[]
   notifications    Notification[]
   comments         Comment[]
+  invoices         Invoice[]
+  upload_resources Resource[]     @relation("resource_upload_by")
 
   @@map("base")
   @@schema("account")
@@ -67,7 +69,8 @@ model Profile {
   date_created   DateTime  @default(now()) @db.Timestamptz(3)
   date_updated   DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 
-  account Account @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  account Account   @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  avatar  Resource? @relation("profile_avatar", fields: [avatar_rs_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   @@map("profile")
   @@schema("account")
@@ -175,7 +178,7 @@ model Address {
   id         BigInt @id @default(autoincrement())
   account_id BigInt
 
-  type           AddressType @default(Home)
+  type           AddressType
   full_name      String      @db.VarChar(100)
   phone          String      @db.VarChar(30)
   phone_verified Boolean     @default(false) // If true, phone number is verified; if the phone same as account phone, then it is verified by default

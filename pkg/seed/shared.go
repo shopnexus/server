@@ -3,18 +3,23 @@ package seed
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"sync"
+	"time"
+
+	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/internal/db"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jaswdr/faker/v2"
 )
 
 // SharedSeedData holds seeded shared data for other seeders to reference
 type SharedSeedData struct {
-	Resources []db.SharedResource
+	Resources          []db.SharedResource
+	ResourceReferences []db.SharedResourceReference
 }
 
 // SeedSharedSchema seeds the shared schema with fake data
@@ -25,16 +30,16 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	// tracker := NewUniqueTracker()
 
 	data := &SharedSeedData{
-		Resources: make([]db.SharedResource, 0),
+		Resources:          make([]db.SharedResource, 0),
+		ResourceReferences: make([]db.SharedResourceReference, 0),
 	}
 
-	resourceTypes := db.AllSharedResourceTypeValues()
 	mimeTypes := []string{
 		"image/jpeg", "image/png", "image/gif", "image/webp",
 		"application/pdf", "text/plain", "application/json",
 	}
 
-	// CreateAccount resources
+	// Create resources
 	resourceCount := cfg.AccountCount + cfg.ProductCount // Resources for avatars and product images
 	resourceParams := make([]db.CreateCopySharedResourceParams, resourceCount)
 
@@ -44,22 +49,35 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	}
 
 	for i := 0; i < resourceCount; i++ {
-		resourceType := resourceTypes[fake.RandomDigit()%len(resourceTypes)]
 		mimeType := mimeTypes[fake.RandomDigit()%len(mimeTypes)]
 
-		// Ensure image mime types for image-related resources
-		//imageMimeTypes := []string{"image/jpeg", "image/png", "image/gif", "image/webp"}
-		//mimeType = imageMimeTypes[fake.RandomDigit()%len(imageMimeTypes)]
+		// Generate unique code for each resource
+		code := fmt.Sprintf("resource_%d_%d", i+1, fake.RandomDigit()%10000)
 
-		ownerID := int64(fake.RandomDigit()%1000 + 1) // Random owner ID
-		order := fake.RandomDigit() % 10              // Order for multiple resources of same owner
+		// Generate file metadata
+		fileSize := int64(fake.RandomDigit()%1000000 + 100000) // 100KB - 1MB
+		width := int32(400)
+		height := int32(400)
+		if mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/gif" || mimeType == "image/webp" {
+			width = int32(fake.RandomDigit()%800 + 200)  // 200-1000px
+			height = int32(fake.RandomDigit()%800 + 200) // 200-1000px
+		}
+
+		checksum := fake.Hash().SHA256()
+		uploadedBy := int64(fake.RandomDigit()%1000 + 1) // Random uploader ID
 
 		resourceParams[i] = db.CreateCopySharedResourceParams{
-			MimeType:  mimeType,
-			OwnerID:   ownerID,
-			OwnerType: resourceType,
-			Url:       imagesUrls[i],
-			Order:     int32(order),
+			Status:     db.SharedStatusSuccess,
+			CreatedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			Duration:   pgutil.Float64ToPgFloat8(0),
+			Code:       code,
+			Mime:       mimeType,
+			Url:        imagesUrls[i],
+			FileSize:   pgutil.Int64ToPgInt8(fileSize),
+			Width:      pgutil.Int32ToPgInt4(width),
+			Height:     pgutil.Int32ToPgInt4(height),
+			Checksum:   pgutil.StringToPgText(checksum),
+			UploadedBy: pgutil.Int64ToPgInt8(uploadedBy),
 		}
 	}
 
@@ -81,7 +99,75 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	// Populate data.Resources with actual database records
 	data.Resources = resources
 
-	fmt.Printf("✅ Shared schema seeded: %d resources\n", len(data.Resources))
+	// Create resource references to link resources with other entities
+	var resourceRefParams []db.CreateCopySharedResourceReferenceParams
+
+	// Create references for accounts (avatars)
+	for i := 0; i < cfg.AccountCount && i < len(data.Resources); i++ {
+		resource := data.Resources[i]
+		resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+			RsID:      resource.ID,
+			RefType:   "Account",
+			RefID:     int64(i + 1), // Account ID
+			Order:     int32(0),
+			IsPrimary: true, // Avatar is primary resource for account
+		})
+	}
+
+	// Create references for products (product images)
+	for i := cfg.AccountCount; i < cfg.AccountCount+cfg.ProductCount && i < len(data.Resources); i++ {
+		resource := data.Resources[i]
+		productID := int64(i - cfg.AccountCount + 1) // Product ID
+
+		// Create multiple references per product (main image + additional images)
+		refCount := fake.RandomDigit()%3 + 1 // 1-3 images per product
+		for j := 0; j < refCount; j++ {
+			resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+				RsID:      resource.ID,
+				RefType:   "ProductSpu",
+				RefID:     productID,
+				Order:     int32(j),
+				IsPrimary: j == 0, // First image is primary
+			})
+		}
+	}
+
+	// Create some additional references for other entity types
+	refTypes := db.AllSharedResourceRefTypeValues()
+	for i := 0; i < 50 && i < len(data.Resources); i++ { // Create 50 additional references
+		resource := data.Resources[i%len(data.Resources)]
+		refType := refTypes[fake.RandomDigit()%len(refTypes)]
+
+		resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+			RsID:      resource.ID,
+			RefType:   refType,
+			RefID:     int64(fake.RandomDigit()%1000 + 1), // Random ref ID
+			Order:     int32(fake.RandomDigit() % 10),
+			IsPrimary: fake.Boolean().Bool(), // Random primary flag
+		})
+	}
+
+	// Bulk insert resource references
+	if len(resourceRefParams) > 0 {
+		_, err = storage.CreateCopySharedResourceReference(ctx, resourceRefParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bulk create resource references: %w", err)
+		}
+
+		// Query back created resource references
+		resourceRefs, err := storage.ListSharedResourceReference(ctx, db.ListSharedResourceReferenceParams{
+			Limit:  pgutil.Int32ToPgInt4(int32(len(resourceRefParams) * 2)),
+			Offset: pgutil.Int32ToPgInt4(0),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query back created resource references: %w", err)
+		}
+
+		// Populate data.ResourceReferences with actual database records
+		data.ResourceReferences = resourceRefs
+	}
+
+	fmt.Printf("✅ Shared schema seeded: %d resources, %d resource references\n", len(data.Resources), len(data.ResourceReferences))
 	return data, nil
 }
 
@@ -103,12 +189,32 @@ func getFileExtension(mimeType string) string {
 	return "bin" // Default binary extension
 }
 
+var images []string
+
 func GetRandomImageURLs2(width, height, amount int) ([]string, error) {
-	urls := make([]string, amount)
-	for i := 0; i < amount; i++ {
-		urls[i] = fmt.Sprintf("https://picsum.photos/%d/%d", width, height)
+	var err error
+	if len(images) == 0 {
+		images, err = GetRandomImageURLs(width, height, amount)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return urls, nil
+
+	// take <amount> random images from images
+	selected := make([]string, amount)
+	perm := rand.Perm(len(images))
+	for i := 0; i < amount; i++ {
+		selected[i] = images[perm[i]]
+	}
+
+	if len(selected) < amount {
+		// If not enough images, repeat some
+		for i := len(selected); i < amount; i++ {
+			selected = append(selected, images[perm[i%len(images)]])
+		}
+	}
+
+	return selected, nil
 }
 
 func GetRandomImageURLs(width, height, amount int) ([]string, error) {
@@ -124,7 +230,7 @@ func GetRandomImageURLs(width, height, amount int) ([]string, error) {
 	}
 
 	// Semaphore channel to limit concurrency
-	maxConcurrency := 20
+	maxConcurrency := 1000
 	sem := make(chan struct{}, maxConcurrency)
 
 	for i := 0; i < amount; i++ {

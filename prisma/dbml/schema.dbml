@@ -79,7 +79,7 @@ Table CartItem {
 Table Address {
   id BigInt [pk, increment]
   account_id BigInt [not null]
-  type AddressType [not null, default: 'Home']
+  type AddressType [not null]
   full_name String [not null]
   phone String [not null]
   phone_verified Boolean [not null, default: false]
@@ -101,7 +101,7 @@ Table Brand {
 Table ProductCategory {
   id BigInt [pk, increment]
   name String [unique, not null]
-  description String [not null, default: '']
+  description String [not null]
   parent_id BigInt
 }
 
@@ -113,7 +113,7 @@ Table ProductSpu {
   brand_id BigInt [not null]
   name String [not null]
   description String [not null]
-  is_active Boolean [not null, default: true]
+  is_active Boolean [not null]
   date_manufactured DateTime [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
@@ -124,7 +124,7 @@ Table ProductSku {
   id BigInt [pk, increment]
   spu_id BigInt [not null]
   price BigInt [not null]
-  can_combine Boolean [not null, default: false]
+  can_combine Boolean [not null]
   date_created DateTime [default: `now()`, not null]
   date_deleted DateTime
 }
@@ -141,7 +141,7 @@ Table ProductSkuAttribute {
 Table Tag {
   id BigInt [pk, increment]
   tag String [unique, not null]
-  description String [not null, default: '']
+  description String [not null]
 }
 
 Table ProductTag {
@@ -162,7 +162,7 @@ Table Comment {
   body String [not null]
   upvote BigInt [not null, default: 0]
   downvote BigInt [not null, default: 0]
-  score Int [not null, default: 0]
+  score Int [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
@@ -199,7 +199,7 @@ Table Order {
   id BigInt [pk, increment]
   account_id BigInt [not null]
   payment_method PaymentMethod [not null]
-  status Status [not null]
+  status Status [not null, default: 'Pending']
   address String [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
@@ -242,7 +242,7 @@ Table Refund {
   order_item_id BigInt [not null]
   reviewed_by_id BigInt
   method RefundMethod [not null]
-  status Status [not null]
+  status Status [not null, default: 'Pending']
   reason String [not null]
   address String
   date_created DateTime [default: `now()`, not null]
@@ -255,24 +255,17 @@ Table RefundDispute {
   reason String [not null]
   status Status [not null, default: 'Pending']
   date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [not null]
+  date_updated DateTime [default: `now()`, not null]
 }
 
 Table Invoice {
   id BigInt [pk, increment]
-  type InvoiceType [not null]
   ref_type InvoiceRefType [not null]
   ref_id BigInt [not null]
-  issuer_id BigInt
+  type InvoiceType [not null]
   receiver_id BigInt [not null]
-  status Status [not null]
-  payment_method PaymentMethod [not null]
-  address String [not null]
-  phone String [not null]
   note String
-  metadata Json [not null]
-  subtotal BigInt [not null]
-  total BigInt [not null]
+  data Json [not null]
   file_rs_id String [not null]
   date_created DateTime [default: `now()`, not null]
   hash Bytes [unique, not null]
@@ -288,32 +281,47 @@ Table Promotion {
   type PromotionType [not null]
   title String [not null]
   description String
-  is_active Boolean [not null, default: true]
-  date_started DateTime [default: `now()`, not null]
+  is_active Boolean [not null]
+  date_started DateTime [not null]
   date_ended DateTime
   schedule_tz String
   schedule_start DateTime
   schedule_duration Int
   date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [not null]
+  date_updated DateTime [default: `now()`, not null]
 }
 
 Table PromotionDiscount {
   id BigInt [pk]
   order_wide Boolean [not null]
-  min_spend BigInt [not null, default: 0]
-  max_discount BigInt [not null, default: 0]
+  min_spend BigInt [not null]
+  max_discount BigInt [not null]
   discount_percent Int
   discount_price BigInt
 }
 
 Table Resource {
   id BigInt [pk, increment]
-  mime_type String [not null]
-  owner_id BigInt [not null]
-  owner_type ResourceType [not null]
+  code String [unique, not null]
+  mime String [not null]
   url String [not null]
+  file_size BigInt
+  width Int
+  height Int
+  duration Float
+  checksum String
+  uploaded_by BigInt
+  status Status [not null, default: 'Pending']
+  created_at DateTime [default: `now()`, not null]
+}
+
+Table ResourceReference {
+  id BigInt [pk, increment]
+  rs_id BigInt [not null]
+  ref_type ResourceRefType [not null]
+  ref_id BigInt [not null]
   order Int [not null]
+  is_primary Boolean [not null]
 }
 
 Table Event {
@@ -409,13 +417,14 @@ Enum PromotionRefType {
   Brand
 }
 
-Enum ResourceType {
+Enum ResourceRefType {
   Account
   ProductSpu
   ProductSku
   Brand
   Refund
   ReturnDispute
+  Comment
 }
 
 Enum Status {
@@ -433,6 +442,8 @@ Enum EventType {
 }
 
 Ref: Profile.id - Account.id [delete: Cascade]
+
+Ref: Profile.avatar_rs_id - Resource.id [delete: Set Null]
 
 Ref: Customer.id - Account.id [delete: Cascade]
 
@@ -488,8 +499,12 @@ Ref: RefundDispute.refund_id > Refund.id [delete: Cascade]
 
 Ref: RefundDispute.issued_by_id > Vendor.id [delete: No Action]
 
+Ref: Invoice.receiver_id > Account.id [delete: No Action]
+
 Ref: Promotion.owner_id > Vendor.id [delete: Set Null]
 
 Ref: PromotionDiscount.id > Promotion.id [delete: Cascade]
+
+Ref: Resource.uploaded_by > Account.id [delete: Set Null]
 
 Ref: Event.account_id > Account.id [delete: Set Null]

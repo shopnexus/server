@@ -3,7 +3,7 @@ model Order {
   account_id BigInt
 
   payment_method PaymentMethod
-  status         Status
+  status         Status        @default(Pending)
   address        String
   date_created   DateTime      @default(now()) @db.Timestamptz(3)
   date_updated   DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
@@ -93,7 +93,7 @@ model Refund {
   reviewed_by_id BigInt? // VendorProfile id who reviewed this refund request, null if not reviewed yet
 
   method       RefundMethod
-  status       Status
+  status       Status       @default(Pending)
   reason       String
   address      String? // PICK_UP address, if method is DROP_OFF, address is empty
   date_created DateTime     @default(now()) @db.Timestamptz(3)
@@ -117,7 +117,7 @@ model RefundDispute {
   reason       String
   status       Status   @default(Pending)
   date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @updatedAt @db.Timestamptz(3)
+  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
   refund Refund @relation(fields: [refund_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   vendor Vendor @relation(fields: [issued_by_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
@@ -147,30 +147,21 @@ enum InvoiceRefType {
 
 model Invoice {
   id BigInt @id @default(autoincrement())
-
-  type     InvoiceType
   ref_type InvoiceRefType
   ref_id   BigInt // Reference id, e.g. Order.id
-
-  issuer_id   BigInt? // VendorProfile, or System (Fee) id who issue this invoice
-  receiver_id BigInt // CustomerProfile, or Vendor id who receive this invoice
-
-  status         Status
-  payment_method PaymentMethod
-  address        String
-  phone          String
+  
+  type     InvoiceType
+  receiver_id BigInt // Customer, or Vendor id who receive this invoice
   note           String? // Optional note for the invoice
-  metadata       Json          @db.JsonB // Additional metadata for the invoice (e.g. items, promotions, applied promotions, etc.)
-
-  subtotal     BigInt // Total amount before discount
-  total        BigInt // Total amount after discount
+  data       Json          @db.JsonB // All fundamental informations for the invoice (e.g. customer data, items, promotions, applied promotions, etc.)
   file_rs_id   String // invoice file (PDF, etc.)
   date_created DateTime @default(now()) @db.Timestamptz(3)
 
   hash      Bytes @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
   prev_hash Bytes @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
 
-  @@index([issuer_id])
+  account Account @relation(fields: [receiver_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+
   @@index([receiver_id])
   @@index([ref_type, ref_id])
   @@map("invoice")

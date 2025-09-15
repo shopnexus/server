@@ -13,7 +13,7 @@ model Brand {
 model ProductCategory {
   id          BigInt  @id @default(autoincrement())
   name        String  @unique @db.VarChar(100)
-  description String  @default("")
+  description String
   parent_id   BigInt? // If null, this is a root category
 
   spus ProductSpu[]
@@ -57,7 +57,7 @@ model ProductSpu {
 
   name              String
   description       String
-  is_active         Boolean   @default(true) // Need to deactive the product model before we update the model or the products inside it
+  is_active         Boolean
   date_manufactured DateTime  @db.Timestamptz(3)
   date_created      DateTime  @default(now()) @db.Timestamptz(3)
   date_updated      DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
@@ -82,7 +82,7 @@ model ProductSku {
   spu_id BigInt
 
   price        BigInt // Price of the item at this time
-  can_combine  Boolean   @default(false) // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
+  can_combine  Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
   date_created DateTime  @default(now()) @db.Timestamptz(3)
   date_deleted DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
@@ -117,7 +117,7 @@ model ProductSkuAttribute {
 model Tag {
   id          BigInt @id @default(autoincrement())
   tag         String @unique @db.VarChar(50)
-  description String @default("")
+  description String
 
   spuTags ProductTag[]
 
@@ -158,7 +158,7 @@ model Comment {
   body         String
   upvote       BigInt   @default(0)
   downvote     BigInt   @default(0)
-  score        Int      @default(0) // 0 ~ 100
+  score        Int // 0 ~ 100
   date_created DateTime @default(now()) @db.Timestamptz(3)
   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
