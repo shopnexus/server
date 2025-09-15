@@ -1,14 +1,19 @@
-package paymentbiz
+package orderbiz
 
 import (
 	"context"
 	"fmt"
+
+	"github.com/guregu/null/v6"
+
+	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/client/vnpay"
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -17,14 +22,22 @@ type OrderBiz struct {
 	storage     *pgutil.Storage
 	vnpayClient vnpay.Client
 	promotion   *promotionbiz.PromotionBiz
+	pubsub      pubsub.Client
 }
 
-func NewOrderBiz(storage *pgutil.Storage, vnpayClient vnpay.Client, promotion *promotionbiz.PromotionBiz) *OrderBiz {
-	return &OrderBiz{
+func NewOrderBiz(storage *pgutil.Storage, pubsub pubsub.Client, vnpayClient vnpay.Client, promotion *promotionbiz.PromotionBiz) (*OrderBiz, error) {
+	b := &OrderBiz{
 		storage:     storage,
 		vnpayClient: vnpayClient,
 		promotion:   promotion,
+		pubsub:      pubsub,
 	}
+
+	if err := b.SetupPubsub(); err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 type GetOrderParams = struct {
@@ -40,51 +53,57 @@ type ListOrdersParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (result sharedmodel.PaginateResult[db.OrderBase], err error) {
+func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[db.OrderBase], error) {
+	var zero sharedmodel.PaginateResult[db.OrderBase]
+
 	storageParams := db.ListOrderBaseParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset: pgutil.Int32ToPgInt4(params.GetOffset()),
 	}
 
-	// User only see their own payments
+	// User only see their own orders
 	//if params.Role == db.RoleUser {
 	//	storageParams.UserID = &params.AccountID
 	//}
 
 	total, err := s.storage.CountOrderBase(ctx, db.CountOrderBaseParams{})
 	if err != nil {
-		return result, err
+		return zero, err
 	}
 
-	payments, err := s.storage.ListOrderBase(ctx, storageParams)
+	orders, err := s.storage.ListOrderBase(ctx, storageParams)
 	if err != nil {
-		return result, err
+		return zero, err
 	}
 
 	return sharedmodel.PaginateResult[db.OrderBase]{
-		Data:       payments,
+		Data:       orders,
 		Limit:      params.Limit,
 		Page:       params.Page,
 		Total:      total,
 		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(payments[len(payments)-1].ID),
+		NextCursor: params.NextCursor(orders[len(orders)-1].ID),
 	}, nil
 }
 
 type CreateOrderParams struct {
 	Account     authmodel.AuthenticatedAccount
-	Address     string
-	OrderMethod db.OrderPaymentMethod
-	SkuIDs      []int64
+	Address     string                `validate:"required"`
+	OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
+	SkuIDs      []int64               `validate:"required,dive,gt=0"`
 }
 
 type CreateOrderResult struct {
-	Order db.OrderBase
-	Url   string
+	Order       db.OrderBase `json:"order"`
+	RedirectUrl null.String  `json:"url"`
 }
 
 func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (CreateOrderResult, error) {
 	var zero CreateOrderResult
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
 
 	// Start transaction
 	txStorage, err := s.storage.BeginTx(ctx)
@@ -94,7 +113,6 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	defer txStorage.Rollback(ctx)
 
 	// Remove the checkout items from cart
-	cartMap := make(map[int64]db.AccountCartItem) // map[skuID]cartItem
 	cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
 		CartID: params.Account.ID,
 		SkuID:  params.SkuIDs,
@@ -106,8 +124,23 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		// Prevent duplicate skuIDs in params or some sku not found in cart
 		return zero, fmt.Errorf("some sku not found in cart")
 	}
-	for _, item := range cartItems {
-		cartMap[item.SkuID] = item
+	cartMap := slice.NewMap(cartItems, func(item db.AccountCartItem) int64 { return item.SkuID })
+
+	// Reserve stock for the skus in cart
+	var reserveStockErr error
+	txStorage.ReserveInventory(ctx, slice.Map(cartItems, func(item db.AccountCartItem) db.ReserveInventoryParams {
+		return db.ReserveInventoryParams{
+			RefType: db.InventoryStockTypeProductSku,
+			RefID:   item.SkuID,
+			Amount:  item.Quantity,
+		}
+	})).Exec(func(_ int, err error) {
+		if err != nil {
+			reserveStockErr = err
+		}
+	})
+	if reserveStockErr != nil {
+		return zero, reserveStockErr
 	}
 
 	// Retrieve skus data
@@ -120,22 +153,16 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	if len(skus) != len(params.SkuIDs) {
 		return zero, ordermodel.ErrOrderItemNotFound
 	}
-	skuMap := make(map[int64]db.CatalogProductSku) // map[skuID]sku
-	for _, sku := range skus {
-		skuMap[sku.ID] = sku
-	}
+	skuMap := slice.NewMap(skus, func(s db.CatalogProductSku) int64 { return s.ID })
 
-	// Caculate prices
+	// Calculate prices
 	spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
 		ID: slice.Map(skus, func(s db.CatalogProductSku) int64 { return s.SpuID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	spuMap := make(map[int64]*db.CatalogProductSpu) // map[spuID]spu
-	for _, spu := range spus {
-		spuMap[spu.ID] = &spu
-	}
+	spuMap := slice.NewMap(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
 
 	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 	if err != nil {
@@ -150,7 +177,6 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	order, err := txStorage.CreateDefaultOrderBase(ctx, db.CreateDefaultOrderBaseParams{
 		AccountID:     params.Account.ID,
 		PaymentMethod: db.OrderPaymentMethodEWallet,
-		Status:        db.SharedStatusPending,
 		Address:       params.Address,
 	})
 	if err != nil {
@@ -178,13 +204,33 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	}
 
 	// Get available serial id and attach to order items
-	serials, err := s.storage.GetAvailableProducts(ctx, params.SkuIDs)
-	if err != nil {
-		return zero, err
+	var getProductArgs []db.GetAvailableProductsParams
+	for _, skuID := range params.SkuIDs {
+		getProductArgs = append(getProductArgs, db.GetAvailableProductsParams{
+			SkuID:  skuID,
+			Amount: int32(cartMap[skuID].Quantity),
+		})
 	}
-	serialMap := make(map[int64][]int64) // map[skuID][]serialID
-	for _, serial := range serials {
-		serialMap[serial.SkuID] = append(serialMap[serial.SkuID], serial.ID)
+
+	serialsMap := make(map[int64][]db.GetAvailableProductsRow) // map[skuID][]serial
+	var getSerialsError error
+	txStorage.GetAvailableProducts(ctx, getProductArgs).Query(func(i int, rows []db.GetAvailableProductsRow, err error) {
+		if err != nil {
+			getSerialsError = err
+			return
+		}
+		if int32(len(rows)) < getProductArgs[i].Amount {
+			skuID := getProductArgs[i].SkuID
+			spuName := spuMap[skuMap[skuID].SpuID].Name
+			getSerialsError = ordermodel.ErrOutOfStock.Fmt(fmt.Sprintf("%s (%d)", spuName, skuID))
+			return
+		}
+
+		// rows length should be equal to getProductArgs[i].Amount
+		serialsMap[rows[0].SkuID] = rows
+	})
+	if getSerialsError != nil {
+		return zero, getSerialsError
 	}
 
 	// Batch create order items and create serials for each item
@@ -197,19 +243,24 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		}
 
 		for i := int64(0); i < item.Quantity; i++ {
-			if len(serialMap[item.SkuID]) == 0 {
-				spu, _ := txStorage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
+			if len(serialsMap[item.SkuID]) == 0 {
+				spu, err := txStorage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
 					ID: pgutil.Int64ToPgInt8(skuMap[item.SkuID].SpuID),
 				})
-				batchErr = ordermodel.ErrOutOfStock.Fmt(spu.Name)
+				if err != nil {
+					batchErr = err
+					return
+				}
+				// Out of stock
+				batchErr = ordermodel.ErrOutOfStock.Fmt(fmt.Sprintf("%s (%d)", spu.Name, item.SkuID))
 				return
 			}
-			serialID := serialMap[item.SkuID][0]
-			serialMap[item.SkuID] = serialMap[item.SkuID][1:]
+			serial := serialsMap[item.SkuID][0]
+			serialsMap[item.SkuID] = serialsMap[item.SkuID][1:]
 
 			createOrderSerialArgs = append(createOrderSerialArgs, db.CreateCopyDefaultOrderItemSerialParams{
 				OrderItemID:     item.ID,
-				ProductSerialID: serialID,
+				ProductSerialID: serial.ID,
 			})
 		}
 	})
@@ -222,12 +273,23 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 
-	url, err := s.vnpayClient.CreateOrder(ctx, vnpay.CreateOrderParams{
-		RefID:  order.ID,
-		Amount: totalPrice,
-		Info:   fmt.Sprintf("Order for order %d", order.ID),
-	})
-	if err != nil {
+	// Create payment redirectUrl if payment method is not COD
+	var redirectUrl null.String
+	if params.OrderMethod != db.OrderPaymentMethodCOD {
+		url, err := s.vnpayClient.CreateOrder(ctx, vnpay.CreateOrderParams{
+			RefID:  order.ID,
+			Amount: totalPrice,
+			Info:   fmt.Sprintf("Order for order %d", order.ID),
+		})
+		if err != nil {
+			return zero, err
+		}
+		redirectUrl.SetValid(url)
+	}
+
+	if err = s.pubsub.Publish(ordermodel.TopicOrderCreated, OrderCreatedParams{
+		OrderID: order.ID,
+	}); err != nil {
 		return zero, err
 	}
 
@@ -236,7 +298,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 
-	return CreateOrderResult{Order: order, Url: url}, nil
+	return CreateOrderResult{Order: order, RedirectUrl: redirectUrl}, nil
 }
 
 //
@@ -389,3 +451,31 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 //
 //	return nil
 //}
+
+type VerifyPaymentParams struct {
+	Method db.OrderPaymentMethod
+	Query  map[string]any
+}
+
+func (s *OrderBiz) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
+	var refID int64
+	var err error
+
+	switch params.Method {
+	case db.OrderPaymentMethodEWallet:
+		refID, err = s.vnpayClient.VerifyPayment(ctx, params.Query)
+	default:
+		err = fmt.Errorf("payment method %s not supported", params.Method)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err = s.pubsub.Publish(ordermodel.TopicOrderPaid, OrderPaidParams{
+		OrderID: refID,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
