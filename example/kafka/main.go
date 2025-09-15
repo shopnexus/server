@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -27,25 +26,23 @@ func main() {
 		},
 		Group: "test-group",
 	}
-	ctx := context.Background()
 
 	client, err := pubsub.NewKafkaClient(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create Kafka client: %v", err)
 	}
-	defer client.Close()
 
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			if err = client.Publish(ctx, "orders", Order{
+			if err = client.Publish("orders", Order{
 				ID:       "order" + time.Now().Format("20060102150405"),
 				Item:     "Laptop",
 				Quantity: 1,
 			}); err != nil {
 				log.Fatalf("Failed to publish message: %v", err)
 			}
-			if err = client.Publish(ctx, "orders", Order{
+			if err = client.Publish("orders", Order{
 				ID:       "order" + time.Now().Format("20060102150405"),
 				Item:     "Laptop",
 				Quantity: 1,
@@ -56,7 +53,7 @@ func main() {
 		}
 	}()
 
-	if err = client.Subscribe(ctx, "orders", func(msg *pubsub.MessageDecoder) error {
+	if err = client.Subscribe("orders", func(msg *pubsub.MessageDecoder) error {
 		var order Order
 		if err := msg.Decode(&order); err != nil {
 			return err
@@ -67,16 +64,16 @@ func main() {
 		log.Fatalf("Failed to subscribe to topic: %v", err)
 	}
 
-	if err = client.Subscribe(ctx, "orders", func(msg *pubsub.MessageDecoder) error {
-		var order Order
-		if err := msg.Decode(&order); err != nil {
-			return err
-		}
-		log.Printf("Received order 2: %+v", order)
-		return nil
-	}); err != nil {
-		log.Fatalf("Failed to subscribe to topic: %v", err)
-	}
+	//if err = client.Subscribe( "orders", func(msg *pubsub.MessageDecoder) error {
+	//	var order Order
+	//	if err := msg.Decode(&order); err != nil {
+	//		return err
+	//	}
+	//	log.Printf("Received order 2: %+v", order)
+	//	return nil
+	//}); err != nil {
+	//	log.Fatalf("Failed to subscribe to topic: %v", err)
+	//}
 
 	log.Println("Subscribed to topic 'orders' successfully")
 
