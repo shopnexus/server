@@ -2,6 +2,7 @@ package pgutil
 
 import (
 	"context"
+	"errors"
 
 	"shopnexus-remastered/internal/db"
 
@@ -49,6 +50,9 @@ func (s *TxStorage) Commit(ctx context.Context) error {
 	return s.tx.Commit(ctx)
 }
 
-func (s *TxStorage) Rollback(ctx context.Context) error {
-	return s.tx.Rollback(ctx)
+func (s *TxStorage) Rollback(ctx context.Context) {
+	if err := s.tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) && err != nil {
+		// TODO: push to error tracking system
+		panic(err)
+	}
 }
