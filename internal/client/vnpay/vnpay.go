@@ -15,7 +15,8 @@ type ClientImpl struct {
 
 type Client interface {
 	CreateOrder(ctx context.Context, params CreateOrderParams) (url string, err error)
-	VerifyPayment(ctx context.Context, ipn map[string]any) error
+	// VerifyPayment verifies the IPN request from VNPAY and returns reference ID if valid.
+	VerifyPayment(ctx context.Context, ipn map[string]any) (int64, error)
 }
 
 type ClientOptions struct {
@@ -84,10 +85,10 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params CreateOrderParams) 
 // 	VnpTxnRef            string `json:"vnp_TxnRef"`
 // }
 
-func (c *ClientImpl) VerifyPayment(ctx context.Context, ipn map[string]any) error {
+func (c *ClientImpl) VerifyPayment(ctx context.Context, ipn map[string]any) (int64, error) {
 	expectedHash, ok := ipn["vnp_SecureHash"].(string)
 	if !ok {
-		return fmt.Errorf("missing or invalid vnp_SecureHash in IPN data")
+		return 0, fmt.Errorf("missing or invalid vnp_SecureHash in IPN data")
 	}
 
 	// Remove the secure hash from the IPN data
@@ -99,8 +100,40 @@ func (c *ClientImpl) VerifyPayment(ctx context.Context, ipn map[string]any) erro
 
 	if hash != expectedHash {
 		fmt.Println("Hash mismatch:", expectedHash, hash)
-		return fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, hash)
+		return 0, fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, hash)
 	}
 
-	return nil
+	vnpTxnRef, ok := ipn["vnp_TxnRef"].(string)
+	if !ok {
+		return 0, fmt.Errorf("missing or invalid vnp_TxnRef in IPN data")
+	}
+
+	var refID int64
+	if _, err := fmt.Sscanf(vnpTxnRef, "%d", &refID); err != nil {
+		return 0, fmt.Errorf("invalid vnp_TxnRef format: %w", err)
+	}
+
+	return refID, nil
+}
+
+func (c *ClientImpl) VerifyHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "failed to parse form", http.StatusBadRequest)
+			return
+		}
+
+		query := make(map[string]any)
+		for key, values := range r.Form {
+			if len(values) > 0 {
+				query[key] = values[0]
+			}
+		}
+
+		// Verify the checksum hash
+		if _, err := c.VerifyPayment(r.Context(), query); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
 }
