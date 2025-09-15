@@ -32,12 +32,3 @@ WHERE (
 )
 GROUP BY ref_id;
 
--- name: GetAvailableProducts :many
-SELECT s.id, s.sku_id, s.serial_number
-FROM unnest(sqlc.slice('sku_id')::bigint[]) AS u(sku_id)
-JOIN LATERAL (
-    SELECT id, sku_id, serial_number
-    FROM "inventory"."sku_serial"
-    WHERE sku_id = u.sku_id AND "status" = 'Active'
-    ORDER BY date_created DESC LIMIT 5
-) s ON true;
