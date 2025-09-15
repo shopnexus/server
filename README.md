@@ -20,11 +20,20 @@
 - Always use table per type (TPT) in database design
 - Audit snapshot for tax authority and transaction dispute purpose
 - SearchEngine(search_sync): Query event table to get the latest
+- Only apply default value to fields that are most likely to be missing in insert statement (e.g. created_at, updated_at, status pending, is active, etc.)
 
 ### Go
 
 - Folder structure: Vertical slice (by service)
 - Use grpc generated code as domain model to reduce mapping code (<https://www.reddit.com/r/golang/comments/rdkqwv/grpc_use_the_generated_proto_as_a_model/>)
+- Defensive programming, trust nothing, validate and verify everything. Fail fast, and fail early => Both transport and biz layer will validate the input
+
+#### Always use the null.XXX
+- Always use value instead of pointer (details: https://medium.com/eureka-engineering/understanding-allocations-in-go-stack-heap-memory-9a2631b5035d). IMO, using pointer may hard to debug in the future.
+- As because of prefer value to pointer, always use the null.XXX from https://github.com/guregu/null.
+
+IMO it is better than sql.NullXXX or pgtype.XXX because:
+- Both not fully-compatible with validator/v10: does not have the TextUnmarshaller implemented -> won't work with query/param struct tag
 
 ### General
 
@@ -83,10 +92,10 @@ But customer still can pay only $240 for $300 item, which is not in the first di
 ```mermaid
 flowchart TD
     A["Customer Clicks Buy Now"] --> B["Validate Cart & Promotions"]
-    B --> C["Reserve Inventory"]
-    C --> D["Authorize Payment"]
+    B --> C["Clear cart items"]
+    C --> D["Reserve Inventory"]
     D --> E["Create Order in Database"]
-    E --> F["Return Order ID to Customer"]
+    E --> F["Return Order Info to Customer"]
     F --> G["Publish OrderCreated Event"]
     
     G --> H["Send Email Confirmation"]
@@ -99,9 +108,12 @@ flowchart TD
 ### Note
 
 - "Interface values are comparable. Two interface values are equal if they have identical dynamic types and equal dynamic values or if both have value nil."
-Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil.
+Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil. More details on https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here/29138676#29138676 and https://github.com/go-playground/validator/issues/134#issuecomment-126524931
 - Omitempty only works for pointer, slice, map, and interface types not zero value from struct.
 - If you’re using pgx/v5 you get its implicit support for prepared statements. No additional sqlc configuration is required.
+- struct tag "omitnil" from validator/v10 not work with untyped-nil https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649
+- Implement https://github.com/TecharoHQ/anubis to stop AI crawlers
+- Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: https://echo.labstack.com/docs/category/middleware
 
 ## Develop Timeline
 
@@ -128,7 +140,60 @@ WHERE (
 ### 5-9-2025 List products with caculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
 ![img.png](images/img3.png)
 
-### 8-9-2025 Custom type need to be registered to pgx
+### 8-9-2025 Custom type need to be registered to pgx (pgxpool.go)
 Any custom DB types made with CREATE TYPE need to be registered with pgx.
 https://github.com/kyleconroy/sqlc/issues/2116
 ![img.png](images/img4.png)
+
+### 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods.
+With "emit_enum_valid_method: true" in sqlc.yaml and "validateFn=Valid" in struct tag
+I can validate the enum field directly with the generated Valid() method from sqlc.
+```go
+type CreateOrderParams struct {
+	Account     authmodel.AuthenticatedAccount
+	Address     string                `validate:"required"`
+	OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
+	SkuIDs      []int64               `validate:"required,dive,gt=0"`
+}
+```
+I should write a blog on this btw.
+
+
+### 15-9-2025 Implement a well-structured custom Pub/Sub client for clean, maintainable publish/subscribe code.
+```go
+// The subcriber
+func (s *OrderBiz) SetupPubsub() error {
+    return errutil.Some(
+        s.pubsub.Subscribe("order.created", pubsub.DecodeWrap(s.OrderCreated)),
+        s.pubsub.Subscribe("order.paid", pubsub.DecodeWrap(s.OrderPaid)),
+    )
+}
+
+type OrderCreatedParams = struct {
+    OrderID int64
+}
+
+func (s *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
+    // code here
+    
+    return nil
+}
+
+type OrderPaidParams = struct {
+    OrderID int64
+    Amount  int64
+}
+
+func (s *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
+    // code here
+    
+    return nil
+}
+
+// The publisher
+if err = s.pubsub.Publish("order.created", OrderCreatedParams{
+    OrderID: order.ID,
+}); err != nil {
+    return zero, err
+}
+```
