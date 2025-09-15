@@ -2,8 +2,18 @@ package accountbiz
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/guregu/null/v6"
+
 	"shopnexus-remastered/internal/db"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
+	authmodel "shopnexus-remastered/internal/module/auth/model"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
 
@@ -45,17 +55,22 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 	})
 
 	// Calculate price using promotion biz map[skuID]*catalogmodel.ProductPrice
-	priceMap, err := s.promotionBiz.CalculatePromotedPrices(ctx, skus, spuMap.Map)
+	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap.Map)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get first image of the product
-	resources, err := s.storage.ListSharedResourceFirst(ctx, db.ListSharedResourceFirstParams{
-		OwnerType: db.SharedResourceTypeProductSpu,
-		OwnerID:   spuIDs,
+	resources, err := s.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
+		RefType:   db.SharedResourceRefTypeProductSpu,
+		RefID:     spuIDs,
+		IsPrimary: pgutil.BoolToPgBool(true),
 	})
-	resourceMap := slice.NewMap(resources, func(res db.ListSharedResourceFirstRow) int64 { return res.OwnerID }) // map[ownerID]url
+	if err != nil {
+		return nil, err
+	}
+	// map[spuID]resource
+	resourceMap := slice.NewMap(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
 	// Get attributes
 	attributes, err := s.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
@@ -93,12 +108,21 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 
 		result = append(result, accountmodel.CartItem{
 			SkuID:         sku.ID,
+			SpuID:         spu.ID,
 			Name:          spu.Name,
 			SkuName:       GetSkuName(attributeMap[sku.ID]),
 			OriginalPrice: priceMap[sku.ID].OriginalPrice,
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
-			Image:         resourceMap[spu.ID].Url,
+			Resource: sharedmodel.Resource{
+				ID:       resourceMap[spu.ID].ID,
+				Mime:     resourceMap[spu.ID].Mime,
+				Url:      resourceMap[spu.ID].Url,
+				FileSize: pgutil.PgInt8ToNullInt64(resourceMap[spu.ID].FileSize),
+				Width:    pgutil.PgInt4ToNullInt32(resourceMap[spu.ID].Width),
+				Height:   pgutil.PgInt4ToNullInt32(resourceMap[spu.ID].Height),
+				Duration: pgutil.PgFloat8ToNullFloat(resourceMap[spu.ID].Duration),
+			},
 			Category:      categoryMap[spu.CategoryID],
 			Promotions:    promos,
 			BulkPrice:     nil, // TODO
@@ -118,4 +142,59 @@ func GetSkuName(attributes []db.CatalogProductSkuAttribute) string {
 		name += attr.Name + " " + attr.Value
 	}
 	return name
+}
+
+type UpdateCartParams struct {
+	Account authmodel.AuthenticatedAccount
+
+	SkuID         int64      `validate:"min=1,max=100"`
+	Quantity      null.Int64 `validate:"omitnil,min=0,max=1000"`
+	DeltaQuantity null.Int64 `validate:"omitnil,min=1,max=1000"`
+}
+
+func (s *AccountBiz) UpdateCart(ctx context.Context, params UpdateCartParams) error {
+	if err := validator.Validate(params); err != nil {
+		return err
+	}
+
+	var newQuantity int64
+
+	if params.DeltaQuantity.Valid {
+		cartItem, err := s.storage.GetAccountCartItem(ctx, db.GetAccountCartItemParams{
+			CartID: pgutil.Int64ToPgInt8(params.Account.ID),
+			SkuID:  pgutil.Int64ToPgInt8(params.SkuID),
+		})
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		newQuantity = cartItem.Quantity + params.DeltaQuantity.Int64
+	} else if params.Quantity.Valid {
+		newQuantity = params.Quantity.Int64
+	} else {
+		return fmt.Errorf("either quantity or delta_quantity must be provided")
+	}
+
+	// If quantity = 0, remove cart item and return early
+	if params.Quantity.Valid && params.Quantity.Int64 <= 0 {
+		return s.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
+			CartID: []int64{params.Account.ID},
+			SkuID:  []int64{params.SkuID},
+		})
+	}
+
+	return s.storage.UpdateCart(ctx, db.UpdateCartParams{
+		CartID:   params.Account.ID,
+		SkuID:    params.SkuID,
+		Quantity: newQuantity,
+	})
+}
+
+type ClearCartParams struct {
+	Account authmodel.AuthenticatedAccount
+}
+
+func (s *AccountBiz) ClearCart(ctx context.Context, params ClearCartParams) error {
+	return s.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
+		CartID: []int64{params.Account.ID},
+	})
 }
