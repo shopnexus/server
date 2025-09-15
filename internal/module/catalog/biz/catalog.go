@@ -2,10 +2,14 @@ package catalogbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/db"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
+
+	"github.com/guregu/null/v6"
 )
 
 type CatalogBiz struct {
@@ -22,17 +26,21 @@ func NewCatalogBiz(storage *pgutil.Storage, promotionBiz *promotionbiz.Promotion
 
 type ListProductSpuParams struct {
 	sharedmodel.PaginationParams
-	Code       []string
-	AccountID  []int64
-	CategoryID []int64
-	BrandID    []int64
-	IsActive   []bool
+	Code       []string `validate:"omitempty,dive,min=1,max=100"`
+	AccountID  []int64  `validate:"omitempty,dive,gt=0"`
+	CategoryID []int64  `validate:"omitempty,dive,gt=0"`
+	BrandID    []int64  `validate:"omitempty,dive,gt=0"`
+	IsActive   []bool   `validate:"omitempty,dive"`
 }
 
-func (c *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[db.CatalogProductSpu], error) {
+func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[db.CatalogProductSpu], error) {
 	var zero sharedmodel.PaginateResult[db.CatalogProductSpu]
 
-	total, err := c.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	total, err := b.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{
 		Code:       params.Code,
 		AccountID:  params.AccountID,
 		CategoryID: params.CategoryID,
@@ -43,7 +51,7 @@ func (c *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		return zero, err
 	}
 
-	spus, err := c.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
+	spus, err := b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
 		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset:     pgutil.Int32ToPgInt4(params.GetOffset()),
 		Code:       params.Code,
@@ -68,40 +76,44 @@ func (c *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 type ListProductSkuParams struct {
 	sharedmodel.PaginationParams
-	SpuID      []int64
-	SpuIDFrom  *int64
-	SpuIDTo    *int64
-	Price      []int64
-	PriceFrom  *int64
-	PriceTo    *int64
+	SpuID      []int64 `validate:"omitempty,dive,gt=0"`
+	SpuIDFrom  null.Int64
+	SpuIDTo    null.Int64
+	Price      []int64 `validate:"omitempty,dive,gt=0"`
+	PriceFrom  null.Int64
+	PriceTo    null.Int64
 	CanCombine []bool
 }
 
-func (c *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) (sharedmodel.PaginateResult[db.CatalogProductSku], error) {
+func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) (sharedmodel.PaginateResult[db.CatalogProductSku], error) {
 	var zero sharedmodel.PaginateResult[db.CatalogProductSku]
 
-	total, err := c.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	total, err := b.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{
 		SpuID:      params.SpuID,
-		SpuIDFrom:  pgutil.PtrToPgtype(params.SpuIDFrom, pgutil.Int64ToPgInt8),
-		SpuIDTo:    pgutil.PtrToPgtype(params.SpuIDTo, pgutil.Int64ToPgInt8),
+		SpuIDFrom:  pgutil.NullInt64ToPgInt8(params.SpuIDFrom),
+		SpuIDTo:    pgutil.NullInt64ToPgInt8(params.SpuIDTo),
 		Price:      params.Price,
-		PriceFrom:  pgutil.PtrToPgtype(params.PriceFrom, pgutil.Int64ToPgInt8),
-		PriceTo:    pgutil.PtrToPgtype(params.PriceTo, pgutil.Int64ToPgInt8),
+		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
+		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
 		CanCombine: params.CanCombine,
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	skus, err := c.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
 		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset:     pgutil.Int32ToPgInt4(params.GetOffset()),
 		SpuID:      params.SpuID,
-		SpuIDFrom:  pgutil.PtrToPgtype(params.SpuIDFrom, pgutil.Int64ToPgInt8),
-		SpuIDTo:    pgutil.PtrToPgtype(params.SpuIDTo, pgutil.Int64ToPgInt8),
+		SpuIDFrom:  pgutil.NullInt64ToPgInt8(params.SpuIDFrom),
+		SpuIDTo:    pgutil.NullInt64ToPgInt8(params.SpuIDTo),
 		Price:      params.Price,
-		PriceFrom:  pgutil.PtrToPgtype(params.PriceFrom, pgutil.Int64ToPgInt8),
-		PriceTo:    pgutil.PtrToPgtype(params.PriceTo, pgutil.Int64ToPgInt8),
+		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
+		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
 		CanCombine: params.CanCombine,
 	})
 	if err != nil {
@@ -120,20 +132,24 @@ func (c *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 
 type ListProductSkuAttributeParams struct {
 	sharedmodel.PaginationParams
-	Name []string
+	Name []string `validate:"omitempty,dive,min=1,max=100"`
 }
 
-func (c *CatalogBiz) ListProductSkuAttribute(ctx context.Context, params ListProductSkuAttributeParams) (sharedmodel.PaginateResult[db.CatalogProductSkuAttribute], error) {
+func (b *CatalogBiz) ListProductSkuAttribute(ctx context.Context, params ListProductSkuAttributeParams) (sharedmodel.PaginateResult[db.CatalogProductSkuAttribute], error) {
 	var zero sharedmodel.PaginateResult[db.CatalogProductSkuAttribute]
 
-	total, err := c.storage.CountCatalogProductSkuAttribute(ctx, db.CountCatalogProductSkuAttributeParams{
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	total, err := b.storage.CountCatalogProductSkuAttribute(ctx, db.CountCatalogProductSkuAttributeParams{
 		Name: params.Name,
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	attrs, err := c.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
+	attrs, err := b.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset: pgutil.Int32ToPgInt4(params.GetOffset()),
 		Name:   params.Name,

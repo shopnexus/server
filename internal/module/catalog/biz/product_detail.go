@@ -2,18 +2,26 @@ package catalogbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 )
 
 type GetProductDetailParams struct {
-	ID int64
+	ID int64 `validate:"required,gt=0"`
 }
 
-func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
-	spu, err := c.storage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	spu, err := b.storage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
 		ID: pgutil.Int64ToPgInt8(params.ID),
 	})
 	if err != nil {
@@ -22,7 +30,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 
 	var skuIDs []int64
 	var skusDetail []catalogmodel.ProductDetailSku
-	skus, err := c.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
 		SpuID: []int64{spu.ID},
 	})
 	if err != nil {
@@ -34,7 +42,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 
 	// Get attributes for each SKU
-	attributes, err := c.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
+	attributes, err := b.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
 		SkuID: skuIDs,
 	})
 	if err != nil {
@@ -58,20 +66,28 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 
 	// Get images
-	resources, err := c.storage.ListSharedResource(ctx, db.ListSharedResourceParams{
-		OwnerType: []db.SharedResourceType{db.SharedResourceTypeProductSpu},
-		OwnerID:   []int64{spu.ID},
+	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
+		RefType: db.SharedResourceRefTypeProductSpu,
+		RefID:   []int64{spu.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
-	var images []string
-	for _, r := range resources {
-		images = append(images, r.Url)
+	resourceMap := make(map[int64][]sharedmodel.Resource) // map[spuID][]Resource
+	for _, res := range resources {
+		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
+			ID:       res.ID,
+			Mime:     res.Mime,
+			Url:      res.Url,
+			FileSize: pgutil.PgInt8ToNullInt64(res.FileSize),
+			Width:    pgutil.PgInt4ToNullInt32(res.Width),
+			Height:   pgutil.PgInt4ToNullInt32(res.Height),
+			Duration: pgutil.PgFloat8ToNullFloat(res.Duration),
+		})
 	}
 
 	// get rating
-	rating, err := c.storage.DetailRating(ctx, db.DetailRatingParams{
+	rating, err := b.storage.DetailRating(ctx, db.DetailRatingParams{
 		RefType: db.CatalogCommentRefTypeProductSpu,
 		RefID:   spu.ID,
 	})
@@ -85,7 +101,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	ratingBreakdown[2] = int(rating.TwoCount)
 	ratingBreakdown[1] = int(rating.OneCount)
 
-	category, err := c.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
+	category, err := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
 		ID: pgutil.Int64ToPgInt8(spu.CategoryID),
 	})
 	if err != nil {
@@ -93,7 +109,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 
 	// Get sold count from inventory
-	inventories, err := c.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
+	inventories, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
 		RefType: []db.InventoryStockType{db.InventoryStockTypeProductSku},
 		RefID:   skuIDs,
 	})
@@ -105,7 +121,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		sold += int(inv.Sold)
 	}
 
-	priceMap, err := c.promotionBiz.CalculatePromotedPrices(ctx, skus, map[int64]*db.CatalogProductSpu{
+	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, skus, map[int64]*db.CatalogProductSpu{
 		spu.ID: &spu,
 	})
 	if err != nil {
@@ -131,7 +147,7 @@ func (c *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		ID:          spu.ID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Images:      images,
+		Resources:   resourceMap[spu.ID],
 		Category:    category.Name,
 		Rating: catalogmodel.ProductDetailRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale

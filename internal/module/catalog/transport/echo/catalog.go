@@ -2,6 +2,7 @@ package catalogecho
 
 import (
 	"net/http"
+
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
@@ -22,18 +23,23 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	api.GET("/product-spu", h.ListProductSpu)
 	api.GET("/product-sku", h.ListProductSku)
 	api.GET("/product-sku-attribute", h.ListProductSkuAttribute)
+
+	// Comment
 	api.GET("/comment", h.ListComment)
+	api.POST("/comment", h.CreateComment)
+	api.PATCH("/comment", h.UpdateComment)
+	api.DELETE("/comment", h.DeleteComment)
 
 	return h
 }
 
 type ListProductSpuParams struct {
 	sharedmodel.PaginationParams
-	Code       []string `query:"code" comma_separated:"true" validate:"omitempty,dive,min=1,max=100"`
-	VendorID   []int64  `query:"vendor_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
-	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
-	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
-	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"omitempty,dive"`
+	Code       []string `query:"code" comma_separated:"true" validate:"required"`
+	VendorID   []int64  `query:"vendor_id" comma_separated:"true" validate:"required"`
+	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"required"`
+	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"required"`
+	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"required"`
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
@@ -62,8 +68,8 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 
 type ListProductSkuRequest struct {
 	sharedmodel.PaginationParams
-	SpuID []int64 `query:"spu_id" comma_separated:"true" validate:"omitempty,dive,gt=0"`
-	Price []int64 `query:"price" comma_separated:"true" validate:"omitempty,dive,gt=0"`
+	SpuID []int64 `query:"spu_id" comma_separated:"true" validate:"required"`
+	Price []int64 `query:"price" comma_separated:"true" validate:"required"`
 }
 
 func (h *Handler) ListProductSku(c echo.Context) error {
@@ -89,7 +95,7 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 
 type ListProductSkuAttributeRequest struct {
 	sharedmodel.PaginationParams
-	Name []string `query:"name" comma_separated:"true" validate:"omitempty,dive,min=1,max=100"`
+	Name []string `query:"name" comma_separated:"true" validate:"required"`
 }
 
 func (h *Handler) ListProductSkuAttribute(c echo.Context) error {

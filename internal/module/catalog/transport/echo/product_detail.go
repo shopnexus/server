@@ -2,6 +2,7 @@ package catalogecho
 
 import (
 	"net/http"
+
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type GetProductDetailRequest struct {
-	ID int64 `query:"id" validate:"required,gt=0"`
+	ID int64 `query:"id" validate:"required"`
 }
 
 func (h *Handler) GetProductDetail(c echo.Context) error {

@@ -2,11 +2,12 @@ package catalogecho
 
 import (
 	"net/http"
+
+	"github.com/labstack/echo/v4"
+
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
-
-	"github.com/labstack/echo/v4"
 )
 
 type ListProductCardRequest struct {

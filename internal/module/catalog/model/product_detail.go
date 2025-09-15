@@ -1,16 +1,18 @@
 package catalogmodel
 
+import sharedmodel "shopnexus-remastered/internal/module/shared/model"
+
 type ProductDetail struct {
-	ID             int64               `json:"id"`
-	Name           string              `json:"name"`
-	Description    string              `json:"description"`
-	Images         []string            `json:"images"`
-	Category       string              `json:"category"`
-	Rating         ProductDetailRating `json:"rating"`
-	Sold           int                 `json:"sold"`
-	Promotions     []ProductCardPromo  `json:"promotions"`
-	Skus           []ProductDetailSku  `json:"skus"`
-	Specifications map[string]string   `json:"specifications"`
+	ID             int64                  `json:"id"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
+	Resources      []sharedmodel.Resource `json:"resources"`
+	Category       string                 `json:"category"`
+	Rating         ProductDetailRating    `json:"rating"`
+	Sold           int                    `json:"sold"`
+	Promotions     []ProductCardPromo     `json:"promotions"`
+	Skus           []ProductDetailSku     `json:"skus"`
+	Specifications map[string]string      `json:"specifications"`
 }
 
 type ProductDetailRating struct {
