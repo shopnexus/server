@@ -1366,9 +1366,9 @@ func (b *CreateBatchOrderBaseBatchResults) Close() error {
 }
 
 const createBatchOrderInvoice = `-- name: CreateBatchOrderInvoice :batchone
-INSERT INTO "order"."invoice" ("type", "ref_type", "ref_id", "issuer_id", "receiver_id", "status", "payment_method", "address", "phone", "note", "metadata", "subtotal", "total", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, type, ref_type, ref_id, issuer_id, receiver_id, status, payment_method, address, phone, note, metadata, subtotal, total, file_rs_id, date_created, hash, prev_hash
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
 `
 
 type CreateBatchOrderInvoiceBatchResults struct {
@@ -1378,42 +1378,28 @@ type CreateBatchOrderInvoiceBatchResults struct {
 }
 
 type CreateBatchOrderInvoiceParams struct {
-	Type          OrderInvoiceType    `json:"type"`
-	RefType       OrderInvoiceRefType `json:"ref_type"`
-	RefID         int64               `json:"ref_id"`
-	IssuerID      pgtype.Int8         `json:"issuer_id"`
-	ReceiverID    int64               `json:"receiver_id"`
-	Status        SharedStatus        `json:"status"`
-	PaymentMethod OrderPaymentMethod  `json:"payment_method"`
-	Address       string              `json:"address"`
-	Phone         string              `json:"phone"`
-	Note          pgtype.Text         `json:"note"`
-	Metadata      []byte              `json:"metadata"`
-	Subtotal      int64               `json:"subtotal"`
-	Total         int64               `json:"total"`
-	FileRsID      string              `json:"file_rs_id"`
-	DateCreated   pgtype.Timestamptz  `json:"date_created"`
-	Hash          []byte              `json:"hash"`
-	PrevHash      []byte              `json:"prev_hash"`
+	RefType     OrderInvoiceRefType `json:"ref_type"`
+	RefID       int64               `json:"ref_id"`
+	Type        OrderInvoiceType    `json:"type"`
+	ReceiverID  int64               `json:"receiver_id"`
+	Note        pgtype.Text         `json:"note"`
+	Data        []byte              `json:"data"`
+	FileRsID    string              `json:"file_rs_id"`
+	DateCreated pgtype.Timestamptz  `json:"date_created"`
+	Hash        []byte              `json:"hash"`
+	PrevHash    []byte              `json:"prev_hash"`
 }
 
 func (q *Queries) CreateBatchOrderInvoice(ctx context.Context, arg []CreateBatchOrderInvoiceParams) *CreateBatchOrderInvoiceBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Type,
 			a.RefType,
 			a.RefID,
-			a.IssuerID,
+			a.Type,
 			a.ReceiverID,
-			a.Status,
-			a.PaymentMethod,
-			a.Address,
-			a.Phone,
 			a.Note,
-			a.Metadata,
-			a.Subtotal,
-			a.Total,
+			a.Data,
 			a.FileRsID,
 			a.DateCreated,
 			a.Hash,
@@ -1438,19 +1424,12 @@ func (b *CreateBatchOrderInvoiceBatchResults) QueryRow(f func(int, OrderInvoice,
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.Type,
 			&i.RefType,
 			&i.RefID,
-			&i.IssuerID,
+			&i.Type,
 			&i.ReceiverID,
-			&i.Status,
-			&i.PaymentMethod,
-			&i.Address,
-			&i.Phone,
 			&i.Note,
-			&i.Metadata,
-			&i.Subtotal,
-			&i.Total,
+			&i.Data,
 			&i.FileRsID,
 			&i.DateCreated,
 			&i.Hash,
@@ -1972,9 +1951,9 @@ func (b *CreateBatchPromotionDiscountBatchResults) Close() error {
 }
 
 const createBatchSharedResource = `-- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("mime_type", "owner_id", "owner_type", "url", "order")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, mime_type, owner_id, owner_type, url, "order"
+INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
 `
 
 type CreateBatchSharedResourceBatchResults struct {
@@ -1984,22 +1963,34 @@ type CreateBatchSharedResourceBatchResults struct {
 }
 
 type CreateBatchSharedResourceParams struct {
-	MimeType  string             `json:"mime_type"`
-	OwnerID   int64              `json:"owner_id"`
-	OwnerType SharedResourceType `json:"owner_type"`
-	Url       string             `json:"url"`
-	Order     int32              `json:"order"`
+	Code       string             `json:"code"`
+	Mime       string             `json:"mime"`
+	Url        string             `json:"url"`
+	FileSize   pgtype.Int8        `json:"file_size"`
+	Width      pgtype.Int4        `json:"width"`
+	Height     pgtype.Int4        `json:"height"`
+	Duration   pgtype.Float8      `json:"duration"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.MimeType,
-			a.OwnerID,
-			a.OwnerType,
+			a.Code,
+			a.Mime,
 			a.Url,
-			a.Order,
+			a.FileSize,
+			a.Width,
+			a.Height,
+			a.Duration,
+			a.Checksum,
+			a.UploadedBy,
+			a.Status,
+			a.CreatedAt,
 		}
 		batch.Queue(createBatchSharedResource, vals...)
 	}
@@ -2020,11 +2011,17 @@ func (b *CreateBatchSharedResourceBatchResults) QueryRow(f func(int, SharedResou
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.MimeType,
-			&i.OwnerID,
-			&i.OwnerType,
+			&i.Code,
+			&i.Mime,
 			&i.Url,
-			&i.Order,
+			&i.FileSize,
+			&i.Width,
+			&i.Height,
+			&i.Duration,
+			&i.Checksum,
+			&i.UploadedBy,
+			&i.Status,
+			&i.CreatedAt,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -2033,6 +2030,72 @@ func (b *CreateBatchSharedResourceBatchResults) QueryRow(f func(int, SharedResou
 }
 
 func (b *CreateBatchSharedResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchSharedResourceReference = `-- name: CreateBatchSharedResourceReference :batchone
+INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
+`
+
+type CreateBatchSharedResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchSharedResourceReferenceParams struct {
+	RsID      int64                 `json:"rs_id"`
+	RefType   SharedResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+func (q *Queries) CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.RsID,
+			a.RefType,
+			a.RefID,
+			a.Order,
+			a.IsPrimary,
+		}
+		batch.Queue(createBatchSharedResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchSharedResourceReferenceBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchSharedResourceReferenceBatchResults) QueryRow(f func(int, SharedResourceReference, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i SharedResourceReference
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.RsID,
+			&i.RefType,
+			&i.RefID,
+			&i.Order,
+			&i.IsPrimary,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchSharedResourceReferenceBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -3492,7 +3555,7 @@ func (b *DeleteBatchPromotionDiscountBatchResults) Close() error {
 
 const deleteBatchSharedResource = `-- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("code" = $2)
 `
 
 type DeleteBatchSharedResourceBatchResults struct {
@@ -3501,16 +3564,22 @@ type DeleteBatchSharedResourceBatchResults struct {
 	closed bool
 }
 
-func (q *Queries) DeleteBatchSharedResource(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceBatchResults {
+type DeleteBatchSharedResourceParams struct {
+	ID   pgtype.Int8 `json:"id"`
+	Code pgtype.Text `json:"code"`
+}
+
+func (q *Queries) DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range id {
+	for _, a := range arg {
 		vals := []interface{}{
-			a,
+			a.ID,
+			a.Code,
 		}
 		batch.Queue(deleteBatchSharedResource, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSharedResourceBatchResults{br, len(id), false}
+	return &DeleteBatchSharedResourceBatchResults{br, len(arg), false}
 }
 
 func (b *DeleteBatchSharedResourceBatchResults) Exec(f func(int, error)) {
@@ -3530,6 +3599,50 @@ func (b *DeleteBatchSharedResourceBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *DeleteBatchSharedResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const deleteBatchSharedResourceReference = `-- name: DeleteBatchSharedResourceReference :batchexec
+DELETE FROM "shared"."resource_reference"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchSharedResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchSharedResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchSharedResourceReferenceBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchSharedResourceReferenceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchSharedResourceReferenceBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -3618,6 +3731,135 @@ func (b *DeleteBatchSystemSearchSyncBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *DeleteBatchSystemSearchSyncBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const getAvailableProducts = `-- name: GetAvailableProducts :batchmany
+SELECT id, sku_id, serial_number
+FROM "inventory"."sku_serial"
+WHERE sku_id = $1 AND "status" = 'Active'
+ORDER BY date_created DESC LIMIT $2
+`
+
+type GetAvailableProductsBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type GetAvailableProductsParams struct {
+	SkuID  int64 `json:"sku_id"`
+	Amount int32 `json:"amount"`
+}
+
+type GetAvailableProductsRow struct {
+	ID           int64  `json:"id"`
+	SkuID        int64  `json:"sku_id"`
+	SerialNumber string `json:"serial_number"`
+}
+
+func (q *Queries) GetAvailableProducts(ctx context.Context, arg []GetAvailableProductsParams) *GetAvailableProductsBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.SkuID,
+			a.Amount,
+		}
+		batch.Queue(getAvailableProducts, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &GetAvailableProductsBatchResults{br, len(arg), false}
+}
+
+func (b *GetAvailableProductsBatchResults) Query(f func(int, []GetAvailableProductsRow, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		items := []GetAvailableProductsRow{}
+		if b.closed {
+			if f != nil {
+				f(t, items, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		err := func() error {
+			rows, err := b.br.Query()
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var i GetAvailableProductsRow
+				if err := rows.Scan(&i.ID, &i.SkuID, &i.SerialNumber); err != nil {
+					return err
+				}
+				items = append(items, i)
+			}
+			return rows.Err()
+		}()
+		if f != nil {
+			f(t, items, err)
+		}
+	}
+}
+
+func (b *GetAvailableProductsBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const reserveInventory = `-- name: ReserveInventory :batchexec
+UPDATE inventory.stock
+SET current_stock = current_stock - $1,
+    sold = sold + $1
+WHERE ref_type = $2
+  AND ref_id = $3
+  AND current_stock >= $1
+`
+
+type ReserveInventoryBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type ReserveInventoryParams struct {
+	Amount  int64              `json:"amount"`
+	RefType InventoryStockType `json:"ref_type"`
+	RefID   int64              `json:"ref_id"`
+}
+
+func (q *Queries) ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Amount,
+			a.RefType,
+			a.RefID,
+		}
+		batch.Queue(reserveInventory, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &ReserveInventoryBatchResults{br, len(arg), false}
+}
+
+func (b *ReserveInventoryBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *ReserveInventoryBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -4947,24 +5189,17 @@ func (b *UpdateBatchOrderBaseBatchResults) Close() error {
 
 const updateBatchOrderInvoice = `-- name: UpdateBatchOrderInvoice :batchexec
 UPDATE "order"."invoice"
-SET "type" = COALESCE($1, "type"),
-    "ref_type" = COALESCE($2, "ref_type"),
-    "ref_id" = COALESCE($3, "ref_id"),
-    "issuer_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "issuer_id") END,
-    "receiver_id" = COALESCE($6, "receiver_id"),
-    "status" = COALESCE($7, "status"),
-    "payment_method" = COALESCE($8, "payment_method"),
-    "address" = COALESCE($9, "address"),
-    "phone" = COALESCE($10, "phone"),
-    "note" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "note") END,
-    "metadata" = COALESCE($13, "metadata"),
-    "subtotal" = COALESCE($14, "subtotal"),
-    "total" = COALESCE($15, "total"),
-    "file_rs_id" = COALESCE($16, "file_rs_id"),
-    "date_created" = COALESCE($17, "date_created"),
-    "hash" = COALESCE($18, "hash"),
-    "prev_hash" = COALESCE($19, "prev_hash")
-WHERE id = $20
+SET "ref_type" = COALESCE($1, "ref_type"),
+    "ref_id" = COALESCE($2, "ref_id"),
+    "type" = COALESCE($3, "type"),
+    "receiver_id" = COALESCE($4, "receiver_id"),
+    "note" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "note") END,
+    "data" = COALESCE($7, "data"),
+    "file_rs_id" = COALESCE($8, "file_rs_id"),
+    "date_created" = COALESCE($9, "date_created"),
+    "hash" = COALESCE($10, "hash"),
+    "prev_hash" = COALESCE($11, "prev_hash")
+WHERE id = $12
 `
 
 type UpdateBatchOrderInvoiceBatchResults struct {
@@ -4974,47 +5209,31 @@ type UpdateBatchOrderInvoiceBatchResults struct {
 }
 
 type UpdateBatchOrderInvoiceParams struct {
-	Type          NullOrderInvoiceType    `json:"type"`
-	RefType       NullOrderInvoiceRefType `json:"ref_type"`
-	RefID         pgtype.Int8             `json:"ref_id"`
-	NullIssuerID  bool                    `json:"null_issuer_id"`
-	IssuerID      pgtype.Int8             `json:"issuer_id"`
-	ReceiverID    pgtype.Int8             `json:"receiver_id"`
-	Status        NullSharedStatus        `json:"status"`
-	PaymentMethod NullOrderPaymentMethod  `json:"payment_method"`
-	Address       pgtype.Text             `json:"address"`
-	Phone         pgtype.Text             `json:"phone"`
-	NullNote      bool                    `json:"null_note"`
-	Note          pgtype.Text             `json:"note"`
-	Metadata      []byte                  `json:"metadata"`
-	Subtotal      pgtype.Int8             `json:"subtotal"`
-	Total         pgtype.Int8             `json:"total"`
-	FileRsID      pgtype.Text             `json:"file_rs_id"`
-	DateCreated   pgtype.Timestamptz      `json:"date_created"`
-	Hash          []byte                  `json:"hash"`
-	PrevHash      []byte                  `json:"prev_hash"`
-	ID            int64                   `json:"id"`
+	RefType     NullOrderInvoiceRefType `json:"ref_type"`
+	RefID       pgtype.Int8             `json:"ref_id"`
+	Type        NullOrderInvoiceType    `json:"type"`
+	ReceiverID  pgtype.Int8             `json:"receiver_id"`
+	NullNote    bool                    `json:"null_note"`
+	Note        pgtype.Text             `json:"note"`
+	Data        []byte                  `json:"data"`
+	FileRsID    pgtype.Text             `json:"file_rs_id"`
+	DateCreated pgtype.Timestamptz      `json:"date_created"`
+	Hash        []byte                  `json:"hash"`
+	PrevHash    []byte                  `json:"prev_hash"`
+	ID          int64                   `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderInvoice(ctx context.Context, arg []UpdateBatchOrderInvoiceParams) *UpdateBatchOrderInvoiceBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Type,
 			a.RefType,
 			a.RefID,
-			a.NullIssuerID,
-			a.IssuerID,
+			a.Type,
 			a.ReceiverID,
-			a.Status,
-			a.PaymentMethod,
-			a.Address,
-			a.Phone,
 			a.NullNote,
 			a.Note,
-			a.Metadata,
-			a.Subtotal,
-			a.Total,
+			a.Data,
 			a.FileRsID,
 			a.DateCreated,
 			a.Hash,
@@ -5555,12 +5774,18 @@ func (b *UpdateBatchPromotionDiscountBatchResults) Close() error {
 
 const updateBatchSharedResource = `-- name: UpdateBatchSharedResource :batchexec
 UPDATE "shared"."resource"
-SET "mime_type" = COALESCE($1, "mime_type"),
-    "owner_id" = COALESCE($2, "owner_id"),
-    "owner_type" = COALESCE($3, "owner_type"),
-    "url" = COALESCE($4, "url"),
-    "order" = COALESCE($5, "order")
-WHERE id = $6
+SET "code" = COALESCE($1, "code"),
+    "mime" = COALESCE($2, "mime"),
+    "url" = COALESCE($3, "url"),
+    "file_size" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "file_size") END,
+    "width" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "width") END,
+    "height" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "height") END,
+    "duration" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "duration") END,
+    "checksum" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "checksum") END,
+    "uploaded_by" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "uploaded_by") END,
+    "status" = COALESCE($16, "status"),
+    "created_at" = COALESCE($17, "created_at")
+WHERE id = $18
 `
 
 type UpdateBatchSharedResourceBatchResults struct {
@@ -5570,23 +5795,47 @@ type UpdateBatchSharedResourceBatchResults struct {
 }
 
 type UpdateBatchSharedResourceParams struct {
-	MimeType  pgtype.Text            `json:"mime_type"`
-	OwnerID   pgtype.Int8            `json:"owner_id"`
-	OwnerType NullSharedResourceType `json:"owner_type"`
-	Url       pgtype.Text            `json:"url"`
-	Order     pgtype.Int4            `json:"order"`
-	ID        int64                  `json:"id"`
+	Code           pgtype.Text        `json:"code"`
+	Mime           pgtype.Text        `json:"mime"`
+	Url            pgtype.Text        `json:"url"`
+	NullFileSize   bool               `json:"null_file_size"`
+	FileSize       pgtype.Int8        `json:"file_size"`
+	NullWidth      bool               `json:"null_width"`
+	Width          pgtype.Int4        `json:"width"`
+	NullHeight     bool               `json:"null_height"`
+	Height         pgtype.Int4        `json:"height"`
+	NullDuration   bool               `json:"null_duration"`
+	Duration       pgtype.Float8      `json:"duration"`
+	NullChecksum   bool               `json:"null_checksum"`
+	Checksum       pgtype.Text        `json:"checksum"`
+	NullUploadedBy bool               `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
+	Status         NullSharedStatus   `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.MimeType,
-			a.OwnerID,
-			a.OwnerType,
+			a.Code,
+			a.Mime,
 			a.Url,
-			a.Order,
+			a.NullFileSize,
+			a.FileSize,
+			a.NullWidth,
+			a.Width,
+			a.NullHeight,
+			a.Height,
+			a.NullDuration,
+			a.Duration,
+			a.NullChecksum,
+			a.Checksum,
+			a.NullUploadedBy,
+			a.UploadedBy,
+			a.Status,
+			a.CreatedAt,
 			a.ID,
 		}
 		batch.Queue(updateBatchSharedResource, vals...)
@@ -5612,6 +5861,69 @@ func (b *UpdateBatchSharedResourceBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchSharedResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchSharedResourceReference = `-- name: UpdateBatchSharedResourceReference :batchexec
+UPDATE "shared"."resource_reference"
+SET "rs_id" = COALESCE($1, "rs_id"),
+    "ref_type" = COALESCE($2, "ref_type"),
+    "ref_id" = COALESCE($3, "ref_id"),
+    "order" = COALESCE($4, "order"),
+    "is_primary" = COALESCE($5, "is_primary")
+WHERE id = $6
+`
+
+type UpdateBatchSharedResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchSharedResourceReferenceParams struct {
+	RsID      pgtype.Int8               `json:"rs_id"`
+	RefType   NullSharedResourceRefType `json:"ref_type"`
+	RefID     pgtype.Int8               `json:"ref_id"`
+	Order     pgtype.Int4               `json:"order"`
+	IsPrimary pgtype.Bool               `json:"is_primary"`
+	ID        int64                     `json:"id"`
+}
+
+func (q *Queries) UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.RsID,
+			a.RefType,
+			a.RefID,
+			a.Order,
+			a.IsPrimary,
+			a.ID,
+		}
+		batch.Queue(updateBatchSharedResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchSharedResourceReferenceBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchSharedResourceReferenceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchSharedResourceReferenceBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

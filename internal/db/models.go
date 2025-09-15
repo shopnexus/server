@@ -798,73 +798,76 @@ func AllPromotionTypeValues() []PromotionType {
 	}
 }
 
-type SharedResourceType string
+type SharedResourceRefType string
 
 const (
-	SharedResourceTypeAccount       SharedResourceType = "Account"
-	SharedResourceTypeProductSpu    SharedResourceType = "ProductSpu"
-	SharedResourceTypeProductSku    SharedResourceType = "ProductSku"
-	SharedResourceTypeBrand         SharedResourceType = "Brand"
-	SharedResourceTypeRefund        SharedResourceType = "Refund"
-	SharedResourceTypeReturnDispute SharedResourceType = "ReturnDispute"
+	SharedResourceRefTypeAccount       SharedResourceRefType = "Account"
+	SharedResourceRefTypeProductSpu    SharedResourceRefType = "ProductSpu"
+	SharedResourceRefTypeProductSku    SharedResourceRefType = "ProductSku"
+	SharedResourceRefTypeBrand         SharedResourceRefType = "Brand"
+	SharedResourceRefTypeRefund        SharedResourceRefType = "Refund"
+	SharedResourceRefTypeReturnDispute SharedResourceRefType = "ReturnDispute"
+	SharedResourceRefTypeComment       SharedResourceRefType = "Comment"
 )
 
-func (e *SharedResourceType) Scan(src interface{}) error {
+func (e *SharedResourceRefType) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = SharedResourceType(s)
+		*e = SharedResourceRefType(s)
 	case string:
-		*e = SharedResourceType(s)
+		*e = SharedResourceRefType(s)
 	default:
-		return fmt.Errorf("unsupported scan type for SharedResourceType: %T", src)
+		return fmt.Errorf("unsupported scan type for SharedResourceRefType: %T", src)
 	}
 	return nil
 }
 
-type NullSharedResourceType struct {
-	SharedResourceType SharedResourceType `json:"shared_resource_type"`
-	Valid              bool               `json:"valid"` // Valid is true if SharedResourceType is not NULL
+type NullSharedResourceRefType struct {
+	SharedResourceRefType SharedResourceRefType `json:"shared_resource_ref_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if SharedResourceRefType is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullSharedResourceType) Scan(value interface{}) error {
+func (ns *NullSharedResourceRefType) Scan(value interface{}) error {
 	if value == nil {
-		ns.SharedResourceType, ns.Valid = "", false
+		ns.SharedResourceRefType, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.SharedResourceType.Scan(value)
+	return ns.SharedResourceRefType.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullSharedResourceType) Value() (driver.Value, error) {
+func (ns NullSharedResourceRefType) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.SharedResourceType), nil
+	return string(ns.SharedResourceRefType), nil
 }
 
-func (e SharedResourceType) Valid() bool {
+func (e SharedResourceRefType) Valid() bool {
 	switch e {
-	case SharedResourceTypeAccount,
-		SharedResourceTypeProductSpu,
-		SharedResourceTypeProductSku,
-		SharedResourceTypeBrand,
-		SharedResourceTypeRefund,
-		SharedResourceTypeReturnDispute:
+	case SharedResourceRefTypeAccount,
+		SharedResourceRefTypeProductSpu,
+		SharedResourceRefTypeProductSku,
+		SharedResourceRefTypeBrand,
+		SharedResourceRefTypeRefund,
+		SharedResourceRefTypeReturnDispute,
+		SharedResourceRefTypeComment:
 		return true
 	}
 	return false
 }
 
-func AllSharedResourceTypeValues() []SharedResourceType {
-	return []SharedResourceType{
-		SharedResourceTypeAccount,
-		SharedResourceTypeProductSpu,
-		SharedResourceTypeProductSku,
-		SharedResourceTypeBrand,
-		SharedResourceTypeRefund,
-		SharedResourceTypeReturnDispute,
+func AllSharedResourceRefTypeValues() []SharedResourceRefType {
+	return []SharedResourceRefType{
+		SharedResourceRefTypeAccount,
+		SharedResourceRefTypeProductSpu,
+		SharedResourceRefTypeProductSku,
+		SharedResourceRefTypeBrand,
+		SharedResourceRefTypeRefund,
+		SharedResourceRefTypeReturnDispute,
+		SharedResourceRefTypeComment,
 	}
 }
 
@@ -1188,24 +1191,17 @@ type OrderBase struct {
 }
 
 type OrderInvoice struct {
-	ID            int64               `json:"id"`
-	Type          OrderInvoiceType    `json:"type"`
-	RefType       OrderInvoiceRefType `json:"ref_type"`
-	RefID         int64               `json:"ref_id"`
-	IssuerID      pgtype.Int8         `json:"issuer_id"`
-	ReceiverID    int64               `json:"receiver_id"`
-	Status        SharedStatus        `json:"status"`
-	PaymentMethod OrderPaymentMethod  `json:"payment_method"`
-	Address       string              `json:"address"`
-	Phone         string              `json:"phone"`
-	Note          pgtype.Text         `json:"note"`
-	Metadata      []byte              `json:"metadata"`
-	Subtotal      int64               `json:"subtotal"`
-	Total         int64               `json:"total"`
-	FileRsID      string              `json:"file_rs_id"`
-	DateCreated   pgtype.Timestamptz  `json:"date_created"`
-	Hash          []byte              `json:"hash"`
-	PrevHash      []byte              `json:"prev_hash"`
+	ID          int64               `json:"id"`
+	RefType     OrderInvoiceRefType `json:"ref_type"`
+	RefID       int64               `json:"ref_id"`
+	Type        OrderInvoiceType    `json:"type"`
+	ReceiverID  int64               `json:"receiver_id"`
+	Note        pgtype.Text         `json:"note"`
+	Data        []byte              `json:"data"`
+	FileRsID    string              `json:"file_rs_id"`
+	DateCreated pgtype.Timestamptz  `json:"date_created"`
+	Hash        []byte              `json:"hash"`
+	PrevHash    []byte              `json:"prev_hash"`
 }
 
 type OrderItem struct {
@@ -1286,12 +1282,27 @@ type PromotionDiscount struct {
 }
 
 type SharedResource struct {
-	ID        int64              `json:"id"`
-	MimeType  string             `json:"mime_type"`
-	OwnerID   int64              `json:"owner_id"`
-	OwnerType SharedResourceType `json:"owner_type"`
-	Url       string             `json:"url"`
-	Order     int32              `json:"order"`
+	ID         int64              `json:"id"`
+	Code       string             `json:"code"`
+	Mime       string             `json:"mime"`
+	Url        string             `json:"url"`
+	FileSize   pgtype.Int8        `json:"file_size"`
+	Width      pgtype.Int4        `json:"width"`
+	Height     pgtype.Int4        `json:"height"`
+	Duration   pgtype.Float8      `json:"duration"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedResourceReference struct {
+	ID        int64                 `json:"id"`
+	RsID      int64                 `json:"rs_id"`
+	RefType   SharedResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
 }
 
 type SystemEvent struct {

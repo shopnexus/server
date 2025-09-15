@@ -58,43 +58,6 @@ func (q *Queries) DetailRating(ctx context.Context, arg DetailRatingParams) (Det
 	return i, err
 }
 
-const getAvailableProducts = `-- name: GetAvailableProducts :many
-SELECT s.id, s.sku_id, s.serial_number
-FROM unnest($1::bigint[]) AS u(sku_id)
-JOIN LATERAL (
-    SELECT id, sku_id, serial_number
-    FROM "inventory"."sku_serial"
-    WHERE sku_id = u.sku_id AND "status" = 'Active'
-    ORDER BY date_created DESC LIMIT 5
-) s ON true
-`
-
-type GetAvailableProductsRow struct {
-	ID           int64  `json:"id"`
-	SkuID        int64  `json:"sku_id"`
-	SerialNumber string `json:"serial_number"`
-}
-
-func (q *Queries) GetAvailableProducts(ctx context.Context, skuID []int64) ([]GetAvailableProductsRow, error) {
-	rows, err := q.db.Query(ctx, getAvailableProducts, skuID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetAvailableProductsRow{}
-	for rows.Next() {
-		var i GetAvailableProductsRow
-		if err := rows.Scan(&i.ID, &i.SkuID, &i.SerialNumber); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getFlagshipProduct = `-- name: GetFlagshipProduct :many
 SELECT s.id, s.spu_id, s.price, s.can_combine, s.date_created, s.date_deleted, s.sku_id, s.sold
 FROM unnest($1::bigint[]) AS u(spu_id)

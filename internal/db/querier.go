@@ -40,6 +40,7 @@ type Querier interface {
 	CountPromotionBase(ctx context.Context, arg CountPromotionBaseParams) (int64, error)
 	CountPromotionDiscount(ctx context.Context, arg CountPromotionDiscountParams) (int64, error)
 	CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error)
+	CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error)
 	CountSystemEvent(ctx context.Context, arg CountSystemEventParams) (int64, error)
 	CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error)
 	CreateAccountAddress(ctx context.Context, arg CreateAccountAddressParams) (AccountAddress, error)
@@ -79,6 +80,7 @@ type Querier interface {
 	CreateBatchPromotionBase(ctx context.Context, arg []CreateBatchPromotionBaseParams) *CreateBatchPromotionBaseBatchResults
 	CreateBatchPromotionDiscount(ctx context.Context, arg []CreateBatchPromotionDiscountParams) *CreateBatchPromotionDiscountBatchResults
 	CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults
+	CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults
 	CreateBatchSystemEvent(ctx context.Context, arg []CreateBatchSystemEventParams) *CreateBatchSystemEventBatchResults
 	CreateBatchSystemSearchSync(ctx context.Context, arg []CreateBatchSystemSearchSyncParams) *CreateBatchSystemSearchSyncBatchResults
 	CreateCatalogBrand(ctx context.Context, arg CreateCatalogBrandParams) (CatalogBrand, error)
@@ -120,7 +122,7 @@ type Querier interface {
 	CreateCopyDefaultCatalogProductSkuAttribute(ctx context.Context, arg []CreateCopyDefaultCatalogProductSkuAttributeParams) (int64, error)
 	CreateCopyDefaultCatalogProductSpu(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuParams) (int64, error)
 	CreateCopyDefaultCatalogProductSpuTag(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuTagParams) (int64, error)
-	CreateCopyDefaultCatalogTag(ctx context.Context, tag []string) (int64, error)
+	CreateCopyDefaultCatalogTag(ctx context.Context, arg []CreateCopyDefaultCatalogTagParams) (int64, error)
 	CreateCopyDefaultInventorySkuSerial(ctx context.Context, arg []CreateCopyDefaultInventorySkuSerialParams) (int64, error)
 	CreateCopyDefaultInventoryStock(ctx context.Context, arg []CreateCopyDefaultInventoryStockParams) (int64, error)
 	CreateCopyDefaultInventoryStockHistory(ctx context.Context, arg []CreateCopyDefaultInventoryStockHistoryParams) (int64, error)
@@ -134,6 +136,7 @@ type Querier interface {
 	CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error)
 	CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error)
 	CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error)
+	CreateCopyDefaultSharedResourceReference(ctx context.Context, arg []CreateCopyDefaultSharedResourceReferenceParams) (int64, error)
 	CreateCopyDefaultSystemEvent(ctx context.Context, arg []CreateCopyDefaultSystemEventParams) (int64, error)
 	CreateCopyDefaultSystemSearchSync(ctx context.Context, name []string) (int64, error)
 	CreateCopyInventorySkuSerial(ctx context.Context, arg []CreateCopyInventorySkuSerialParams) (int64, error)
@@ -149,6 +152,7 @@ type Querier interface {
 	CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error)
 	CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error)
 	CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error)
+	CreateCopySharedResourceReference(ctx context.Context, arg []CreateCopySharedResourceReferenceParams) (int64, error)
 	CreateCopySystemEvent(ctx context.Context, arg []CreateCopySystemEventParams) (int64, error)
 	CreateCopySystemSearchSync(ctx context.Context, arg []CreateCopySystemSearchSyncParams) (int64, error)
 	CreateDefaultAccountAddress(ctx context.Context, arg CreateDefaultAccountAddressParams) (AccountAddress, error)
@@ -166,7 +170,7 @@ type Querier interface {
 	CreateDefaultCatalogProductSkuAttribute(ctx context.Context, arg CreateDefaultCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error)
 	CreateDefaultCatalogProductSpu(ctx context.Context, arg CreateDefaultCatalogProductSpuParams) (CatalogProductSpu, error)
 	CreateDefaultCatalogProductSpuTag(ctx context.Context, arg CreateDefaultCatalogProductSpuTagParams) (CatalogProductSpuTag, error)
-	CreateDefaultCatalogTag(ctx context.Context, tag string) (CatalogTag, error)
+	CreateDefaultCatalogTag(ctx context.Context, arg CreateDefaultCatalogTagParams) (CatalogTag, error)
 	CreateDefaultInventorySkuSerial(ctx context.Context, arg CreateDefaultInventorySkuSerialParams) (InventorySkuSerial, error)
 	CreateDefaultInventoryStock(ctx context.Context, arg CreateDefaultInventoryStockParams) (InventoryStock, error)
 	CreateDefaultInventoryStockHistory(ctx context.Context, arg CreateDefaultInventoryStockHistoryParams) (InventoryStockHistory, error)
@@ -180,6 +184,7 @@ type Querier interface {
 	CreateDefaultPromotionBase(ctx context.Context, arg CreateDefaultPromotionBaseParams) (PromotionBase, error)
 	CreateDefaultPromotionDiscount(ctx context.Context, arg CreateDefaultPromotionDiscountParams) (PromotionDiscount, error)
 	CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error)
+	CreateDefaultSharedResourceReference(ctx context.Context, arg CreateDefaultSharedResourceReferenceParams) (SharedResourceReference, error)
 	CreateDefaultSystemEvent(ctx context.Context, arg CreateDefaultSystemEventParams) (SystemEvent, error)
 	CreateDefaultSystemSearchSync(ctx context.Context, name string) (SystemSearchSync, error)
 	CreateInventorySkuSerial(ctx context.Context, arg CreateInventorySkuSerialParams) (InventorySkuSerial, error)
@@ -195,8 +200,17 @@ type Querier interface {
 	CreatePromotionBase(ctx context.Context, arg CreatePromotionBaseParams) (PromotionBase, error)
 	CreatePromotionDiscount(ctx context.Context, arg CreatePromotionDiscountParams) (PromotionDiscount, error)
 	CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error)
+	CreateSharedResourceReference(ctx context.Context, arg CreateSharedResourceReferenceParams) (SharedResourceReference, error)
 	CreateSystemEvent(ctx context.Context, arg CreateSystemEventParams) (SystemEvent, error)
 	CreateSystemSearchSync(ctx context.Context, arg CreateSystemSearchSyncParams) (SystemSearchSync, error)
+	DeleteAccountAddress(ctx context.Context, arg DeleteAccountAddressParams) error
+	DeleteAccountBase(ctx context.Context, arg DeleteAccountBaseParams) error
+	DeleteAccountCartItem(ctx context.Context, arg DeleteAccountCartItemParams) error
+	DeleteAccountCustomer(ctx context.Context, arg DeleteAccountCustomerParams) error
+	DeleteAccountIncomeHistory(ctx context.Context, arg DeleteAccountIncomeHistoryParams) error
+	DeleteAccountNotification(ctx context.Context, arg DeleteAccountNotificationParams) error
+	DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error
+	DeleteAccountVendor(ctx context.Context, arg DeleteAccountVendorParams) error
 	DeleteBatchAccountAddress(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountAddressBatchResults
 	DeleteBatchAccountBase(ctx context.Context, arg []DeleteBatchAccountBaseParams) *DeleteBatchAccountBaseBatchResults
 	DeleteBatchAccountCartItem(ctx context.Context, arg []DeleteBatchAccountCartItemParams) *DeleteBatchAccountCartItemBatchResults
@@ -225,9 +239,34 @@ type Querier interface {
 	DeleteBatchOrderVnpay(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderVnpayBatchResults
 	DeleteBatchPromotionBase(ctx context.Context, arg []DeleteBatchPromotionBaseParams) *DeleteBatchPromotionBaseBatchResults
 	DeleteBatchPromotionDiscount(ctx context.Context, id []pgtype.Int8) *DeleteBatchPromotionDiscountBatchResults
-	DeleteBatchSharedResource(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceBatchResults
+	DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults
+	DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults
 	DeleteBatchSystemEvent(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemEventBatchResults
 	DeleteBatchSystemSearchSync(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemSearchSyncBatchResults
+	DeleteCatalogBrand(ctx context.Context, arg DeleteCatalogBrandParams) error
+	DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error
+	DeleteCatalogComment(ctx context.Context, arg DeleteCatalogCommentParams) error
+	DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalogProductSkuParams) error
+	DeleteCatalogProductSkuAttribute(ctx context.Context, arg DeleteCatalogProductSkuAttributeParams) error
+	DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error
+	DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error
+	DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error
+	DeleteInventorySkuSerial(ctx context.Context, arg DeleteInventorySkuSerialParams) error
+	DeleteInventoryStock(ctx context.Context, arg DeleteInventoryStockParams) error
+	DeleteInventoryStockHistory(ctx context.Context, arg DeleteInventoryStockHistoryParams) error
+	DeleteOrderBase(ctx context.Context, arg DeleteOrderBaseParams) error
+	DeleteOrderInvoice(ctx context.Context, arg DeleteOrderInvoiceParams) error
+	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) error
+	DeleteOrderItemSerial(ctx context.Context, arg DeleteOrderItemSerialParams) error
+	DeleteOrderRefund(ctx context.Context, arg DeleteOrderRefundParams) error
+	DeleteOrderRefundDispute(ctx context.Context, arg DeleteOrderRefundDisputeParams) error
+	DeleteOrderVnpay(ctx context.Context, arg DeleteOrderVnpayParams) error
+	DeletePromotionBase(ctx context.Context, arg DeletePromotionBaseParams) error
+	DeletePromotionDiscount(ctx context.Context, arg DeletePromotionDiscountParams) error
+	DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error
+	DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error
+	DeleteSystemEvent(ctx context.Context, arg DeleteSystemEventParams) error
+	DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error
 	DetailRating(ctx context.Context, arg DetailRatingParams) (DetailRatingRow, error)
 	ExistsAccountAddress(ctx context.Context, arg ExistsAccountAddressParams) (bool, error)
 	ExistsAccountBase(ctx context.Context, arg ExistsAccountBaseParams) (bool, error)
@@ -259,6 +298,7 @@ type Querier interface {
 	ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBaseParams) (bool, error)
 	ExistsPromotionDiscount(ctx context.Context, arg ExistsPromotionDiscountParams) (bool, error)
 	ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error)
+	ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error)
 	ExistsSystemEvent(ctx context.Context, arg ExistsSystemEventParams) (bool, error)
 	ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error)
 	// ========================================
@@ -295,7 +335,7 @@ type Querier interface {
 	// Queries for table: account.vendor
 	// ========================================
 	GetAccountVendor(ctx context.Context, id pgtype.Int8) (AccountVendor, error)
-	GetAvailableProducts(ctx context.Context, skuID []int64) ([]GetAvailableProductsRow, error)
+	GetAvailableProducts(ctx context.Context, arg []GetAvailableProductsParams) *GetAvailableProductsBatchResults
 	// ========================================
 	// Queries for table: catalog.brand
 	// ========================================
@@ -380,7 +420,11 @@ type Querier interface {
 	// ========================================
 	// Queries for table: shared.resource
 	// ========================================
-	GetSharedResource(ctx context.Context, id pgtype.Int8) (SharedResource, error)
+	GetSharedResource(ctx context.Context, arg GetSharedResourceParams) (SharedResource, error)
+	// ========================================
+	// Queries for table: shared.resource_reference
+	// ========================================
+	GetSharedResourceReference(ctx context.Context, id pgtype.Int8) (SharedResourceReference, error)
 	// ========================================
 	// Queries for table: system.event
 	// ========================================
@@ -420,10 +464,12 @@ type Querier interface {
 	ListPromotionDiscount(ctx context.Context, arg ListPromotionDiscountParams) ([]PromotionDiscount, error)
 	ListRating(ctx context.Context, arg ListRatingParams) ([]ListRatingRow, error)
 	ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error)
-	ListSharedResourceFirst(ctx context.Context, arg ListSharedResourceFirstParams) ([]ListSharedResourceFirstRow, error)
+	ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error)
+	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
 	ListSystemEvent(ctx context.Context, arg ListSystemEventParams) ([]SystemEvent, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
+	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
 	UpdateAccountAddress(ctx context.Context, arg UpdateAccountAddressParams) (AccountAddress, error)
 	UpdateAccountBase(ctx context.Context, arg UpdateAccountBaseParams) (AccountBase, error)
 	UpdateAccountCartItem(ctx context.Context, arg UpdateAccountCartItemParams) (AccountCartItem, error)
@@ -461,11 +507,14 @@ type Querier interface {
 	UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults
 	UpdateBatchPromotionDiscount(ctx context.Context, arg []UpdateBatchPromotionDiscountParams) *UpdateBatchPromotionDiscountBatchResults
 	UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults
+	UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults
 	UpdateBatchSystemEvent(ctx context.Context, arg []UpdateBatchSystemEventParams) *UpdateBatchSystemEventBatchResults
 	UpdateBatchSystemSearchSync(ctx context.Context, arg []UpdateBatchSystemSearchSyncParams) *UpdateBatchSystemSearchSyncBatchResults
+	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
 	UpdateCatalogCategory(ctx context.Context, arg UpdateCatalogCategoryParams) (CatalogCategory, error)
 	UpdateCatalogComment(ctx context.Context, arg UpdateCatalogCommentParams) (CatalogComment, error)
+	UpdateCatalogCommentUpvoteDownvote(ctx context.Context, arg UpdateCatalogCommentUpvoteDownvoteParams) error
 	UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalogProductSkuParams) (CatalogProductSku, error)
 	UpdateCatalogProductSkuAttribute(ctx context.Context, arg UpdateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error)
 	UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalogProductSpuParams) (CatalogProductSpu, error)
@@ -484,6 +533,7 @@ type Querier interface {
 	UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error)
 	UpdatePromotionDiscount(ctx context.Context, arg UpdatePromotionDiscountParams) (PromotionDiscount, error)
 	UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error)
+	UpdateSharedResourceReference(ctx context.Context, arg UpdateSharedResourceReferenceParams) (SharedResourceReference, error)
 	UpdateSystemEvent(ctx context.Context, arg UpdateSystemEventParams) (SystemEvent, error)
 	UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error)
 }

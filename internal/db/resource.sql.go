@@ -7,37 +7,67 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listSharedResourceFirst = `-- name: ListSharedResourceFirst :many
-SELECT DISTINCT on (owner_id) url, owner_id
-FROM "shared"."resource"
+const listSortedResources = `-- name: ListSortedResources :many
+SELECT r.id, r.code, r.mime, r.url, r.file_size, r.width, r.height, r.duration, r.checksum, r.uploaded_by, r.status, r.created_at, rr.ref_id
+FROM "shared"."resource_reference" AS rr
+INNER JOIN "shared"."resource" AS r ON rr.rs_id = r.id
 WHERE
-    owner_type = $1 AND
-    owner_id = ANY($2)
-ORDER BY "owner_id", "order" ASC
+    rr.ref_type = $1 AND
+    rr.ref_id = ANY($2) AND
+    (rr.is_primary = $3 OR $3 IS NULL)
+ORDER BY rr.ref_id, rr."order" ASC
 `
 
-type ListSharedResourceFirstParams struct {
-	OwnerType SharedResourceType `json:"owner_type"`
-	OwnerID   []int64            `json:"owner_id"`
+type ListSortedResourcesParams struct {
+	RefType   SharedResourceRefType `json:"ref_type"`
+	RefID     []int64               `json:"ref_id"`
+	IsPrimary pgtype.Bool           `json:"is_primary"`
 }
 
-type ListSharedResourceFirstRow struct {
-	Url     string `json:"url"`
-	OwnerID int64  `json:"owner_id"`
+type ListSortedResourcesRow struct {
+	ID         int64              `json:"id"`
+	Code       string             `json:"code"`
+	Mime       string             `json:"mime"`
+	Url        string             `json:"url"`
+	FileSize   pgtype.Int8        `json:"file_size"`
+	Width      pgtype.Int4        `json:"width"`
+	Height     pgtype.Int4        `json:"height"`
+	Duration   pgtype.Float8      `json:"duration"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	RefID      int64              `json:"ref_id"`
 }
 
-func (q *Queries) ListSharedResourceFirst(ctx context.Context, arg ListSharedResourceFirstParams) ([]ListSharedResourceFirstRow, error) {
-	rows, err := q.db.Query(ctx, listSharedResourceFirst, arg.OwnerType, arg.OwnerID)
+func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error) {
+	rows, err := q.db.Query(ctx, listSortedResources, arg.RefType, arg.RefID, arg.IsPrimary)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListSharedResourceFirstRow{}
+	items := []ListSortedResourcesRow{}
 	for rows.Next() {
-		var i ListSharedResourceFirstRow
-		if err := rows.Scan(&i.Url, &i.OwnerID); err != nil {
+		var i ListSortedResourcesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Code,
+			&i.Mime,
+			&i.Url,
+			&i.FileSize,
+			&i.Width,
+			&i.Height,
+			&i.Duration,
+			&i.Checksum,
+			&i.UploadedBy,
+			&i.Status,
+			&i.CreatedAt,
+			&i.RefID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
