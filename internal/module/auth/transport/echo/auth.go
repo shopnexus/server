@@ -7,6 +7,7 @@ import (
 	"shopnexus-remastered/internal/module/auth/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,8 +25,8 @@ func NewHandler(e *echo.Echo, authbiz *authbiz.AuthBiz) *Handler {
 }
 
 type LoginBasicRequest struct {
-	ID       string `json:"id" validate:"required,min=1,max=255"`
-	Password string `json:"password" validate:"required,min=8,max=72"`
+	ID       string `json:"id" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
 type LoginBasicResponse struct {
@@ -42,10 +43,10 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 	}
 
 	result, err := h.biz.Login(c.Request().Context(), authbiz.LoginParams{
-		Username: &req.ID,
-		Email:    &req.ID,
-		Phone:    &req.ID,
-		Password: &req.Password,
+		Username: null.NewString(req.ID, true),
+		Email:    null.NewString(req.ID, true),
+		Phone:    null.NewString(req.ID, true),
+		Password: null.NewString(req.Password, true),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
@@ -57,11 +58,11 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 }
 
 type RegisterBasicRequest struct {
-	Type     db.AccountType `json:"type" validate:"required,oneof=Customer Vendor"`
-	Username *string        `json:"username" validate:"omitempty,min=1,max=255"`
-	Email    *string        `json:"email" validate:"omitempty,email"`
-	Phone    *string        `json:"phone" validate:"omitempty,e164"`
-	Password string         `json:"password" validate:"required,min=8,max=72"`
+	Type     db.AccountType `json:"type" validate:"required"`
+	Username null.String    `json:"username" validate:"omitnil"`
+	Email    null.String    `json:"email" validate:"omitnil"`
+	Phone    null.String    `json:"phone" validate:"omitnil"`
+	Password string         `json:"password" validate:"required"`
 }
 
 type RegisterBasicResponse struct {
@@ -82,7 +83,7 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 		Username: req.Username,
 		Email:    req.Email,
 		Phone:    req.Phone,
-		Password: &req.Password,
+		Password: null.NewString(req.Password, true),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

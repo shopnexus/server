@@ -9,8 +9,10 @@ import (
 	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/guregu/null/v6"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/context"
 )
@@ -76,11 +78,10 @@ func (a *AuthBiz) CreateHash(password string) (string, error) {
 }
 
 type LoginParams struct {
-	Code     *string
-	Username *string
-	Email    *string
-	Phone    *string
-	Password *string
+	Username null.String `validate:"omitnil"`
+	Email    null.String `validate:"omitnil"`
+	Phone    null.String `validate:"omitnil"`
+	Password null.String `validate:"required,min=8,max=72"`
 }
 
 type LoginResult struct {
@@ -91,8 +92,11 @@ type LoginResult struct {
 func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
 	var zero LoginResult
 
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
 	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
-		Code:     params.Code,
 		Username: params.Username,
 		Email:    params.Email,
 		Phone:    params.Phone,
@@ -101,8 +105,8 @@ func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, e
 		return zero, err
 	}
 
-	if account.Password.Valid && params.Password != nil {
-		if !a.ComparePassword(account.Password.String, *params.Password) {
+	if account.Password.Valid && params.Password.Valid {
+		if !a.ComparePassword(account.Password.String, params.Password.String) {
 			return zero, authmodel.ErrInvalidCredentials
 		}
 	}
@@ -119,11 +123,11 @@ func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, e
 }
 
 type RegisterParams struct {
-	Type     db.AccountType
-	Username *string
-	Email    *string
-	Phone    *string
-	Password *string
+	Type     db.AccountType `validate:"required,validateFn=Valid"`
+	Username null.String    `validate:"omitnil,min=1,max=255"`
+	Email    null.String    `validate:"omitnil,email"`
+	Phone    null.String    `validate:"omitnil,e164"`
+	Password null.String    `validate:"required,min=8,max=72"`
 }
 
 type RegisterResult struct {
@@ -134,24 +138,28 @@ type RegisterResult struct {
 func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (RegisterResult, error) {
 	var zero RegisterResult
 
-	if params.Username == nil && params.Email == nil && params.Phone == nil {
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
 		return zero, authmodel.ErrMissingIdentifier
 	}
 
 	// If register via Google OAuth, password can be nil => password is nil, email is required
 	//! More oauth providers can be added in the future
-	if params.Password == nil && params.Email == nil {
+	if !params.Password.Valid && !params.Email.Valid {
 		return zero, fmt.Errorf("email is required when password is not provided")
 	}
 
 	// Hash the password if provided
-	var hashedPassword *string
-	if params.Password != nil {
-		hashed, err := a.CreateHash(*params.Password)
+	var hashedPassword null.String
+	if params.Password.Valid {
+		hashed, err := a.CreateHash(params.Password.String)
 		if err != nil {
 			return zero, err
 		}
-		hashedPassword = &hashed
+		hashedPassword.SetValid(hashed)
 	}
 
 	account, err := a.accountBiz.CreateAccount(ctx, accountbiz.CreateAccountParams{
@@ -160,15 +168,6 @@ func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (Register
 		Email:    params.Email,
 		Phone:    params.Phone,
 		Password: hashedPassword,
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
-		Username: params.Username,
-		Email:    params.Email,
-		Phone:    params.Phone,
 	})
 	if err != nil {
 		return zero, err

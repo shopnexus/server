@@ -12,6 +12,6 @@ type Claims struct {
 }
 
 type AuthenticatedAccount struct {
-	Type db.AccountType
-	ID   int64
+	Type db.AccountType `validate:"required,validateFn=Valid"`
+	ID   int64          `validate:"required,gt=0"`
 }
