@@ -1,1 +1,36 @@
 package promotionmodel
+
+import (
+	"shopnexus-remastered/internal/db"
+	"time"
+
+	"github.com/guregu/null/v6"
+)
+
+type PromotionBase struct {
+	ID               int64               `json:"id"`
+	Code             string              `json:"code"`
+	OwnerID          null.Int64          `json:"owner_id"`
+	RefType          db.PromotionRefType `json:"ref_type"`
+	RefID            null.Int64          `json:"ref_id"`
+	Type             db.PromotionType    `json:"type"`
+	Title            string              `json:"title"`
+	Description      null.String         `json:"description"`
+	IsActive         bool                `json:"is_active"`
+	DateStarted      time.Time           `json:"date_started"`
+	DateEnded        null.Time           `json:"date_ended"`
+	ScheduleTz       null.String         `json:"schedule_tz"`
+	ScheduleStart    null.Time           `json:"schedule_start"`
+	ScheduleDuration null.Int32          `json:"schedule_duration"`
+	DateCreated      time.Time           `json:"date_created"`
+	DateUpdated      time.Time           `json:"date_updated"`
+}
+
+type PromotionDiscount struct {
+	PromotionBase
+	OrderWide       bool       `json:"order_wide"`
+	MinSpend        int64      `json:"min_spend"`
+	MaxDiscount     int64      `json:"max_discount"`
+	DiscountPercent null.Int64 `json:"discount_percent"`
+	DiscountPrice   null.Int32 `json:"discount_price"`
+}
