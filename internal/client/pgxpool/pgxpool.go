@@ -104,8 +104,8 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 		`"promotion"."ref_type"`,
 		`"promotion"."_ref_type"`,
 
-		`"shared"."resource_type"`,
-		`"shared"."_resource_type"`,
+		`"shared"."resource_ref_type"`,
+		`"shared"."_resource_ref_type"`,
 		`"shared"."status"`,
 		`"shared"."_status"`,
 
