@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Custom binder that extends Echo's default binder
+// CustomBinder that extends Echo's default binder
 type CustomBinder struct {
 	*echo.DefaultBinder
 }
