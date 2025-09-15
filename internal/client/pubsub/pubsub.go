@@ -6,14 +6,24 @@ import (
 )
 
 type Client interface {
-	Publish(ctx context.Context, topic string, value any) error
-	Subscribe(ctx context.Context, topic string, handler func(msg *MessageDecoder) error) error
+	Publish(topic string, value any) error
+	Subscribe(topic string, handler func(msg *MessageDecoder) error) error
 	Close() error
+}
+
+// DecodeWrap is a helper to wrap a function with a specific parameter type into a handler function.
+func DecodeWrap[T any](f func(ctx context.Context, params T) error) func(msg *MessageDecoder) error {
+	return func(msg *MessageDecoder) error {
+		var params T
+		if err := msg.Decode(&params); err != nil {
+			return err
+		}
+		return f(context.Background(), params)
+	}
 }
 
 // Config holds configuration values for the Kafka connection.
 type Config struct {
-	Group   string
 	Timeout time.Duration
 	Brokers []string
 

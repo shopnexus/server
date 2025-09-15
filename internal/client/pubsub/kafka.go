@@ -39,7 +39,7 @@ func NewKafkaClient(cfg KafkaConfig) (*KafkaClient, error) {
 }
 
 // Publish sends a message to the given topic.
-func (k *KafkaClient) Publish(ctx context.Context, topic string, value any) error {
+func (k *KafkaClient) Publish(topic string, value any) error {
 	// Encode the value using the configured encoder
 	encodedValue, err := k.config.Encoder(value)
 	if err != nil {
@@ -65,7 +65,8 @@ func (k *KafkaClient) Publish(ctx context.Context, topic string, value any) erro
 }
 
 // Subscribe listens for messages on a topic and handles them with the given callback.
-func (k *KafkaClient) Subscribe(ctx context.Context, topic string, handler func(msg *MessageDecoder) error) error {
+func (k *KafkaClient) Subscribe(topic string, handler func(msg *MessageDecoder) error) error {
+	ctx := context.TODO()
 	saramaSubscriberConfig := kafka.DefaultSaramaSubscriberConfig()
 	// equivalent of auto.offset.reset: earliest
 	saramaSubscriberConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
