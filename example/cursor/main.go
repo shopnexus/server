@@ -1,54 +1,97 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"errors"
 	"fmt"
-	"strings"
+	"io"
 )
 
-func encodeCursor(id int64, secret string) string {
-	value := fmt.Sprintf("%d", id)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(value))
-	signature := hex.EncodeToString(mac.Sum(nil))
-	raw := fmt.Sprintf("%s.%s", value, signature)
-	return base64.StdEncoding.EncodeToString([]byte(raw))
-}
-
-func decodeCursor(cursor, secret string) (int64, error) {
-	raw, err := base64.StdEncoding.DecodeString(cursor)
-	if err != nil {
-		return 0, err
-	}
-
-	parts := strings.SplitN(string(raw), ".", 2)
-	if len(parts) != 2 {
-		return 0, fmt.Errorf("invalid cursor format")
-	}
-
-	value, signature := parts[0], parts[1]
-
-	// Verify signature
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(value))
-	expected := hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(signature), []byte(expected)) {
-		return 0, fmt.Errorf("invalid cursor signature")
-	}
-
-	var id int64
-	fmt.Sscanf(value, "%d", &id)
-	return id, nil
-}
-
 func main() {
-	secret := "my_secret_key"
-	id := int64(12345)
-	cursor := encodeCursor(id, secret)
-	fmt.Println("Encoded Cursor:", cursor)
+	// Generate a random key
+	key := generateKey()
+	fmt.Printf("Key (hex): %x\n", key)
 
+	// Original message
+	message := "Hello, this is a secret message!"
+	fmt.Printf("Original: %s\n", message)
+
+	// Encrypt
+	encrypted, err := encrypt([]byte(message), key)
+	if err != nil {
+		fmt.Printf("Encryption error: %v\n", err)
+		return
+	}
+	fmt.Printf("Encrypted (hex): %x\n", encrypted)
+
+	// Decrypt
+	decrypted, err := decrypt(encrypted, key)
+	if err != nil {
+		fmt.Printf("Decryption error: %v\n", err)
+		return
+	}
+	fmt.Printf("Decrypted: %s\n", string(decrypted))
+
+	// Verify
+	if string(decrypted) == message {
+		fmt.Println("✓ Encryption/Decryption successful!")
+	} else {
+		fmt.Println("✗ Something went wrong!")
+	}
+}
+
+// encrypt encrypts plaintext using AES-GCM
+func encrypt(plaintext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
+// decrypt decrypts ciphertext using AES-GCM
+func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
+}
+
+// generateKey generates a random 32-byte key for AES-256
+func generateKey() []byte {
+	key := make([]byte, 32) // AES-256
+	rand.Read(key)
+	return key
 }

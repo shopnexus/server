@@ -5,17 +5,18 @@ import (
 	"fmt"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/vnpay"
+	"shopnexus-remastered/internal/client/payment"
+	"shopnexus-remastered/internal/client/payment/vnpay"
 )
 
 func main() {
 	client := vnpay.NewClient(vnpay.ClientOptions{
 		TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
 		HashSecret: config.GetConfig().App.Vnpay.HashSecret,
-		ReturnURL:  config.GetConfig().App.Vnpay.ReturnURL,
+		ReturnURL:  "localhost",
 	})
 
-	url, err := client.CreateOrder(context.TODO(), vnpay.CreateOrderParams{
+	url, err := client.CreateOrder(context.TODO(), payment.CreateOrderParams{
 		RefID:  13,
 		Amount: 100000,
 		Info:   "Don hang 1",
