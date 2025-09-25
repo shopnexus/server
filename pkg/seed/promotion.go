@@ -3,8 +3,9 @@ package seed
 import (
 	"context"
 	"fmt"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"time"
+
+	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/utils/ptr"

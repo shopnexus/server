@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/config"
@@ -26,12 +27,13 @@ type SeedConfig struct {
 // DefaultSeedConfig returns default seeding configuration
 func DefaultSeedConfig() *SeedConfig {
 	return &SeedConfig{
-		AccountCount:      100,
-		ProductCount:      500,
-		OrderCount:        200,
-		PromotionCount:    20,
-		CommentCount:      300,
-		ClearExistingData: false,
+		//AccountCount:      100,
+		//ProductCount:      500,
+		//OrderCount:        200,
+		//PromotionCount:    20,
+		//CommentCount:      300,
+		//ClearExistingData: false,
+		AccountCount: 10,
 	}
 }
 
@@ -75,15 +77,15 @@ func SeedAll(ctx context.Context, storage db.Querier, fake *faker.Faker, cfg *Se
 		return fmt.Errorf("failed to seed cart items: %w", err)
 	}
 
-	_, err = SeedInventorySchema(ctx, storage, fake, cfg, catalogData)
+	inventoryData, err := SeedInventorySchema(ctx, storage, fake, cfg, catalogData)
 	if err != nil {
 		return fmt.Errorf("failed to seed inventory schema: %w", err)
 	}
 
-	//_, err = SeedPaymentSchema(ctx, storage, fake, cfg, accountData, catalogData, inventoryData)
-	//if err != nil {
-	//	return fmt.Errorf("failed to seed payment schema: %w", err)
-	//}
+	_, err = SeedPaymentSchema(ctx, storage, fake, cfg, accountData, catalogData, inventoryData)
+	if err != nil {
+		return fmt.Errorf("failed to seed payment schema: %w", err)
+	}
 
 	_, err = SeedPromotionSchema(ctx, storage, fake, cfg, accountData, catalogData)
 	if err != nil {
@@ -95,7 +97,7 @@ func SeedAll(ctx context.Context, storage db.Querier, fake *faker.Faker, cfg *Se
 		return fmt.Errorf("failed to seed shared schema: %w", err)
 	}
 
-	_, err = SeedSystemSchema(ctx, storage, fake, cfg, accountData)
+	_, err = SeedSystemSchema(ctx, storage, fake, cfg, catalogData)
 	if err != nil {
 		return fmt.Errorf("failed to seed system schema: %w", err)
 	}

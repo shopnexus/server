@@ -3,8 +3,9 @@ package seed
 import (
 	"context"
 	"fmt"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"time"
+
+	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/internal/db"
 
@@ -509,8 +510,8 @@ func SeedCatalogSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 // generateProductName creates realistic product names based on brand and category
 func generateProductName(fake *faker.Faker, brandName, categoryName string) string {
 	productTypes := map[string][]string{
-		"Electronics": {"Pro", "Max", "Ultra", "Plus", "Mini", "Air", "Studio"},
-		"Smartphones": {"Pro", "Max", "Ultra", "Plus", "Mini", "Lite", "Edge"},
+		"Electronics": {"Pro", "Stop", "Ultra", "Plus", "Mini", "Air", "Studio"},
+		"Smartphones": {"Pro", "Stop", "Ultra", "Plus", "Mini", "Lite", "Edge"},
 		"Laptops":     {"Book", "Pro", "Gaming", "Ultra", "Slim", "Studio"},
 		"Clothing":    {"Classic", "Premium", "Sport", "Casual", "Luxury"},
 		"Sports":      {"Pro", "Elite", "Performance", "Training", "Outdoor"},
@@ -520,7 +521,7 @@ func generateProductName(fake *faker.Faker, brandName, categoryName string) stri
 	if types, exists := productTypes[categoryName]; exists {
 		suffix = types[fake.RandomDigit()%len(types)]
 	} else {
-		suffix = []string{"Pro", "Max", "Ultra", "Plus", "Classic"}[fake.RandomDigit()%5]
+		suffix = []string{"Pro", "Stop", "Ultra", "Plus", "Classic"}[fake.RandomDigit()%5]
 	}
 
 	model := fake.Lorem().Word()

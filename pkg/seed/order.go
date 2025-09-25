@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"time"
+
+	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/utils/ptr"
@@ -16,10 +17,11 @@ import (
 
 // PaymentSeedData holds seeded payment data for other seeders to reference
 type PaymentSeedData struct {
+	PaymentGateways  []db.OrderPaymentGateway
 	Orders           []db.OrderBase
 	OrderItems       []db.OrderItem
 	OrderItemSerials []db.OrderItemSerial
-	VnpayPayments    []db.OrderVnpay
+	Shipments        []db.OrderShipment
 	Refunds          []db.OrderRefund
 	RefundDisputes   []db.OrderRefundDispute
 	Invoices         []db.OrderInvoice
@@ -33,10 +35,11 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	tracker := NewUniqueTracker()
 
 	data := &PaymentSeedData{
+		PaymentGateways:  make([]db.OrderPaymentGateway, 0),
 		Orders:           make([]db.OrderBase, 0),
 		OrderItems:       make([]db.OrderItem, 0),
 		OrderItemSerials: make([]db.OrderItemSerial, 0),
-		VnpayPayments:    make([]db.OrderVnpay, 0),
+		Shipments:        make([]db.OrderShipment, 0),
 		Refunds:          make([]db.OrderRefund, 0),
 		RefundDisputes:   make([]db.OrderRefundDispute, 0),
 		Invoices:         make([]db.OrderInvoice, 0),
@@ -45,6 +48,148 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	if len(accountData.Customers) == 0 || len(catalogData.ProductSkus) == 0 {
 		fmt.Println("⚠️ No customers or product SKUs found, skipping payment seeding")
 		return data, nil
+	}
+
+	// First, create payment gateways
+	fmt.Println("🏦 Creating payment gateways...")
+	paymentGatewayParams := []db.CreateCopyOrderPaymentGatewayParams{
+		{
+			ID:          "cod",
+			Method:      db.OrderPaymentMethodCOD,
+			Description: pgtype.Text{String: "Pay when you receive the product", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "vnpay_card",
+			Method:      db.OrderPaymentMethodCard,
+			Description: pgtype.Text{String: "Vietnam's leading payment gateway", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "vnpay_banktransfer",
+			Method:      db.OrderPaymentMethodBankTransfer,
+			Description: pgtype.Text{String: "Vietnam's leading payment gateway", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "zalopay",
+			Method:      db.OrderPaymentMethodBankTransfer,
+			Description: pgtype.Text{String: "Digital wallet by Zalo", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "momo",
+			Method:      db.OrderPaymentMethodBankTransfer,
+			Description: pgtype.Text{String: "Mobile money wallet", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "binance",
+			Method:      db.OrderPaymentMethodCrypto,
+			Description: pgtype.Text{String: "Cryptocurrency exchange", Valid: true},
+			IsActive:    true,
+		},
+		{
+			ID:          "bybit",
+			Method:      db.OrderPaymentMethodCrypto,
+			Description: pgtype.Text{String: "Cryptocurrency trading platform", Valid: true},
+			IsActive:    true,
+		},
+	}
+
+	// Bulk insert payment gateways
+	_, err := storage.CreateCopyOrderPaymentGateway(ctx, paymentGatewayParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bulk create payment gateways: %w", err)
+	}
+
+	// Query back created payment gateways
+	paymentGateways, err := storage.ListOrderPaymentGateway(ctx, db.ListOrderPaymentGatewayParams{
+		Limit:  pgutil.Int32ToPgInt4(int32(len(paymentGatewayParams) * 2)),
+		Offset: pgutil.Int32ToPgInt4(0),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query back created payment gateways: %w", err)
+	}
+
+	data.PaymentGateways = paymentGateways
+
+	// Create shipments
+	fmt.Println("📦 Creating shipments...")
+	shipmentProviders := []string{"GHN", "GHTK", "DHL", "Viettel Post", "J&T Express"}
+	shipmentStatuses := db.AllOrderShipmentStatusValues()
+
+	// Create shipments for orders (one shipment per order)
+	shipmentParams := make([]db.CreateCopyOrderShipmentParams, len(data.Orders))
+	for i, order := range data.Orders {
+		provider := shipmentProviders[fake.RandomDigit()%len(shipmentProviders)]
+		status := shipmentStatuses[fake.RandomDigit()%len(shipmentStatuses)]
+
+		var trackingCode *string
+		var labelUrl *string
+		var estimatedEtd *time.Time
+		var dateShipped *time.Time
+		var dateDelivered *time.Time
+
+		// Generate realistic data based on status
+		if status != "Pending" {
+			trackingCodeStr := fmt.Sprintf("%s%s%d", provider[:3], fake.RandomDigit()%10000, fake.RandomDigit()%1000)
+			trackingCode = &trackingCodeStr
+		}
+
+		if status == "LabelCreated" || status == "InTransit" || status == "OutForDelivery" || status == "Delivered" {
+			labelUrlStr := fmt.Sprintf("https://labels.example.com/%d.pdf", order.ID)
+			labelUrl = &labelUrlStr
+		}
+
+		if status == "InTransit" || status == "OutForDelivery" || status == "Delivered" {
+			etd := time.Now().AddDate(0, 0, fake.RandomDigit()%7+1)
+			estimatedEtd = &etd
+		}
+
+		if status == "InTransit" || status == "OutForDelivery" || status == "Delivered" {
+			shipped := time.Now().AddDate(0, 0, -fake.RandomDigit()%3)
+			dateShipped = &shipped
+		}
+
+		if status == "Delivered" {
+			delivered := time.Now().AddDate(0, 0, -fake.RandomDigit()%2)
+			dateDelivered = &delivered
+		}
+
+		shipmentParams[i] = db.CreateCopyOrderShipmentParams{
+			Provider:      provider,
+			TrackingCode:  pgtype.Text{String: ptr.DerefDefault(trackingCode, ""), Valid: trackingCode != nil},
+			Status:        status,
+			LabelUrl:      pgtype.Text{String: ptr.DerefDefault(labelUrl, ""), Valid: labelUrl != nil},
+			Cost:          int64(fake.RandomDigit()%50000 + 10000), // 10k-60k VND
+			EstimatedEtd:  pgtype.Timestamptz{Time: ptr.DerefDefault(estimatedEtd, time.Time{}), Valid: estimatedEtd != nil},
+			DateShipped:   pgtype.Timestamptz{Time: ptr.DerefDefault(dateShipped, time.Time{}), Valid: dateShipped != nil},
+			DateDelivered: pgtype.Timestamptz{Time: ptr.DerefDefault(dateDelivered, time.Time{}), Valid: dateDelivered != nil},
+		}
+	}
+
+	// Bulk insert shipments
+	_, err = storage.CreateCopyOrderShipment(ctx, shipmentParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bulk create shipments: %w", err)
+	}
+
+	// Query back created shipments
+	shipments, err := storage.ListOrderShipment(ctx, db.ListOrderShipmentParams{
+		Limit:  pgutil.Int32ToPgInt4(int32(len(shipmentParams) * 2)),
+		Offset: pgutil.Int32ToPgInt4(0),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query back created shipments: %w", err)
+	}
+
+	data.Shipments = shipments
+
+	// Create a mapping from payment method to available gateways
+	paymentMethodToGateways := make(map[string][]string)
+	for _, gateway := range data.PaymentGateways {
+		paymentMethodToGateways[string(gateway.Method)] = append(paymentMethodToGateways[string(gateway.Method)], gateway.ID)
 	}
 
 	paymentMethods := db.AllOrderPaymentMethodValues()
@@ -69,18 +214,30 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			customerAddress = fake.Address().Address()
 		}
 
+		paymentMethod := paymentMethods[fake.RandomDigit()%len(paymentMethods)]
+
+		// Randomly select a gateway from available options for this payment method
+		availableGateways := paymentMethodToGateways[string(paymentMethod)]
+		var paymentGatewayID string
+		if len(availableGateways) > 0 {
+			paymentGatewayID = availableGateways[fake.RandomDigit()%len(availableGateways)]
+		} else {
+			// Fallback to first gateway if no specific mapping found
+			paymentGatewayID = data.PaymentGateways[0].ID
+		}
+
 		orderParams[i] = db.CreateCopyOrderBaseParams{
-			AccountID:     customer.ID,
-			PaymentMethod: paymentMethods[fake.RandomDigit()%len(paymentMethods)],
-			Status:        statuses[fake.RandomDigit()%len(statuses)],
-			Address:       customerAddress,
-			DateCreated:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
-			DateUpdated:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			AccountID:      customer.ID,
+			PaymentGateway: paymentGatewayID,
+			Status:         statuses[fake.RandomDigit()%len(statuses)],
+			Address:        customerAddress,
+			DateCreated:    pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			DateUpdated:    pgtype.Timestamptz{Time: time.Now(), Valid: true},
 		}
 	}
 
 	// Bulk insert orders
-	_, err := storage.CreateCopyOrderBase(ctx, orderParams)
+	_, err = storage.CreateCopyOrderBase(ctx, orderParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create orders: %w", err)
 	}
@@ -100,10 +257,17 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 	// Prepare bulk order items and related data
 	var orderItemParams []db.CreateCopyOrderItemParams
 	var orderItemSerialParams []db.CreateCopyOrderItemSerialParams
-	var vnpayParams []db.CreateCopyOrderVnpayParams
 	var refundParams []db.CreateCopyOrderRefundParams
 	var refundDisputeParams []db.CreateCopyOrderRefundDisputeParams
 	var invoiceParams []db.CreateCopyOrderInvoiceParams
+
+	// Create mapping from order ID to shipment ID
+	orderToShipment := make(map[int64]int64)
+	for i, order := range data.Orders {
+		if i < len(data.Shipments) {
+			orderToShipment[order.ID] = data.Shipments[i].ID
+		}
+	}
 
 	orderTotals := make(map[int64]int64) // order ID -> total
 
@@ -118,9 +282,10 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 			quantity := int64(fake.RandomDigit()%3 + 1) // 1-3 items
 
 			orderItemParam := db.CreateCopyOrderItemParams{
-				OrderID:  order.ID,
-				SkuID:    sku.ID,
-				Quantity: quantity,
+				OrderID:    order.ID,
+				SkuID:      sku.ID,
+				ShipmentID: pgtype.Int8{Int64: orderToShipment[order.ID], Valid: orderToShipment[order.ID] != 0},
+				Quantity:   quantity,
 			}
 			orderItemParams = append(orderItemParams, orderItemParam)
 			currentOrderItems = append(currentOrderItems, orderItemParam)
@@ -153,24 +318,6 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		_ = currentOrderItems
 		orderTotals[order.ID] = orderTotal
 
-		// Prepare VNPay payment for Card/EWallet orders (50% chance)
-		if (order.PaymentMethod == "Card" || order.PaymentMethod == "EWallet") && fake.Boolean().Bool() {
-			vnpayParams = append(vnpayParams, db.CreateCopyOrderVnpayParams{
-				ID:                   order.ID,
-				VnpAmount:            fmt.Sprintf("%d", orderTotal),
-				VnpBankCode:          fake.Payment().CreditCardType(),
-				VnpCardType:          "ATM",
-				VnpOrderInfo:         fmt.Sprintf("Payment for order #%d", order.ID),
-				VnpPayDate:           "20241201120000",
-				VnpResponseCode:      "00",
-				VnpSecureHash:        fake.Hash().SHA256(),
-				VnpTmnCode:           "2QXUI4J4",
-				VnpTransactionNo:     fmt.Sprintf("%d", fake.RandomDigit()%1000000+1000000),
-				VnpTransactionStatus: "00",
-				VnpTxnRef:            fmt.Sprintf("ORDER-%d", order.ID),
-			})
-		}
-
 		// Prepare refunds for some order items (10% chance)
 		for _, orderItem := range data.OrderItems {
 			if fake.RandomDigit()%10 == 0 && order.Status == "Success" {
@@ -191,6 +338,7 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 				refundParams = append(refundParams, db.CreateCopyOrderRefundParams{
 					OrderItemID:  orderItem.ID,
 					ReviewedByID: pgtype.Int8{Int64: ptr.DerefDefault(reviewerID, 0), Valid: reviewerID != nil},
+					ShipmentID:   pgtype.Int8{Int64: orderToShipment[orderItem.OrderID], Valid: orderToShipment[orderItem.OrderID] != 0},
 					Method:       refundMethods[fake.RandomDigit()%len(refundMethods)],
 					Status:       refundStatuses[fake.RandomDigit()%len(refundStatuses)],
 					Reason:       generateRefundReason(fake),
@@ -277,26 +425,6 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		}
 	}
 
-	// Bulk insert VNPay payments
-	if len(vnpayParams) > 0 {
-		_, err = storage.CreateCopyOrderVnpay(ctx, vnpayParams)
-		if err != nil {
-			return nil, fmt.Errorf("failed to bulk create VNPay payments: %w", err)
-		}
-
-		// Query back created VNPay payments
-		vnpayPayments, err := storage.ListOrderVnpay(ctx, db.ListOrderVnpayParams{
-			Limit:  pgutil.Int32ToPgInt4(int32(len(vnpayParams) * 2)),
-			Offset: pgutil.Int32ToPgInt4(0),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to query back created VNPay payments: %w", err)
-		}
-
-		// Populate data.VnpayPayments with actual database records
-		data.VnpayPayments = vnpayPayments
-	}
-
 	// Bulk insert refunds
 	if len(refundParams) > 0 {
 		_, err = storage.CreateCopyOrderRefund(ctx, refundParams)
@@ -376,10 +504,10 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 					"phone": generateUniquePhoneWithTracker(fake, tracker),
 				},
 				"order": map[string]interface{}{
-					"id":             order.ID,
-					"payment_method": order.PaymentMethod,
-					"address":        order.Address,
-					"date_created":   order.DateCreated.Time,
+					"id":              order.ID,
+					"payment_gateway": order.PaymentGateway,
+					"address":         order.Address,
+					"date_created":    order.DateCreated.Time,
 				},
 				"items": []map[string]interface{}{},
 				"totals": map[string]interface{}{
@@ -449,8 +577,8 @@ func SeedPaymentSchema(ctx context.Context, storage db.Querier, fake *faker.Fake
 		data.Invoices = invoices
 	}
 
-	fmt.Printf("✅ Payment schema seeded: %d orders, %d order items, %d order serials, %d vnpay payments, %d refunds, %d disputes, %d invoices\n",
-		len(data.Orders), len(data.OrderItems), len(data.OrderItemSerials), len(data.VnpayPayments),
+	fmt.Printf("✅ Payment schema seeded: %d payment gateways, %d orders, %d order items, %d order serials, %d shipments, %d refunds, %d disputes, %d invoices\n",
+		len(data.PaymentGateways), len(data.Orders), len(data.OrderItems), len(data.OrderItemSerials), len(data.Shipments),
 		len(data.Refunds), len(data.RefundDisputes), len(data.Invoices))
 
 	return data, nil
