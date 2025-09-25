@@ -18,7 +18,7 @@ type KafkaClient struct {
 
 type KafkaConfig struct {
 	Config
-	Group string
+	Group string // Optional consumer group for subscriptions
 }
 
 // NewKafkaClient creates a new Kafka client using franz-go.
@@ -36,6 +36,15 @@ func NewKafkaClient(cfg KafkaConfig) (*KafkaClient, error) {
 	return &KafkaClient{
 		config: cfg,
 	}, nil
+}
+
+// Group returns a new KafkaClient instance with the specified consumer group.
+func (k *KafkaClient) Group(name string) Client {
+	newConfig := k.config
+	newConfig.Group = name
+	return &KafkaClient{
+		config: newConfig,
+	}
 }
 
 // Publish sends a message to the given topic.

@@ -6,6 +6,7 @@ import (
 )
 
 type Client interface {
+	Group(name string) Client
 	Publish(topic string, value any) error
 	Subscribe(topic string, handler func(msg *MessageDecoder) error) error
 	Close() error
