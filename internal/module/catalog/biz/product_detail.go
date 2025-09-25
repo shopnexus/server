@@ -2,12 +2,15 @@ package catalogbiz
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/slice"
 )
 
 type GetProductDetailParams struct {
@@ -92,7 +95,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		RefID:   spu.ID,
 	})
 	ratingBreakdown := make(map[int]int)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return zero, err
 	}
 	ratingBreakdown[5] = int(rating.FiveCount)
@@ -147,7 +150,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		ID:          spu.ID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Resources:   resourceMap[spu.ID],
+		Resources:   slice.NonNil(resourceMap[spu.ID]),
 		Category:    category.Name,
 		Rating: catalogmodel.ProductDetailRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale

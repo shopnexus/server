@@ -3,8 +3,11 @@ package catalogbiz
 import (
 	"context"
 
+	"shopnexus-remastered/internal/client/cachestruct"
+	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
+	searchbiz "shopnexus-remastered/internal/module/search/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -13,14 +16,26 @@ import (
 )
 
 type CatalogBiz struct {
+	cache        cachestruct.Client
+	pubsub       pubsub.Client
 	storage      *pgutil.Storage
 	promotionBiz *promotionbiz.PromotionBiz
+	search       *searchbiz.SearchBiz
 }
 
-func NewCatalogBiz(storage *pgutil.Storage, promotionBiz *promotionbiz.PromotionBiz) *CatalogBiz {
+func NewCatalogBiz(
+	cache cachestruct.Client,
+	pubsub pubsub.Client,
+	storage *pgutil.Storage,
+	promotionBiz *promotionbiz.PromotionBiz,
+	search *searchbiz.SearchBiz,
+) *CatalogBiz {
 	return &CatalogBiz{
+		cache:        cache,
+		pubsub:       pubsub.Group("catalog"),
 		storage:      storage,
 		promotionBiz: promotionBiz,
+		search:       search,
 	}
 }
 
@@ -53,7 +68,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 	spus, err := b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
 		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:     pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset:     pgutil.Int32ToPgInt4(params.Offset()),
 		Code:       params.Code,
 		AccountID:  params.AccountID,
 		CategoryID: params.CategoryID,
@@ -65,20 +80,15 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 	}
 
 	return sharedmodel.PaginateResult[db.CatalogProductSpu]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       spus,
-		Limit:      params.GetLimit(),
-		Page:       params.GetPage(),
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(total),
 	}, nil
 }
 
 type ListProductSkuParams struct {
 	sharedmodel.PaginationParams
 	SpuID      []int64 `validate:"omitempty,dive,gt=0"`
-	SpuIDFrom  null.Int64
-	SpuIDTo    null.Int64
 	Price      []int64 `validate:"omitempty,dive,gt=0"`
 	PriceFrom  null.Int64
 	PriceTo    null.Int64
@@ -94,8 +104,6 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 
 	total, err := b.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{
 		SpuID:      params.SpuID,
-		SpuIDFrom:  pgutil.NullInt64ToPgInt8(params.SpuIDFrom),
-		SpuIDTo:    pgutil.NullInt64ToPgInt8(params.SpuIDTo),
 		Price:      params.Price,
 		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
 		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
@@ -106,11 +114,10 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	}
 
 	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+		IDFrom:     params.GetCursorID(),
 		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:     pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset:     pgutil.Int32ToPgInt4(params.Offset()),
 		SpuID:      params.SpuID,
-		SpuIDFrom:  pgutil.NullInt64ToPgInt8(params.SpuIDFrom),
-		SpuIDTo:    pgutil.NullInt64ToPgInt8(params.SpuIDTo),
 		Price:      params.Price,
 		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
 		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
@@ -121,12 +128,9 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	}
 
 	return sharedmodel.PaginateResult[db.CatalogProductSku]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       skus,
-		Limit:      params.GetLimit(),
-		Page:       params.GetPage(),
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(total),
 	}, nil
 }
 
@@ -151,7 +155,7 @@ func (b *CatalogBiz) ListProductSkuAttribute(ctx context.Context, params ListPro
 
 	attrs, err := b.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset: pgutil.Int32ToPgInt4(params.Offset()),
 		Name:   params.Name,
 	})
 	if err != nil {
@@ -159,11 +163,8 @@ func (b *CatalogBiz) ListProductSkuAttribute(ctx context.Context, params ListPro
 	}
 
 	return sharedmodel.PaginateResult[db.CatalogProductSkuAttribute]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       attrs,
-		Limit:      params.GetLimit(),
-		Page:       params.GetPage(),
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(total),
 	}, nil
 }

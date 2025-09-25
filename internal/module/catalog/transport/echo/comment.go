@@ -16,11 +16,11 @@ import (
 type ListCommentRequest struct {
 	sharedmodel.PaginationParams
 	RefType   db.CatalogCommentRefType `query:"ref_type" validate:"required"`
-	ID        []int64                  `query:"id" validate:"required"`
-	AccountID []int64                  `query:"account_id" validate:"required"`
-	RefID     []int64                  `query:"ref_id" validate:"required"`
-	ScoreFrom null.Int32               `query:"score_from" validate:"required"`
-	ScoreTo   null.Int32               `query:"score_to" validate:"required"`
+	ID        []int64                  `query:"id" validate:"omitempty"`
+	AccountID []int64                  `query:"account_id" validate:"omitempty"`
+	RefID     []int64                  `query:"ref_id" validate:"omitempty"`
+	ScoreFrom null.Int32               `query:"score_from" validate:"omitnil"`
+	ScoreTo   null.Int32               `query:"score_to" validate:"omitnil"`
 }
 
 func (h *Handler) ListComment(c echo.Context) error {

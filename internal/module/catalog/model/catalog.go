@@ -6,6 +6,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const (
+	CacheRecommendSize       = 100
+	CacheKeyRecommendProduct = "catalog:recommend:product:%d"
+	CacheKeyRecommendOffset  = "catalog:recommend:offset:%d"
+)
+
 type ProductSku struct {
 	ID          int64              `json:"id"`
 	Code        string             `json:"code"`

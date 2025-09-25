@@ -19,6 +19,7 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	api := e.Group("/api/v1/catalog")
 	api.GET("/product-detail", h.GetProductDetail)
 	api.GET("/product-card", h.ListProductCard)
+	api.GET("/product-card/recommended", h.ListRecommendedProductCard)
 
 	api.GET("/product-spu", h.ListProductSpu)
 	api.GET("/product-sku", h.ListProductSku)

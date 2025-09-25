@@ -9,6 +9,7 @@ import (
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -45,7 +46,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 
 	dbComments, err := b.storage.ListCatalogComment(ctx, db.ListCatalogCommentParams{
 		Limit:     pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:    pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset:    pgutil.Int32ToPgInt4(params.Offset()),
 		ID:        params.ID,
 		AccountID: params.AccountID,
 		RefType:   []db.CatalogCommentRefType{params.RefType},
@@ -57,10 +58,32 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		return zero, err
 	}
 	var commentIDs []int64
+	var accountIDs []int64
 	for _, row := range dbComments {
 		commentIDs = append(commentIDs, row.ID)
+		accountIDs = append(accountIDs, row.AccountID)
 	}
 
+	// Map accounts to comments
+	dbProfiles, err := b.storage.ListAccountProfile(ctx, db.ListAccountProfileParams{
+		ID: accountIDs,
+	})
+	if err != nil {
+		return zero, err
+	}
+	// map[accountID]db.AccountProfile
+	profileMap := slice.NewMap(dbProfiles, func(a db.AccountProfile) int64 { return a.ID })
+
+	// Map avatar accounts
+	avatars, err := b.storage.ListSharedResource(ctx, db.ListSharedResourceParams{
+		ID: slice.Map(dbProfiles, func(a db.AccountProfile) int64 { return a.AvatarRsID.Int64 }),
+	})
+	if err != nil {
+		return zero, err
+	}
+	avatarMap := slice.NewMap(avatars, func(r db.SharedResource) int64 { return r.ID })
+
+	// Map resources to comments
 	dbResources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
 		RefType: db.SharedResourceRefTypeComment,
 		RefID:   commentIDs,
@@ -83,19 +106,47 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 
 	var comments []catalogmodel.Comment
 	for _, row := range dbComments {
+		profile := profileMap[row.AccountID]
+		name := "Unknown User"
+		if profile.Name.Valid {
+			name = profile.Name.String
+		}
+		var avatar *sharedmodel.Resource
+		if profile.AvatarRsID.Valid {
+			a := avatarMap[profile.AvatarRsID.Int64]
+			avatar = &sharedmodel.Resource{
+				ID:       a.ID,
+				Mime:     a.Mime,
+				Url:      a.Url,
+				FileSize: pgutil.PgInt8ToNullInt64(a.FileSize),
+				Width:    pgutil.PgInt4ToNullInt32(a.Width),
+				Height:   pgutil.PgInt4ToNullInt32(a.Height),
+				Duration: pgutil.PgFloat8ToNullFloat(a.Duration),
+			}
+		}
+
 		comments = append(comments, catalogmodel.Comment{
-			CatalogComment: row,
-			Resources:      resourceMap[row.ID],
+			ID: row.ID,
+			Account: catalogmodel.CommentAccount{
+				ID:       row.AccountID,
+				Name:     name,
+				Avatar:   avatar,
+				Verified: profile.PhoneVerified || profile.EmailVerified,
+			},
+			Body:        row.Body,
+			Upvote:      row.Upvote,
+			Downvote:    row.Downvote,
+			Score:       row.Score,
+			DateCreated: row.DateCreated,
+			DateUpdated: row.DateUpdated,
+			Resources:   slice.NonNil(resourceMap[row.ID]),
 		})
 	}
 
 	return sharedmodel.PaginateResult[catalogmodel.Comment]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       comments,
-		Limit:      params.GetLimit(),
-		Page:       params.GetPage(),
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(total),
 	}, nil
 }
 
