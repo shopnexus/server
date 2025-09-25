@@ -37,7 +37,7 @@ func GetClaims(r *http.Request) (authmodel.Claims, error) {
 	}
 
 	// If not in cache, validate token and store in cache
-	claims, err := ValidateAccessToken(strings.TrimPrefix(token, tokenPrefix))
+	claims, err := ValidateAccessToken(config.GetConfig().App.JWT.Secret, strings.TrimPrefix(token, tokenPrefix))
 	if err != nil {
 		return authmodel.Claims{}, err
 	}
@@ -50,8 +50,7 @@ func GetClaims(r *http.Request) (authmodel.Claims, error) {
 	return claims, nil
 }
 
-func ValidateAccessToken(tokenStr string) (claims authmodel.Claims, err error) {
-	secret := config.GetConfig().App.JWT.Secret
+func ValidateAccessToken(secret string, tokenStr string) (claims authmodel.Claims, err error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (any, error) {
 		return []byte(secret), nil
 	})

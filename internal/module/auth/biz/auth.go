@@ -5,7 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
+
 	"shopnexus-remastered/config"
+	"shopnexus-remastered/internal/client/cachestruct"
 	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -18,17 +21,23 @@ import (
 )
 
 type AuthBiz struct {
-	tokenDuration time.Duration
-	jwtSecret     []byte
+	tokenDuration        time.Duration
+	jwtSecret            []byte
+	refreshTokenDuration time.Duration
+	refreshSecret        []byte
 
 	accountBiz *accountbiz.AccountBiz
+	cache      cachestruct.Client
 }
 
-func NewAuthBiz(accountBiz *accountbiz.AccountBiz) *AuthBiz {
+func NewAuthBiz(accountBiz *accountbiz.AccountBiz, cache cachestruct.Client) *AuthBiz {
 	return &AuthBiz{
-		tokenDuration: time.Duration(config.GetConfig().App.JWT.AccessTokenDuration * int64(time.Second)),
-		jwtSecret:     []byte(config.GetConfig().App.JWT.Secret),
-		accountBiz:    accountBiz,
+		tokenDuration:        time.Duration(config.GetConfig().App.JWT.AccessTokenDuration * int64(time.Second)),
+		jwtSecret:            []byte(config.GetConfig().App.JWT.Secret),
+		refreshTokenDuration: time.Duration(config.GetConfig().App.JWT.RefreshTokenDuration * int64(time.Second)),
+		refreshSecret:        []byte(config.GetConfig().App.JWT.RefreshSecret),
+		accountBiz:           accountBiz,
+		cache:                cache,
 	}
 }
 
@@ -40,6 +49,7 @@ func (a *AuthBiz) CreateClaims(account db.AccountBase) authmodel.Claims {
 			ID:   account.ID,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			Issuer:    "shopnexus",
 			Subject:   strconv.Itoa(int(account.ID)),
 			Audience:  []string{"shopnexus"},
@@ -59,6 +69,34 @@ func (a *AuthBiz) GenerateAccessToken(account db.AccountBase) (string, error) {
 		return "", err
 	}
 
+	return signedToken, nil
+}
+
+// CreateRefreshClaims generates JWT claims for refresh token
+func (a *AuthBiz) CreateRefreshClaims(account db.AccountBase) authmodel.Claims {
+	return authmodel.Claims{
+		Account: authmodel.AuthenticatedAccount{
+			Type: account.Type,
+			ID:   account.ID,
+		},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "shopnexus",
+			Subject:   strconv.Itoa(int(account.ID)),
+			Audience:  []string{"shopnexus:refresh"},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.refreshTokenDuration)),
+		},
+	}
+}
+
+// GenerateRefreshToken creates a JWT refresh token
+func (a *AuthBiz) GenerateRefreshToken(account db.AccountBase) (string, error) {
+	claims := a.CreateRefreshClaims(account)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	signedToken, err := token.SignedString(a.refreshSecret)
+	if err != nil {
+		return "", err
+	}
 	return signedToken, nil
 }
 
@@ -85,8 +123,9 @@ type LoginParams struct {
 }
 
 type LoginResult struct {
-	Account     db.AccountBase
-	AccessToken string
+	Account      db.AccountBase
+	AccessToken  string
+	RefreshToken string
 }
 
 func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
@@ -116,9 +155,15 @@ func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, e
 		return zero, err
 	}
 
+	refreshToken, err := a.GenerateRefreshToken(account)
+	if err != nil {
+		return zero, err
+	}
+
 	return LoginResult{
-		Account:     account,
-		AccessToken: accessToken,
+		Account:      account,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
@@ -131,8 +176,9 @@ type RegisterParams struct {
 }
 
 type RegisterResult struct {
-	Account     db.AccountBase
-	AccessToken string
+	Account      db.AccountBase
+	AccessToken  string
+	RefreshToken string
 }
 
 func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (RegisterResult, error) {
@@ -178,8 +224,49 @@ func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (Register
 		return zero, err
 	}
 
+	refreshToken, err := a.GenerateRefreshToken(account)
+	if err != nil {
+		return zero, err
+	}
+
 	return RegisterResult{
-		Account:     account,
-		AccessToken: accessToken,
+		Account:      account,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+type RefreshResult struct {
+	AccessToken  string
+	RefreshToken string
+}
+
+// Refresh validates the provided refresh token, loads the account, and issues new tokens
+func (a *AuthBiz) Refresh(ctx context.Context, refreshToken string) (RefreshResult, error) {
+	var zero RefreshResult
+	claims, err := ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
+	if err != nil {
+		return zero, err
+	}
+
+	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
+		ID: null.NewInt(claims.Account.ID, true),
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	access, err := a.GenerateAccessToken(account)
+	if err != nil {
+		return zero, err
+	}
+	nextRefresh, err := a.GenerateRefreshToken(account)
+	if err != nil {
+		return zero, err
+	}
+
+	return RefreshResult{
+		AccessToken:  access,
+		RefreshToken: nextRefresh,
 	}, nil
 }

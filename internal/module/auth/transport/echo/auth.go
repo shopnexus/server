@@ -20,6 +20,7 @@ func NewHandler(e *echo.Echo, authbiz *authbiz.AuthBiz) *Handler {
 	api := e.Group("/api/v1/auth")
 	api.POST("/login/basic", h.LoginBasic)
 	api.POST("/register/basic", h.RegisterBasic)
+	api.POST("/refresh", h.Refresh)
 
 	return h
 }
@@ -30,7 +31,8 @@ type LoginBasicRequest struct {
 }
 
 type LoginBasicResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *Handler) LoginBasic(c echo.Context) error {
@@ -53,7 +55,8 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, LoginBasicResponse{
-		AccessToken: result.AccessToken,
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
 	})
 }
 
@@ -66,7 +69,8 @@ type RegisterBasicRequest struct {
 }
 
 type RegisterBasicResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *Handler) RegisterBasic(c echo.Context) error {
@@ -90,6 +94,36 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusCreated, RegisterBasicResponse{
-		AccessToken: result.AccessToken,
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
+	})
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type RefreshResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (h *Handler) Refresh(c echo.Context) error {
+	var req RefreshRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.Refresh(c.Request().Context(), req.RefreshToken)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, RefreshResponse{
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
 	})
 }
