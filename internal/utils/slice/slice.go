@@ -88,3 +88,10 @@ func MapToSlice[T any, G comparable](m map[G]T) []T {
 	}
 	return result
 }
+
+func NonNil[T any](slice []T) []T {
+	if len(slice) == 0 {
+		return make([]T, 0)
+	}
+	return slice
+}
