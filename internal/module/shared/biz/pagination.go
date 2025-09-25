@@ -1,49 +1,33 @@
 package biz
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
-	"strings"
+
+	"shopnexus-remastered/internal/utils/aes"
 )
 
-func EncodeCursor(id int64, secret string) string {
-	value := fmt.Sprintf("%d", id)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(value))
-	signature := hex.EncodeToString(mac.Sum(nil))
-	raw := fmt.Sprintf("%s.%s", value, signature)
-	return base64.StdEncoding.EncodeToString([]byte(raw))
+// EncryptCursor encrypts a string ID with AES-GCM and returns a base64 cursor.
+func EncryptCursor(id, secret string) (string, error) {
+	ciphertext, err := aes.Encrypt([]byte(secret), []byte(id))
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt cursor: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func DecodeCursor(cursor, secret string) (int64, error) {
-	raw, err := base64.StdEncoding.DecodeString(cursor)
+// DecryptCursor decrypts a base64 cursor back to the original string.
+func DecryptCursor(cursor, secret string) (string, error) {
+	cipherText, err := base64.StdEncoding.DecodeString(cursor)
 	if err != nil {
-		return 0, err
+		return "", fmt.Errorf("failed to decode cursor: %w", err)
 	}
 
-	parts := strings.SplitN(string(raw), ".", 2)
-	if len(parts) != 2 {
-		return 0, fmt.Errorf("invalid cursor format")
+	plaintext, err := aes.Decrypt([]byte(secret), cipherText)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt cursor: %w", err)
 	}
 
-	value, signature := parts[0], parts[1]
-
-	// Verify signature
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(value))
-	expected := hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(signature), []byte(expected)) {
-		return 0, fmt.Errorf("invalid cursor signature")
-	}
-
-	var id int64
-	if _, err = fmt.Sscanf(value, "%d", &id); err != nil {
-		return 0, err
-	}
-
-	return id, nil
+	return string(plaintext), nil
 }

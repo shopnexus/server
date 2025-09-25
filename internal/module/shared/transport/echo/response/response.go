@@ -1,9 +1,12 @@
 package response
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/guregu/null/v6"
 
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 
@@ -112,14 +115,25 @@ func FromPaginate[T any](w http.ResponseWriter, paginate sharedmodel.PaginateRes
 		data = make([]T, 0)
 	}
 
+	// TODO: Create customer encoder/decoder
+	var nextCursor null.String
+	if paginate.NextCursor != nil {
+		encodedCursor, err := json.Marshal(paginate.NextCursor)
+		if err != nil {
+			return writeError(w, http.StatusInternalServerError, err)
+		}
+		nextCursor.SetValid(string(encodedCursor))
+	}
+
 	response := PaginationResponse[T]{
 		Data: data,
 		PageMeta: PageMeta{
-			Limit:      paginate.Limit,
-			Page:       paginate.Page,
+			Limit:      paginate.PageParams.Limit,
 			Total:      paginate.Total,
-			NextPage:   paginate.NextPage,
-			NextCursor: paginate.NextCursor,
+			Page:       paginate.PageParams.Page,
+			Cursor:     paginate.PageParams.Cursor,
+			NextPage:   paginate.NextPage(),
+			NextCursor: nextCursor,
 		},
 	}
 
