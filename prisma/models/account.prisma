@@ -47,7 +47,7 @@ model Account {
   vendor_profile   Vendor?
   profile          Profile?
   addresses        Address[]
-  events           Event[]
+  // events           Event[]
   notifications    Notification[]
   comments         Comment[]
   invoices         Invoice[]
@@ -82,9 +82,10 @@ model Customer {
   date_created       DateTime @default(now()) @db.Timestamptz(3)
   date_updated       DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  account  Account    @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  orders   Order[]
-  CartItem CartItem[]
+  account         Account       @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  orders          Order[]
+  CartItem        CartItem[]
+  UserInteraction Interaction[]
 
   @@index([default_address_id])
   @@map("customer")

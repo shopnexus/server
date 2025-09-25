@@ -1,39 +1,47 @@
-enum EventType {
-  Created
-  Updated
-  Deleted
+// // TODO: move to kafka or rabbitmq for better performance
+// model Event {
+//   id         BigInt  @id @default(autoincrement())
+//   account_id BigInt? // Who performed this event, can be null for system events
+//
+//   aggregate_id   BigInt // The id of the aggregate root, e.g. Product.id, Order.id, etc.
+//   aggregate_type String   @db.VarChar(100) // e.g. Product, Order,
+//   event          String   @db.VarChar(100)
+//   payload        Json     @db.JsonB
+//   version        BigInt // Prevent duplicate events
+//   date_created   DateTime @default(now()) @db.Timestamptz(3)
+//
+//   account Account?  @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+//   type    EventType @relation(fields: [event], references: [id], onUpdate: Cascade, onDelete: NoAction)
+//
+//   @@index([event])
+//   @@index([aggregate_id, aggregate_type])
+//   @@index([date_created])
+//   @@map("event")
+//   @@schema("system")
+// }
+//
+// model EventType {
+//   id          String  @id @db.VarChar(100) // create, update, delete, publish, unpublish, archive, unarchive, ...
+//   description String?
+//   Event       Event[]
+//
+//   @@map("event_type")
+//   @@schema("system")
+// }
 
-  @@map("event_type")
-  @@schema("system")
-}
-
-// TODO: move to kafka or rabbitmq for better performance
-model Event {
-  id         BigInt  @id @default(autoincrement())
-  account_id BigInt? // Who performed this event, can be null for system events
-
-  aggregate_id   BigInt // The id of the aggregate root, e.g. Product.id, Order.id, etc.
-  aggregate_type String    @db.VarChar(100) // e.g. Product, Order,
-  event_type     EventType
-  payload        Json      @db.JsonB
-  version        BigInt // Prevent duplicate events
-  date_created   DateTime  @default(now()) @db.Timestamptz(3)
-
-  account Account? @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  @@index([aggregate_id, aggregate_type])
-  @@index([date_created])
-  @@map("event")
-  @@schema("system")
-}
-
-// Last time sync from system.event
 model SearchSync {
-  id          BigInt   @id @default(autoincrement())
-  name        String   @db.VarChar(100) // e.g. "Algolia", "Meilisearch", "ElasticSearch", ...
-  last_synced DateTime @default(now()) @db.Timestamptz(3)
+  id                 BigInt  @id @default(autoincrement())
+  ref_type           String  @db.VarChar(100) // e.g. Product, Category, Brand, ...
+  ref_id             BigInt
+  is_stale_embedding Boolean @default(true)
+  is_stale_metadata  Boolean @default(true)
 
-  @@index([last_synced])
+  date_created DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([ref_type, ref_id])
+  @@index([is_stale_embedding])
+  @@index([is_stale_metadata])
+  @@index([date_created])
   @@map("search_sync")
   @@schema("system")
 }

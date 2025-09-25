@@ -27,8 +27,9 @@ model Resource {
   status      Status   @default(Pending)
   created_at  DateTime @default(now()) @db.Timestamptz(3)
 
-  author  Account? @relation("resource_upload_by", fields: [uploaded_by], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  profile Profile? @relation("profile_avatar")
+  author  Account?            @relation("resource_upload_by", fields: [uploaded_by], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  profile Profile?            @relation("profile_avatar")
+  refs    ResourceReference[]
 
   @@map("resource")
   @@schema("shared")
@@ -41,6 +42,8 @@ model ResourceReference {
   ref_id     BigInt
   order      Int
   is_primary Boolean
+
+  resource Resource @relation(fields: [rs_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@map("resource_reference")
   @@schema("shared")

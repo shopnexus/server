@@ -91,6 +91,19 @@ Table Address {
   date_updated DateTime [default: `now()`, not null]
 }
 
+Table Interaction {
+  id BigInt [pk, increment]
+  account_id BigInt [not null]
+  session_id String
+  event_type String [not null]
+  ref_type InteractionRefType [not null]
+  ref_id BigInt [not null]
+  metadata Json
+  user_agent String
+  ip_address String
+  date_created DateTime [default: `now()`, not null]
+}
+
 Table Brand {
   id BigInt [pk, increment]
   code String [unique, not null]
@@ -198,7 +211,7 @@ Table StockHistory {
 Table Order {
   id BigInt [pk, increment]
   account_id BigInt [not null]
-  payment_method PaymentMethod [not null]
+  payment_gateway String [not null]
   status Status [not null, default: 'Pending']
   address String [not null]
   date_created DateTime [default: `now()`, not null]
@@ -209,6 +222,7 @@ Table OrderItem {
   id BigInt [pk, increment]
   order_id BigInt [not null]
   sku_id BigInt [not null]
+  shipment_id BigInt
   quantity BigInt [not null]
 }
 
@@ -222,25 +236,18 @@ Table OrderItemSerial {
   }
 }
 
-Table PaymentVnpay {
-  id BigInt [pk]
-  vnp_Amount String [not null]
-  vnp_BankCode String [not null]
-  vnp_CardType String [not null]
-  vnp_OrderInfo String [not null]
-  vnp_PayDate String [not null]
-  vnp_ResponseCode String [not null]
-  vnp_SecureHash String [not null]
-  vnp_TmnCode String [not null]
-  vnp_TransactionNo String [not null]
-  vnp_TransactionStatus String [not null]
-  vnp_TxnRef String [not null]
+Table PaymentGateway {
+  id String [pk]
+  method PaymentMethod [not null]
+  description String
+  is_active Boolean [not null, default: true]
 }
 
 Table Refund {
   id BigInt [pk, increment]
   order_item_id BigInt [not null]
   reviewed_by_id BigInt
+  shipment_id BigInt
   method RefundMethod [not null]
   status Status [not null, default: 'Pending']
   reason String [not null]
@@ -270,6 +277,18 @@ Table Invoice {
   date_created DateTime [default: `now()`, not null]
   hash Bytes [unique, not null]
   prev_hash Bytes [not null]
+}
+
+Table Shipment {
+  id BigInt [pk, increment]
+  provider String [not null]
+  tracking_code String
+  status ShipmentStatus [not null, default: 'Pending']
+  label_url String
+  cost BigInt [not null]
+  estimated_etd DateTime
+  date_shipped DateTime
+  date_delivered DateTime
 }
 
 Table Promotion {
@@ -324,21 +343,13 @@ Table ResourceReference {
   is_primary Boolean [not null]
 }
 
-Table Event {
-  id BigInt [pk, increment]
-  account_id BigInt
-  aggregate_id BigInt [not null]
-  aggregate_type String [not null]
-  event_type EventType [not null]
-  payload Json [not null]
-  version BigInt [not null]
-  date_created DateTime [default: `now()`, not null]
-}
-
 Table SearchSync {
   id BigInt [pk, increment]
-  name String [not null]
-  last_synced DateTime [default: `now()`, not null]
+  ref_type String [not null]
+  ref_id BigInt [not null]
+  is_stale_embedding Boolean [not null, default: true]
+  is_stale_metadata Boolean [not null, default: true]
+  date_created DateTime [default: `now()`, not null]
 }
 
 Enum AccountType {
@@ -362,6 +373,13 @@ Enum AddressType {
   Work
 }
 
+Enum InteractionRefType {
+  Product
+  Article
+  Category
+  Brand
+}
+
 Enum CommentRefType {
   ProductSpu
   Comment
@@ -382,8 +400,9 @@ Enum ProductStatus {
 Enum PaymentMethod {
   COD
   Card
-  EWallet
+  BankTransfer
   Crypto
+  Other
 }
 
 Enum RefundMethod {
@@ -400,6 +419,16 @@ Enum InvoiceType {
 Enum InvoiceRefType {
   Order
   Fee
+}
+
+Enum ShipmentStatus {
+  Pending
+  LabelCreated
+  InTransit
+  OutForDelivery
+  Delivered
+  Failed
+  Cancelled
 }
 
 Enum PromotionType {
@@ -435,12 +464,6 @@ Enum Status {
   Failed
 }
 
-Enum EventType {
-  Created
-  Updated
-  Deleted
-}
-
 Ref: Profile.id - Account.id [delete: Cascade]
 
 Ref: Profile.avatar_rs_id - Resource.id [delete: Set Null]
@@ -458,6 +481,8 @@ Ref: CartItem.cart_id > Customer.id [delete: Cascade]
 Ref: CartItem.sku_id > ProductSku.id [delete: No Action]
 
 Ref: Address.account_id > Account.id [delete: Cascade]
+
+Ref: Interaction.account_id > Customer.id [delete: Cascade]
 
 Ref: ProductSpu.account_id > Vendor.id [delete: Cascade]
 
@@ -479,21 +504,25 @@ Ref: ProductSerial.sku_id > ProductSku.id [delete: Cascade]
 
 Ref: StockHistory.stock_id > Stock.id [delete: Cascade]
 
+Ref: Order.payment_gateway > PaymentGateway.id [delete: No Action]
+
 Ref: Order.account_id > Customer.id [delete: Cascade]
 
 Ref: OrderItem.order_id > Order.id [delete: Cascade]
 
 Ref: OrderItem.sku_id > ProductSku.id [delete: No Action]
 
+Ref: OrderItem.shipment_id > Shipment.id [delete: No Action]
+
 Ref: OrderItemSerial.order_item_id > OrderItem.id [delete: Cascade]
 
 Ref: OrderItemSerial.product_serial_id > ProductSerial.id [delete: No Action]
 
-Ref: PaymentVnpay.id - Order.id [delete: Cascade]
-
 Ref: Refund.order_item_id > OrderItem.id [delete: No Action]
 
 Ref: Refund.reviewed_by_id > Vendor.id [delete: Set Null]
+
+Ref: Refund.shipment_id > Shipment.id [delete: No Action]
 
 Ref: RefundDispute.refund_id > Refund.id [delete: Cascade]
 
@@ -507,4 +536,4 @@ Ref: PromotionDiscount.id > Promotion.id [delete: Cascade]
 
 Ref: Resource.uploaded_by > Account.id [delete: Set Null]
 
-Ref: Event.account_id > Account.id [delete: Set Null]
+Ref: ResourceReference.rs_id > Resource.id [delete: Cascade]

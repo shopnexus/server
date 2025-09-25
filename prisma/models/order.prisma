@@ -1,32 +1,35 @@
 model Order {
-  id         BigInt @id @default(autoincrement())
-  account_id BigInt
+  id              BigInt @id @default(autoincrement())
+  account_id      BigInt
+  payment_gateway String // PaymentGateway id, even COD
 
-  payment_method PaymentMethod
-  status         Status        @default(Pending)
-  address        String
-  date_created   DateTime      @default(now()) @db.Timestamptz(3)
-  date_updated   DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
+  status       Status   @default(Pending)
+  address      String
+  date_created DateTime @default(now()) @db.Timestamptz(3)
+  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  customer Customer      @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  gateway  PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  customer Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   products OrderItem[]
-  vnpay    PaymentVnpay?
 
+  @@index([payment_gateway])
   @@map("base")
   @@schema("order")
 }
 
 model OrderItem {
-  id       BigInt @id @default(autoincrement())
-  order_id BigInt
-  sku_id   BigInt
+  id          BigInt  @id @default(autoincrement())
+  order_id    BigInt
+  sku_id      BigInt
+  shipment_id BigInt?
 
   quantity BigInt
 
-  serials OrderItemSerial[]
-  refund  Refund[]
-  order   Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  sku     ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  serials  OrderItemSerial[]
+  refund   Refund[]
+  order    Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  sku      ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  shipment Shipment?         @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
   //! @@unique([order_id, sku_id]); Should not be unique, because product can be added multiple times (due to product.can_combine)
   @@index([order_id])
@@ -48,11 +51,25 @@ model OrderItemSerial {
   @@schema("order")
 }
 
+model PaymentGateway {
+  id          String        @id @db.VarChar(50)
+  method      PaymentMethod
+  description String?
+  is_active   Boolean       @default(true)
+
+  order Order[]
+
+  @@index([method, is_active])
+  @@map("payment_gateway")
+  @@schema("order")
+}
+
 enum PaymentMethod {
-  COD
-  Card
-  EWallet
-  Crypto
+  COD // Cash on Delivery
+  Card // Credit/Debit Card
+  BankTransfer // Bank Transfer (internal only)
+  Crypto // Cryptocurrency
+  Other // Other payment methods
 
   @@map("payment_method")
   @@schema("order")
@@ -66,31 +83,11 @@ enum RefundMethod {
   @@schema("order")
 }
 
-model PaymentVnpay {
-  id BigInt @id
-
-  vnp_Amount            String
-  vnp_BankCode          String
-  vnp_CardType          String
-  vnp_OrderInfo         String
-  vnp_PayDate           String
-  vnp_ResponseCode      String
-  vnp_SecureHash        String
-  vnp_TmnCode           String
-  vnp_TransactionNo     String
-  vnp_TransactionStatus String
-  vnp_TxnRef            String
-
-  order Order @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@map("vnpay")
-  @@schema("order")
-}
-
 model Refund {
   id             BigInt  @id @default(autoincrement())
   order_item_id  BigInt
   reviewed_by_id BigInt? // VendorProfile id who reviewed this refund request, null if not reviewed yet
+  shipment_id    BigInt?
 
   method       RefundMethod
   status       Status       @default(Pending)
@@ -100,6 +97,7 @@ model Refund {
 
   order_item      OrderItem       @relation(fields: [order_item_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
   reviewer_vendor Vendor?         @relation(fields: [reviewed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  shipment        Shipment?       @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
   disputes        RefundDispute[]
 
   @@index([order_item_id])
@@ -146,16 +144,16 @@ enum InvoiceRefType {
 }
 
 model Invoice {
-  id BigInt @id @default(autoincrement())
+  id       BigInt         @id @default(autoincrement())
   ref_type InvoiceRefType
   ref_id   BigInt // Reference id, e.g. Order.id
-  
-  type     InvoiceType
-  receiver_id BigInt // Customer, or Vendor id who receive this invoice
-  note           String? // Optional note for the invoice
-  data       Json          @db.JsonB // All fundamental informations for the invoice (e.g. customer data, items, promotions, applied promotions, etc.)
+
+  type         InvoiceType
+  receiver_id  BigInt // Customer, or Vendor id who receive this invoice
+  note         String? // Optional note for the invoice
+  data         Json        @db.JsonB // All fundamental informations for the invoice (e.g. customer data, items, promotions, applied promotions, etc.)
   file_rs_id   String // invoice file (PDF, etc.)
-  date_created DateTime @default(now()) @db.Timestamptz(3)
+  date_created DateTime    @default(now()) @db.Timestamptz(3)
 
   hash      Bytes @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
   prev_hash Bytes @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
@@ -165,5 +163,35 @@ model Invoice {
   @@index([receiver_id])
   @@index([ref_type, ref_id])
   @@map("invoice")
+  @@schema("order")
+}
+
+model Shipment {
+  id             BigInt         @id @default(autoincrement())
+  provider       String // e.g. "GHN", "GHTK", "DHL"
+  tracking_code  String? // Carrier-provided tracking number
+  status         ShipmentStatus @default(Pending)
+  label_url      String? // For customer download/printing
+  cost           BigInt
+  estimated_etd  DateTime?      @db.Timestamptz(3)
+  date_shipped   DateTime?      @db.Timestamptz(3)
+  date_delivered DateTime?      @db.Timestamptz(3)
+  items          OrderItem[]
+  refunds        Refund[]
+
+  @@map("shipment")
+  @@schema("order")
+}
+
+enum ShipmentStatus {
+  Pending
+  LabelCreated
+  InTransit
+  OutForDelivery
+  Delivered
+  Failed
+  Cancelled
+
+  @@map("shipment_status")
   @@schema("order")
 }
