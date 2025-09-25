@@ -18,8 +18,10 @@ type App struct {
 }
 
 type JWT struct {
-	Secret              string `yaml:"secret" mapstructure:"secret" validate:"required"`
-	AccessTokenDuration int64  `yaml:"accessTokenDuration" mapstructure:"accessTokenDuration" validate:"required,gte=1"`
+	Secret               string `yaml:"secret" mapstructure:"secret" validate:"required"`
+	AccessTokenDuration  int64  `yaml:"accessTokenDuration" mapstructure:"accessTokenDuration" validate:"required,gte=1"`
+	RefreshTokenDuration int64  `yaml:"refreshTokenDuration" mapstructure:"refreshTokenDuration" validate:"required,gte=1"`
+	RefreshSecret        string `yaml:"refreshSecret" mapstructure:"refreshSecret"`
 }
 
 type Vnpay struct {
@@ -56,5 +58,5 @@ type Redis struct {
 	Host     string `yaml:"host" mapstructure:"host" validate:"required"`
 	Port     string `yaml:"port" mapstructure:"port" validate:"required"`
 	Password string `yaml:"password" mapstructure:"password"`
-	DB       int    `yaml:"db" mapstructure:"db" validate:"gte=0"`
+	DB       int64  `yaml:"db" mapstructure:"db" validate:"gte=0"`
 }
