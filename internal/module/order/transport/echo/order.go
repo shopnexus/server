@@ -3,10 +3,10 @@ package orderecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/logger"
 	authbiz "shopnexus-remastered/internal/module/auth/biz"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/labstack/echo/v4"
@@ -29,10 +29,67 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 	return h
 }
 
+type GetOrderRequest struct {
+	ID int64 `param:"id" validate:"required"`
+}
+
+func (h *Handler) GetOrder(c echo.Context) error {
+	var req GetOrderRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authbiz.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.GetOrder(c.Request().Context(), orderbiz.GetOrderParams{
+		Account: claims.Account,
+		OrderID: req.ID,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type ListOrdersRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListOrders(c echo.Context) error {
+	var req ListOrdersRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	//claims, err := authbiz.GetClaims(c.Request())
+	//if err != nil {
+	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	//}
+
+	result, err := h.biz.ListOrders(c.Request().Context(), orderbiz.ListOrdersParams{
+		PaginationParams: req.PaginationParams,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
 type CheckoutRequest struct {
-	Address     string                `json:"address" validate:"required"`
-	OrderMethod db.OrderPaymentMethod `json:"order_method" validate:"required"`
-	SkuIDs      []int64               `json:"sku_ids" validate:"required"`
+	Address        string  `json:"address" validate:"required"`
+	PaymentGateway string  `json:"payment_gateway" validate:"required,min=1,max=50"`
+	SkuIDs         []int64 `json:"sku_ids" validate:"required"`
 }
 
 func (h *Handler) Checkout(c echo.Context) error {
@@ -50,10 +107,10 @@ func (h *Handler) Checkout(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateOrder(c.Request().Context(), orderbiz.CreateOrderParams{
-		Account:     claims.Account,
-		Address:     req.Address,
-		OrderMethod: req.OrderMethod,
-		SkuIDs:      req.SkuIDs,
+		Account:        claims.Account,
+		Address:        req.Address,
+		PaymentGateway: req.PaymentGateway,
+		SkuIDs:         req.SkuIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -83,8 +140,8 @@ func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
 
 	// Verify the checksum hash
 	if err := h.biz.VerifyPayment(c.Request().Context(), orderbiz.VerifyPaymentParams{
-		Method: db.OrderPaymentMethodEWallet,
-		Query:  query,
+		PaymentGateway: "vnpay_card", // or "vnpay_banktransfer"
+		Data:           query,
 	}); err != nil {
 		logger.Log.Sugar().Errorln("VnpayVerifyIPN verify error:", err)
 		return c.NoContent(http.StatusBadRequest)

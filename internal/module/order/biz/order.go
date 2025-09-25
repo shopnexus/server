@@ -6,8 +6,8 @@ import (
 
 	"github.com/guregu/null/v6"
 
+	"shopnexus-remastered/internal/client/payment"
 	"shopnexus-remastered/internal/client/pubsub"
-	"shopnexus-remastered/internal/client/vnpay"
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
@@ -19,18 +19,23 @@ import (
 )
 
 type OrderBiz struct {
-	storage     *pgutil.Storage
-	vnpayClient vnpay.Client
-	promotion   *promotionbiz.PromotionBiz
-	pubsub      pubsub.Client
+	storage    *pgutil.Storage
+	gatewayMap map[string]payment.Client // map[gatewayCode]payment.Client
+	promotion  *promotionbiz.PromotionBiz
+	pubsub     pubsub.Client
 }
 
-func NewOrderBiz(storage *pgutil.Storage, pubsub pubsub.Client, vnpayClient vnpay.Client, promotion *promotionbiz.PromotionBiz) (*OrderBiz, error) {
+func NewOrderBiz(
+	storage *pgutil.Storage,
+	pubsub pubsub.Client,
+	gatewayMap map[string]payment.Client,
+	promotion *promotionbiz.PromotionBiz,
+) (*OrderBiz, error) {
 	b := &OrderBiz{
-		storage:     storage,
-		vnpayClient: vnpayClient,
-		promotion:   promotion,
-		pubsub:      pubsub,
+		storage:    storage,
+		gatewayMap: gatewayMap,
+		promotion:  promotion,
+		pubsub:     pubsub.Group("order"),
 	}
 
 	if err := b.SetupPubsub(); err != nil {
@@ -58,7 +63,7 @@ func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sha
 
 	storageParams := db.ListOrderBaseParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset: pgutil.Int32ToPgInt4(params.Offset()),
 	}
 
 	// User only see their own orders
@@ -77,20 +82,17 @@ func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sha
 	}
 
 	return sharedmodel.PaginateResult[db.OrderBase]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       orders,
-		Limit:      params.Limit,
-		Page:       params.Page,
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(orders[len(orders)-1].ID),
 	}, nil
 }
 
 type CreateOrderParams struct {
-	Account     authmodel.AuthenticatedAccount
-	Address     string                `validate:"required"`
-	OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
-	SkuIDs      []int64               `validate:"required,dive,gt=0"`
+	Account        authmodel.AuthenticatedAccount
+	Address        string  `validate:"required"`
+	PaymentGateway string  `validate:"required,min=1,max=50"`
+	SkuIDs         []int64 `validate:"required,dive,gt=0"`
 }
 
 type CreateOrderResult struct {
@@ -175,9 +177,9 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Create order
 	order, err := txStorage.CreateDefaultOrderBase(ctx, db.CreateDefaultOrderBaseParams{
-		AccountID:     params.Account.ID,
-		PaymentMethod: db.OrderPaymentMethodEWallet,
-		Address:       params.Address,
+		AccountID:      params.Account.ID,
+		PaymentGateway: params.PaymentGateway,
+		Address:        params.Address,
 	})
 	if err != nil {
 		return zero, err
@@ -235,6 +237,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Batch create order items and create serials for each item
 	var batchErr error
+	var serialIDs []int64
 	var createOrderSerialArgs []db.CreateCopyDefaultOrderItemSerialParams
 	txStorage.CreateBatchOrderItem(ctx, createOrderItemArgs).QueryRow(func(_ int, item db.OrderItem, err error) {
 		if err != nil {
@@ -255,9 +258,12 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 				batchErr = ordermodel.ErrOutOfStock.Fmt(fmt.Sprintf("%s (%d)", spu.Name, item.SkuID))
 				return
 			}
+
+			// Take the first serial and remove it from the list
 			serial := serialsMap[item.SkuID][0]
 			serialsMap[item.SkuID] = serialsMap[item.SkuID][1:]
 
+			serialIDs = append(serialIDs, serial.ID)
 			createOrderSerialArgs = append(createOrderSerialArgs, db.CreateCopyDefaultOrderItemSerialParams{
 				OrderItemID:     item.ID,
 				ProductSerialID: serial.ID,
@@ -273,10 +279,18 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 
-	// Create payment redirectUrl if payment method is not COD
+	// Update serial status to sold
+	if err = txStorage.UpdateSerialStatus(ctx, db.UpdateSerialStatusParams{
+		Status: db.InventoryProductStatusSold,
+		ID:     serialIDs,
+	}); err != nil {
+		return zero, err
+	}
+
+	// Create order via payment gateway
 	var redirectUrl null.String
-	if params.OrderMethod != db.OrderPaymentMethodCOD {
-		url, err := s.vnpayClient.CreateOrder(ctx, vnpay.CreateOrderParams{
+	if gateway, ok := s.gatewayMap[params.PaymentGateway]; ok {
+		result, err := gateway.CreateOrder(ctx, payment.CreateOrderParams{
 			RefID:  order.ID,
 			Amount: totalPrice,
 			Info:   fmt.Sprintf("Order for order %d", order.ID),
@@ -284,7 +298,11 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		if err != nil {
 			return zero, err
 		}
-		redirectUrl.SetValid(url)
+		if result.RedirectURL != "" {
+			redirectUrl.SetValid(result.RedirectURL)
+		}
+	} else {
+		return zero, ordermodel.ErrPaymentGatewayNotFound
 	}
 
 	if err = s.pubsub.Publish(ordermodel.TopicOrderCreated, OrderCreatedParams{
@@ -453,25 +471,30 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 //}
 
 type VerifyPaymentParams struct {
-	Method db.OrderPaymentMethod
-	Query  map[string]any
+	PaymentGateway string `validate:"required,min=1,max=50"`
+	Data           map[string]any
 }
 
 func (s *OrderBiz) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
 	var refID int64
-	var err error
 
-	switch params.Method {
-	case db.OrderPaymentMethodEWallet:
-		refID, err = s.vnpayClient.VerifyPayment(ctx, params.Query)
-	default:
-		err = fmt.Errorf("payment method %s not supported", params.Method)
-	}
-	if err != nil {
+	if err := validator.Validate(params); err != nil {
 		return err
 	}
 
-	if err = s.pubsub.Publish(ordermodel.TopicOrderPaid, OrderPaidParams{
+	// Verify payment via payment gateway
+	if gateway, ok := s.gatewayMap[params.PaymentGateway]; ok {
+		result, err := gateway.VerifyPayment(ctx, params.Data)
+		if err != nil {
+			return err
+		}
+		refID = result.RefID
+	} else {
+		return ordermodel.ErrPaymentGatewayNotFound
+	}
+
+	// Publish event for order paid
+	if err := s.pubsub.Publish(ordermodel.TopicOrderPaid, OrderPaidParams{
 		OrderID: refID,
 	}); err != nil {
 		return err
