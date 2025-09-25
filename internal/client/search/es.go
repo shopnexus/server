@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"shopnexus-remastered/internal/utils/ptr"
 
 	"github.com/elastic/go-elasticsearch/v9"
@@ -15,8 +16,18 @@ type ElasticsearchClient struct {
 	client *elasticsearch.TypedClient
 }
 
-func NewElasticsearchClient(cfg elasticsearch.Config) (*ElasticsearchClient, error) {
-	client, err := elasticsearch.NewTypedClient(cfg)
+type ElasticsearchConfig struct {
+	Addresses []string // A list of Elasticsearch nodes to use.
+	Username  string   // Username for HTTP Basic Authentication.
+	Password  string   // Password for HTTP Basic Authentication.
+}
+
+func NewElasticsearchClient(cfg ElasticsearchConfig) (*ElasticsearchClient, error) {
+	client, err := elasticsearch.NewTypedClient(elasticsearch.Config{
+		Addresses: cfg.Addresses,
+		Username:  cfg.Username,
+		Password:  cfg.Password,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +50,7 @@ func (e *ElasticsearchClient) IndexDocuments(ctx context.Context, index string, 
 func (e *ElasticsearchClient) UpdateDocument(ctx context.Context, index string, id string, doc any) error {
 	_, err := e.client.Update(index, id).
 		Doc(doc).
+		DocAsUpsert(true).
 		Do(ctx)
 
 	return err

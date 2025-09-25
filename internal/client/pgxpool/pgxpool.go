@@ -109,8 +109,8 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 		`"shared"."status"`,
 		`"shared"."_status"`,
 
-		`"system"."event_type"`,
-		`"system"."_event_type"`,
+		//`"system"."event_type"`,
+		//`"system"."_event_type"`,
 	}
 
 	var typesToRegister []*pgtype.Type

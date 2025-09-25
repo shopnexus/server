@@ -147,7 +147,7 @@ func GetSkuName(attributes []db.CatalogProductSkuAttribute) string {
 type UpdateCartParams struct {
 	Account authmodel.AuthenticatedAccount
 
-	SkuID         int64      `validate:"min=1,max=100"`
+	SkuID         int64      `validate:"min=1"`
 	Quantity      null.Int64 `validate:"omitnil,min=0,max=1000"`
 	DeltaQuantity null.Int64 `validate:"omitnil,min=1,max=1000"`
 }

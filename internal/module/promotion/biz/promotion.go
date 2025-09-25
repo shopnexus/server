@@ -53,19 +53,16 @@ func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionPa
 
 	promos, err := s.storage.ListPromotionBase(ctx, db.ListPromotionBaseParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.GetOffset()),
+		Offset: pgutil.Int32ToPgInt4(params.Offset()),
 	})
 	if err != nil {
 		return zero, err
 	}
 
 	return sharedmodel.PaginateResult[db.PromotionBase]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
 		Data:       promos,
-		Limit:      params.GetLimit(),
-		Page:       params.GetPage(),
-		Total:      total,
-		NextPage:   params.NextPage(total),
-		NextCursor: params.NextCursor(total),
 	}, nil
 }
 

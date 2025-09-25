@@ -2,8 +2,13 @@ package app
 
 import (
 	"context"
+
+	analyticecho "shopnexus-remastered/internal/module/analytic/transport/echo"
 	orderecho "shopnexus-remastered/internal/module/order/transport/echo"
+	searchecho "shopnexus-remastered/internal/module/search/transport/echo"
+	sharedecho "shopnexus-remastered/internal/module/shared/transport/echo"
 	"shopnexus-remastered/internal/module/shared/transport/echo/binder"
+	systemecho "shopnexus-remastered/internal/module/system/transport/echo"
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/logger"
@@ -22,7 +27,7 @@ func NewEcho() *echo.Echo {
 	e := echo.New()
 
 	// Middleware
-	e.Use(middleware.Logger())
+	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
@@ -34,10 +39,14 @@ type RouteParams struct {
 	fx.In
 	Echo *echo.Echo
 
-	Account *accountecho.Handler
-	Auth    *authecho.Handler
-	Catalog *catalogecho.Handler
-	Order   *orderecho.Handler
+	Shared   *sharedecho.Handler
+	Account  *accountecho.Handler
+	Auth     *authecho.Handler
+	Catalog  *catalogecho.Handler
+	Order    *orderecho.Handler
+	Analytic *analyticecho.Handler
+	System   *systemecho.Handler
+	Search   *searchecho.Handler
 	// Add more handlers as needed
 }
 
