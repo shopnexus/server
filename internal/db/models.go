@@ -246,6 +246,70 @@ func AllAccountTypeValues() []AccountType {
 	}
 }
 
+type AnalyticInteractionRefType string
+
+const (
+	AnalyticInteractionRefTypeProduct  AnalyticInteractionRefType = "Product"
+	AnalyticInteractionRefTypeArticle  AnalyticInteractionRefType = "Article"
+	AnalyticInteractionRefTypeCategory AnalyticInteractionRefType = "Category"
+	AnalyticInteractionRefTypeBrand    AnalyticInteractionRefType = "Brand"
+)
+
+func (e *AnalyticInteractionRefType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AnalyticInteractionRefType(s)
+	case string:
+		*e = AnalyticInteractionRefType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AnalyticInteractionRefType: %T", src)
+	}
+	return nil
+}
+
+type NullAnalyticInteractionRefType struct {
+	AnalyticInteractionRefType AnalyticInteractionRefType `json:"analytic_interaction_ref_type"`
+	Valid                      bool                       `json:"valid"` // Valid is true if AnalyticInteractionRefType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAnalyticInteractionRefType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AnalyticInteractionRefType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AnalyticInteractionRefType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAnalyticInteractionRefType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AnalyticInteractionRefType), nil
+}
+
+func (e AnalyticInteractionRefType) Valid() bool {
+	switch e {
+	case AnalyticInteractionRefTypeProduct,
+		AnalyticInteractionRefTypeArticle,
+		AnalyticInteractionRefTypeCategory,
+		AnalyticInteractionRefTypeBrand:
+		return true
+	}
+	return false
+}
+
+func AllAnalyticInteractionRefTypeValues() []AnalyticInteractionRefType {
+	return []AnalyticInteractionRefType{
+		AnalyticInteractionRefTypeProduct,
+		AnalyticInteractionRefTypeArticle,
+		AnalyticInteractionRefTypeCategory,
+		AnalyticInteractionRefTypeBrand,
+	}
+}
+
 type CatalogCommentRefType string
 
 const (
@@ -548,10 +612,11 @@ func AllOrderInvoiceTypeValues() []OrderInvoiceType {
 type OrderPaymentMethod string
 
 const (
-	OrderPaymentMethodCOD     OrderPaymentMethod = "COD"
-	OrderPaymentMethodCard    OrderPaymentMethod = "Card"
-	OrderPaymentMethodEWallet OrderPaymentMethod = "EWallet"
-	OrderPaymentMethodCrypto  OrderPaymentMethod = "Crypto"
+	OrderPaymentMethodCOD          OrderPaymentMethod = "COD"
+	OrderPaymentMethodCard         OrderPaymentMethod = "Card"
+	OrderPaymentMethodBankTransfer OrderPaymentMethod = "BankTransfer"
+	OrderPaymentMethodCrypto       OrderPaymentMethod = "Crypto"
+	OrderPaymentMethodOther        OrderPaymentMethod = "Other"
 )
 
 func (e *OrderPaymentMethod) Scan(src interface{}) error {
@@ -593,8 +658,9 @@ func (e OrderPaymentMethod) Valid() bool {
 	switch e {
 	case OrderPaymentMethodCOD,
 		OrderPaymentMethodCard,
-		OrderPaymentMethodEWallet,
-		OrderPaymentMethodCrypto:
+		OrderPaymentMethodBankTransfer,
+		OrderPaymentMethodCrypto,
+		OrderPaymentMethodOther:
 		return true
 	}
 	return false
@@ -604,8 +670,9 @@ func AllOrderPaymentMethodValues() []OrderPaymentMethod {
 	return []OrderPaymentMethod{
 		OrderPaymentMethodCOD,
 		OrderPaymentMethodCard,
-		OrderPaymentMethodEWallet,
+		OrderPaymentMethodBankTransfer,
 		OrderPaymentMethodCrypto,
+		OrderPaymentMethodOther,
 	}
 }
 
@@ -664,6 +731,79 @@ func AllOrderRefundMethodValues() []OrderRefundMethod {
 	return []OrderRefundMethod{
 		OrderRefundMethodPickUp,
 		OrderRefundMethodDropOff,
+	}
+}
+
+type OrderShipmentStatus string
+
+const (
+	OrderShipmentStatusPending        OrderShipmentStatus = "Pending"
+	OrderShipmentStatusLabelCreated   OrderShipmentStatus = "LabelCreated"
+	OrderShipmentStatusInTransit      OrderShipmentStatus = "InTransit"
+	OrderShipmentStatusOutForDelivery OrderShipmentStatus = "OutForDelivery"
+	OrderShipmentStatusDelivered      OrderShipmentStatus = "Delivered"
+	OrderShipmentStatusFailed         OrderShipmentStatus = "Failed"
+	OrderShipmentStatusCancelled      OrderShipmentStatus = "Cancelled"
+)
+
+func (e *OrderShipmentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderShipmentStatus(s)
+	case string:
+		*e = OrderShipmentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderShipmentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderShipmentStatus struct {
+	OrderShipmentStatus OrderShipmentStatus `json:"order_shipment_status"`
+	Valid               bool                `json:"valid"` // Valid is true if OrderShipmentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderShipmentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderShipmentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderShipmentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderShipmentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderShipmentStatus), nil
+}
+
+func (e OrderShipmentStatus) Valid() bool {
+	switch e {
+	case OrderShipmentStatusPending,
+		OrderShipmentStatusLabelCreated,
+		OrderShipmentStatusInTransit,
+		OrderShipmentStatusOutForDelivery,
+		OrderShipmentStatusDelivered,
+		OrderShipmentStatusFailed,
+		OrderShipmentStatusCancelled:
+		return true
+	}
+	return false
+}
+
+func AllOrderShipmentStatusValues() []OrderShipmentStatus {
+	return []OrderShipmentStatus{
+		OrderShipmentStatusPending,
+		OrderShipmentStatusLabelCreated,
+		OrderShipmentStatusInTransit,
+		OrderShipmentStatusOutForDelivery,
+		OrderShipmentStatusDelivered,
+		OrderShipmentStatusFailed,
+		OrderShipmentStatusCancelled,
 	}
 }
 
@@ -938,67 +1078,6 @@ func AllSharedStatusValues() []SharedStatus {
 	}
 }
 
-type SystemEventType string
-
-const (
-	SystemEventTypeCreated SystemEventType = "Created"
-	SystemEventTypeUpdated SystemEventType = "Updated"
-	SystemEventTypeDeleted SystemEventType = "Deleted"
-)
-
-func (e *SystemEventType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = SystemEventType(s)
-	case string:
-		*e = SystemEventType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for SystemEventType: %T", src)
-	}
-	return nil
-}
-
-type NullSystemEventType struct {
-	SystemEventType SystemEventType `json:"system_event_type"`
-	Valid           bool            `json:"valid"` // Valid is true if SystemEventType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullSystemEventType) Scan(value interface{}) error {
-	if value == nil {
-		ns.SystemEventType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.SystemEventType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullSystemEventType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.SystemEventType), nil
-}
-
-func (e SystemEventType) Valid() bool {
-	switch e {
-	case SystemEventTypeCreated,
-		SystemEventTypeUpdated,
-		SystemEventTypeDeleted:
-		return true
-	}
-	return false
-}
-
-func AllSystemEventTypeValues() []SystemEventType {
-	return []SystemEventType{
-		SystemEventTypeCreated,
-		SystemEventTypeUpdated,
-		SystemEventTypeDeleted,
-	}
-}
-
 type AccountAddress struct {
 	ID            int64              `json:"id"`
 	AccountID     int64              `json:"account_id"`
@@ -1082,6 +1161,24 @@ type AccountProfile struct {
 type AccountVendor struct {
 	ID          int64  `json:"id"`
 	Description string `json:"description"`
+}
+
+type AnalyticInteraction struct {
+	ID          int64                      `json:"id"`
+	AccountID   int64                      `json:"account_id"`
+	SessionID   pgtype.Text                `json:"session_id"`
+	EventType   string                     `json:"event_type"`
+	RefType     AnalyticInteractionRefType `json:"ref_type"`
+	RefID       int64                      `json:"ref_id"`
+	Metadata    []byte                     `json:"metadata"`
+	UserAgent   pgtype.Text                `json:"user_agent"`
+	IpAddress   pgtype.Text                `json:"ip_address"`
+	DateCreated pgtype.Timestamptz         `json:"date_created"`
+}
+
+type AnalyticInteractionType struct {
+	ID          string      `json:"id"`
+	Description pgtype.Text `json:"description"`
 }
 
 type CatalogBrand struct {
@@ -1181,13 +1278,13 @@ type InventoryStockHistory struct {
 }
 
 type OrderBase struct {
-	ID            int64              `json:"id"`
-	AccountID     int64              `json:"account_id"`
-	PaymentMethod OrderPaymentMethod `json:"payment_method"`
-	Status        SharedStatus       `json:"status"`
-	Address       string             `json:"address"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	ID             int64              `json:"id"`
+	AccountID      int64              `json:"account_id"`
+	PaymentGateway string             `json:"payment_gateway"`
+	Status         SharedStatus       `json:"status"`
+	Address        string             `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
 }
 
 type OrderInvoice struct {
@@ -1205,10 +1302,11 @@ type OrderInvoice struct {
 }
 
 type OrderItem struct {
-	ID       int64 `json:"id"`
-	OrderID  int64 `json:"order_id"`
-	SkuID    int64 `json:"sku_id"`
-	Quantity int64 `json:"quantity"`
+	ID         int64       `json:"id"`
+	OrderID    int64       `json:"order_id"`
+	SkuID      int64       `json:"sku_id"`
+	ShipmentID pgtype.Int8 `json:"shipment_id"`
+	Quantity   int64       `json:"quantity"`
 }
 
 type OrderItemSerial struct {
@@ -1217,10 +1315,18 @@ type OrderItemSerial struct {
 	ProductSerialID int64 `json:"product_serial_id"`
 }
 
+type OrderPaymentGateway struct {
+	ID          string             `json:"id"`
+	Method      OrderPaymentMethod `json:"method"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+}
+
 type OrderRefund struct {
 	ID           int64              `json:"id"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
 	Status       SharedStatus       `json:"status"`
 	Reason       string             `json:"reason"`
@@ -1238,19 +1344,16 @@ type OrderRefundDispute struct {
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
-type OrderVnpay struct {
-	ID                   int64  `json:"id"`
-	VnpAmount            string `json:"vnp_Amount"`
-	VnpBankCode          string `json:"vnp_BankCode"`
-	VnpCardType          string `json:"vnp_CardType"`
-	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-	VnpPayDate           string `json:"vnp_PayDate"`
-	VnpResponseCode      string `json:"vnp_ResponseCode"`
-	VnpSecureHash        string `json:"vnp_SecureHash"`
-	VnpTmnCode           string `json:"vnp_TmnCode"`
-	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-	VnpTxnRef            string `json:"vnp_TxnRef"`
+type OrderShipment struct {
+	ID            int64               `json:"id"`
+	Provider      string              `json:"provider"`
+	TrackingCode  pgtype.Text         `json:"tracking_code"`
+	Status        OrderShipmentStatus `json:"status"`
+	LabelUrl      pgtype.Text         `json:"label_url"`
+	Cost          int64               `json:"cost"`
+	EstimatedEtd  pgtype.Timestamptz  `json:"estimated_etd"`
+	DateShipped   pgtype.Timestamptz  `json:"date_shipped"`
+	DateDelivered pgtype.Timestamptz  `json:"date_delivered"`
 }
 
 type PromotionBase struct {
@@ -1305,19 +1408,11 @@ type SharedResourceReference struct {
 	IsPrimary bool                  `json:"is_primary"`
 }
 
-type SystemEvent struct {
-	ID            int64              `json:"id"`
-	AccountID     pgtype.Int8        `json:"account_id"`
-	AggregateID   int64              `json:"aggregate_id"`
-	AggregateType string             `json:"aggregate_type"`
-	EventType     SystemEventType    `json:"event_type"`
-	Payload       []byte             `json:"payload"`
-	Version       int64              `json:"version"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-}
-
 type SystemSearchSync struct {
-	ID         int64              `json:"id"`
-	Name       string             `json:"name"`
-	LastSynced pgtype.Timestamptz `json:"last_synced"`
+	ID               int64              `json:"id"`
+	RefType          string             `json:"ref_type"`
+	RefID            int64              `json:"ref_id"`
+	IsStaleEmbedding bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  bool               `json:"is_stale_metadata"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
 }

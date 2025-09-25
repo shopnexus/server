@@ -61,7 +61,7 @@ func (q *Queries) DetailRating(ctx context.Context, arg DetailRatingParams) (Det
 const getFlagshipProduct = `-- name: GetFlagshipProduct :many
 SELECT s.id, s.spu_id, s.price, s.can_combine, s.date_created, s.date_deleted, s.sku_id, s.sold
 FROM unnest($1::bigint[]) AS u(spu_id)
-JOIN LATERAL (
+         JOIN LATERAL (
     SELECT sku.id, sku.spu_id, sku.price, sku.can_combine, sku.date_created, sku.date_deleted, sku.id as sku_id, st.sold
     FROM "catalog"."product_sku" sku
     INNER JOIN "inventory"."stock" st ON sku.id = st.ref_id AND st.ref_type = 'ProductSku'
@@ -99,6 +99,175 @@ func (q *Queries) GetFlagshipProduct(ctx context.Context, spuID []int64) ([]GetF
 			&i.DateDeleted,
 			&i.SkuID,
 			&i.Sold,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMostSoldProducts = `-- name: ListMostSoldProducts :many
+WITH ranked_spus AS (
+    SELECT
+        spu.id AS spu_id,
+        SUM(s.sold) AS total_sold
+    FROM catalog.product_spu AS spu
+    JOIN catalog.product_sku AS sku
+        ON sku.spu_id = spu.id
+    JOIN inventory.stock AS s
+        ON s.ref_id = sku.id AND s.ref_type = 'ProductSku'
+    GROUP BY spu.id
+    ORDER BY total_sold DESC
+    LIMIT $2
+)
+SELECT spu_id, total_sold
+FROM ranked_spus
+ORDER BY RANDOM()  -- randomize within the top set
+LIMIT $1
+`
+
+type ListMostSoldProductsParams struct {
+	Limit int32 `json:"limit"`
+	TopN  int32 `json:"top_n"`
+}
+
+type ListMostSoldProductsRow struct {
+	SpuID     int64 `json:"spu_id"`
+	TotalSold int64 `json:"total_sold"`
+}
+
+func (q *Queries) ListMostSoldProducts(ctx context.Context, arg ListMostSoldProductsParams) ([]ListMostSoldProductsRow, error) {
+	rows, err := q.db.Query(ctx, listMostSoldProducts, arg.Limit, arg.TopN)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMostSoldProductsRow{}
+	for rows.Next() {
+		var i ListMostSoldProductsRow
+		if err := rows.Scan(&i.SpuID, &i.TotalSold); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProductDetail = `-- name: ListProductDetail :many
+WITH filtered_spu AS (
+    SELECT 
+        p.id,
+        p.account_id,
+        p.category_id,
+        p.brand_id,
+        p.name,
+        p.description,
+        p.is_active,
+        p.date_manufactured,
+        p.date_created,
+        p.date_updated,
+        p.date_deleted
+    FROM catalog.product_spu p
+    WHERE p.id = ANY($1::bigint[])
+),
+spu_data AS (
+    SELECT 
+        fs.id,
+        fs.name,
+        fs.description,
+        fs.is_active,
+        fs.date_manufactured,
+        fs.date_created,
+        fs.date_updated,
+        fs.date_deleted,
+        COALESCE(vp.name, '') as vendor_name,
+        c.name as category_name,
+        b.name as brand_name,
+        -- Get the minimum price from all SKUs for this SPU
+        (SELECT MIN(sku.price) FROM catalog.product_sku sku WHERE sku.spu_id = fs.id AND sku.date_deleted IS NULL) as price
+    FROM filtered_spu fs
+    JOIN account.vendor v ON fs.account_id = v.id
+    LEFT JOIN account.profile vp ON v.id = vp.id
+    JOIN catalog.category c ON fs.category_id = c.id
+    JOIN catalog.brand b ON fs.brand_id = b.id
+),
+rating_data AS (
+    SELECT 
+        ref_id as spu_id,
+        COUNT(*) as rating_total,
+        AVG(score) as rating_score
+    FROM catalog.comment 
+    WHERE ref_type = 'ProductSpu' 
+    AND ref_id = ANY($1::bigint[])
+    GROUP BY ref_id
+)
+SELECT 
+    spu.id::text as id,
+    COALESCE(spu.vendor_name, '') as vendor,
+    spu.category_name as category,
+    spu.brand_name as brand,
+    spu.name,
+    spu.description,
+    spu.is_active,
+    spu.date_manufactured,
+    spu.date_created,
+    spu.date_updated,
+    spu.date_deleted,
+    COALESCE(spu.price, 0) as price,
+    COALESCE(r.rating_total, 0) as rating_total,
+    COALESCE(r.rating_score, 0) as rating_score
+FROM spu_data spu
+LEFT JOIN rating_data r ON spu.id = r.spu_id
+`
+
+type ListProductDetailRow struct {
+	ID               string             `json:"id"`
+	Vendor           string             `json:"vendor"`
+	Category         string             `json:"category"`
+	Brand            string             `json:"brand"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	IsActive         bool               `json:"is_active"`
+	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Price            interface{}        `json:"price"`
+	RatingTotal      int64              `json:"rating_total"`
+	RatingScore      float64            `json:"rating_score"`
+}
+
+func (q *Queries) ListProductDetail(ctx context.Context, spuID []int64) ([]ListProductDetailRow, error) {
+	rows, err := q.db.Query(ctx, listProductDetail, spuID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProductDetailRow{}
+	for rows.Next() {
+		var i ListProductDetailRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Vendor,
+			&i.Category,
+			&i.Brand,
+			&i.Name,
+			&i.Description,
+			&i.IsActive,
+			&i.DateManufactured,
+			&i.DateCreated,
+			&i.DateUpdated,
+			&i.DateDeleted,
+			&i.Price,
+			&i.RatingTotal,
+			&i.RatingScore,
 		); err != nil {
 			return nil, err
 		}

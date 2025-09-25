@@ -19,6 +19,8 @@ type Querier interface {
 	CountAccountNotification(ctx context.Context, arg CountAccountNotificationParams) (int64, error)
 	CountAccountProfile(ctx context.Context, arg CountAccountProfileParams) (int64, error)
 	CountAccountVendor(ctx context.Context, arg CountAccountVendorParams) (int64, error)
+	CountAnalyticInteraction(ctx context.Context, arg CountAnalyticInteractionParams) (int64, error)
+	CountAnalyticInteractionType(ctx context.Context, id []string) (int64, error)
 	CountCatalogBrand(ctx context.Context, arg CountCatalogBrandParams) (int64, error)
 	CountCatalogCategory(ctx context.Context, arg CountCatalogCategoryParams) (int64, error)
 	CountCatalogComment(ctx context.Context, arg CountCatalogCommentParams) (int64, error)
@@ -34,14 +36,14 @@ type Querier interface {
 	CountOrderInvoice(ctx context.Context, arg CountOrderInvoiceParams) (int64, error)
 	CountOrderItem(ctx context.Context, arg CountOrderItemParams) (int64, error)
 	CountOrderItemSerial(ctx context.Context, arg CountOrderItemSerialParams) (int64, error)
+	CountOrderPaymentGateway(ctx context.Context, arg CountOrderPaymentGatewayParams) (int64, error)
 	CountOrderRefund(ctx context.Context, arg CountOrderRefundParams) (int64, error)
 	CountOrderRefundDispute(ctx context.Context, arg CountOrderRefundDisputeParams) (int64, error)
-	CountOrderVnpay(ctx context.Context, arg CountOrderVnpayParams) (int64, error)
+	CountOrderShipment(ctx context.Context, arg CountOrderShipmentParams) (int64, error)
 	CountPromotionBase(ctx context.Context, arg CountPromotionBaseParams) (int64, error)
 	CountPromotionDiscount(ctx context.Context, arg CountPromotionDiscountParams) (int64, error)
 	CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error)
 	CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error)
-	CountSystemEvent(ctx context.Context, arg CountSystemEventParams) (int64, error)
 	CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error)
 	CreateAccountAddress(ctx context.Context, arg CreateAccountAddressParams) (AccountAddress, error)
 	CreateAccountBase(ctx context.Context, arg CreateAccountBaseParams) (AccountBase, error)
@@ -51,6 +53,8 @@ type Querier interface {
 	CreateAccountNotification(ctx context.Context, arg CreateAccountNotificationParams) (AccountNotification, error)
 	CreateAccountProfile(ctx context.Context, arg CreateAccountProfileParams) (AccountProfile, error)
 	CreateAccountVendor(ctx context.Context, arg CreateAccountVendorParams) (AccountVendor, error)
+	CreateAnalyticInteraction(ctx context.Context, arg CreateAnalyticInteractionParams) (AnalyticInteraction, error)
+	CreateAnalyticInteractionType(ctx context.Context, arg CreateAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	CreateBatchAccountAddress(ctx context.Context, arg []CreateBatchAccountAddressParams) *CreateBatchAccountAddressBatchResults
 	CreateBatchAccountBase(ctx context.Context, arg []CreateBatchAccountBaseParams) *CreateBatchAccountBaseBatchResults
 	CreateBatchAccountCartItem(ctx context.Context, arg []CreateBatchAccountCartItemParams) *CreateBatchAccountCartItemBatchResults
@@ -59,6 +63,8 @@ type Querier interface {
 	CreateBatchAccountNotification(ctx context.Context, arg []CreateBatchAccountNotificationParams) *CreateBatchAccountNotificationBatchResults
 	CreateBatchAccountProfile(ctx context.Context, arg []CreateBatchAccountProfileParams) *CreateBatchAccountProfileBatchResults
 	CreateBatchAccountVendor(ctx context.Context, arg []CreateBatchAccountVendorParams) *CreateBatchAccountVendorBatchResults
+	CreateBatchAnalyticInteraction(ctx context.Context, arg []CreateBatchAnalyticInteractionParams) *CreateBatchAnalyticInteractionBatchResults
+	CreateBatchAnalyticInteractionType(ctx context.Context, arg []CreateBatchAnalyticInteractionTypeParams) *CreateBatchAnalyticInteractionTypeBatchResults
 	CreateBatchCatalogBrand(ctx context.Context, arg []CreateBatchCatalogBrandParams) *CreateBatchCatalogBrandBatchResults
 	CreateBatchCatalogCategory(ctx context.Context, arg []CreateBatchCatalogCategoryParams) *CreateBatchCatalogCategoryBatchResults
 	CreateBatchCatalogComment(ctx context.Context, arg []CreateBatchCatalogCommentParams) *CreateBatchCatalogCommentBatchResults
@@ -74,14 +80,14 @@ type Querier interface {
 	CreateBatchOrderInvoice(ctx context.Context, arg []CreateBatchOrderInvoiceParams) *CreateBatchOrderInvoiceBatchResults
 	CreateBatchOrderItem(ctx context.Context, arg []CreateBatchOrderItemParams) *CreateBatchOrderItemBatchResults
 	CreateBatchOrderItemSerial(ctx context.Context, arg []CreateBatchOrderItemSerialParams) *CreateBatchOrderItemSerialBatchResults
+	CreateBatchOrderPaymentGateway(ctx context.Context, arg []CreateBatchOrderPaymentGatewayParams) *CreateBatchOrderPaymentGatewayBatchResults
 	CreateBatchOrderRefund(ctx context.Context, arg []CreateBatchOrderRefundParams) *CreateBatchOrderRefundBatchResults
 	CreateBatchOrderRefundDispute(ctx context.Context, arg []CreateBatchOrderRefundDisputeParams) *CreateBatchOrderRefundDisputeBatchResults
-	CreateBatchOrderVnpay(ctx context.Context, arg []CreateBatchOrderVnpayParams) *CreateBatchOrderVnpayBatchResults
+	CreateBatchOrderShipment(ctx context.Context, arg []CreateBatchOrderShipmentParams) *CreateBatchOrderShipmentBatchResults
 	CreateBatchPromotionBase(ctx context.Context, arg []CreateBatchPromotionBaseParams) *CreateBatchPromotionBaseBatchResults
 	CreateBatchPromotionDiscount(ctx context.Context, arg []CreateBatchPromotionDiscountParams) *CreateBatchPromotionDiscountBatchResults
 	CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults
 	CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults
-	CreateBatchSystemEvent(ctx context.Context, arg []CreateBatchSystemEventParams) *CreateBatchSystemEventBatchResults
 	CreateBatchSystemSearchSync(ctx context.Context, arg []CreateBatchSystemSearchSyncParams) *CreateBatchSystemSearchSyncBatchResults
 	CreateCatalogBrand(ctx context.Context, arg CreateCatalogBrandParams) (CatalogBrand, error)
 	CreateCatalogCategory(ctx context.Context, arg CreateCatalogCategoryParams) (CatalogCategory, error)
@@ -99,6 +105,8 @@ type Querier interface {
 	CreateCopyAccountNotification(ctx context.Context, arg []CreateCopyAccountNotificationParams) (int64, error)
 	CreateCopyAccountProfile(ctx context.Context, arg []CreateCopyAccountProfileParams) (int64, error)
 	CreateCopyAccountVendor(ctx context.Context, arg []CreateCopyAccountVendorParams) (int64, error)
+	CreateCopyAnalyticInteraction(ctx context.Context, arg []CreateCopyAnalyticInteractionParams) (int64, error)
+	CreateCopyAnalyticInteractionType(ctx context.Context, arg []CreateCopyAnalyticInteractionTypeParams) (int64, error)
 	CreateCopyCatalogBrand(ctx context.Context, arg []CreateCopyCatalogBrandParams) (int64, error)
 	CreateCopyCatalogCategory(ctx context.Context, arg []CreateCopyCatalogCategoryParams) (int64, error)
 	CreateCopyCatalogComment(ctx context.Context, arg []CreateCopyCatalogCommentParams) (int64, error)
@@ -115,6 +123,8 @@ type Querier interface {
 	CreateCopyDefaultAccountNotification(ctx context.Context, arg []CreateCopyDefaultAccountNotificationParams) (int64, error)
 	CreateCopyDefaultAccountProfile(ctx context.Context, arg []CreateCopyDefaultAccountProfileParams) (int64, error)
 	CreateCopyDefaultAccountVendor(ctx context.Context, id []int64) (int64, error)
+	CreateCopyDefaultAnalyticInteraction(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionParams) (int64, error)
+	CreateCopyDefaultAnalyticInteractionType(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionTypeParams) (int64, error)
 	CreateCopyDefaultCatalogBrand(ctx context.Context, arg []CreateCopyDefaultCatalogBrandParams) (int64, error)
 	CreateCopyDefaultCatalogCategory(ctx context.Context, arg []CreateCopyDefaultCatalogCategoryParams) (int64, error)
 	CreateCopyDefaultCatalogComment(ctx context.Context, arg []CreateCopyDefaultCatalogCommentParams) (int64, error)
@@ -130,15 +140,15 @@ type Querier interface {
 	CreateCopyDefaultOrderInvoice(ctx context.Context, arg []CreateCopyDefaultOrderInvoiceParams) (int64, error)
 	CreateCopyDefaultOrderItem(ctx context.Context, arg []CreateCopyDefaultOrderItemParams) (int64, error)
 	CreateCopyDefaultOrderItemSerial(ctx context.Context, arg []CreateCopyDefaultOrderItemSerialParams) (int64, error)
+	CreateCopyDefaultOrderPaymentGateway(ctx context.Context, arg []CreateCopyDefaultOrderPaymentGatewayParams) (int64, error)
 	CreateCopyDefaultOrderRefund(ctx context.Context, arg []CreateCopyDefaultOrderRefundParams) (int64, error)
 	CreateCopyDefaultOrderRefundDispute(ctx context.Context, arg []CreateCopyDefaultOrderRefundDisputeParams) (int64, error)
-	CreateCopyDefaultOrderVnpay(ctx context.Context, arg []CreateCopyDefaultOrderVnpayParams) (int64, error)
+	CreateCopyDefaultOrderShipment(ctx context.Context, arg []CreateCopyDefaultOrderShipmentParams) (int64, error)
 	CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error)
 	CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error)
 	CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error)
 	CreateCopyDefaultSharedResourceReference(ctx context.Context, arg []CreateCopyDefaultSharedResourceReferenceParams) (int64, error)
-	CreateCopyDefaultSystemEvent(ctx context.Context, arg []CreateCopyDefaultSystemEventParams) (int64, error)
-	CreateCopyDefaultSystemSearchSync(ctx context.Context, name []string) (int64, error)
+	CreateCopyDefaultSystemSearchSync(ctx context.Context, arg []CreateCopyDefaultSystemSearchSyncParams) (int64, error)
 	CreateCopyInventorySkuSerial(ctx context.Context, arg []CreateCopyInventorySkuSerialParams) (int64, error)
 	CreateCopyInventoryStock(ctx context.Context, arg []CreateCopyInventoryStockParams) (int64, error)
 	CreateCopyInventoryStockHistory(ctx context.Context, arg []CreateCopyInventoryStockHistoryParams) (int64, error)
@@ -146,14 +156,14 @@ type Querier interface {
 	CreateCopyOrderInvoice(ctx context.Context, arg []CreateCopyOrderInvoiceParams) (int64, error)
 	CreateCopyOrderItem(ctx context.Context, arg []CreateCopyOrderItemParams) (int64, error)
 	CreateCopyOrderItemSerial(ctx context.Context, arg []CreateCopyOrderItemSerialParams) (int64, error)
+	CreateCopyOrderPaymentGateway(ctx context.Context, arg []CreateCopyOrderPaymentGatewayParams) (int64, error)
 	CreateCopyOrderRefund(ctx context.Context, arg []CreateCopyOrderRefundParams) (int64, error)
 	CreateCopyOrderRefundDispute(ctx context.Context, arg []CreateCopyOrderRefundDisputeParams) (int64, error)
-	CreateCopyOrderVnpay(ctx context.Context, arg []CreateCopyOrderVnpayParams) (int64, error)
+	CreateCopyOrderShipment(ctx context.Context, arg []CreateCopyOrderShipmentParams) (int64, error)
 	CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error)
 	CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error)
 	CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error)
 	CreateCopySharedResourceReference(ctx context.Context, arg []CreateCopySharedResourceReferenceParams) (int64, error)
-	CreateCopySystemEvent(ctx context.Context, arg []CreateCopySystemEventParams) (int64, error)
 	CreateCopySystemSearchSync(ctx context.Context, arg []CreateCopySystemSearchSyncParams) (int64, error)
 	CreateDefaultAccountAddress(ctx context.Context, arg CreateDefaultAccountAddressParams) (AccountAddress, error)
 	CreateDefaultAccountBase(ctx context.Context, arg CreateDefaultAccountBaseParams) (AccountBase, error)
@@ -163,6 +173,8 @@ type Querier interface {
 	CreateDefaultAccountNotification(ctx context.Context, arg CreateDefaultAccountNotificationParams) (AccountNotification, error)
 	CreateDefaultAccountProfile(ctx context.Context, arg CreateDefaultAccountProfileParams) (AccountProfile, error)
 	CreateDefaultAccountVendor(ctx context.Context, id int64) (AccountVendor, error)
+	CreateDefaultAnalyticInteraction(ctx context.Context, arg CreateDefaultAnalyticInteractionParams) (AnalyticInteraction, error)
+	CreateDefaultAnalyticInteractionType(ctx context.Context, arg CreateDefaultAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	CreateDefaultCatalogBrand(ctx context.Context, arg CreateDefaultCatalogBrandParams) (CatalogBrand, error)
 	CreateDefaultCatalogCategory(ctx context.Context, arg CreateDefaultCatalogCategoryParams) (CatalogCategory, error)
 	CreateDefaultCatalogComment(ctx context.Context, arg CreateDefaultCatalogCommentParams) (CatalogComment, error)
@@ -178,15 +190,15 @@ type Querier interface {
 	CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefaultOrderInvoiceParams) (OrderInvoice, error)
 	CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultOrderItemParams) (OrderItem, error)
 	CreateDefaultOrderItemSerial(ctx context.Context, arg CreateDefaultOrderItemSerialParams) (OrderItemSerial, error)
+	CreateDefaultOrderPaymentGateway(ctx context.Context, arg CreateDefaultOrderPaymentGatewayParams) (OrderPaymentGateway, error)
 	CreateDefaultOrderRefund(ctx context.Context, arg CreateDefaultOrderRefundParams) (OrderRefund, error)
 	CreateDefaultOrderRefundDispute(ctx context.Context, arg CreateDefaultOrderRefundDisputeParams) (OrderRefundDispute, error)
-	CreateDefaultOrderVnpay(ctx context.Context, arg CreateDefaultOrderVnpayParams) (OrderVnpay, error)
+	CreateDefaultOrderShipment(ctx context.Context, arg CreateDefaultOrderShipmentParams) (OrderShipment, error)
 	CreateDefaultPromotionBase(ctx context.Context, arg CreateDefaultPromotionBaseParams) (PromotionBase, error)
 	CreateDefaultPromotionDiscount(ctx context.Context, arg CreateDefaultPromotionDiscountParams) (PromotionDiscount, error)
 	CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error)
 	CreateDefaultSharedResourceReference(ctx context.Context, arg CreateDefaultSharedResourceReferenceParams) (SharedResourceReference, error)
-	CreateDefaultSystemEvent(ctx context.Context, arg CreateDefaultSystemEventParams) (SystemEvent, error)
-	CreateDefaultSystemSearchSync(ctx context.Context, name string) (SystemSearchSync, error)
+	CreateDefaultSystemSearchSync(ctx context.Context, arg CreateDefaultSystemSearchSyncParams) (SystemSearchSync, error)
 	CreateInventorySkuSerial(ctx context.Context, arg CreateInventorySkuSerialParams) (InventorySkuSerial, error)
 	CreateInventoryStock(ctx context.Context, arg CreateInventoryStockParams) (InventoryStock, error)
 	CreateInventoryStockHistory(ctx context.Context, arg CreateInventoryStockHistoryParams) (InventoryStockHistory, error)
@@ -194,14 +206,14 @@ type Querier interface {
 	CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoiceParams) (OrderInvoice, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	CreateOrderItemSerial(ctx context.Context, arg CreateOrderItemSerialParams) (OrderItemSerial, error)
+	CreateOrderPaymentGateway(ctx context.Context, arg CreateOrderPaymentGatewayParams) (OrderPaymentGateway, error)
 	CreateOrderRefund(ctx context.Context, arg CreateOrderRefundParams) (OrderRefund, error)
 	CreateOrderRefundDispute(ctx context.Context, arg CreateOrderRefundDisputeParams) (OrderRefundDispute, error)
-	CreateOrderVnpay(ctx context.Context, arg CreateOrderVnpayParams) (OrderVnpay, error)
+	CreateOrderShipment(ctx context.Context, arg CreateOrderShipmentParams) (OrderShipment, error)
 	CreatePromotionBase(ctx context.Context, arg CreatePromotionBaseParams) (PromotionBase, error)
 	CreatePromotionDiscount(ctx context.Context, arg CreatePromotionDiscountParams) (PromotionDiscount, error)
 	CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error)
 	CreateSharedResourceReference(ctx context.Context, arg CreateSharedResourceReferenceParams) (SharedResourceReference, error)
-	CreateSystemEvent(ctx context.Context, arg CreateSystemEventParams) (SystemEvent, error)
 	CreateSystemSearchSync(ctx context.Context, arg CreateSystemSearchSyncParams) (SystemSearchSync, error)
 	DeleteAccountAddress(ctx context.Context, arg DeleteAccountAddressParams) error
 	DeleteAccountBase(ctx context.Context, arg DeleteAccountBaseParams) error
@@ -211,6 +223,8 @@ type Querier interface {
 	DeleteAccountNotification(ctx context.Context, arg DeleteAccountNotificationParams) error
 	DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error
 	DeleteAccountVendor(ctx context.Context, arg DeleteAccountVendorParams) error
+	DeleteAnalyticInteraction(ctx context.Context, arg DeleteAnalyticInteractionParams) error
+	DeleteAnalyticInteractionType(ctx context.Context, id []string) error
 	DeleteBatchAccountAddress(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountAddressBatchResults
 	DeleteBatchAccountBase(ctx context.Context, arg []DeleteBatchAccountBaseParams) *DeleteBatchAccountBaseBatchResults
 	DeleteBatchAccountCartItem(ctx context.Context, arg []DeleteBatchAccountCartItemParams) *DeleteBatchAccountCartItemBatchResults
@@ -219,6 +233,8 @@ type Querier interface {
 	DeleteBatchAccountNotification(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountNotificationBatchResults
 	DeleteBatchAccountProfile(ctx context.Context, arg []DeleteBatchAccountProfileParams) *DeleteBatchAccountProfileBatchResults
 	DeleteBatchAccountVendor(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountVendorBatchResults
+	DeleteBatchAnalyticInteraction(ctx context.Context, id []pgtype.Int8) *DeleteBatchAnalyticInteractionBatchResults
+	DeleteBatchAnalyticInteractionType(ctx context.Context, id []pgtype.Text) *DeleteBatchAnalyticInteractionTypeBatchResults
 	DeleteBatchCatalogBrand(ctx context.Context, arg []DeleteBatchCatalogBrandParams) *DeleteBatchCatalogBrandBatchResults
 	DeleteBatchCatalogCategory(ctx context.Context, arg []DeleteBatchCatalogCategoryParams) *DeleteBatchCatalogCategoryBatchResults
 	DeleteBatchCatalogComment(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogCommentBatchResults
@@ -234,14 +250,14 @@ type Querier interface {
 	DeleteBatchOrderInvoice(ctx context.Context, arg []DeleteBatchOrderInvoiceParams) *DeleteBatchOrderInvoiceBatchResults
 	DeleteBatchOrderItem(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderItemBatchResults
 	DeleteBatchOrderItemSerial(ctx context.Context, arg []DeleteBatchOrderItemSerialParams) *DeleteBatchOrderItemSerialBatchResults
+	DeleteBatchOrderPaymentGateway(ctx context.Context, id []pgtype.Text) *DeleteBatchOrderPaymentGatewayBatchResults
 	DeleteBatchOrderRefund(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderRefundBatchResults
 	DeleteBatchOrderRefundDispute(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderRefundDisputeBatchResults
-	DeleteBatchOrderVnpay(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderVnpayBatchResults
+	DeleteBatchOrderShipment(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderShipmentBatchResults
 	DeleteBatchPromotionBase(ctx context.Context, arg []DeleteBatchPromotionBaseParams) *DeleteBatchPromotionBaseBatchResults
 	DeleteBatchPromotionDiscount(ctx context.Context, id []pgtype.Int8) *DeleteBatchPromotionDiscountBatchResults
 	DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults
 	DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults
-	DeleteBatchSystemEvent(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemEventBatchResults
 	DeleteBatchSystemSearchSync(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemSearchSyncBatchResults
 	DeleteCatalogBrand(ctx context.Context, arg DeleteCatalogBrandParams) error
 	DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error
@@ -258,14 +274,14 @@ type Querier interface {
 	DeleteOrderInvoice(ctx context.Context, arg DeleteOrderInvoiceParams) error
 	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) error
 	DeleteOrderItemSerial(ctx context.Context, arg DeleteOrderItemSerialParams) error
+	DeleteOrderPaymentGateway(ctx context.Context, arg DeleteOrderPaymentGatewayParams) error
 	DeleteOrderRefund(ctx context.Context, arg DeleteOrderRefundParams) error
 	DeleteOrderRefundDispute(ctx context.Context, arg DeleteOrderRefundDisputeParams) error
-	DeleteOrderVnpay(ctx context.Context, arg DeleteOrderVnpayParams) error
+	DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipmentParams) error
 	DeletePromotionBase(ctx context.Context, arg DeletePromotionBaseParams) error
 	DeletePromotionDiscount(ctx context.Context, arg DeletePromotionDiscountParams) error
 	DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error
 	DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error
-	DeleteSystemEvent(ctx context.Context, arg DeleteSystemEventParams) error
 	DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error
 	DetailRating(ctx context.Context, arg DetailRatingParams) (DetailRatingRow, error)
 	ExistsAccountAddress(ctx context.Context, arg ExistsAccountAddressParams) (bool, error)
@@ -276,6 +292,8 @@ type Querier interface {
 	ExistsAccountNotification(ctx context.Context, arg ExistsAccountNotificationParams) (bool, error)
 	ExistsAccountProfile(ctx context.Context, arg ExistsAccountProfileParams) (bool, error)
 	ExistsAccountVendor(ctx context.Context, arg ExistsAccountVendorParams) (bool, error)
+	ExistsAnalyticInteraction(ctx context.Context, arg ExistsAnalyticInteractionParams) (bool, error)
+	ExistsAnalyticInteractionType(ctx context.Context, id []string) (bool, error)
 	ExistsCartItems(ctx context.Context, skuIds []int64) (bool, error)
 	ExistsCatalogBrand(ctx context.Context, arg ExistsCatalogBrandParams) (bool, error)
 	ExistsCatalogCategory(ctx context.Context, arg ExistsCatalogCategoryParams) (bool, error)
@@ -292,14 +310,14 @@ type Querier interface {
 	ExistsOrderInvoice(ctx context.Context, arg ExistsOrderInvoiceParams) (bool, error)
 	ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams) (bool, error)
 	ExistsOrderItemSerial(ctx context.Context, arg ExistsOrderItemSerialParams) (bool, error)
+	ExistsOrderPaymentGateway(ctx context.Context, arg ExistsOrderPaymentGatewayParams) (bool, error)
 	ExistsOrderRefund(ctx context.Context, arg ExistsOrderRefundParams) (bool, error)
 	ExistsOrderRefundDispute(ctx context.Context, arg ExistsOrderRefundDisputeParams) (bool, error)
-	ExistsOrderVnpay(ctx context.Context, arg ExistsOrderVnpayParams) (bool, error)
+	ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipmentParams) (bool, error)
 	ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBaseParams) (bool, error)
 	ExistsPromotionDiscount(ctx context.Context, arg ExistsPromotionDiscountParams) (bool, error)
 	ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error)
 	ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error)
-	ExistsSystemEvent(ctx context.Context, arg ExistsSystemEventParams) (bool, error)
 	ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error)
 	// ========================================
 	// Queries for table: account.address
@@ -335,6 +353,14 @@ type Querier interface {
 	// Queries for table: account.vendor
 	// ========================================
 	GetAccountVendor(ctx context.Context, id pgtype.Int8) (AccountVendor, error)
+	// ========================================
+	// Queries for table: analytic.interaction
+	// ========================================
+	GetAnalyticInteraction(ctx context.Context, id pgtype.Int8) (AnalyticInteraction, error)
+	// ========================================
+	// Queries for table: analytic.interaction_type
+	// ========================================
+	GetAnalyticInteractionType(ctx context.Context, id pgtype.Text) (AnalyticInteractionType, error)
 	GetAvailableProducts(ctx context.Context, arg []GetAvailableProductsParams) *GetAvailableProductsBatchResults
 	// ========================================
 	// Queries for table: catalog.brand
@@ -398,6 +424,10 @@ type Querier interface {
 	// ========================================
 	GetOrderItemSerial(ctx context.Context, arg GetOrderItemSerialParams) (OrderItemSerial, error)
 	// ========================================
+	// Queries for table: order.payment_gateway
+	// ========================================
+	GetOrderPaymentGateway(ctx context.Context, id pgtype.Text) (OrderPaymentGateway, error)
+	// ========================================
 	// Queries for table: order.refund
 	// ========================================
 	GetOrderRefund(ctx context.Context, id pgtype.Int8) (OrderRefund, error)
@@ -406,9 +436,9 @@ type Querier interface {
 	// ========================================
 	GetOrderRefundDispute(ctx context.Context, id pgtype.Int8) (OrderRefundDispute, error)
 	// ========================================
-	// Queries for table: order.vnpay
+	// Queries for table: order.shipment
 	// ========================================
-	GetOrderVnpay(ctx context.Context, id pgtype.Int8) (OrderVnpay, error)
+	GetOrderShipment(ctx context.Context, id pgtype.Int8) (OrderShipment, error)
 	// ========================================
 	// Queries for table: promotion.base
 	// ========================================
@@ -426,10 +456,6 @@ type Querier interface {
 	// ========================================
 	GetSharedResourceReference(ctx context.Context, id pgtype.Int8) (SharedResourceReference, error)
 	// ========================================
-	// Queries for table: system.event
-	// ========================================
-	GetSystemEvent(ctx context.Context, id pgtype.Int8) (SystemEvent, error)
-	// ========================================
 	// Queries for table: system.search_sync
 	// ========================================
 	GetSystemSearchSync(ctx context.Context, id pgtype.Int8) (SystemSearchSync, error)
@@ -442,6 +468,8 @@ type Querier interface {
 	ListAccountProfile(ctx context.Context, arg ListAccountProfileParams) ([]AccountProfile, error)
 	ListAccountVendor(ctx context.Context, arg ListAccountVendorParams) ([]AccountVendor, error)
 	ListActivePromotion(ctx context.Context, arg ListActivePromotionParams) ([]PromotionBase, error)
+	ListAnalyticInteraction(ctx context.Context, arg ListAnalyticInteractionParams) ([]AnalyticInteraction, error)
+	ListAnalyticInteractionType(ctx context.Context, arg ListAnalyticInteractionTypeParams) ([]AnalyticInteractionType, error)
 	ListCatalogBrand(ctx context.Context, arg ListCatalogBrandParams) ([]CatalogBrand, error)
 	ListCatalogCategory(ctx context.Context, arg ListCatalogCategoryParams) ([]CatalogCategory, error)
 	ListCatalogComment(ctx context.Context, arg ListCatalogCommentParams) ([]CatalogComment, error)
@@ -453,20 +481,23 @@ type Querier interface {
 	ListInventorySkuSerial(ctx context.Context, arg ListInventorySkuSerialParams) ([]InventorySkuSerial, error)
 	ListInventoryStock(ctx context.Context, arg ListInventoryStockParams) ([]InventoryStock, error)
 	ListInventoryStockHistory(ctx context.Context, arg ListInventoryStockHistoryParams) ([]InventoryStockHistory, error)
+	ListMostSoldProducts(ctx context.Context, arg ListMostSoldProductsParams) ([]ListMostSoldProductsRow, error)
 	ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([]OrderBase, error)
 	ListOrderInvoice(ctx context.Context, arg ListOrderInvoiceParams) ([]OrderInvoice, error)
 	ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([]OrderItem, error)
 	ListOrderItemSerial(ctx context.Context, arg ListOrderItemSerialParams) ([]OrderItemSerial, error)
+	ListOrderPaymentGateway(ctx context.Context, arg ListOrderPaymentGatewayParams) ([]OrderPaymentGateway, error)
 	ListOrderRefund(ctx context.Context, arg ListOrderRefundParams) ([]OrderRefund, error)
 	ListOrderRefundDispute(ctx context.Context, arg ListOrderRefundDisputeParams) ([]OrderRefundDispute, error)
-	ListOrderVnpay(ctx context.Context, arg ListOrderVnpayParams) ([]OrderVnpay, error)
+	ListOrderShipment(ctx context.Context, arg ListOrderShipmentParams) ([]OrderShipment, error)
+	ListProductDetail(ctx context.Context, spuID []int64) ([]ListProductDetailRow, error)
 	ListPromotionBase(ctx context.Context, arg ListPromotionBaseParams) ([]PromotionBase, error)
 	ListPromotionDiscount(ctx context.Context, arg ListPromotionDiscountParams) ([]PromotionDiscount, error)
 	ListRating(ctx context.Context, arg ListRatingParams) ([]ListRatingRow, error)
 	ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error)
 	ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error)
 	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
-	ListSystemEvent(ctx context.Context, arg ListSystemEventParams) ([]SystemEvent, error)
+	ListStaleSyncSearch(ctx context.Context, limit int32) ([]ListStaleSyncSearchRow, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
@@ -478,6 +509,8 @@ type Querier interface {
 	UpdateAccountNotification(ctx context.Context, arg UpdateAccountNotificationParams) (AccountNotification, error)
 	UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (AccountProfile, error)
 	UpdateAccountVendor(ctx context.Context, arg UpdateAccountVendorParams) (AccountVendor, error)
+	UpdateAnalyticInteraction(ctx context.Context, arg UpdateAnalyticInteractionParams) (AnalyticInteraction, error)
+	UpdateAnalyticInteractionType(ctx context.Context, arg UpdateAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	UpdateBatchAccountAddress(ctx context.Context, arg []UpdateBatchAccountAddressParams) *UpdateBatchAccountAddressBatchResults
 	UpdateBatchAccountBase(ctx context.Context, arg []UpdateBatchAccountBaseParams) *UpdateBatchAccountBaseBatchResults
 	UpdateBatchAccountCartItem(ctx context.Context, arg []UpdateBatchAccountCartItemParams) *UpdateBatchAccountCartItemBatchResults
@@ -486,6 +519,8 @@ type Querier interface {
 	UpdateBatchAccountNotification(ctx context.Context, arg []UpdateBatchAccountNotificationParams) *UpdateBatchAccountNotificationBatchResults
 	UpdateBatchAccountProfile(ctx context.Context, arg []UpdateBatchAccountProfileParams) *UpdateBatchAccountProfileBatchResults
 	UpdateBatchAccountVendor(ctx context.Context, arg []UpdateBatchAccountVendorParams) *UpdateBatchAccountVendorBatchResults
+	UpdateBatchAnalyticInteraction(ctx context.Context, arg []UpdateBatchAnalyticInteractionParams) *UpdateBatchAnalyticInteractionBatchResults
+	UpdateBatchAnalyticInteractionType(ctx context.Context, arg []UpdateBatchAnalyticInteractionTypeParams) *UpdateBatchAnalyticInteractionTypeBatchResults
 	UpdateBatchCatalogBrand(ctx context.Context, arg []UpdateBatchCatalogBrandParams) *UpdateBatchCatalogBrandBatchResults
 	UpdateBatchCatalogCategory(ctx context.Context, arg []UpdateBatchCatalogCategoryParams) *UpdateBatchCatalogCategoryBatchResults
 	UpdateBatchCatalogComment(ctx context.Context, arg []UpdateBatchCatalogCommentParams) *UpdateBatchCatalogCommentBatchResults
@@ -501,14 +536,14 @@ type Querier interface {
 	UpdateBatchOrderInvoice(ctx context.Context, arg []UpdateBatchOrderInvoiceParams) *UpdateBatchOrderInvoiceBatchResults
 	UpdateBatchOrderItem(ctx context.Context, arg []UpdateBatchOrderItemParams) *UpdateBatchOrderItemBatchResults
 	UpdateBatchOrderItemSerial(ctx context.Context, arg []UpdateBatchOrderItemSerialParams) *UpdateBatchOrderItemSerialBatchResults
+	UpdateBatchOrderPaymentGateway(ctx context.Context, arg []UpdateBatchOrderPaymentGatewayParams) *UpdateBatchOrderPaymentGatewayBatchResults
 	UpdateBatchOrderRefund(ctx context.Context, arg []UpdateBatchOrderRefundParams) *UpdateBatchOrderRefundBatchResults
 	UpdateBatchOrderRefundDispute(ctx context.Context, arg []UpdateBatchOrderRefundDisputeParams) *UpdateBatchOrderRefundDisputeBatchResults
-	UpdateBatchOrderVnpay(ctx context.Context, arg []UpdateBatchOrderVnpayParams) *UpdateBatchOrderVnpayBatchResults
+	UpdateBatchOrderShipment(ctx context.Context, arg []UpdateBatchOrderShipmentParams) *UpdateBatchOrderShipmentBatchResults
 	UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults
 	UpdateBatchPromotionDiscount(ctx context.Context, arg []UpdateBatchPromotionDiscountParams) *UpdateBatchPromotionDiscountBatchResults
 	UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults
 	UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults
-	UpdateBatchSystemEvent(ctx context.Context, arg []UpdateBatchSystemEventParams) *UpdateBatchSystemEventBatchResults
 	UpdateBatchSystemSearchSync(ctx context.Context, arg []UpdateBatchSystemSearchSyncParams) *UpdateBatchSystemSearchSyncBatchResults
 	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
@@ -527,14 +562,15 @@ type Querier interface {
 	UpdateOrderInvoice(ctx context.Context, arg UpdateOrderInvoiceParams) (OrderInvoice, error)
 	UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error)
 	UpdateOrderItemSerial(ctx context.Context, arg UpdateOrderItemSerialParams) (OrderItemSerial, error)
+	UpdateOrderPaymentGateway(ctx context.Context, arg UpdateOrderPaymentGatewayParams) (OrderPaymentGateway, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (OrderRefund, error)
 	UpdateOrderRefundDispute(ctx context.Context, arg UpdateOrderRefundDisputeParams) (OrderRefundDispute, error)
-	UpdateOrderVnpay(ctx context.Context, arg UpdateOrderVnpayParams) (OrderVnpay, error)
+	UpdateOrderShipment(ctx context.Context, arg UpdateOrderShipmentParams) (OrderShipment, error)
 	UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error)
 	UpdatePromotionDiscount(ctx context.Context, arg UpdatePromotionDiscountParams) (PromotionDiscount, error)
+	UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error
 	UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error)
 	UpdateSharedResourceReference(ctx context.Context, arg UpdateSharedResourceReferenceParams) (SharedResourceReference, error)
-	UpdateSystemEvent(ctx context.Context, arg UpdateSystemEventParams) (SystemEvent, error)
 	UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error)
 }
 

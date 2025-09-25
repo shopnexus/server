@@ -539,6 +539,87 @@ func (q *Queries) CountAccountVendor(ctx context.Context, arg CountAccountVendor
 	return count, err
 }
 
+const countAnalyticInteraction = `-- name: CountAnalyticInteraction :one
+SELECT COUNT(*)
+FROM "analytic"."interaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" >= $2 OR $2 IS NULL) AND
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" >= $5 OR $5 IS NULL) AND
+    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_type" >= $8 OR $8 IS NULL) AND
+    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_id" = ANY($10) OR $10 IS NULL) AND
+    ("ref_id" >= $11 OR $11 IS NULL) AND
+    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("metadata" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL)
+)
+`
+
+type CountAnalyticInteractionParams struct {
+	ID              []int64                        `json:"id"`
+	IDFrom          pgtype.Int8                    `json:"id_from"`
+	IDTo            pgtype.Int8                    `json:"id_to"`
+	AccountID       []int64                        `json:"account_id"`
+	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID           []int64                        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
+	Metadata        [][]byte                       `json:"metadata"`
+	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
+}
+
+func (q *Queries) CountAnalyticInteraction(ctx context.Context, arg CountAnalyticInteractionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAnalyticInteraction,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
+		arg.RefType,
+		arg.RefTypeFrom,
+		arg.RefTypeTo,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.Metadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAnalyticInteractionType = `-- name: CountAnalyticInteractionType :one
+SELECT COUNT(*)
+FROM "analytic"."interaction_type"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL)
+)
+`
+
+func (q *Queries) CountAnalyticInteractionType(ctx context.Context, id []string) (int64, error) {
+	row := q.db.QueryRow(ctx, countAnalyticInteractionType, id)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countCatalogBrand = `-- name: CountCatalogBrand :one
 SELECT COUNT(*)
 FROM "catalog"."brand"
@@ -1179,14 +1260,13 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" >= $5 OR $5 IS NULL) AND
     ("account_id" <= $6 OR $6 IS NULL) AND
-    ("payment_method" = ANY($7) OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -1197,7 +1277,6 @@ type CountOrderBaseParams struct {
 	AccountID       []int64              `json:"account_id"`
 	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
 	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	PaymentMethod   []OrderPaymentMethod `json:"payment_method"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -1215,7 +1294,6 @@ func (q *Queries) CountOrderBase(ctx context.Context, arg CountOrderBaseParams) 
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.PaymentMethod,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -1311,25 +1389,31 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" >= $8 OR $8 IS NULL) AND
     ("sku_id" <= $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("quantity" = ANY($13) OR $13 IS NULL) AND
+    ("quantity" >= $14 OR $14 IS NULL) AND
+    ("quantity" <= $15 OR $15 IS NULL)
 )
 `
 
 type CountOrderItemParams struct {
-	ID           []int64     `json:"id"`
-	IDFrom       pgtype.Int8 `json:"id_from"`
-	IDTo         pgtype.Int8 `json:"id_to"`
-	OrderID      []int64     `json:"order_id"`
-	OrderIDFrom  pgtype.Int8 `json:"order_id_from"`
-	OrderIDTo    pgtype.Int8 `json:"order_id_to"`
-	SkuID        []int64     `json:"sku_id"`
-	SkuIDFrom    pgtype.Int8 `json:"sku_id_from"`
-	SkuIDTo      pgtype.Int8 `json:"sku_id_to"`
-	Quantity     []int64     `json:"quantity"`
-	QuantityFrom pgtype.Int8 `json:"quantity_from"`
-	QuantityTo   pgtype.Int8 `json:"quantity_to"`
+	ID             []int64       `json:"id"`
+	IDFrom         pgtype.Int8   `json:"id_from"`
+	IDTo           pgtype.Int8   `json:"id_to"`
+	OrderID        []int64       `json:"order_id"`
+	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
+	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
+	SkuID          []int64       `json:"sku_id"`
+	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
+	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
+	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
+	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
+	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
+	Quantity       []int64       `json:"quantity"`
+	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
+	QuantityTo     pgtype.Int8   `json:"quantity_to"`
 }
 
 func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) (int64, error) {
@@ -1343,6 +1427,9 @@ func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) 
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -1397,6 +1484,29 @@ func (q *Queries) CountOrderItemSerial(ctx context.Context, arg CountOrderItemSe
 	return count, err
 }
 
+const countOrderPaymentGateway = `-- name: CountOrderPaymentGateway :one
+SELECT COUNT(*)
+FROM "order"."payment_gateway"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("method" = ANY($2) OR $2 IS NULL) AND
+    ("is_active" = ANY($3) OR $3 IS NULL)
+)
+`
+
+type CountOrderPaymentGatewayParams struct {
+	ID       []string             `json:"id"`
+	Method   []OrderPaymentMethod `json:"method"`
+	IsActive []bool               `json:"is_active"`
+}
+
+func (q *Queries) CountOrderPaymentGateway(ctx context.Context, arg CountOrderPaymentGatewayParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrderPaymentGateway, arg.ID, arg.Method, arg.IsActive)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOrderRefund = `-- name: CountOrderRefund :one
 SELECT COUNT(*)
 FROM "order"."refund"
@@ -1410,11 +1520,14 @@ WHERE (
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
     ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
     ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
-    ("method" = ANY($10) OR $10 IS NULL) AND
-    ("status" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" >= $13 OR $13 IS NULL) AND
-    ("date_created" <= $14 OR $14 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("method" = ANY($13) OR $13 IS NULL) AND
+    ("status" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL)
 )
 `
 
@@ -1428,6 +1541,9 @@ type CountOrderRefundParams struct {
 	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
 	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
 	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
+	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
+	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
+	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
 	Method           []OrderRefundMethod  `json:"method"`
 	Status           []SharedStatus       `json:"status"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -1446,6 +1562,9 @@ func (q *Queries) CountOrderRefund(ctx context.Context, arg CountOrderRefundPara
 		arg.ReviewedByID,
 		arg.ReviewedByIDFrom,
 		arg.ReviewedByIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
 		arg.DateCreated,
@@ -1523,24 +1642,67 @@ func (q *Queries) CountOrderRefundDispute(ctx context.Context, arg CountOrderRef
 	return count, err
 }
 
-const countOrderVnpay = `-- name: CountOrderVnpay :one
+const countOrderShipment = `-- name: CountOrderShipment :one
 SELECT COUNT(*)
-FROM "order"."vnpay"
+FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL)
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("cost" = ANY($5) OR $5 IS NULL) AND
+    ("cost" >= $6 OR $6 IS NULL) AND
+    ("cost" <= $7 OR $7 IS NULL) AND
+    ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
+    ("estimated_etd" >= $9 OR $9 IS NULL) AND
+    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("date_shipped" = ANY($11) OR $11 IS NULL) AND
+    ("date_shipped" >= $12 OR $12 IS NULL) AND
+    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_delivered" = ANY($14) OR $14 IS NULL) AND
+    ("date_delivered" >= $15 OR $15 IS NULL) AND
+    ("date_delivered" <= $16 OR $16 IS NULL)
 )
 `
 
-type CountOrderVnpayParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
+type CountOrderShipmentParams struct {
+	ID                []int64               `json:"id"`
+	IDFrom            pgtype.Int8           `json:"id_from"`
+	IDTo              pgtype.Int8           `json:"id_to"`
+	Status            []OrderShipmentStatus `json:"status"`
+	Cost              []int64               `json:"cost"`
+	CostFrom          pgtype.Int8           `json:"cost_from"`
+	CostTo            pgtype.Int8           `json:"cost_to"`
+	EstimatedEtd      []pgtype.Timestamptz  `json:"estimated_etd"`
+	EstimatedEtdFrom  pgtype.Timestamptz    `json:"estimated_etd_from"`
+	EstimatedEtdTo    pgtype.Timestamptz    `json:"estimated_etd_to"`
+	DateShipped       []pgtype.Timestamptz  `json:"date_shipped"`
+	DateShippedFrom   pgtype.Timestamptz    `json:"date_shipped_from"`
+	DateShippedTo     pgtype.Timestamptz    `json:"date_shipped_to"`
+	DateDelivered     []pgtype.Timestamptz  `json:"date_delivered"`
+	DateDeliveredFrom pgtype.Timestamptz    `json:"date_delivered_from"`
+	DateDeliveredTo   pgtype.Timestamptz    `json:"date_delivered_to"`
 }
 
-func (q *Queries) CountOrderVnpay(ctx context.Context, arg CountOrderVnpayParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countOrderVnpay, arg.ID, arg.IDFrom, arg.IDTo)
+func (q *Queries) CountOrderShipment(ctx context.Context, arg CountOrderShipmentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrderShipment,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.Status,
+		arg.Cost,
+		arg.CostFrom,
+		arg.CostTo,
+		arg.EstimatedEtd,
+		arg.EstimatedEtdFrom,
+		arg.EstimatedEtdTo,
+		arg.DateShipped,
+		arg.DateShippedFrom,
+		arg.DateShippedTo,
+		arg.DateDelivered,
+		arg.DateDeliveredFrom,
+		arg.DateDeliveredTo,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1870,78 +2032,6 @@ func (q *Queries) CountSharedResourceReference(ctx context.Context, arg CountSha
 	return count, err
 }
 
-const countSystemEvent = `-- name: CountSystemEvent :one
-SELECT COUNT(*)
-FROM "system"."event"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
-    ("aggregate_id" = ANY($7) OR $7 IS NULL) AND
-    ("aggregate_id" >= $8 OR $8 IS NULL) AND
-    ("aggregate_id" <= $9 OR $9 IS NULL) AND
-    ("aggregate_type" = ANY($10) OR $10 IS NULL) AND
-    ("event_type" = ANY($11) OR $11 IS NULL) AND
-    ("payload" = ANY($12) OR $12 IS NULL) AND
-    ("version" = ANY($13) OR $13 IS NULL) AND
-    ("version" >= $14 OR $14 IS NULL) AND
-    ("version" <= $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" >= $17 OR $17 IS NULL) AND
-    ("date_created" <= $18 OR $18 IS NULL)
-)
-`
-
-type CountSystemEventParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	AccountID       []pgtype.Int8        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	AggregateID     []int64              `json:"aggregate_id"`
-	AggregateIDFrom pgtype.Int8          `json:"aggregate_id_from"`
-	AggregateIDTo   pgtype.Int8          `json:"aggregate_id_to"`
-	AggregateType   []string             `json:"aggregate_type"`
-	EventType       []SystemEventType    `json:"event_type"`
-	Payload         [][]byte             `json:"payload"`
-	Version         []int64              `json:"version"`
-	VersionFrom     pgtype.Int8          `json:"version_from"`
-	VersionTo       pgtype.Int8          `json:"version_to"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-}
-
-func (q *Queries) CountSystemEvent(ctx context.Context, arg CountSystemEventParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSystemEvent,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
-		arg.AggregateID,
-		arg.AggregateIDFrom,
-		arg.AggregateIDTo,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.VersionFrom,
-		arg.VersionTo,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countSystemSearchSync = `-- name: CountSystemSearchSync :one
 SELECT COUNT(*)
 FROM "system"."search_sync"
@@ -1949,21 +2039,31 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
     ("id" <= $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("last_synced" = ANY($5) OR $5 IS NULL) AND
-    ("last_synced" >= $6 OR $6 IS NULL) AND
-    ("last_synced" <= $7 OR $7 IS NULL)
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" >= $6 OR $6 IS NULL) AND
+    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
+    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
 type CountSystemSearchSyncParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Name           []string             `json:"name"`
-	LastSynced     []pgtype.Timestamptz `json:"last_synced"`
-	LastSyncedFrom pgtype.Timestamptz   `json:"last_synced_from"`
-	LastSyncedTo   pgtype.Timestamptz   `json:"last_synced_to"`
+	ID               []int64              `json:"id"`
+	IDFrom           pgtype.Int8          `json:"id_from"`
+	IDTo             pgtype.Int8          `json:"id_to"`
+	RefType          []string             `json:"ref_type"`
+	RefID            []int64              `json:"ref_id"`
+	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
+	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error) {
@@ -1971,10 +2071,15 @@ func (q *Queries) CountSystemSearchSync(ctx context.Context, arg CountSystemSear
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.Name,
-		arg.LastSynced,
-		arg.LastSyncedFrom,
-		arg.LastSyncedTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -2288,6 +2393,70 @@ type CreateAccountVendorParams struct {
 func (q *Queries) CreateAccountVendor(ctx context.Context, arg CreateAccountVendorParams) (AccountVendor, error) {
 	row := q.db.QueryRow(ctx, createAccountVendor, arg.ID, arg.Description)
 	var i AccountVendor
+	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const createAnalyticInteraction = `-- name: CreateAnalyticInteraction :one
+INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+`
+
+type CreateAnalyticInteractionParams struct {
+	AccountID   int64                      `json:"account_id"`
+	SessionID   pgtype.Text                `json:"session_id"`
+	EventType   string                     `json:"event_type"`
+	RefType     AnalyticInteractionRefType `json:"ref_type"`
+	RefID       int64                      `json:"ref_id"`
+	Metadata    []byte                     `json:"metadata"`
+	UserAgent   pgtype.Text                `json:"user_agent"`
+	IpAddress   pgtype.Text                `json:"ip_address"`
+	DateCreated pgtype.Timestamptz         `json:"date_created"`
+}
+
+func (q *Queries) CreateAnalyticInteraction(ctx context.Context, arg CreateAnalyticInteractionParams) (AnalyticInteraction, error) {
+	row := q.db.QueryRow(ctx, createAnalyticInteraction,
+		arg.AccountID,
+		arg.SessionID,
+		arg.EventType,
+		arg.RefType,
+		arg.RefID,
+		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
+		arg.DateCreated,
+	)
+	var i AnalyticInteraction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.SessionID,
+		&i.EventType,
+		&i.RefType,
+		&i.RefID,
+		&i.Metadata,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
+const createAnalyticInteractionType = `-- name: CreateAnalyticInteractionType :one
+INSERT INTO "analytic"."interaction_type" ("id", "description")
+VALUES ($1, $2)
+RETURNING id, description
+`
+
+type CreateAnalyticInteractionTypeParams struct {
+	ID          string      `json:"id"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) CreateAnalyticInteractionType(ctx context.Context, arg CreateAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
+	row := q.db.QueryRow(ctx, createAnalyticInteractionType, arg.ID, arg.Description)
+	var i AnalyticInteractionType
 	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
@@ -2622,6 +2791,23 @@ type CreateCopyAccountVendorParams struct {
 	Description string `json:"description"`
 }
 
+type CreateCopyAnalyticInteractionParams struct {
+	AccountID   int64                      `json:"account_id"`
+	SessionID   pgtype.Text                `json:"session_id"`
+	EventType   string                     `json:"event_type"`
+	RefType     AnalyticInteractionRefType `json:"ref_type"`
+	RefID       int64                      `json:"ref_id"`
+	Metadata    []byte                     `json:"metadata"`
+	UserAgent   pgtype.Text                `json:"user_agent"`
+	IpAddress   pgtype.Text                `json:"ip_address"`
+	DateCreated pgtype.Timestamptz         `json:"date_created"`
+}
+
+type CreateCopyAnalyticInteractionTypeParams struct {
+	ID          string      `json:"id"`
+	Description pgtype.Text `json:"description"`
+}
+
 type CreateCopyCatalogBrandParams struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
@@ -2743,6 +2929,22 @@ type CreateCopyDefaultAccountProfileParams struct {
 	AvatarRsID  pgtype.Int8       `json:"avatar_rs_id"`
 }
 
+type CreateCopyDefaultAnalyticInteractionParams struct {
+	AccountID int64                      `json:"account_id"`
+	SessionID pgtype.Text                `json:"session_id"`
+	EventType string                     `json:"event_type"`
+	RefType   AnalyticInteractionRefType `json:"ref_type"`
+	RefID     int64                      `json:"ref_id"`
+	Metadata  []byte                     `json:"metadata"`
+	UserAgent pgtype.Text                `json:"user_agent"`
+	IpAddress pgtype.Text                `json:"ip_address"`
+}
+
+type CreateCopyDefaultAnalyticInteractionTypeParams struct {
+	ID          string      `json:"id"`
+	Description pgtype.Text `json:"description"`
+}
+
 type CreateCopyDefaultCatalogBrandParams struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
@@ -2815,9 +3017,9 @@ type CreateCopyDefaultInventoryStockHistoryParams struct {
 }
 
 type CreateCopyDefaultOrderBaseParams struct {
-	AccountID     int64              `json:"account_id"`
-	PaymentMethod OrderPaymentMethod `json:"payment_method"`
-	Address       string             `json:"address"`
+	AccountID      int64  `json:"account_id"`
+	PaymentGateway string `json:"payment_gateway"`
+	Address        string `json:"address"`
 }
 
 type CreateCopyDefaultOrderInvoiceParams struct {
@@ -2833,9 +3035,10 @@ type CreateCopyDefaultOrderInvoiceParams struct {
 }
 
 type CreateCopyDefaultOrderItemParams struct {
-	OrderID  int64 `json:"order_id"`
-	SkuID    int64 `json:"sku_id"`
-	Quantity int64 `json:"quantity"`
+	OrderID    int64       `json:"order_id"`
+	SkuID      int64       `json:"sku_id"`
+	ShipmentID pgtype.Int8 `json:"shipment_id"`
+	Quantity   int64       `json:"quantity"`
 }
 
 type CreateCopyDefaultOrderItemSerialParams struct {
@@ -2843,9 +3046,16 @@ type CreateCopyDefaultOrderItemSerialParams struct {
 	ProductSerialID int64 `json:"product_serial_id"`
 }
 
+type CreateCopyDefaultOrderPaymentGatewayParams struct {
+	ID          string             `json:"id"`
+	Method      OrderPaymentMethod `json:"method"`
+	Description pgtype.Text        `json:"description"`
+}
+
 type CreateCopyDefaultOrderRefundParams struct {
 	OrderItemID  int64             `json:"order_item_id"`
 	ReviewedByID pgtype.Int8       `json:"reviewed_by_id"`
+	ShipmentID   pgtype.Int8       `json:"shipment_id"`
 	Method       OrderRefundMethod `json:"method"`
 	Reason       string            `json:"reason"`
 	Address      pgtype.Text       `json:"address"`
@@ -2857,19 +3067,14 @@ type CreateCopyDefaultOrderRefundDisputeParams struct {
 	Reason     string `json:"reason"`
 }
 
-type CreateCopyDefaultOrderVnpayParams struct {
-	ID                   int64  `json:"id"`
-	VnpAmount            string `json:"vnp_Amount"`
-	VnpBankCode          string `json:"vnp_BankCode"`
-	VnpCardType          string `json:"vnp_CardType"`
-	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-	VnpPayDate           string `json:"vnp_PayDate"`
-	VnpResponseCode      string `json:"vnp_ResponseCode"`
-	VnpSecureHash        string `json:"vnp_SecureHash"`
-	VnpTmnCode           string `json:"vnp_TmnCode"`
-	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-	VnpTxnRef            string `json:"vnp_TxnRef"`
+type CreateCopyDefaultOrderShipmentParams struct {
+	Provider      string             `json:"provider"`
+	TrackingCode  pgtype.Text        `json:"tracking_code"`
+	LabelUrl      pgtype.Text        `json:"label_url"`
+	Cost          int64              `json:"cost"`
+	EstimatedEtd  pgtype.Timestamptz `json:"estimated_etd"`
+	DateShipped   pgtype.Timestamptz `json:"date_shipped"`
+	DateDelivered pgtype.Timestamptz `json:"date_delivered"`
 }
 
 type CreateCopyDefaultPromotionBaseParams struct {
@@ -2917,13 +3122,9 @@ type CreateCopyDefaultSharedResourceReferenceParams struct {
 	IsPrimary bool                  `json:"is_primary"`
 }
 
-type CreateCopyDefaultSystemEventParams struct {
-	AccountID     pgtype.Int8     `json:"account_id"`
-	AggregateID   int64           `json:"aggregate_id"`
-	AggregateType string          `json:"aggregate_type"`
-	EventType     SystemEventType `json:"event_type"`
-	Payload       []byte          `json:"payload"`
-	Version       int64           `json:"version"`
+type CreateCopyDefaultSystemSearchSyncParams struct {
+	RefType string `json:"ref_type"`
+	RefID   int64  `json:"ref_id"`
 }
 
 type CreateCopyInventorySkuSerialParams struct {
@@ -2948,12 +3149,12 @@ type CreateCopyInventoryStockHistoryParams struct {
 }
 
 type CreateCopyOrderBaseParams struct {
-	AccountID     int64              `json:"account_id"`
-	PaymentMethod OrderPaymentMethod `json:"payment_method"`
-	Status        SharedStatus       `json:"status"`
-	Address       string             `json:"address"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	AccountID      int64              `json:"account_id"`
+	PaymentGateway string             `json:"payment_gateway"`
+	Status         SharedStatus       `json:"status"`
+	Address        string             `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
 }
 
 type CreateCopyOrderInvoiceParams struct {
@@ -2970,9 +3171,10 @@ type CreateCopyOrderInvoiceParams struct {
 }
 
 type CreateCopyOrderItemParams struct {
-	OrderID  int64 `json:"order_id"`
-	SkuID    int64 `json:"sku_id"`
-	Quantity int64 `json:"quantity"`
+	OrderID    int64       `json:"order_id"`
+	SkuID      int64       `json:"sku_id"`
+	ShipmentID pgtype.Int8 `json:"shipment_id"`
+	Quantity   int64       `json:"quantity"`
 }
 
 type CreateCopyOrderItemSerialParams struct {
@@ -2980,9 +3182,17 @@ type CreateCopyOrderItemSerialParams struct {
 	ProductSerialID int64 `json:"product_serial_id"`
 }
 
+type CreateCopyOrderPaymentGatewayParams struct {
+	ID          string             `json:"id"`
+	Method      OrderPaymentMethod `json:"method"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+}
+
 type CreateCopyOrderRefundParams struct {
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
 	Status       SharedStatus       `json:"status"`
 	Reason       string             `json:"reason"`
@@ -2999,19 +3209,15 @@ type CreateCopyOrderRefundDisputeParams struct {
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
-type CreateCopyOrderVnpayParams struct {
-	ID                   int64  `json:"id"`
-	VnpAmount            string `json:"vnp_Amount"`
-	VnpBankCode          string `json:"vnp_BankCode"`
-	VnpCardType          string `json:"vnp_CardType"`
-	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-	VnpPayDate           string `json:"vnp_PayDate"`
-	VnpResponseCode      string `json:"vnp_ResponseCode"`
-	VnpSecureHash        string `json:"vnp_SecureHash"`
-	VnpTmnCode           string `json:"vnp_TmnCode"`
-	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-	VnpTxnRef            string `json:"vnp_TxnRef"`
+type CreateCopyOrderShipmentParams struct {
+	Provider      string              `json:"provider"`
+	TrackingCode  pgtype.Text         `json:"tracking_code"`
+	Status        OrderShipmentStatus `json:"status"`
+	LabelUrl      pgtype.Text         `json:"label_url"`
+	Cost          int64               `json:"cost"`
+	EstimatedEtd  pgtype.Timestamptz  `json:"estimated_etd"`
+	DateShipped   pgtype.Timestamptz  `json:"date_shipped"`
+	DateDelivered pgtype.Timestamptz  `json:"date_delivered"`
 }
 
 type CreateCopyPromotionBaseParams struct {
@@ -3063,19 +3269,12 @@ type CreateCopySharedResourceReferenceParams struct {
 	IsPrimary bool                  `json:"is_primary"`
 }
 
-type CreateCopySystemEventParams struct {
-	AccountID     pgtype.Int8        `json:"account_id"`
-	AggregateID   int64              `json:"aggregate_id"`
-	AggregateType string             `json:"aggregate_type"`
-	EventType     SystemEventType    `json:"event_type"`
-	Payload       []byte             `json:"payload"`
-	Version       int64              `json:"version"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-}
-
 type CreateCopySystemSearchSyncParams struct {
-	Name       string             `json:"name"`
-	LastSynced pgtype.Timestamptz `json:"last_synced"`
+	RefType          string             `json:"ref_type"`
+	RefID            int64              `json:"ref_id"`
+	IsStaleEmbedding bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  bool               `json:"is_stale_metadata"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
 }
 
 const createDefaultAccountAddress = `-- name: CreateDefaultAccountAddress :one
@@ -3337,6 +3536,68 @@ RETURNING id, description
 func (q *Queries) CreateDefaultAccountVendor(ctx context.Context, id int64) (AccountVendor, error) {
 	row := q.db.QueryRow(ctx, createDefaultAccountVendor, id)
 	var i AccountVendor
+	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const createDefaultAnalyticInteraction = `-- name: CreateDefaultAnalyticInteraction :one
+INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+`
+
+type CreateDefaultAnalyticInteractionParams struct {
+	AccountID int64                      `json:"account_id"`
+	SessionID pgtype.Text                `json:"session_id"`
+	EventType string                     `json:"event_type"`
+	RefType   AnalyticInteractionRefType `json:"ref_type"`
+	RefID     int64                      `json:"ref_id"`
+	Metadata  []byte                     `json:"metadata"`
+	UserAgent pgtype.Text                `json:"user_agent"`
+	IpAddress pgtype.Text                `json:"ip_address"`
+}
+
+func (q *Queries) CreateDefaultAnalyticInteraction(ctx context.Context, arg CreateDefaultAnalyticInteractionParams) (AnalyticInteraction, error) {
+	row := q.db.QueryRow(ctx, createDefaultAnalyticInteraction,
+		arg.AccountID,
+		arg.SessionID,
+		arg.EventType,
+		arg.RefType,
+		arg.RefID,
+		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
+	)
+	var i AnalyticInteraction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.SessionID,
+		&i.EventType,
+		&i.RefType,
+		&i.RefID,
+		&i.Metadata,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
+const createDefaultAnalyticInteractionType = `-- name: CreateDefaultAnalyticInteractionType :one
+INSERT INTO "analytic"."interaction_type" ("id", "description")
+VALUES ($1, $2)
+RETURNING id, description
+`
+
+type CreateDefaultAnalyticInteractionTypeParams struct {
+	ID          string      `json:"id"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) CreateDefaultAnalyticInteractionType(ctx context.Context, arg CreateDefaultAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
+	row := q.db.QueryRow(ctx, createDefaultAnalyticInteractionType, arg.ID, arg.Description)
+	var i AnalyticInteractionType
 	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
@@ -3643,24 +3904,24 @@ func (q *Queries) CreateDefaultInventoryStockHistory(ctx context.Context, arg Cr
 }
 
 const createDefaultOrderBase = `-- name: CreateDefaultOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_method", "address")
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
 VALUES ($1, $2, $3)
-RETURNING id, account_id, payment_method, status, address, date_created, date_updated
+RETURNING id, account_id, payment_gateway, status, address, date_created, date_updated
 `
 
 type CreateDefaultOrderBaseParams struct {
-	AccountID     int64              `json:"account_id"`
-	PaymentMethod OrderPaymentMethod `json:"payment_method"`
-	Address       string             `json:"address"`
+	AccountID      int64  `json:"account_id"`
+	PaymentGateway string `json:"payment_gateway"`
+	Address        string `json:"address"`
 }
 
 func (q *Queries) CreateDefaultOrderBase(ctx context.Context, arg CreateDefaultOrderBaseParams) (OrderBase, error) {
-	row := q.db.QueryRow(ctx, createDefaultOrderBase, arg.AccountID, arg.PaymentMethod, arg.Address)
+	row := q.db.QueryRow(ctx, createDefaultOrderBase, arg.AccountID, arg.PaymentGateway, arg.Address)
 	var i OrderBase
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.PaymentMethod,
+		&i.PaymentGateway,
 		&i.Status,
 		&i.Address,
 		&i.DateCreated,
@@ -3717,24 +3978,31 @@ func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefau
 }
 
 const createDefaultOrderItem = `-- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "quantity")
-VALUES ($1, $2, $3)
-RETURNING id, order_id, sku_id, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_id", "quantity")
+VALUES ($1, $2, $3, $4)
+RETURNING id, order_id, sku_id, shipment_id, quantity
 `
 
 type CreateDefaultOrderItemParams struct {
-	OrderID  int64 `json:"order_id"`
-	SkuID    int64 `json:"sku_id"`
-	Quantity int64 `json:"quantity"`
+	OrderID    int64       `json:"order_id"`
+	SkuID      int64       `json:"sku_id"`
+	ShipmentID pgtype.Int8 `json:"shipment_id"`
+	Quantity   int64       `json:"quantity"`
 }
 
 func (q *Queries) CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultOrderItemParams) (OrderItem, error) {
-	row := q.db.QueryRow(ctx, createDefaultOrderItem, arg.OrderID, arg.SkuID, arg.Quantity)
+	row := q.db.QueryRow(ctx, createDefaultOrderItem,
+		arg.OrderID,
+		arg.SkuID,
+		arg.ShipmentID,
+		arg.Quantity,
+	)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ShipmentID,
 		&i.Quantity,
 	)
 	return i, err
@@ -3758,15 +4026,40 @@ func (q *Queries) CreateDefaultOrderItemSerial(ctx context.Context, arg CreateDe
 	return i, err
 }
 
+const createDefaultOrderPaymentGateway = `-- name: CreateDefaultOrderPaymentGateway :one
+INSERT INTO "order"."payment_gateway" ("id", "method", "description")
+VALUES ($1, $2, $3)
+RETURNING id, method, description, is_active
+`
+
+type CreateDefaultOrderPaymentGatewayParams struct {
+	ID          string             `json:"id"`
+	Method      OrderPaymentMethod `json:"method"`
+	Description pgtype.Text        `json:"description"`
+}
+
+func (q *Queries) CreateDefaultOrderPaymentGateway(ctx context.Context, arg CreateDefaultOrderPaymentGatewayParams) (OrderPaymentGateway, error) {
+	row := q.db.QueryRow(ctx, createDefaultOrderPaymentGateway, arg.ID, arg.Method, arg.Description)
+	var i OrderPaymentGateway
+	err := row.Scan(
+		&i.ID,
+		&i.Method,
+		&i.Description,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const createDefaultOrderRefund = `-- name: CreateDefaultOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type CreateDefaultOrderRefundParams struct {
 	OrderItemID  int64             `json:"order_item_id"`
 	ReviewedByID pgtype.Int8       `json:"reviewed_by_id"`
+	ShipmentID   pgtype.Int8       `json:"shipment_id"`
 	Method       OrderRefundMethod `json:"method"`
 	Reason       string            `json:"reason"`
 	Address      pgtype.Text       `json:"address"`
@@ -3776,6 +4069,7 @@ func (q *Queries) CreateDefaultOrderRefund(ctx context.Context, arg CreateDefaul
 	row := q.db.QueryRow(ctx, createDefaultOrderRefund,
 		arg.OrderItemID,
 		arg.ReviewedByID,
+		arg.ShipmentID,
 		arg.Method,
 		arg.Reason,
 		arg.Address,
@@ -3785,6 +4079,7 @@ func (q *Queries) CreateDefaultOrderRefund(ctx context.Context, arg CreateDefaul
 		&i.ID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
+		&i.ShipmentID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -3821,56 +4116,43 @@ func (q *Queries) CreateDefaultOrderRefundDispute(ctx context.Context, arg Creat
 	return i, err
 }
 
-const createDefaultOrderVnpay = `-- name: CreateDefaultOrderVnpay :one
-INSERT INTO "order"."vnpay" ("id", "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
+const createDefaultOrderShipment = `-- name: CreateDefaultOrderShipment :one
+INSERT INTO "order"."shipment" ("provider", "tracking_code", "label_url", "cost", "estimated_etd", "date_shipped", "date_delivered")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, provider, tracking_code, status, label_url, cost, estimated_etd, date_shipped, date_delivered
 `
 
-type CreateDefaultOrderVnpayParams struct {
-	ID                   int64  `json:"id"`
-	VnpAmount            string `json:"vnp_Amount"`
-	VnpBankCode          string `json:"vnp_BankCode"`
-	VnpCardType          string `json:"vnp_CardType"`
-	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-	VnpPayDate           string `json:"vnp_PayDate"`
-	VnpResponseCode      string `json:"vnp_ResponseCode"`
-	VnpSecureHash        string `json:"vnp_SecureHash"`
-	VnpTmnCode           string `json:"vnp_TmnCode"`
-	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-	VnpTxnRef            string `json:"vnp_TxnRef"`
+type CreateDefaultOrderShipmentParams struct {
+	Provider      string             `json:"provider"`
+	TrackingCode  pgtype.Text        `json:"tracking_code"`
+	LabelUrl      pgtype.Text        `json:"label_url"`
+	Cost          int64              `json:"cost"`
+	EstimatedEtd  pgtype.Timestamptz `json:"estimated_etd"`
+	DateShipped   pgtype.Timestamptz `json:"date_shipped"`
+	DateDelivered pgtype.Timestamptz `json:"date_delivered"`
 }
 
-func (q *Queries) CreateDefaultOrderVnpay(ctx context.Context, arg CreateDefaultOrderVnpayParams) (OrderVnpay, error) {
-	row := q.db.QueryRow(ctx, createDefaultOrderVnpay,
-		arg.ID,
-		arg.VnpAmount,
-		arg.VnpBankCode,
-		arg.VnpCardType,
-		arg.VnpOrderInfo,
-		arg.VnpPayDate,
-		arg.VnpResponseCode,
-		arg.VnpSecureHash,
-		arg.VnpTmnCode,
-		arg.VnpTransactionNo,
-		arg.VnpTransactionStatus,
-		arg.VnpTxnRef,
+func (q *Queries) CreateDefaultOrderShipment(ctx context.Context, arg CreateDefaultOrderShipmentParams) (OrderShipment, error) {
+	row := q.db.QueryRow(ctx, createDefaultOrderShipment,
+		arg.Provider,
+		arg.TrackingCode,
+		arg.LabelUrl,
+		arg.Cost,
+		arg.EstimatedEtd,
+		arg.DateShipped,
+		arg.DateDelivered,
 	)
-	var i OrderVnpay
+	var i OrderShipment
 	err := row.Scan(
 		&i.ID,
-		&i.VnpAmount,
-		&i.VnpBankCode,
-		&i.VnpCardType,
-		&i.VnpOrderInfo,
-		&i.VnpPayDate,
-		&i.VnpResponseCode,
-		&i.VnpSecureHash,
-		&i.VnpTmnCode,
-		&i.VnpTransactionNo,
-		&i.VnpTransactionStatus,
-		&i.VnpTxnRef,
+		&i.Provider,
+		&i.TrackingCode,
+		&i.Status,
+		&i.LabelUrl,
+		&i.Cost,
+		&i.EstimatedEtd,
+		&i.DateShipped,
+		&i.DateDelivered,
 	)
 	return i, err
 }
@@ -4053,54 +4335,28 @@ func (q *Queries) CreateDefaultSharedResourceReference(ctx context.Context, arg 
 	return i, err
 }
 
-const createDefaultSystemEvent = `-- name: CreateDefaultSystemEvent :one
-INSERT INTO "system"."event" ("account_id", "aggregate_id", "aggregate_type", "event_type", "payload", "version")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
+const createDefaultSystemSearchSync = `-- name: CreateDefaultSystemSearchSync :one
+INSERT INTO "system"."search_sync" ("ref_type", "ref_id")
+VALUES ($1, $2)
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
 `
 
-type CreateDefaultSystemEventParams struct {
-	AccountID     pgtype.Int8     `json:"account_id"`
-	AggregateID   int64           `json:"aggregate_id"`
-	AggregateType string          `json:"aggregate_type"`
-	EventType     SystemEventType `json:"event_type"`
-	Payload       []byte          `json:"payload"`
-	Version       int64           `json:"version"`
+type CreateDefaultSystemSearchSyncParams struct {
+	RefType string `json:"ref_type"`
+	RefID   int64  `json:"ref_id"`
 }
 
-func (q *Queries) CreateDefaultSystemEvent(ctx context.Context, arg CreateDefaultSystemEventParams) (SystemEvent, error) {
-	row := q.db.QueryRow(ctx, createDefaultSystemEvent,
-		arg.AccountID,
-		arg.AggregateID,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-	)
-	var i SystemEvent
+func (q *Queries) CreateDefaultSystemSearchSync(ctx context.Context, arg CreateDefaultSystemSearchSyncParams) (SystemSearchSync, error) {
+	row := q.db.QueryRow(ctx, createDefaultSystemSearchSync, arg.RefType, arg.RefID)
+	var i SystemSearchSync
 	err := row.Scan(
 		&i.ID,
-		&i.AccountID,
-		&i.AggregateID,
-		&i.AggregateType,
-		&i.EventType,
-		&i.Payload,
-		&i.Version,
+		&i.RefType,
+		&i.RefID,
+		&i.IsStaleEmbedding,
+		&i.IsStaleMetadata,
 		&i.DateCreated,
 	)
-	return i, err
-}
-
-const createDefaultSystemSearchSync = `-- name: CreateDefaultSystemSearchSync :one
-INSERT INTO "system"."search_sync" ("name")
-VALUES ($1)
-RETURNING id, name, last_synced
-`
-
-func (q *Queries) CreateDefaultSystemSearchSync(ctx context.Context, name string) (SystemSearchSync, error) {
-	row := q.db.QueryRow(ctx, createDefaultSystemSearchSync, name)
-	var i SystemSearchSync
-	err := row.Scan(&i.ID, &i.Name, &i.LastSynced)
 	return i, err
 }
 
@@ -4194,24 +4450,24 @@ func (q *Queries) CreateInventoryStockHistory(ctx context.Context, arg CreateInv
 }
 
 const createOrderBase = `-- name: CreateOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_method", "status", "address", "date_created", "date_updated")
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "status", "address", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, payment_method, status, address, date_created, date_updated
+RETURNING id, account_id, payment_gateway, status, address, date_created, date_updated
 `
 
 type CreateOrderBaseParams struct {
-	AccountID     int64              `json:"account_id"`
-	PaymentMethod OrderPaymentMethod `json:"payment_method"`
-	Status        SharedStatus       `json:"status"`
-	Address       string             `json:"address"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	AccountID      int64              `json:"account_id"`
+	PaymentGateway string             `json:"payment_gateway"`
+	Status         SharedStatus       `json:"status"`
+	Address        string             `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateOrderBase(ctx context.Context, arg CreateOrderBaseParams) (OrderBase, error) {
 	row := q.db.QueryRow(ctx, createOrderBase,
 		arg.AccountID,
-		arg.PaymentMethod,
+		arg.PaymentGateway,
 		arg.Status,
 		arg.Address,
 		arg.DateCreated,
@@ -4221,7 +4477,7 @@ func (q *Queries) CreateOrderBase(ctx context.Context, arg CreateOrderBaseParams
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.PaymentMethod,
+		&i.PaymentGateway,
 		&i.Status,
 		&i.Address,
 		&i.DateCreated,
@@ -4280,24 +4536,31 @@ func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoice
 }
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "quantity")
-VALUES ($1, $2, $3)
-RETURNING id, order_id, sku_id, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_id", "quantity")
+VALUES ($1, $2, $3, $4)
+RETURNING id, order_id, sku_id, shipment_id, quantity
 `
 
 type CreateOrderItemParams struct {
-	OrderID  int64 `json:"order_id"`
-	SkuID    int64 `json:"sku_id"`
-	Quantity int64 `json:"quantity"`
+	OrderID    int64       `json:"order_id"`
+	SkuID      int64       `json:"sku_id"`
+	ShipmentID pgtype.Int8 `json:"shipment_id"`
+	Quantity   int64       `json:"quantity"`
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
-	row := q.db.QueryRow(ctx, createOrderItem, arg.OrderID, arg.SkuID, arg.Quantity)
+	row := q.db.QueryRow(ctx, createOrderItem,
+		arg.OrderID,
+		arg.SkuID,
+		arg.ShipmentID,
+		arg.Quantity,
+	)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ShipmentID,
 		&i.Quantity,
 	)
 	return i, err
@@ -4321,15 +4584,46 @@ func (q *Queries) CreateOrderItemSerial(ctx context.Context, arg CreateOrderItem
 	return i, err
 }
 
+const createOrderPaymentGateway = `-- name: CreateOrderPaymentGateway :one
+INSERT INTO "order"."payment_gateway" ("id", "method", "description", "is_active")
+VALUES ($1, $2, $3, $4)
+RETURNING id, method, description, is_active
+`
+
+type CreateOrderPaymentGatewayParams struct {
+	ID          string             `json:"id"`
+	Method      OrderPaymentMethod `json:"method"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+}
+
+func (q *Queries) CreateOrderPaymentGateway(ctx context.Context, arg CreateOrderPaymentGatewayParams) (OrderPaymentGateway, error) {
+	row := q.db.QueryRow(ctx, createOrderPaymentGateway,
+		arg.ID,
+		arg.Method,
+		arg.Description,
+		arg.IsActive,
+	)
+	var i OrderPaymentGateway
+	err := row.Scan(
+		&i.ID,
+		&i.Method,
+		&i.Description,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const createOrderRefund = `-- name: CreateOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type CreateOrderRefundParams struct {
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
 	Status       SharedStatus       `json:"status"`
 	Reason       string             `json:"reason"`
@@ -4341,6 +4635,7 @@ func (q *Queries) CreateOrderRefund(ctx context.Context, arg CreateOrderRefundPa
 	row := q.db.QueryRow(ctx, createOrderRefund,
 		arg.OrderItemID,
 		arg.ReviewedByID,
+		arg.ShipmentID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -4352,6 +4647,7 @@ func (q *Queries) CreateOrderRefund(ctx context.Context, arg CreateOrderRefundPa
 		&i.ID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
+		&i.ShipmentID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -4398,56 +4694,45 @@ func (q *Queries) CreateOrderRefundDispute(ctx context.Context, arg CreateOrderR
 	return i, err
 }
 
-const createOrderVnpay = `-- name: CreateOrderVnpay :one
-INSERT INTO "order"."vnpay" ("id", "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
+const createOrderShipment = `-- name: CreateOrderShipment :one
+INSERT INTO "order"."shipment" ("provider", "tracking_code", "status", "label_url", "cost", "estimated_etd", "date_shipped", "date_delivered")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, provider, tracking_code, status, label_url, cost, estimated_etd, date_shipped, date_delivered
 `
 
-type CreateOrderVnpayParams struct {
-	ID                   int64  `json:"id"`
-	VnpAmount            string `json:"vnp_Amount"`
-	VnpBankCode          string `json:"vnp_BankCode"`
-	VnpCardType          string `json:"vnp_CardType"`
-	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-	VnpPayDate           string `json:"vnp_PayDate"`
-	VnpResponseCode      string `json:"vnp_ResponseCode"`
-	VnpSecureHash        string `json:"vnp_SecureHash"`
-	VnpTmnCode           string `json:"vnp_TmnCode"`
-	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-	VnpTxnRef            string `json:"vnp_TxnRef"`
+type CreateOrderShipmentParams struct {
+	Provider      string              `json:"provider"`
+	TrackingCode  pgtype.Text         `json:"tracking_code"`
+	Status        OrderShipmentStatus `json:"status"`
+	LabelUrl      pgtype.Text         `json:"label_url"`
+	Cost          int64               `json:"cost"`
+	EstimatedEtd  pgtype.Timestamptz  `json:"estimated_etd"`
+	DateShipped   pgtype.Timestamptz  `json:"date_shipped"`
+	DateDelivered pgtype.Timestamptz  `json:"date_delivered"`
 }
 
-func (q *Queries) CreateOrderVnpay(ctx context.Context, arg CreateOrderVnpayParams) (OrderVnpay, error) {
-	row := q.db.QueryRow(ctx, createOrderVnpay,
-		arg.ID,
-		arg.VnpAmount,
-		arg.VnpBankCode,
-		arg.VnpCardType,
-		arg.VnpOrderInfo,
-		arg.VnpPayDate,
-		arg.VnpResponseCode,
-		arg.VnpSecureHash,
-		arg.VnpTmnCode,
-		arg.VnpTransactionNo,
-		arg.VnpTransactionStatus,
-		arg.VnpTxnRef,
+func (q *Queries) CreateOrderShipment(ctx context.Context, arg CreateOrderShipmentParams) (OrderShipment, error) {
+	row := q.db.QueryRow(ctx, createOrderShipment,
+		arg.Provider,
+		arg.TrackingCode,
+		arg.Status,
+		arg.LabelUrl,
+		arg.Cost,
+		arg.EstimatedEtd,
+		arg.DateShipped,
+		arg.DateDelivered,
 	)
-	var i OrderVnpay
+	var i OrderShipment
 	err := row.Scan(
 		&i.ID,
-		&i.VnpAmount,
-		&i.VnpBankCode,
-		&i.VnpCardType,
-		&i.VnpOrderInfo,
-		&i.VnpPayDate,
-		&i.VnpResponseCode,
-		&i.VnpSecureHash,
-		&i.VnpTmnCode,
-		&i.VnpTransactionNo,
-		&i.VnpTransactionStatus,
-		&i.VnpTxnRef,
+		&i.Provider,
+		&i.TrackingCode,
+		&i.Status,
+		&i.LabelUrl,
+		&i.Cost,
+		&i.EstimatedEtd,
+		&i.DateShipped,
+		&i.DateDelivered,
 	)
 	return i, err
 }
@@ -4638,61 +4923,37 @@ func (q *Queries) CreateSharedResourceReference(ctx context.Context, arg CreateS
 	return i, err
 }
 
-const createSystemEvent = `-- name: CreateSystemEvent :one
-INSERT INTO "system"."event" ("account_id", "aggregate_id", "aggregate_type", "event_type", "payload", "version", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
-`
-
-type CreateSystemEventParams struct {
-	AccountID     pgtype.Int8        `json:"account_id"`
-	AggregateID   int64              `json:"aggregate_id"`
-	AggregateType string             `json:"aggregate_type"`
-	EventType     SystemEventType    `json:"event_type"`
-	Payload       []byte             `json:"payload"`
-	Version       int64              `json:"version"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-}
-
-func (q *Queries) CreateSystemEvent(ctx context.Context, arg CreateSystemEventParams) (SystemEvent, error) {
-	row := q.db.QueryRow(ctx, createSystemEvent,
-		arg.AccountID,
-		arg.AggregateID,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.DateCreated,
-	)
-	var i SystemEvent
-	err := row.Scan(
-		&i.ID,
-		&i.AccountID,
-		&i.AggregateID,
-		&i.AggregateType,
-		&i.EventType,
-		&i.Payload,
-		&i.Version,
-		&i.DateCreated,
-	)
-	return i, err
-}
-
 const createSystemSearchSync = `-- name: CreateSystemSearchSync :one
-INSERT INTO "system"."search_sync" ("name", "last_synced")
-VALUES ($1, $2)
-RETURNING id, name, last_synced
+INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
 `
 
 type CreateSystemSearchSyncParams struct {
-	Name       string             `json:"name"`
-	LastSynced pgtype.Timestamptz `json:"last_synced"`
+	RefType          string             `json:"ref_type"`
+	RefID            int64              `json:"ref_id"`
+	IsStaleEmbedding bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  bool               `json:"is_stale_metadata"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
 }
 
 func (q *Queries) CreateSystemSearchSync(ctx context.Context, arg CreateSystemSearchSyncParams) (SystemSearchSync, error) {
-	row := q.db.QueryRow(ctx, createSystemSearchSync, arg.Name, arg.LastSynced)
+	row := q.db.QueryRow(ctx, createSystemSearchSync,
+		arg.RefType,
+		arg.RefID,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
+		arg.DateCreated,
+	)
 	var i SystemSearchSync
-	err := row.Scan(&i.ID, &i.Name, &i.LastSynced)
+	err := row.Scan(
+		&i.ID,
+		&i.RefType,
+		&i.RefID,
+		&i.IsStaleEmbedding,
+		&i.IsStaleMetadata,
+		&i.DateCreated,
+	)
 	return i, err
 }
 
@@ -5197,6 +5458,81 @@ func (q *Queries) DeleteAccountVendor(ctx context.Context, arg DeleteAccountVend
 		arg.IDTo,
 		arg.Description,
 	)
+	return err
+}
+
+const deleteAnalyticInteraction = `-- name: DeleteAnalyticInteraction :exec
+DELETE FROM "analytic"."interaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" >= $2 OR $2 IS NULL) AND
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" >= $5 OR $5 IS NULL) AND
+    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_type" >= $8 OR $8 IS NULL) AND
+    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_id" = ANY($10) OR $10 IS NULL) AND
+    ("ref_id" >= $11 OR $11 IS NULL) AND
+    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("metadata" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL)
+)
+`
+
+type DeleteAnalyticInteractionParams struct {
+	ID              []int64                        `json:"id"`
+	IDFrom          pgtype.Int8                    `json:"id_from"`
+	IDTo            pgtype.Int8                    `json:"id_to"`
+	AccountID       []int64                        `json:"account_id"`
+	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID           []int64                        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
+	Metadata        [][]byte                       `json:"metadata"`
+	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
+}
+
+func (q *Queries) DeleteAnalyticInteraction(ctx context.Context, arg DeleteAnalyticInteractionParams) error {
+	_, err := q.db.Exec(ctx, deleteAnalyticInteraction,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
+		arg.RefType,
+		arg.RefTypeFrom,
+		arg.RefTypeTo,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.Metadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	return err
+}
+
+const deleteAnalyticInteractionType = `-- name: DeleteAnalyticInteractionType :exec
+DELETE FROM "analytic"."interaction_type"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL)
+)
+`
+
+func (q *Queries) DeleteAnalyticInteractionType(ctx context.Context, id []string) error {
+	_, err := q.db.Exec(ctx, deleteAnalyticInteractionType, id)
 	return err
 }
 
@@ -5806,14 +6142,13 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" >= $5 OR $5 IS NULL) AND
     ("account_id" <= $6 OR $6 IS NULL) AND
-    ("payment_method" = ANY($7) OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -5824,7 +6159,6 @@ type DeleteOrderBaseParams struct {
 	AccountID       []int64              `json:"account_id"`
 	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
 	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	PaymentMethod   []OrderPaymentMethod `json:"payment_method"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -5842,7 +6176,6 @@ func (q *Queries) DeleteOrderBase(ctx context.Context, arg DeleteOrderBaseParams
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.PaymentMethod,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -5932,25 +6265,31 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" >= $8 OR $8 IS NULL) AND
     ("sku_id" <= $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("quantity" = ANY($13) OR $13 IS NULL) AND
+    ("quantity" >= $14 OR $14 IS NULL) AND
+    ("quantity" <= $15 OR $15 IS NULL)
 )
 `
 
 type DeleteOrderItemParams struct {
-	ID           []int64     `json:"id"`
-	IDFrom       pgtype.Int8 `json:"id_from"`
-	IDTo         pgtype.Int8 `json:"id_to"`
-	OrderID      []int64     `json:"order_id"`
-	OrderIDFrom  pgtype.Int8 `json:"order_id_from"`
-	OrderIDTo    pgtype.Int8 `json:"order_id_to"`
-	SkuID        []int64     `json:"sku_id"`
-	SkuIDFrom    pgtype.Int8 `json:"sku_id_from"`
-	SkuIDTo      pgtype.Int8 `json:"sku_id_to"`
-	Quantity     []int64     `json:"quantity"`
-	QuantityFrom pgtype.Int8 `json:"quantity_from"`
-	QuantityTo   pgtype.Int8 `json:"quantity_to"`
+	ID             []int64       `json:"id"`
+	IDFrom         pgtype.Int8   `json:"id_from"`
+	IDTo           pgtype.Int8   `json:"id_to"`
+	OrderID        []int64       `json:"order_id"`
+	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
+	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
+	SkuID          []int64       `json:"sku_id"`
+	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
+	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
+	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
+	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
+	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
+	Quantity       []int64       `json:"quantity"`
+	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
+	QuantityTo     pgtype.Int8   `json:"quantity_to"`
 }
 
 func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) error {
@@ -5964,6 +6303,9 @@ func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -6013,6 +6355,26 @@ func (q *Queries) DeleteOrderItemSerial(ctx context.Context, arg DeleteOrderItem
 	return err
 }
 
+const deleteOrderPaymentGateway = `-- name: DeleteOrderPaymentGateway :exec
+DELETE FROM "order"."payment_gateway"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("method" = ANY($2) OR $2 IS NULL) AND
+    ("is_active" = ANY($3) OR $3 IS NULL)
+)
+`
+
+type DeleteOrderPaymentGatewayParams struct {
+	ID       []string             `json:"id"`
+	Method   []OrderPaymentMethod `json:"method"`
+	IsActive []bool               `json:"is_active"`
+}
+
+func (q *Queries) DeleteOrderPaymentGateway(ctx context.Context, arg DeleteOrderPaymentGatewayParams) error {
+	_, err := q.db.Exec(ctx, deleteOrderPaymentGateway, arg.ID, arg.Method, arg.IsActive)
+	return err
+}
+
 const deleteOrderRefund = `-- name: DeleteOrderRefund :exec
 DELETE FROM "order"."refund"
 WHERE (
@@ -6025,11 +6387,14 @@ WHERE (
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
     ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
     ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
-    ("method" = ANY($10) OR $10 IS NULL) AND
-    ("status" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" >= $13 OR $13 IS NULL) AND
-    ("date_created" <= $14 OR $14 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("method" = ANY($13) OR $13 IS NULL) AND
+    ("status" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL)
 )
 `
 
@@ -6043,6 +6408,9 @@ type DeleteOrderRefundParams struct {
 	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
 	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
 	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
+	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
+	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
+	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
 	Method           []OrderRefundMethod  `json:"method"`
 	Status           []SharedStatus       `json:"status"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -6061,6 +6429,9 @@ func (q *Queries) DeleteOrderRefund(ctx context.Context, arg DeleteOrderRefundPa
 		arg.ReviewedByID,
 		arg.ReviewedByIDFrom,
 		arg.ReviewedByIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
 		arg.DateCreated,
@@ -6133,23 +6504,66 @@ func (q *Queries) DeleteOrderRefundDispute(ctx context.Context, arg DeleteOrderR
 	return err
 }
 
-const deleteOrderVnpay = `-- name: DeleteOrderVnpay :exec
-DELETE FROM "order"."vnpay"
+const deleteOrderShipment = `-- name: DeleteOrderShipment :exec
+DELETE FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL)
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("cost" = ANY($5) OR $5 IS NULL) AND
+    ("cost" >= $6 OR $6 IS NULL) AND
+    ("cost" <= $7 OR $7 IS NULL) AND
+    ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
+    ("estimated_etd" >= $9 OR $9 IS NULL) AND
+    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("date_shipped" = ANY($11) OR $11 IS NULL) AND
+    ("date_shipped" >= $12 OR $12 IS NULL) AND
+    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_delivered" = ANY($14) OR $14 IS NULL) AND
+    ("date_delivered" >= $15 OR $15 IS NULL) AND
+    ("date_delivered" <= $16 OR $16 IS NULL)
 )
 `
 
-type DeleteOrderVnpayParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
+type DeleteOrderShipmentParams struct {
+	ID                []int64               `json:"id"`
+	IDFrom            pgtype.Int8           `json:"id_from"`
+	IDTo              pgtype.Int8           `json:"id_to"`
+	Status            []OrderShipmentStatus `json:"status"`
+	Cost              []int64               `json:"cost"`
+	CostFrom          pgtype.Int8           `json:"cost_from"`
+	CostTo            pgtype.Int8           `json:"cost_to"`
+	EstimatedEtd      []pgtype.Timestamptz  `json:"estimated_etd"`
+	EstimatedEtdFrom  pgtype.Timestamptz    `json:"estimated_etd_from"`
+	EstimatedEtdTo    pgtype.Timestamptz    `json:"estimated_etd_to"`
+	DateShipped       []pgtype.Timestamptz  `json:"date_shipped"`
+	DateShippedFrom   pgtype.Timestamptz    `json:"date_shipped_from"`
+	DateShippedTo     pgtype.Timestamptz    `json:"date_shipped_to"`
+	DateDelivered     []pgtype.Timestamptz  `json:"date_delivered"`
+	DateDeliveredFrom pgtype.Timestamptz    `json:"date_delivered_from"`
+	DateDeliveredTo   pgtype.Timestamptz    `json:"date_delivered_to"`
 }
 
-func (q *Queries) DeleteOrderVnpay(ctx context.Context, arg DeleteOrderVnpayParams) error {
-	_, err := q.db.Exec(ctx, deleteOrderVnpay, arg.ID, arg.IDFrom, arg.IDTo)
+func (q *Queries) DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipmentParams) error {
+	_, err := q.db.Exec(ctx, deleteOrderShipment,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.Status,
+		arg.Cost,
+		arg.CostFrom,
+		arg.CostTo,
+		arg.EstimatedEtd,
+		arg.EstimatedEtdFrom,
+		arg.EstimatedEtdTo,
+		arg.DateShipped,
+		arg.DateShippedFrom,
+		arg.DateShippedTo,
+		arg.DateDelivered,
+		arg.DateDeliveredFrom,
+		arg.DateDeliveredTo,
+	)
 	return err
 }
 
@@ -6465,96 +6879,37 @@ func (q *Queries) DeleteSharedResourceReference(ctx context.Context, arg DeleteS
 	return err
 }
 
-const deleteSystemEvent = `-- name: DeleteSystemEvent :exec
-DELETE FROM "system"."event"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
-    ("aggregate_id" = ANY($7) OR $7 IS NULL) AND
-    ("aggregate_id" >= $8 OR $8 IS NULL) AND
-    ("aggregate_id" <= $9 OR $9 IS NULL) AND
-    ("aggregate_type" = ANY($10) OR $10 IS NULL) AND
-    ("event_type" = ANY($11) OR $11 IS NULL) AND
-    ("payload" = ANY($12) OR $12 IS NULL) AND
-    ("version" = ANY($13) OR $13 IS NULL) AND
-    ("version" >= $14 OR $14 IS NULL) AND
-    ("version" <= $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" >= $17 OR $17 IS NULL) AND
-    ("date_created" <= $18 OR $18 IS NULL)
-)
-`
-
-type DeleteSystemEventParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	AccountID       []pgtype.Int8        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	AggregateID     []int64              `json:"aggregate_id"`
-	AggregateIDFrom pgtype.Int8          `json:"aggregate_id_from"`
-	AggregateIDTo   pgtype.Int8          `json:"aggregate_id_to"`
-	AggregateType   []string             `json:"aggregate_type"`
-	EventType       []SystemEventType    `json:"event_type"`
-	Payload         [][]byte             `json:"payload"`
-	Version         []int64              `json:"version"`
-	VersionFrom     pgtype.Int8          `json:"version_from"`
-	VersionTo       pgtype.Int8          `json:"version_to"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-}
-
-func (q *Queries) DeleteSystemEvent(ctx context.Context, arg DeleteSystemEventParams) error {
-	_, err := q.db.Exec(ctx, deleteSystemEvent,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
-		arg.AggregateID,
-		arg.AggregateIDFrom,
-		arg.AggregateIDTo,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.VersionFrom,
-		arg.VersionTo,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
-	return err
-}
-
 const deleteSystemSearchSync = `-- name: DeleteSystemSearchSync :exec
 DELETE FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
     ("id" <= $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("last_synced" = ANY($5) OR $5 IS NULL) AND
-    ("last_synced" >= $6 OR $6 IS NULL) AND
-    ("last_synced" <= $7 OR $7 IS NULL)
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" >= $6 OR $6 IS NULL) AND
+    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
+    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
 type DeleteSystemSearchSyncParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Name           []string             `json:"name"`
-	LastSynced     []pgtype.Timestamptz `json:"last_synced"`
-	LastSyncedFrom pgtype.Timestamptz   `json:"last_synced_from"`
-	LastSyncedTo   pgtype.Timestamptz   `json:"last_synced_to"`
+	ID               []int64              `json:"id"`
+	IDFrom           pgtype.Int8          `json:"id_from"`
+	IDTo             pgtype.Int8          `json:"id_to"`
+	RefType          []string             `json:"ref_type"`
+	RefID            []int64              `json:"ref_id"`
+	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
+	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error {
@@ -6562,10 +6917,15 @@ func (q *Queries) DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSe
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.Name,
-		arg.LastSynced,
-		arg.LastSyncedFrom,
-		arg.LastSyncedTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
 	)
 	return err
 }
@@ -7109,6 +7469,91 @@ func (q *Queries) ExistsAccountVendor(ctx context.Context, arg ExistsAccountVend
 		arg.IDTo,
 		arg.Description,
 	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsAnalyticInteraction = `-- name: ExistsAnalyticInteraction :one
+SELECT EXISTS (
+SELECT 1
+FROM "analytic"."interaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" >= $2 OR $2 IS NULL) AND
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" >= $5 OR $5 IS NULL) AND
+    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_type" >= $8 OR $8 IS NULL) AND
+    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_id" = ANY($10) OR $10 IS NULL) AND
+    ("ref_id" >= $11 OR $11 IS NULL) AND
+    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("metadata" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL)
+)
+) as exists
+`
+
+type ExistsAnalyticInteractionParams struct {
+	ID              []int64                        `json:"id"`
+	IDFrom          pgtype.Int8                    `json:"id_from"`
+	IDTo            pgtype.Int8                    `json:"id_to"`
+	AccountID       []int64                        `json:"account_id"`
+	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID           []int64                        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
+	Metadata        [][]byte                       `json:"metadata"`
+	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
+}
+
+func (q *Queries) ExistsAnalyticInteraction(ctx context.Context, arg ExistsAnalyticInteractionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsAnalyticInteraction,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
+		arg.RefType,
+		arg.RefTypeFrom,
+		arg.RefTypeTo,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.Metadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsAnalyticInteractionType = `-- name: ExistsAnalyticInteractionType :one
+SELECT EXISTS (
+SELECT 1
+FROM "analytic"."interaction_type"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL)
+)
+) as exists
+`
+
+func (q *Queries) ExistsAnalyticInteractionType(ctx context.Context, id []string) (bool, error) {
+	row := q.db.QueryRow(ctx, existsAnalyticInteractionType, id)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -7777,14 +8222,13 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" >= $5 OR $5 IS NULL) AND
     ("account_id" <= $6 OR $6 IS NULL) AND
-    ("payment_method" = ANY($7) OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 ) as exists
 `
@@ -7796,7 +8240,6 @@ type ExistsOrderBaseParams struct {
 	AccountID       []int64              `json:"account_id"`
 	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
 	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	PaymentMethod   []OrderPaymentMethod `json:"payment_method"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -7814,7 +8257,6 @@ func (q *Queries) ExistsOrderBase(ctx context.Context, arg ExistsOrderBaseParams
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.PaymentMethod,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -7913,26 +8355,32 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" >= $8 OR $8 IS NULL) AND
     ("sku_id" <= $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("quantity" = ANY($13) OR $13 IS NULL) AND
+    ("quantity" >= $14 OR $14 IS NULL) AND
+    ("quantity" <= $15 OR $15 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderItemParams struct {
-	ID           []int64     `json:"id"`
-	IDFrom       pgtype.Int8 `json:"id_from"`
-	IDTo         pgtype.Int8 `json:"id_to"`
-	OrderID      []int64     `json:"order_id"`
-	OrderIDFrom  pgtype.Int8 `json:"order_id_from"`
-	OrderIDTo    pgtype.Int8 `json:"order_id_to"`
-	SkuID        []int64     `json:"sku_id"`
-	SkuIDFrom    pgtype.Int8 `json:"sku_id_from"`
-	SkuIDTo      pgtype.Int8 `json:"sku_id_to"`
-	Quantity     []int64     `json:"quantity"`
-	QuantityFrom pgtype.Int8 `json:"quantity_from"`
-	QuantityTo   pgtype.Int8 `json:"quantity_to"`
+	ID             []int64       `json:"id"`
+	IDFrom         pgtype.Int8   `json:"id_from"`
+	IDTo           pgtype.Int8   `json:"id_to"`
+	OrderID        []int64       `json:"order_id"`
+	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
+	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
+	SkuID          []int64       `json:"sku_id"`
+	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
+	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
+	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
+	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
+	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
+	Quantity       []int64       `json:"quantity"`
+	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
+	QuantityTo     pgtype.Int8   `json:"quantity_to"`
 }
 
 func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams) (bool, error) {
@@ -7946,6 +8394,9 @@ func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -8002,6 +8453,31 @@ func (q *Queries) ExistsOrderItemSerial(ctx context.Context, arg ExistsOrderItem
 	return exists, err
 }
 
+const existsOrderPaymentGateway = `-- name: ExistsOrderPaymentGateway :one
+SELECT EXISTS (
+SELECT 1
+FROM "order"."payment_gateway"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("method" = ANY($2) OR $2 IS NULL) AND
+    ("is_active" = ANY($3) OR $3 IS NULL)
+)
+) as exists
+`
+
+type ExistsOrderPaymentGatewayParams struct {
+	ID       []string             `json:"id"`
+	Method   []OrderPaymentMethod `json:"method"`
+	IsActive []bool               `json:"is_active"`
+}
+
+func (q *Queries) ExistsOrderPaymentGateway(ctx context.Context, arg ExistsOrderPaymentGatewayParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsOrderPaymentGateway, arg.ID, arg.Method, arg.IsActive)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const existsOrderRefund = `-- name: ExistsOrderRefund :one
 SELECT EXISTS (
 SELECT 1
@@ -8016,11 +8492,14 @@ WHERE (
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
     ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
     ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
-    ("method" = ANY($10) OR $10 IS NULL) AND
-    ("status" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" >= $13 OR $13 IS NULL) AND
-    ("date_created" <= $14 OR $14 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("method" = ANY($13) OR $13 IS NULL) AND
+    ("status" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL)
 )
 ) as exists
 `
@@ -8035,6 +8514,9 @@ type ExistsOrderRefundParams struct {
 	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
 	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
 	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
+	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
+	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
+	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
 	Method           []OrderRefundMethod  `json:"method"`
 	Status           []SharedStatus       `json:"status"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -8053,6 +8535,9 @@ func (q *Queries) ExistsOrderRefund(ctx context.Context, arg ExistsOrderRefundPa
 		arg.ReviewedByID,
 		arg.ReviewedByIDFrom,
 		arg.ReviewedByIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
 		arg.DateCreated,
@@ -8132,26 +8617,69 @@ func (q *Queries) ExistsOrderRefundDispute(ctx context.Context, arg ExistsOrderR
 	return exists, err
 }
 
-const existsOrderVnpay = `-- name: ExistsOrderVnpay :one
+const existsOrderShipment = `-- name: ExistsOrderShipment :one
 SELECT EXISTS (
 SELECT 1
-FROM "order"."vnpay"
+FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL)
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("cost" = ANY($5) OR $5 IS NULL) AND
+    ("cost" >= $6 OR $6 IS NULL) AND
+    ("cost" <= $7 OR $7 IS NULL) AND
+    ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
+    ("estimated_etd" >= $9 OR $9 IS NULL) AND
+    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("date_shipped" = ANY($11) OR $11 IS NULL) AND
+    ("date_shipped" >= $12 OR $12 IS NULL) AND
+    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_delivered" = ANY($14) OR $14 IS NULL) AND
+    ("date_delivered" >= $15 OR $15 IS NULL) AND
+    ("date_delivered" <= $16 OR $16 IS NULL)
 )
 ) as exists
 `
 
-type ExistsOrderVnpayParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
+type ExistsOrderShipmentParams struct {
+	ID                []int64               `json:"id"`
+	IDFrom            pgtype.Int8           `json:"id_from"`
+	IDTo              pgtype.Int8           `json:"id_to"`
+	Status            []OrderShipmentStatus `json:"status"`
+	Cost              []int64               `json:"cost"`
+	CostFrom          pgtype.Int8           `json:"cost_from"`
+	CostTo            pgtype.Int8           `json:"cost_to"`
+	EstimatedEtd      []pgtype.Timestamptz  `json:"estimated_etd"`
+	EstimatedEtdFrom  pgtype.Timestamptz    `json:"estimated_etd_from"`
+	EstimatedEtdTo    pgtype.Timestamptz    `json:"estimated_etd_to"`
+	DateShipped       []pgtype.Timestamptz  `json:"date_shipped"`
+	DateShippedFrom   pgtype.Timestamptz    `json:"date_shipped_from"`
+	DateShippedTo     pgtype.Timestamptz    `json:"date_shipped_to"`
+	DateDelivered     []pgtype.Timestamptz  `json:"date_delivered"`
+	DateDeliveredFrom pgtype.Timestamptz    `json:"date_delivered_from"`
+	DateDeliveredTo   pgtype.Timestamptz    `json:"date_delivered_to"`
 }
 
-func (q *Queries) ExistsOrderVnpay(ctx context.Context, arg ExistsOrderVnpayParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsOrderVnpay, arg.ID, arg.IDFrom, arg.IDTo)
+func (q *Queries) ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipmentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsOrderShipment,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.Status,
+		arg.Cost,
+		arg.CostFrom,
+		arg.CostTo,
+		arg.EstimatedEtd,
+		arg.EstimatedEtdFrom,
+		arg.EstimatedEtdTo,
+		arg.DateShipped,
+		arg.DateShippedFrom,
+		arg.DateShippedTo,
+		arg.DateDelivered,
+		arg.DateDeliveredFrom,
+		arg.DateDeliveredTo,
+	)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -8489,80 +9017,6 @@ func (q *Queries) ExistsSharedResourceReference(ctx context.Context, arg ExistsS
 	return exists, err
 }
 
-const existsSystemEvent = `-- name: ExistsSystemEvent :one
-SELECT EXISTS (
-SELECT 1
-FROM "system"."event"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
-    ("aggregate_id" = ANY($7) OR $7 IS NULL) AND
-    ("aggregate_id" >= $8 OR $8 IS NULL) AND
-    ("aggregate_id" <= $9 OR $9 IS NULL) AND
-    ("aggregate_type" = ANY($10) OR $10 IS NULL) AND
-    ("event_type" = ANY($11) OR $11 IS NULL) AND
-    ("payload" = ANY($12) OR $12 IS NULL) AND
-    ("version" = ANY($13) OR $13 IS NULL) AND
-    ("version" >= $14 OR $14 IS NULL) AND
-    ("version" <= $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" >= $17 OR $17 IS NULL) AND
-    ("date_created" <= $18 OR $18 IS NULL)
-)
-) as exists
-`
-
-type ExistsSystemEventParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	AccountID       []pgtype.Int8        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	AggregateID     []int64              `json:"aggregate_id"`
-	AggregateIDFrom pgtype.Int8          `json:"aggregate_id_from"`
-	AggregateIDTo   pgtype.Int8          `json:"aggregate_id_to"`
-	AggregateType   []string             `json:"aggregate_type"`
-	EventType       []SystemEventType    `json:"event_type"`
-	Payload         [][]byte             `json:"payload"`
-	Version         []int64              `json:"version"`
-	VersionFrom     pgtype.Int8          `json:"version_from"`
-	VersionTo       pgtype.Int8          `json:"version_to"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-}
-
-func (q *Queries) ExistsSystemEvent(ctx context.Context, arg ExistsSystemEventParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsSystemEvent,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
-		arg.AggregateID,
-		arg.AggregateIDFrom,
-		arg.AggregateIDTo,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.VersionFrom,
-		arg.VersionTo,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const existsSystemSearchSync = `-- name: ExistsSystemSearchSync :one
 SELECT EXISTS (
 SELECT 1
@@ -8571,22 +9025,32 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
     ("id" <= $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("last_synced" = ANY($5) OR $5 IS NULL) AND
-    ("last_synced" >= $6 OR $6 IS NULL) AND
-    ("last_synced" <= $7 OR $7 IS NULL)
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" >= $6 OR $6 IS NULL) AND
+    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
+    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSystemSearchSyncParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Name           []string             `json:"name"`
-	LastSynced     []pgtype.Timestamptz `json:"last_synced"`
-	LastSyncedFrom pgtype.Timestamptz   `json:"last_synced_from"`
-	LastSyncedTo   pgtype.Timestamptz   `json:"last_synced_to"`
+	ID               []int64              `json:"id"`
+	IDFrom           pgtype.Int8          `json:"id_from"`
+	IDTo             pgtype.Int8          `json:"id_to"`
+	RefType          []string             `json:"ref_type"`
+	RefID            []int64              `json:"ref_id"`
+	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
+	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error) {
@@ -8594,10 +9058,15 @@ func (q *Queries) ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSe
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.Name,
-		arg.LastSynced,
-		arg.LastSyncedFrom,
-		arg.LastSyncedTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -8850,6 +9319,55 @@ WHERE ("id" = $1)
 func (q *Queries) GetAccountVendor(ctx context.Context, id pgtype.Int8) (AccountVendor, error) {
 	row := q.db.QueryRow(ctx, getAccountVendor, id)
 	var i AccountVendor
+	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const getAnalyticInteraction = `-- name: GetAnalyticInteraction :one
+
+
+
+SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+FROM "analytic"."interaction"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: analytic.interaction
+// ========================================
+func (q *Queries) GetAnalyticInteraction(ctx context.Context, id pgtype.Int8) (AnalyticInteraction, error) {
+	row := q.db.QueryRow(ctx, getAnalyticInteraction, id)
+	var i AnalyticInteraction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.SessionID,
+		&i.EventType,
+		&i.RefType,
+		&i.RefID,
+		&i.Metadata,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
+const getAnalyticInteractionType = `-- name: GetAnalyticInteractionType :one
+
+
+
+SELECT id, description
+FROM "analytic"."interaction_type"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: analytic.interaction_type
+// ========================================
+func (q *Queries) GetAnalyticInteractionType(ctx context.Context, id pgtype.Text) (AnalyticInteractionType, error) {
+	row := q.db.QueryRow(ctx, getAnalyticInteractionType, id)
+	var i AnalyticInteractionType
 	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
@@ -9170,7 +9688,7 @@ const getOrderBase = `-- name: GetOrderBase :one
 
 
 
-SELECT id, account_id, payment_method, status, address, date_created, date_updated
+SELECT id, account_id, payment_gateway, status, address, date_created, date_updated
 FROM "order"."base"
 WHERE ("id" = $1)
 `
@@ -9184,7 +9702,7 @@ func (q *Queries) GetOrderBase(ctx context.Context, id pgtype.Int8) (OrderBase, 
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.PaymentMethod,
+		&i.PaymentGateway,
 		&i.Status,
 		&i.Address,
 		&i.DateCreated,
@@ -9233,7 +9751,7 @@ const getOrderItem = `-- name: GetOrderItem :one
 
 
 
-SELECT id, order_id, sku_id, quantity
+SELECT id, order_id, sku_id, shipment_id, quantity
 FROM "order"."item"
 WHERE ("id" = $1)
 `
@@ -9248,6 +9766,7 @@ func (q *Queries) GetOrderItem(ctx context.Context, id pgtype.Int8) (OrderItem, 
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ShipmentID,
 		&i.Quantity,
 	)
 	return i, err
@@ -9278,11 +9797,35 @@ func (q *Queries) GetOrderItemSerial(ctx context.Context, arg GetOrderItemSerial
 	return i, err
 }
 
+const getOrderPaymentGateway = `-- name: GetOrderPaymentGateway :one
+
+
+
+SELECT id, method, description, is_active
+FROM "order"."payment_gateway"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: order.payment_gateway
+// ========================================
+func (q *Queries) GetOrderPaymentGateway(ctx context.Context, id pgtype.Text) (OrderPaymentGateway, error) {
+	row := q.db.QueryRow(ctx, getOrderPaymentGateway, id)
+	var i OrderPaymentGateway
+	err := row.Scan(
+		&i.ID,
+		&i.Method,
+		&i.Description,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const getOrderRefund = `-- name: GetOrderRefund :one
 
 
 
-SELECT id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
+SELECT id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE ("id" = $1)
 `
@@ -9297,6 +9840,7 @@ func (q *Queries) GetOrderRefund(ctx context.Context, id pgtype.Int8) (OrderRefu
 		&i.ID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
+		&i.ShipmentID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -9333,34 +9877,31 @@ func (q *Queries) GetOrderRefundDispute(ctx context.Context, id pgtype.Int8) (Or
 	return i, err
 }
 
-const getOrderVnpay = `-- name: GetOrderVnpay :one
+const getOrderShipment = `-- name: GetOrderShipment :one
 
 
 
-SELECT id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
-FROM "order"."vnpay"
+SELECT id, provider, tracking_code, status, label_url, cost, estimated_etd, date_shipped, date_delivered
+FROM "order"."shipment"
 WHERE ("id" = $1)
 `
 
 // ========================================
-// Queries for table: order.vnpay
+// Queries for table: order.shipment
 // ========================================
-func (q *Queries) GetOrderVnpay(ctx context.Context, id pgtype.Int8) (OrderVnpay, error) {
-	row := q.db.QueryRow(ctx, getOrderVnpay, id)
-	var i OrderVnpay
+func (q *Queries) GetOrderShipment(ctx context.Context, id pgtype.Int8) (OrderShipment, error) {
+	row := q.db.QueryRow(ctx, getOrderShipment, id)
+	var i OrderShipment
 	err := row.Scan(
 		&i.ID,
-		&i.VnpAmount,
-		&i.VnpBankCode,
-		&i.VnpCardType,
-		&i.VnpOrderInfo,
-		&i.VnpPayDate,
-		&i.VnpResponseCode,
-		&i.VnpSecureHash,
-		&i.VnpTmnCode,
-		&i.VnpTransactionNo,
-		&i.VnpTransactionStatus,
-		&i.VnpTxnRef,
+		&i.Provider,
+		&i.TrackingCode,
+		&i.Status,
+		&i.LabelUrl,
+		&i.Cost,
+		&i.EstimatedEtd,
+		&i.DateShipped,
+		&i.DateDelivered,
 	)
 	return i, err
 }
@@ -9495,39 +10036,11 @@ func (q *Queries) GetSharedResourceReference(ctx context.Context, id pgtype.Int8
 	return i, err
 }
 
-const getSystemEvent = `-- name: GetSystemEvent :one
-
-
-
-SELECT id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
-FROM "system"."event"
-WHERE ("id" = $1)
-`
-
-// ========================================
-// Queries for table: system.event
-// ========================================
-func (q *Queries) GetSystemEvent(ctx context.Context, id pgtype.Int8) (SystemEvent, error) {
-	row := q.db.QueryRow(ctx, getSystemEvent, id)
-	var i SystemEvent
-	err := row.Scan(
-		&i.ID,
-		&i.AccountID,
-		&i.AggregateID,
-		&i.AggregateType,
-		&i.EventType,
-		&i.Payload,
-		&i.Version,
-		&i.DateCreated,
-	)
-	return i, err
-}
-
 const getSystemSearchSync = `-- name: GetSystemSearchSync :one
 
 
 
-SELECT id, name, last_synced
+SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
 FROM "system"."search_sync"
 WHERE ("id" = $1)
 `
@@ -9538,7 +10051,14 @@ WHERE ("id" = $1)
 func (q *Queries) GetSystemSearchSync(ctx context.Context, id pgtype.Int8) (SystemSearchSync, error) {
 	row := q.db.QueryRow(ctx, getSystemSearchSync, id)
 	var i SystemSearchSync
-	err := row.Scan(&i.ID, &i.Name, &i.LastSynced)
+	err := row.Scan(
+		&i.ID,
+		&i.RefType,
+		&i.RefID,
+		&i.IsStaleEmbedding,
+		&i.IsStaleMetadata,
+		&i.DateCreated,
+	)
 	return i, err
 }
 
@@ -10285,6 +10805,140 @@ func (q *Queries) ListAccountVendor(ctx context.Context, arg ListAccountVendorPa
 	items := []AccountVendor{}
 	for rows.Next() {
 		var i AccountVendor
+		if err := rows.Scan(&i.ID, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnalyticInteraction = `-- name: ListAnalyticInteraction :many
+SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+FROM "analytic"."interaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" >= $2 OR $2 IS NULL) AND
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" >= $5 OR $5 IS NULL) AND
+    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_type" >= $8 OR $8 IS NULL) AND
+    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_id" = ANY($10) OR $10 IS NULL) AND
+    ("ref_id" >= $11 OR $11 IS NULL) AND
+    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("metadata" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL)
+)
+ORDER BY "id"
+LIMIT $18
+OFFSET $17
+`
+
+type ListAnalyticInteractionParams struct {
+	ID              []int64                        `json:"id"`
+	IDFrom          pgtype.Int8                    `json:"id_from"`
+	IDTo            pgtype.Int8                    `json:"id_to"`
+	AccountID       []int64                        `json:"account_id"`
+	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID           []int64                        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
+	Metadata        [][]byte                       `json:"metadata"`
+	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
+	Offset          pgtype.Int4                    `json:"offset"`
+	Limit           pgtype.Int4                    `json:"limit"`
+}
+
+func (q *Queries) ListAnalyticInteraction(ctx context.Context, arg ListAnalyticInteractionParams) ([]AnalyticInteraction, error) {
+	rows, err := q.db.Query(ctx, listAnalyticInteraction,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
+		arg.RefType,
+		arg.RefTypeFrom,
+		arg.RefTypeTo,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.Metadata,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AnalyticInteraction{}
+	for rows.Next() {
+		var i AnalyticInteraction
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.SessionID,
+			&i.EventType,
+			&i.RefType,
+			&i.RefID,
+			&i.Metadata,
+			&i.UserAgent,
+			&i.IpAddress,
+			&i.DateCreated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAnalyticInteractionType = `-- name: ListAnalyticInteractionType :many
+SELECT id, description
+FROM "analytic"."interaction_type"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL)
+)
+ORDER BY "id"
+LIMIT $3
+OFFSET $2
+`
+
+type ListAnalyticInteractionTypeParams struct {
+	ID     []string    `json:"id"`
+	Offset pgtype.Int4 `json:"offset"`
+	Limit  pgtype.Int4 `json:"limit"`
+}
+
+func (q *Queries) ListAnalyticInteractionType(ctx context.Context, arg ListAnalyticInteractionTypeParams) ([]AnalyticInteractionType, error) {
+	rows, err := q.db.Query(ctx, listAnalyticInteractionType, arg.ID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AnalyticInteractionType{}
+	for rows.Next() {
+		var i AnalyticInteractionType
 		if err := rows.Scan(&i.ID, &i.Description); err != nil {
 			return nil, err
 		}
@@ -11213,7 +11867,7 @@ func (q *Queries) ListInventoryStockHistory(ctx context.Context, arg ListInvento
 }
 
 const listOrderBase = `-- name: ListOrderBase :many
-SELECT id, account_id, payment_method, status, address, date_created, date_updated
+SELECT id, account_id, payment_gateway, status, address, date_created, date_updated
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11222,18 +11876,17 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" >= $5 OR $5 IS NULL) AND
     ("account_id" <= $6 OR $6 IS NULL) AND
-    ("payment_method" = ANY($7) OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16
-OFFSET $15
+LIMIT $15
+OFFSET $14
 `
 
 type ListOrderBaseParams struct {
@@ -11243,7 +11896,6 @@ type ListOrderBaseParams struct {
 	AccountID       []int64              `json:"account_id"`
 	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
 	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	PaymentMethod   []OrderPaymentMethod `json:"payment_method"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -11263,7 +11915,6 @@ func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.PaymentMethod,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -11284,7 +11935,7 @@ func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.PaymentMethod,
+			&i.PaymentGateway,
 			&i.Status,
 			&i.Address,
 			&i.DateCreated,
@@ -11402,7 +12053,7 @@ func (q *Queries) ListOrderInvoice(ctx context.Context, arg ListOrderInvoicePara
 }
 
 const listOrderItem = `-- name: ListOrderItem :many
-SELECT id, order_id, sku_id, quantity
+SELECT id, order_id, sku_id, shipment_id, quantity
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11414,30 +12065,36 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" >= $8 OR $8 IS NULL) AND
     ("sku_id" <= $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("quantity" = ANY($13) OR $13 IS NULL) AND
+    ("quantity" >= $14 OR $14 IS NULL) AND
+    ("quantity" <= $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14
-OFFSET $13
+LIMIT $17
+OFFSET $16
 `
 
 type ListOrderItemParams struct {
-	ID           []int64     `json:"id"`
-	IDFrom       pgtype.Int8 `json:"id_from"`
-	IDTo         pgtype.Int8 `json:"id_to"`
-	OrderID      []int64     `json:"order_id"`
-	OrderIDFrom  pgtype.Int8 `json:"order_id_from"`
-	OrderIDTo    pgtype.Int8 `json:"order_id_to"`
-	SkuID        []int64     `json:"sku_id"`
-	SkuIDFrom    pgtype.Int8 `json:"sku_id_from"`
-	SkuIDTo      pgtype.Int8 `json:"sku_id_to"`
-	Quantity     []int64     `json:"quantity"`
-	QuantityFrom pgtype.Int8 `json:"quantity_from"`
-	QuantityTo   pgtype.Int8 `json:"quantity_to"`
-	Offset       pgtype.Int4 `json:"offset"`
-	Limit        pgtype.Int4 `json:"limit"`
+	ID             []int64       `json:"id"`
+	IDFrom         pgtype.Int8   `json:"id_from"`
+	IDTo           pgtype.Int8   `json:"id_to"`
+	OrderID        []int64       `json:"order_id"`
+	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
+	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
+	SkuID          []int64       `json:"sku_id"`
+	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
+	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
+	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
+	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
+	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
+	Quantity       []int64       `json:"quantity"`
+	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
+	QuantityTo     pgtype.Int8   `json:"quantity_to"`
+	Offset         pgtype.Int4   `json:"offset"`
+	Limit          pgtype.Int4   `json:"limit"`
 }
 
 func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([]OrderItem, error) {
@@ -11451,6 +12108,9 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -11468,6 +12128,7 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 			&i.ID,
 			&i.OrderID,
 			&i.SkuID,
+			&i.ShipmentID,
 			&i.Quantity,
 		); err != nil {
 			return nil, err
@@ -11545,8 +12206,60 @@ func (q *Queries) ListOrderItemSerial(ctx context.Context, arg ListOrderItemSeri
 	return items, nil
 }
 
+const listOrderPaymentGateway = `-- name: ListOrderPaymentGateway :many
+SELECT id, method, description, is_active
+FROM "order"."payment_gateway"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("method" = ANY($2) OR $2 IS NULL) AND
+    ("is_active" = ANY($3) OR $3 IS NULL)
+)
+ORDER BY "id"
+LIMIT $5
+OFFSET $4
+`
+
+type ListOrderPaymentGatewayParams struct {
+	ID       []string             `json:"id"`
+	Method   []OrderPaymentMethod `json:"method"`
+	IsActive []bool               `json:"is_active"`
+	Offset   pgtype.Int4          `json:"offset"`
+	Limit    pgtype.Int4          `json:"limit"`
+}
+
+func (q *Queries) ListOrderPaymentGateway(ctx context.Context, arg ListOrderPaymentGatewayParams) ([]OrderPaymentGateway, error) {
+	rows, err := q.db.Query(ctx, listOrderPaymentGateway,
+		arg.ID,
+		arg.Method,
+		arg.IsActive,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderPaymentGateway{}
+	for rows.Next() {
+		var i OrderPaymentGateway
+		if err := rows.Scan(
+			&i.ID,
+			&i.Method,
+			&i.Description,
+			&i.IsActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrderRefund = `-- name: ListOrderRefund :many
-SELECT id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
+SELECT id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11558,15 +12271,18 @@ WHERE (
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
     ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
     ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
-    ("method" = ANY($10) OR $10 IS NULL) AND
-    ("status" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" >= $13 OR $13 IS NULL) AND
-    ("date_created" <= $14 OR $14 IS NULL)
+    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
+    ("shipment_id" >= $11 OR $11 IS NULL) AND
+    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("method" = ANY($13) OR $13 IS NULL) AND
+    ("status" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16
-OFFSET $15
+LIMIT $19
+OFFSET $18
 `
 
 type ListOrderRefundParams struct {
@@ -11579,6 +12295,9 @@ type ListOrderRefundParams struct {
 	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
 	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
 	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
+	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
+	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
+	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
 	Method           []OrderRefundMethod  `json:"method"`
 	Status           []SharedStatus       `json:"status"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -11599,6 +12318,9 @@ func (q *Queries) ListOrderRefund(ctx context.Context, arg ListOrderRefundParams
 		arg.ReviewedByID,
 		arg.ReviewedByIDFrom,
 		arg.ReviewedByIDTo,
+		arg.ShipmentID,
+		arg.ShipmentIDFrom,
+		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
 		arg.DateCreated,
@@ -11618,6 +12340,7 @@ func (q *Queries) ListOrderRefund(ctx context.Context, arg ListOrderRefundParams
 			&i.ID,
 			&i.OrderItemID,
 			&i.ReviewedByID,
+			&i.ShipmentID,
 			&i.Method,
 			&i.Status,
 			&i.Reason,
@@ -11728,32 +12451,71 @@ func (q *Queries) ListOrderRefundDispute(ctx context.Context, arg ListOrderRefun
 	return items, nil
 }
 
-const listOrderVnpay = `-- name: ListOrderVnpay :many
-SELECT id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
-FROM "order"."vnpay"
+const listOrderShipment = `-- name: ListOrderShipment :many
+SELECT id, provider, tracking_code, status, label_url, cost, estimated_etd, date_shipped, date_delivered
+FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL)
+    ("id" <= $3 OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("cost" = ANY($5) OR $5 IS NULL) AND
+    ("cost" >= $6 OR $6 IS NULL) AND
+    ("cost" <= $7 OR $7 IS NULL) AND
+    ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
+    ("estimated_etd" >= $9 OR $9 IS NULL) AND
+    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("date_shipped" = ANY($11) OR $11 IS NULL) AND
+    ("date_shipped" >= $12 OR $12 IS NULL) AND
+    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_delivered" = ANY($14) OR $14 IS NULL) AND
+    ("date_delivered" >= $15 OR $15 IS NULL) AND
+    ("date_delivered" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $5
-OFFSET $4
+LIMIT $18
+OFFSET $17
 `
 
-type ListOrderVnpayParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Offset pgtype.Int4 `json:"offset"`
-	Limit  pgtype.Int4 `json:"limit"`
+type ListOrderShipmentParams struct {
+	ID                []int64               `json:"id"`
+	IDFrom            pgtype.Int8           `json:"id_from"`
+	IDTo              pgtype.Int8           `json:"id_to"`
+	Status            []OrderShipmentStatus `json:"status"`
+	Cost              []int64               `json:"cost"`
+	CostFrom          pgtype.Int8           `json:"cost_from"`
+	CostTo            pgtype.Int8           `json:"cost_to"`
+	EstimatedEtd      []pgtype.Timestamptz  `json:"estimated_etd"`
+	EstimatedEtdFrom  pgtype.Timestamptz    `json:"estimated_etd_from"`
+	EstimatedEtdTo    pgtype.Timestamptz    `json:"estimated_etd_to"`
+	DateShipped       []pgtype.Timestamptz  `json:"date_shipped"`
+	DateShippedFrom   pgtype.Timestamptz    `json:"date_shipped_from"`
+	DateShippedTo     pgtype.Timestamptz    `json:"date_shipped_to"`
+	DateDelivered     []pgtype.Timestamptz  `json:"date_delivered"`
+	DateDeliveredFrom pgtype.Timestamptz    `json:"date_delivered_from"`
+	DateDeliveredTo   pgtype.Timestamptz    `json:"date_delivered_to"`
+	Offset            pgtype.Int4           `json:"offset"`
+	Limit             pgtype.Int4           `json:"limit"`
 }
 
-func (q *Queries) ListOrderVnpay(ctx context.Context, arg ListOrderVnpayParams) ([]OrderVnpay, error) {
-	rows, err := q.db.Query(ctx, listOrderVnpay,
+func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentParams) ([]OrderShipment, error) {
+	rows, err := q.db.Query(ctx, listOrderShipment,
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
+		arg.Status,
+		arg.Cost,
+		arg.CostFrom,
+		arg.CostTo,
+		arg.EstimatedEtd,
+		arg.EstimatedEtdFrom,
+		arg.EstimatedEtdTo,
+		arg.DateShipped,
+		arg.DateShippedFrom,
+		arg.DateShippedTo,
+		arg.DateDelivered,
+		arg.DateDeliveredFrom,
+		arg.DateDeliveredTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -11761,22 +12523,19 @@ func (q *Queries) ListOrderVnpay(ctx context.Context, arg ListOrderVnpayParams) 
 		return nil, err
 	}
 	defer rows.Close()
-	items := []OrderVnpay{}
+	items := []OrderShipment{}
 	for rows.Next() {
-		var i OrderVnpay
+		var i OrderShipment
 		if err := rows.Scan(
 			&i.ID,
-			&i.VnpAmount,
-			&i.VnpBankCode,
-			&i.VnpCardType,
-			&i.VnpOrderInfo,
-			&i.VnpPayDate,
-			&i.VnpResponseCode,
-			&i.VnpSecureHash,
-			&i.VnpTmnCode,
-			&i.VnpTransactionNo,
-			&i.VnpTransactionStatus,
-			&i.VnpTxnRef,
+			&i.Provider,
+			&i.TrackingCode,
+			&i.Status,
+			&i.LabelUrl,
+			&i.Cost,
+			&i.EstimatedEtd,
+			&i.DateShipped,
+			&i.DateDelivered,
 		); err != nil {
 			return nil, err
 		}
@@ -12236,74 +12995,56 @@ func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListShare
 	return items, nil
 }
 
-const listSystemEvent = `-- name: ListSystemEvent :many
-SELECT id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
-FROM "system"."event"
+const listSystemSearchSync = `-- name: ListSystemSearchSync :many
+SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" >= $2 OR $2 IS NULL) AND
     ("id" <= $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
-    ("aggregate_id" = ANY($7) OR $7 IS NULL) AND
-    ("aggregate_id" >= $8 OR $8 IS NULL) AND
-    ("aggregate_id" <= $9 OR $9 IS NULL) AND
-    ("aggregate_type" = ANY($10) OR $10 IS NULL) AND
-    ("event_type" = ANY($11) OR $11 IS NULL) AND
-    ("payload" = ANY($12) OR $12 IS NULL) AND
-    ("version" = ANY($13) OR $13 IS NULL) AND
-    ("version" >= $14 OR $14 IS NULL) AND
-    ("version" <= $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" >= $17 OR $17 IS NULL) AND
-    ("date_created" <= $18 OR $18 IS NULL)
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" >= $6 OR $6 IS NULL) AND
+    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
+    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $20
-OFFSET $19
+LIMIT $14
+OFFSET $13
 `
 
-type ListSystemEventParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	AccountID       []pgtype.Int8        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
-	AggregateID     []int64              `json:"aggregate_id"`
-	AggregateIDFrom pgtype.Int8          `json:"aggregate_id_from"`
-	AggregateIDTo   pgtype.Int8          `json:"aggregate_id_to"`
-	AggregateType   []string             `json:"aggregate_type"`
-	EventType       []SystemEventType    `json:"event_type"`
-	Payload         [][]byte             `json:"payload"`
-	Version         []int64              `json:"version"`
-	VersionFrom     pgtype.Int8          `json:"version_from"`
-	VersionTo       pgtype.Int8          `json:"version_to"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-	Offset          pgtype.Int4          `json:"offset"`
-	Limit           pgtype.Int4          `json:"limit"`
+type ListSystemSearchSyncParams struct {
+	ID               []int64              `json:"id"`
+	IDFrom           pgtype.Int8          `json:"id_from"`
+	IDTo             pgtype.Int8          `json:"id_to"`
+	RefType          []string             `json:"ref_type"`
+	RefID            []int64              `json:"ref_id"`
+	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
+	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	Offset           pgtype.Int4          `json:"offset"`
+	Limit            pgtype.Int4          `json:"limit"`
 }
 
-func (q *Queries) ListSystemEvent(ctx context.Context, arg ListSystemEventParams) ([]SystemEvent, error) {
-	rows, err := q.db.Query(ctx, listSystemEvent,
+func (q *Queries) ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error) {
+	rows, err := q.db.Query(ctx, listSystemSearchSync,
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
-		arg.AggregateID,
-		arg.AggregateIDFrom,
-		arg.AggregateIDTo,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.VersionFrom,
-		arg.VersionTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -12314,78 +13055,17 @@ func (q *Queries) ListSystemEvent(ctx context.Context, arg ListSystemEventParams
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SystemEvent{}
-	for rows.Next() {
-		var i SystemEvent
-		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.AggregateID,
-			&i.AggregateType,
-			&i.EventType,
-			&i.Payload,
-			&i.Version,
-			&i.DateCreated,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSystemSearchSync = `-- name: ListSystemSearchSync :many
-SELECT id, name, last_synced
-FROM "system"."search_sync"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("last_synced" = ANY($5) OR $5 IS NULL) AND
-    ("last_synced" >= $6 OR $6 IS NULL) AND
-    ("last_synced" <= $7 OR $7 IS NULL)
-)
-ORDER BY "id"
-LIMIT $9
-OFFSET $8
-`
-
-type ListSystemSearchSyncParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Name           []string             `json:"name"`
-	LastSynced     []pgtype.Timestamptz `json:"last_synced"`
-	LastSyncedFrom pgtype.Timestamptz   `json:"last_synced_from"`
-	LastSyncedTo   pgtype.Timestamptz   `json:"last_synced_to"`
-	Offset         pgtype.Int4          `json:"offset"`
-	Limit          pgtype.Int4          `json:"limit"`
-}
-
-func (q *Queries) ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error) {
-	rows, err := q.db.Query(ctx, listSystemSearchSync,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Name,
-		arg.LastSynced,
-		arg.LastSyncedFrom,
-		arg.LastSyncedTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	items := []SystemSearchSync{}
 	for rows.Next() {
 		var i SystemSearchSync
-		if err := rows.Scan(&i.ID, &i.Name, &i.LastSynced); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.RefType,
+			&i.RefID,
+			&i.IsStaleEmbedding,
+			&i.IsStaleMetadata,
+			&i.DateCreated,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -12790,6 +13470,91 @@ type UpdateAccountVendorParams struct {
 func (q *Queries) UpdateAccountVendor(ctx context.Context, arg UpdateAccountVendorParams) (AccountVendor, error) {
 	row := q.db.QueryRow(ctx, updateAccountVendor, arg.Description, arg.ID)
 	var i AccountVendor
+	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const updateAnalyticInteraction = `-- name: UpdateAnalyticInteraction :one
+UPDATE "analytic"."interaction"
+SET "account_id" = COALESCE($1, "account_id"),
+    "session_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "session_id") END,
+    "event_type" = COALESCE($4, "event_type"),
+    "ref_type" = COALESCE($5, "ref_type"),
+    "ref_id" = COALESCE($6, "ref_id"),
+    "metadata" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "metadata") END,
+    "user_agent" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "user_agent") END,
+    "ip_address" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "ip_address") END,
+    "date_created" = COALESCE($13, "date_created")
+WHERE id = $14
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+`
+
+type UpdateAnalyticInteractionParams struct {
+	AccountID     pgtype.Int8                    `json:"account_id"`
+	NullSessionID bool                           `json:"null_session_id"`
+	SessionID     pgtype.Text                    `json:"session_id"`
+	EventType     pgtype.Text                    `json:"event_type"`
+	RefType       NullAnalyticInteractionRefType `json:"ref_type"`
+	RefID         pgtype.Int8                    `json:"ref_id"`
+	NullMetadata  bool                           `json:"null_metadata"`
+	Metadata      []byte                         `json:"metadata"`
+	NullUserAgent bool                           `json:"null_user_agent"`
+	UserAgent     pgtype.Text                    `json:"user_agent"`
+	NullIpAddress bool                           `json:"null_ip_address"`
+	IpAddress     pgtype.Text                    `json:"ip_address"`
+	DateCreated   pgtype.Timestamptz             `json:"date_created"`
+	ID            int64                          `json:"id"`
+}
+
+func (q *Queries) UpdateAnalyticInteraction(ctx context.Context, arg UpdateAnalyticInteractionParams) (AnalyticInteraction, error) {
+	row := q.db.QueryRow(ctx, updateAnalyticInteraction,
+		arg.AccountID,
+		arg.NullSessionID,
+		arg.SessionID,
+		arg.EventType,
+		arg.RefType,
+		arg.RefID,
+		arg.NullMetadata,
+		arg.Metadata,
+		arg.NullUserAgent,
+		arg.UserAgent,
+		arg.NullIpAddress,
+		arg.IpAddress,
+		arg.DateCreated,
+		arg.ID,
+	)
+	var i AnalyticInteraction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.SessionID,
+		&i.EventType,
+		&i.RefType,
+		&i.RefID,
+		&i.Metadata,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
+const updateAnalyticInteractionType = `-- name: UpdateAnalyticInteractionType :one
+UPDATE "analytic"."interaction_type"
+SET "description" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "description") END
+WHERE id = $3
+RETURNING id, description
+`
+
+type UpdateAnalyticInteractionTypeParams struct {
+	NullDescription bool        `json:"null_description"`
+	Description     pgtype.Text `json:"description"`
+	ID              string      `json:"id"`
+}
+
+func (q *Queries) UpdateAnalyticInteractionType(ctx context.Context, arg UpdateAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
+	row := q.db.QueryRow(ctx, updateAnalyticInteractionType, arg.NullDescription, arg.Description, arg.ID)
+	var i AnalyticInteractionType
 	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
@@ -13226,29 +13991,29 @@ func (q *Queries) UpdateInventoryStockHistory(ctx context.Context, arg UpdateInv
 const updateOrderBase = `-- name: UpdateOrderBase :one
 UPDATE "order"."base"
 SET "account_id" = COALESCE($1, "account_id"),
-    "payment_method" = COALESCE($2, "payment_method"),
+    "payment_gateway" = COALESCE($2, "payment_gateway"),
     "status" = COALESCE($3, "status"),
     "address" = COALESCE($4, "address"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
 WHERE id = $7
-RETURNING id, account_id, payment_method, status, address, date_created, date_updated
+RETURNING id, account_id, payment_gateway, status, address, date_created, date_updated
 `
 
 type UpdateOrderBaseParams struct {
-	AccountID     pgtype.Int8            `json:"account_id"`
-	PaymentMethod NullOrderPaymentMethod `json:"payment_method"`
-	Status        NullSharedStatus       `json:"status"`
-	Address       pgtype.Text            `json:"address"`
-	DateCreated   pgtype.Timestamptz     `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            int64                  `json:"id"`
+	AccountID      pgtype.Int8        `json:"account_id"`
+	PaymentGateway pgtype.Text        `json:"payment_gateway"`
+	Status         NullSharedStatus   `json:"status"`
+	Address        pgtype.Text        `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateOrderBase(ctx context.Context, arg UpdateOrderBaseParams) (OrderBase, error) {
 	row := q.db.QueryRow(ctx, updateOrderBase,
 		arg.AccountID,
-		arg.PaymentMethod,
+		arg.PaymentGateway,
 		arg.Status,
 		arg.Address,
 		arg.DateCreated,
@@ -13259,7 +14024,7 @@ func (q *Queries) UpdateOrderBase(ctx context.Context, arg UpdateOrderBaseParams
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.PaymentMethod,
+		&i.PaymentGateway,
 		&i.Status,
 		&i.Address,
 		&i.DateCreated,
@@ -13335,22 +14100,27 @@ const updateOrderItem = `-- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
-    "quantity" = COALESCE($3, "quantity")
-WHERE id = $4
-RETURNING id, order_id, sku_id, quantity
+    "shipment_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "shipment_id") END,
+    "quantity" = COALESCE($5, "quantity")
+WHERE id = $6
+RETURNING id, order_id, sku_id, shipment_id, quantity
 `
 
 type UpdateOrderItemParams struct {
-	OrderID  pgtype.Int8 `json:"order_id"`
-	SkuID    pgtype.Int8 `json:"sku_id"`
-	Quantity pgtype.Int8 `json:"quantity"`
-	ID       int64       `json:"id"`
+	OrderID        pgtype.Int8 `json:"order_id"`
+	SkuID          pgtype.Int8 `json:"sku_id"`
+	NullShipmentID bool        `json:"null_shipment_id"`
+	ShipmentID     pgtype.Int8 `json:"shipment_id"`
+	Quantity       pgtype.Int8 `json:"quantity"`
+	ID             int64       `json:"id"`
 }
 
 func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, updateOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.NullShipmentID,
+		arg.ShipmentID,
 		arg.Quantity,
 		arg.ID,
 	)
@@ -13359,6 +14129,7 @@ func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ShipmentID,
 		&i.Quantity,
 	)
 	return i, err
@@ -13385,23 +14156,61 @@ func (q *Queries) UpdateOrderItemSerial(ctx context.Context, arg UpdateOrderItem
 	return i, err
 }
 
+const updateOrderPaymentGateway = `-- name: UpdateOrderPaymentGateway :one
+UPDATE "order"."payment_gateway"
+SET "method" = COALESCE($1, "method"),
+    "description" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "description") END,
+    "is_active" = COALESCE($4, "is_active")
+WHERE id = $5
+RETURNING id, method, description, is_active
+`
+
+type UpdateOrderPaymentGatewayParams struct {
+	Method          NullOrderPaymentMethod `json:"method"`
+	NullDescription bool                   `json:"null_description"`
+	Description     pgtype.Text            `json:"description"`
+	IsActive        pgtype.Bool            `json:"is_active"`
+	ID              string                 `json:"id"`
+}
+
+func (q *Queries) UpdateOrderPaymentGateway(ctx context.Context, arg UpdateOrderPaymentGatewayParams) (OrderPaymentGateway, error) {
+	row := q.db.QueryRow(ctx, updateOrderPaymentGateway,
+		arg.Method,
+		arg.NullDescription,
+		arg.Description,
+		arg.IsActive,
+		arg.ID,
+	)
+	var i OrderPaymentGateway
+	err := row.Scan(
+		&i.ID,
+		&i.Method,
+		&i.Description,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const updateOrderRefund = `-- name: UpdateOrderRefund :one
 UPDATE "order"."refund"
 SET "order_item_id" = COALESCE($1, "order_item_id"),
     "reviewed_by_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "reviewed_by_id") END,
-    "method" = COALESCE($4, "method"),
-    "status" = COALESCE($5, "status"),
-    "reason" = COALESCE($6, "reason"),
-    "address" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "address") END,
-    "date_created" = COALESCE($9, "date_created")
-WHERE id = $10
-RETURNING id, order_item_id, reviewed_by_id, method, status, reason, address, date_created
+    "shipment_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "shipment_id") END,
+    "method" = COALESCE($6, "method"),
+    "status" = COALESCE($7, "status"),
+    "reason" = COALESCE($8, "reason"),
+    "address" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "address") END,
+    "date_created" = COALESCE($11, "date_created")
+WHERE id = $12
+RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type UpdateOrderRefundParams struct {
 	OrderItemID      pgtype.Int8           `json:"order_item_id"`
 	NullReviewedByID bool                  `json:"null_reviewed_by_id"`
 	ReviewedByID     pgtype.Int8           `json:"reviewed_by_id"`
+	NullShipmentID   bool                  `json:"null_shipment_id"`
+	ShipmentID       pgtype.Int8           `json:"shipment_id"`
 	Method           NullOrderRefundMethod `json:"method"`
 	Status           NullSharedStatus      `json:"status"`
 	Reason           pgtype.Text           `json:"reason"`
@@ -13416,6 +14225,8 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 		arg.OrderItemID,
 		arg.NullReviewedByID,
 		arg.ReviewedByID,
+		arg.NullShipmentID,
+		arg.ShipmentID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -13429,6 +14240,7 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 		&i.ID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
+		&i.ShipmentID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -13483,67 +14295,65 @@ func (q *Queries) UpdateOrderRefundDispute(ctx context.Context, arg UpdateOrderR
 	return i, err
 }
 
-const updateOrderVnpay = `-- name: UpdateOrderVnpay :one
-UPDATE "order"."vnpay"
-SET "vnp_Amount" = COALESCE($1, "vnp_Amount"),
-    "vnp_BankCode" = COALESCE($2, "vnp_BankCode"),
-    "vnp_CardType" = COALESCE($3, "vnp_CardType"),
-    "vnp_OrderInfo" = COALESCE($4, "vnp_OrderInfo"),
-    "vnp_PayDate" = COALESCE($5, "vnp_PayDate"),
-    "vnp_ResponseCode" = COALESCE($6, "vnp_ResponseCode"),
-    "vnp_SecureHash" = COALESCE($7, "vnp_SecureHash"),
-    "vnp_TmnCode" = COALESCE($8, "vnp_TmnCode"),
-    "vnp_TransactionNo" = COALESCE($9, "vnp_TransactionNo"),
-    "vnp_TransactionStatus" = COALESCE($10, "vnp_TransactionStatus"),
-    "vnp_TxnRef" = COALESCE($11, "vnp_TxnRef")
-WHERE id = $12
-RETURNING id, "vnp_Amount", "vnp_BankCode", "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode", "vnp_SecureHash", "vnp_TmnCode", "vnp_TransactionNo", "vnp_TransactionStatus", "vnp_TxnRef"
+const updateOrderShipment = `-- name: UpdateOrderShipment :one
+UPDATE "order"."shipment"
+SET "provider" = COALESCE($1, "provider"),
+    "tracking_code" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "tracking_code") END,
+    "status" = COALESCE($4, "status"),
+    "label_url" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "label_url") END,
+    "cost" = COALESCE($7, "cost"),
+    "estimated_etd" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "estimated_etd") END,
+    "date_shipped" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "date_shipped") END,
+    "date_delivered" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_delivered") END
+WHERE id = $14
+RETURNING id, provider, tracking_code, status, label_url, cost, estimated_etd, date_shipped, date_delivered
 `
 
-type UpdateOrderVnpayParams struct {
-	VnpAmount            pgtype.Text `json:"vnp_Amount"`
-	VnpBankCode          pgtype.Text `json:"vnp_BankCode"`
-	VnpCardType          pgtype.Text `json:"vnp_CardType"`
-	VnpOrderInfo         pgtype.Text `json:"vnp_OrderInfo"`
-	VnpPayDate           pgtype.Text `json:"vnp_PayDate"`
-	VnpResponseCode      pgtype.Text `json:"vnp_ResponseCode"`
-	VnpSecureHash        pgtype.Text `json:"vnp_SecureHash"`
-	VnpTmnCode           pgtype.Text `json:"vnp_TmnCode"`
-	VnpTransactionNo     pgtype.Text `json:"vnp_TransactionNo"`
-	VnpTransactionStatus pgtype.Text `json:"vnp_TransactionStatus"`
-	VnpTxnRef            pgtype.Text `json:"vnp_TxnRef"`
-	ID                   int64       `json:"id"`
+type UpdateOrderShipmentParams struct {
+	Provider          pgtype.Text             `json:"provider"`
+	NullTrackingCode  bool                    `json:"null_tracking_code"`
+	TrackingCode      pgtype.Text             `json:"tracking_code"`
+	Status            NullOrderShipmentStatus `json:"status"`
+	NullLabelUrl      bool                    `json:"null_label_url"`
+	LabelUrl          pgtype.Text             `json:"label_url"`
+	Cost              pgtype.Int8             `json:"cost"`
+	NullEstimatedEtd  bool                    `json:"null_estimated_etd"`
+	EstimatedEtd      pgtype.Timestamptz      `json:"estimated_etd"`
+	NullDateShipped   bool                    `json:"null_date_shipped"`
+	DateShipped       pgtype.Timestamptz      `json:"date_shipped"`
+	NullDateDelivered bool                    `json:"null_date_delivered"`
+	DateDelivered     pgtype.Timestamptz      `json:"date_delivered"`
+	ID                int64                   `json:"id"`
 }
 
-func (q *Queries) UpdateOrderVnpay(ctx context.Context, arg UpdateOrderVnpayParams) (OrderVnpay, error) {
-	row := q.db.QueryRow(ctx, updateOrderVnpay,
-		arg.VnpAmount,
-		arg.VnpBankCode,
-		arg.VnpCardType,
-		arg.VnpOrderInfo,
-		arg.VnpPayDate,
-		arg.VnpResponseCode,
-		arg.VnpSecureHash,
-		arg.VnpTmnCode,
-		arg.VnpTransactionNo,
-		arg.VnpTransactionStatus,
-		arg.VnpTxnRef,
+func (q *Queries) UpdateOrderShipment(ctx context.Context, arg UpdateOrderShipmentParams) (OrderShipment, error) {
+	row := q.db.QueryRow(ctx, updateOrderShipment,
+		arg.Provider,
+		arg.NullTrackingCode,
+		arg.TrackingCode,
+		arg.Status,
+		arg.NullLabelUrl,
+		arg.LabelUrl,
+		arg.Cost,
+		arg.NullEstimatedEtd,
+		arg.EstimatedEtd,
+		arg.NullDateShipped,
+		arg.DateShipped,
+		arg.NullDateDelivered,
+		arg.DateDelivered,
 		arg.ID,
 	)
-	var i OrderVnpay
+	var i OrderShipment
 	err := row.Scan(
 		&i.ID,
-		&i.VnpAmount,
-		&i.VnpBankCode,
-		&i.VnpCardType,
-		&i.VnpOrderInfo,
-		&i.VnpPayDate,
-		&i.VnpResponseCode,
-		&i.VnpSecureHash,
-		&i.VnpTmnCode,
-		&i.VnpTransactionNo,
-		&i.VnpTransactionStatus,
-		&i.VnpTxnRef,
+		&i.Provider,
+		&i.TrackingCode,
+		&i.Status,
+		&i.LabelUrl,
+		&i.Cost,
+		&i.EstimatedEtd,
+		&i.DateShipped,
+		&i.DateDelivered,
 	)
 	return i, err
 }
@@ -13806,74 +14616,43 @@ func (q *Queries) UpdateSharedResourceReference(ctx context.Context, arg UpdateS
 	return i, err
 }
 
-const updateSystemEvent = `-- name: UpdateSystemEvent :one
-UPDATE "system"."event"
-SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "account_id") END,
-    "aggregate_id" = COALESCE($3, "aggregate_id"),
-    "aggregate_type" = COALESCE($4, "aggregate_type"),
-    "event_type" = COALESCE($5, "event_type"),
-    "payload" = COALESCE($6, "payload"),
-    "version" = COALESCE($7, "version"),
-    "date_created" = COALESCE($8, "date_created")
-WHERE id = $9
-RETURNING id, account_id, aggregate_id, aggregate_type, event_type, payload, version, date_created
-`
-
-type UpdateSystemEventParams struct {
-	NullAccountID bool                `json:"null_account_id"`
-	AccountID     pgtype.Int8         `json:"account_id"`
-	AggregateID   pgtype.Int8         `json:"aggregate_id"`
-	AggregateType pgtype.Text         `json:"aggregate_type"`
-	EventType     NullSystemEventType `json:"event_type"`
-	Payload       []byte              `json:"payload"`
-	Version       pgtype.Int8         `json:"version"`
-	DateCreated   pgtype.Timestamptz  `json:"date_created"`
-	ID            int64               `json:"id"`
-}
-
-func (q *Queries) UpdateSystemEvent(ctx context.Context, arg UpdateSystemEventParams) (SystemEvent, error) {
-	row := q.db.QueryRow(ctx, updateSystemEvent,
-		arg.NullAccountID,
-		arg.AccountID,
-		arg.AggregateID,
-		arg.AggregateType,
-		arg.EventType,
-		arg.Payload,
-		arg.Version,
-		arg.DateCreated,
-		arg.ID,
-	)
-	var i SystemEvent
-	err := row.Scan(
-		&i.ID,
-		&i.AccountID,
-		&i.AggregateID,
-		&i.AggregateType,
-		&i.EventType,
-		&i.Payload,
-		&i.Version,
-		&i.DateCreated,
-	)
-	return i, err
-}
-
 const updateSystemSearchSync = `-- name: UpdateSystemSearchSync :one
 UPDATE "system"."search_sync"
-SET "name" = COALESCE($1, "name"),
-    "last_synced" = COALESCE($2, "last_synced")
-WHERE id = $3
-RETURNING id, name, last_synced
+SET "ref_type" = COALESCE($1, "ref_type"),
+    "ref_id" = COALESCE($2, "ref_id"),
+    "is_stale_embedding" = COALESCE($3, "is_stale_embedding"),
+    "is_stale_metadata" = COALESCE($4, "is_stale_metadata"),
+    "date_created" = COALESCE($5, "date_created")
+WHERE id = $6
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
 `
 
 type UpdateSystemSearchSyncParams struct {
-	Name       pgtype.Text        `json:"name"`
-	LastSynced pgtype.Timestamptz `json:"last_synced"`
-	ID         int64              `json:"id"`
+	RefType          pgtype.Text        `json:"ref_type"`
+	RefID            pgtype.Int8        `json:"ref_id"`
+	IsStaleEmbedding pgtype.Bool        `json:"is_stale_embedding"`
+	IsStaleMetadata  pgtype.Bool        `json:"is_stale_metadata"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	ID               int64              `json:"id"`
 }
 
 func (q *Queries) UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error) {
-	row := q.db.QueryRow(ctx, updateSystemSearchSync, arg.Name, arg.LastSynced, arg.ID)
+	row := q.db.QueryRow(ctx, updateSystemSearchSync,
+		arg.RefType,
+		arg.RefID,
+		arg.IsStaleEmbedding,
+		arg.IsStaleMetadata,
+		arg.DateCreated,
+		arg.ID,
+	)
 	var i SystemSearchSync
-	err := row.Scan(&i.ID, &i.Name, &i.LastSynced)
+	err := row.Scan(
+		&i.ID,
+		&i.RefType,
+		&i.RefID,
+		&i.IsStaleEmbedding,
+		&i.IsStaleMetadata,
+		&i.DateCreated,
+	)
 	return i, err
 }

@@ -4,3 +4,23 @@
 // source: inventory.sql
 
 package db
+
+import (
+	"context"
+)
+
+const updateSerialStatus = `-- name: UpdateSerialStatus :exec
+UPDATE inventory.sku_serial
+SET status = $1
+WHERE id = ANY($2)
+`
+
+type UpdateSerialStatusParams struct {
+	Status InventoryProductStatus `json:"status"`
+	ID     []int64                `json:"id"`
+}
+
+func (q *Queries) UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error {
+	_, err := q.db.Exec(ctx, updateSerialStatus, arg.Status, arg.ID)
+	return err
+}
