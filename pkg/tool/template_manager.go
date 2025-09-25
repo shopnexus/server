@@ -193,8 +193,8 @@ func generateFilterConditions(table *Table) string {
 		if isRangeFilterableColumn(col) {
 			// For range filterable columns, add both exact match and range conditions
 			conditions = append(conditions, fmt.Sprintf("(%s = ANY(sqlc.slice('%s')) OR sqlc.slice('%s') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
-			conditions = append(conditions, fmt.Sprintf("(%s >= sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
-			conditions = append(conditions, fmt.Sprintf("(%s <= sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
+			conditions = append(conditions, fmt.Sprintf("(%s > sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
+			conditions = append(conditions, fmt.Sprintf("(%s < sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
 		} else {
 			// For non-range columns, only exact match
 			conditions = append(conditions, fmt.Sprintf("(%s = ANY(sqlc.slice('%s')) OR sqlc.slice('%s') IS NULL)", col.GetQuotedName(), col.Name, col.Name))
