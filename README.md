@@ -15,12 +15,18 @@
 
 ## My code, my rules
 
+### Every day, 8 hours per day, 6 days per week, ...
+
+🐧
+
 ### Database
 
 - Always use table per type (TPT) in database design
 - Audit snapshot for tax authority and transaction dispute purpose
 - SearchEngine(search_sync): Query event table to get the latest
 - Only apply default value to fields that are most likely to be missing in insert statement (e.g. created_at, updated_at, status pending, is active, etc.)
+- use SELECT ... FOR UPDATE to lock the rows when update to avoid race condition
+- use SELECT ... FOR UPDATE + SKIP LOCKED in like "finding available task" to avoid multiple worker pick the same task => work best for finding available product serial in our app
 
 ### Go
 
@@ -42,6 +48,7 @@ IMO it is better than sql.NullXXX or pgtype.XXX because:
 - Always use events to communicate between services to microservice friendly and avoid tight coupling.
 - Use "sqids" instead of raw id to avoid data leak and make it harder to guess the total number of records. https://sqids.org/?hashids
 
+
 #### Early stage
 
 - Use models generated from sqlc as much as possible to coupling data with database schema, easy for development
@@ -54,6 +61,7 @@ IMO it is better than sql.NullXXX or pgtype.XXX because:
 - Each service is a different binary, so each service can have its own model package
 - Add permission checking
 - #1: Hide the internal id (the incremental primary key) in the DTO to avoid data leak, use "code" (the unique public identifier) instead for external reference
+- add https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/
 
 ### Biz
 
@@ -114,6 +122,7 @@ Which means when compare an interface value with nil, it will always return fals
 - struct tag "omitnil" from validator/v10 not work with untyped-nil https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649
 - Implement https://github.com/TecharoHQ/anubis to stop AI crawlers
 - Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: https://echo.labstack.com/docs/category/middleware
+- https://medium.com/@zilliz_learn/elasticsearch-was-great-but-vector-databases-are-the-future-0d7ec24ab7f9
 
 ## Develop Timeline
 
