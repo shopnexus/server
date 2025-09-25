@@ -1,5 +1,5 @@
 networks:
-  shopnexus-network:
+  default:
     name: shopnexus-network
     external: false
 
@@ -9,6 +9,9 @@ volumes:
   redis-data:
   kafka-data:
   es-data:
+  minio-data:
+  milvus-data:
+  etcd-data:
   server-data:
 
 
@@ -24,8 +27,6 @@ services:
       POSTGRES_DB: shopnexus
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    networks:
-      - shopnexus-network
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U shopnexus -d shopnexus" ]
       interval: 10s
@@ -56,8 +57,6 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    networks:
-      - shopnexus-network
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-peaksehopnexuspassword}
     healthcheck:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
@@ -70,8 +69,6 @@ services:
   kafka:
     container_name: shopnexus-kafka
     image: confluentinc/cp-kafka:latest
-    networks:
-      - shopnexus-network
     ports:
       - "9092:9092"
     volumes:
@@ -108,60 +105,59 @@ services:
   kafka-ui:
     container_name: shopnexus-kafka-ui
     image: ghcr.io/kafbat/kafka-ui:latest
-    networks:
-      - shopnexus-network
+
     ports:
-      - 8080:8080
+      - "8081:8080"
     depends_on:
       - kafka
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
 
-  elasticsearch:
-    container_name: shopnexus-elasticsearch
-    image: elasticsearch:9.1.2
-    environment:
-      - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
-      - xpack.security.enabled=false
-      - xpack.monitoring.collection.enabled=true
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-    networks:
-      - shopnexus-network
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
+#  elasticsearch:
+#    container_name: shopnexus-elasticsearch
+#    image: elasticsearch:9.1.2
+#    environment:
+#      - discovery.type=single-node
+#      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+#      - xpack.security.enabled=false
+#      - xpack.monitoring.collection.enabled=true
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    volumes:
+#      - es-data:/usr/share/elasticsearch/data
+#    ports:
+#      - 9200:9200
+#    networks:
+#      - shopnexus-network
+#    healthcheck:
+#      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 30s
+#    restart: unless-stopped
 
-  kibana:
-    container_name: shopnexus-kibana
-    image: kibana:9.1.2
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    ports:
-      - 5601:5601
-    networks:
-      - shopnexus-network
-    depends_on:
-      - elasticsearch
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
+#  kibana:
+#    container_name: shopnexus-kibana
+#    image: kibana:9.1.2
+#    environment:
+#      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+#    ports:
+#      - "5601:5601"
+#    networks:
+#      - shopnexus-network
+#    depends_on:
+#      - elasticsearch
+#    healthcheck:
+#      test: [ "CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1" ]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 30s
+#    restart: unless-stopped
 
 #  server:
 #    container_name: shopnexus-server
@@ -186,3 +182,66 @@ services:
 #      start_period: 10s
 #    restart: unless-stopped
 
+  etcd:
+    container_name: milvus-etcd
+    image: quay.io/coreos/etcd:v3.5.18
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+#      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd
+      - etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  minio:
+    container_name: milvus-minio
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+    volumes:
+      - minio-data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  standalone:
+    container_name: milvus-standalone
+    image: milvusdb/milvus:v2.6.0
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MQ_TYPE: woodpecker
+    volumes:
+      - milvus-data:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      - "etcd"
+      - "minio"
+    restart: unless-stopped
