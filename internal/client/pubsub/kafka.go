@@ -10,6 +10,8 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-kafka/v3/pkg/kafka"
 	"github.com/ThreeDotsLabs/watermill/message"
+
+	"shopnexus-remastered/internal/logger"
 )
 
 type KafkaClient struct {
@@ -80,6 +82,10 @@ func (k *KafkaClient) Subscribe(topic string, handler func(msg *MessageDecoder) 
 	// equivalent of auto.offset.reset: earliest
 	saramaSubscriberConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 	saramaSubscriberConfig.Consumer.Offsets.AutoCommit.Enable = false
+
+	if k.config.Group == "" {
+		logger.Log.Sugar().Warnf("Subscribing to topic %s without a consumer group", topic)
+	}
 
 	subscriber, err := kafka.NewSubscriber(
 		kafka.SubscriberConfig{
