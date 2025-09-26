@@ -33,8 +33,8 @@ model SearchSync {
   id                 BigInt  @id @default(autoincrement())
   ref_type           String  @db.VarChar(100) // e.g. Product, Category, Brand, ...
   ref_id             BigInt
-  is_stale_embedding Boolean @default(true)
-  is_stale_metadata  Boolean @default(true)
+  is_stale_embedding Boolean @default(true) // Stale vector embedding
+  is_stale_metadata  Boolean @default(true) // Stale things like name, description, price, etc.
 
   date_created DateTime @default(now()) @db.Timestamptz(3)
 

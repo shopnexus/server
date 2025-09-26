@@ -199,14 +199,6 @@ CREATE TABLE "analytic"."interaction" (
 );
 
 -- CreateTable
-CREATE TABLE "analytic"."interaction_type" (
-    "id" VARCHAR(50) NOT NULL,
-    "description" TEXT,
-
-    CONSTRAINT "interaction_type_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "catalog"."brand" (
     "id" BIGSERIAL NOT NULL,
     "code" TEXT NOT NULL,
@@ -725,9 +717,6 @@ ALTER TABLE "account"."address" ADD CONSTRAINT "address_account_id_fkey" FOREIGN
 ALTER TABLE "analytic"."interaction" ADD CONSTRAINT "interaction_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "analytic"."interaction" ADD CONSTRAINT "interaction_event_type_fkey" FOREIGN KEY ("event_type") REFERENCES "analytic"."interaction_type"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "catalog"."product_spu" ADD CONSTRAINT "product_spu_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."vendor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -804,4 +793,7 @@ ALTER TABLE "promotion"."discount" ADD CONSTRAINT "discount_id_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "shared"."resource" ADD CONSTRAINT "resource_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "account"."base"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shared"."resource_reference" ADD CONSTRAINT "resource_reference_rs_id_fkey" FOREIGN KEY ("rs_id") REFERENCES "shared"."resource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
