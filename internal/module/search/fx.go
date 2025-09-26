@@ -7,7 +7,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// Module provides the auth module dependencies
+// Module provides the search module dependencies
 var Module = fx.Module("search",
 	fx.Provide(
 		searchbiz.NewSearchBiz,

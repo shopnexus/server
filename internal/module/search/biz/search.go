@@ -45,6 +45,7 @@ func NewSearchBiz(storage *pgutil.Storage, pubsub pubsub.Client, cache cachestru
 
 	return b, errutil.Some(
 		b.InitPubsub(),
+		b.InitCron(),
 	)
 }
 
@@ -139,7 +140,30 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 		return fmt.Errorf("failed to process events, status code: %d", response.StatusCode)
 	}
 
-	fmt.Println("Processed events:", len(events))
+	return nil
+}
+
+func (b *SearchBiz) UpdateProducts(ctx context.Context, products []catalogmodel.ProductDetail, metadataOnly bool) error {
+	body, err := json.Marshal(struct {
+		Products     []catalogmodel.ProductDetail `json:"products"`
+		MetadataOnly bool                         `json:"metadata_only"`
+	}{
+		Products:     products,
+		MetadataOnly: metadataOnly,
+	})
+	if err != nil {
+		return err
+	}
+
+	response, err := b.httpClient.Post("http://localhost:8000/products", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to update products, status code: %d", response.StatusCode)
+	}
 
 	return nil
 }
