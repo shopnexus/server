@@ -7,23 +7,39 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const listStaleSyncSearch = `-- name: ListStaleSyncSearch :many
-SELECT ref_id, ref_type
+SELECT id, ref_id, ref_type
 FROM system.search_sync
-WHERE is_stale_metadata = true
+WHERE (is_stale_metadata = $2 OR is_stale_embedding = $3) AND ref_type = $1
 ORDER BY date_created ASC
-LIMIT $1
+FOR UPDATE SKIP LOCKED
+LIMIT $4
 `
 
+type ListStaleSyncSearchParams struct {
+	RefType          string      `json:"ref_type"`
+	IsStaleMetadata  pgtype.Bool `json:"is_stale_metadata"`
+	IsStaleEmbedding pgtype.Bool `json:"is_stale_embedding"`
+	Limit            int32       `json:"limit"`
+}
+
 type ListStaleSyncSearchRow struct {
+	ID      int64  `json:"id"`
 	RefID   int64  `json:"ref_id"`
 	RefType string `json:"ref_type"`
 }
 
-func (q *Queries) ListStaleSyncSearch(ctx context.Context, limit int32) ([]ListStaleSyncSearchRow, error) {
-	rows, err := q.db.Query(ctx, listStaleSyncSearch, limit)
+func (q *Queries) ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSearchParams) ([]ListStaleSyncSearchRow, error) {
+	rows, err := q.db.Query(ctx, listStaleSyncSearch,
+		arg.RefType,
+		arg.IsStaleMetadata,
+		arg.IsStaleEmbedding,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +47,7 @@ func (q *Queries) ListStaleSyncSearch(ctx context.Context, limit int32) ([]ListS
 	items := []ListStaleSyncSearchRow{}
 	for rows.Next() {
 		var i ListStaleSyncSearchRow
-		if err := rows.Scan(&i.RefID, &i.RefType); err != nil {
+		if err := rows.Scan(&i.ID, &i.RefID, &i.RefType); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

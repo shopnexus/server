@@ -189,9 +189,7 @@ spu_data AS (
         fs.date_deleted,
         COALESCE(vp.name, '') as vendor_name,
         c.name as category_name,
-        b.name as brand_name,
-        -- Get the minimum price from all SKUs for this SPU
-        (SELECT MIN(sku.price) FROM catalog.product_sku sku WHERE sku.spu_id = fs.id AND sku.date_deleted IS NULL) as price
+        b.name as brand_name
     FROM filtered_spu fs
     JOIN account.vendor v ON fs.account_id = v.id
     LEFT JOIN account.profile vp ON v.id = vp.id
@@ -209,8 +207,8 @@ rating_data AS (
     GROUP BY ref_id
 )
 SELECT 
-    spu.id::text as id,
-    COALESCE(spu.vendor_name, '') as vendor,
+    spu.id as id,
+    spu.vendor_name as vendor,
     spu.category_name as category,
     spu.brand_name as brand,
     spu.name,
@@ -220,7 +218,6 @@ SELECT
     spu.date_created,
     spu.date_updated,
     spu.date_deleted,
-    COALESCE(spu.price, 0) as price,
     COALESCE(r.rating_total, 0) as rating_total,
     COALESCE(r.rating_score, 0) as rating_score
 FROM spu_data spu
@@ -228,7 +225,7 @@ LEFT JOIN rating_data r ON spu.id = r.spu_id
 `
 
 type ListProductDetailRow struct {
-	ID               string             `json:"id"`
+	ID               int64              `json:"id"`
 	Vendor           string             `json:"vendor"`
 	Category         string             `json:"category"`
 	Brand            string             `json:"brand"`
@@ -239,7 +236,6 @@ type ListProductDetailRow struct {
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
 	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	Price            interface{}        `json:"price"`
 	RatingTotal      int64              `json:"rating_total"`
 	RatingScore      float64            `json:"rating_score"`
 }
@@ -265,7 +261,6 @@ func (q *Queries) ListProductDetail(ctx context.Context, spuID []int64) ([]ListP
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
-			&i.Price,
 			&i.RatingTotal,
 			&i.RatingScore,
 		); err != nil {

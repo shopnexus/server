@@ -16,11 +16,11 @@ SELECT COUNT(*)
 FROM "account"."address"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("full_name" = ANY($8) OR $8 IS NULL) AND
     ("phone" = ANY($9) OR $9 IS NULL) AND
@@ -30,11 +30,11 @@ WHERE (
     ("state_province" = ANY($13) OR $13 IS NULL) AND
     ("country" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL)
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
@@ -94,8 +94,8 @@ SELECT COUNT(*)
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("phone" = ANY($6) OR $6 IS NULL) AND
@@ -103,11 +103,11 @@ WHERE (
     ("username" = ANY($8) OR $8 IS NULL) AND
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 `
 
@@ -157,23 +157,23 @@ SELECT COUNT(*)
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" >= $5 OR $5 IS NULL) AND
-    ("cart_id" <= $6 OR $6 IS NULL) AND
+    ("cart_id" > $5 OR $5 IS NULL) AND
+    ("cart_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
+    ("quantity" > $11 OR $11 IS NULL) AND
+    ("quantity" < $12 OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL)
+    ("date_updated" > $17 OR $17 IS NULL) AND
+    ("date_updated" < $18 OR $18 IS NULL)
 )
 `
 
@@ -229,17 +229,17 @@ SELECT COUNT(*)
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("default_address_id" = ANY($4) OR $4 IS NULL) AND
-    ("default_address_id" >= $5 OR $5 IS NULL) AND
-    ("default_address_id" <= $6 OR $6 IS NULL) AND
+    ("default_address_id" > $5 OR $5 IS NULL) AND
+    ("default_address_id" < $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 `
 
@@ -283,22 +283,22 @@ SELECT COUNT(*)
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" >= $9 OR $9 IS NULL) AND
-    ("income" <= $10 OR $10 IS NULL) AND
+    ("income" > $9 OR $9 IS NULL) AND
+    ("income" < $10 OR $10 IS NULL) AND
     ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" >= $12 OR $12 IS NULL) AND
-    ("current_balance" <= $13 OR $13 IS NULL) AND
+    ("current_balance" > $12 OR $12 IS NULL) AND
+    ("current_balance" < $13 OR $13 IS NULL) AND
     ("note" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("hash" = ANY($18) OR $18 IS NULL) AND
     ("prev_hash" = ANY($19) OR $19 IS NULL)
 )
@@ -358,26 +358,26 @@ SELECT COUNT(*)
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("channel" = ANY($8) OR $8 IS NULL) AND
     ("is_read" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
     ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" >= $17 OR $17 IS NULL) AND
-    ("date_sent" <= $18 OR $18 IS NULL) AND
+    ("date_sent" > $17 OR $17 IS NULL) AND
+    ("date_sent" < $18 OR $18 IS NULL) AND
     ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" >= $20 OR $20 IS NULL) AND
-    ("date_scheduled" <= $21 OR $21 IS NULL)
+    ("date_scheduled" > $20 OR $20 IS NULL) AND
+    ("date_scheduled" < $21 OR $21 IS NULL)
 )
 `
 
@@ -439,24 +439,24 @@ SELECT COUNT(*)
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("gender" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" >= $7 OR $7 IS NULL) AND
-    ("date_of_birth" <= $8 OR $8 IS NULL) AND
+    ("date_of_birth" > $7 OR $7 IS NULL) AND
+    ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" >= $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" <= $11 OR $11 IS NULL) AND
+    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
+    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
     ("email_verified" = ANY($12) OR $12 IS NULL) AND
     ("phone_verified" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL) AND
     ("date_updated" = ANY($17) OR $17 IS NULL) AND
-    ("date_updated" >= $18 OR $18 IS NULL) AND
-    ("date_updated" <= $19 OR $19 IS NULL)
+    ("date_updated" > $18 OR $18 IS NULL) AND
+    ("date_updated" < $19 OR $19 IS NULL)
 )
 `
 
@@ -514,8 +514,8 @@ SELECT COUNT(*)
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("description" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -544,21 +544,21 @@ SELECT COUNT(*)
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" >= $8 OR $8 IS NULL) AND
-    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_type" > $8 OR $8 IS NULL) AND
+    ("ref_type" < $9 OR $9 IS NULL) AND
     ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" >= $11 OR $11 IS NULL) AND
-    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("ref_id" > $11 OR $11 IS NULL) AND
+    ("ref_id" < $12 OR $12 IS NULL) AND
     ("metadata" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 `
 
@@ -605,28 +605,13 @@ func (q *Queries) CountAnalyticInteraction(ctx context.Context, arg CountAnalyti
 	return count, err
 }
 
-const countAnalyticInteractionType = `-- name: CountAnalyticInteractionType :one
-SELECT COUNT(*)
-FROM "analytic"."interaction_type"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
-)
-`
-
-func (q *Queries) CountAnalyticInteractionType(ctx context.Context, id []string) (int64, error) {
-	row := q.db.QueryRow(ctx, countAnalyticInteractionType, id)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countCatalogBrand = `-- name: CountCatalogBrand :one
 SELECT COUNT(*)
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -655,12 +640,12 @@ SELECT COUNT(*)
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("name" = ANY($4) OR $4 IS NULL) AND
     ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" >= $6 OR $6 IS NULL) AND
-    ("parent_id" <= $7 OR $7 IS NULL)
+    ("parent_id" > $6 OR $6 IS NULL) AND
+    ("parent_id" < $7 OR $7 IS NULL)
 )
 `
 
@@ -694,30 +679,30 @@ SELECT COUNT(*)
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" >= $12 OR $12 IS NULL) AND
-    ("upvote" <= $13 OR $13 IS NULL) AND
+    ("upvote" > $12 OR $12 IS NULL) AND
+    ("upvote" < $13 OR $13 IS NULL) AND
     ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" >= $15 OR $15 IS NULL) AND
-    ("downvote" <= $16 OR $16 IS NULL) AND
+    ("downvote" > $15 OR $15 IS NULL) AND
+    ("downvote" < $16 OR $16 IS NULL) AND
     ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" >= $18 OR $18 IS NULL) AND
-    ("score" <= $19 OR $19 IS NULL) AND
+    ("score" > $18 OR $18 IS NULL) AND
+    ("score" < $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" >= $21 OR $21 IS NULL) AND
-    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL)
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
@@ -787,21 +772,21 @@ SELECT COUNT(*)
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" >= $8 OR $8 IS NULL) AND
-    ("price" <= $9 OR $9 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
     ("can_combine" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" >= $15 OR $15 IS NULL) AND
-    ("date_deleted" <= $16 OR $16 IS NULL)
+    ("date_deleted" > $15 OR $15 IS NULL) AND
+    ("date_deleted" < $16 OR $16 IS NULL)
 )
 `
 
@@ -853,19 +838,19 @@ SELECT COUNT(*)
 FROM "catalog"."product_sku_attribute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" >= $5 OR $5 IS NULL) AND
-    ("sku_id" <= $6 OR $6 IS NULL) AND
+    ("sku_id" > $5 OR $5 IS NULL) AND
+    ("sku_id" < $6 OR $6 IS NULL) AND
     ("name" = ANY($7) OR $7 IS NULL) AND
     ("value" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
     ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("date_updated" > $13 OR $13 IS NULL) AND
+    ("date_updated" < $14 OR $14 IS NULL)
 )
 `
 
@@ -913,31 +898,31 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" >= $6 OR $6 IS NULL) AND
-    ("account_id" <= $7 OR $7 IS NULL) AND
+    ("account_id" > $6 OR $6 IS NULL) AND
+    ("account_id" < $7 OR $7 IS NULL) AND
     ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" >= $9 OR $9 IS NULL) AND
-    ("category_id" <= $10 OR $10 IS NULL) AND
+    ("category_id" > $9 OR $9 IS NULL) AND
+    ("category_id" < $10 OR $10 IS NULL) AND
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" >= $12 OR $12 IS NULL) AND
-    ("brand_id" <= $13 OR $13 IS NULL) AND
+    ("brand_id" > $12 OR $12 IS NULL) AND
+    ("brand_id" < $13 OR $13 IS NULL) AND
     ("is_active" = ANY($14) OR $14 IS NULL) AND
     ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" >= $16 OR $16 IS NULL) AND
-    ("date_manufactured" <= $17 OR $17 IS NULL) AND
+    ("date_manufactured" > $16 OR $16 IS NULL) AND
+    ("date_manufactured" < $17 OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" >= $22 OR $22 IS NULL) AND
-    ("date_updated" <= $23 OR $23 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
     ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" >= $25 OR $25 IS NULL) AND
-    ("date_deleted" <= $26 OR $26 IS NULL)
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 `
 
@@ -1009,14 +994,14 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" >= $8 OR $8 IS NULL) AND
-    ("tag_id" <= $9 OR $9 IS NULL)
+    ("tag_id" > $8 OR $8 IS NULL) AND
+    ("tag_id" < $9 OR $9 IS NULL)
 )
 `
 
@@ -1054,8 +1039,8 @@ SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("tag" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -1084,16 +1069,16 @@ SELECT COUNT(*)
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("serial_number" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" >= $6 OR $6 IS NULL) AND
-    ("sku_id" <= $7 OR $7 IS NULL) AND
+    ("sku_id" > $6 OR $6 IS NULL) AND
+    ("sku_id" < $7 OR $7 IS NULL) AND
     ("status" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL)
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL)
 )
 `
 
@@ -1135,21 +1120,21 @@ SELECT COUNT(*)
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" >= $9 OR $9 IS NULL) AND
-    ("current_stock" <= $10 OR $10 IS NULL) AND
+    ("current_stock" > $9 OR $9 IS NULL) AND
+    ("current_stock" < $10 OR $10 IS NULL) AND
     ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" >= $12 OR $12 IS NULL) AND
-    ("sold" <= $13 OR $13 IS NULL) AND
+    ("sold" > $12 OR $12 IS NULL) AND
+    ("sold" < $13 OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 `
 
@@ -1201,17 +1186,17 @@ SELECT COUNT(*)
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" >= $5 OR $5 IS NULL) AND
-    ("stock_id" <= $6 OR $6 IS NULL) AND
+    ("stock_id" > $5 OR $5 IS NULL) AND
+    ("stock_id" < $6 OR $6 IS NULL) AND
     ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" >= $8 OR $8 IS NULL) AND
-    ("change" <= $9 OR $9 IS NULL) AND
+    ("change" > $8 OR $8 IS NULL) AND
+    ("change" < $9 OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
@@ -1255,18 +1240,18 @@ SELECT COUNT(*)
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" >= $9 OR $9 IS NULL) AND
-    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" >= $12 OR $12 IS NULL) AND
-    ("date_updated" <= $13 OR $13 IS NULL)
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
@@ -1312,20 +1297,20 @@ SELECT COUNT(*)
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("type" = ANY($8) OR $8 IS NULL) AND
     ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" >= $10 OR $10 IS NULL) AND
-    ("receiver_id" <= $11 OR $11 IS NULL) AND
+    ("receiver_id" > $10 OR $10 IS NULL) AND
+    ("receiver_id" < $11 OR $11 IS NULL) AND
     ("data" = ANY($12) OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("hash" = ANY($16) OR $16 IS NULL) AND
     ("prev_hash" = ANY($17) OR $17 IS NULL)
 )
@@ -1381,20 +1366,20 @@ SELECT COUNT(*)
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" >= $5 OR $5 IS NULL) AND
-    ("order_id" <= $6 OR $6 IS NULL) AND
+    ("order_id" > $5 OR $5 IS NULL) AND
+    ("order_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" >= $14 OR $14 IS NULL) AND
-    ("quantity" <= $15 OR $15 IS NULL)
+    ("quantity" > $14 OR $14 IS NULL) AND
+    ("quantity" < $15 OR $15 IS NULL)
 )
 `
 
@@ -1444,14 +1429,14 @@ SELECT COUNT(*)
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" >= $8 OR $8 IS NULL) AND
-    ("product_serial_id" <= $9 OR $9 IS NULL)
+    ("product_serial_id" > $8 OR $8 IS NULL) AND
+    ("product_serial_id" < $9 OR $9 IS NULL)
 )
 `
 
@@ -1512,22 +1497,22 @@ SELECT COUNT(*)
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
+    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("method" = ANY($13) OR $13 IS NULL) AND
     ("status" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL)
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL)
 )
 `
 
@@ -1581,21 +1566,21 @@ SELECT COUNT(*)
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" >= $5 OR $5 IS NULL) AND
-    ("refund_id" <= $6 OR $6 IS NULL) AND
+    ("refund_id" > $5 OR $5 IS NULL) AND
+    ("refund_id" < $6 OR $6 IS NULL) AND
     ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" >= $8 OR $8 IS NULL) AND
-    ("issued_by_id" <= $9 OR $9 IS NULL) AND
+    ("issued_by_id" > $8 OR $8 IS NULL) AND
+    ("issued_by_id" < $9 OR $9 IS NULL) AND
     ("status" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" >= $15 OR $15 IS NULL) AND
-    ("date_updated" <= $16 OR $16 IS NULL)
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 `
 
@@ -1647,21 +1632,21 @@ SELECT COUNT(*)
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
     ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" >= $6 OR $6 IS NULL) AND
-    ("cost" <= $7 OR $7 IS NULL) AND
+    ("cost" > $6 OR $6 IS NULL) AND
+    ("cost" < $7 OR $7 IS NULL) AND
     ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
-    ("estimated_etd" >= $9 OR $9 IS NULL) AND
-    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("estimated_etd" > $9 OR $9 IS NULL) AND
+    ("estimated_etd" < $10 OR $10 IS NULL) AND
     ("date_shipped" = ANY($11) OR $11 IS NULL) AND
-    ("date_shipped" >= $12 OR $12 IS NULL) AND
-    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_shipped" > $12 OR $12 IS NULL) AND
+    ("date_shipped" < $13 OR $13 IS NULL) AND
     ("date_delivered" = ANY($14) OR $14 IS NULL) AND
-    ("date_delivered" >= $15 OR $15 IS NULL) AND
-    ("date_delivered" <= $16 OR $16 IS NULL)
+    ("date_delivered" > $15 OR $15 IS NULL) AND
+    ("date_delivered" < $16 OR $16 IS NULL)
 )
 `
 
@@ -1713,36 +1698,36 @@ SELECT COUNT(*)
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" >= $6 OR $6 IS NULL) AND
-    ("owner_id" <= $7 OR $7 IS NULL) AND
+    ("owner_id" > $6 OR $6 IS NULL) AND
+    ("owner_id" < $7 OR $7 IS NULL) AND
     ("ref_type" = ANY($8) OR $8 IS NULL) AND
     ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" >= $10 OR $10 IS NULL) AND
-    ("ref_id" <= $11 OR $11 IS NULL) AND
+    ("ref_id" > $10 OR $10 IS NULL) AND
+    ("ref_id" < $11 OR $11 IS NULL) AND
     ("type" = ANY($12) OR $12 IS NULL) AND
     ("is_active" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" >= $15 OR $15 IS NULL) AND
-    ("date_started" <= $16 OR $16 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" >= $18 OR $18 IS NULL) AND
-    ("date_ended" <= $19 OR $19 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
     ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" >= $21 OR $21 IS NULL) AND
-    ("schedule_start" <= $22 OR $22 IS NULL) AND
+    ("schedule_start" > $21 OR $21 IS NULL) AND
+    ("schedule_start" < $22 OR $22 IS NULL) AND
     ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" >= $24 OR $24 IS NULL) AND
-    ("schedule_duration" <= $25 OR $25 IS NULL) AND
+    ("schedule_duration" > $24 OR $24 IS NULL) AND
+    ("schedule_duration" < $25 OR $25 IS NULL) AND
     ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" >= $27 OR $27 IS NULL) AND
-    ("date_created" <= $28 OR $28 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL) AND
     ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" >= $30 OR $30 IS NULL) AND
-    ("date_updated" <= $31 OR $31 IS NULL)
+    ("date_updated" > $30 OR $30 IS NULL) AND
+    ("date_updated" < $31 OR $31 IS NULL)
 )
 `
 
@@ -1824,21 +1809,21 @@ SELECT COUNT(*)
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_wide" = ANY($4) OR $4 IS NULL) AND
     ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" >= $6 OR $6 IS NULL) AND
-    ("min_spend" <= $7 OR $7 IS NULL) AND
+    ("min_spend" > $6 OR $6 IS NULL) AND
+    ("min_spend" < $7 OR $7 IS NULL) AND
     ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" >= $9 OR $9 IS NULL) AND
-    ("max_discount" <= $10 OR $10 IS NULL) AND
+    ("max_discount" > $9 OR $9 IS NULL) AND
+    ("max_discount" < $10 OR $10 IS NULL) AND
     ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" >= $12 OR $12 IS NULL) AND
-    ("discount_percent" <= $13 OR $13 IS NULL) AND
+    ("discount_percent" > $12 OR $12 IS NULL) AND
+    ("discount_percent" < $13 OR $13 IS NULL) AND
     ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" >= $15 OR $15 IS NULL) AND
-    ("discount_price" <= $16 OR $16 IS NULL)
+    ("discount_price" > $15 OR $15 IS NULL) AND
+    ("discount_price" < $16 OR $16 IS NULL)
 )
 `
 
@@ -1890,28 +1875,28 @@ SELECT COUNT(*)
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" >= $6 OR $6 IS NULL) AND
-    ("file_size" <= $7 OR $7 IS NULL) AND
+    ("file_size" > $6 OR $6 IS NULL) AND
+    ("file_size" < $7 OR $7 IS NULL) AND
     ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" >= $9 OR $9 IS NULL) AND
-    ("width" <= $10 OR $10 IS NULL) AND
+    ("width" > $9 OR $9 IS NULL) AND
+    ("width" < $10 OR $10 IS NULL) AND
     ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" >= $12 OR $12 IS NULL) AND
-    ("height" <= $13 OR $13 IS NULL) AND
+    ("height" > $12 OR $12 IS NULL) AND
+    ("height" < $13 OR $13 IS NULL) AND
     ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" >= $15 OR $15 IS NULL) AND
-    ("duration" <= $16 OR $16 IS NULL) AND
+    ("duration" > $15 OR $15 IS NULL) AND
+    ("duration" < $16 OR $16 IS NULL) AND
     ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" >= $18 OR $18 IS NULL) AND
-    ("uploaded_by" <= $19 OR $19 IS NULL) AND
+    ("uploaded_by" > $18 OR $18 IS NULL) AND
+    ("uploaded_by" < $19 OR $19 IS NULL) AND
     ("status" = ANY($20) OR $20 IS NULL) AND
     ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" >= $22 OR $22 IS NULL) AND
-    ("created_at" <= $23 OR $23 IS NULL)
+    ("created_at" > $22 OR $22 IS NULL) AND
+    ("created_at" < $23 OR $23 IS NULL)
 )
 `
 
@@ -1977,18 +1962,18 @@ SELECT COUNT(*)
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" >= $5 OR $5 IS NULL) AND
-    ("rs_id" <= $6 OR $6 IS NULL) AND
+    ("rs_id" > $5 OR $5 IS NULL) AND
+    ("rs_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" >= $12 OR $12 IS NULL) AND
-    ("order" <= $13 OR $13 IS NULL) AND
+    ("order" > $12 OR $12 IS NULL) AND
+    ("order" < $13 OR $13 IS NULL) AND
     ("is_primary" = ANY($14) OR $14 IS NULL)
 )
 `
@@ -2037,17 +2022,17 @@ SELECT COUNT(*)
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
@@ -2443,24 +2428,6 @@ func (q *Queries) CreateAnalyticInteraction(ctx context.Context, arg CreateAnaly
 	return i, err
 }
 
-const createAnalyticInteractionType = `-- name: CreateAnalyticInteractionType :one
-INSERT INTO "analytic"."interaction_type" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
-`
-
-type CreateAnalyticInteractionTypeParams struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
-}
-
-func (q *Queries) CreateAnalyticInteractionType(ctx context.Context, arg CreateAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
-	row := q.db.QueryRow(ctx, createAnalyticInteractionType, arg.ID, arg.Description)
-	var i AnalyticInteractionType
-	err := row.Scan(&i.ID, &i.Description)
-	return i, err
-}
-
 const createCatalogBrand = `-- name: CreateCatalogBrand :one
 INSERT INTO "catalog"."brand" ("code", "name", "description")
 VALUES ($1, $2, $3)
@@ -2803,11 +2770,6 @@ type CreateCopyAnalyticInteractionParams struct {
 	DateCreated pgtype.Timestamptz         `json:"date_created"`
 }
 
-type CreateCopyAnalyticInteractionTypeParams struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
-}
-
 type CreateCopyCatalogBrandParams struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
@@ -2938,11 +2900,6 @@ type CreateCopyDefaultAnalyticInteractionParams struct {
 	Metadata  []byte                     `json:"metadata"`
 	UserAgent pgtype.Text                `json:"user_agent"`
 	IpAddress pgtype.Text                `json:"ip_address"`
-}
-
-type CreateCopyDefaultAnalyticInteractionTypeParams struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
 }
 
 type CreateCopyDefaultCatalogBrandParams struct {
@@ -3581,24 +3538,6 @@ func (q *Queries) CreateDefaultAnalyticInteraction(ctx context.Context, arg Crea
 		&i.IpAddress,
 		&i.DateCreated,
 	)
-	return i, err
-}
-
-const createDefaultAnalyticInteractionType = `-- name: CreateDefaultAnalyticInteractionType :one
-INSERT INTO "analytic"."interaction_type" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
-`
-
-type CreateDefaultAnalyticInteractionTypeParams struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
-}
-
-func (q *Queries) CreateDefaultAnalyticInteractionType(ctx context.Context, arg CreateDefaultAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
-	row := q.db.QueryRow(ctx, createDefaultAnalyticInteractionType, arg.ID, arg.Description)
-	var i AnalyticInteractionType
-	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -4961,11 +4900,11 @@ const deleteAccountAddress = `-- name: DeleteAccountAddress :exec
 DELETE FROM "account"."address"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("full_name" = ANY($8) OR $8 IS NULL) AND
     ("phone" = ANY($9) OR $9 IS NULL) AND
@@ -4975,11 +4914,11 @@ WHERE (
     ("state_province" = ANY($13) OR $13 IS NULL) AND
     ("country" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL)
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
@@ -5036,8 +4975,8 @@ const deleteAccountBase = `-- name: DeleteAccountBase :exec
 DELETE FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("phone" = ANY($6) OR $6 IS NULL) AND
@@ -5045,11 +4984,11 @@ WHERE (
     ("username" = ANY($8) OR $8 IS NULL) AND
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 `
 
@@ -5096,23 +5035,23 @@ const deleteAccountCartItem = `-- name: DeleteAccountCartItem :exec
 DELETE FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" >= $5 OR $5 IS NULL) AND
-    ("cart_id" <= $6 OR $6 IS NULL) AND
+    ("cart_id" > $5 OR $5 IS NULL) AND
+    ("cart_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
+    ("quantity" > $11 OR $11 IS NULL) AND
+    ("quantity" < $12 OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL)
+    ("date_updated" > $17 OR $17 IS NULL) AND
+    ("date_updated" < $18 OR $18 IS NULL)
 )
 `
 
@@ -5165,17 +5104,17 @@ const deleteAccountCustomer = `-- name: DeleteAccountCustomer :exec
 DELETE FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("default_address_id" = ANY($4) OR $4 IS NULL) AND
-    ("default_address_id" >= $5 OR $5 IS NULL) AND
-    ("default_address_id" <= $6 OR $6 IS NULL) AND
+    ("default_address_id" > $5 OR $5 IS NULL) AND
+    ("default_address_id" < $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 `
 
@@ -5216,22 +5155,22 @@ const deleteAccountIncomeHistory = `-- name: DeleteAccountIncomeHistory :exec
 DELETE FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" >= $9 OR $9 IS NULL) AND
-    ("income" <= $10 OR $10 IS NULL) AND
+    ("income" > $9 OR $9 IS NULL) AND
+    ("income" < $10 OR $10 IS NULL) AND
     ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" >= $12 OR $12 IS NULL) AND
-    ("current_balance" <= $13 OR $13 IS NULL) AND
+    ("current_balance" > $12 OR $12 IS NULL) AND
+    ("current_balance" < $13 OR $13 IS NULL) AND
     ("note" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("hash" = ANY($18) OR $18 IS NULL) AND
     ("prev_hash" = ANY($19) OR $19 IS NULL)
 )
@@ -5288,26 +5227,26 @@ const deleteAccountNotification = `-- name: DeleteAccountNotification :exec
 DELETE FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("channel" = ANY($8) OR $8 IS NULL) AND
     ("is_read" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
     ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" >= $17 OR $17 IS NULL) AND
-    ("date_sent" <= $18 OR $18 IS NULL) AND
+    ("date_sent" > $17 OR $17 IS NULL) AND
+    ("date_sent" < $18 OR $18 IS NULL) AND
     ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" >= $20 OR $20 IS NULL) AND
-    ("date_scheduled" <= $21 OR $21 IS NULL)
+    ("date_scheduled" > $20 OR $20 IS NULL) AND
+    ("date_scheduled" < $21 OR $21 IS NULL)
 )
 `
 
@@ -5366,24 +5305,24 @@ const deleteAccountProfile = `-- name: DeleteAccountProfile :exec
 DELETE FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("gender" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" >= $7 OR $7 IS NULL) AND
-    ("date_of_birth" <= $8 OR $8 IS NULL) AND
+    ("date_of_birth" > $7 OR $7 IS NULL) AND
+    ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" >= $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" <= $11 OR $11 IS NULL) AND
+    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
+    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
     ("email_verified" = ANY($12) OR $12 IS NULL) AND
     ("phone_verified" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL) AND
     ("date_updated" = ANY($17) OR $17 IS NULL) AND
-    ("date_updated" >= $18 OR $18 IS NULL) AND
-    ("date_updated" <= $19 OR $19 IS NULL)
+    ("date_updated" > $18 OR $18 IS NULL) AND
+    ("date_updated" < $19 OR $19 IS NULL)
 )
 `
 
@@ -5438,8 +5377,8 @@ const deleteAccountVendor = `-- name: DeleteAccountVendor :exec
 DELETE FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("description" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -5465,21 +5404,21 @@ const deleteAnalyticInteraction = `-- name: DeleteAnalyticInteraction :exec
 DELETE FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" >= $8 OR $8 IS NULL) AND
-    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_type" > $8 OR $8 IS NULL) AND
+    ("ref_type" < $9 OR $9 IS NULL) AND
     ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" >= $11 OR $11 IS NULL) AND
-    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("ref_id" > $11 OR $11 IS NULL) AND
+    ("ref_id" < $12 OR $12 IS NULL) AND
     ("metadata" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 `
 
@@ -5524,24 +5463,12 @@ func (q *Queries) DeleteAnalyticInteraction(ctx context.Context, arg DeleteAnaly
 	return err
 }
 
-const deleteAnalyticInteractionType = `-- name: DeleteAnalyticInteractionType :exec
-DELETE FROM "analytic"."interaction_type"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
-)
-`
-
-func (q *Queries) DeleteAnalyticInteractionType(ctx context.Context, id []string) error {
-	_, err := q.db.Exec(ctx, deleteAnalyticInteractionType, id)
-	return err
-}
-
 const deleteCatalogBrand = `-- name: DeleteCatalogBrand :exec
 DELETE FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -5567,12 +5494,12 @@ const deleteCatalogCategory = `-- name: DeleteCatalogCategory :exec
 DELETE FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("name" = ANY($4) OR $4 IS NULL) AND
     ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" >= $6 OR $6 IS NULL) AND
-    ("parent_id" <= $7 OR $7 IS NULL)
+    ("parent_id" > $6 OR $6 IS NULL) AND
+    ("parent_id" < $7 OR $7 IS NULL)
 )
 `
 
@@ -5603,30 +5530,30 @@ const deleteCatalogComment = `-- name: DeleteCatalogComment :exec
 DELETE FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" >= $12 OR $12 IS NULL) AND
-    ("upvote" <= $13 OR $13 IS NULL) AND
+    ("upvote" > $12 OR $12 IS NULL) AND
+    ("upvote" < $13 OR $13 IS NULL) AND
     ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" >= $15 OR $15 IS NULL) AND
-    ("downvote" <= $16 OR $16 IS NULL) AND
+    ("downvote" > $15 OR $15 IS NULL) AND
+    ("downvote" < $16 OR $16 IS NULL) AND
     ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" >= $18 OR $18 IS NULL) AND
-    ("score" <= $19 OR $19 IS NULL) AND
+    ("score" > $18 OR $18 IS NULL) AND
+    ("score" < $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" >= $21 OR $21 IS NULL) AND
-    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL)
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
@@ -5693,21 +5620,21 @@ const deleteCatalogProductSku = `-- name: DeleteCatalogProductSku :exec
 DELETE FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" >= $8 OR $8 IS NULL) AND
-    ("price" <= $9 OR $9 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
     ("can_combine" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" >= $15 OR $15 IS NULL) AND
-    ("date_deleted" <= $16 OR $16 IS NULL)
+    ("date_deleted" > $15 OR $15 IS NULL) AND
+    ("date_deleted" < $16 OR $16 IS NULL)
 )
 `
 
@@ -5756,19 +5683,19 @@ const deleteCatalogProductSkuAttribute = `-- name: DeleteCatalogProductSkuAttrib
 DELETE FROM "catalog"."product_sku_attribute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" >= $5 OR $5 IS NULL) AND
-    ("sku_id" <= $6 OR $6 IS NULL) AND
+    ("sku_id" > $5 OR $5 IS NULL) AND
+    ("sku_id" < $6 OR $6 IS NULL) AND
     ("name" = ANY($7) OR $7 IS NULL) AND
     ("value" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
     ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("date_updated" > $13 OR $13 IS NULL) AND
+    ("date_updated" < $14 OR $14 IS NULL)
 )
 `
 
@@ -5813,31 +5740,31 @@ const deleteCatalogProductSpu = `-- name: DeleteCatalogProductSpu :exec
 DELETE FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" >= $6 OR $6 IS NULL) AND
-    ("account_id" <= $7 OR $7 IS NULL) AND
+    ("account_id" > $6 OR $6 IS NULL) AND
+    ("account_id" < $7 OR $7 IS NULL) AND
     ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" >= $9 OR $9 IS NULL) AND
-    ("category_id" <= $10 OR $10 IS NULL) AND
+    ("category_id" > $9 OR $9 IS NULL) AND
+    ("category_id" < $10 OR $10 IS NULL) AND
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" >= $12 OR $12 IS NULL) AND
-    ("brand_id" <= $13 OR $13 IS NULL) AND
+    ("brand_id" > $12 OR $12 IS NULL) AND
+    ("brand_id" < $13 OR $13 IS NULL) AND
     ("is_active" = ANY($14) OR $14 IS NULL) AND
     ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" >= $16 OR $16 IS NULL) AND
-    ("date_manufactured" <= $17 OR $17 IS NULL) AND
+    ("date_manufactured" > $16 OR $16 IS NULL) AND
+    ("date_manufactured" < $17 OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" >= $22 OR $22 IS NULL) AND
-    ("date_updated" <= $23 OR $23 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
     ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" >= $25 OR $25 IS NULL) AND
-    ("date_deleted" <= $26 OR $26 IS NULL)
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 `
 
@@ -5906,14 +5833,14 @@ const deleteCatalogProductSpuTag = `-- name: DeleteCatalogProductSpuTag :exec
 DELETE FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" >= $8 OR $8 IS NULL) AND
-    ("tag_id" <= $9 OR $9 IS NULL)
+    ("tag_id" > $8 OR $8 IS NULL) AND
+    ("tag_id" < $9 OR $9 IS NULL)
 )
 `
 
@@ -5948,8 +5875,8 @@ const deleteCatalogTag = `-- name: DeleteCatalogTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("tag" = ANY($4) OR $4 IS NULL)
 )
 `
@@ -5975,16 +5902,16 @@ const deleteInventorySkuSerial = `-- name: DeleteInventorySkuSerial :exec
 DELETE FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("serial_number" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" >= $6 OR $6 IS NULL) AND
-    ("sku_id" <= $7 OR $7 IS NULL) AND
+    ("sku_id" > $6 OR $6 IS NULL) AND
+    ("sku_id" < $7 OR $7 IS NULL) AND
     ("status" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL)
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL)
 )
 `
 
@@ -6023,21 +5950,21 @@ const deleteInventoryStock = `-- name: DeleteInventoryStock :exec
 DELETE FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" >= $9 OR $9 IS NULL) AND
-    ("current_stock" <= $10 OR $10 IS NULL) AND
+    ("current_stock" > $9 OR $9 IS NULL) AND
+    ("current_stock" < $10 OR $10 IS NULL) AND
     ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" >= $12 OR $12 IS NULL) AND
-    ("sold" <= $13 OR $13 IS NULL) AND
+    ("sold" > $12 OR $12 IS NULL) AND
+    ("sold" < $13 OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 `
 
@@ -6086,17 +6013,17 @@ const deleteInventoryStockHistory = `-- name: DeleteInventoryStockHistory :exec
 DELETE FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" >= $5 OR $5 IS NULL) AND
-    ("stock_id" <= $6 OR $6 IS NULL) AND
+    ("stock_id" > $5 OR $5 IS NULL) AND
+    ("stock_id" < $6 OR $6 IS NULL) AND
     ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" >= $8 OR $8 IS NULL) AND
-    ("change" <= $9 OR $9 IS NULL) AND
+    ("change" > $8 OR $8 IS NULL) AND
+    ("change" < $9 OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
@@ -6137,18 +6064,18 @@ const deleteOrderBase = `-- name: DeleteOrderBase :exec
 DELETE FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" >= $9 OR $9 IS NULL) AND
-    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" >= $12 OR $12 IS NULL) AND
-    ("date_updated" <= $13 OR $13 IS NULL)
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
@@ -6191,20 +6118,20 @@ const deleteOrderInvoice = `-- name: DeleteOrderInvoice :exec
 DELETE FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("type" = ANY($8) OR $8 IS NULL) AND
     ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" >= $10 OR $10 IS NULL) AND
-    ("receiver_id" <= $11 OR $11 IS NULL) AND
+    ("receiver_id" > $10 OR $10 IS NULL) AND
+    ("receiver_id" < $11 OR $11 IS NULL) AND
     ("data" = ANY($12) OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("hash" = ANY($16) OR $16 IS NULL) AND
     ("prev_hash" = ANY($17) OR $17 IS NULL)
 )
@@ -6257,20 +6184,20 @@ const deleteOrderItem = `-- name: DeleteOrderItem :exec
 DELETE FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" >= $5 OR $5 IS NULL) AND
-    ("order_id" <= $6 OR $6 IS NULL) AND
+    ("order_id" > $5 OR $5 IS NULL) AND
+    ("order_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" >= $14 OR $14 IS NULL) AND
-    ("quantity" <= $15 OR $15 IS NULL)
+    ("quantity" > $14 OR $14 IS NULL) AND
+    ("quantity" < $15 OR $15 IS NULL)
 )
 `
 
@@ -6317,14 +6244,14 @@ const deleteOrderItemSerial = `-- name: DeleteOrderItemSerial :exec
 DELETE FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" >= $8 OR $8 IS NULL) AND
-    ("product_serial_id" <= $9 OR $9 IS NULL)
+    ("product_serial_id" > $8 OR $8 IS NULL) AND
+    ("product_serial_id" < $9 OR $9 IS NULL)
 )
 `
 
@@ -6379,22 +6306,22 @@ const deleteOrderRefund = `-- name: DeleteOrderRefund :exec
 DELETE FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
+    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("method" = ANY($13) OR $13 IS NULL) AND
     ("status" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL)
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL)
 )
 `
 
@@ -6445,21 +6372,21 @@ const deleteOrderRefundDispute = `-- name: DeleteOrderRefundDispute :exec
 DELETE FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" >= $5 OR $5 IS NULL) AND
-    ("refund_id" <= $6 OR $6 IS NULL) AND
+    ("refund_id" > $5 OR $5 IS NULL) AND
+    ("refund_id" < $6 OR $6 IS NULL) AND
     ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" >= $8 OR $8 IS NULL) AND
-    ("issued_by_id" <= $9 OR $9 IS NULL) AND
+    ("issued_by_id" > $8 OR $8 IS NULL) AND
+    ("issued_by_id" < $9 OR $9 IS NULL) AND
     ("status" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" >= $15 OR $15 IS NULL) AND
-    ("date_updated" <= $16 OR $16 IS NULL)
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 `
 
@@ -6508,21 +6435,21 @@ const deleteOrderShipment = `-- name: DeleteOrderShipment :exec
 DELETE FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
     ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" >= $6 OR $6 IS NULL) AND
-    ("cost" <= $7 OR $7 IS NULL) AND
+    ("cost" > $6 OR $6 IS NULL) AND
+    ("cost" < $7 OR $7 IS NULL) AND
     ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
-    ("estimated_etd" >= $9 OR $9 IS NULL) AND
-    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("estimated_etd" > $9 OR $9 IS NULL) AND
+    ("estimated_etd" < $10 OR $10 IS NULL) AND
     ("date_shipped" = ANY($11) OR $11 IS NULL) AND
-    ("date_shipped" >= $12 OR $12 IS NULL) AND
-    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_shipped" > $12 OR $12 IS NULL) AND
+    ("date_shipped" < $13 OR $13 IS NULL) AND
     ("date_delivered" = ANY($14) OR $14 IS NULL) AND
-    ("date_delivered" >= $15 OR $15 IS NULL) AND
-    ("date_delivered" <= $16 OR $16 IS NULL)
+    ("date_delivered" > $15 OR $15 IS NULL) AND
+    ("date_delivered" < $16 OR $16 IS NULL)
 )
 `
 
@@ -6571,36 +6498,36 @@ const deletePromotionBase = `-- name: DeletePromotionBase :exec
 DELETE FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" >= $6 OR $6 IS NULL) AND
-    ("owner_id" <= $7 OR $7 IS NULL) AND
+    ("owner_id" > $6 OR $6 IS NULL) AND
+    ("owner_id" < $7 OR $7 IS NULL) AND
     ("ref_type" = ANY($8) OR $8 IS NULL) AND
     ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" >= $10 OR $10 IS NULL) AND
-    ("ref_id" <= $11 OR $11 IS NULL) AND
+    ("ref_id" > $10 OR $10 IS NULL) AND
+    ("ref_id" < $11 OR $11 IS NULL) AND
     ("type" = ANY($12) OR $12 IS NULL) AND
     ("is_active" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" >= $15 OR $15 IS NULL) AND
-    ("date_started" <= $16 OR $16 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" >= $18 OR $18 IS NULL) AND
-    ("date_ended" <= $19 OR $19 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
     ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" >= $21 OR $21 IS NULL) AND
-    ("schedule_start" <= $22 OR $22 IS NULL) AND
+    ("schedule_start" > $21 OR $21 IS NULL) AND
+    ("schedule_start" < $22 OR $22 IS NULL) AND
     ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" >= $24 OR $24 IS NULL) AND
-    ("schedule_duration" <= $25 OR $25 IS NULL) AND
+    ("schedule_duration" > $24 OR $24 IS NULL) AND
+    ("schedule_duration" < $25 OR $25 IS NULL) AND
     ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" >= $27 OR $27 IS NULL) AND
-    ("date_created" <= $28 OR $28 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL) AND
     ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" >= $30 OR $30 IS NULL) AND
-    ("date_updated" <= $31 OR $31 IS NULL)
+    ("date_updated" > $30 OR $30 IS NULL) AND
+    ("date_updated" < $31 OR $31 IS NULL)
 )
 `
 
@@ -6679,21 +6606,21 @@ const deletePromotionDiscount = `-- name: DeletePromotionDiscount :exec
 DELETE FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_wide" = ANY($4) OR $4 IS NULL) AND
     ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" >= $6 OR $6 IS NULL) AND
-    ("min_spend" <= $7 OR $7 IS NULL) AND
+    ("min_spend" > $6 OR $6 IS NULL) AND
+    ("min_spend" < $7 OR $7 IS NULL) AND
     ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" >= $9 OR $9 IS NULL) AND
-    ("max_discount" <= $10 OR $10 IS NULL) AND
+    ("max_discount" > $9 OR $9 IS NULL) AND
+    ("max_discount" < $10 OR $10 IS NULL) AND
     ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" >= $12 OR $12 IS NULL) AND
-    ("discount_percent" <= $13 OR $13 IS NULL) AND
+    ("discount_percent" > $12 OR $12 IS NULL) AND
+    ("discount_percent" < $13 OR $13 IS NULL) AND
     ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" >= $15 OR $15 IS NULL) AND
-    ("discount_price" <= $16 OR $16 IS NULL)
+    ("discount_price" > $15 OR $15 IS NULL) AND
+    ("discount_price" < $16 OR $16 IS NULL)
 )
 `
 
@@ -6742,28 +6669,28 @@ const deleteSharedResource = `-- name: DeleteSharedResource :exec
 DELETE FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" >= $6 OR $6 IS NULL) AND
-    ("file_size" <= $7 OR $7 IS NULL) AND
+    ("file_size" > $6 OR $6 IS NULL) AND
+    ("file_size" < $7 OR $7 IS NULL) AND
     ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" >= $9 OR $9 IS NULL) AND
-    ("width" <= $10 OR $10 IS NULL) AND
+    ("width" > $9 OR $9 IS NULL) AND
+    ("width" < $10 OR $10 IS NULL) AND
     ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" >= $12 OR $12 IS NULL) AND
-    ("height" <= $13 OR $13 IS NULL) AND
+    ("height" > $12 OR $12 IS NULL) AND
+    ("height" < $13 OR $13 IS NULL) AND
     ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" >= $15 OR $15 IS NULL) AND
-    ("duration" <= $16 OR $16 IS NULL) AND
+    ("duration" > $15 OR $15 IS NULL) AND
+    ("duration" < $16 OR $16 IS NULL) AND
     ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" >= $18 OR $18 IS NULL) AND
-    ("uploaded_by" <= $19 OR $19 IS NULL) AND
+    ("uploaded_by" > $18 OR $18 IS NULL) AND
+    ("uploaded_by" < $19 OR $19 IS NULL) AND
     ("status" = ANY($20) OR $20 IS NULL) AND
     ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" >= $22 OR $22 IS NULL) AND
-    ("created_at" <= $23 OR $23 IS NULL)
+    ("created_at" > $22 OR $22 IS NULL) AND
+    ("created_at" < $23 OR $23 IS NULL)
 )
 `
 
@@ -6826,18 +6753,18 @@ const deleteSharedResourceReference = `-- name: DeleteSharedResourceReference :e
 DELETE FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" >= $5 OR $5 IS NULL) AND
-    ("rs_id" <= $6 OR $6 IS NULL) AND
+    ("rs_id" > $5 OR $5 IS NULL) AND
+    ("rs_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" >= $12 OR $12 IS NULL) AND
-    ("order" <= $13 OR $13 IS NULL) AND
+    ("order" > $12 OR $12 IS NULL) AND
+    ("order" < $13 OR $13 IS NULL) AND
     ("is_primary" = ANY($14) OR $14 IS NULL)
 )
 `
@@ -6883,17 +6810,17 @@ const deleteSystemSearchSync = `-- name: DeleteSystemSearchSync :exec
 DELETE FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
@@ -6936,11 +6863,11 @@ SELECT 1
 FROM "account"."address"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("full_name" = ANY($8) OR $8 IS NULL) AND
     ("phone" = ANY($9) OR $9 IS NULL) AND
@@ -6950,11 +6877,11 @@ WHERE (
     ("state_province" = ANY($13) OR $13 IS NULL) AND
     ("country" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL)
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ) as exists
 `
@@ -7016,8 +6943,8 @@ SELECT 1
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("phone" = ANY($6) OR $6 IS NULL) AND
@@ -7025,11 +6952,11 @@ WHERE (
     ("username" = ANY($8) OR $8 IS NULL) AND
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 ) as exists
 `
@@ -7081,23 +7008,23 @@ SELECT 1
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" >= $5 OR $5 IS NULL) AND
-    ("cart_id" <= $6 OR $6 IS NULL) AND
+    ("cart_id" > $5 OR $5 IS NULL) AND
+    ("cart_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
+    ("quantity" > $11 OR $11 IS NULL) AND
+    ("quantity" < $12 OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL)
+    ("date_updated" > $17 OR $17 IS NULL) AND
+    ("date_updated" < $18 OR $18 IS NULL)
 )
 ) as exists
 `
@@ -7155,17 +7082,17 @@ SELECT 1
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("default_address_id" = ANY($4) OR $4 IS NULL) AND
-    ("default_address_id" >= $5 OR $5 IS NULL) AND
-    ("default_address_id" <= $6 OR $6 IS NULL) AND
+    ("default_address_id" > $5 OR $5 IS NULL) AND
+    ("default_address_id" < $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
@@ -7211,22 +7138,22 @@ SELECT 1
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" >= $9 OR $9 IS NULL) AND
-    ("income" <= $10 OR $10 IS NULL) AND
+    ("income" > $9 OR $9 IS NULL) AND
+    ("income" < $10 OR $10 IS NULL) AND
     ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" >= $12 OR $12 IS NULL) AND
-    ("current_balance" <= $13 OR $13 IS NULL) AND
+    ("current_balance" > $12 OR $12 IS NULL) AND
+    ("current_balance" < $13 OR $13 IS NULL) AND
     ("note" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("hash" = ANY($18) OR $18 IS NULL) AND
     ("prev_hash" = ANY($19) OR $19 IS NULL)
 )
@@ -7288,26 +7215,26 @@ SELECT 1
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("channel" = ANY($8) OR $8 IS NULL) AND
     ("is_read" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
     ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" >= $17 OR $17 IS NULL) AND
-    ("date_sent" <= $18 OR $18 IS NULL) AND
+    ("date_sent" > $17 OR $17 IS NULL) AND
+    ("date_sent" < $18 OR $18 IS NULL) AND
     ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" >= $20 OR $20 IS NULL) AND
-    ("date_scheduled" <= $21 OR $21 IS NULL)
+    ("date_scheduled" > $20 OR $20 IS NULL) AND
+    ("date_scheduled" < $21 OR $21 IS NULL)
 )
 ) as exists
 `
@@ -7371,24 +7298,24 @@ SELECT 1
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("gender" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" >= $7 OR $7 IS NULL) AND
-    ("date_of_birth" <= $8 OR $8 IS NULL) AND
+    ("date_of_birth" > $7 OR $7 IS NULL) AND
+    ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" >= $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" <= $11 OR $11 IS NULL) AND
+    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
+    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
     ("email_verified" = ANY($12) OR $12 IS NULL) AND
     ("phone_verified" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL) AND
     ("date_updated" = ANY($17) OR $17 IS NULL) AND
-    ("date_updated" >= $18 OR $18 IS NULL) AND
-    ("date_updated" <= $19 OR $19 IS NULL)
+    ("date_updated" > $18 OR $18 IS NULL) AND
+    ("date_updated" < $19 OR $19 IS NULL)
 )
 ) as exists
 `
@@ -7448,8 +7375,8 @@ SELECT 1
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("description" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
@@ -7480,21 +7407,21 @@ SELECT 1
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" >= $8 OR $8 IS NULL) AND
-    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_type" > $8 OR $8 IS NULL) AND
+    ("ref_type" < $9 OR $9 IS NULL) AND
     ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" >= $11 OR $11 IS NULL) AND
-    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("ref_id" > $11 OR $11 IS NULL) AND
+    ("ref_id" < $12 OR $12 IS NULL) AND
     ("metadata" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -7542,31 +7469,14 @@ func (q *Queries) ExistsAnalyticInteraction(ctx context.Context, arg ExistsAnaly
 	return exists, err
 }
 
-const existsAnalyticInteractionType = `-- name: ExistsAnalyticInteractionType :one
-SELECT EXISTS (
-SELECT 1
-FROM "analytic"."interaction_type"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
-)
-) as exists
-`
-
-func (q *Queries) ExistsAnalyticInteractionType(ctx context.Context, id []string) (bool, error) {
-	row := q.db.QueryRow(ctx, existsAnalyticInteractionType, id)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const existsCatalogBrand = `-- name: ExistsCatalogBrand :one
 SELECT EXISTS (
 SELECT 1
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
@@ -7597,12 +7507,12 @@ SELECT 1
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("name" = ANY($4) OR $4 IS NULL) AND
     ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" >= $6 OR $6 IS NULL) AND
-    ("parent_id" <= $7 OR $7 IS NULL)
+    ("parent_id" > $6 OR $6 IS NULL) AND
+    ("parent_id" < $7 OR $7 IS NULL)
 )
 ) as exists
 `
@@ -7638,30 +7548,30 @@ SELECT 1
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" >= $12 OR $12 IS NULL) AND
-    ("upvote" <= $13 OR $13 IS NULL) AND
+    ("upvote" > $12 OR $12 IS NULL) AND
+    ("upvote" < $13 OR $13 IS NULL) AND
     ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" >= $15 OR $15 IS NULL) AND
-    ("downvote" <= $16 OR $16 IS NULL) AND
+    ("downvote" > $15 OR $15 IS NULL) AND
+    ("downvote" < $16 OR $16 IS NULL) AND
     ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" >= $18 OR $18 IS NULL) AND
-    ("score" <= $19 OR $19 IS NULL) AND
+    ("score" > $18 OR $18 IS NULL) AND
+    ("score" < $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" >= $21 OR $21 IS NULL) AND
-    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL)
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ) as exists
 `
@@ -7733,21 +7643,21 @@ SELECT 1
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" >= $8 OR $8 IS NULL) AND
-    ("price" <= $9 OR $9 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
     ("can_combine" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" >= $15 OR $15 IS NULL) AND
-    ("date_deleted" <= $16 OR $16 IS NULL)
+    ("date_deleted" > $15 OR $15 IS NULL) AND
+    ("date_deleted" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -7801,19 +7711,19 @@ SELECT 1
 FROM "catalog"."product_sku_attribute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" >= $5 OR $5 IS NULL) AND
-    ("sku_id" <= $6 OR $6 IS NULL) AND
+    ("sku_id" > $5 OR $5 IS NULL) AND
+    ("sku_id" < $6 OR $6 IS NULL) AND
     ("name" = ANY($7) OR $7 IS NULL) AND
     ("value" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
     ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("date_updated" > $13 OR $13 IS NULL) AND
+    ("date_updated" < $14 OR $14 IS NULL)
 )
 ) as exists
 `
@@ -7863,31 +7773,31 @@ SELECT 1
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" >= $6 OR $6 IS NULL) AND
-    ("account_id" <= $7 OR $7 IS NULL) AND
+    ("account_id" > $6 OR $6 IS NULL) AND
+    ("account_id" < $7 OR $7 IS NULL) AND
     ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" >= $9 OR $9 IS NULL) AND
-    ("category_id" <= $10 OR $10 IS NULL) AND
+    ("category_id" > $9 OR $9 IS NULL) AND
+    ("category_id" < $10 OR $10 IS NULL) AND
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" >= $12 OR $12 IS NULL) AND
-    ("brand_id" <= $13 OR $13 IS NULL) AND
+    ("brand_id" > $12 OR $12 IS NULL) AND
+    ("brand_id" < $13 OR $13 IS NULL) AND
     ("is_active" = ANY($14) OR $14 IS NULL) AND
     ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" >= $16 OR $16 IS NULL) AND
-    ("date_manufactured" <= $17 OR $17 IS NULL) AND
+    ("date_manufactured" > $16 OR $16 IS NULL) AND
+    ("date_manufactured" < $17 OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" >= $22 OR $22 IS NULL) AND
-    ("date_updated" <= $23 OR $23 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
     ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" >= $25 OR $25 IS NULL) AND
-    ("date_deleted" <= $26 OR $26 IS NULL)
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 ) as exists
 `
@@ -7961,14 +7871,14 @@ SELECT 1
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" >= $8 OR $8 IS NULL) AND
-    ("tag_id" <= $9 OR $9 IS NULL)
+    ("tag_id" > $8 OR $8 IS NULL) AND
+    ("tag_id" < $9 OR $9 IS NULL)
 )
 ) as exists
 `
@@ -8008,8 +7918,8 @@ SELECT 1
 FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("tag" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
@@ -8040,16 +7950,16 @@ SELECT 1
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("serial_number" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" >= $6 OR $6 IS NULL) AND
-    ("sku_id" <= $7 OR $7 IS NULL) AND
+    ("sku_id" > $6 OR $6 IS NULL) AND
+    ("sku_id" < $7 OR $7 IS NULL) AND
     ("status" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL)
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL)
 )
 ) as exists
 `
@@ -8093,21 +8003,21 @@ SELECT 1
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" >= $9 OR $9 IS NULL) AND
-    ("current_stock" <= $10 OR $10 IS NULL) AND
+    ("current_stock" > $9 OR $9 IS NULL) AND
+    ("current_stock" < $10 OR $10 IS NULL) AND
     ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" >= $12 OR $12 IS NULL) AND
-    ("sold" <= $13 OR $13 IS NULL) AND
+    ("sold" > $12 OR $12 IS NULL) AND
+    ("sold" < $13 OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -8161,17 +8071,17 @@ SELECT 1
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" >= $5 OR $5 IS NULL) AND
-    ("stock_id" <= $6 OR $6 IS NULL) AND
+    ("stock_id" > $5 OR $5 IS NULL) AND
+    ("stock_id" < $6 OR $6 IS NULL) AND
     ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" >= $8 OR $8 IS NULL) AND
-    ("change" <= $9 OR $9 IS NULL) AND
+    ("change" > $8 OR $8 IS NULL) AND
+    ("change" < $9 OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
@@ -8217,18 +8127,18 @@ SELECT 1
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" >= $9 OR $9 IS NULL) AND
-    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" >= $12 OR $12 IS NULL) AND
-    ("date_updated" <= $13 OR $13 IS NULL)
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
@@ -8276,20 +8186,20 @@ SELECT 1
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("type" = ANY($8) OR $8 IS NULL) AND
     ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" >= $10 OR $10 IS NULL) AND
-    ("receiver_id" <= $11 OR $11 IS NULL) AND
+    ("receiver_id" > $10 OR $10 IS NULL) AND
+    ("receiver_id" < $11 OR $11 IS NULL) AND
     ("data" = ANY($12) OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("hash" = ANY($16) OR $16 IS NULL) AND
     ("prev_hash" = ANY($17) OR $17 IS NULL)
 )
@@ -8347,20 +8257,20 @@ SELECT 1
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" >= $5 OR $5 IS NULL) AND
-    ("order_id" <= $6 OR $6 IS NULL) AND
+    ("order_id" > $5 OR $5 IS NULL) AND
+    ("order_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" >= $14 OR $14 IS NULL) AND
-    ("quantity" <= $15 OR $15 IS NULL)
+    ("quantity" > $14 OR $14 IS NULL) AND
+    ("quantity" < $15 OR $15 IS NULL)
 )
 ) as exists
 `
@@ -8412,14 +8322,14 @@ SELECT 1
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" >= $8 OR $8 IS NULL) AND
-    ("product_serial_id" <= $9 OR $9 IS NULL)
+    ("product_serial_id" > $8 OR $8 IS NULL) AND
+    ("product_serial_id" < $9 OR $9 IS NULL)
 )
 ) as exists
 `
@@ -8484,22 +8394,22 @@ SELECT 1
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
+    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("method" = ANY($13) OR $13 IS NULL) AND
     ("status" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL)
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL)
 )
 ) as exists
 `
@@ -8555,21 +8465,21 @@ SELECT 1
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" >= $5 OR $5 IS NULL) AND
-    ("refund_id" <= $6 OR $6 IS NULL) AND
+    ("refund_id" > $5 OR $5 IS NULL) AND
+    ("refund_id" < $6 OR $6 IS NULL) AND
     ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" >= $8 OR $8 IS NULL) AND
-    ("issued_by_id" <= $9 OR $9 IS NULL) AND
+    ("issued_by_id" > $8 OR $8 IS NULL) AND
+    ("issued_by_id" < $9 OR $9 IS NULL) AND
     ("status" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" >= $15 OR $15 IS NULL) AND
-    ("date_updated" <= $16 OR $16 IS NULL)
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -8623,21 +8533,21 @@ SELECT 1
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
     ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" >= $6 OR $6 IS NULL) AND
-    ("cost" <= $7 OR $7 IS NULL) AND
+    ("cost" > $6 OR $6 IS NULL) AND
+    ("cost" < $7 OR $7 IS NULL) AND
     ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
-    ("estimated_etd" >= $9 OR $9 IS NULL) AND
-    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("estimated_etd" > $9 OR $9 IS NULL) AND
+    ("estimated_etd" < $10 OR $10 IS NULL) AND
     ("date_shipped" = ANY($11) OR $11 IS NULL) AND
-    ("date_shipped" >= $12 OR $12 IS NULL) AND
-    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_shipped" > $12 OR $12 IS NULL) AND
+    ("date_shipped" < $13 OR $13 IS NULL) AND
     ("date_delivered" = ANY($14) OR $14 IS NULL) AND
-    ("date_delivered" >= $15 OR $15 IS NULL) AND
-    ("date_delivered" <= $16 OR $16 IS NULL)
+    ("date_delivered" > $15 OR $15 IS NULL) AND
+    ("date_delivered" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -8691,36 +8601,36 @@ SELECT 1
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" >= $6 OR $6 IS NULL) AND
-    ("owner_id" <= $7 OR $7 IS NULL) AND
+    ("owner_id" > $6 OR $6 IS NULL) AND
+    ("owner_id" < $7 OR $7 IS NULL) AND
     ("ref_type" = ANY($8) OR $8 IS NULL) AND
     ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" >= $10 OR $10 IS NULL) AND
-    ("ref_id" <= $11 OR $11 IS NULL) AND
+    ("ref_id" > $10 OR $10 IS NULL) AND
+    ("ref_id" < $11 OR $11 IS NULL) AND
     ("type" = ANY($12) OR $12 IS NULL) AND
     ("is_active" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" >= $15 OR $15 IS NULL) AND
-    ("date_started" <= $16 OR $16 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" >= $18 OR $18 IS NULL) AND
-    ("date_ended" <= $19 OR $19 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
     ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" >= $21 OR $21 IS NULL) AND
-    ("schedule_start" <= $22 OR $22 IS NULL) AND
+    ("schedule_start" > $21 OR $21 IS NULL) AND
+    ("schedule_start" < $22 OR $22 IS NULL) AND
     ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" >= $24 OR $24 IS NULL) AND
-    ("schedule_duration" <= $25 OR $25 IS NULL) AND
+    ("schedule_duration" > $24 OR $24 IS NULL) AND
+    ("schedule_duration" < $25 OR $25 IS NULL) AND
     ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" >= $27 OR $27 IS NULL) AND
-    ("date_created" <= $28 OR $28 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL) AND
     ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" >= $30 OR $30 IS NULL) AND
-    ("date_updated" <= $31 OR $31 IS NULL)
+    ("date_updated" > $30 OR $30 IS NULL) AND
+    ("date_updated" < $31 OR $31 IS NULL)
 )
 ) as exists
 `
@@ -8804,21 +8714,21 @@ SELECT 1
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_wide" = ANY($4) OR $4 IS NULL) AND
     ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" >= $6 OR $6 IS NULL) AND
-    ("min_spend" <= $7 OR $7 IS NULL) AND
+    ("min_spend" > $6 OR $6 IS NULL) AND
+    ("min_spend" < $7 OR $7 IS NULL) AND
     ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" >= $9 OR $9 IS NULL) AND
-    ("max_discount" <= $10 OR $10 IS NULL) AND
+    ("max_discount" > $9 OR $9 IS NULL) AND
+    ("max_discount" < $10 OR $10 IS NULL) AND
     ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" >= $12 OR $12 IS NULL) AND
-    ("discount_percent" <= $13 OR $13 IS NULL) AND
+    ("discount_percent" > $12 OR $12 IS NULL) AND
+    ("discount_percent" < $13 OR $13 IS NULL) AND
     ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" >= $15 OR $15 IS NULL) AND
-    ("discount_price" <= $16 OR $16 IS NULL)
+    ("discount_price" > $15 OR $15 IS NULL) AND
+    ("discount_price" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -8872,28 +8782,28 @@ SELECT 1
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" >= $6 OR $6 IS NULL) AND
-    ("file_size" <= $7 OR $7 IS NULL) AND
+    ("file_size" > $6 OR $6 IS NULL) AND
+    ("file_size" < $7 OR $7 IS NULL) AND
     ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" >= $9 OR $9 IS NULL) AND
-    ("width" <= $10 OR $10 IS NULL) AND
+    ("width" > $9 OR $9 IS NULL) AND
+    ("width" < $10 OR $10 IS NULL) AND
     ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" >= $12 OR $12 IS NULL) AND
-    ("height" <= $13 OR $13 IS NULL) AND
+    ("height" > $12 OR $12 IS NULL) AND
+    ("height" < $13 OR $13 IS NULL) AND
     ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" >= $15 OR $15 IS NULL) AND
-    ("duration" <= $16 OR $16 IS NULL) AND
+    ("duration" > $15 OR $15 IS NULL) AND
+    ("duration" < $16 OR $16 IS NULL) AND
     ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" >= $18 OR $18 IS NULL) AND
-    ("uploaded_by" <= $19 OR $19 IS NULL) AND
+    ("uploaded_by" > $18 OR $18 IS NULL) AND
+    ("uploaded_by" < $19 OR $19 IS NULL) AND
     ("status" = ANY($20) OR $20 IS NULL) AND
     ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" >= $22 OR $22 IS NULL) AND
-    ("created_at" <= $23 OR $23 IS NULL)
+    ("created_at" > $22 OR $22 IS NULL) AND
+    ("created_at" < $23 OR $23 IS NULL)
 )
 ) as exists
 `
@@ -8961,18 +8871,18 @@ SELECT 1
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" >= $5 OR $5 IS NULL) AND
-    ("rs_id" <= $6 OR $6 IS NULL) AND
+    ("rs_id" > $5 OR $5 IS NULL) AND
+    ("rs_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" >= $12 OR $12 IS NULL) AND
-    ("order" <= $13 OR $13 IS NULL) AND
+    ("order" > $12 OR $12 IS NULL) AND
+    ("order" < $13 OR $13 IS NULL) AND
     ("is_primary" = ANY($14) OR $14 IS NULL)
 )
 ) as exists
@@ -9023,17 +8933,17 @@ SELECT 1
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
@@ -9350,25 +9260,6 @@ func (q *Queries) GetAnalyticInteraction(ctx context.Context, id pgtype.Int8) (A
 		&i.IpAddress,
 		&i.DateCreated,
 	)
-	return i, err
-}
-
-const getAnalyticInteractionType = `-- name: GetAnalyticInteractionType :one
-
-
-
-SELECT id, description
-FROM "analytic"."interaction_type"
-WHERE ("id" = $1)
-`
-
-// ========================================
-// Queries for table: analytic.interaction_type
-// ========================================
-func (q *Queries) GetAnalyticInteractionType(ctx context.Context, id pgtype.Text) (AnalyticInteractionType, error) {
-	row := q.db.QueryRow(ctx, getAnalyticInteractionType, id)
-	var i AnalyticInteractionType
-	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -10067,11 +9958,11 @@ SELECT id, account_id, type, full_name, phone, phone_verified, address_line, cit
 FROM "account"."address"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("full_name" = ANY($8) OR $8 IS NULL) AND
     ("phone" = ANY($9) OR $9 IS NULL) AND
@@ -10081,11 +9972,11 @@ WHERE (
     ("state_province" = ANY($13) OR $13 IS NULL) AND
     ("country" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL)
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ORDER BY "id"
 LIMIT $22
@@ -10178,8 +10069,8 @@ SELECT id, type, status, phone, email, username, password, date_created, date_up
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("phone" = ANY($6) OR $6 IS NULL) AND
@@ -10187,11 +10078,11 @@ WHERE (
     ("username" = ANY($8) OR $8 IS NULL) AND
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
 LIMIT $17
@@ -10271,23 +10162,23 @@ SELECT id, cart_id, sku_id, quantity, date_created, date_updated
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" >= $5 OR $5 IS NULL) AND
-    ("cart_id" <= $6 OR $6 IS NULL) AND
+    ("cart_id" > $5 OR $5 IS NULL) AND
+    ("cart_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
+    ("quantity" > $11 OR $11 IS NULL) AND
+    ("quantity" < $12 OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL)
+    ("date_updated" > $17 OR $17 IS NULL) AND
+    ("date_updated" < $18 OR $18 IS NULL)
 )
 ORDER BY "id"
 LIMIT $20
@@ -10370,17 +10261,17 @@ SELECT id, default_address_id, date_created, date_updated
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("default_address_id" = ANY($4) OR $4 IS NULL) AND
-    ("default_address_id" >= $5 OR $5 IS NULL) AND
-    ("default_address_id" <= $6 OR $6 IS NULL) AND
+    ("default_address_id" > $5 OR $5 IS NULL) AND
+    ("default_address_id" < $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14
@@ -10449,22 +10340,22 @@ SELECT id, account_id, type, income, current_balance, note, date_created, hash, 
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" >= $9 OR $9 IS NULL) AND
-    ("income" <= $10 OR $10 IS NULL) AND
+    ("income" > $9 OR $9 IS NULL) AND
+    ("income" < $10 OR $10 IS NULL) AND
     ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" >= $12 OR $12 IS NULL) AND
-    ("current_balance" <= $13 OR $13 IS NULL) AND
+    ("current_balance" > $12 OR $12 IS NULL) AND
+    ("current_balance" < $13 OR $13 IS NULL) AND
     ("note" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
     ("hash" = ANY($18) OR $18 IS NULL) AND
     ("prev_hash" = ANY($19) OR $19 IS NULL)
 )
@@ -10554,26 +10445,26 @@ SELECT id, account_id, type, channel, is_read, content, date_created, date_updat
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("type" = ANY($7) OR $7 IS NULL) AND
     ("channel" = ANY($8) OR $8 IS NULL) AND
     ("is_read" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
     ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" >= $17 OR $17 IS NULL) AND
-    ("date_sent" <= $18 OR $18 IS NULL) AND
+    ("date_sent" > $17 OR $17 IS NULL) AND
+    ("date_sent" < $18 OR $18 IS NULL) AND
     ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" >= $20 OR $20 IS NULL) AND
-    ("date_scheduled" <= $21 OR $21 IS NULL)
+    ("date_scheduled" > $20 OR $20 IS NULL) AND
+    ("date_scheduled" < $21 OR $21 IS NULL)
 )
 ORDER BY "id"
 LIMIT $23
@@ -10666,24 +10557,24 @@ SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_veri
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("gender" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" >= $7 OR $7 IS NULL) AND
-    ("date_of_birth" <= $8 OR $8 IS NULL) AND
+    ("date_of_birth" > $7 OR $7 IS NULL) AND
+    ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" >= $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" <= $11 OR $11 IS NULL) AND
+    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
+    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
     ("email_verified" = ANY($12) OR $12 IS NULL) AND
     ("phone_verified" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL) AND
     ("date_updated" = ANY($17) OR $17 IS NULL) AND
-    ("date_updated" >= $18 OR $18 IS NULL) AND
-    ("date_updated" <= $19 OR $19 IS NULL)
+    ("date_updated" > $18 OR $18 IS NULL) AND
+    ("date_updated" < $19 OR $19 IS NULL)
 )
 ORDER BY "id"
 LIMIT $21
@@ -10771,8 +10662,8 @@ SELECT id, description
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("description" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
@@ -10821,21 +10712,21 @@ SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" >= $8 OR $8 IS NULL) AND
-    ("ref_type" <= $9 OR $9 IS NULL) AND
+    ("ref_type" > $8 OR $8 IS NULL) AND
+    ("ref_type" < $9 OR $9 IS NULL) AND
     ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" >= $11 OR $11 IS NULL) AND
-    ("ref_id" <= $12 OR $12 IS NULL) AND
+    ("ref_id" > $11 OR $11 IS NULL) AND
+    ("ref_id" < $12 OR $12 IS NULL) AND
     ("metadata" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -10913,50 +10804,13 @@ func (q *Queries) ListAnalyticInteraction(ctx context.Context, arg ListAnalyticI
 	return items, nil
 }
 
-const listAnalyticInteractionType = `-- name: ListAnalyticInteractionType :many
-SELECT id, description
-FROM "analytic"."interaction_type"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
-)
-ORDER BY "id"
-LIMIT $3
-OFFSET $2
-`
-
-type ListAnalyticInteractionTypeParams struct {
-	ID     []string    `json:"id"`
-	Offset pgtype.Int4 `json:"offset"`
-	Limit  pgtype.Int4 `json:"limit"`
-}
-
-func (q *Queries) ListAnalyticInteractionType(ctx context.Context, arg ListAnalyticInteractionTypeParams) ([]AnalyticInteractionType, error) {
-	rows, err := q.db.Query(ctx, listAnalyticInteractionType, arg.ID, arg.Offset, arg.Limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []AnalyticInteractionType{}
-	for rows.Next() {
-		var i AnalyticInteractionType
-		if err := rows.Scan(&i.ID, &i.Description); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listCatalogBrand = `-- name: ListCatalogBrand :many
 SELECT id, code, name, description
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
@@ -11010,12 +10864,12 @@ SELECT id, name, description, parent_id
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("name" = ANY($4) OR $4 IS NULL) AND
     ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" >= $6 OR $6 IS NULL) AND
-    ("parent_id" <= $7 OR $7 IS NULL)
+    ("parent_id" > $6 OR $6 IS NULL) AND
+    ("parent_id" < $7 OR $7 IS NULL)
 )
 ORDER BY "id"
 LIMIT $9
@@ -11074,30 +10928,30 @@ SELECT id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_cre
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" >= $12 OR $12 IS NULL) AND
-    ("upvote" <= $13 OR $13 IS NULL) AND
+    ("upvote" > $12 OR $12 IS NULL) AND
+    ("upvote" < $13 OR $13 IS NULL) AND
     ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" >= $15 OR $15 IS NULL) AND
-    ("downvote" <= $16 OR $16 IS NULL) AND
+    ("downvote" > $15 OR $15 IS NULL) AND
+    ("downvote" < $16 OR $16 IS NULL) AND
     ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" >= $18 OR $18 IS NULL) AND
-    ("score" <= $19 OR $19 IS NULL) AND
+    ("score" > $18 OR $18 IS NULL) AND
+    ("score" < $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" >= $21 OR $21 IS NULL) AND
-    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL)
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
 LIMIT $27
@@ -11198,21 +11052,21 @@ SELECT id, spu_id, price, can_combine, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" >= $8 OR $8 IS NULL) AND
-    ("price" <= $9 OR $9 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
     ("can_combine" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" >= $15 OR $15 IS NULL) AND
-    ("date_deleted" <= $16 OR $16 IS NULL)
+    ("date_deleted" > $15 OR $15 IS NULL) AND
+    ("date_deleted" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -11291,19 +11145,19 @@ SELECT id, sku_id, name, value, date_created, date_updated
 FROM "catalog"."product_sku_attribute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" >= $5 OR $5 IS NULL) AND
-    ("sku_id" <= $6 OR $6 IS NULL) AND
+    ("sku_id" > $5 OR $5 IS NULL) AND
+    ("sku_id" < $6 OR $6 IS NULL) AND
     ("name" = ANY($7) OR $7 IS NULL) AND
     ("value" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
     ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" >= $13 OR $13 IS NULL) AND
-    ("date_updated" <= $14 OR $14 IS NULL)
+    ("date_updated" > $13 OR $13 IS NULL) AND
+    ("date_updated" < $14 OR $14 IS NULL)
 )
 ORDER BY "id"
 LIMIT $16
@@ -11378,31 +11232,31 @@ SELECT id, code, account_id, category_id, brand_id, name, description, is_active
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" >= $6 OR $6 IS NULL) AND
-    ("account_id" <= $7 OR $7 IS NULL) AND
+    ("account_id" > $6 OR $6 IS NULL) AND
+    ("account_id" < $7 OR $7 IS NULL) AND
     ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" >= $9 OR $9 IS NULL) AND
-    ("category_id" <= $10 OR $10 IS NULL) AND
+    ("category_id" > $9 OR $9 IS NULL) AND
+    ("category_id" < $10 OR $10 IS NULL) AND
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" >= $12 OR $12 IS NULL) AND
-    ("brand_id" <= $13 OR $13 IS NULL) AND
+    ("brand_id" > $12 OR $12 IS NULL) AND
+    ("brand_id" < $13 OR $13 IS NULL) AND
     ("is_active" = ANY($14) OR $14 IS NULL) AND
     ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" >= $16 OR $16 IS NULL) AND
-    ("date_manufactured" <= $17 OR $17 IS NULL) AND
+    ("date_manufactured" > $16 OR $16 IS NULL) AND
+    ("date_manufactured" < $17 OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" >= $22 OR $22 IS NULL) AND
-    ("date_updated" <= $23 OR $23 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
     ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" >= $25 OR $25 IS NULL) AND
-    ("date_deleted" <= $26 OR $26 IS NULL)
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 ORDER BY "id"
 LIMIT $28
@@ -11507,14 +11361,14 @@ SELECT id, spu_id, tag_id
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" >= $5 OR $5 IS NULL) AND
-    ("spu_id" <= $6 OR $6 IS NULL) AND
+    ("spu_id" > $5 OR $5 IS NULL) AND
+    ("spu_id" < $6 OR $6 IS NULL) AND
     ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" >= $8 OR $8 IS NULL) AND
-    ("tag_id" <= $9 OR $9 IS NULL)
+    ("tag_id" > $8 OR $8 IS NULL) AND
+    ("tag_id" < $9 OR $9 IS NULL)
 )
 ORDER BY "id"
 LIMIT $11
@@ -11572,8 +11426,8 @@ SELECT id, tag, description
 FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("tag" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
@@ -11622,16 +11476,16 @@ SELECT id, serial_number, sku_id, status, date_created
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("serial_number" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" >= $6 OR $6 IS NULL) AND
-    ("sku_id" <= $7 OR $7 IS NULL) AND
+    ("sku_id" > $6 OR $6 IS NULL) AND
+    ("sku_id" < $7 OR $7 IS NULL) AND
     ("status" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL)
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL)
 )
 ORDER BY "id"
 LIMIT $13
@@ -11699,21 +11553,21 @@ SELECT id, ref_type, ref_id, current_stock, sold, date_created
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" >= $9 OR $9 IS NULL) AND
-    ("current_stock" <= $10 OR $10 IS NULL) AND
+    ("current_stock" > $9 OR $9 IS NULL) AND
+    ("current_stock" < $10 OR $10 IS NULL) AND
     ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" >= $12 OR $12 IS NULL) AND
-    ("sold" <= $13 OR $13 IS NULL) AND
+    ("sold" > $12 OR $12 IS NULL) AND
+    ("sold" < $13 OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" >= $15 OR $15 IS NULL) AND
-    ("date_created" <= $16 OR $16 IS NULL)
+    ("date_created" > $15 OR $15 IS NULL) AND
+    ("date_created" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -11792,17 +11646,17 @@ SELECT id, stock_id, change, date_created
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" >= $5 OR $5 IS NULL) AND
-    ("stock_id" <= $6 OR $6 IS NULL) AND
+    ("stock_id" > $5 OR $5 IS NULL) AND
+    ("stock_id" < $6 OR $6 IS NULL) AND
     ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" >= $8 OR $8 IS NULL) AND
-    ("change" <= $9 OR $9 IS NULL) AND
+    ("change" > $8 OR $8 IS NULL) AND
+    ("change" < $9 OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14
@@ -11871,18 +11725,18 @@ SELECT id, account_id, payment_gateway, status, address, date_created, date_upda
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" >= $5 OR $5 IS NULL) AND
-    ("account_id" <= $6 OR $6 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" >= $9 OR $9 IS NULL) AND
-    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" >= $12 OR $12 IS NULL) AND
-    ("date_updated" <= $13 OR $13 IS NULL)
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
 LIMIT $15
@@ -11956,20 +11810,20 @@ SELECT id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_cre
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("type" = ANY($8) OR $8 IS NULL) AND
     ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" >= $10 OR $10 IS NULL) AND
-    ("receiver_id" <= $11 OR $11 IS NULL) AND
+    ("receiver_id" > $10 OR $10 IS NULL) AND
+    ("receiver_id" < $11 OR $11 IS NULL) AND
     ("data" = ANY($12) OR $12 IS NULL) AND
     ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_created" > $14 OR $14 IS NULL) AND
+    ("date_created" < $15 OR $15 IS NULL) AND
     ("hash" = ANY($16) OR $16 IS NULL) AND
     ("prev_hash" = ANY($17) OR $17 IS NULL)
 )
@@ -12057,20 +11911,20 @@ SELECT id, order_id, sku_id, shipment_id, quantity
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" >= $5 OR $5 IS NULL) AND
-    ("order_id" <= $6 OR $6 IS NULL) AND
+    ("order_id" > $5 OR $5 IS NULL) AND
+    ("order_id" < $6 OR $6 IS NULL) AND
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" >= $8 OR $8 IS NULL) AND
-    ("sku_id" <= $9 OR $9 IS NULL) AND
+    ("sku_id" > $8 OR $8 IS NULL) AND
+    ("sku_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" >= $14 OR $14 IS NULL) AND
-    ("quantity" <= $15 OR $15 IS NULL)
+    ("quantity" > $14 OR $14 IS NULL) AND
+    ("quantity" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
 LIMIT $17
@@ -12146,14 +12000,14 @@ SELECT id, order_item_id, product_serial_id
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" >= $8 OR $8 IS NULL) AND
-    ("product_serial_id" <= $9 OR $9 IS NULL)
+    ("product_serial_id" > $8 OR $8 IS NULL) AND
+    ("product_serial_id" < $9 OR $9 IS NULL)
 )
 ORDER BY "id"
 LIMIT $11
@@ -12263,22 +12117,22 @@ SELECT id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, a
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" >= $5 OR $5 IS NULL) AND
-    ("order_item_id" <= $6 OR $6 IS NULL) AND
+    ("order_item_id" > $5 OR $5 IS NULL) AND
+    ("order_item_id" < $6 OR $6 IS NULL) AND
     ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" >= $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" <= $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
+    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
     ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" >= $11 OR $11 IS NULL) AND
-    ("shipment_id" <= $12 OR $12 IS NULL) AND
+    ("shipment_id" > $11 OR $11 IS NULL) AND
+    ("shipment_id" < $12 OR $12 IS NULL) AND
     ("method" = ANY($13) OR $13 IS NULL) AND
     ("status" = ANY($14) OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL)
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL)
 )
 ORDER BY "id"
 LIMIT $19
@@ -12362,21 +12216,21 @@ SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" >= $5 OR $5 IS NULL) AND
-    ("refund_id" <= $6 OR $6 IS NULL) AND
+    ("refund_id" > $5 OR $5 IS NULL) AND
+    ("refund_id" < $6 OR $6 IS NULL) AND
     ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" >= $8 OR $8 IS NULL) AND
-    ("issued_by_id" <= $9 OR $9 IS NULL) AND
+    ("issued_by_id" > $8 OR $8 IS NULL) AND
+    ("issued_by_id" < $9 OR $9 IS NULL) AND
     ("status" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" >= $12 OR $12 IS NULL) AND
-    ("date_created" <= $13 OR $13 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
     ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" >= $15 OR $15 IS NULL) AND
-    ("date_updated" <= $16 OR $16 IS NULL)
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -12456,21 +12310,21 @@ SELECT id, provider, tracking_code, status, label_url, cost, estimated_etd, date
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
     ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" >= $6 OR $6 IS NULL) AND
-    ("cost" <= $7 OR $7 IS NULL) AND
+    ("cost" > $6 OR $6 IS NULL) AND
+    ("cost" < $7 OR $7 IS NULL) AND
     ("estimated_etd" = ANY($8) OR $8 IS NULL) AND
-    ("estimated_etd" >= $9 OR $9 IS NULL) AND
-    ("estimated_etd" <= $10 OR $10 IS NULL) AND
+    ("estimated_etd" > $9 OR $9 IS NULL) AND
+    ("estimated_etd" < $10 OR $10 IS NULL) AND
     ("date_shipped" = ANY($11) OR $11 IS NULL) AND
-    ("date_shipped" >= $12 OR $12 IS NULL) AND
-    ("date_shipped" <= $13 OR $13 IS NULL) AND
+    ("date_shipped" > $12 OR $12 IS NULL) AND
+    ("date_shipped" < $13 OR $13 IS NULL) AND
     ("date_delivered" = ANY($14) OR $14 IS NULL) AND
-    ("date_delivered" >= $15 OR $15 IS NULL) AND
-    ("date_delivered" <= $16 OR $16 IS NULL)
+    ("date_delivered" > $15 OR $15 IS NULL) AND
+    ("date_delivered" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -12552,36 +12406,36 @@ SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" >= $6 OR $6 IS NULL) AND
-    ("owner_id" <= $7 OR $7 IS NULL) AND
+    ("owner_id" > $6 OR $6 IS NULL) AND
+    ("owner_id" < $7 OR $7 IS NULL) AND
     ("ref_type" = ANY($8) OR $8 IS NULL) AND
     ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" >= $10 OR $10 IS NULL) AND
-    ("ref_id" <= $11 OR $11 IS NULL) AND
+    ("ref_id" > $10 OR $10 IS NULL) AND
+    ("ref_id" < $11 OR $11 IS NULL) AND
     ("type" = ANY($12) OR $12 IS NULL) AND
     ("is_active" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" >= $15 OR $15 IS NULL) AND
-    ("date_started" <= $16 OR $16 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" >= $18 OR $18 IS NULL) AND
-    ("date_ended" <= $19 OR $19 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
     ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" >= $21 OR $21 IS NULL) AND
-    ("schedule_start" <= $22 OR $22 IS NULL) AND
+    ("schedule_start" > $21 OR $21 IS NULL) AND
+    ("schedule_start" < $22 OR $22 IS NULL) AND
     ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" >= $24 OR $24 IS NULL) AND
-    ("schedule_duration" <= $25 OR $25 IS NULL) AND
+    ("schedule_duration" > $24 OR $24 IS NULL) AND
+    ("schedule_duration" < $25 OR $25 IS NULL) AND
     ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" >= $27 OR $27 IS NULL) AND
-    ("date_created" <= $28 OR $28 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL) AND
     ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" >= $30 OR $30 IS NULL) AND
-    ("date_updated" <= $31 OR $31 IS NULL)
+    ("date_updated" > $30 OR $30 IS NULL) AND
+    ("date_updated" < $31 OR $31 IS NULL)
 )
 ORDER BY "id"
 LIMIT $33
@@ -12700,21 +12554,21 @@ SELECT id, order_wide, min_spend, max_discount, discount_percent, discount_price
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("order_wide" = ANY($4) OR $4 IS NULL) AND
     ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" >= $6 OR $6 IS NULL) AND
-    ("min_spend" <= $7 OR $7 IS NULL) AND
+    ("min_spend" > $6 OR $6 IS NULL) AND
+    ("min_spend" < $7 OR $7 IS NULL) AND
     ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" >= $9 OR $9 IS NULL) AND
-    ("max_discount" <= $10 OR $10 IS NULL) AND
+    ("max_discount" > $9 OR $9 IS NULL) AND
+    ("max_discount" < $10 OR $10 IS NULL) AND
     ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" >= $12 OR $12 IS NULL) AND
-    ("discount_percent" <= $13 OR $13 IS NULL) AND
+    ("discount_percent" > $12 OR $12 IS NULL) AND
+    ("discount_percent" < $13 OR $13 IS NULL) AND
     ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" >= $15 OR $15 IS NULL) AND
-    ("discount_price" <= $16 OR $16 IS NULL)
+    ("discount_price" > $15 OR $15 IS NULL) AND
+    ("discount_price" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
 LIMIT $18
@@ -12793,28 +12647,28 @@ SELECT id, code, mime, url, file_size, width, height, duration, checksum, upload
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
     ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" >= $6 OR $6 IS NULL) AND
-    ("file_size" <= $7 OR $7 IS NULL) AND
+    ("file_size" > $6 OR $6 IS NULL) AND
+    ("file_size" < $7 OR $7 IS NULL) AND
     ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" >= $9 OR $9 IS NULL) AND
-    ("width" <= $10 OR $10 IS NULL) AND
+    ("width" > $9 OR $9 IS NULL) AND
+    ("width" < $10 OR $10 IS NULL) AND
     ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" >= $12 OR $12 IS NULL) AND
-    ("height" <= $13 OR $13 IS NULL) AND
+    ("height" > $12 OR $12 IS NULL) AND
+    ("height" < $13 OR $13 IS NULL) AND
     ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" >= $15 OR $15 IS NULL) AND
-    ("duration" <= $16 OR $16 IS NULL) AND
+    ("duration" > $15 OR $15 IS NULL) AND
+    ("duration" < $16 OR $16 IS NULL) AND
     ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" >= $18 OR $18 IS NULL) AND
-    ("uploaded_by" <= $19 OR $19 IS NULL) AND
+    ("uploaded_by" > $18 OR $18 IS NULL) AND
+    ("uploaded_by" < $19 OR $19 IS NULL) AND
     ("status" = ANY($20) OR $20 IS NULL) AND
     ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" >= $22 OR $22 IS NULL) AND
-    ("created_at" <= $23 OR $23 IS NULL)
+    ("created_at" > $22 OR $22 IS NULL) AND
+    ("created_at" < $23 OR $23 IS NULL)
 )
 ORDER BY "id"
 LIMIT $25
@@ -12913,18 +12767,18 @@ SELECT id, rs_id, ref_type, ref_id, "order", is_primary
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" >= $5 OR $5 IS NULL) AND
-    ("rs_id" <= $6 OR $6 IS NULL) AND
+    ("rs_id" > $5 OR $5 IS NULL) AND
+    ("rs_id" < $6 OR $6 IS NULL) AND
     ("ref_type" = ANY($7) OR $7 IS NULL) AND
     ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" >= $9 OR $9 IS NULL) AND
-    ("ref_id" <= $10 OR $10 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL) AND
     ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" >= $12 OR $12 IS NULL) AND
-    ("order" <= $13 OR $13 IS NULL) AND
+    ("order" > $12 OR $12 IS NULL) AND
+    ("order" < $13 OR $13 IS NULL) AND
     ("is_primary" = ANY($14) OR $14 IS NULL)
 )
 ORDER BY "id"
@@ -13000,17 +12854,17 @@ SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" >= $2 OR $2 IS NULL) AND
-    ("id" <= $3 OR $3 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
     ("ref_type" = ANY($4) OR $4 IS NULL) AND
     ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" >= $6 OR $6 IS NULL) AND
-    ("ref_id" <= $7 OR $7 IS NULL) AND
+    ("ref_id" > $6 OR $6 IS NULL) AND
+    ("ref_id" < $7 OR $7 IS NULL) AND
     ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14
@@ -13536,26 +13390,6 @@ func (q *Queries) UpdateAnalyticInteraction(ctx context.Context, arg UpdateAnaly
 		&i.IpAddress,
 		&i.DateCreated,
 	)
-	return i, err
-}
-
-const updateAnalyticInteractionType = `-- name: UpdateAnalyticInteractionType :one
-UPDATE "analytic"."interaction_type"
-SET "description" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "description") END
-WHERE id = $3
-RETURNING id, description
-`
-
-type UpdateAnalyticInteractionTypeParams struct {
-	NullDescription bool        `json:"null_description"`
-	Description     pgtype.Text `json:"description"`
-	ID              string      `json:"id"`
-}
-
-func (q *Queries) UpdateAnalyticInteractionType(ctx context.Context, arg UpdateAnalyticInteractionTypeParams) (AnalyticInteractionType, error) {
-	row := q.db.QueryRow(ctx, updateAnalyticInteractionType, arg.NullDescription, arg.Description, arg.ID)
-	var i AnalyticInteractionType
-	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 

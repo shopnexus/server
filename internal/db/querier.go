@@ -20,7 +20,6 @@ type Querier interface {
 	CountAccountProfile(ctx context.Context, arg CountAccountProfileParams) (int64, error)
 	CountAccountVendor(ctx context.Context, arg CountAccountVendorParams) (int64, error)
 	CountAnalyticInteraction(ctx context.Context, arg CountAnalyticInteractionParams) (int64, error)
-	CountAnalyticInteractionType(ctx context.Context, id []string) (int64, error)
 	CountCatalogBrand(ctx context.Context, arg CountCatalogBrandParams) (int64, error)
 	CountCatalogCategory(ctx context.Context, arg CountCatalogCategoryParams) (int64, error)
 	CountCatalogComment(ctx context.Context, arg CountCatalogCommentParams) (int64, error)
@@ -54,7 +53,6 @@ type Querier interface {
 	CreateAccountProfile(ctx context.Context, arg CreateAccountProfileParams) (AccountProfile, error)
 	CreateAccountVendor(ctx context.Context, arg CreateAccountVendorParams) (AccountVendor, error)
 	CreateAnalyticInteraction(ctx context.Context, arg CreateAnalyticInteractionParams) (AnalyticInteraction, error)
-	CreateAnalyticInteractionType(ctx context.Context, arg CreateAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	CreateBatchAccountAddress(ctx context.Context, arg []CreateBatchAccountAddressParams) *CreateBatchAccountAddressBatchResults
 	CreateBatchAccountBase(ctx context.Context, arg []CreateBatchAccountBaseParams) *CreateBatchAccountBaseBatchResults
 	CreateBatchAccountCartItem(ctx context.Context, arg []CreateBatchAccountCartItemParams) *CreateBatchAccountCartItemBatchResults
@@ -64,7 +62,6 @@ type Querier interface {
 	CreateBatchAccountProfile(ctx context.Context, arg []CreateBatchAccountProfileParams) *CreateBatchAccountProfileBatchResults
 	CreateBatchAccountVendor(ctx context.Context, arg []CreateBatchAccountVendorParams) *CreateBatchAccountVendorBatchResults
 	CreateBatchAnalyticInteraction(ctx context.Context, arg []CreateBatchAnalyticInteractionParams) *CreateBatchAnalyticInteractionBatchResults
-	CreateBatchAnalyticInteractionType(ctx context.Context, arg []CreateBatchAnalyticInteractionTypeParams) *CreateBatchAnalyticInteractionTypeBatchResults
 	CreateBatchCatalogBrand(ctx context.Context, arg []CreateBatchCatalogBrandParams) *CreateBatchCatalogBrandBatchResults
 	CreateBatchCatalogCategory(ctx context.Context, arg []CreateBatchCatalogCategoryParams) *CreateBatchCatalogCategoryBatchResults
 	CreateBatchCatalogComment(ctx context.Context, arg []CreateBatchCatalogCommentParams) *CreateBatchCatalogCommentBatchResults
@@ -106,7 +103,6 @@ type Querier interface {
 	CreateCopyAccountProfile(ctx context.Context, arg []CreateCopyAccountProfileParams) (int64, error)
 	CreateCopyAccountVendor(ctx context.Context, arg []CreateCopyAccountVendorParams) (int64, error)
 	CreateCopyAnalyticInteraction(ctx context.Context, arg []CreateCopyAnalyticInteractionParams) (int64, error)
-	CreateCopyAnalyticInteractionType(ctx context.Context, arg []CreateCopyAnalyticInteractionTypeParams) (int64, error)
 	CreateCopyCatalogBrand(ctx context.Context, arg []CreateCopyCatalogBrandParams) (int64, error)
 	CreateCopyCatalogCategory(ctx context.Context, arg []CreateCopyCatalogCategoryParams) (int64, error)
 	CreateCopyCatalogComment(ctx context.Context, arg []CreateCopyCatalogCommentParams) (int64, error)
@@ -124,7 +120,6 @@ type Querier interface {
 	CreateCopyDefaultAccountProfile(ctx context.Context, arg []CreateCopyDefaultAccountProfileParams) (int64, error)
 	CreateCopyDefaultAccountVendor(ctx context.Context, id []int64) (int64, error)
 	CreateCopyDefaultAnalyticInteraction(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionParams) (int64, error)
-	CreateCopyDefaultAnalyticInteractionType(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionTypeParams) (int64, error)
 	CreateCopyDefaultCatalogBrand(ctx context.Context, arg []CreateCopyDefaultCatalogBrandParams) (int64, error)
 	CreateCopyDefaultCatalogCategory(ctx context.Context, arg []CreateCopyDefaultCatalogCategoryParams) (int64, error)
 	CreateCopyDefaultCatalogComment(ctx context.Context, arg []CreateCopyDefaultCatalogCommentParams) (int64, error)
@@ -174,7 +169,6 @@ type Querier interface {
 	CreateDefaultAccountProfile(ctx context.Context, arg CreateDefaultAccountProfileParams) (AccountProfile, error)
 	CreateDefaultAccountVendor(ctx context.Context, id int64) (AccountVendor, error)
 	CreateDefaultAnalyticInteraction(ctx context.Context, arg CreateDefaultAnalyticInteractionParams) (AnalyticInteraction, error)
-	CreateDefaultAnalyticInteractionType(ctx context.Context, arg CreateDefaultAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	CreateDefaultCatalogBrand(ctx context.Context, arg CreateDefaultCatalogBrandParams) (CatalogBrand, error)
 	CreateDefaultCatalogCategory(ctx context.Context, arg CreateDefaultCatalogCategoryParams) (CatalogCategory, error)
 	CreateDefaultCatalogComment(ctx context.Context, arg CreateDefaultCatalogCommentParams) (CatalogComment, error)
@@ -224,7 +218,6 @@ type Querier interface {
 	DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error
 	DeleteAccountVendor(ctx context.Context, arg DeleteAccountVendorParams) error
 	DeleteAnalyticInteraction(ctx context.Context, arg DeleteAnalyticInteractionParams) error
-	DeleteAnalyticInteractionType(ctx context.Context, id []string) error
 	DeleteBatchAccountAddress(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountAddressBatchResults
 	DeleteBatchAccountBase(ctx context.Context, arg []DeleteBatchAccountBaseParams) *DeleteBatchAccountBaseBatchResults
 	DeleteBatchAccountCartItem(ctx context.Context, arg []DeleteBatchAccountCartItemParams) *DeleteBatchAccountCartItemBatchResults
@@ -234,7 +227,6 @@ type Querier interface {
 	DeleteBatchAccountProfile(ctx context.Context, arg []DeleteBatchAccountProfileParams) *DeleteBatchAccountProfileBatchResults
 	DeleteBatchAccountVendor(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountVendorBatchResults
 	DeleteBatchAnalyticInteraction(ctx context.Context, id []pgtype.Int8) *DeleteBatchAnalyticInteractionBatchResults
-	DeleteBatchAnalyticInteractionType(ctx context.Context, id []pgtype.Text) *DeleteBatchAnalyticInteractionTypeBatchResults
 	DeleteBatchCatalogBrand(ctx context.Context, arg []DeleteBatchCatalogBrandParams) *DeleteBatchCatalogBrandBatchResults
 	DeleteBatchCatalogCategory(ctx context.Context, arg []DeleteBatchCatalogCategoryParams) *DeleteBatchCatalogCategoryBatchResults
 	DeleteBatchCatalogComment(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogCommentBatchResults
@@ -293,7 +285,6 @@ type Querier interface {
 	ExistsAccountProfile(ctx context.Context, arg ExistsAccountProfileParams) (bool, error)
 	ExistsAccountVendor(ctx context.Context, arg ExistsAccountVendorParams) (bool, error)
 	ExistsAnalyticInteraction(ctx context.Context, arg ExistsAnalyticInteractionParams) (bool, error)
-	ExistsAnalyticInteractionType(ctx context.Context, id []string) (bool, error)
 	ExistsCartItems(ctx context.Context, skuIds []int64) (bool, error)
 	ExistsCatalogBrand(ctx context.Context, arg ExistsCatalogBrandParams) (bool, error)
 	ExistsCatalogCategory(ctx context.Context, arg ExistsCatalogCategoryParams) (bool, error)
@@ -357,10 +348,6 @@ type Querier interface {
 	// Queries for table: analytic.interaction
 	// ========================================
 	GetAnalyticInteraction(ctx context.Context, id pgtype.Int8) (AnalyticInteraction, error)
-	// ========================================
-	// Queries for table: analytic.interaction_type
-	// ========================================
-	GetAnalyticInteractionType(ctx context.Context, id pgtype.Text) (AnalyticInteractionType, error)
 	GetAvailableProducts(ctx context.Context, arg []GetAvailableProductsParams) *GetAvailableProductsBatchResults
 	// ========================================
 	// Queries for table: catalog.brand
@@ -469,7 +456,6 @@ type Querier interface {
 	ListAccountVendor(ctx context.Context, arg ListAccountVendorParams) ([]AccountVendor, error)
 	ListActivePromotion(ctx context.Context, arg ListActivePromotionParams) ([]PromotionBase, error)
 	ListAnalyticInteraction(ctx context.Context, arg ListAnalyticInteractionParams) ([]AnalyticInteraction, error)
-	ListAnalyticInteractionType(ctx context.Context, arg ListAnalyticInteractionTypeParams) ([]AnalyticInteractionType, error)
 	ListCatalogBrand(ctx context.Context, arg ListCatalogBrandParams) ([]CatalogBrand, error)
 	ListCatalogCategory(ctx context.Context, arg ListCatalogCategoryParams) ([]CatalogCategory, error)
 	ListCatalogComment(ctx context.Context, arg ListCatalogCommentParams) ([]CatalogComment, error)
@@ -497,7 +483,7 @@ type Querier interface {
 	ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error)
 	ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error)
 	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
-	ListStaleSyncSearch(ctx context.Context, limit int32) ([]ListStaleSyncSearchRow, error)
+	ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSearchParams) ([]ListStaleSyncSearchRow, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
@@ -510,7 +496,6 @@ type Querier interface {
 	UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (AccountProfile, error)
 	UpdateAccountVendor(ctx context.Context, arg UpdateAccountVendorParams) (AccountVendor, error)
 	UpdateAnalyticInteraction(ctx context.Context, arg UpdateAnalyticInteractionParams) (AnalyticInteraction, error)
-	UpdateAnalyticInteractionType(ctx context.Context, arg UpdateAnalyticInteractionTypeParams) (AnalyticInteractionType, error)
 	UpdateBatchAccountAddress(ctx context.Context, arg []UpdateBatchAccountAddressParams) *UpdateBatchAccountAddressBatchResults
 	UpdateBatchAccountBase(ctx context.Context, arg []UpdateBatchAccountBaseParams) *UpdateBatchAccountBaseBatchResults
 	UpdateBatchAccountCartItem(ctx context.Context, arg []UpdateBatchAccountCartItemParams) *UpdateBatchAccountCartItemBatchResults
@@ -520,7 +505,6 @@ type Querier interface {
 	UpdateBatchAccountProfile(ctx context.Context, arg []UpdateBatchAccountProfileParams) *UpdateBatchAccountProfileBatchResults
 	UpdateBatchAccountVendor(ctx context.Context, arg []UpdateBatchAccountVendorParams) *UpdateBatchAccountVendorBatchResults
 	UpdateBatchAnalyticInteraction(ctx context.Context, arg []UpdateBatchAnalyticInteractionParams) *UpdateBatchAnalyticInteractionBatchResults
-	UpdateBatchAnalyticInteractionType(ctx context.Context, arg []UpdateBatchAnalyticInteractionTypeParams) *UpdateBatchAnalyticInteractionTypeBatchResults
 	UpdateBatchCatalogBrand(ctx context.Context, arg []UpdateBatchCatalogBrandParams) *UpdateBatchCatalogBrandBatchResults
 	UpdateBatchCatalogCategory(ctx context.Context, arg []UpdateBatchCatalogCategoryParams) *UpdateBatchCatalogCategoryBatchResults
 	UpdateBatchCatalogComment(ctx context.Context, arg []UpdateBatchCatalogCommentParams) *UpdateBatchCatalogCommentBatchResults

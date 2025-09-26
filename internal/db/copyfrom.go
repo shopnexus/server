@@ -353,39 +353,6 @@ func (q *Queries) CreateCopyAnalyticInteraction(ctx context.Context, arg []Creat
 	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created"}, &iteratorForCreateCopyAnalyticInteraction{rows: arg})
 }
 
-// iteratorForCreateCopyAnalyticInteractionType implements pgx.CopyFromSource.
-type iteratorForCreateCopyAnalyticInteractionType struct {
-	rows                 []CreateCopyAnalyticInteractionTypeParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyAnalyticInteractionType) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyAnalyticInteractionType) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].ID,
-		r.rows[0].Description,
-	}, nil
-}
-
-func (r iteratorForCreateCopyAnalyticInteractionType) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyAnalyticInteractionType(ctx context.Context, arg []CreateCopyAnalyticInteractionTypeParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction_type"}, []string{"id", "description"}, &iteratorForCreateCopyAnalyticInteractionType{rows: arg})
-}
-
 // iteratorForCreateCopyCatalogBrand implements pgx.CopyFromSource.
 type iteratorForCreateCopyCatalogBrand struct {
 	rows                 []CreateCopyCatalogBrandParams
@@ -996,39 +963,6 @@ func (r iteratorForCreateCopyDefaultAnalyticInteraction) Err() error {
 
 func (q *Queries) CreateCopyDefaultAnalyticInteraction(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address"}, &iteratorForCreateCopyDefaultAnalyticInteraction{rows: arg})
-}
-
-// iteratorForCreateCopyDefaultAnalyticInteractionType implements pgx.CopyFromSource.
-type iteratorForCreateCopyDefaultAnalyticInteractionType struct {
-	rows                 []CreateCopyDefaultAnalyticInteractionTypeParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyDefaultAnalyticInteractionType) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyDefaultAnalyticInteractionType) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].ID,
-		r.rows[0].Description,
-	}, nil
-}
-
-func (r iteratorForCreateCopyDefaultAnalyticInteractionType) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyDefaultAnalyticInteractionType(ctx context.Context, arg []CreateCopyDefaultAnalyticInteractionTypeParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction_type"}, []string{"id", "description"}, &iteratorForCreateCopyDefaultAnalyticInteractionType{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogBrand implements pgx.CopyFromSource.

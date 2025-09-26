@@ -1176,11 +1176,6 @@ type AnalyticInteraction struct {
 	DateCreated pgtype.Timestamptz         `json:"date_created"`
 }
 
-type AnalyticInteractionType struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
-}
-
 type CatalogBrand struct {
 	ID          int64  `json:"id"`
 	Code        string `json:"code"`

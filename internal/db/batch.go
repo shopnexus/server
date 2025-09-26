@@ -665,59 +665,6 @@ func (b *CreateBatchAnalyticInteractionBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchAnalyticInteractionType = `-- name: CreateBatchAnalyticInteractionType :batchone
-INSERT INTO "analytic"."interaction_type" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
-`
-
-type CreateBatchAnalyticInteractionTypeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchAnalyticInteractionTypeParams struct {
-	ID          string      `json:"id"`
-	Description pgtype.Text `json:"description"`
-}
-
-func (q *Queries) CreateBatchAnalyticInteractionType(ctx context.Context, arg []CreateBatchAnalyticInteractionTypeParams) *CreateBatchAnalyticInteractionTypeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Description,
-		}
-		batch.Queue(createBatchAnalyticInteractionType, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchAnalyticInteractionTypeBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchAnalyticInteractionTypeBatchResults) QueryRow(f func(int, AnalyticInteractionType, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AnalyticInteractionType
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.Description)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchAnalyticInteractionTypeBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchCatalogBrand = `-- name: CreateBatchCatalogBrand :batchone
 INSERT INTO "catalog"."brand" ("code", "name", "description")
 VALUES ($1, $2, $3)
@@ -2780,50 +2727,6 @@ func (b *DeleteBatchAnalyticInteractionBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const deleteBatchAnalyticInteractionType = `-- name: DeleteBatchAnalyticInteractionType :batchexec
-DELETE FROM "analytic"."interaction_type"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchAnalyticInteractionTypeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchAnalyticInteractionType(ctx context.Context, id []pgtype.Text) *DeleteBatchAnalyticInteractionTypeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchAnalyticInteractionType, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchAnalyticInteractionTypeBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchAnalyticInteractionTypeBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchAnalyticInteractionTypeBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const deleteBatchCatalogBrand = `-- name: DeleteBatchCatalogBrand :batchexec
 DELETE FROM "catalog"."brand"
 WHERE ("id" = $1) OR ("code" = $2)
@@ -4729,59 +4632,6 @@ func (b *UpdateBatchAnalyticInteractionBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchAnalyticInteractionBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const updateBatchAnalyticInteractionType = `-- name: UpdateBatchAnalyticInteractionType :batchexec
-UPDATE "analytic"."interaction_type"
-SET "description" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "description") END
-WHERE id = $3
-`
-
-type UpdateBatchAnalyticInteractionTypeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchAnalyticInteractionTypeParams struct {
-	NullDescription bool        `json:"null_description"`
-	Description     pgtype.Text `json:"description"`
-	ID              string      `json:"id"`
-}
-
-func (q *Queries) UpdateBatchAnalyticInteractionType(ctx context.Context, arg []UpdateBatchAnalyticInteractionTypeParams) *UpdateBatchAnalyticInteractionTypeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.NullDescription,
-			a.Description,
-			a.ID,
-		}
-		batch.Queue(updateBatchAnalyticInteractionType, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchAnalyticInteractionTypeBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchAnalyticInteractionTypeBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchAnalyticInteractionTypeBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

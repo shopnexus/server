@@ -80,9 +80,7 @@ spu_data AS (
         fs.date_deleted,
         COALESCE(vp.name, '') as vendor_name,
         c.name as category_name,
-        b.name as brand_name,
-        -- Get the minimum price from all SKUs for this SPU
-        (SELECT MIN(sku.price) FROM catalog.product_sku sku WHERE sku.spu_id = fs.id AND sku.date_deleted IS NULL) as price
+        b.name as brand_name
     FROM filtered_spu fs
     JOIN account.vendor v ON fs.account_id = v.id
     LEFT JOIN account.profile vp ON v.id = vp.id
@@ -100,8 +98,8 @@ rating_data AS (
     GROUP BY ref_id
 )
 SELECT 
-    spu.id::text as id,
-    COALESCE(spu.vendor_name, '') as vendor,
+    spu.id as id,
+    spu.vendor_name as vendor,
     spu.category_name as category,
     spu.brand_name as brand,
     spu.name,
@@ -111,7 +109,6 @@ SELECT
     spu.date_created,
     spu.date_updated,
     spu.date_deleted,
-    COALESCE(spu.price, 0) as price,
     COALESCE(r.rating_total, 0) as rating_total,
     COALESCE(r.rating_score, 0) as rating_score
 FROM spu_data spu
