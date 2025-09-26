@@ -44,6 +44,16 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		skuIDs = append(skuIDs, sku.ID)
 	}
 
+	// Get sold count from inventory
+	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
+		RefType: []db.InventoryStockType{db.InventoryStockTypeProductSku},
+		RefID:   skuIDs,
+	})
+	if err != nil {
+		return zero, err
+	}
+	stockMap := slice.NewMap(stocks, func(s db.InventoryStock) int64 { return s.RefID })
+
 	// Get attributes for each SKU
 	attributes, err := b.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
 		SkuID: skuIDs,
@@ -65,6 +75,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 			Price:         sku.Price,
 			OriginalPrice: sku.Price,
 			Attributes:    attrMap[sku.ID],
+			Sold:          stockMap[sku.ID].Sold,
 		})
 	}
 
@@ -111,19 +122,6 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		return zero, err
 	}
 
-	// Get sold count from inventory
-	inventories, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
-		RefType: []db.InventoryStockType{db.InventoryStockTypeProductSku},
-		RefID:   skuIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
-	sold := 0
-	for _, inv := range inventories {
-		sold += int(inv.Sold)
-	}
-
 	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, skus, map[int64]*db.CatalogProductSpu{
 		spu.ID: &spu,
 	})
@@ -131,7 +129,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		return zero, err
 	}
 	promoSet := make(map[int64]struct{})
-	promotions := []catalogmodel.ProductCardPromo{}
+	var promotions []catalogmodel.ProductCardPromo
 	for _, price := range priceMap {
 		for _, promo := range price.Promotions {
 			if _, exists := promoSet[promo.ID]; exists {
@@ -146,19 +144,27 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		}
 	}
 
+	brand, err := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
+		ID: pgutil.Int64ToPgInt8(spu.BrandID),
+	})
+	if err != nil {
+		return zero, err
+	}
+
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Resources:   slice.NonNil(resourceMap[spu.ID]),
+		Brand:       brand.Name,
+		IsActive:    spu.IsActive,
 		Category:    category.Name,
 		Rating: catalogmodel.ProductDetailRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,
 		},
-		Sold:           sold,
-		Promotions:     promotions,
+		Resources:      slice.NonNil(resourceMap[spu.ID]),
+		Promotions:     slice.NonNil(promotions),
 		Skus:           skusDetail,
 		Specifications: nil,
 	}, nil
