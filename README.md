@@ -206,3 +206,10 @@ if err = s.pubsub.Publish("order.created", OrderCreatedParams{
     return zero, err
 }
 ```
+
+### 25-9-2025 First demo of recommendation engine with milvus vector search
+**No more elasticsearch:**
+- Elasticsearch is great, but vector databases are the future.
+- After certain days with elasticsearch, found it is not suitable for vector search.
+- As I remember, I was using model MGTE (alibaba) storing 200rows takes 8mb of storage 💀
+![img.png](images/img5.png)
