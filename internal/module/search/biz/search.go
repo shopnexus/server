@@ -22,6 +22,9 @@ import (
 
 const InteractionBatchSize = 10
 
+// const SearchServer = "https://b0373f0064cb.ngrok-free.app"
+const SearchServer = "http://localhost:8000"
+
 type SearchBiz struct {
 	httpClient *http.Client
 	storage    *pgutil.Storage
@@ -71,7 +74,7 @@ func (b *SearchBiz) Search(ctx context.Context, params SearchParams) (sharedmode
 		return zero, err
 	}
 
-	response, err := b.httpClient.Post("http://localhost:8000/search", "application/json", bytes.NewReader(jsonBytes))
+	response, err := b.httpClient.Post(SearchServer+"/search", "application/json", bytes.NewReader(jsonBytes))
 	if err != nil {
 		return zero, err
 	}
@@ -102,7 +105,7 @@ type GetRecommendationsParams struct {
 }
 
 func (b *SearchBiz) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
-	response, err := b.httpClient.Get(fmt.Sprintf("http://localhost:8000/user/%d/recommendations?limit=%d", params.Account.ID, params.Limit))
+	response, err := b.httpClient.Get(fmt.Sprintf(SearchServer+"/user/%d/recommendations?limit=%d", params.Account.ID, params.Limit))
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +133,7 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 		return err
 	}
 
-	response, err := b.httpClient.Post("http://localhost:8000/analytics/process", "application/json", bytes.NewReader(body))
+	response, err := b.httpClient.Post(SearchServer+"/analytics/process", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -155,7 +158,7 @@ func (b *SearchBiz) UpdateProducts(ctx context.Context, products []catalogmodel.
 		return err
 	}
 
-	response, err := b.httpClient.Post("http://localhost:8000/products", "application/json", bytes.NewReader(body))
+	response, err := b.httpClient.Post(SearchServer+"/products", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

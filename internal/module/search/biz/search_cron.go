@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -27,13 +28,12 @@ func (b *SearchBiz) InitCron() error {
 
 // SyncProductData fetches all product data and sends it to search engine server
 func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) error {
-	log.Println("🔄 Starting product data sync to search engine server...")
-
 	// ListStaleSyncSearch use SELECT FOR UPDATE SKIP LOCKED, so we need a transaction
 	txStorage, err := b.storage.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create transaction: %w", err)
 	}
+	defer txStorage.Rollback(ctx)
 
 	if metadataOnly {
 		metadataStales, err := txStorage.ListStaleSyncSearch(ctx, db.ListStaleSyncSearchParams{
@@ -72,6 +72,13 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 }
 
 func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.TxStorage, stales []db.ListStaleSyncSearchRow, metadataOnly bool) error {
+	if len(stales) == 0 {
+		return nil
+	}
+
+	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
+
+	// Fetch product details
 	products, err := b.storage.ListProductDetail(ctx, slice.Map(stales, func(s db.ListStaleSyncSearchRow) int64 { return s.RefID }))
 	if err != nil {
 		return fmt.Errorf("failed to list product details: %w", err)
@@ -90,11 +97,10 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 				Score: p.RatingScore,
 				Total: p.RatingTotal,
 			},
-			//Sold:           p.Sold,
-			//Resources:      ,
-			//Promotions:     nil,
-			Skus:           nil,
-			Specifications: nil,
+			Resources:      make([]sharedmodel.Resource, 0),
+			Promotions:     make([]catalogmodel.ProductCardPromo, 0),
+			Skus:           make([]catalogmodel.ProductDetailSku, 0),
+			Specifications: make(map[string]string),
 		}
 	}
 
