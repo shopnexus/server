@@ -17,4 +17,4 @@ WHERE ref_type = sqlc.arg('ref_type')
 -- name: UpdateSerialStatus :exec
 UPDATE inventory.sku_serial
 SET status = sqlc.arg('status')
-WHERE id = ANY(sqlc.slice('id'));
+WHERE id = ANY(sqlc.slice('id')) OR serial_number = ANY(sqlc.slice('serial_number'));

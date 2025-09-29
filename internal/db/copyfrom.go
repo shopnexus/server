@@ -482,6 +482,7 @@ func (r *iteratorForCreateCopyCatalogProductSku) Next() bool {
 func (r iteratorForCreateCopyCatalogProductSku) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].SpuID,
+		r.rows[0].IsPrimary,
 		r.rows[0].Price,
 		r.rows[0].CanCombine,
 		r.rows[0].DateCreated,
@@ -494,7 +495,7 @@ func (r iteratorForCreateCopyCatalogProductSku) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogProductSku(ctx context.Context, arg []CreateCopyCatalogProductSkuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "date_created", "date_deleted"}, &iteratorForCreateCopyCatalogProductSku{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted"}, &iteratorForCreateCopyCatalogProductSku{rows: arg})
 }
 
 // iteratorForCreateCopyCatalogProductSkuAttribute implements pgx.CopyFromSource.
@@ -1090,6 +1091,7 @@ func (r *iteratorForCreateCopyDefaultCatalogProductSku) Next() bool {
 func (r iteratorForCreateCopyDefaultCatalogProductSku) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].SpuID,
+		r.rows[0].IsPrimary,
 		r.rows[0].Price,
 		r.rows[0].CanCombine,
 		r.rows[0].DateDeleted,
@@ -1101,7 +1103,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSku) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogProductSku(ctx context.Context, arg []CreateCopyDefaultCatalogProductSkuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSku{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "is_primary", "price", "can_combine", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSku{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogProductSkuAttribute implements pgx.CopyFromSource.
@@ -1266,7 +1268,6 @@ func (r iteratorForCreateCopyDefaultInventorySkuSerial) Values() ([]interface{},
 	return []interface{}{
 		r.rows[0].SerialNumber,
 		r.rows[0].SkuID,
-		r.rows[0].Status,
 	}, nil
 }
 
@@ -1275,7 +1276,7 @@ func (r iteratorForCreateCopyDefaultInventorySkuSerial) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultInventorySkuSerial(ctx context.Context, arg []CreateCopyDefaultInventorySkuSerialParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"inventory", "sku_serial"}, []string{"serial_number", "sku_id", "status"}, &iteratorForCreateCopyDefaultInventorySkuSerial{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"inventory", "sku_serial"}, []string{"serial_number", "sku_id"}, &iteratorForCreateCopyDefaultInventorySkuSerial{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultInventoryStock implements pgx.CopyFromSource.

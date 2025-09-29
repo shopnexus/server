@@ -12,15 +12,16 @@ import (
 const updateSerialStatus = `-- name: UpdateSerialStatus :exec
 UPDATE inventory.sku_serial
 SET status = $1
-WHERE id = ANY($2)
+WHERE id = ANY($2) OR serial_number = ANY($3)
 `
 
 type UpdateSerialStatusParams struct {
-	Status InventoryProductStatus `json:"status"`
-	ID     []int64                `json:"id"`
+	Status       InventoryProductStatus `json:"status"`
+	ID           []int64                `json:"id"`
+	SerialNumber []string               `json:"serial_number"`
 }
 
 func (q *Queries) UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error {
-	_, err := q.db.Exec(ctx, updateSerialStatus, arg.Status, arg.ID)
+	_, err := q.db.Exec(ctx, updateSerialStatus, arg.Status, arg.ID, arg.SerialNumber)
 	return err
 }

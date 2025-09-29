@@ -864,9 +864,9 @@ func (b *CreateBatchCatalogCommentBatchResults) Close() error {
 }
 
 const createBatchCatalogProductSku = `-- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, spu_id, price, can_combine, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 `
 
 type CreateBatchCatalogProductSkuBatchResults struct {
@@ -877,6 +877,7 @@ type CreateBatchCatalogProductSkuBatchResults struct {
 
 type CreateBatchCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
@@ -888,6 +889,7 @@ func (q *Queries) CreateBatchCatalogProductSku(ctx context.Context, arg []Create
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
+			a.IsPrimary,
 			a.Price,
 			a.CanCombine,
 			a.DateCreated,
@@ -913,6 +915,7 @@ func (b *CreateBatchCatalogProductSkuBatchResults) QueryRow(f func(int, CatalogP
 		err := row.Scan(
 			&i.ID,
 			&i.SpuID,
+			&i.IsPrimary,
 			&i.Price,
 			&i.CanCombine,
 			&i.DateCreated,
@@ -1261,11 +1264,11 @@ type CreateBatchInventoryStockBatchResults struct {
 }
 
 type CreateBatchInventoryStockParams struct {
-	RefType      InventoryStockType `json:"ref_type"`
-	RefID        int64              `json:"ref_id"`
-	CurrentStock int64              `json:"current_stock"`
-	Sold         int64              `json:"sold"`
-	DateCreated  pgtype.Timestamptz `json:"date_created"`
+	RefType      InventoryStockRefType `json:"ref_type"`
+	RefID        int64                 `json:"ref_id"`
+	CurrentStock int64                 `json:"current_stock"`
+	Sold         int64                 `json:"sold"`
+	DateCreated  pgtype.Timestamptz    `json:"date_created"`
 }
 
 func (q *Queries) CreateBatchInventoryStock(ctx context.Context, arg []CreateBatchInventoryStockParams) *CreateBatchInventoryStockBatchResults {
@@ -3173,9 +3176,9 @@ type DeleteBatchInventoryStockBatchResults struct {
 }
 
 type DeleteBatchInventoryStockParams struct {
-	ID      pgtype.Int8            `json:"id"`
-	RefID   pgtype.Int8            `json:"ref_id"`
-	RefType NullInventoryStockType `json:"ref_type"`
+	ID      pgtype.Int8               `json:"id"`
+	RefID   pgtype.Int8               `json:"ref_id"`
+	RefType NullInventoryStockRefType `json:"ref_type"`
 }
 
 func (q *Queries) DeleteBatchInventoryStock(ctx context.Context, arg []DeleteBatchInventoryStockParams) *DeleteBatchInventoryStockBatchResults {
@@ -3946,9 +3949,9 @@ type ReserveInventoryBatchResults struct {
 }
 
 type ReserveInventoryParams struct {
-	Amount  int64              `json:"amount"`
-	RefType InventoryStockType `json:"ref_type"`
-	RefID   int64              `json:"ref_id"`
+	Amount  int64                 `json:"amount"`
+	RefType InventoryStockRefType `json:"ref_type"`
+	RefID   int64                 `json:"ref_id"`
 }
 
 func (q *Queries) ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults {
@@ -4830,11 +4833,12 @@ func (b *UpdateBatchCatalogCommentBatchResults) Close() error {
 const updateBatchCatalogProductSku = `-- name: UpdateBatchCatalogProductSku :batchexec
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "price" = COALESCE($2, "price"),
-    "can_combine" = COALESCE($3, "can_combine"),
-    "date_created" = COALESCE($4, "date_created"),
-    "date_deleted" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "date_deleted") END
-WHERE id = $7
+    "is_primary" = COALESCE($2, "is_primary"),
+    "price" = COALESCE($3, "price"),
+    "can_combine" = COALESCE($4, "can_combine"),
+    "date_created" = COALESCE($5, "date_created"),
+    "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
+WHERE id = $8
 `
 
 type UpdateBatchCatalogProductSkuBatchResults struct {
@@ -4845,6 +4849,7 @@ type UpdateBatchCatalogProductSkuBatchResults struct {
 
 type UpdateBatchCatalogProductSkuParams struct {
 	SpuID           pgtype.Int8        `json:"spu_id"`
+	IsPrimary       pgtype.Bool        `json:"is_primary"`
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
@@ -4858,6 +4863,7 @@ func (q *Queries) UpdateBatchCatalogProductSku(ctx context.Context, arg []Update
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
+			a.IsPrimary,
 			a.Price,
 			a.CanCombine,
 			a.DateCreated,
@@ -5223,12 +5229,12 @@ type UpdateBatchInventoryStockBatchResults struct {
 }
 
 type UpdateBatchInventoryStockParams struct {
-	RefType      NullInventoryStockType `json:"ref_type"`
-	RefID        pgtype.Int8            `json:"ref_id"`
-	CurrentStock pgtype.Int8            `json:"current_stock"`
-	Sold         pgtype.Int8            `json:"sold"`
-	DateCreated  pgtype.Timestamptz     `json:"date_created"`
-	ID           int64                  `json:"id"`
+	RefType      NullInventoryStockRefType `json:"ref_type"`
+	RefID        pgtype.Int8               `json:"ref_id"`
+	CurrentStock pgtype.Int8               `json:"current_stock"`
+	Sold         pgtype.Int8               `json:"sold"`
+	DateCreated  pgtype.Timestamptz        `json:"date_created"`
+	ID           int64                     `json:"id"`
 }
 
 func (q *Queries) UpdateBatchInventoryStock(ctx context.Context, arg []UpdateBatchInventoryStockParams) *UpdateBatchInventoryStockBatchResults {

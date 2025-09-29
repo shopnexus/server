@@ -777,16 +777,17 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" > $15 OR $15 IS NULL) AND
-    ("date_deleted" < $16 OR $16 IS NULL)
+    ("is_primary" = ANY($7) OR $7 IS NULL) AND
+    ("price" = ANY($8) OR $8 IS NULL) AND
+    ("price" > $9 OR $9 IS NULL) AND
+    ("price" < $10 OR $10 IS NULL) AND
+    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
+    ("date_deleted" > $16 OR $16 IS NULL) AND
+    ("date_deleted" < $17 OR $17 IS NULL)
 )
 `
 
@@ -797,6 +798,7 @@ type CountCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
+	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -817,6 +819,7 @@ func (q *Queries) CountCatalogProductSku(ctx context.Context, arg CountCatalogPr
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
+		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -1139,22 +1142,22 @@ WHERE (
 `
 
 type CountInventoryStockParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	RefType          []InventoryStockType `json:"ref_type"`
-	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
-	CurrentStock     []int64              `json:"current_stock"`
-	CurrentStockFrom pgtype.Int8          `json:"current_stock_from"`
-	CurrentStockTo   pgtype.Int8          `json:"current_stock_to"`
-	Sold             []int64              `json:"sold"`
-	SoldFrom         pgtype.Int8          `json:"sold_from"`
-	SoldTo           pgtype.Int8          `json:"sold_to"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID               []int64                 `json:"id"`
+	IDFrom           pgtype.Int8             `json:"id_from"`
+	IDTo             pgtype.Int8             `json:"id_to"`
+	RefType          []InventoryStockRefType `json:"ref_type"`
+	RefID            []int64                 `json:"ref_id"`
+	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
+	CurrentStock     []int64                 `json:"current_stock"`
+	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
+	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
+	Sold             []int64                 `json:"sold"`
+	SoldFrom         pgtype.Int8             `json:"sold_from"`
+	SoldTo           pgtype.Int8             `json:"sold_to"`
+	DateCreated      []pgtype.Timestamptz    `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz      `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz      `json:"date_created_to"`
 }
 
 func (q *Queries) CountInventoryStock(ctx context.Context, arg CountInventoryStockParams) (int64, error) {
@@ -2523,13 +2526,14 @@ func (q *Queries) CreateCatalogComment(ctx context.Context, arg CreateCatalogCom
 }
 
 const createCatalogProductSku = `-- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, spu_id, price, can_combine, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 `
 
 type CreateCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
@@ -2539,6 +2543,7 @@ type CreateCatalogProductSkuParams struct {
 func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, createCatalogProductSku,
 		arg.SpuID,
+		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
 		arg.DateCreated,
@@ -2548,6 +2553,7 @@ func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalog
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
+		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
 		&i.DateCreated,
@@ -2796,6 +2802,7 @@ type CreateCopyCatalogCommentParams struct {
 
 type CreateCopyCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
@@ -2924,6 +2931,7 @@ type CreateCopyDefaultCatalogCommentParams struct {
 
 type CreateCopyDefaultCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
@@ -2958,14 +2966,13 @@ type CreateCopyDefaultCatalogTagParams struct {
 }
 
 type CreateCopyDefaultInventorySkuSerialParams struct {
-	SerialNumber string                 `json:"serial_number"`
-	SkuID        int64                  `json:"sku_id"`
-	Status       InventoryProductStatus `json:"status"`
+	SerialNumber string `json:"serial_number"`
+	SkuID        int64  `json:"sku_id"`
 }
 
 type CreateCopyDefaultInventoryStockParams struct {
-	RefType InventoryStockType `json:"ref_type"`
-	RefID   int64              `json:"ref_id"`
+	RefType InventoryStockRefType `json:"ref_type"`
+	RefID   int64                 `json:"ref_id"`
 }
 
 type CreateCopyDefaultInventoryStockHistoryParams struct {
@@ -3092,11 +3099,11 @@ type CreateCopyInventorySkuSerialParams struct {
 }
 
 type CreateCopyInventoryStockParams struct {
-	RefType      InventoryStockType `json:"ref_type"`
-	RefID        int64              `json:"ref_id"`
-	CurrentStock int64              `json:"current_stock"`
-	Sold         int64              `json:"sold"`
-	DateCreated  pgtype.Timestamptz `json:"date_created"`
+	RefType      InventoryStockRefType `json:"ref_type"`
+	RefID        int64                 `json:"ref_id"`
+	CurrentStock int64                 `json:"current_stock"`
+	Sold         int64                 `json:"sold"`
+	DateCreated  pgtype.Timestamptz    `json:"date_created"`
 }
 
 type CreateCopyInventoryStockHistoryParams struct {
@@ -3628,13 +3635,14 @@ func (q *Queries) CreateDefaultCatalogComment(ctx context.Context, arg CreateDef
 }
 
 const createDefaultCatalogProductSku = `-- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_deleted")
-VALUES ($1, $2, $3, $4)
-RETURNING id, spu_id, price, can_combine, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_deleted")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 `
 
 type CreateDefaultCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
@@ -3643,6 +3651,7 @@ type CreateDefaultCatalogProductSkuParams struct {
 func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg CreateDefaultCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, createDefaultCatalogProductSku,
 		arg.SpuID,
+		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
 		arg.DateDeleted,
@@ -3651,6 +3660,7 @@ func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg Create
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
+		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
 		&i.DateCreated,
@@ -3770,19 +3780,18 @@ func (q *Queries) CreateDefaultCatalogTag(ctx context.Context, arg CreateDefault
 }
 
 const createDefaultInventorySkuSerial = `-- name: CreateDefaultInventorySkuSerial :one
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status")
-VALUES ($1, $2, $3)
+INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id")
+VALUES ($1, $2)
 RETURNING id, serial_number, sku_id, status, date_created
 `
 
 type CreateDefaultInventorySkuSerialParams struct {
-	SerialNumber string                 `json:"serial_number"`
-	SkuID        int64                  `json:"sku_id"`
-	Status       InventoryProductStatus `json:"status"`
+	SerialNumber string `json:"serial_number"`
+	SkuID        int64  `json:"sku_id"`
 }
 
 func (q *Queries) CreateDefaultInventorySkuSerial(ctx context.Context, arg CreateDefaultInventorySkuSerialParams) (InventorySkuSerial, error) {
-	row := q.db.QueryRow(ctx, createDefaultInventorySkuSerial, arg.SerialNumber, arg.SkuID, arg.Status)
+	row := q.db.QueryRow(ctx, createDefaultInventorySkuSerial, arg.SerialNumber, arg.SkuID)
 	var i InventorySkuSerial
 	err := row.Scan(
 		&i.ID,
@@ -3801,8 +3810,8 @@ RETURNING id, ref_type, ref_id, current_stock, sold, date_created
 `
 
 type CreateDefaultInventoryStockParams struct {
-	RefType InventoryStockType `json:"ref_type"`
-	RefID   int64              `json:"ref_id"`
+	RefType InventoryStockRefType `json:"ref_type"`
+	RefID   int64                 `json:"ref_id"`
 }
 
 func (q *Queries) CreateDefaultInventoryStock(ctx context.Context, arg CreateDefaultInventoryStockParams) (InventoryStock, error) {
@@ -4337,11 +4346,11 @@ RETURNING id, ref_type, ref_id, current_stock, sold, date_created
 `
 
 type CreateInventoryStockParams struct {
-	RefType      InventoryStockType `json:"ref_type"`
-	RefID        int64              `json:"ref_id"`
-	CurrentStock int64              `json:"current_stock"`
-	Sold         int64              `json:"sold"`
-	DateCreated  pgtype.Timestamptz `json:"date_created"`
+	RefType      InventoryStockRefType `json:"ref_type"`
+	RefID        int64                 `json:"ref_id"`
+	CurrentStock int64                 `json:"current_stock"`
+	Sold         int64                 `json:"sold"`
+	DateCreated  pgtype.Timestamptz    `json:"date_created"`
 }
 
 func (q *Queries) CreateInventoryStock(ctx context.Context, arg CreateInventoryStockParams) (InventoryStock, error) {
@@ -5625,16 +5634,17 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" > $15 OR $15 IS NULL) AND
-    ("date_deleted" < $16 OR $16 IS NULL)
+    ("is_primary" = ANY($7) OR $7 IS NULL) AND
+    ("price" = ANY($8) OR $8 IS NULL) AND
+    ("price" > $9 OR $9 IS NULL) AND
+    ("price" < $10 OR $10 IS NULL) AND
+    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
+    ("date_deleted" > $16 OR $16 IS NULL) AND
+    ("date_deleted" < $17 OR $17 IS NULL)
 )
 `
 
@@ -5645,6 +5655,7 @@ type DeleteCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
+	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -5665,6 +5676,7 @@ func (q *Queries) DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalog
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
+		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -5969,22 +5981,22 @@ WHERE (
 `
 
 type DeleteInventoryStockParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	RefType          []InventoryStockType `json:"ref_type"`
-	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
-	CurrentStock     []int64              `json:"current_stock"`
-	CurrentStockFrom pgtype.Int8          `json:"current_stock_from"`
-	CurrentStockTo   pgtype.Int8          `json:"current_stock_to"`
-	Sold             []int64              `json:"sold"`
-	SoldFrom         pgtype.Int8          `json:"sold_from"`
-	SoldTo           pgtype.Int8          `json:"sold_to"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID               []int64                 `json:"id"`
+	IDFrom           pgtype.Int8             `json:"id_from"`
+	IDTo             pgtype.Int8             `json:"id_to"`
+	RefType          []InventoryStockRefType `json:"ref_type"`
+	RefID            []int64                 `json:"ref_id"`
+	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
+	CurrentStock     []int64                 `json:"current_stock"`
+	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
+	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
+	Sold             []int64                 `json:"sold"`
+	SoldFrom         pgtype.Int8             `json:"sold_from"`
+	SoldTo           pgtype.Int8             `json:"sold_to"`
+	DateCreated      []pgtype.Timestamptz    `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz      `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz      `json:"date_created_to"`
 }
 
 func (q *Queries) DeleteInventoryStock(ctx context.Context, arg DeleteInventoryStockParams) error {
@@ -7648,16 +7660,17 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" > $15 OR $15 IS NULL) AND
-    ("date_deleted" < $16 OR $16 IS NULL)
+    ("is_primary" = ANY($7) OR $7 IS NULL) AND
+    ("price" = ANY($8) OR $8 IS NULL) AND
+    ("price" > $9 OR $9 IS NULL) AND
+    ("price" < $10 OR $10 IS NULL) AND
+    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
+    ("date_deleted" > $16 OR $16 IS NULL) AND
+    ("date_deleted" < $17 OR $17 IS NULL)
 )
 ) as exists
 `
@@ -7669,6 +7682,7 @@ type ExistsCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
+	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -7689,6 +7703,7 @@ func (q *Queries) ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalog
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
+		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -8023,22 +8038,22 @@ WHERE (
 `
 
 type ExistsInventoryStockParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	RefType          []InventoryStockType `json:"ref_type"`
-	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
-	CurrentStock     []int64              `json:"current_stock"`
-	CurrentStockFrom pgtype.Int8          `json:"current_stock_from"`
-	CurrentStockTo   pgtype.Int8          `json:"current_stock_to"`
-	Sold             []int64              `json:"sold"`
-	SoldFrom         pgtype.Int8          `json:"sold_from"`
-	SoldTo           pgtype.Int8          `json:"sold_to"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID               []int64                 `json:"id"`
+	IDFrom           pgtype.Int8             `json:"id_from"`
+	IDTo             pgtype.Int8             `json:"id_to"`
+	RefType          []InventoryStockRefType `json:"ref_type"`
+	RefID            []int64                 `json:"ref_id"`
+	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
+	CurrentStock     []int64                 `json:"current_stock"`
+	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
+	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
+	Sold             []int64                 `json:"sold"`
+	SoldFrom         pgtype.Int8             `json:"sold_from"`
+	SoldTo           pgtype.Int8             `json:"sold_to"`
+	DateCreated      []pgtype.Timestamptz    `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz      `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz      `json:"date_created_to"`
 }
 
 func (q *Queries) ExistsInventoryStock(ctx context.Context, arg ExistsInventoryStockParams) (bool, error) {
@@ -9355,7 +9370,7 @@ const getCatalogProductSku = `-- name: GetCatalogProductSku :one
 
 
 
-SELECT id, spu_id, price, can_combine, date_created, date_deleted
+SELECT id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE ("id" = $1)
 `
@@ -9369,6 +9384,7 @@ func (q *Queries) GetCatalogProductSku(ctx context.Context, id pgtype.Int8) (Cat
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
+		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
 		&i.DateCreated,
@@ -9529,9 +9545,9 @@ WHERE ("id" = $1) OR ("ref_id" = $2 AND "ref_type" = $3)
 `
 
 type GetInventoryStockParams struct {
-	ID      pgtype.Int8            `json:"id"`
-	RefID   pgtype.Int8            `json:"ref_id"`
-	RefType NullInventoryStockType `json:"ref_type"`
+	ID      pgtype.Int8               `json:"id"`
+	RefID   pgtype.Int8               `json:"ref_id"`
+	RefType NullInventoryStockRefType `json:"ref_type"`
 }
 
 // ========================================
@@ -11048,7 +11064,7 @@ func (q *Queries) ListCatalogComment(ctx context.Context, arg ListCatalogComment
 }
 
 const listCatalogProductSku = `-- name: ListCatalogProductSku :many
-SELECT id, spu_id, price, can_combine, date_created, date_deleted
+SELECT id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11057,20 +11073,21 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_deleted" = ANY($14) OR $14 IS NULL) AND
-    ("date_deleted" > $15 OR $15 IS NULL) AND
-    ("date_deleted" < $16 OR $16 IS NULL)
+    ("is_primary" = ANY($7) OR $7 IS NULL) AND
+    ("price" = ANY($8) OR $8 IS NULL) AND
+    ("price" > $9 OR $9 IS NULL) AND
+    ("price" < $10 OR $10 IS NULL) AND
+    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
+    ("date_deleted" > $16 OR $16 IS NULL) AND
+    ("date_deleted" < $17 OR $17 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $19
+OFFSET $18
 `
 
 type ListCatalogProductSkuParams struct {
@@ -11080,6 +11097,7 @@ type ListCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
+	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -11102,6 +11120,7 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
+		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -11125,6 +11144,7 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 		if err := rows.Scan(
 			&i.ID,
 			&i.SpuID,
+			&i.IsPrimary,
 			&i.Price,
 			&i.CanCombine,
 			&i.DateCreated,
@@ -11575,24 +11595,24 @@ OFFSET $17
 `
 
 type ListInventoryStockParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	RefType          []InventoryStockType `json:"ref_type"`
-	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
-	CurrentStock     []int64              `json:"current_stock"`
-	CurrentStockFrom pgtype.Int8          `json:"current_stock_from"`
-	CurrentStockTo   pgtype.Int8          `json:"current_stock_to"`
-	Sold             []int64              `json:"sold"`
-	SoldFrom         pgtype.Int8          `json:"sold_from"`
-	SoldTo           pgtype.Int8          `json:"sold_to"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
-	Offset           pgtype.Int4          `json:"offset"`
-	Limit            pgtype.Int4          `json:"limit"`
+	ID               []int64                 `json:"id"`
+	IDFrom           pgtype.Int8             `json:"id_from"`
+	IDTo             pgtype.Int8             `json:"id_to"`
+	RefType          []InventoryStockRefType `json:"ref_type"`
+	RefID            []int64                 `json:"ref_id"`
+	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
+	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
+	CurrentStock     []int64                 `json:"current_stock"`
+	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
+	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
+	Sold             []int64                 `json:"sold"`
+	SoldFrom         pgtype.Int8             `json:"sold_from"`
+	SoldTo           pgtype.Int8             `json:"sold_to"`
+	DateCreated      []pgtype.Timestamptz    `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz      `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz      `json:"date_created_to"`
+	Offset           pgtype.Int4             `json:"offset"`
+	Limit            pgtype.Int4             `json:"limit"`
 }
 
 func (q *Queries) ListInventoryStock(ctx context.Context, arg ListInventoryStockParams) ([]InventoryStock, error) {
@@ -13521,16 +13541,18 @@ func (q *Queries) UpdateCatalogComment(ctx context.Context, arg UpdateCatalogCom
 const updateCatalogProductSku = `-- name: UpdateCatalogProductSku :one
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "price" = COALESCE($2, "price"),
-    "can_combine" = COALESCE($3, "can_combine"),
-    "date_created" = COALESCE($4, "date_created"),
-    "date_deleted" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "date_deleted") END
-WHERE id = $7
-RETURNING id, spu_id, price, can_combine, date_created, date_deleted
+    "is_primary" = COALESCE($2, "is_primary"),
+    "price" = COALESCE($3, "price"),
+    "can_combine" = COALESCE($4, "can_combine"),
+    "date_created" = COALESCE($5, "date_created"),
+    "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
+WHERE id = $8
+RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
 `
 
 type UpdateCatalogProductSkuParams struct {
 	SpuID           pgtype.Int8        `json:"spu_id"`
+	IsPrimary       pgtype.Bool        `json:"is_primary"`
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
@@ -13542,6 +13564,7 @@ type UpdateCatalogProductSkuParams struct {
 func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, updateCatalogProductSku,
 		arg.SpuID,
+		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
 		arg.DateCreated,
@@ -13553,6 +13576,7 @@ func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalog
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
+		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
 		&i.DateCreated,
@@ -13760,12 +13784,12 @@ RETURNING id, ref_type, ref_id, current_stock, sold, date_created
 `
 
 type UpdateInventoryStockParams struct {
-	RefType      NullInventoryStockType `json:"ref_type"`
-	RefID        pgtype.Int8            `json:"ref_id"`
-	CurrentStock pgtype.Int8            `json:"current_stock"`
-	Sold         pgtype.Int8            `json:"sold"`
-	DateCreated  pgtype.Timestamptz     `json:"date_created"`
-	ID           int64                  `json:"id"`
+	RefType      NullInventoryStockRefType `json:"ref_type"`
+	RefID        pgtype.Int8               `json:"ref_id"`
+	CurrentStock pgtype.Int8               `json:"current_stock"`
+	Sold         pgtype.Int8               `json:"sold"`
+	DateCreated  pgtype.Timestamptz        `json:"date_created"`
+	ID           int64                     `json:"id"`
 }
 
 func (q *Queries) UpdateInventoryStock(ctx context.Context, arg UpdateInventoryStockParams) (InventoryStock, error) {

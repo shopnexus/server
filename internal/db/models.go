@@ -432,61 +432,61 @@ func AllInventoryProductStatusValues() []InventoryProductStatus {
 	}
 }
 
-type InventoryStockType string
+type InventoryStockRefType string
 
 const (
-	InventoryStockTypeProductSku InventoryStockType = "ProductSku"
-	InventoryStockTypePromotion  InventoryStockType = "Promotion"
+	InventoryStockRefTypeProductSku InventoryStockRefType = "ProductSku"
+	InventoryStockRefTypePromotion  InventoryStockRefType = "Promotion"
 )
 
-func (e *InventoryStockType) Scan(src interface{}) error {
+func (e *InventoryStockRefType) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = InventoryStockType(s)
+		*e = InventoryStockRefType(s)
 	case string:
-		*e = InventoryStockType(s)
+		*e = InventoryStockRefType(s)
 	default:
-		return fmt.Errorf("unsupported scan type for InventoryStockType: %T", src)
+		return fmt.Errorf("unsupported scan type for InventoryStockRefType: %T", src)
 	}
 	return nil
 }
 
-type NullInventoryStockType struct {
-	InventoryStockType InventoryStockType `json:"inventory_stock_type"`
-	Valid              bool               `json:"valid"` // Valid is true if InventoryStockType is not NULL
+type NullInventoryStockRefType struct {
+	InventoryStockRefType InventoryStockRefType `json:"inventory_stock_ref_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if InventoryStockRefType is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullInventoryStockType) Scan(value interface{}) error {
+func (ns *NullInventoryStockRefType) Scan(value interface{}) error {
 	if value == nil {
-		ns.InventoryStockType, ns.Valid = "", false
+		ns.InventoryStockRefType, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.InventoryStockType.Scan(value)
+	return ns.InventoryStockRefType.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullInventoryStockType) Value() (driver.Value, error) {
+func (ns NullInventoryStockRefType) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.InventoryStockType), nil
+	return string(ns.InventoryStockRefType), nil
 }
 
-func (e InventoryStockType) Valid() bool {
+func (e InventoryStockRefType) Valid() bool {
 	switch e {
-	case InventoryStockTypeProductSku,
-		InventoryStockTypePromotion:
+	case InventoryStockRefTypeProductSku,
+		InventoryStockRefTypePromotion:
 		return true
 	}
 	return false
 }
 
-func AllInventoryStockTypeValues() []InventoryStockType {
-	return []InventoryStockType{
-		InventoryStockTypeProductSku,
-		InventoryStockTypePromotion,
+func AllInventoryStockRefTypeValues() []InventoryStockRefType {
+	return []InventoryStockRefType{
+		InventoryStockRefTypeProductSku,
+		InventoryStockRefTypePromotion,
 	}
 }
 
@@ -1206,6 +1206,7 @@ type CatalogComment struct {
 type CatalogProductSku struct {
 	ID          int64              `json:"id"`
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
@@ -1257,12 +1258,12 @@ type InventorySkuSerial struct {
 }
 
 type InventoryStock struct {
-	ID           int64              `json:"id"`
-	RefType      InventoryStockType `json:"ref_type"`
-	RefID        int64              `json:"ref_id"`
-	CurrentStock int64              `json:"current_stock"`
-	Sold         int64              `json:"sold"`
-	DateCreated  pgtype.Timestamptz `json:"date_created"`
+	ID           int64                 `json:"id"`
+	RefType      InventoryStockRefType `json:"ref_type"`
+	RefID        int64                 `json:"ref_id"`
+	CurrentStock int64                 `json:"current_stock"`
+	Sold         int64                 `json:"sold"`
+	DateCreated  pgtype.Timestamptz    `json:"date_created"`
 }
 
 type InventoryStockHistory struct {

@@ -59,10 +59,10 @@ func (q *Queries) DetailRating(ctx context.Context, arg DetailRatingParams) (Det
 }
 
 const getFlagshipProduct = `-- name: GetFlagshipProduct :many
-SELECT s.id, s.spu_id, s.price, s.can_combine, s.date_created, s.date_deleted, s.sku_id, s.sold
+SELECT s.id, s.spu_id, s.is_primary, s.price, s.can_combine, s.date_created, s.date_deleted, s.sku_id, s.sold
 FROM unnest($1::bigint[]) AS u(spu_id)
          JOIN LATERAL (
-    SELECT sku.id, sku.spu_id, sku.price, sku.can_combine, sku.date_created, sku.date_deleted, sku.id as sku_id, st.sold
+    SELECT sku.id, sku.spu_id, sku.is_primary, sku.price, sku.can_combine, sku.date_created, sku.date_deleted, sku.id as sku_id, st.sold
     FROM "catalog"."product_sku" sku
     INNER JOIN "inventory"."stock" st ON sku.id = st.ref_id AND st.ref_type = 'ProductSku'
     WHERE sku.spu_id = u.spu_id
@@ -73,6 +73,7 @@ FROM unnest($1::bigint[]) AS u(spu_id)
 type GetFlagshipProductRow struct {
 	ID          int64              `json:"id"`
 	SpuID       int64              `json:"spu_id"`
+	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
@@ -93,6 +94,7 @@ func (q *Queries) GetFlagshipProduct(ctx context.Context, spuID []int64) ([]GetF
 		if err := rows.Scan(
 			&i.ID,
 			&i.SpuID,
+			&i.IsPrimary,
 			&i.Price,
 			&i.CanCombine,
 			&i.DateCreated,
