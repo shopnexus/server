@@ -1818,6 +1818,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1841,6 +1842,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1863,6 +1865,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1880,31 +1883,32 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_deleted")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_deleted")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "date_deleted")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_deleted")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateCatalogProductSku :one
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
@@ -1915,6 +1919,7 @@ RETURNING *;
 -- name: UpdateBatchCatalogProductSku :batchexec
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
@@ -1930,6 +1935,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -2577,13 +2583,13 @@ INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status", "date
 VALUES ($1, $2, $3, $4);
 
 -- name: CreateDefaultInventorySkuSerial :one
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status")
-VALUES ($1, $2, $3)
+INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultInventorySkuSerial :copyfrom
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status")
-VALUES ($1, $2, $3);
+INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id")
+VALUES ($1, $2);
 
 -- name: UpdateInventorySkuSerial :one
 UPDATE "inventory"."sku_serial"

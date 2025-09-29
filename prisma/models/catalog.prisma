@@ -69,7 +69,6 @@ model ProductSpu {
   tags     ProductTag[]
   products ProductSku[]
   // specs    ProductSpuSpec[]
-
   @@index([account_id])
   @@index([category_id])
   @@index([brand_id])
@@ -81,6 +80,7 @@ model ProductSku {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
 
+  is_primary   Boolean // If true, this is the primary SKU for the SPU
   price        BigInt // Price of the item at this time
   can_combine  Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
   date_created DateTime  @default(now()) @db.Timestamptz(3)
