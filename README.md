@@ -211,5 +211,7 @@ if err = s.pubsub.Publish("order.created", OrderCreatedParams{
 **No more elasticsearch:**
 - Elasticsearch is great, but vector databases are the future.
 - After certain days with elasticsearch, found it is not suitable for vector search.
-- As I remember, I was using model MGTE (alibaba) storing 200rows takes 8mb of storage 💀
+- As I remember, I was using model MGTE (alibaba) storing 200rows took 8mb of storage 💀
 ![img.png](images/img5.png)
+- Inserting into milvus took 60seconds per 100 products
+![img.png](images/img6.png)
