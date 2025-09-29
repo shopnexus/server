@@ -136,6 +136,7 @@ Table ProductSpu {
 Table ProductSku {
   id BigInt [pk, increment]
   spu_id BigInt [not null]
+  is_primary Boolean [not null]
   price BigInt [not null]
   can_combine Boolean [not null]
   date_created DateTime [default: `now()`, not null]
@@ -184,13 +185,13 @@ Table ProductSerial {
   id BigInt [pk, increment]
   serial_number String [unique, not null]
   sku_id BigInt [not null]
-  status ProductStatus [not null]
+  status ProductStatus [not null, default: 'Active']
   date_created DateTime [default: `now()`, not null]
 }
 
 Table Stock {
   id BigInt [pk, increment]
-  ref_type StockType [not null]
+  ref_type StockRefType [not null]
   ref_id BigInt [not null]
   current_stock BigInt [not null, default: 0]
   sold BigInt [not null, default: 0]
@@ -385,7 +386,7 @@ Enum CommentRefType {
   Comment
 }
 
-Enum StockType {
+Enum StockRefType {
   ProductSku
   Promotion
 }

@@ -41,7 +41,7 @@ CREATE TYPE "analytic"."interaction_ref_type" AS ENUM ('Product', 'Article', 'Ca
 CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
 
 -- CreateEnum
-CREATE TYPE "inventory"."stock_type" AS ENUM ('ProductSku', 'Promotion');
+CREATE TYPE "inventory"."stock_ref_type" AS ENUM ('ProductSku', 'Promotion');
 
 -- CreateEnum
 CREATE TYPE "inventory"."product_status" AS ENUM ('Active', 'Inactive', 'Sold', 'Damaged');
@@ -240,6 +240,7 @@ CREATE TABLE "catalog"."product_spu" (
 CREATE TABLE "catalog"."product_sku" (
     "id" BIGSERIAL NOT NULL,
     "spu_id" BIGINT NOT NULL,
+    "is_primary" BOOLEAN NOT NULL,
     "price" BIGINT NOT NULL,
     "can_combine" BOOLEAN NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -299,7 +300,7 @@ CREATE TABLE "inventory"."sku_serial" (
     "id" BIGSERIAL NOT NULL,
     "serial_number" VARCHAR(50) NOT NULL,
     "sku_id" BIGINT NOT NULL,
-    "status" "inventory"."product_status" NOT NULL,
+    "status" "inventory"."product_status" NOT NULL DEFAULT 'Active',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "sku_serial_pkey" PRIMARY KEY ("id")
@@ -308,7 +309,7 @@ CREATE TABLE "inventory"."sku_serial" (
 -- CreateTable
 CREATE TABLE "inventory"."stock" (
     "id" BIGSERIAL NOT NULL,
-    "ref_type" "inventory"."stock_type" NOT NULL,
+    "ref_type" "inventory"."stock_ref_type" NOT NULL,
     "ref_id" BIGINT NOT NULL,
     "current_stock" BIGINT NOT NULL DEFAULT 0,
     "sold" BIGINT NOT NULL DEFAULT 0,

@@ -1,8 +1,8 @@
-enum StockType {
+enum StockRefType {
   ProductSku
   Promotion
 
-  @@map("stock_type")
+  @@map("stock_ref_type")
   @@schema("inventory")
 }
 
@@ -21,7 +21,7 @@ model ProductSerial {
   serial_number String @unique @db.VarChar(50) // Unique serial number for this product
   sku_id        BigInt
 
-  status       ProductStatus
+  status       ProductStatus @default(Active)
   date_created DateTime      @default(now()) @db.Timestamptz(3)
 
   sku                ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
@@ -34,8 +34,8 @@ model ProductSerial {
 
 // We can track the stock of products, promotions
 model Stock {
-  id       BigInt    @id @default(autoincrement())
-  ref_type StockType
+  id       BigInt       @id @default(autoincrement())
+  ref_type StockRefType
   ref_id   BigInt
 
   current_stock BigInt @default(0) // Current stock of this product, 0 means out of stock
