@@ -85,8 +85,8 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 		`"catalog"."comment_ref_type"`,
 		`"catalog"."_comment_ref_type"`,
 
-		`"inventory"."stock_type"`,
-		`"inventory"."_stock_type"`,
+		`"inventory"."stock_ref_type"`,
+		`"inventory"."_stock_ref_type"`,
 		`"inventory"."product_status"`,
 		`"inventory"."_product_status"`,
 
