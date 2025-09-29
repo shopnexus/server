@@ -3,8 +3,7 @@ package orderbiz
 import (
 	"context"
 	"fmt"
-
-	"github.com/guregu/null/v6"
+	"shopnexus-remastered/internal/utils/errutil"
 
 	"shopnexus-remastered/internal/client/payment"
 	"shopnexus-remastered/internal/client/pubsub"
@@ -16,33 +15,32 @@ import (
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
+
+	"github.com/guregu/null/v6"
 )
 
 type OrderBiz struct {
 	storage    *pgutil.Storage
 	gatewayMap map[string]payment.Client // map[gatewayCode]payment.Client
-	promotion  *promotionbiz.PromotionBiz
 	pubsub     pubsub.Client
+	promotion  *promotionbiz.PromotionBiz
 }
 
 func NewOrderBiz(
 	storage *pgutil.Storage,
 	pubsub pubsub.Client,
-	gatewayMap map[string]payment.Client,
 	promotion *promotionbiz.PromotionBiz,
 ) (*OrderBiz, error) {
 	b := &OrderBiz{
-		storage:    storage,
-		gatewayMap: gatewayMap,
-		promotion:  promotion,
-		pubsub:     pubsub.Group("order"),
+		storage:   storage,
+		pubsub:    pubsub.Group("order"),
+		promotion: promotion,
 	}
 
-	if err := b.SetupPubsub(); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return b, errutil.Some(
+		b.SetupPaymentGateway(),
+		b.SetupPubsub(),
+	)
 }
 
 type GetOrderParams = struct {
@@ -92,7 +90,7 @@ type CreateOrderParams struct {
 	Account        authmodel.AuthenticatedAccount
 	Address        string  `validate:"required"`
 	PaymentGateway string  `validate:"required,min=1,max=50"`
-	SkuIDs         []int64 `validate:"required,dive,gt=0"`
+	SkuIDs         []int64 `validate:"required,min=1,dive,gt=0"`
 }
 
 type CreateOrderResult struct {
@@ -132,7 +130,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	var reserveStockErr error
 	txStorage.ReserveInventory(ctx, slice.Map(cartItems, func(item db.AccountCartItem) db.ReserveInventoryParams {
 		return db.ReserveInventoryParams{
-			RefType: db.InventoryStockTypeProductSku,
+			RefType: db.InventoryStockRefTypeProductSku,
 			RefID:   item.SkuID,
 			Amount:  item.Quantity,
 		}
