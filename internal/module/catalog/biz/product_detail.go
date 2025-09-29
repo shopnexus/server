@@ -46,7 +46,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 
 	// Get sold count from inventory
 	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
-		RefType: []db.InventoryStockType{db.InventoryStockTypeProductSku},
+		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
 		RefID:   skuIDs,
 	})
 	if err != nil {
