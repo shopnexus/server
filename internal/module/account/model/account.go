@@ -9,16 +9,24 @@ import (
 )
 
 type Profile struct {
-	ID            int64                      `json:"id"`
-	Type          db.AccountType             `json:"type"`
-	Gender        null.Value[db.AccountType] `json:"gender"`
-	Name          null.String                `json:"name"`
-	DateOfBirth   time.Time                  `json:"date_of_birth"`
-	AvatarRsID    null.Int64                 `json:"avatar_rs_id"`
-	EmailVerified bool                       `json:"email_verified"`
-	PhoneVerified bool                       `json:"phone_verified"`
-	DateCreated   time.Time                  `json:"date_created"`
-	DateUpdated   time.Time                  `json:"date_updated"`
+	ID          int64     `json:"id"`
+	DateCreated time.Time `json:"date_created"`
+	DateUpdated time.Time `json:"date_updated"`
+
+	// Account base
+	Type     db.AccountType   `json:"type"`
+	Status   db.AccountStatus `json:"status"`
+	Phone    null.String      `json:"phone"`
+	Email    null.String      `json:"email"`
+	Username null.String      `json:"username"`
+
+	// Profile fields
+	Gender        null.Value[db.AccountGender] `json:"gender"`
+	Name          null.String                  `json:"name"`
+	DateOfBirth   time.Time                    `json:"date_of_birth"`
+	AvatarRsID    null.Int64                   `json:"avatar_rs_id"`
+	EmailVerified bool                         `json:"email_verified"`
+	PhoneVerified bool                         `json:"phone_verified"`
 
 	// Customer fields
 	DefaultAddressID null.Int64 `json:"default_address_id,omitempty"`

@@ -2,14 +2,10 @@ package accountecho
 
 import (
 	"net/http"
-
-	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authbiz "shopnexus-remastered/internal/module/auth/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
-	"shopnexus-remastered/internal/utils/pgutil"
 
-	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -32,64 +28,46 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	return h
 }
 
-type GetAccountResponse struct {
-	Type        db.AccountType   `json:"type"`
-	Status      db.AccountStatus `json:"status"`
-	Phone       null.String      `json:"phone"`
-	Email       null.String      `json:"email"`
-	Username    null.String      `json:"username"`
-	DateCreated int64            `json:"date_created"`
-	DateUpdated int64            `json:"date_updated"`
-}
-
 func (h *Handler) GetMe(c echo.Context) error {
 	claims, err := authbiz.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.FindAccount(c.Request().Context(), accountbiz.FindAccountParams{
-		ID: null.NewInt(claims.Account.ID, true),
+	profile, err := h.biz.GetProfile(c.Request().Context(), accountbiz.GetProfileParams{
+		AccountID: claims.Account.ID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, GetAccountResponse{
-		Type:        result.Type,
-		Status:      result.Status,
-		Phone:       pgutil.PgTextToNullString(result.Phone),
-		Email:       pgutil.PgTextToNullString(result.Email),
-		Username:    pgutil.PgTextToNullString(result.Username),
-		DateCreated: result.DateCreated.Time.UnixMilli(),
-		DateUpdated: result.DateUpdated.Time.UnixMilli(),
-	})
+	return response.FromDTO(c.Response().Writer, http.StatusOK, profile)
 }
 
-type GetProfileRequest struct {
-	AccountID int64 `query:"account_id" validate:"required"`
-}
-
-func (h *Handler) GetProfile(c echo.Context) error {
-	var req GetProfileRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	//claims, err := authbiz.GetClaims(c.Request())
-	//if err != nil {
-	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	//}
-
-	result, err := h.biz.GetProfile(c.Request().Context(), accountbiz.GetProfileParams{
-		AccountID: req.AccountID,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-}
+//type GetProfileRequest struct {
+//	AccountID int64 `query:"account_id" validate:"required"`
+//}
+//
+//func (h *Handler) GetProfile(c echo.Context) error {
+//	var req GetProfileRequest
+//	if err := c.Bind(&req); err != nil {
+//		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+//	}
+//	if err := c.Validate(&req); err != nil {
+//		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+//	}
+//
+//	//claims, err := authbiz.GetClaims(c.Request())
+//	//if err != nil {
+//	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+//	//}
+//
+//	result, err := h.biz.GetProfile(c.Request().Context(), accountbiz.GetProfileParams{
+//		AccountID: req.AccountID,
+//	})
+//	if err != nil {
+//		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+//	}
+//
+//	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+//}

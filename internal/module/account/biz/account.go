@@ -179,18 +179,24 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 	}
 
 	return accountmodel.Profile{
-		ID:               account.ID,
-		Type:             account.Type,
-		Gender:           null.NewValue(account.Type, true),
-		Name:             pgutil.PgTextToNullString(profile.Name),
-		DateOfBirth:      profile.DateOfBirth.Time,
-		AvatarRsID:       pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
-		EmailVerified:    profile.EmailVerified,
-		PhoneVerified:    profile.PhoneVerified,
-		DateCreated:      account.DateCreated.Time,
-		DateUpdated:      account.DateUpdated.Time,
+		ID:          account.ID,
+		DateCreated: account.DateCreated.Time,
+		DateUpdated: account.DateUpdated.Time,
+
+		Type:     account.Type,
+		Status:   account.Status,
+		Phone:    pgutil.PgTextToNullString(account.Phone),
+		Email:    pgutil.PgTextToNullString(account.Email),
+		Username: pgutil.PgTextToNullString(account.Username),
+
+		Gender:        null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
+		Name:          pgutil.PgTextToNullString(profile.Name),
+		DateOfBirth:   profile.DateOfBirth.Time,
+		AvatarRsID:    pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
+		EmailVerified: profile.EmailVerified,
+		PhoneVerified: profile.PhoneVerified,
+
 		DefaultAddressID: defaultAddressID,
 		Description:      description,
 	}, nil
-
 }
