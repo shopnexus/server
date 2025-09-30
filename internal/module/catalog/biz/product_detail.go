@@ -3,6 +3,7 @@ package catalogbiz
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 
 	"shopnexus-remastered/internal/db"
@@ -54,27 +55,17 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	}
 	stockMap := slice.NewMap(stocks, func(s db.InventoryStock) int64 { return s.RefID })
 
-	// Get attributes for each SKU
-	attributes, err := b.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
-		SkuID: skuIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
-	attrMap := make(map[int64]map[string]string)
-	for _, attr := range attributes {
-		if _, ok := attrMap[attr.SkuID]; !ok {
-			attrMap[attr.SkuID] = make(map[string]string)
-		}
-		attrMap[attr.SkuID][attr.Name] = attr.Value
-	}
-
 	for _, sku := range skus {
+		var attributes map[string]string
+		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+			return zero, err
+		}
+
 		skusDetail = append(skusDetail, catalogmodel.ProductDetailSku{
 			ID:            sku.ID,
 			Price:         sku.Price,
 			OriginalPrice: sku.Price,
-			Attributes:    attrMap[sku.ID],
+			Attributes:    attributes,
 			Sold:          stockMap[sku.ID].Sold,
 		})
 	}

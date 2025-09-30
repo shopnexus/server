@@ -28,18 +28,28 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	spuMap := slice.NewSliceMapID(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+	spuMap := slice.NewMap(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 
-	// Get flagship products
-	flagships, err := b.storage.GetFlagshipProduct(ctx, spuMap.IDs)
+	// Get featured SKUs for each spu
+	var featuredIDs []int64
+	for _, spu := range spus {
+		if spu.FeaturedSkuID.Valid {
+			featuredIDs = append(featuredIDs, spu.FeaturedSkuID.Int64)
+		}
+	}
+
+	// Get featured SKUs
+	featuredSkus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+		ID: featuredIDs,
+	})
 	if err != nil {
 		return zero, err
 	}
-	// map[spuID]flagshipProduct
-	flagshipMap := slice.NewMap(flagships, func(f db.GetFlagshipProductRow) int64 { return f.SpuID })
+	// map[spuID]FeaturedSKU
+	featuredMap := slice.NewMap(featuredSkus, func(f db.CatalogProductSku) int64 { return f.SpuID })
 
 	// map[skuID]*ProductPrice
-	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, slice.Map(flagships, func(f db.GetFlagshipProductRow) db.CatalogProductSku {
+	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, slice.Map(featuredSkus, func(f db.CatalogProductSku) db.CatalogProductSku {
 		return db.CatalogProductSku{
 			ID:          f.ID,
 			SpuID:       f.SpuID,
@@ -47,8 +57,9 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 			CanCombine:  f.CanCombine,
 			DateCreated: f.DateCreated,
 			DateDeleted: f.DateDeleted,
+			Attributes:  f.Attributes,
 		}
-	}), spuMap.Map)
+	}), spuMap)
 	if err != nil {
 		return zero, err
 	}
@@ -56,7 +67,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	// Calculate rating score
 	ratings, err := b.storage.ListRating(ctx, db.ListRatingParams{
 		RefType: db.CatalogCommentRefTypeProductSpu,
-		RefID:   spuMap.IDs,
+		RefID:   spuIDs,
 	})
 	if err != nil {
 		return zero, err
@@ -66,7 +77,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
 		RefType:   db.SharedResourceRefTypeProductSpu,
-		RefID:     spuMap.IDs,
+		RefID:     spuIDs,
 		IsPrimary: pgutil.BoolToPgBool(true),
 	})
 	if err != nil {
@@ -76,10 +87,10 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 
 	// Map promotion to ProductCardPromo
 	promoCardsMap := make(map[int64][]catalogmodel.ProductCardPromo) // map[spuID]ProductCardPromo
-	for _, flagship := range flagships {
-		price := priceMap[flagship.SkuID]
+	for _, featured := range featuredSkus {
+		price := priceMap[featured.ID]
 
-		promoCardsMap[flagship.SpuID] = slice.Map(price.Promotions, func(p db.PromotionBase) catalogmodel.ProductCardPromo {
+		promoCardsMap[featured.SpuID] = slice.Map(price.Promotions, func(p db.PromotionBase) catalogmodel.ProductCardPromo {
 			return catalogmodel.ProductCardPromo{
 				ID:          p.ID,
 				Title:       p.Title,
@@ -89,16 +100,16 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	}
 
 	for _, spu := range spus {
-		var flagship db.GetFlagshipProductRow
+		var featured db.CatalogProductSku
 		var price catalogmodel.ProductPrice
 		var rating db.ListRatingRow
 		var resource db.ListSortedResourcesRow
 
-		if flagshipMap[spu.ID] != nil {
-			flagship = *flagshipMap[spu.ID]
+		if featuredMap[spu.ID] != nil {
+			featured = *featuredMap[spu.ID]
 		}
-		if priceMap[flagship.ID] != nil {
-			price = *priceMap[flagship.ID]
+		if priceMap[featured.ID] != nil {
+			price = *priceMap[featured.ID]
 		}
 		if ratingMap[spu.ID] != nil {
 			rating = *ratingMap[spu.ID]

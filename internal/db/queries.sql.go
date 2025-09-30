@@ -777,11 +777,11 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("is_primary" = ANY($7) OR $7 IS NULL) AND
-    ("price" = ANY($8) OR $8 IS NULL) AND
-    ("price" > $9 OR $9 IS NULL) AND
-    ("price" < $10 OR $10 IS NULL) AND
-    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("price" = ANY($7) OR $7 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
+    ("can_combine" = ANY($10) OR $10 IS NULL) AND
+    ("attributes" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
     ("date_created" < $14 OR $14 IS NULL) AND
@@ -798,11 +798,11 @@ type CountCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
-	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
+	Attributes      [][]byte             `json:"attributes"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -819,77 +819,17 @@ func (q *Queries) CountCatalogProductSku(ctx context.Context, arg CountCatalogPr
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countCatalogProductSkuAttribute = `-- name: CountCatalogProductSkuAttribute :one
-SELECT COUNT(*)
-FROM "catalog"."product_sku_attribute"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" > $5 OR $5 IS NULL) AND
-    ("sku_id" < $6 OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("value" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" > $13 OR $13 IS NULL) AND
-    ("date_updated" < $14 OR $14 IS NULL)
-)
-`
-
-type CountCatalogProductSkuAttributeParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
-	Name            []string             `json:"name"`
-	Value           []string             `json:"value"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
-}
-
-func (q *Queries) CountCatalogProductSkuAttribute(ctx context.Context, arg CountCatalogProductSkuAttributeParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogProductSkuAttribute,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.DateUpdated,
-		arg.DateUpdatedFrom,
-		arg.DateUpdatedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -913,19 +853,22 @@ WHERE (
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
     ("brand_id" > $12 OR $12 IS NULL) AND
     ("brand_id" < $13 OR $13 IS NULL) AND
-    ("is_active" = ANY($14) OR $14 IS NULL) AND
-    ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" > $16 OR $16 IS NULL) AND
-    ("date_manufactured" < $17 OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
+    ("featured_sku_id" > $15 OR $15 IS NULL) AND
+    ("featured_sku_id" < $16 OR $16 IS NULL) AND
+    ("is_active" = ANY($17) OR $17 IS NULL) AND
+    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
+    ("date_manufactured" > $19 OR $19 IS NULL) AND
+    ("date_manufactured" < $20 OR $20 IS NULL) AND
+    ("date_created" = ANY($21) OR $21 IS NULL) AND
+    ("date_created" > $22 OR $22 IS NULL) AND
+    ("date_created" < $23 OR $23 IS NULL) AND
+    ("date_updated" = ANY($24) OR $24 IS NULL) AND
+    ("date_updated" > $25 OR $25 IS NULL) AND
+    ("date_updated" < $26 OR $26 IS NULL) AND
+    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
+    ("date_deleted" > $28 OR $28 IS NULL) AND
+    ("date_deleted" < $29 OR $29 IS NULL)
 )
 `
 
@@ -943,6 +886,9 @@ type CountCatalogProductSpuParams struct {
 	BrandID              []int64              `json:"brand_id"`
 	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
 	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
 	IsActive             []bool               `json:"is_active"`
 	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
 	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
@@ -973,6 +919,9 @@ func (q *Queries) CountCatalogProductSpu(ctx context.Context, arg CountCatalogPr
 		arg.BrandID,
 		arg.BrandIDFrom,
 		arg.BrandIDTo,
+		arg.FeaturedSkuID,
+		arg.FeaturedSkuIDFrom,
+		arg.FeaturedSkuIDTo,
 		arg.IsActive,
 		arg.DateManufactured,
 		arg.DateManufacturedFrom,
@@ -2035,7 +1984,10 @@ WHERE (
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 `
 
@@ -2052,6 +2004,9 @@ type CountSystemSearchSyncParams struct {
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error) {
@@ -2068,6 +2023,9 @@ func (q *Queries) CountSystemSearchSync(ctx context.Context, arg CountSystemSear
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -2526,16 +2484,16 @@ func (q *Queries) CreateCatalogComment(ctx context.Context, arg CreateCatalogCom
 }
 
 const createCatalogProductSku = `-- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
 `
 
 type CreateCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
 }
@@ -2543,9 +2501,9 @@ type CreateCatalogProductSkuParams struct {
 func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, createCatalogProductSku,
 		arg.SpuID,
-		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.DateDeleted,
 	)
@@ -2553,53 +2511,19 @@ func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalog
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
-		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
+		&i.Attributes,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
 	return i, err
 }
 
-const createCatalogProductSkuAttribute = `-- name: CreateCatalogProductSkuAttribute :one
-INSERT INTO "catalog"."product_sku_attribute" ("sku_id", "name", "value", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, sku_id, name, value, date_created, date_updated
-`
-
-type CreateCatalogProductSkuAttributeParams struct {
-	SkuID       int64              `json:"sku_id"`
-	Name        string             `json:"name"`
-	Value       string             `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-}
-
-func (q *Queries) CreateCatalogProductSkuAttribute(ctx context.Context, arg CreateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error) {
-	row := q.db.QueryRow(ctx, createCatalogProductSkuAttribute,
-		arg.SkuID,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateUpdated,
-	)
-	var i CatalogProductSkuAttribute
-	err := row.Scan(
-		&i.ID,
-		&i.SkuID,
-		&i.Name,
-		&i.Value,
-		&i.DateCreated,
-		&i.DateUpdated,
-	)
-	return i, err
-}
-
 const createCatalogProductSpu = `-- name: CreateCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 `
 
 type CreateCatalogProductSpuParams struct {
@@ -2607,6 +2531,7 @@ type CreateCatalogProductSpuParams struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -2622,6 +2547,7 @@ func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalog
 		arg.AccountID,
 		arg.CategoryID,
 		arg.BrandID,
+		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
@@ -2637,6 +2563,7 @@ func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalog
 		&i.AccountID,
 		&i.CategoryID,
 		&i.BrandID,
+		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
@@ -2802,19 +2729,11 @@ type CreateCopyCatalogCommentParams struct {
 
 type CreateCopyCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
-}
-
-type CreateCopyCatalogProductSkuAttributeParams struct {
-	SkuID       int64              `json:"sku_id"`
-	Name        string             `json:"name"`
-	Value       string             `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 type CreateCopyCatalogProductSpuParams struct {
@@ -2822,6 +2741,7 @@ type CreateCopyCatalogProductSpuParams struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -2931,16 +2851,10 @@ type CreateCopyDefaultCatalogCommentParams struct {
 
 type CreateCopyDefaultCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
-}
-
-type CreateCopyDefaultCatalogProductSkuAttributeParams struct {
-	SkuID int64  `json:"sku_id"`
-	Name  string `json:"name"`
-	Value string `json:"value"`
 }
 
 type CreateCopyDefaultCatalogProductSpuParams struct {
@@ -2948,6 +2862,7 @@ type CreateCopyDefaultCatalogProductSpuParams struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -3239,6 +3154,7 @@ type CreateCopySystemSearchSyncParams struct {
 	IsStaleEmbedding bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  bool               `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
 
 const createDefaultAccountAddress = `-- name: CreateDefaultAccountAddress :one
@@ -3635,70 +3551,44 @@ func (q *Queries) CreateDefaultCatalogComment(ctx context.Context, arg CreateDef
 }
 
 const createDefaultCatalogProductSku = `-- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_deleted")
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
 `
 
 type CreateDefaultCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg CreateDefaultCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, createDefaultCatalogProductSku,
 		arg.SpuID,
-		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateDeleted,
 	)
 	var i CatalogProductSku
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
-		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
+		&i.Attributes,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
 	return i, err
 }
 
-const createDefaultCatalogProductSkuAttribute = `-- name: CreateDefaultCatalogProductSkuAttribute :one
-INSERT INTO "catalog"."product_sku_attribute" ("sku_id", "name", "value")
-VALUES ($1, $2, $3)
-RETURNING id, sku_id, name, value, date_created, date_updated
-`
-
-type CreateDefaultCatalogProductSkuAttributeParams struct {
-	SkuID int64  `json:"sku_id"`
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-func (q *Queries) CreateDefaultCatalogProductSkuAttribute(ctx context.Context, arg CreateDefaultCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error) {
-	row := q.db.QueryRow(ctx, createDefaultCatalogProductSkuAttribute, arg.SkuID, arg.Name, arg.Value)
-	var i CatalogProductSkuAttribute
-	err := row.Scan(
-		&i.ID,
-		&i.SkuID,
-		&i.Name,
-		&i.Value,
-		&i.DateCreated,
-		&i.DateUpdated,
-	)
-	return i, err
-}
-
 const createDefaultCatalogProductSpu = `-- name: CreateDefaultCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 `
 
 type CreateDefaultCatalogProductSpuParams struct {
@@ -3706,6 +3596,7 @@ type CreateDefaultCatalogProductSpuParams struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -3719,6 +3610,7 @@ func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg Create
 		arg.AccountID,
 		arg.CategoryID,
 		arg.BrandID,
+		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
@@ -3732,6 +3624,7 @@ func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg Create
 		&i.AccountID,
 		&i.CategoryID,
 		&i.BrandID,
+		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
@@ -4286,7 +4179,7 @@ func (q *Queries) CreateDefaultSharedResourceReference(ctx context.Context, arg 
 const createDefaultSystemSearchSync = `-- name: CreateDefaultSystemSearchSync :one
 INSERT INTO "system"."search_sync" ("ref_type", "ref_id")
 VALUES ($1, $2)
-RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type CreateDefaultSystemSearchSyncParams struct {
@@ -4304,6 +4197,7 @@ func (q *Queries) CreateDefaultSystemSearchSync(ctx context.Context, arg CreateD
 		&i.IsStaleEmbedding,
 		&i.IsStaleMetadata,
 		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -4872,9 +4766,9 @@ func (q *Queries) CreateSharedResourceReference(ctx context.Context, arg CreateS
 }
 
 const createSystemSearchSync = `-- name: CreateSystemSearchSync :one
-INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type CreateSystemSearchSyncParams struct {
@@ -4883,6 +4777,7 @@ type CreateSystemSearchSyncParams struct {
 	IsStaleEmbedding bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  bool               `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateSystemSearchSync(ctx context.Context, arg CreateSystemSearchSyncParams) (SystemSearchSync, error) {
@@ -4892,6 +4787,7 @@ func (q *Queries) CreateSystemSearchSync(ctx context.Context, arg CreateSystemSe
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
+		arg.DateUpdated,
 	)
 	var i SystemSearchSync
 	err := row.Scan(
@@ -4901,6 +4797,7 @@ func (q *Queries) CreateSystemSearchSync(ctx context.Context, arg CreateSystemSe
 		&i.IsStaleEmbedding,
 		&i.IsStaleMetadata,
 		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -5634,11 +5531,11 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("is_primary" = ANY($7) OR $7 IS NULL) AND
-    ("price" = ANY($8) OR $8 IS NULL) AND
-    ("price" > $9 OR $9 IS NULL) AND
-    ("price" < $10 OR $10 IS NULL) AND
-    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("price" = ANY($7) OR $7 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
+    ("can_combine" = ANY($10) OR $10 IS NULL) AND
+    ("attributes" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
     ("date_created" < $14 OR $14 IS NULL) AND
@@ -5655,11 +5552,11 @@ type DeleteCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
-	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
+	Attributes      [][]byte             `json:"attributes"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -5676,74 +5573,17 @@ func (q *Queries) DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalog
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-	)
-	return err
-}
-
-const deleteCatalogProductSkuAttribute = `-- name: DeleteCatalogProductSkuAttribute :exec
-DELETE FROM "catalog"."product_sku_attribute"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" > $5 OR $5 IS NULL) AND
-    ("sku_id" < $6 OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("value" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" > $13 OR $13 IS NULL) AND
-    ("date_updated" < $14 OR $14 IS NULL)
-)
-`
-
-type DeleteCatalogProductSkuAttributeParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
-	Name            []string             `json:"name"`
-	Value           []string             `json:"value"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
-}
-
-func (q *Queries) DeleteCatalogProductSkuAttribute(ctx context.Context, arg DeleteCatalogProductSkuAttributeParams) error {
-	_, err := q.db.Exec(ctx, deleteCatalogProductSkuAttribute,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.DateUpdated,
-		arg.DateUpdatedFrom,
-		arg.DateUpdatedTo,
 	)
 	return err
 }
@@ -5764,19 +5604,22 @@ WHERE (
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
     ("brand_id" > $12 OR $12 IS NULL) AND
     ("brand_id" < $13 OR $13 IS NULL) AND
-    ("is_active" = ANY($14) OR $14 IS NULL) AND
-    ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" > $16 OR $16 IS NULL) AND
-    ("date_manufactured" < $17 OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
+    ("featured_sku_id" > $15 OR $15 IS NULL) AND
+    ("featured_sku_id" < $16 OR $16 IS NULL) AND
+    ("is_active" = ANY($17) OR $17 IS NULL) AND
+    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
+    ("date_manufactured" > $19 OR $19 IS NULL) AND
+    ("date_manufactured" < $20 OR $20 IS NULL) AND
+    ("date_created" = ANY($21) OR $21 IS NULL) AND
+    ("date_created" > $22 OR $22 IS NULL) AND
+    ("date_created" < $23 OR $23 IS NULL) AND
+    ("date_updated" = ANY($24) OR $24 IS NULL) AND
+    ("date_updated" > $25 OR $25 IS NULL) AND
+    ("date_updated" < $26 OR $26 IS NULL) AND
+    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
+    ("date_deleted" > $28 OR $28 IS NULL) AND
+    ("date_deleted" < $29 OR $29 IS NULL)
 )
 `
 
@@ -5794,6 +5637,9 @@ type DeleteCatalogProductSpuParams struct {
 	BrandID              []int64              `json:"brand_id"`
 	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
 	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
 	IsActive             []bool               `json:"is_active"`
 	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
 	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
@@ -5824,6 +5670,9 @@ func (q *Queries) DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalog
 		arg.BrandID,
 		arg.BrandIDFrom,
 		arg.BrandIDTo,
+		arg.FeaturedSkuID,
+		arg.FeaturedSkuIDFrom,
+		arg.FeaturedSkuIDTo,
 		arg.IsActive,
 		arg.DateManufactured,
 		arg.DateManufacturedFrom,
@@ -6832,7 +6681,10 @@ WHERE (
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 `
 
@@ -6849,6 +6701,9 @@ type DeleteSystemSearchSyncParams struct {
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error {
@@ -6865,6 +6720,9 @@ func (q *Queries) DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSe
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 	)
 	return err
 }
@@ -7660,11 +7518,11 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("is_primary" = ANY($7) OR $7 IS NULL) AND
-    ("price" = ANY($8) OR $8 IS NULL) AND
-    ("price" > $9 OR $9 IS NULL) AND
-    ("price" < $10 OR $10 IS NULL) AND
-    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("price" = ANY($7) OR $7 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
+    ("can_combine" = ANY($10) OR $10 IS NULL) AND
+    ("attributes" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
     ("date_created" < $14 OR $14 IS NULL) AND
@@ -7682,11 +7540,11 @@ type ExistsCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
-	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
+	Attributes      [][]byte             `json:"attributes"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -7703,79 +7561,17 @@ func (q *Queries) ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalog
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const existsCatalogProductSkuAttribute = `-- name: ExistsCatalogProductSkuAttribute :one
-SELECT EXISTS (
-SELECT 1
-FROM "catalog"."product_sku_attribute"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" > $5 OR $5 IS NULL) AND
-    ("sku_id" < $6 OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("value" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" > $13 OR $13 IS NULL) AND
-    ("date_updated" < $14 OR $14 IS NULL)
-)
-) as exists
-`
-
-type ExistsCatalogProductSkuAttributeParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
-	Name            []string             `json:"name"`
-	Value           []string             `json:"value"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
-}
-
-func (q *Queries) ExistsCatalogProductSkuAttribute(ctx context.Context, arg ExistsCatalogProductSkuAttributeParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsCatalogProductSkuAttribute,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.DateUpdated,
-		arg.DateUpdatedFrom,
-		arg.DateUpdatedTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -7800,19 +7596,22 @@ WHERE (
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
     ("brand_id" > $12 OR $12 IS NULL) AND
     ("brand_id" < $13 OR $13 IS NULL) AND
-    ("is_active" = ANY($14) OR $14 IS NULL) AND
-    ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" > $16 OR $16 IS NULL) AND
-    ("date_manufactured" < $17 OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
+    ("featured_sku_id" > $15 OR $15 IS NULL) AND
+    ("featured_sku_id" < $16 OR $16 IS NULL) AND
+    ("is_active" = ANY($17) OR $17 IS NULL) AND
+    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
+    ("date_manufactured" > $19 OR $19 IS NULL) AND
+    ("date_manufactured" < $20 OR $20 IS NULL) AND
+    ("date_created" = ANY($21) OR $21 IS NULL) AND
+    ("date_created" > $22 OR $22 IS NULL) AND
+    ("date_created" < $23 OR $23 IS NULL) AND
+    ("date_updated" = ANY($24) OR $24 IS NULL) AND
+    ("date_updated" > $25 OR $25 IS NULL) AND
+    ("date_updated" < $26 OR $26 IS NULL) AND
+    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
+    ("date_deleted" > $28 OR $28 IS NULL) AND
+    ("date_deleted" < $29 OR $29 IS NULL)
 )
 ) as exists
 `
@@ -7831,6 +7630,9 @@ type ExistsCatalogProductSpuParams struct {
 	BrandID              []int64              `json:"brand_id"`
 	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
 	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
 	IsActive             []bool               `json:"is_active"`
 	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
 	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
@@ -7861,6 +7663,9 @@ func (q *Queries) ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalog
 		arg.BrandID,
 		arg.BrandIDFrom,
 		arg.BrandIDTo,
+		arg.FeaturedSkuID,
+		arg.FeaturedSkuIDFrom,
+		arg.FeaturedSkuIDTo,
 		arg.IsActive,
 		arg.DateManufactured,
 		arg.DateManufacturedFrom,
@@ -8958,7 +8763,10 @@ WHERE (
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 ) as exists
 `
@@ -8976,6 +8784,9 @@ type ExistsSystemSearchSyncParams struct {
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error) {
@@ -8992,6 +8803,9 @@ func (q *Queries) ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSe
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -9113,14 +8927,19 @@ const getAccountCustomer = `-- name: GetAccountCustomer :one
 
 SELECT id, default_address_id, date_created, date_updated
 FROM "account"."customer"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("default_address_id" = $2)
 `
+
+type GetAccountCustomerParams struct {
+	ID               pgtype.Int8 `json:"id"`
+	DefaultAddressID pgtype.Int8 `json:"default_address_id"`
+}
 
 // ========================================
 // Queries for table: account.customer
 // ========================================
-func (q *Queries) GetAccountCustomer(ctx context.Context, id pgtype.Int8) (AccountCustomer, error) {
-	row := q.db.QueryRow(ctx, getAccountCustomer, id)
+func (q *Queries) GetAccountCustomer(ctx context.Context, arg GetAccountCustomerParams) (AccountCustomer, error) {
+	row := q.db.QueryRow(ctx, getAccountCustomer, arg.ID, arg.DefaultAddressID)
 	var i AccountCustomer
 	err := row.Scan(
 		&i.ID,
@@ -9370,7 +9189,7 @@ const getCatalogProductSku = `-- name: GetCatalogProductSku :one
 
 
 
-SELECT id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+SELECT id, spu_id, price, can_combine, attributes, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE ("id" = $1)
 `
@@ -9384,37 +9203,11 @@ func (q *Queries) GetCatalogProductSku(ctx context.Context, id pgtype.Int8) (Cat
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
-		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
+		&i.Attributes,
 		&i.DateCreated,
 		&i.DateDeleted,
-	)
-	return i, err
-}
-
-const getCatalogProductSkuAttribute = `-- name: GetCatalogProductSkuAttribute :one
-
-
-
-SELECT id, sku_id, name, value, date_created, date_updated
-FROM "catalog"."product_sku_attribute"
-WHERE ("id" = $1)
-`
-
-// ========================================
-// Queries for table: catalog.product_sku_attribute
-// ========================================
-func (q *Queries) GetCatalogProductSkuAttribute(ctx context.Context, id pgtype.Int8) (CatalogProductSkuAttribute, error) {
-	row := q.db.QueryRow(ctx, getCatalogProductSkuAttribute, id)
-	var i CatalogProductSkuAttribute
-	err := row.Scan(
-		&i.ID,
-		&i.SkuID,
-		&i.Name,
-		&i.Value,
-		&i.DateCreated,
-		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -9423,21 +9216,22 @@ const getCatalogProductSpu = `-- name: GetCatalogProductSpu :one
 
 
 
-SELECT id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
-WHERE ("id" = $1) OR ("code" = $2)
+WHERE ("id" = $1) OR ("code" = $2) OR ("featured_sku_id" = $3)
 `
 
 type GetCatalogProductSpuParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Code pgtype.Text `json:"code"`
+	ID            pgtype.Int8 `json:"id"`
+	Code          pgtype.Text `json:"code"`
+	FeaturedSkuID pgtype.Int8 `json:"featured_sku_id"`
 }
 
 // ========================================
 // Queries for table: catalog.product_spu
 // ========================================
 func (q *Queries) GetCatalogProductSpu(ctx context.Context, arg GetCatalogProductSpuParams) (CatalogProductSpu, error) {
-	row := q.db.QueryRow(ctx, getCatalogProductSpu, arg.ID, arg.Code)
+	row := q.db.QueryRow(ctx, getCatalogProductSpu, arg.ID, arg.Code, arg.FeaturedSkuID)
 	var i CatalogProductSpu
 	err := row.Scan(
 		&i.ID,
@@ -9445,6 +9239,7 @@ func (q *Queries) GetCatalogProductSpu(ctx context.Context, arg GetCatalogProduc
 		&i.AccountID,
 		&i.CategoryID,
 		&i.BrandID,
+		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
@@ -9947,7 +9742,7 @@ const getSystemSearchSync = `-- name: GetSystemSearchSync :one
 
 
 
-SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 FROM "system"."search_sync"
 WHERE ("id" = $1)
 `
@@ -9965,6 +9760,7 @@ func (q *Queries) GetSystemSearchSync(ctx context.Context, id pgtype.Int8) (Syst
 		&i.IsStaleEmbedding,
 		&i.IsStaleMetadata,
 		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -11064,7 +10860,7 @@ func (q *Queries) ListCatalogComment(ctx context.Context, arg ListCatalogComment
 }
 
 const listCatalogProductSku = `-- name: ListCatalogProductSku :many
-SELECT id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+SELECT id, spu_id, price, can_combine, attributes, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11073,11 +10869,11 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("is_primary" = ANY($7) OR $7 IS NULL) AND
-    ("price" = ANY($8) OR $8 IS NULL) AND
-    ("price" > $9 OR $9 IS NULL) AND
-    ("price" < $10 OR $10 IS NULL) AND
-    ("can_combine" = ANY($11) OR $11 IS NULL) AND
+    ("price" = ANY($7) OR $7 IS NULL) AND
+    ("price" > $8 OR $8 IS NULL) AND
+    ("price" < $9 OR $9 IS NULL) AND
+    ("can_combine" = ANY($10) OR $10 IS NULL) AND
+    ("attributes" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
     ("date_created" < $14 OR $14 IS NULL) AND
@@ -11097,11 +10893,11 @@ type ListCatalogProductSkuParams struct {
 	SpuID           []int64              `json:"spu_id"`
 	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
 	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
-	IsPrimary       []bool               `json:"is_primary"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
+	Attributes      [][]byte             `json:"attributes"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -11120,11 +10916,11 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.IsPrimary,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -11144,9 +10940,9 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 		if err := rows.Scan(
 			&i.ID,
 			&i.SpuID,
-			&i.IsPrimary,
 			&i.Price,
 			&i.CanCombine,
+			&i.Attributes,
 			&i.DateCreated,
 			&i.DateDeleted,
 		); err != nil {
@@ -11160,95 +10956,8 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 	return items, nil
 }
 
-const listCatalogProductSkuAttribute = `-- name: ListCatalogProductSkuAttribute :many
-SELECT id, sku_id, name, value, date_created, date_updated
-FROM "catalog"."product_sku_attribute"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" > $5 OR $5 IS NULL) AND
-    ("sku_id" < $6 OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("value" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
-    ("date_updated" = ANY($12) OR $12 IS NULL) AND
-    ("date_updated" > $13 OR $13 IS NULL) AND
-    ("date_updated" < $14 OR $14 IS NULL)
-)
-ORDER BY "id"
-LIMIT $16
-OFFSET $15
-`
-
-type ListCatalogProductSkuAttributeParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
-	Name            []string             `json:"name"`
-	Value           []string             `json:"value"`
-	DateCreated     []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
-	Offset          pgtype.Int4          `json:"offset"`
-	Limit           pgtype.Int4          `json:"limit"`
-}
-
-func (q *Queries) ListCatalogProductSkuAttribute(ctx context.Context, arg ListCatalogProductSkuAttributeParams) ([]CatalogProductSkuAttribute, error) {
-	rows, err := q.db.Query(ctx, listCatalogProductSkuAttribute,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.DateUpdated,
-		arg.DateUpdatedFrom,
-		arg.DateUpdatedTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CatalogProductSkuAttribute{}
-	for rows.Next() {
-		var i CatalogProductSkuAttribute
-		if err := rows.Scan(
-			&i.ID,
-			&i.SkuID,
-			&i.Name,
-			&i.Value,
-			&i.DateCreated,
-			&i.DateUpdated,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listCatalogProductSpu = `-- name: ListCatalogProductSpu :many
-SELECT id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11264,23 +10973,26 @@ WHERE (
     ("brand_id" = ANY($11) OR $11 IS NULL) AND
     ("brand_id" > $12 OR $12 IS NULL) AND
     ("brand_id" < $13 OR $13 IS NULL) AND
-    ("is_active" = ANY($14) OR $14 IS NULL) AND
-    ("date_manufactured" = ANY($15) OR $15 IS NULL) AND
-    ("date_manufactured" > $16 OR $16 IS NULL) AND
-    ("date_manufactured" < $17 OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
+    ("featured_sku_id" > $15 OR $15 IS NULL) AND
+    ("featured_sku_id" < $16 OR $16 IS NULL) AND
+    ("is_active" = ANY($17) OR $17 IS NULL) AND
+    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
+    ("date_manufactured" > $19 OR $19 IS NULL) AND
+    ("date_manufactured" < $20 OR $20 IS NULL) AND
+    ("date_created" = ANY($21) OR $21 IS NULL) AND
+    ("date_created" > $22 OR $22 IS NULL) AND
+    ("date_created" < $23 OR $23 IS NULL) AND
+    ("date_updated" = ANY($24) OR $24 IS NULL) AND
+    ("date_updated" > $25 OR $25 IS NULL) AND
+    ("date_updated" < $26 OR $26 IS NULL) AND
+    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
+    ("date_deleted" > $28 OR $28 IS NULL) AND
+    ("date_deleted" < $29 OR $29 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28
-OFFSET $27
+LIMIT $31
+OFFSET $30
 `
 
 type ListCatalogProductSpuParams struct {
@@ -11297,6 +11009,9 @@ type ListCatalogProductSpuParams struct {
 	BrandID              []int64              `json:"brand_id"`
 	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
 	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
 	IsActive             []bool               `json:"is_active"`
 	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
 	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
@@ -11329,6 +11044,9 @@ func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProd
 		arg.BrandID,
 		arg.BrandIDFrom,
 		arg.BrandIDTo,
+		arg.FeaturedSkuID,
+		arg.FeaturedSkuIDFrom,
+		arg.FeaturedSkuIDTo,
 		arg.IsActive,
 		arg.DateManufactured,
 		arg.DateManufacturedFrom,
@@ -11358,6 +11076,7 @@ func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProd
 			&i.AccountID,
 			&i.CategoryID,
 			&i.BrandID,
+			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
@@ -12870,7 +12589,7 @@ func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListShare
 }
 
 const listSystemSearchSync = `-- name: ListSystemSearchSync :many
-SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -12884,11 +12603,14 @@ WHERE (
     ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14
-OFFSET $13
+LIMIT $17
+OFFSET $16
 `
 
 type ListSystemSearchSyncParams struct {
@@ -12904,6 +12626,9 @@ type ListSystemSearchSyncParams struct {
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 	Offset           pgtype.Int4          `json:"offset"`
 	Limit            pgtype.Int4          `json:"limit"`
 }
@@ -12922,6 +12647,9 @@ func (q *Queries) ListSystemSearchSync(ctx context.Context, arg ListSystemSearch
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -12939,6 +12667,7 @@ func (q *Queries) ListSystemSearchSync(ctx context.Context, arg ListSystemSearch
 			&i.IsStaleEmbedding,
 			&i.IsStaleMetadata,
 			&i.DateCreated,
+			&i.DateUpdated,
 		); err != nil {
 			return nil, err
 		}
@@ -13541,20 +13270,20 @@ func (q *Queries) UpdateCatalogComment(ctx context.Context, arg UpdateCatalogCom
 const updateCatalogProductSku = `-- name: UpdateCatalogProductSku :one
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "is_primary" = COALESCE($2, "is_primary"),
-    "price" = COALESCE($3, "price"),
-    "can_combine" = COALESCE($4, "can_combine"),
+    "price" = COALESCE($2, "price"),
+    "can_combine" = COALESCE($3, "can_combine"),
+    "attributes" = COALESCE($4, "attributes"),
     "date_created" = COALESCE($5, "date_created"),
     "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
 WHERE id = $8
-RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
 `
 
 type UpdateCatalogProductSkuParams struct {
 	SpuID           pgtype.Int8        `json:"spu_id"`
-	IsPrimary       pgtype.Bool        `json:"is_primary"`
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
+	Attributes      []byte             `json:"attributes"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
@@ -13564,9 +13293,9 @@ type UpdateCatalogProductSkuParams struct {
 func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalogProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, updateCatalogProductSku,
 		arg.SpuID,
-		arg.IsPrimary,
 		arg.Price,
 		arg.CanCombine,
+		arg.Attributes,
 		arg.DateCreated,
 		arg.NullDateDeleted,
 		arg.DateDeleted,
@@ -13576,52 +13305,11 @@ func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalog
 	err := row.Scan(
 		&i.ID,
 		&i.SpuID,
-		&i.IsPrimary,
 		&i.Price,
 		&i.CanCombine,
+		&i.Attributes,
 		&i.DateCreated,
 		&i.DateDeleted,
-	)
-	return i, err
-}
-
-const updateCatalogProductSkuAttribute = `-- name: UpdateCatalogProductSkuAttribute :one
-UPDATE "catalog"."product_sku_attribute"
-SET "sku_id" = COALESCE($1, "sku_id"),
-    "name" = COALESCE($2, "name"),
-    "value" = COALESCE($3, "value"),
-    "date_created" = COALESCE($4, "date_created"),
-    "date_updated" = COALESCE($5, "date_updated")
-WHERE id = $6
-RETURNING id, sku_id, name, value, date_created, date_updated
-`
-
-type UpdateCatalogProductSkuAttributeParams struct {
-	SkuID       pgtype.Int8        `json:"sku_id"`
-	Name        pgtype.Text        `json:"name"`
-	Value       pgtype.Text        `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          int64              `json:"id"`
-}
-
-func (q *Queries) UpdateCatalogProductSkuAttribute(ctx context.Context, arg UpdateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error) {
-	row := q.db.QueryRow(ctx, updateCatalogProductSkuAttribute,
-		arg.SkuID,
-		arg.Name,
-		arg.Value,
-		arg.DateCreated,
-		arg.DateUpdated,
-		arg.ID,
-	)
-	var i CatalogProductSkuAttribute
-	err := row.Scan(
-		&i.ID,
-		&i.SkuID,
-		&i.Name,
-		&i.Value,
-		&i.DateCreated,
-		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -13632,31 +13320,34 @@ SET "code" = COALESCE($1, "code"),
     "account_id" = COALESCE($2, "account_id"),
     "category_id" = COALESCE($3, "category_id"),
     "brand_id" = COALESCE($4, "brand_id"),
-    "name" = COALESCE($5, "name"),
-    "description" = COALESCE($6, "description"),
-    "is_active" = COALESCE($7, "is_active"),
-    "date_manufactured" = COALESCE($8, "date_manufactured"),
-    "date_created" = COALESCE($9, "date_created"),
-    "date_updated" = COALESCE($10, "date_updated"),
-    "date_deleted" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_deleted") END
-WHERE id = $13
-RETURNING id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+    "featured_sku_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "featured_sku_id") END,
+    "name" = COALESCE($7, "name"),
+    "description" = COALESCE($8, "description"),
+    "is_active" = COALESCE($9, "is_active"),
+    "date_manufactured" = COALESCE($10, "date_manufactured"),
+    "date_created" = COALESCE($11, "date_created"),
+    "date_updated" = COALESCE($12, "date_updated"),
+    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
+WHERE id = $15
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 `
 
 type UpdateCatalogProductSpuParams struct {
-	Code             pgtype.Text        `json:"code"`
-	AccountID        pgtype.Int8        `json:"account_id"`
-	CategoryID       pgtype.Int8        `json:"category_id"`
-	BrandID          pgtype.Int8        `json:"brand_id"`
-	Name             pgtype.Text        `json:"name"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         pgtype.Bool        `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	NullDateDeleted  bool               `json:"null_date_deleted"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	ID               int64              `json:"id"`
+	Code              pgtype.Text        `json:"code"`
+	AccountID         pgtype.Int8        `json:"account_id"`
+	CategoryID        pgtype.Int8        `json:"category_id"`
+	BrandID           pgtype.Int8        `json:"brand_id"`
+	NullFeaturedSkuID bool               `json:"null_featured_sku_id"`
+	FeaturedSkuID     pgtype.Int8        `json:"featured_sku_id"`
+	Name              pgtype.Text        `json:"name"`
+	Description       pgtype.Text        `json:"description"`
+	IsActive          pgtype.Bool        `json:"is_active"`
+	DateManufactured  pgtype.Timestamptz `json:"date_manufactured"`
+	DateCreated       pgtype.Timestamptz `json:"date_created"`
+	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
+	NullDateDeleted   bool               `json:"null_date_deleted"`
+	DateDeleted       pgtype.Timestamptz `json:"date_deleted"`
+	ID                int64              `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalogProductSpuParams) (CatalogProductSpu, error) {
@@ -13665,6 +13356,8 @@ func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalog
 		arg.AccountID,
 		arg.CategoryID,
 		arg.BrandID,
+		arg.NullFeaturedSkuID,
+		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
@@ -13682,6 +13375,7 @@ func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalog
 		&i.AccountID,
 		&i.CategoryID,
 		&i.BrandID,
+		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
@@ -14480,9 +14174,10 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "ref_id" = COALESCE($2, "ref_id"),
     "is_stale_embedding" = COALESCE($3, "is_stale_embedding"),
     "is_stale_metadata" = COALESCE($4, "is_stale_metadata"),
-    "date_created" = COALESCE($5, "date_created")
-WHERE id = $6
-RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+    "date_created" = COALESCE($5, "date_created"),
+    "date_updated" = COALESCE($6, "date_updated")
+WHERE id = $7
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type UpdateSystemSearchSyncParams struct {
@@ -14491,6 +14186,7 @@ type UpdateSystemSearchSyncParams struct {
 	IsStaleEmbedding pgtype.Bool        `json:"is_stale_embedding"`
 	IsStaleMetadata  pgtype.Bool        `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 	ID               int64              `json:"id"`
 }
 
@@ -14501,6 +14197,7 @@ func (q *Queries) UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSe
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
+		arg.DateUpdated,
 		arg.ID,
 	)
 	var i SystemSearchSync
@@ -14511,6 +14208,7 @@ func (q *Queries) UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSe
 		&i.IsStaleEmbedding,
 		&i.IsStaleMetadata,
 		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }

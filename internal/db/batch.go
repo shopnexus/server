@@ -864,9 +864,9 @@ func (b *CreateBatchCatalogCommentBatchResults) Close() error {
 }
 
 const createBatchCatalogProductSku = `-- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "is_primary", "price", "can_combine", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, is_primary, price, can_combine, date_created, date_deleted
+RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
 `
 
 type CreateBatchCatalogProductSkuBatchResults struct {
@@ -877,9 +877,9 @@ type CreateBatchCatalogProductSkuBatchResults struct {
 
 type CreateBatchCatalogProductSkuParams struct {
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
 }
@@ -889,9 +889,9 @@ func (q *Queries) CreateBatchCatalogProductSku(ctx context.Context, arg []Create
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
-			a.IsPrimary,
 			a.Price,
 			a.CanCombine,
+			a.Attributes,
 			a.DateCreated,
 			a.DateDeleted,
 		}
@@ -915,9 +915,9 @@ func (b *CreateBatchCatalogProductSkuBatchResults) QueryRow(f func(int, CatalogP
 		err := row.Scan(
 			&i.ID,
 			&i.SpuID,
-			&i.IsPrimary,
 			&i.Price,
 			&i.CanCombine,
+			&i.Attributes,
 			&i.DateCreated,
 			&i.DateDeleted,
 		)
@@ -932,76 +932,10 @@ func (b *CreateBatchCatalogProductSkuBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchCatalogProductSkuAttribute = `-- name: CreateBatchCatalogProductSkuAttribute :batchone
-INSERT INTO "catalog"."product_sku_attribute" ("sku_id", "name", "value", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, sku_id, name, value, date_created, date_updated
-`
-
-type CreateBatchCatalogProductSkuAttributeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchCatalogProductSkuAttributeParams struct {
-	SkuID       int64              `json:"sku_id"`
-	Name        string             `json:"name"`
-	Value       string             `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-}
-
-func (q *Queries) CreateBatchCatalogProductSkuAttribute(ctx context.Context, arg []CreateBatchCatalogProductSkuAttributeParams) *CreateBatchCatalogProductSkuAttributeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.SkuID,
-			a.Name,
-			a.Value,
-			a.DateCreated,
-			a.DateUpdated,
-		}
-		batch.Queue(createBatchCatalogProductSkuAttribute, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchCatalogProductSkuAttributeBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchCatalogProductSkuAttributeBatchResults) QueryRow(f func(int, CatalogProductSkuAttribute, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i CatalogProductSkuAttribute
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.SkuID,
-			&i.Name,
-			&i.Value,
-			&i.DateCreated,
-			&i.DateUpdated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchCatalogProductSkuAttributeBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchCatalogProductSpu = `-- name: CreateBatchCatalogProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, account_id, category_id, brand_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
 `
 
 type CreateBatchCatalogProductSpuBatchResults struct {
@@ -1015,6 +949,7 @@ type CreateBatchCatalogProductSpuParams struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -1032,6 +967,7 @@ func (q *Queries) CreateBatchCatalogProductSpu(ctx context.Context, arg []Create
 			a.AccountID,
 			a.CategoryID,
 			a.BrandID,
+			a.FeaturedSkuID,
 			a.Name,
 			a.Description,
 			a.IsActive,
@@ -1063,6 +999,7 @@ func (b *CreateBatchCatalogProductSpuBatchResults) QueryRow(f func(int, CatalogP
 			&i.AccountID,
 			&i.CategoryID,
 			&i.BrandID,
+			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
@@ -2239,9 +2176,9 @@ func (b *CreateBatchSharedResourceReferenceBatchResults) Close() error {
 }
 
 const createBatchSystemSearchSync = `-- name: CreateBatchSystemSearchSync :batchone
-INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created
+INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type CreateBatchSystemSearchSyncBatchResults struct {
@@ -2256,6 +2193,7 @@ type CreateBatchSystemSearchSyncParams struct {
 	IsStaleEmbedding bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  bool               `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchSystemSearchSync(ctx context.Context, arg []CreateBatchSystemSearchSyncParams) *CreateBatchSystemSearchSyncBatchResults {
@@ -2267,6 +2205,7 @@ func (q *Queries) CreateBatchSystemSearchSync(ctx context.Context, arg []CreateB
 			a.IsStaleEmbedding,
 			a.IsStaleMetadata,
 			a.DateCreated,
+			a.DateUpdated,
 		}
 		batch.Queue(createBatchSystemSearchSync, vals...)
 	}
@@ -2292,6 +2231,7 @@ func (b *CreateBatchSystemSearchSyncBatchResults) QueryRow(f func(int, SystemSea
 			&i.IsStaleEmbedding,
 			&i.IsStaleMetadata,
 			&i.DateCreated,
+			&i.DateUpdated,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -2456,7 +2396,7 @@ func (b *DeleteBatchAccountCartItemBatchResults) Close() error {
 
 const deleteBatchAccountCustomer = `-- name: DeleteBatchAccountCustomer :batchexec
 DELETE FROM "account"."customer"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("default_address_id" = $2)
 `
 
 type DeleteBatchAccountCustomerBatchResults struct {
@@ -2465,16 +2405,22 @@ type DeleteBatchAccountCustomerBatchResults struct {
 	closed bool
 }
 
-func (q *Queries) DeleteBatchAccountCustomer(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountCustomerBatchResults {
+type DeleteBatchAccountCustomerParams struct {
+	ID               pgtype.Int8 `json:"id"`
+	DefaultAddressID pgtype.Int8 `json:"default_address_id"`
+}
+
+func (q *Queries) DeleteBatchAccountCustomer(ctx context.Context, arg []DeleteBatchAccountCustomerParams) *DeleteBatchAccountCustomerBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range id {
+	for _, a := range arg {
 		vals := []interface{}{
-			a,
+			a.ID,
+			a.DefaultAddressID,
 		}
 		batch.Queue(deleteBatchAccountCustomer, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchAccountCustomerBatchResults{br, len(id), false}
+	return &DeleteBatchAccountCustomerBatchResults{br, len(arg), false}
 }
 
 func (b *DeleteBatchAccountCustomerBatchResults) Exec(f func(int, error)) {
@@ -2918,53 +2864,9 @@ func (b *DeleteBatchCatalogProductSkuBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const deleteBatchCatalogProductSkuAttribute = `-- name: DeleteBatchCatalogProductSkuAttribute :batchexec
-DELETE FROM "catalog"."product_sku_attribute"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchCatalogProductSkuAttributeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchCatalogProductSkuAttribute(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogProductSkuAttributeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchCatalogProductSkuAttribute, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchCatalogProductSkuAttributeBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchCatalogProductSkuAttributeBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchCatalogProductSkuAttributeBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const deleteBatchCatalogProductSpu = `-- name: DeleteBatchCatalogProductSpu :batchexec
 DELETE FROM "catalog"."product_spu"
-WHERE ("id" = $1) OR ("code" = $2)
+WHERE ("id" = $1) OR ("code" = $2) OR ("featured_sku_id" = $3)
 `
 
 type DeleteBatchCatalogProductSpuBatchResults struct {
@@ -2974,8 +2876,9 @@ type DeleteBatchCatalogProductSpuBatchResults struct {
 }
 
 type DeleteBatchCatalogProductSpuParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Code pgtype.Text `json:"code"`
+	ID            pgtype.Int8 `json:"id"`
+	Code          pgtype.Text `json:"code"`
+	FeaturedSkuID pgtype.Int8 `json:"featured_sku_id"`
 }
 
 func (q *Queries) DeleteBatchCatalogProductSpu(ctx context.Context, arg []DeleteBatchCatalogProductSpuParams) *DeleteBatchCatalogProductSpuBatchResults {
@@ -2984,6 +2887,7 @@ func (q *Queries) DeleteBatchCatalogProductSpu(ctx context.Context, arg []Delete
 		vals := []interface{}{
 			a.ID,
 			a.Code,
+			a.FeaturedSkuID,
 		}
 		batch.Queue(deleteBatchCatalogProductSpu, vals...)
 	}
@@ -4833,9 +4737,9 @@ func (b *UpdateBatchCatalogCommentBatchResults) Close() error {
 const updateBatchCatalogProductSku = `-- name: UpdateBatchCatalogProductSku :batchexec
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "is_primary" = COALESCE($2, "is_primary"),
-    "price" = COALESCE($3, "price"),
-    "can_combine" = COALESCE($4, "can_combine"),
+    "price" = COALESCE($2, "price"),
+    "can_combine" = COALESCE($3, "can_combine"),
+    "attributes" = COALESCE($4, "attributes"),
     "date_created" = COALESCE($5, "date_created"),
     "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
 WHERE id = $8
@@ -4849,9 +4753,9 @@ type UpdateBatchCatalogProductSkuBatchResults struct {
 
 type UpdateBatchCatalogProductSkuParams struct {
 	SpuID           pgtype.Int8        `json:"spu_id"`
-	IsPrimary       pgtype.Bool        `json:"is_primary"`
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
+	Attributes      []byte             `json:"attributes"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
@@ -4863,9 +4767,9 @@ func (q *Queries) UpdateBatchCatalogProductSku(ctx context.Context, arg []Update
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
-			a.IsPrimary,
 			a.Price,
 			a.CanCombine,
+			a.Attributes,
 			a.DateCreated,
 			a.NullDateDeleted,
 			a.DateDeleted,
@@ -4898,83 +4802,21 @@ func (b *UpdateBatchCatalogProductSkuBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const updateBatchCatalogProductSkuAttribute = `-- name: UpdateBatchCatalogProductSkuAttribute :batchexec
-UPDATE "catalog"."product_sku_attribute"
-SET "sku_id" = COALESCE($1, "sku_id"),
-    "name" = COALESCE($2, "name"),
-    "value" = COALESCE($3, "value"),
-    "date_created" = COALESCE($4, "date_created"),
-    "date_updated" = COALESCE($5, "date_updated")
-WHERE id = $6
-`
-
-type UpdateBatchCatalogProductSkuAttributeBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchCatalogProductSkuAttributeParams struct {
-	SkuID       pgtype.Int8        `json:"sku_id"`
-	Name        pgtype.Text        `json:"name"`
-	Value       pgtype.Text        `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
-	ID          int64              `json:"id"`
-}
-
-func (q *Queries) UpdateBatchCatalogProductSkuAttribute(ctx context.Context, arg []UpdateBatchCatalogProductSkuAttributeParams) *UpdateBatchCatalogProductSkuAttributeBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.SkuID,
-			a.Name,
-			a.Value,
-			a.DateCreated,
-			a.DateUpdated,
-			a.ID,
-		}
-		batch.Queue(updateBatchCatalogProductSkuAttribute, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchCatalogProductSkuAttributeBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchCatalogProductSkuAttributeBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchCatalogProductSkuAttributeBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const updateBatchCatalogProductSpu = `-- name: UpdateBatchCatalogProductSpu :batchexec
 UPDATE "catalog"."product_spu"
 SET "code" = COALESCE($1, "code"),
     "account_id" = COALESCE($2, "account_id"),
     "category_id" = COALESCE($3, "category_id"),
     "brand_id" = COALESCE($4, "brand_id"),
-    "name" = COALESCE($5, "name"),
-    "description" = COALESCE($6, "description"),
-    "is_active" = COALESCE($7, "is_active"),
-    "date_manufactured" = COALESCE($8, "date_manufactured"),
-    "date_created" = COALESCE($9, "date_created"),
-    "date_updated" = COALESCE($10, "date_updated"),
-    "date_deleted" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_deleted") END
-WHERE id = $13
+    "featured_sku_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "featured_sku_id") END,
+    "name" = COALESCE($7, "name"),
+    "description" = COALESCE($8, "description"),
+    "is_active" = COALESCE($9, "is_active"),
+    "date_manufactured" = COALESCE($10, "date_manufactured"),
+    "date_created" = COALESCE($11, "date_created"),
+    "date_updated" = COALESCE($12, "date_updated"),
+    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
+WHERE id = $15
 `
 
 type UpdateBatchCatalogProductSpuBatchResults struct {
@@ -4984,19 +4826,21 @@ type UpdateBatchCatalogProductSpuBatchResults struct {
 }
 
 type UpdateBatchCatalogProductSpuParams struct {
-	Code             pgtype.Text        `json:"code"`
-	AccountID        pgtype.Int8        `json:"account_id"`
-	CategoryID       pgtype.Int8        `json:"category_id"`
-	BrandID          pgtype.Int8        `json:"brand_id"`
-	Name             pgtype.Text        `json:"name"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         pgtype.Bool        `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	NullDateDeleted  bool               `json:"null_date_deleted"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	ID               int64              `json:"id"`
+	Code              pgtype.Text        `json:"code"`
+	AccountID         pgtype.Int8        `json:"account_id"`
+	CategoryID        pgtype.Int8        `json:"category_id"`
+	BrandID           pgtype.Int8        `json:"brand_id"`
+	NullFeaturedSkuID bool               `json:"null_featured_sku_id"`
+	FeaturedSkuID     pgtype.Int8        `json:"featured_sku_id"`
+	Name              pgtype.Text        `json:"name"`
+	Description       pgtype.Text        `json:"description"`
+	IsActive          pgtype.Bool        `json:"is_active"`
+	DateManufactured  pgtype.Timestamptz `json:"date_manufactured"`
+	DateCreated       pgtype.Timestamptz `json:"date_created"`
+	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
+	NullDateDeleted   bool               `json:"null_date_deleted"`
+	DateDeleted       pgtype.Timestamptz `json:"date_deleted"`
+	ID                int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogProductSpu(ctx context.Context, arg []UpdateBatchCatalogProductSpuParams) *UpdateBatchCatalogProductSpuBatchResults {
@@ -5007,6 +4851,8 @@ func (q *Queries) UpdateBatchCatalogProductSpu(ctx context.Context, arg []Update
 			a.AccountID,
 			a.CategoryID,
 			a.BrandID,
+			a.NullFeaturedSkuID,
+			a.FeaturedSkuID,
 			a.Name,
 			a.Description,
 			a.IsActive,
@@ -6215,8 +6061,9 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "ref_id" = COALESCE($2, "ref_id"),
     "is_stale_embedding" = COALESCE($3, "is_stale_embedding"),
     "is_stale_metadata" = COALESCE($4, "is_stale_metadata"),
-    "date_created" = COALESCE($5, "date_created")
-WHERE id = $6
+    "date_created" = COALESCE($5, "date_created"),
+    "date_updated" = COALESCE($6, "date_updated")
+WHERE id = $7
 `
 
 type UpdateBatchSystemSearchSyncBatchResults struct {
@@ -6231,6 +6078,7 @@ type UpdateBatchSystemSearchSyncParams struct {
 	IsStaleEmbedding pgtype.Bool        `json:"is_stale_embedding"`
 	IsStaleMetadata  pgtype.Bool        `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 	ID               int64              `json:"id"`
 }
 
@@ -6243,6 +6091,7 @@ func (q *Queries) UpdateBatchSystemSearchSync(ctx context.Context, arg []UpdateB
 			a.IsStaleEmbedding,
 			a.IsStaleMetadata,
 			a.DateCreated,
+			a.DateUpdated,
 			a.ID,
 		}
 		batch.Queue(updateBatchSystemSearchSync, vals...)

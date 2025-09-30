@@ -24,7 +24,6 @@ type Querier interface {
 	CountCatalogCategory(ctx context.Context, arg CountCatalogCategoryParams) (int64, error)
 	CountCatalogComment(ctx context.Context, arg CountCatalogCommentParams) (int64, error)
 	CountCatalogProductSku(ctx context.Context, arg CountCatalogProductSkuParams) (int64, error)
-	CountCatalogProductSkuAttribute(ctx context.Context, arg CountCatalogProductSkuAttributeParams) (int64, error)
 	CountCatalogProductSpu(ctx context.Context, arg CountCatalogProductSpuParams) (int64, error)
 	CountCatalogProductSpuTag(ctx context.Context, arg CountCatalogProductSpuTagParams) (int64, error)
 	CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error)
@@ -66,7 +65,6 @@ type Querier interface {
 	CreateBatchCatalogCategory(ctx context.Context, arg []CreateBatchCatalogCategoryParams) *CreateBatchCatalogCategoryBatchResults
 	CreateBatchCatalogComment(ctx context.Context, arg []CreateBatchCatalogCommentParams) *CreateBatchCatalogCommentBatchResults
 	CreateBatchCatalogProductSku(ctx context.Context, arg []CreateBatchCatalogProductSkuParams) *CreateBatchCatalogProductSkuBatchResults
-	CreateBatchCatalogProductSkuAttribute(ctx context.Context, arg []CreateBatchCatalogProductSkuAttributeParams) *CreateBatchCatalogProductSkuAttributeBatchResults
 	CreateBatchCatalogProductSpu(ctx context.Context, arg []CreateBatchCatalogProductSpuParams) *CreateBatchCatalogProductSpuBatchResults
 	CreateBatchCatalogProductSpuTag(ctx context.Context, arg []CreateBatchCatalogProductSpuTagParams) *CreateBatchCatalogProductSpuTagBatchResults
 	CreateBatchCatalogTag(ctx context.Context, arg []CreateBatchCatalogTagParams) *CreateBatchCatalogTagBatchResults
@@ -90,7 +88,6 @@ type Querier interface {
 	CreateCatalogCategory(ctx context.Context, arg CreateCatalogCategoryParams) (CatalogCategory, error)
 	CreateCatalogComment(ctx context.Context, arg CreateCatalogCommentParams) (CatalogComment, error)
 	CreateCatalogProductSku(ctx context.Context, arg CreateCatalogProductSkuParams) (CatalogProductSku, error)
-	CreateCatalogProductSkuAttribute(ctx context.Context, arg CreateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error)
 	CreateCatalogProductSpu(ctx context.Context, arg CreateCatalogProductSpuParams) (CatalogProductSpu, error)
 	CreateCatalogProductSpuTag(ctx context.Context, arg CreateCatalogProductSpuTagParams) (CatalogProductSpuTag, error)
 	CreateCatalogTag(ctx context.Context, arg CreateCatalogTagParams) (CatalogTag, error)
@@ -107,7 +104,6 @@ type Querier interface {
 	CreateCopyCatalogCategory(ctx context.Context, arg []CreateCopyCatalogCategoryParams) (int64, error)
 	CreateCopyCatalogComment(ctx context.Context, arg []CreateCopyCatalogCommentParams) (int64, error)
 	CreateCopyCatalogProductSku(ctx context.Context, arg []CreateCopyCatalogProductSkuParams) (int64, error)
-	CreateCopyCatalogProductSkuAttribute(ctx context.Context, arg []CreateCopyCatalogProductSkuAttributeParams) (int64, error)
 	CreateCopyCatalogProductSpu(ctx context.Context, arg []CreateCopyCatalogProductSpuParams) (int64, error)
 	CreateCopyCatalogProductSpuTag(ctx context.Context, arg []CreateCopyCatalogProductSpuTagParams) (int64, error)
 	CreateCopyCatalogTag(ctx context.Context, arg []CreateCopyCatalogTagParams) (int64, error)
@@ -124,7 +120,6 @@ type Querier interface {
 	CreateCopyDefaultCatalogCategory(ctx context.Context, arg []CreateCopyDefaultCatalogCategoryParams) (int64, error)
 	CreateCopyDefaultCatalogComment(ctx context.Context, arg []CreateCopyDefaultCatalogCommentParams) (int64, error)
 	CreateCopyDefaultCatalogProductSku(ctx context.Context, arg []CreateCopyDefaultCatalogProductSkuParams) (int64, error)
-	CreateCopyDefaultCatalogProductSkuAttribute(ctx context.Context, arg []CreateCopyDefaultCatalogProductSkuAttributeParams) (int64, error)
 	CreateCopyDefaultCatalogProductSpu(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuParams) (int64, error)
 	CreateCopyDefaultCatalogProductSpuTag(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuTagParams) (int64, error)
 	CreateCopyDefaultCatalogTag(ctx context.Context, arg []CreateCopyDefaultCatalogTagParams) (int64, error)
@@ -173,7 +168,6 @@ type Querier interface {
 	CreateDefaultCatalogCategory(ctx context.Context, arg CreateDefaultCatalogCategoryParams) (CatalogCategory, error)
 	CreateDefaultCatalogComment(ctx context.Context, arg CreateDefaultCatalogCommentParams) (CatalogComment, error)
 	CreateDefaultCatalogProductSku(ctx context.Context, arg CreateDefaultCatalogProductSkuParams) (CatalogProductSku, error)
-	CreateDefaultCatalogProductSkuAttribute(ctx context.Context, arg CreateDefaultCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error)
 	CreateDefaultCatalogProductSpu(ctx context.Context, arg CreateDefaultCatalogProductSpuParams) (CatalogProductSpu, error)
 	CreateDefaultCatalogProductSpuTag(ctx context.Context, arg CreateDefaultCatalogProductSpuTagParams) (CatalogProductSpuTag, error)
 	CreateDefaultCatalogTag(ctx context.Context, arg CreateDefaultCatalogTagParams) (CatalogTag, error)
@@ -221,7 +215,7 @@ type Querier interface {
 	DeleteBatchAccountAddress(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountAddressBatchResults
 	DeleteBatchAccountBase(ctx context.Context, arg []DeleteBatchAccountBaseParams) *DeleteBatchAccountBaseBatchResults
 	DeleteBatchAccountCartItem(ctx context.Context, arg []DeleteBatchAccountCartItemParams) *DeleteBatchAccountCartItemBatchResults
-	DeleteBatchAccountCustomer(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountCustomerBatchResults
+	DeleteBatchAccountCustomer(ctx context.Context, arg []DeleteBatchAccountCustomerParams) *DeleteBatchAccountCustomerBatchResults
 	DeleteBatchAccountIncomeHistory(ctx context.Context, arg []DeleteBatchAccountIncomeHistoryParams) *DeleteBatchAccountIncomeHistoryBatchResults
 	DeleteBatchAccountNotification(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountNotificationBatchResults
 	DeleteBatchAccountProfile(ctx context.Context, arg []DeleteBatchAccountProfileParams) *DeleteBatchAccountProfileBatchResults
@@ -231,7 +225,6 @@ type Querier interface {
 	DeleteBatchCatalogCategory(ctx context.Context, arg []DeleteBatchCatalogCategoryParams) *DeleteBatchCatalogCategoryBatchResults
 	DeleteBatchCatalogComment(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogCommentBatchResults
 	DeleteBatchCatalogProductSku(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogProductSkuBatchResults
-	DeleteBatchCatalogProductSkuAttribute(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogProductSkuAttributeBatchResults
 	DeleteBatchCatalogProductSpu(ctx context.Context, arg []DeleteBatchCatalogProductSpuParams) *DeleteBatchCatalogProductSpuBatchResults
 	DeleteBatchCatalogProductSpuTag(ctx context.Context, arg []DeleteBatchCatalogProductSpuTagParams) *DeleteBatchCatalogProductSpuTagBatchResults
 	DeleteBatchCatalogTag(ctx context.Context, arg []DeleteBatchCatalogTagParams) *DeleteBatchCatalogTagBatchResults
@@ -255,7 +248,6 @@ type Querier interface {
 	DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error
 	DeleteCatalogComment(ctx context.Context, arg DeleteCatalogCommentParams) error
 	DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalogProductSkuParams) error
-	DeleteCatalogProductSkuAttribute(ctx context.Context, arg DeleteCatalogProductSkuAttributeParams) error
 	DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error
 	DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error
 	DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error
@@ -290,7 +282,6 @@ type Querier interface {
 	ExistsCatalogCategory(ctx context.Context, arg ExistsCatalogCategoryParams) (bool, error)
 	ExistsCatalogComment(ctx context.Context, arg ExistsCatalogCommentParams) (bool, error)
 	ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalogProductSkuParams) (bool, error)
-	ExistsCatalogProductSkuAttribute(ctx context.Context, arg ExistsCatalogProductSkuAttributeParams) (bool, error)
 	ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalogProductSpuParams) (bool, error)
 	ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCatalogProductSpuTagParams) (bool, error)
 	ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error)
@@ -327,7 +318,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: account.customer
 	// ========================================
-	GetAccountCustomer(ctx context.Context, id pgtype.Int8) (AccountCustomer, error)
+	GetAccountCustomer(ctx context.Context, arg GetAccountCustomerParams) (AccountCustomer, error)
 	// ========================================
 	// Queries for table: account.income_history
 	// ========================================
@@ -366,10 +357,6 @@ type Querier interface {
 	// ========================================
 	GetCatalogProductSku(ctx context.Context, id pgtype.Int8) (CatalogProductSku, error)
 	// ========================================
-	// Queries for table: catalog.product_sku_attribute
-	// ========================================
-	GetCatalogProductSkuAttribute(ctx context.Context, id pgtype.Int8) (CatalogProductSkuAttribute, error)
-	// ========================================
 	// Queries for table: catalog.product_spu
 	// ========================================
 	GetCatalogProductSpu(ctx context.Context, arg GetCatalogProductSpuParams) (CatalogProductSpu, error)
@@ -381,7 +368,6 @@ type Querier interface {
 	// Queries for table: catalog.tag
 	// ========================================
 	GetCatalogTag(ctx context.Context, arg GetCatalogTagParams) (CatalogTag, error)
-	GetFlagshipProduct(ctx context.Context, spuID []int64) ([]GetFlagshipProductRow, error)
 	// ========================================
 	// Queries for table: inventory.sku_serial
 	// ========================================
@@ -460,7 +446,6 @@ type Querier interface {
 	ListCatalogCategory(ctx context.Context, arg ListCatalogCategoryParams) ([]CatalogCategory, error)
 	ListCatalogComment(ctx context.Context, arg ListCatalogCommentParams) ([]CatalogComment, error)
 	ListCatalogProductSku(ctx context.Context, arg ListCatalogProductSkuParams) ([]CatalogProductSku, error)
-	ListCatalogProductSkuAttribute(ctx context.Context, arg ListCatalogProductSkuAttributeParams) ([]CatalogProductSkuAttribute, error)
 	ListCatalogProductSpu(ctx context.Context, arg ListCatalogProductSpuParams) ([]CatalogProductSpu, error)
 	ListCatalogProductSpuTag(ctx context.Context, arg ListCatalogProductSpuTagParams) ([]CatalogProductSpuTag, error)
 	ListCatalogTag(ctx context.Context, arg ListCatalogTagParams) ([]CatalogTag, error)
@@ -483,7 +468,7 @@ type Querier interface {
 	ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error)
 	ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error)
 	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
-	ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSearchParams) ([]ListStaleSyncSearchRow, error)
+	ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
@@ -509,7 +494,6 @@ type Querier interface {
 	UpdateBatchCatalogCategory(ctx context.Context, arg []UpdateBatchCatalogCategoryParams) *UpdateBatchCatalogCategoryBatchResults
 	UpdateBatchCatalogComment(ctx context.Context, arg []UpdateBatchCatalogCommentParams) *UpdateBatchCatalogCommentBatchResults
 	UpdateBatchCatalogProductSku(ctx context.Context, arg []UpdateBatchCatalogProductSkuParams) *UpdateBatchCatalogProductSkuBatchResults
-	UpdateBatchCatalogProductSkuAttribute(ctx context.Context, arg []UpdateBatchCatalogProductSkuAttributeParams) *UpdateBatchCatalogProductSkuAttributeBatchResults
 	UpdateBatchCatalogProductSpu(ctx context.Context, arg []UpdateBatchCatalogProductSpuParams) *UpdateBatchCatalogProductSpuBatchResults
 	UpdateBatchCatalogProductSpuTag(ctx context.Context, arg []UpdateBatchCatalogProductSpuTagParams) *UpdateBatchCatalogProductSpuTagBatchResults
 	UpdateBatchCatalogTag(ctx context.Context, arg []UpdateBatchCatalogTagParams) *UpdateBatchCatalogTagBatchResults
@@ -535,7 +519,6 @@ type Querier interface {
 	UpdateCatalogComment(ctx context.Context, arg UpdateCatalogCommentParams) (CatalogComment, error)
 	UpdateCatalogCommentUpvoteDownvote(ctx context.Context, arg UpdateCatalogCommentUpvoteDownvoteParams) error
 	UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalogProductSkuParams) (CatalogProductSku, error)
-	UpdateCatalogProductSkuAttribute(ctx context.Context, arg UpdateCatalogProductSkuAttributeParams) (CatalogProductSkuAttribute, error)
 	UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalogProductSpuParams) (CatalogProductSpu, error)
 	UpdateCatalogProductSpuTag(ctx context.Context, arg UpdateCatalogProductSpuTagParams) (CatalogProductSpuTag, error)
 	UpdateCatalogTag(ctx context.Context, arg UpdateCatalogTagParams) (CatalogTag, error)
@@ -555,6 +538,7 @@ type Querier interface {
 	UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error
 	UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error)
 	UpdateSharedResourceReference(ctx context.Context, arg UpdateSharedResourceReferenceParams) (SharedResourceReference, error)
+	UpdateStaleSearchSync(ctx context.Context, arg UpdateStaleSearchSyncParams) error
 	UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error)
 }
 

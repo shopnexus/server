@@ -21,11 +21,11 @@ func (b *InventoryBiz) InitPubsub() error {
 }
 
 type InventoryStockUpdatedParams struct {
-	StockID   int64                 `json:"stock_id"`
-	RefType   db.InventoryStockType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Change    int64                 `json:"change"`
-	SerialIDs []string              `json:"serial_ids"`
+	StockID   int64                    `json:"stock_id"`
+	RefType   db.InventoryStockRefType `json:"ref_type"`
+	RefID     int64                    `json:"ref_id"`
+	Change    int64                    `json:"change"`
+	SerialIDs []string                 `json:"serial_ids"`
 }
 
 func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params InventoryStockUpdatedParams) error {
@@ -39,7 +39,7 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 
 	// Update the current_stock
 	txStorage.UpdateInventoryStock(ctx, db.UpdateInventoryStockParams{
-		RefType:      db.NullInventoryStockType{InventoryStockType: params.RefType, Valid: true},
+		RefType:      db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
 		RefID:        pgutil.Int64ToPgInt8(params.RefID),
 		CurrentStock: pgutil.Int64ToPgInt8(params.Change),
 		Sold:         pgtype.Int8{},
@@ -47,7 +47,7 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 		ID:           0,
 	})
 
-	if params.RefType == db.InventoryStockTypeProductSku {
+	if params.RefType == db.InventoryStockRefTypeProductSku {
 		// Use the vendor passing serial ids (if provided)
 		if len(params.SerialIDs) != 0 {
 			if len(params.SerialIDs) != int(params.Change) {
@@ -58,7 +58,6 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 				args = append(args, db.CreateCopyDefaultInventorySkuSerialParams{
 					SerialNumber: serialID,
 					SkuID:        params.RefID,
-					Status:       db.InventoryProductStatusActive,
 				})
 			}
 		} else {
@@ -67,7 +66,6 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 				args = append(args, db.CreateCopyDefaultInventorySkuSerialParams{
 					SerialNumber: uuid.NewString(),
 					SkuID:        0,
-					Status:       db.InventoryProductStatusActive,
 				})
 			}
 		}

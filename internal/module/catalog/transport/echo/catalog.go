@@ -1,11 +1,7 @@
 package catalogecho
 
 import (
-	"net/http"
-
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -17,104 +13,32 @@ type Handler struct {
 func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	h := &Handler{biz: catalogbiz}
 	api := e.Group("/api/v1/catalog")
+
+	// Friendly APIs
 	api.GET("/product-detail", h.GetProductDetail)
 	api.GET("/product-card", h.ListProductCard)
 	api.GET("/product-card/recommended", h.ListRecommendedProductCard)
 
-	api.GET("/product-spu", h.ListProductSpu)
-	api.GET("/product-sku", h.ListProductSku)
-	api.GET("/product-sku-attribute", h.ListProductSkuAttribute)
+	// Product Spu
+	spuApi := api.Group("/product-spu")
+	spuApi.GET("", h.ListProductSpu)
+	spuApi.POST("", h.CreateProductSpu)
+	spuApi.PATCH("", h.UpdateProductSpu)
+	spuApi.DELETE("", h.DeleteProductSpu)
+
+	// Product Sku
+	skuApi := api.Group("/product-sku")
+	skuApi.GET("", h.ListProductSku)
+	skuApi.POST("", h.CreateProductSku)
+	skuApi.PATCH("", h.UpdateProductSku)
+	skuApi.DELETE("", h.DeleteProductSku)
 
 	// Comment
-	api.GET("/comment", h.ListComment)
-	api.POST("/comment", h.CreateComment)
-	api.PATCH("/comment", h.UpdateComment)
-	api.DELETE("/comment", h.DeleteComment)
+	commentApi := api.Group("/comment")
+	commentApi.GET("", h.ListComment)
+	commentApi.POST("", h.CreateComment)
+	commentApi.PATCH("", h.UpdateComment)
+	commentApi.DELETE("", h.DeleteComment)
 
 	return h
-}
-
-type ListProductSpuParams struct {
-	sharedmodel.PaginationParams
-	Code       []string `query:"code" comma_separated:"true" validate:"required"`
-	VendorID   []int64  `query:"vendor_id" comma_separated:"true" validate:"required"`
-	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"required"`
-	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"required"`
-	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"required"`
-}
-
-func (h *Handler) ListProductSpu(c echo.Context) error {
-	var req ListProductSpuParams
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
-		PaginationParams: req.PaginationParams,
-		Code:             req.Code,
-		AccountID:        req.VendorID,
-		CategoryID:       req.CategoryID,
-		BrandID:          req.BrandID,
-		IsActive:         req.IsActive,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromPaginate(c.Response().Writer, result)
-}
-
-type ListProductSkuRequest struct {
-	sharedmodel.PaginationParams
-	SpuID []int64 `query:"spu_id" comma_separated:"true" validate:"required"`
-	Price []int64 `query:"price" comma_separated:"true" validate:"required"`
-}
-
-func (h *Handler) ListProductSku(c echo.Context) error {
-	var req ListProductSkuRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	result, err := h.biz.ListProductSku(c.Request().Context(), catalogbiz.ListProductSkuParams{
-		PaginationParams: req.PaginationParams,
-		SpuID:            req.SpuID,
-		Price:            req.Price,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromPaginate(c.Response().Writer, result)
-}
-
-type ListProductSkuAttributeRequest struct {
-	sharedmodel.PaginationParams
-	Name []string `query:"name" comma_separated:"true" validate:"required"`
-}
-
-func (h *Handler) ListProductSkuAttribute(c echo.Context) error {
-	var req ListProductSkuAttributeRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	result, err := h.biz.ListProductSkuAttribute(c.Request().Context(), catalogbiz.ListProductSkuAttributeParams{
-		PaginationParams: req.PaginationParams,
-		Name:             req.Name,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromPaginate(c.Response().Writer, result)
 }

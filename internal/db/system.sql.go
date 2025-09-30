@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listStaleSyncSearch = `-- name: ListStaleSyncSearch :many
+const listStaleSearchSync = `-- name: ListStaleSearchSync :many
 SELECT id, ref_id, ref_type
 FROM system.search_sync
 WHERE (is_stale_metadata = $2 OR is_stale_embedding = $3) AND ref_type = $1
@@ -20,21 +20,21 @@ FOR UPDATE SKIP LOCKED
 LIMIT $4
 `
 
-type ListStaleSyncSearchParams struct {
+type ListStaleSearchSyncParams struct {
 	RefType          string      `json:"ref_type"`
 	IsStaleMetadata  pgtype.Bool `json:"is_stale_metadata"`
 	IsStaleEmbedding pgtype.Bool `json:"is_stale_embedding"`
 	Limit            int32       `json:"limit"`
 }
 
-type ListStaleSyncSearchRow struct {
+type ListStaleSearchSyncRow struct {
 	ID      int64  `json:"id"`
 	RefID   int64  `json:"ref_id"`
 	RefType string `json:"ref_type"`
 }
 
-func (q *Queries) ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSearchParams) ([]ListStaleSyncSearchRow, error) {
-	rows, err := q.db.Query(ctx, listStaleSyncSearch,
+func (q *Queries) ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error) {
+	rows, err := q.db.Query(ctx, listStaleSearchSync,
 		arg.RefType,
 		arg.IsStaleMetadata,
 		arg.IsStaleEmbedding,
@@ -44,9 +44,9 @@ func (q *Queries) ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSear
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListStaleSyncSearchRow{}
+	items := []ListStaleSearchSyncRow{}
 	for rows.Next() {
-		var i ListStaleSyncSearchRow
+		var i ListStaleSearchSyncRow
 		if err := rows.Scan(&i.ID, &i.RefID, &i.RefType); err != nil {
 			return nil, err
 		}
@@ -56,4 +56,30 @@ func (q *Queries) ListStaleSyncSearch(ctx context.Context, arg ListStaleSyncSear
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateStaleSearchSync = `-- name: UpdateStaleSearchSync :exec
+UPDATE system.search_sync
+SET
+    is_stale_metadata = COALESCE($1, is_stale_metadata),
+    is_stale_embedding = COALESCE($2, is_stale_embedding),
+    date_updated = NOW()
+WHERE ref_type = $3 AND ref_id = $4
+`
+
+type UpdateStaleSearchSyncParams struct {
+	IsStaleMetadata  pgtype.Bool `json:"is_stale_metadata"`
+	IsStaleEmbedding pgtype.Bool `json:"is_stale_embedding"`
+	RefType          string      `json:"ref_type"`
+	RefID            int64       `json:"ref_id"`
+}
+
+func (q *Queries) UpdateStaleSearchSync(ctx context.Context, arg UpdateStaleSearchSyncParams) error {
+	_, err := q.db.Exec(ctx, updateStaleSearchSync,
+		arg.IsStaleMetadata,
+		arg.IsStaleEmbedding,
+		arg.RefType,
+		arg.RefID,
+	)
+	return err
 }

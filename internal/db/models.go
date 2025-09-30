@@ -1206,20 +1206,11 @@ type CatalogComment struct {
 type CatalogProductSku struct {
 	ID          int64              `json:"id"`
 	SpuID       int64              `json:"spu_id"`
-	IsPrimary   bool               `json:"is_primary"`
 	Price       int64              `json:"price"`
 	CanCombine  bool               `json:"can_combine"`
+	Attributes  []byte             `json:"attributes"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
-}
-
-type CatalogProductSkuAttribute struct {
-	ID          int64              `json:"id"`
-	SkuID       int64              `json:"sku_id"`
-	Name        string             `json:"name"`
-	Value       string             `json:"value"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 type CatalogProductSpu struct {
@@ -1228,6 +1219,7 @@ type CatalogProductSpu struct {
 	AccountID        int64              `json:"account_id"`
 	CategoryID       int64              `json:"category_id"`
 	BrandID          int64              `json:"brand_id"`
+	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
 	Name             string             `json:"name"`
 	Description      string             `json:"description"`
 	IsActive         bool               `json:"is_active"`
@@ -1411,4 +1403,5 @@ type SystemSearchSync struct {
 	IsStaleEmbedding bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  bool               `json:"is_stale_metadata"`
 	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
