@@ -36,7 +36,7 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 	defer txStorage.Rollback(ctx)
 
 	if metadataOnly {
-		metadataStales, err := txStorage.ListStaleSyncSearch(ctx, db.ListStaleSyncSearchParams{
+		metadataStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
 			RefType:         "Product",
 			Limit:           MetadataProductSyncBatchSize,
 			IsStaleMetadata: pgtype.Bool{Bool: true, Valid: true},
@@ -49,7 +49,7 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 			return fmt.Errorf("failed to update stale products (metadata): %w", err)
 		}
 	} else {
-		embeddingStales, err := txStorage.ListStaleSyncSearch(ctx, db.ListStaleSyncSearchParams{
+		embeddingStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
 			RefType:          "Product",
 			Limit:            EmbeddingProductSyncBatchSize,
 			IsStaleEmbedding: pgtype.Bool{Bool: true, Valid: true},
@@ -71,7 +71,7 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 	return nil
 }
 
-func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.TxStorage, stales []db.ListStaleSyncSearchRow, metadataOnly bool) error {
+func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.TxStorage, stales []db.ListStaleSearchSyncRow, metadataOnly bool) error {
 	if len(stales) == 0 {
 		return nil
 	}
@@ -79,7 +79,7 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
 
 	// Fetch product details
-	products, err := b.storage.ListProductDetail(ctx, slice.Map(stales, func(s db.ListStaleSyncSearchRow) int64 { return s.RefID }))
+	products, err := b.storage.ListProductDetail(ctx, slice.Map(stales, func(s db.ListStaleSearchSyncRow) int64 { return s.RefID }))
 	if err != nil {
 		return fmt.Errorf("failed to list product details: %w", err)
 	}
