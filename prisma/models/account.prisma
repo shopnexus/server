@@ -78,7 +78,7 @@ model Profile {
 
 model Customer {
   id                 BigInt   @id
-  default_address_id BigInt? // No need FK to check, index only
+  default_address_id BigInt?  @unique // No need FK to check, index only
   date_created       DateTime @default(now()) @db.Timestamptz(3)
   date_updated       DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
