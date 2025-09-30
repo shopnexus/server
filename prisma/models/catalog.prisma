@@ -49,11 +49,12 @@ model ProductCategory {
 
 // Important data, only allow update name/description
 model ProductSpu {
-  id          BigInt @id @default(autoincrement())
-  code        String @unique
-  account_id  BigInt // Vendor account only
-  category_id BigInt
-  brand_id    BigInt
+  id              BigInt  @id @default(autoincrement())
+  code            String  @unique
+  account_id      BigInt // Vendor account only
+  category_id     BigInt
+  brand_id        BigInt
+  featured_sku_id BigInt? @unique // If not null, this SKU is the featured SKU for this product
 
   name              String
   description       String
@@ -68,6 +69,7 @@ model ProductSpu {
   brand    Brand           @relation(fields: [brand_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   tags     ProductTag[]
   products ProductSku[]
+
   // specs    ProductSpuSpec[]
   @@index([account_id])
   @@index([category_id])
@@ -80,37 +82,19 @@ model ProductSku {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
 
-  is_primary   Boolean // If true, this is the primary SKU for the SPU
   price        BigInt // Price of the item at this time
   can_combine  Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
+  attributes   Json      @db.JsonB // Key-value pairs of attributes, e.g. color: red, size: M, etc.
   date_created DateTime  @default(now()) @db.Timestamptz(3)
   date_deleted DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
-  spu         ProductSpu            @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  spu         ProductSpu      @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   serials     ProductSerial[]
   carts       CartItem[]
-  attributes  ProductSkuAttribute[]
   order_items OrderItem[]
 
   @@index([spu_id])
   @@map("product_sku")
-  @@schema("catalog")
-}
-
-model ProductSkuAttribute {
-  id     BigInt @id @default(autoincrement())
-  sku_id BigInt
-
-  name         String   @db.VarChar(100) // Name of the attribute, e.g. color, size, etc.
-  value        String   @db.VarChar(255) // Value of the attribute, can be JSON string if needed
-  date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  sku ProductSku @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@index([sku_id])
-  @@index([name])
-  @@map("product_sku_attribute")
   @@schema("catalog")
 }
 
