@@ -28,10 +28,10 @@ func NewInventoryBiz(storage *pgutil.Storage, pubsub pubsub.Client) (*InventoryB
 }
 
 type AddStockParams struct {
-	RefID     int64                 `validate:"required,gt=0"`
-	RefType   db.InventoryStockType `validate:"required,validFn=Valid"`
-	Change    int64                 `validate:"required,gt=0"`
-	SerialIDs []string              `validate:"dive,required"`
+	RefID     int64                    `validate:"required,gt=0"`
+	RefType   db.InventoryStockRefType `validate:"required,validFn=Valid"`
+	Change    int64                    `validate:"required,gt=0"`
+	SerialIDs []string                 `validate:"dive,required"`
 }
 
 func (b *InventoryBiz) AddStock(ctx context.Context, params AddStockParams) error {
@@ -41,7 +41,7 @@ func (b *InventoryBiz) AddStock(ctx context.Context, params AddStockParams) erro
 
 	stock, err := b.storage.GetInventoryStock(ctx, db.GetInventoryStockParams{
 		RefID:   pgutil.Int64ToPgInt8(params.RefID),
-		RefType: db.NullInventoryStockType{InventoryStockType: params.RefType, Valid: true},
+		RefType: db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
 	})
 	if err != nil {
 		return err
