@@ -1,14 +1,3 @@
--- name: GetFlagshipProduct :many
-SELECT s.*
-FROM unnest(sqlc.slice('spu_id')::bigint[]) AS u(spu_id)
-         JOIN LATERAL (
-    SELECT sku.*, sku.id as sku_id, st.sold
-    FROM "catalog"."product_sku" sku
-    INNER JOIN "inventory"."stock" st ON sku.id = st.ref_id AND st.ref_type = 'ProductSku'
-    WHERE sku.spu_id = u.spu_id
-    ORDER BY st.sold DESC, sku.price ASC LIMIT 1
-) s ON true;
-
 -- name: ListRating :many
 SELECT ref_id, AVG(score) as score, COUNT(*) as count
 FROM "catalog"."comment"

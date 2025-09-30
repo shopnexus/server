@@ -15,7 +15,7 @@ const listStaleSearchSync = `-- name: ListStaleSearchSync :many
 SELECT id, ref_id, ref_type
 FROM system.search_sync
 WHERE (is_stale_metadata = $2 OR is_stale_embedding = $3) AND ref_type = $1
-ORDER BY date_created ASC
+ORDER BY date_updated ASC
 FOR UPDATE SKIP LOCKED
 LIMIT $4
 `
