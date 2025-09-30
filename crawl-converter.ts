@@ -1,4 +1,4 @@
-import {PrismaClient} from '@prisma/client'
+import {PrismaClient, Prisma} from '@prisma/client'
 import slugify from '@sindresorhus/slugify'
 import {v4 as uuidv4} from 'uuid'
 import fs from "fs"
@@ -122,14 +122,8 @@ async function main(inputs: InputProduct1[] = []) {
                         can_combine: false,
                         date_created: new Date(),
                         is_primary: false,
-                        attributes: {
-                            create: mapAttributes(input).map(a => ({
-                                name: a.name,
-                                value: a.value,
-                                date_created: new Date(),
-                                date_updated: new Date(),
-                            }))
-                        },
+                        // Prisma schema now stores attributes directly as Json on ProductSku
+                        attributes: mapAttributes(input),
                     }
                 }
             },
