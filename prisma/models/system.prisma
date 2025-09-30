@@ -37,6 +37,7 @@ model SearchSync {
   is_stale_metadata  Boolean @default(true) // Stale things like name, description, price, etc.
 
   date_created DateTime @default(now()) @db.Timestamptz(3)
+  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
   @@index([ref_type, ref_id])
   @@index([is_stale_embedding])
