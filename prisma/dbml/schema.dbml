@@ -139,17 +139,9 @@ Table ProductSku {
   is_primary Boolean [not null]
   price BigInt [not null]
   can_combine Boolean [not null]
+  attributes Json [not null]
   date_created DateTime [default: `now()`, not null]
   date_deleted DateTime
-}
-
-Table ProductSkuAttribute {
-  id BigInt [pk, increment]
-  sku_id BigInt [not null]
-  name String [not null]
-  value String [not null]
-  date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [default: `now()`, not null]
 }
 
 Table Tag {
@@ -351,6 +343,7 @@ Table SearchSync {
   is_stale_embedding Boolean [not null, default: true]
   is_stale_metadata Boolean [not null, default: true]
   date_created DateTime [default: `now()`, not null]
+  date_updated DateTime [default: `now()`, not null]
 }
 
 Enum AccountType {
@@ -492,8 +485,6 @@ Ref: ProductSpu.category_id > ProductCategory.id [delete: Cascade]
 Ref: ProductSpu.brand_id > Brand.id [delete: Cascade]
 
 Ref: ProductSku.spu_id > ProductSpu.id [delete: Cascade]
-
-Ref: ProductSkuAttribute.sku_id > ProductSku.id [delete: Cascade]
 
 Ref: ProductTag.spu_id > ProductSpu.id [delete: Cascade]
 

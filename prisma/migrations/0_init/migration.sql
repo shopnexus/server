@@ -225,6 +225,7 @@ CREATE TABLE "catalog"."product_spu" (
     "account_id" BIGINT NOT NULL,
     "category_id" BIGINT NOT NULL,
     "brand_id" BIGINT NOT NULL,
+    "featured_sku_id" BIGINT,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
@@ -240,25 +241,13 @@ CREATE TABLE "catalog"."product_spu" (
 CREATE TABLE "catalog"."product_sku" (
     "id" BIGSERIAL NOT NULL,
     "spu_id" BIGINT NOT NULL,
-    "is_primary" BOOLEAN NOT NULL,
     "price" BIGINT NOT NULL,
     "can_combine" BOOLEAN NOT NULL,
+    "attributes" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_deleted" TIMESTAMPTZ(3),
 
     CONSTRAINT "product_sku_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "catalog"."product_sku_attribute" (
-    "id" BIGSERIAL NOT NULL,
-    "sku_id" BIGINT NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "value" VARCHAR(255) NOT NULL,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "product_sku_attribute_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -503,6 +492,7 @@ CREATE TABLE "system"."search_sync" (
     "is_stale_embedding" BOOLEAN NOT NULL DEFAULT true,
     "is_stale_metadata" BOOLEAN NOT NULL DEFAULT true,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "search_sync_pkey" PRIMARY KEY ("id")
 );
@@ -518,6 +508,9 @@ CREATE UNIQUE INDEX "base_username_key" ON "account"."base"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "profile_avatar_rs_id_key" ON "account"."profile"("avatar_rs_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "customer_default_address_id_key" ON "account"."customer"("default_address_id");
 
 -- CreateIndex
 CREATE INDEX "customer_default_address_id_idx" ON "account"."customer"("default_address_id");
@@ -589,6 +582,9 @@ CREATE INDEX "category_parent_id_idx" ON "catalog"."category"("parent_id");
 CREATE UNIQUE INDEX "product_spu_code_key" ON "catalog"."product_spu"("code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "product_spu_featured_sku_id_key" ON "catalog"."product_spu"("featured_sku_id");
+
+-- CreateIndex
 CREATE INDEX "product_spu_account_id_idx" ON "catalog"."product_spu"("account_id");
 
 -- CreateIndex
@@ -599,12 +595,6 @@ CREATE INDEX "product_spu_brand_id_idx" ON "catalog"."product_spu"("brand_id");
 
 -- CreateIndex
 CREATE INDEX "product_sku_spu_id_idx" ON "catalog"."product_sku"("spu_id");
-
--- CreateIndex
-CREATE INDEX "product_sku_attribute_sku_id_idx" ON "catalog"."product_sku_attribute"("sku_id");
-
--- CreateIndex
-CREATE INDEX "product_sku_attribute_name_idx" ON "catalog"."product_sku_attribute"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tag_tag_key" ON "catalog"."tag"("tag");
@@ -728,9 +718,6 @@ ALTER TABLE "catalog"."product_spu" ADD CONSTRAINT "product_spu_brand_id_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "catalog"."product_sku" ADD CONSTRAINT "product_sku_spu_id_fkey" FOREIGN KEY ("spu_id") REFERENCES "catalog"."product_spu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "catalog"."product_sku_attribute" ADD CONSTRAINT "product_sku_attribute_sku_id_fkey" FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_spu_id_fkey" FOREIGN KEY ("spu_id") REFERENCES "catalog"."product_spu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
