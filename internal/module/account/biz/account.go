@@ -164,7 +164,9 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 		description      null.String
 	)
 	if account.Type == db.AccountTypeCustomer {
-		customer, err := s.storage.GetAccountCustomer(ctx, pgutil.Int64ToPgInt8(params.AccountID))
+		customer, err := s.storage.GetAccountCustomer(ctx, db.GetAccountCustomerParams{
+			ID: pgutil.Int64ToPgInt8(params.AccountID),
+		})
 		if err != nil {
 			return zero, err
 		}

@@ -3,6 +3,7 @@ package accountbiz
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -11,6 +12,7 @@ import (
 	"shopnexus-remastered/internal/db"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -72,18 +74,6 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 	// map[spuID]resource
 	resourceMap := slice.NewMap(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
-	// Get attributes
-	attributes, err := s.storage.ListCatalogProductSkuAttribute(ctx, db.ListCatalogProductSkuAttributeParams{
-		SkuID: skuIDs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	attributeMap := make(map[int64][]db.CatalogProductSkuAttribute)
-	for _, attr := range attributes {
-		attributeMap[attr.SkuID] = append(attributeMap[attr.SkuID], attr)
-	}
-
 	// Get category
 	categories, err := s.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
 		ID: categoryIDs,
@@ -106,11 +96,16 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 			promos = append(promos, promo.ID)
 		}
 
+		var attributes []catalogmodel.ProductAttribute
+		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+			return nil, err
+		}
+
 		result = append(result, accountmodel.CartItem{
 			SkuID:         sku.ID,
 			SpuID:         spu.ID,
 			Name:          spu.Name,
-			SkuName:       GetSkuName(attributeMap[sku.ID]),
+			SkuName:       GetSkuName(attributes),
 			OriginalPrice: priceMap[sku.ID].OriginalPrice,
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
@@ -133,13 +128,13 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 	return result, nil
 }
 
-func GetSkuName(attributes []db.CatalogProductSkuAttribute) string {
+func GetSkuName(attributes []catalogmodel.ProductAttribute) string {
 	name := ""
-	for i, attr := range attributes {
-		if i > 0 {
+	for _, v := range attributes {
+		if name != "" {
 			name += ", "
 		}
-		name += attr.Name + " " + attr.Value
+		name += v.Name + ": " + v.Value
 	}
 	return name
 }
