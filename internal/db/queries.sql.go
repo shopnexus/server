@@ -857,51 +857,45 @@ WHERE (
     ("featured_sku_id" > $15 OR $15 IS NULL) AND
     ("featured_sku_id" < $16 OR $16 IS NULL) AND
     ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
-    ("date_manufactured" > $19 OR $19 IS NULL) AND
-    ("date_manufactured" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL) AND
-    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
-    ("date_deleted" > $28 OR $28 IS NULL) AND
-    ("date_deleted" < $29 OR $29 IS NULL)
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
+    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 `
 
 type CountCatalogProductSpuParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	AccountID            []int64              `json:"account_id"`
-	AccountIDFrom        pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo          pgtype.Int8          `json:"account_id_to"`
-	CategoryID           []int64              `json:"category_id"`
-	CategoryIDFrom       pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo         pgtype.Int8          `json:"category_id_to"`
-	BrandID              []int64              `json:"brand_id"`
-	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive             []bool               `json:"is_active"`
-	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
-	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
-	DateManufacturedTo   pgtype.Timestamptz   `json:"date_manufactured_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted          []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom      pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo        pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID                []int64              `json:"id"`
+	IDFrom            pgtype.Int8          `json:"id_from"`
+	IDTo              pgtype.Int8          `json:"id_to"`
+	Code              []string             `json:"code"`
+	AccountID         []int64              `json:"account_id"`
+	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
+	CategoryID        []int64              `json:"category_id"`
+	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
+	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
+	BrandID           []int64              `json:"brand_id"`
+	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
+	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
+	IsActive          []bool               `json:"is_active"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) CountCatalogProductSpu(ctx context.Context, arg CountCatalogProductSpuParams) (int64, error) {
@@ -923,9 +917,6 @@ func (q *Queries) CountCatalogProductSpu(ctx context.Context, arg CountCatalogPr
 		arg.FeaturedSkuIDFrom,
 		arg.FeaturedSkuIDTo,
 		arg.IsActive,
-		arg.DateManufactured,
-		arg.DateManufacturedFrom,
-		arg.DateManufacturedTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1668,53 +1659,41 @@ WHERE (
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
     ("date_ended" > $18 OR $18 IS NULL) AND
     ("date_ended" < $19 OR $19 IS NULL) AND
-    ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" > $21 OR $21 IS NULL) AND
-    ("schedule_start" < $22 OR $22 IS NULL) AND
-    ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" > $24 OR $24 IS NULL) AND
-    ("schedule_duration" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL) AND
-    ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" > $30 OR $30 IS NULL) AND
-    ("date_updated" < $31 OR $31 IS NULL)
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
 type CountPromotionBaseParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	OwnerID              []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom          pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo            pgtype.Int8          `json:"owner_id_to"`
-	RefType              []PromotionRefType   `json:"ref_type"`
-	RefID                []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom            pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo              pgtype.Int8          `json:"ref_id_to"`
-	Type                 []PromotionType      `json:"type"`
-	IsActive             []bool               `json:"is_active"`
-	DateStarted          []pgtype.Timestamptz `json:"date_started"`
-	DateStartedFrom      pgtype.Timestamptz   `json:"date_started_from"`
-	DateStartedTo        pgtype.Timestamptz   `json:"date_started_to"`
-	DateEnded            []pgtype.Timestamptz `json:"date_ended"`
-	DateEndedFrom        pgtype.Timestamptz   `json:"date_ended_from"`
-	DateEndedTo          pgtype.Timestamptz   `json:"date_ended_to"`
-	ScheduleStart        []pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleStartFrom    pgtype.Timestamptz   `json:"schedule_start_from"`
-	ScheduleStartTo      pgtype.Timestamptz   `json:"schedule_start_to"`
-	ScheduleDuration     []pgtype.Int4        `json:"schedule_duration"`
-	ScheduleDurationFrom pgtype.Int4          `json:"schedule_duration_from"`
-	ScheduleDurationTo   pgtype.Int4          `json:"schedule_duration_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	Code            []string             `json:"code"`
+	OwnerID         []pgtype.Int8        `json:"owner_id"`
+	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
+	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
+	RefType         []PromotionRefType   `json:"ref_type"`
+	RefID           []pgtype.Int8        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
+	Type            []PromotionType      `json:"type"`
+	IsActive        []bool               `json:"is_active"`
+	DateStarted     []pgtype.Timestamptz `json:"date_started"`
+	DateStartedFrom pgtype.Timestamptz   `json:"date_started_from"`
+	DateStartedTo   pgtype.Timestamptz   `json:"date_started_to"`
+	DateEnded       []pgtype.Timestamptz `json:"date_ended"`
+	DateEndedFrom   pgtype.Timestamptz   `json:"date_ended_from"`
+	DateEndedTo     pgtype.Timestamptz   `json:"date_ended_to"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) CountPromotionBase(ctx context.Context, arg CountPromotionBaseParams) (int64, error) {
@@ -1738,12 +1717,6 @@ func (q *Queries) CountPromotionBase(ctx context.Context, arg CountPromotionBase
 		arg.DateEnded,
 		arg.DateEndedFrom,
 		arg.DateEndedTo,
-		arg.ScheduleStart,
-		arg.ScheduleStartFrom,
-		arg.ScheduleStartTo,
-		arg.ScheduleDuration,
-		arg.ScheduleDurationFrom,
-		arg.ScheduleDurationTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1816,6 +1789,69 @@ func (q *Queries) CountPromotionDiscount(ctx context.Context, arg CountPromotion
 		arg.DiscountPrice,
 		arg.DiscountPriceFrom,
 		arg.DiscountPriceTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPromotionSchedule = `-- name: CountPromotionSchedule :one
+SELECT COUNT(*)
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("duration" = ANY($7) OR $7 IS NULL) AND
+    ("duration" > $8 OR $8 IS NULL) AND
+    ("duration" < $9 OR $9 IS NULL) AND
+    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
+    ("next_run_at" > $11 OR $11 IS NULL) AND
+    ("next_run_at" < $12 OR $12 IS NULL) AND
+    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
+    ("last_run_at" > $14 OR $14 IS NULL) AND
+    ("last_run_at" < $15 OR $15 IS NULL)
+)
+`
+
+type CountPromotionScheduleParams struct {
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	PromotionID     []int64              `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
+	Duration        []int32              `json:"duration"`
+	DurationFrom    pgtype.Int4          `json:"duration_from"`
+	DurationTo      pgtype.Int4          `json:"duration_to"`
+	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+}
+
+func (q *Queries) CountPromotionSchedule(ctx context.Context, arg CountPromotionScheduleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPromotionSchedule,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.Duration,
+		arg.DurationFrom,
+		arg.DurationTo,
+		arg.NextRunAt,
+		arg.NextRunAtFrom,
+		arg.NextRunAtTo,
+		arg.LastRunAt,
+		arg.LastRunAtFrom,
+		arg.LastRunAtTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -2521,24 +2557,23 @@ func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalog
 }
 
 const createCatalogProductSpu = `-- name: CreateCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 `
 
 type CreateCatalogProductSpuParams struct {
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalogProductSpuParams) (CatalogProductSpu, error) {
@@ -2551,7 +2586,6 @@ func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalog
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
-		arg.DateManufactured,
 		arg.DateCreated,
 		arg.DateUpdated,
 		arg.DateDeleted,
@@ -2567,7 +2601,6 @@ func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalog
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
-		&i.DateManufactured,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
@@ -2737,18 +2770,17 @@ type CreateCopyCatalogProductSkuParams struct {
 }
 
 type CreateCopyCatalogProductSpuParams struct {
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CreateCopyCatalogProductSpuTagParams struct {
@@ -2858,16 +2890,15 @@ type CreateCopyDefaultCatalogProductSkuParams struct {
 }
 
 type CreateCopyDefaultCatalogProductSpuParams struct {
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CreateCopyDefaultCatalogProductSpuTagParams struct {
@@ -2957,19 +2988,16 @@ type CreateCopyDefaultOrderShipmentParams struct {
 }
 
 type CreateCopyDefaultPromotionBaseParams struct {
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
 }
 
 type CreateCopyDefaultPromotionDiscountParams struct {
@@ -2979,6 +3007,15 @@ type CreateCopyDefaultPromotionDiscountParams struct {
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
 	DiscountPrice   pgtype.Int8 `json:"discount_price"`
+}
+
+type CreateCopyDefaultPromotionScheduleParams struct {
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
 }
 
 type CreateCopyDefaultSharedResourceParams struct {
@@ -3100,21 +3137,18 @@ type CreateCopyOrderShipmentParams struct {
 }
 
 type CreateCopyPromotionBaseParams struct {
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 type CreateCopyPromotionDiscountParams struct {
@@ -3124,6 +3158,15 @@ type CreateCopyPromotionDiscountParams struct {
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
 	DiscountPrice   pgtype.Int8 `json:"discount_price"`
+}
+
+type CreateCopyPromotionScheduleParams struct {
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
 }
 
 type CreateCopySharedResourceParams struct {
@@ -3586,22 +3629,21 @@ func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg Create
 }
 
 const createDefaultCatalogProductSpu = `-- name: CreateDefaultCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 `
 
 type CreateDefaultCatalogProductSpuParams struct {
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg CreateDefaultCatalogProductSpuParams) (CatalogProductSpu, error) {
@@ -3614,7 +3656,6 @@ func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg Create
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
-		arg.DateManufactured,
 		arg.DateDeleted,
 	)
 	var i CatalogProductSpu
@@ -3628,7 +3669,6 @@ func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg Create
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
-		&i.DateManufactured,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
@@ -3999,25 +4039,22 @@ func (q *Queries) CreateDefaultOrderShipment(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultPromotionBase = `-- name: CreateDefaultPromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 `
 
 type CreateDefaultPromotionBaseParams struct {
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
 }
 
 func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefaultPromotionBaseParams) (PromotionBase, error) {
@@ -4032,9 +4069,6 @@ func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefa
 		arg.IsActive,
 		arg.DateStarted,
 		arg.DateEnded,
-		arg.ScheduleTz,
-		arg.ScheduleStart,
-		arg.ScheduleDuration,
 	)
 	var i PromotionBase
 	err := row.Scan(
@@ -4049,9 +4083,6 @@ func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefa
 		&i.IsActive,
 		&i.DateStarted,
 		&i.DateEnded,
-		&i.ScheduleTz,
-		&i.ScheduleStart,
-		&i.ScheduleDuration,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -4090,6 +4121,43 @@ func (q *Queries) CreateDefaultPromotionDiscount(ctx context.Context, arg Create
 		&i.MaxDiscount,
 		&i.DiscountPercent,
 		&i.DiscountPrice,
+	)
+	return i, err
+}
+
+const createDefaultPromotionSchedule = `-- name: CreateDefaultPromotionSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+`
+
+type CreateDefaultPromotionScheduleParams struct {
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
+}
+
+func (q *Queries) CreateDefaultPromotionSchedule(ctx context.Context, arg CreateDefaultPromotionScheduleParams) (PromotionSchedule, error) {
+	row := q.db.QueryRow(ctx, createDefaultPromotionSchedule,
+		arg.PromotionID,
+		arg.Timezone,
+		arg.CronRule,
+		arg.Duration,
+		arg.NextRunAt,
+		arg.LastRunAt,
+	)
+	var i PromotionSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.Timezone,
+		&i.CronRule,
+		&i.Duration,
+		&i.NextRunAt,
+		&i.LastRunAt,
 	)
 	return i, err
 }
@@ -4580,27 +4648,24 @@ func (q *Queries) CreateOrderShipment(ctx context.Context, arg CreateOrderShipme
 }
 
 const createPromotionBase = `-- name: CreatePromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 `
 
 type CreatePromotionBaseParams struct {
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBaseParams) (PromotionBase, error) {
@@ -4615,9 +4680,6 @@ func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBa
 		arg.IsActive,
 		arg.DateStarted,
 		arg.DateEnded,
-		arg.ScheduleTz,
-		arg.ScheduleStart,
-		arg.ScheduleDuration,
 		arg.DateCreated,
 		arg.DateUpdated,
 	)
@@ -4634,9 +4696,6 @@ func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBa
 		&i.IsActive,
 		&i.DateStarted,
 		&i.DateEnded,
-		&i.ScheduleTz,
-		&i.ScheduleStart,
-		&i.ScheduleDuration,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -4675,6 +4734,43 @@ func (q *Queries) CreatePromotionDiscount(ctx context.Context, arg CreatePromoti
 		&i.MaxDiscount,
 		&i.DiscountPercent,
 		&i.DiscountPrice,
+	)
+	return i, err
+}
+
+const createPromotionSchedule = `-- name: CreatePromotionSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+`
+
+type CreatePromotionScheduleParams struct {
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
+}
+
+func (q *Queries) CreatePromotionSchedule(ctx context.Context, arg CreatePromotionScheduleParams) (PromotionSchedule, error) {
+	row := q.db.QueryRow(ctx, createPromotionSchedule,
+		arg.PromotionID,
+		arg.Timezone,
+		arg.CronRule,
+		arg.Duration,
+		arg.NextRunAt,
+		arg.LastRunAt,
+	)
+	var i PromotionSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.Timezone,
+		&i.CronRule,
+		&i.Duration,
+		&i.NextRunAt,
+		&i.LastRunAt,
 	)
 	return i, err
 }
@@ -5608,51 +5704,45 @@ WHERE (
     ("featured_sku_id" > $15 OR $15 IS NULL) AND
     ("featured_sku_id" < $16 OR $16 IS NULL) AND
     ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
-    ("date_manufactured" > $19 OR $19 IS NULL) AND
-    ("date_manufactured" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL) AND
-    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
-    ("date_deleted" > $28 OR $28 IS NULL) AND
-    ("date_deleted" < $29 OR $29 IS NULL)
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
+    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 `
 
 type DeleteCatalogProductSpuParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	AccountID            []int64              `json:"account_id"`
-	AccountIDFrom        pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo          pgtype.Int8          `json:"account_id_to"`
-	CategoryID           []int64              `json:"category_id"`
-	CategoryIDFrom       pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo         pgtype.Int8          `json:"category_id_to"`
-	BrandID              []int64              `json:"brand_id"`
-	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive             []bool               `json:"is_active"`
-	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
-	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
-	DateManufacturedTo   pgtype.Timestamptz   `json:"date_manufactured_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted          []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom      pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo        pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID                []int64              `json:"id"`
+	IDFrom            pgtype.Int8          `json:"id_from"`
+	IDTo              pgtype.Int8          `json:"id_to"`
+	Code              []string             `json:"code"`
+	AccountID         []int64              `json:"account_id"`
+	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
+	CategoryID        []int64              `json:"category_id"`
+	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
+	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
+	BrandID           []int64              `json:"brand_id"`
+	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
+	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
+	IsActive          []bool               `json:"is_active"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error {
@@ -5674,9 +5764,6 @@ func (q *Queries) DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalog
 		arg.FeaturedSkuIDFrom,
 		arg.FeaturedSkuIDTo,
 		arg.IsActive,
-		arg.DateManufactured,
-		arg.DateManufacturedFrom,
-		arg.DateManufacturedTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -6377,53 +6464,41 @@ WHERE (
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
     ("date_ended" > $18 OR $18 IS NULL) AND
     ("date_ended" < $19 OR $19 IS NULL) AND
-    ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" > $21 OR $21 IS NULL) AND
-    ("schedule_start" < $22 OR $22 IS NULL) AND
-    ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" > $24 OR $24 IS NULL) AND
-    ("schedule_duration" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL) AND
-    ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" > $30 OR $30 IS NULL) AND
-    ("date_updated" < $31 OR $31 IS NULL)
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
 type DeletePromotionBaseParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	OwnerID              []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom          pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo            pgtype.Int8          `json:"owner_id_to"`
-	RefType              []PromotionRefType   `json:"ref_type"`
-	RefID                []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom            pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo              pgtype.Int8          `json:"ref_id_to"`
-	Type                 []PromotionType      `json:"type"`
-	IsActive             []bool               `json:"is_active"`
-	DateStarted          []pgtype.Timestamptz `json:"date_started"`
-	DateStartedFrom      pgtype.Timestamptz   `json:"date_started_from"`
-	DateStartedTo        pgtype.Timestamptz   `json:"date_started_to"`
-	DateEnded            []pgtype.Timestamptz `json:"date_ended"`
-	DateEndedFrom        pgtype.Timestamptz   `json:"date_ended_from"`
-	DateEndedTo          pgtype.Timestamptz   `json:"date_ended_to"`
-	ScheduleStart        []pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleStartFrom    pgtype.Timestamptz   `json:"schedule_start_from"`
-	ScheduleStartTo      pgtype.Timestamptz   `json:"schedule_start_to"`
-	ScheduleDuration     []pgtype.Int4        `json:"schedule_duration"`
-	ScheduleDurationFrom pgtype.Int4          `json:"schedule_duration_from"`
-	ScheduleDurationTo   pgtype.Int4          `json:"schedule_duration_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	Code            []string             `json:"code"`
+	OwnerID         []pgtype.Int8        `json:"owner_id"`
+	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
+	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
+	RefType         []PromotionRefType   `json:"ref_type"`
+	RefID           []pgtype.Int8        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
+	Type            []PromotionType      `json:"type"`
+	IsActive        []bool               `json:"is_active"`
+	DateStarted     []pgtype.Timestamptz `json:"date_started"`
+	DateStartedFrom pgtype.Timestamptz   `json:"date_started_from"`
+	DateStartedTo   pgtype.Timestamptz   `json:"date_started_to"`
+	DateEnded       []pgtype.Timestamptz `json:"date_ended"`
+	DateEndedFrom   pgtype.Timestamptz   `json:"date_ended_from"`
+	DateEndedTo     pgtype.Timestamptz   `json:"date_ended_to"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) DeletePromotionBase(ctx context.Context, arg DeletePromotionBaseParams) error {
@@ -6447,12 +6522,6 @@ func (q *Queries) DeletePromotionBase(ctx context.Context, arg DeletePromotionBa
 		arg.DateEnded,
 		arg.DateEndedFrom,
 		arg.DateEndedTo,
-		arg.ScheduleStart,
-		arg.ScheduleStartFrom,
-		arg.ScheduleStartTo,
-		arg.ScheduleDuration,
-		arg.ScheduleDurationFrom,
-		arg.ScheduleDurationTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -6522,6 +6591,66 @@ func (q *Queries) DeletePromotionDiscount(ctx context.Context, arg DeletePromoti
 		arg.DiscountPrice,
 		arg.DiscountPriceFrom,
 		arg.DiscountPriceTo,
+	)
+	return err
+}
+
+const deletePromotionSchedule = `-- name: DeletePromotionSchedule :exec
+DELETE FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("duration" = ANY($7) OR $7 IS NULL) AND
+    ("duration" > $8 OR $8 IS NULL) AND
+    ("duration" < $9 OR $9 IS NULL) AND
+    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
+    ("next_run_at" > $11 OR $11 IS NULL) AND
+    ("next_run_at" < $12 OR $12 IS NULL) AND
+    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
+    ("last_run_at" > $14 OR $14 IS NULL) AND
+    ("last_run_at" < $15 OR $15 IS NULL)
+)
+`
+
+type DeletePromotionScheduleParams struct {
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	PromotionID     []int64              `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
+	Duration        []int32              `json:"duration"`
+	DurationFrom    pgtype.Int4          `json:"duration_from"`
+	DurationTo      pgtype.Int4          `json:"duration_to"`
+	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+}
+
+func (q *Queries) DeletePromotionSchedule(ctx context.Context, arg DeletePromotionScheduleParams) error {
+	_, err := q.db.Exec(ctx, deletePromotionSchedule,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.Duration,
+		arg.DurationFrom,
+		arg.DurationTo,
+		arg.NextRunAt,
+		arg.NextRunAtFrom,
+		arg.NextRunAtTo,
+		arg.LastRunAt,
+		arg.LastRunAtFrom,
+		arg.LastRunAtTo,
 	)
 	return err
 }
@@ -7600,52 +7729,46 @@ WHERE (
     ("featured_sku_id" > $15 OR $15 IS NULL) AND
     ("featured_sku_id" < $16 OR $16 IS NULL) AND
     ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
-    ("date_manufactured" > $19 OR $19 IS NULL) AND
-    ("date_manufactured" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL) AND
-    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
-    ("date_deleted" > $28 OR $28 IS NULL) AND
-    ("date_deleted" < $29 OR $29 IS NULL)
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
+    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogProductSpuParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	AccountID            []int64              `json:"account_id"`
-	AccountIDFrom        pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo          pgtype.Int8          `json:"account_id_to"`
-	CategoryID           []int64              `json:"category_id"`
-	CategoryIDFrom       pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo         pgtype.Int8          `json:"category_id_to"`
-	BrandID              []int64              `json:"brand_id"`
-	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive             []bool               `json:"is_active"`
-	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
-	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
-	DateManufacturedTo   pgtype.Timestamptz   `json:"date_manufactured_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted          []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom      pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo        pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID                []int64              `json:"id"`
+	IDFrom            pgtype.Int8          `json:"id_from"`
+	IDTo              pgtype.Int8          `json:"id_to"`
+	Code              []string             `json:"code"`
+	AccountID         []int64              `json:"account_id"`
+	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
+	CategoryID        []int64              `json:"category_id"`
+	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
+	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
+	BrandID           []int64              `json:"brand_id"`
+	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
+	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
+	IsActive          []bool               `json:"is_active"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalogProductSpuParams) (bool, error) {
@@ -7667,9 +7790,6 @@ func (q *Queries) ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalog
 		arg.FeaturedSkuIDFrom,
 		arg.FeaturedSkuIDTo,
 		arg.IsActive,
-		arg.DateManufactured,
-		arg.DateManufacturedFrom,
-		arg.DateManufacturedTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -8439,54 +8559,42 @@ WHERE (
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
     ("date_ended" > $18 OR $18 IS NULL) AND
     ("date_ended" < $19 OR $19 IS NULL) AND
-    ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" > $21 OR $21 IS NULL) AND
-    ("schedule_start" < $22 OR $22 IS NULL) AND
-    ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" > $24 OR $24 IS NULL) AND
-    ("schedule_duration" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL) AND
-    ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" > $30 OR $30 IS NULL) AND
-    ("date_updated" < $31 OR $31 IS NULL)
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ) as exists
 `
 
 type ExistsPromotionBaseParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	OwnerID              []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom          pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo            pgtype.Int8          `json:"owner_id_to"`
-	RefType              []PromotionRefType   `json:"ref_type"`
-	RefID                []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom            pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo              pgtype.Int8          `json:"ref_id_to"`
-	Type                 []PromotionType      `json:"type"`
-	IsActive             []bool               `json:"is_active"`
-	DateStarted          []pgtype.Timestamptz `json:"date_started"`
-	DateStartedFrom      pgtype.Timestamptz   `json:"date_started_from"`
-	DateStartedTo        pgtype.Timestamptz   `json:"date_started_to"`
-	DateEnded            []pgtype.Timestamptz `json:"date_ended"`
-	DateEndedFrom        pgtype.Timestamptz   `json:"date_ended_from"`
-	DateEndedTo          pgtype.Timestamptz   `json:"date_ended_to"`
-	ScheduleStart        []pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleStartFrom    pgtype.Timestamptz   `json:"schedule_start_from"`
-	ScheduleStartTo      pgtype.Timestamptz   `json:"schedule_start_to"`
-	ScheduleDuration     []pgtype.Int4        `json:"schedule_duration"`
-	ScheduleDurationFrom pgtype.Int4          `json:"schedule_duration_from"`
-	ScheduleDurationTo   pgtype.Int4          `json:"schedule_duration_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	Code            []string             `json:"code"`
+	OwnerID         []pgtype.Int8        `json:"owner_id"`
+	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
+	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
+	RefType         []PromotionRefType   `json:"ref_type"`
+	RefID           []pgtype.Int8        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
+	Type            []PromotionType      `json:"type"`
+	IsActive        []bool               `json:"is_active"`
+	DateStarted     []pgtype.Timestamptz `json:"date_started"`
+	DateStartedFrom pgtype.Timestamptz   `json:"date_started_from"`
+	DateStartedTo   pgtype.Timestamptz   `json:"date_started_to"`
+	DateEnded       []pgtype.Timestamptz `json:"date_ended"`
+	DateEndedFrom   pgtype.Timestamptz   `json:"date_ended_from"`
+	DateEndedTo     pgtype.Timestamptz   `json:"date_ended_to"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBaseParams) (bool, error) {
@@ -8510,12 +8618,6 @@ func (q *Queries) ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBa
 		arg.DateEnded,
 		arg.DateEndedFrom,
 		arg.DateEndedTo,
-		arg.ScheduleStart,
-		arg.ScheduleStartFrom,
-		arg.ScheduleStartTo,
-		arg.ScheduleDuration,
-		arg.ScheduleDurationFrom,
-		arg.ScheduleDurationTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -8590,6 +8692,71 @@ func (q *Queries) ExistsPromotionDiscount(ctx context.Context, arg ExistsPromoti
 		arg.DiscountPrice,
 		arg.DiscountPriceFrom,
 		arg.DiscountPriceTo,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsPromotionSchedule = `-- name: ExistsPromotionSchedule :one
+SELECT EXISTS (
+SELECT 1
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("duration" = ANY($7) OR $7 IS NULL) AND
+    ("duration" > $8 OR $8 IS NULL) AND
+    ("duration" < $9 OR $9 IS NULL) AND
+    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
+    ("next_run_at" > $11 OR $11 IS NULL) AND
+    ("next_run_at" < $12 OR $12 IS NULL) AND
+    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
+    ("last_run_at" > $14 OR $14 IS NULL) AND
+    ("last_run_at" < $15 OR $15 IS NULL)
+)
+) as exists
+`
+
+type ExistsPromotionScheduleParams struct {
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	PromotionID     []int64              `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
+	Duration        []int32              `json:"duration"`
+	DurationFrom    pgtype.Int4          `json:"duration_from"`
+	DurationTo      pgtype.Int4          `json:"duration_to"`
+	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+}
+
+func (q *Queries) ExistsPromotionSchedule(ctx context.Context, arg ExistsPromotionScheduleParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsPromotionSchedule,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.Duration,
+		arg.DurationFrom,
+		arg.DurationTo,
+		arg.NextRunAt,
+		arg.NextRunAtFrom,
+		arg.NextRunAtTo,
+		arg.LastRunAt,
+		arg.LastRunAtFrom,
+		arg.LastRunAtTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -9216,7 +9383,7 @@ const getCatalogProductSpu = `-- name: GetCatalogProductSpu :one
 
 
 
-SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE ("id" = $1) OR ("code" = $2) OR ("featured_sku_id" = $3)
 `
@@ -9243,7 +9410,6 @@ func (q *Queries) GetCatalogProductSpu(ctx context.Context, arg GetCatalogProduc
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
-		&i.DateManufactured,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
@@ -9612,7 +9778,7 @@ const getPromotionBase = `-- name: GetPromotionBase :one
 
 
 
-SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 FROM "promotion"."base"
 WHERE ("id" = $1) OR ("code" = $2)
 `
@@ -9640,9 +9806,6 @@ func (q *Queries) GetPromotionBase(ctx context.Context, arg GetPromotionBasePara
 		&i.IsActive,
 		&i.DateStarted,
 		&i.DateEnded,
-		&i.ScheduleTz,
-		&i.ScheduleStart,
-		&i.ScheduleDuration,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -9671,6 +9834,33 @@ func (q *Queries) GetPromotionDiscount(ctx context.Context, id pgtype.Int8) (Pro
 		&i.MaxDiscount,
 		&i.DiscountPercent,
 		&i.DiscountPrice,
+	)
+	return i, err
+}
+
+const getPromotionSchedule = `-- name: GetPromotionSchedule :one
+
+
+
+SELECT id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+FROM "promotion"."schedule"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: promotion.schedule
+// ========================================
+func (q *Queries) GetPromotionSchedule(ctx context.Context, id pgtype.Int8) (PromotionSchedule, error) {
+	row := q.db.QueryRow(ctx, getPromotionSchedule, id)
+	var i PromotionSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.Timezone,
+		&i.CronRule,
+		&i.Duration,
+		&i.NextRunAt,
+		&i.LastRunAt,
 	)
 	return i, err
 }
@@ -10957,7 +11147,7 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 }
 
 const listCatalogProductSpu = `-- name: ListCatalogProductSpu :many
-SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -10977,56 +11167,50 @@ WHERE (
     ("featured_sku_id" > $15 OR $15 IS NULL) AND
     ("featured_sku_id" < $16 OR $16 IS NULL) AND
     ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_manufactured" = ANY($18) OR $18 IS NULL) AND
-    ("date_manufactured" > $19 OR $19 IS NULL) AND
-    ("date_manufactured" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL) AND
-    ("date_deleted" = ANY($27) OR $27 IS NULL) AND
-    ("date_deleted" > $28 OR $28 IS NULL) AND
-    ("date_deleted" < $29 OR $29 IS NULL)
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL) AND
+    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
+    ("date_deleted" > $25 OR $25 IS NULL) AND
+    ("date_deleted" < $26 OR $26 IS NULL)
 )
 ORDER BY "id"
-LIMIT $31
-OFFSET $30
+LIMIT $28
+OFFSET $27
 `
 
 type ListCatalogProductSpuParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	AccountID            []int64              `json:"account_id"`
-	AccountIDFrom        pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo          pgtype.Int8          `json:"account_id_to"`
-	CategoryID           []int64              `json:"category_id"`
-	CategoryIDFrom       pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo         pgtype.Int8          `json:"category_id_to"`
-	BrandID              []int64              `json:"brand_id"`
-	BrandIDFrom          pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo            pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID        []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom    pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo      pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive             []bool               `json:"is_active"`
-	DateManufactured     []pgtype.Timestamptz `json:"date_manufactured"`
-	DateManufacturedFrom pgtype.Timestamptz   `json:"date_manufactured_from"`
-	DateManufacturedTo   pgtype.Timestamptz   `json:"date_manufactured_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted          []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom      pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo        pgtype.Timestamptz   `json:"date_deleted_to"`
-	Offset               pgtype.Int4          `json:"offset"`
-	Limit                pgtype.Int4          `json:"limit"`
+	ID                []int64              `json:"id"`
+	IDFrom            pgtype.Int8          `json:"id_from"`
+	IDTo              pgtype.Int8          `json:"id_to"`
+	Code              []string             `json:"code"`
+	AccountID         []int64              `json:"account_id"`
+	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
+	CategoryID        []int64              `json:"category_id"`
+	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
+	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
+	BrandID           []int64              `json:"brand_id"`
+	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
+	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
+	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
+	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
+	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
+	IsActive          []bool               `json:"is_active"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
+	Offset            pgtype.Int4          `json:"offset"`
+	Limit             pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProductSpuParams) ([]CatalogProductSpu, error) {
@@ -11048,9 +11232,6 @@ func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProd
 		arg.FeaturedSkuIDFrom,
 		arg.FeaturedSkuIDTo,
 		arg.IsActive,
-		arg.DateManufactured,
-		arg.DateManufacturedFrom,
-		arg.DateManufacturedTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -11080,7 +11261,6 @@ func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProd
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
-			&i.DateManufactured,
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
@@ -12141,7 +12321,7 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 }
 
 const listPromotionBase = `-- name: ListPromotionBase :many
-SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -12163,58 +12343,46 @@ WHERE (
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
     ("date_ended" > $18 OR $18 IS NULL) AND
     ("date_ended" < $19 OR $19 IS NULL) AND
-    ("schedule_start" = ANY($20) OR $20 IS NULL) AND
-    ("schedule_start" > $21 OR $21 IS NULL) AND
-    ("schedule_start" < $22 OR $22 IS NULL) AND
-    ("schedule_duration" = ANY($23) OR $23 IS NULL) AND
-    ("schedule_duration" > $24 OR $24 IS NULL) AND
-    ("schedule_duration" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL) AND
-    ("date_updated" = ANY($29) OR $29 IS NULL) AND
-    ("date_updated" > $30 OR $30 IS NULL) AND
-    ("date_updated" < $31 OR $31 IS NULL)
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $33
-OFFSET $32
+LIMIT $27
+OFFSET $26
 `
 
 type ListPromotionBaseParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Code                 []string             `json:"code"`
-	OwnerID              []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom          pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo            pgtype.Int8          `json:"owner_id_to"`
-	RefType              []PromotionRefType   `json:"ref_type"`
-	RefID                []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom            pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo              pgtype.Int8          `json:"ref_id_to"`
-	Type                 []PromotionType      `json:"type"`
-	IsActive             []bool               `json:"is_active"`
-	DateStarted          []pgtype.Timestamptz `json:"date_started"`
-	DateStartedFrom      pgtype.Timestamptz   `json:"date_started_from"`
-	DateStartedTo        pgtype.Timestamptz   `json:"date_started_to"`
-	DateEnded            []pgtype.Timestamptz `json:"date_ended"`
-	DateEndedFrom        pgtype.Timestamptz   `json:"date_ended_from"`
-	DateEndedTo          pgtype.Timestamptz   `json:"date_ended_to"`
-	ScheduleStart        []pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleStartFrom    pgtype.Timestamptz   `json:"schedule_start_from"`
-	ScheduleStartTo      pgtype.Timestamptz   `json:"schedule_start_to"`
-	ScheduleDuration     []pgtype.Int4        `json:"schedule_duration"`
-	ScheduleDurationFrom pgtype.Int4          `json:"schedule_duration_from"`
-	ScheduleDurationTo   pgtype.Int4          `json:"schedule_duration_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	Offset               pgtype.Int4          `json:"offset"`
-	Limit                pgtype.Int4          `json:"limit"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	Code            []string             `json:"code"`
+	OwnerID         []pgtype.Int8        `json:"owner_id"`
+	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
+	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
+	RefType         []PromotionRefType   `json:"ref_type"`
+	RefID           []pgtype.Int8        `json:"ref_id"`
+	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
+	Type            []PromotionType      `json:"type"`
+	IsActive        []bool               `json:"is_active"`
+	DateStarted     []pgtype.Timestamptz `json:"date_started"`
+	DateStartedFrom pgtype.Timestamptz   `json:"date_started_from"`
+	DateStartedTo   pgtype.Timestamptz   `json:"date_started_to"`
+	DateEnded       []pgtype.Timestamptz `json:"date_ended"`
+	DateEndedFrom   pgtype.Timestamptz   `json:"date_ended_from"`
+	DateEndedTo     pgtype.Timestamptz   `json:"date_ended_to"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBaseParams) ([]PromotionBase, error) {
@@ -12238,12 +12406,6 @@ func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBasePa
 		arg.DateEnded,
 		arg.DateEndedFrom,
 		arg.DateEndedTo,
-		arg.ScheduleStart,
-		arg.ScheduleStartFrom,
-		arg.ScheduleStartTo,
-		arg.ScheduleDuration,
-		arg.ScheduleDurationFrom,
-		arg.ScheduleDurationTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -12272,9 +12434,6 @@ func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBasePa
 			&i.IsActive,
 			&i.DateStarted,
 			&i.DateEnded,
-			&i.ScheduleTz,
-			&i.ScheduleStart,
-			&i.ScheduleDuration,
 			&i.DateCreated,
 			&i.DateUpdated,
 		); err != nil {
@@ -12370,6 +12529,97 @@ func (q *Queries) ListPromotionDiscount(ctx context.Context, arg ListPromotionDi
 			&i.MaxDiscount,
 			&i.DiscountPercent,
 			&i.DiscountPrice,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPromotionSchedule = `-- name: ListPromotionSchedule :many
+SELECT id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("duration" = ANY($7) OR $7 IS NULL) AND
+    ("duration" > $8 OR $8 IS NULL) AND
+    ("duration" < $9 OR $9 IS NULL) AND
+    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
+    ("next_run_at" > $11 OR $11 IS NULL) AND
+    ("next_run_at" < $12 OR $12 IS NULL) AND
+    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
+    ("last_run_at" > $14 OR $14 IS NULL) AND
+    ("last_run_at" < $15 OR $15 IS NULL)
+)
+ORDER BY "id"
+LIMIT $17
+OFFSET $16
+`
+
+type ListPromotionScheduleParams struct {
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	PromotionID     []int64              `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
+	Duration        []int32              `json:"duration"`
+	DurationFrom    pgtype.Int4          `json:"duration_from"`
+	DurationTo      pgtype.Int4          `json:"duration_to"`
+	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
+}
+
+func (q *Queries) ListPromotionSchedule(ctx context.Context, arg ListPromotionScheduleParams) ([]PromotionSchedule, error) {
+	rows, err := q.db.Query(ctx, listPromotionSchedule,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.Duration,
+		arg.DurationFrom,
+		arg.DurationTo,
+		arg.NextRunAt,
+		arg.NextRunAtFrom,
+		arg.NextRunAtTo,
+		arg.LastRunAt,
+		arg.LastRunAtFrom,
+		arg.LastRunAtTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PromotionSchedule{}
+	for rows.Next() {
+		var i PromotionSchedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.PromotionID,
+			&i.Timezone,
+			&i.CronRule,
+			&i.Duration,
+			&i.NextRunAt,
+			&i.LastRunAt,
 		); err != nil {
 			return nil, err
 		}
@@ -13324,12 +13574,11 @@ SET "code" = COALESCE($1, "code"),
     "name" = COALESCE($7, "name"),
     "description" = COALESCE($8, "description"),
     "is_active" = COALESCE($9, "is_active"),
-    "date_manufactured" = COALESCE($10, "date_manufactured"),
-    "date_created" = COALESCE($11, "date_created"),
-    "date_updated" = COALESCE($12, "date_updated"),
-    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
-WHERE id = $15
-RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+    "date_created" = COALESCE($10, "date_created"),
+    "date_updated" = COALESCE($11, "date_updated"),
+    "date_deleted" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_deleted") END
+WHERE id = $14
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 `
 
 type UpdateCatalogProductSpuParams struct {
@@ -13342,7 +13591,6 @@ type UpdateCatalogProductSpuParams struct {
 	Name              pgtype.Text        `json:"name"`
 	Description       pgtype.Text        `json:"description"`
 	IsActive          pgtype.Bool        `json:"is_active"`
-	DateManufactured  pgtype.Timestamptz `json:"date_manufactured"`
 	DateCreated       pgtype.Timestamptz `json:"date_created"`
 	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
 	NullDateDeleted   bool               `json:"null_date_deleted"`
@@ -13361,7 +13609,6 @@ func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalog
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
-		arg.DateManufactured,
 		arg.DateCreated,
 		arg.DateUpdated,
 		arg.NullDateDeleted,
@@ -13379,7 +13626,6 @@ func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalog
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
-		&i.DateManufactured,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
@@ -13922,39 +14168,30 @@ SET "code" = COALESCE($1, "code"),
     "is_active" = COALESCE($11, "is_active"),
     "date_started" = COALESCE($12, "date_started"),
     "date_ended" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_ended") END,
-    "schedule_tz" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "schedule_tz") END,
-    "schedule_start" = CASE WHEN $17::bool = TRUE THEN NULL ELSE COALESCE($18, "schedule_start") END,
-    "schedule_duration" = CASE WHEN $19::bool = TRUE THEN NULL ELSE COALESCE($20, "schedule_duration") END,
-    "date_created" = COALESCE($21, "date_created"),
-    "date_updated" = COALESCE($22, "date_updated")
-WHERE id = $23
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+    "date_created" = COALESCE($15, "date_created"),
+    "date_updated" = COALESCE($16, "date_updated")
+WHERE id = $17
+RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 `
 
 type UpdatePromotionBaseParams struct {
-	Code                 pgtype.Text          `json:"code"`
-	NullOwnerID          bool                 `json:"null_owner_id"`
-	OwnerID              pgtype.Int8          `json:"owner_id"`
-	RefType              NullPromotionRefType `json:"ref_type"`
-	NullRefID            bool                 `json:"null_ref_id"`
-	RefID                pgtype.Int8          `json:"ref_id"`
-	Type                 NullPromotionType    `json:"type"`
-	Title                pgtype.Text          `json:"title"`
-	NullDescription      bool                 `json:"null_description"`
-	Description          pgtype.Text          `json:"description"`
-	IsActive             pgtype.Bool          `json:"is_active"`
-	DateStarted          pgtype.Timestamptz   `json:"date_started"`
-	NullDateEnded        bool                 `json:"null_date_ended"`
-	DateEnded            pgtype.Timestamptz   `json:"date_ended"`
-	NullScheduleTz       bool                 `json:"null_schedule_tz"`
-	ScheduleTz           pgtype.Text          `json:"schedule_tz"`
-	NullScheduleStart    bool                 `json:"null_schedule_start"`
-	ScheduleStart        pgtype.Timestamptz   `json:"schedule_start"`
-	NullScheduleDuration bool                 `json:"null_schedule_duration"`
-	ScheduleDuration     pgtype.Int4          `json:"schedule_duration"`
-	DateCreated          pgtype.Timestamptz   `json:"date_created"`
-	DateUpdated          pgtype.Timestamptz   `json:"date_updated"`
-	ID                   int64                `json:"id"`
+	Code            pgtype.Text          `json:"code"`
+	NullOwnerID     bool                 `json:"null_owner_id"`
+	OwnerID         pgtype.Int8          `json:"owner_id"`
+	RefType         NullPromotionRefType `json:"ref_type"`
+	NullRefID       bool                 `json:"null_ref_id"`
+	RefID           pgtype.Int8          `json:"ref_id"`
+	Type            NullPromotionType    `json:"type"`
+	Title           pgtype.Text          `json:"title"`
+	NullDescription bool                 `json:"null_description"`
+	Description     pgtype.Text          `json:"description"`
+	IsActive        pgtype.Bool          `json:"is_active"`
+	DateStarted     pgtype.Timestamptz   `json:"date_started"`
+	NullDateEnded   bool                 `json:"null_date_ended"`
+	DateEnded       pgtype.Timestamptz   `json:"date_ended"`
+	DateCreated     pgtype.Timestamptz   `json:"date_created"`
+	DateUpdated     pgtype.Timestamptz   `json:"date_updated"`
+	ID              int64                `json:"id"`
 }
 
 func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error) {
@@ -13973,12 +14210,6 @@ func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBa
 		arg.DateStarted,
 		arg.NullDateEnded,
 		arg.DateEnded,
-		arg.NullScheduleTz,
-		arg.ScheduleTz,
-		arg.NullScheduleStart,
-		arg.ScheduleStart,
-		arg.NullScheduleDuration,
-		arg.ScheduleDuration,
 		arg.DateCreated,
 		arg.DateUpdated,
 		arg.ID,
@@ -13996,9 +14227,6 @@ func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBa
 		&i.IsActive,
 		&i.DateStarted,
 		&i.DateEnded,
-		&i.ScheduleTz,
-		&i.ScheduleStart,
-		&i.ScheduleDuration,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -14046,6 +14274,55 @@ func (q *Queries) UpdatePromotionDiscount(ctx context.Context, arg UpdatePromoti
 		&i.MaxDiscount,
 		&i.DiscountPercent,
 		&i.DiscountPrice,
+	)
+	return i, err
+}
+
+const updatePromotionSchedule = `-- name: UpdatePromotionSchedule :one
+UPDATE "promotion"."schedule"
+SET "promotion_id" = COALESCE($1, "promotion_id"),
+    "timezone" = COALESCE($2, "timezone"),
+    "cron_rule" = COALESCE($3, "cron_rule"),
+    "duration" = COALESCE($4, "duration"),
+    "next_run_at" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "next_run_at") END,
+    "last_run_at" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "last_run_at") END
+WHERE id = $9
+RETURNING id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+`
+
+type UpdatePromotionScheduleParams struct {
+	PromotionID   pgtype.Int8        `json:"promotion_id"`
+	Timezone      pgtype.Text        `json:"timezone"`
+	CronRule      pgtype.Text        `json:"cron_rule"`
+	Duration      pgtype.Int4        `json:"duration"`
+	NullNextRunAt bool               `json:"null_next_run_at"`
+	NextRunAt     pgtype.Timestamptz `json:"next_run_at"`
+	NullLastRunAt bool               `json:"null_last_run_at"`
+	LastRunAt     pgtype.Timestamptz `json:"last_run_at"`
+	ID            int64              `json:"id"`
+}
+
+func (q *Queries) UpdatePromotionSchedule(ctx context.Context, arg UpdatePromotionScheduleParams) (PromotionSchedule, error) {
+	row := q.db.QueryRow(ctx, updatePromotionSchedule,
+		arg.PromotionID,
+		arg.Timezone,
+		arg.CronRule,
+		arg.Duration,
+		arg.NullNextRunAt,
+		arg.NextRunAt,
+		arg.NullLastRunAt,
+		arg.LastRunAt,
+		arg.ID,
+	)
+	var i PromotionSchedule
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.Timezone,
+		&i.CronRule,
+		&i.Duration,
+		&i.NextRunAt,
+		&i.LastRunAt,
 	)
 	return i, err
 }

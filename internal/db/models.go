@@ -1214,19 +1214,18 @@ type CatalogProductSku struct {
 }
 
 type CatalogProductSpu struct {
-	ID               int64              `json:"id"`
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	ID            int64              `json:"id"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CatalogProductSpuTag struct {
@@ -1345,22 +1344,19 @@ type OrderShipment struct {
 }
 
 type PromotionBase struct {
-	ID               int64              `json:"id"`
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	ID          int64              `json:"id"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 type PromotionDiscount struct {
@@ -1370,6 +1366,16 @@ type PromotionDiscount struct {
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
 	DiscountPrice   pgtype.Int8 `json:"discount_price"`
+}
+
+type PromotionSchedule struct {
+	ID          int64              `json:"id"`
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
 }
 
 type SharedResource struct {

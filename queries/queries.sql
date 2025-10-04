@@ -1627,9 +1627,6 @@ WHERE (
     ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
     ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("date_manufactured" = ANY(sqlc.slice('date_manufactured')) OR sqlc.slice('date_manufactured') IS NULL) AND
-    ("date_manufactured" > sqlc.narg('date_manufactured_from') OR sqlc.narg('date_manufactured_from') IS NULL) AND
-    ("date_manufactured" < sqlc.narg('date_manufactured_to') OR sqlc.narg('date_manufactured_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1663,9 +1660,6 @@ WHERE (
     ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
     ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("date_manufactured" = ANY(sqlc.slice('date_manufactured')) OR sqlc.slice('date_manufactured') IS NULL) AND
-    ("date_manufactured" > sqlc.narg('date_manufactured_from') OR sqlc.narg('date_manufactured_from') IS NULL) AND
-    ("date_manufactured" < sqlc.narg('date_manufactured_to') OR sqlc.narg('date_manufactured_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1698,9 +1692,6 @@ WHERE (
     ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
     ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("date_manufactured" = ANY(sqlc.slice('date_manufactured')) OR sqlc.slice('date_manufactured') IS NULL) AND
-    ("date_manufactured" > sqlc.narg('date_manufactured_from') OR sqlc.narg('date_manufactured_from') IS NULL) AND
-    ("date_manufactured" < sqlc.narg('date_manufactured_to') OR sqlc.narg('date_manufactured_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1717,27 +1708,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateCatalogProductSpu :one
 UPDATE "catalog"."product_spu"
@@ -1749,7 +1740,6 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
-    "date_manufactured" = COALESCE(sqlc.narg('date_manufactured'), "date_manufactured"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
@@ -1766,7 +1756,6 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
-    "date_manufactured" = COALESCE(sqlc.narg('date_manufactured'), "date_manufactured"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
@@ -1792,9 +1781,6 @@ WHERE (
     ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
     ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("date_manufactured" = ANY(sqlc.slice('date_manufactured')) OR sqlc.slice('date_manufactured') IS NULL) AND
-    ("date_manufactured" > sqlc.narg('date_manufactured_from') OR sqlc.narg('date_manufactured_from') IS NULL) AND
-    ("date_manufactured" < sqlc.narg('date_manufactured_to') OR sqlc.narg('date_manufactured_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -3941,12 +3927,6 @@ WHERE (
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
     ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
     ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
-    ("schedule_start" = ANY(sqlc.slice('schedule_start')) OR sqlc.slice('schedule_start') IS NULL) AND
-    ("schedule_start" > sqlc.narg('schedule_start_from') OR sqlc.narg('schedule_start_from') IS NULL) AND
-    ("schedule_start" < sqlc.narg('schedule_start_to') OR sqlc.narg('schedule_start_to') IS NULL) AND
-    ("schedule_duration" = ANY(sqlc.slice('schedule_duration')) OR sqlc.slice('schedule_duration') IS NULL) AND
-    ("schedule_duration" > sqlc.narg('schedule_duration_from') OR sqlc.narg('schedule_duration_from') IS NULL) AND
-    ("schedule_duration" < sqlc.narg('schedule_duration_to') OR sqlc.narg('schedule_duration_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -3979,12 +3959,6 @@ WHERE (
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
     ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
     ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
-    ("schedule_start" = ANY(sqlc.slice('schedule_start')) OR sqlc.slice('schedule_start') IS NULL) AND
-    ("schedule_start" > sqlc.narg('schedule_start_from') OR sqlc.narg('schedule_start_from') IS NULL) AND
-    ("schedule_start" < sqlc.narg('schedule_start_to') OR sqlc.narg('schedule_start_to') IS NULL) AND
-    ("schedule_duration" = ANY(sqlc.slice('schedule_duration')) OR sqlc.slice('schedule_duration') IS NULL) AND
-    ("schedule_duration" > sqlc.narg('schedule_duration_from') OR sqlc.narg('schedule_duration_from') IS NULL) AND
-    ("schedule_duration" < sqlc.narg('schedule_duration_to') OR sqlc.narg('schedule_duration_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -4016,12 +3990,6 @@ WHERE (
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
     ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
     ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
-    ("schedule_start" = ANY(sqlc.slice('schedule_start')) OR sqlc.slice('schedule_start') IS NULL) AND
-    ("schedule_start" > sqlc.narg('schedule_start_from') OR sqlc.narg('schedule_start_from') IS NULL) AND
-    ("schedule_start" < sqlc.narg('schedule_start_to') OR sqlc.narg('schedule_start_to') IS NULL) AND
-    ("schedule_duration" = ANY(sqlc.slice('schedule_duration')) OR sqlc.slice('schedule_duration') IS NULL) AND
-    ("schedule_duration" > sqlc.narg('schedule_duration_from') OR sqlc.narg('schedule_duration_from') IS NULL) AND
-    ("schedule_duration" < sqlc.narg('schedule_duration_to') OR sqlc.narg('schedule_duration_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -4035,27 +4003,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreatePromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchPromotionBase :batchone
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyPromotionBase :copyfrom
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultPromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyDefaultPromotionBase :copyfrom
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: UpdatePromotionBase :one
 UPDATE "promotion"."base"
@@ -4069,9 +4037,6 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
     "date_started" = COALESCE(sqlc.narg('date_started'), "date_started"),
     "date_ended" = CASE WHEN sqlc.arg('null_date_ended')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_ended'), "date_ended") END,
-    "schedule_tz" = CASE WHEN sqlc.arg('null_schedule_tz')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_tz'), "schedule_tz") END,
-    "schedule_start" = CASE WHEN sqlc.arg('null_schedule_start')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_start'), "schedule_start") END,
-    "schedule_duration" = CASE WHEN sqlc.arg('null_schedule_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_duration'), "schedule_duration") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
@@ -4089,9 +4054,6 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
     "date_started" = COALESCE(sqlc.narg('date_started'), "date_started"),
     "date_ended" = CASE WHEN sqlc.arg('null_date_ended')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_ended'), "date_ended") END,
-    "schedule_tz" = CASE WHEN sqlc.arg('null_schedule_tz')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_tz'), "schedule_tz") END,
-    "schedule_start" = CASE WHEN sqlc.arg('null_schedule_start')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_start'), "schedule_start") END,
-    "schedule_duration" = CASE WHEN sqlc.arg('null_schedule_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('schedule_duration'), "schedule_duration") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
@@ -4118,12 +4080,6 @@ WHERE (
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
     ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
     ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
-    ("schedule_start" = ANY(sqlc.slice('schedule_start')) OR sqlc.slice('schedule_start') IS NULL) AND
-    ("schedule_start" > sqlc.narg('schedule_start_from') OR sqlc.narg('schedule_start_from') IS NULL) AND
-    ("schedule_start" < sqlc.narg('schedule_start_to') OR sqlc.narg('schedule_start_to') IS NULL) AND
-    ("schedule_duration" = ANY(sqlc.slice('schedule_duration')) OR sqlc.slice('schedule_duration') IS NULL) AND
-    ("schedule_duration" > sqlc.narg('schedule_duration_from') OR sqlc.narg('schedule_duration_from') IS NULL) AND
-    ("schedule_duration" < sqlc.narg('schedule_duration_to') OR sqlc.narg('schedule_duration_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -4135,6 +4091,154 @@ WHERE (
 -- name: DeleteBatchPromotionBase :batchexec
 DELETE FROM "promotion"."base"
 WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+
+-- ========================================
+
+-- Queries for table: promotion.schedule
+
+-- ========================================
+
+-- name: GetPromotionSchedule :one
+SELECT *
+FROM "promotion"."schedule"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsPromotionSchedule :one
+SELECT EXISTS (
+SELECT 1
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+)
+) as exists;
+
+-- name: CountPromotionSchedule :one
+SELECT COUNT(*)
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+);
+
+-- name: ListPromotionSchedule :many
+SELECT *
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreatePromotionSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateBatchPromotionSchedule :batchone
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyPromotionSchedule :copyfrom
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: CreateDefaultPromotionSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyDefaultPromotionSchedule :copyfrom
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: UpdatePromotionSchedule :one
+UPDATE "promotion"."schedule"
+SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
+    "timezone" = COALESCE(sqlc.narg('timezone'), "timezone"),
+    "cron_rule" = COALESCE(sqlc.narg('cron_rule'), "cron_rule"),
+    "duration" = COALESCE(sqlc.narg('duration'), "duration"),
+    "next_run_at" = CASE WHEN sqlc.arg('null_next_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('next_run_at'), "next_run_at") END,
+    "last_run_at" = CASE WHEN sqlc.arg('null_last_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_run_at'), "last_run_at") END
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchPromotionSchedule :batchexec
+UPDATE "promotion"."schedule"
+SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
+    "timezone" = COALESCE(sqlc.narg('timezone'), "timezone"),
+    "cron_rule" = COALESCE(sqlc.narg('cron_rule'), "cron_rule"),
+    "duration" = COALESCE(sqlc.narg('duration'), "duration"),
+    "next_run_at" = CASE WHEN sqlc.arg('null_next_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('next_run_at'), "next_run_at") END,
+    "last_run_at" = CASE WHEN sqlc.arg('null_last_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_run_at'), "last_run_at") END
+WHERE id = sqlc.arg('id');
+
+-- name: DeletePromotionSchedule :exec
+DELETE FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+);
+
+-- name: DeleteBatchPromotionSchedule :batchexec
+DELETE FROM "promotion"."schedule"
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 

@@ -526,7 +526,6 @@ func (r iteratorForCreateCopyCatalogProductSpu) Values() ([]interface{}, error) 
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
-		r.rows[0].DateManufactured,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
 		r.rows[0].DateDeleted,
@@ -538,7 +537,7 @@ func (r iteratorForCreateCopyCatalogProductSpu) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogProductSpu(ctx context.Context, arg []CreateCopyCatalogProductSpuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyCatalogProductSpu{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyCatalogProductSpu{rows: arg})
 }
 
 // iteratorForCreateCopyCatalogProductSpuTag implements pgx.CopyFromSource.
@@ -1099,7 +1098,6 @@ func (r iteratorForCreateCopyDefaultCatalogProductSpu) Values() ([]interface{}, 
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
-		r.rows[0].DateManufactured,
 		r.rows[0].DateDeleted,
 	}, nil
 }
@@ -1109,7 +1107,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSpu) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogProductSpu(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSpu{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSpu{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogProductSpuTag implements pgx.CopyFromSource.
@@ -1592,9 +1590,6 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Values() ([]interface{}, erro
 		r.rows[0].IsActive,
 		r.rows[0].DateStarted,
 		r.rows[0].DateEnded,
-		r.rows[0].ScheduleTz,
-		r.rows[0].ScheduleStart,
-		r.rows[0].ScheduleDuration,
 	}, nil
 }
 
@@ -1603,7 +1598,7 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionDiscount implements pgx.CopyFromSource.
@@ -1641,6 +1636,43 @@ func (r iteratorForCreateCopyDefaultPromotionDiscount) Err() error {
 
 func (q *Queries) CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyDefaultPromotionDiscount{rows: arg})
+}
+
+// iteratorForCreateCopyDefaultPromotionSchedule implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultPromotionSchedule struct {
+	rows                 []CreateCopyDefaultPromotionScheduleParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultPromotionSchedule) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultPromotionSchedule) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].PromotionID,
+		r.rows[0].Timezone,
+		r.rows[0].CronRule,
+		r.rows[0].Duration,
+		r.rows[0].NextRunAt,
+		r.rows[0].LastRunAt,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultPromotionSchedule) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultPromotionSchedule(ctx context.Context, arg []CreateCopyDefaultPromotionScheduleParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"promotion", "schedule"}, []string{"promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at"}, &iteratorForCreateCopyDefaultPromotionSchedule{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSharedResource implements pgx.CopyFromSource.
@@ -2183,9 +2215,6 @@ func (r iteratorForCreateCopyPromotionBase) Values() ([]interface{}, error) {
 		r.rows[0].IsActive,
 		r.rows[0].DateStarted,
 		r.rows[0].DateEnded,
-		r.rows[0].ScheduleTz,
-		r.rows[0].ScheduleStart,
-		r.rows[0].ScheduleDuration,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
 	}, nil
@@ -2196,7 +2225,7 @@ func (r iteratorForCreateCopyPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionDiscount implements pgx.CopyFromSource.
@@ -2234,6 +2263,43 @@ func (r iteratorForCreateCopyPromotionDiscount) Err() error {
 
 func (q *Queries) CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyPromotionDiscount{rows: arg})
+}
+
+// iteratorForCreateCopyPromotionSchedule implements pgx.CopyFromSource.
+type iteratorForCreateCopyPromotionSchedule struct {
+	rows                 []CreateCopyPromotionScheduleParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyPromotionSchedule) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyPromotionSchedule) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].PromotionID,
+		r.rows[0].Timezone,
+		r.rows[0].CronRule,
+		r.rows[0].Duration,
+		r.rows[0].NextRunAt,
+		r.rows[0].LastRunAt,
+	}, nil
+}
+
+func (r iteratorForCreateCopyPromotionSchedule) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyPromotionSchedule(ctx context.Context, arg []CreateCopyPromotionScheduleParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"promotion", "schedule"}, []string{"promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at"}, &iteratorForCreateCopyPromotionSchedule{rows: arg})
 }
 
 // iteratorForCreateCopySharedResource implements pgx.CopyFromSource.

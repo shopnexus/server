@@ -110,31 +110,13 @@ func (q *Queries) ListMostSoldProducts(ctx context.Context, arg ListMostSoldProd
 
 const listProductDetail = `-- name: ListProductDetail :many
 WITH filtered_spu AS (
-    SELECT 
-        p.id,
-        p.account_id,
-        p.category_id,
-        p.brand_id,
-        p.name,
-        p.description,
-        p.is_active,
-        p.date_manufactured,
-        p.date_created,
-        p.date_updated,
-        p.date_deleted
+    SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
     FROM catalog.product_spu p
     WHERE p.id = ANY($1::bigint[])
 ),
 spu_data AS (
     SELECT 
-        fs.id,
-        fs.name,
-        fs.description,
-        fs.is_active,
-        fs.date_manufactured,
-        fs.date_created,
-        fs.date_updated,
-        fs.date_deleted,
+        fs.id, fs.code, fs.account_id, fs.category_id, fs.brand_id, fs.featured_sku_id, fs.name, fs.description, fs.is_active, fs.date_created, fs.date_updated, fs.date_deleted,
         COALESCE(vp.name, '') as vendor_name,
         c.name as category_name,
         b.name as brand_name
@@ -155,17 +137,7 @@ rating_data AS (
     GROUP BY ref_id
 )
 SELECT 
-    spu.id as id,
-    spu.vendor_name as vendor,
-    spu.category_name as category,
-    spu.brand_name as brand,
-    spu.name,
-    spu.description,
-    spu.is_active,
-    spu.date_manufactured,
-    spu.date_created,
-    spu.date_updated,
-    spu.date_deleted,
+    spu.id, spu.code, spu.account_id, spu.category_id, spu.brand_id, spu.featured_sku_id, spu.name, spu.description, spu.is_active, spu.date_created, spu.date_updated, spu.date_deleted, spu.vendor_name, spu.category_name, spu.brand_name,
     COALESCE(r.rating_total, 0) as rating_total,
     COALESCE(r.rating_score, 0) as rating_score
 FROM spu_data spu
@@ -173,19 +145,23 @@ LEFT JOIN rating_data r ON spu.id = r.spu_id
 `
 
 type ListProductDetailRow struct {
-	ID               int64              `json:"id"`
-	Vendor           string             `json:"vendor"`
-	Category         string             `json:"category"`
-	Brand            string             `json:"brand"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
-	RatingTotal      int64              `json:"rating_total"`
-	RatingScore      float64            `json:"rating_score"`
+	ID            int64              `json:"id"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
+	VendorName    string             `json:"vendor_name"`
+	CategoryName  string             `json:"category_name"`
+	BrandName     string             `json:"brand_name"`
+	RatingTotal   int64              `json:"rating_total"`
+	RatingScore   float64            `json:"rating_score"`
 }
 
 func (q *Queries) ListProductDetail(ctx context.Context, spuID []int64) ([]ListProductDetailRow, error) {
@@ -199,16 +175,20 @@ func (q *Queries) ListProductDetail(ctx context.Context, spuID []int64) ([]ListP
 		var i ListProductDetailRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Vendor,
-			&i.Category,
-			&i.Brand,
+			&i.Code,
+			&i.AccountID,
+			&i.CategoryID,
+			&i.BrandID,
+			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
-			&i.DateManufactured,
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
+			&i.VendorName,
+			&i.CategoryName,
+			&i.BrandName,
 			&i.RatingTotal,
 			&i.RatingScore,
 		); err != nil {

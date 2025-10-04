@@ -933,9 +933,9 @@ func (b *CreateBatchCatalogProductSkuBatchResults) Close() error {
 }
 
 const createBatchCatalogProductSpu = `-- name: CreateBatchCatalogProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_manufactured", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_manufactured, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
 `
 
 type CreateBatchCatalogProductSpuBatchResults struct {
@@ -945,18 +945,17 @@ type CreateBatchCatalogProductSpuBatchResults struct {
 }
 
 type CreateBatchCatalogProductSpuParams struct {
-	Code             string             `json:"code"`
-	AccountID        int64              `json:"account_id"`
-	CategoryID       int64              `json:"category_id"`
-	BrandID          int64              `json:"brand_id"`
-	FeaturedSkuID    pgtype.Int8        `json:"featured_sku_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateManufactured pgtype.Timestamptz `json:"date_manufactured"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted      pgtype.Timestamptz `json:"date_deleted"`
+	Code          string             `json:"code"`
+	AccountID     int64              `json:"account_id"`
+	CategoryID    int64              `json:"category_id"`
+	BrandID       int64              `json:"brand_id"`
+	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsActive      bool               `json:"is_active"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateBatchCatalogProductSpu(ctx context.Context, arg []CreateBatchCatalogProductSpuParams) *CreateBatchCatalogProductSpuBatchResults {
@@ -971,7 +970,6 @@ func (q *Queries) CreateBatchCatalogProductSpu(ctx context.Context, arg []Create
 			a.Name,
 			a.Description,
 			a.IsActive,
-			a.DateManufactured,
 			a.DateCreated,
 			a.DateUpdated,
 			a.DateDeleted,
@@ -1003,7 +1001,6 @@ func (b *CreateBatchCatalogProductSpuBatchResults) QueryRow(f func(int, CatalogP
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
-			&i.DateManufactured,
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
@@ -1862,9 +1859,9 @@ func (b *CreateBatchOrderShipmentBatchResults) Close() error {
 }
 
 const createBatchPromotionBase = `-- name: CreateBatchPromotionBase :batchone
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "schedule_tz", "schedule_start", "schedule_duration", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, schedule_tz, schedule_start, schedule_duration, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
 `
 
 type CreateBatchPromotionBaseBatchResults struct {
@@ -1874,21 +1871,18 @@ type CreateBatchPromotionBaseBatchResults struct {
 }
 
 type CreateBatchPromotionBaseParams struct {
-	Code             string             `json:"code"`
-	OwnerID          pgtype.Int8        `json:"owner_id"`
-	RefType          PromotionRefType   `json:"ref_type"`
-	RefID            pgtype.Int8        `json:"ref_id"`
-	Type             PromotionType      `json:"type"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	IsActive         bool               `json:"is_active"`
-	DateStarted      pgtype.Timestamptz `json:"date_started"`
-	DateEnded        pgtype.Timestamptz `json:"date_ended"`
-	ScheduleTz       pgtype.Text        `json:"schedule_tz"`
-	ScheduleStart    pgtype.Timestamptz `json:"schedule_start"`
-	ScheduleDuration pgtype.Int4        `json:"schedule_duration"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	Code        string             `json:"code"`
+	OwnerID     pgtype.Int8        `json:"owner_id"`
+	RefType     PromotionRefType   `json:"ref_type"`
+	RefID       pgtype.Int8        `json:"ref_id"`
+	Type        PromotionType      `json:"type"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	DateStarted pgtype.Timestamptz `json:"date_started"`
+	DateEnded   pgtype.Timestamptz `json:"date_ended"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchPromotionBase(ctx context.Context, arg []CreateBatchPromotionBaseParams) *CreateBatchPromotionBaseBatchResults {
@@ -1905,9 +1899,6 @@ func (q *Queries) CreateBatchPromotionBase(ctx context.Context, arg []CreateBatc
 			a.IsActive,
 			a.DateStarted,
 			a.DateEnded,
-			a.ScheduleTz,
-			a.ScheduleStart,
-			a.ScheduleDuration,
 			a.DateCreated,
 			a.DateUpdated,
 		}
@@ -1940,9 +1931,6 @@ func (b *CreateBatchPromotionBaseBatchResults) QueryRow(f func(int, PromotionBas
 			&i.IsActive,
 			&i.DateStarted,
 			&i.DateEnded,
-			&i.ScheduleTz,
-			&i.ScheduleStart,
-			&i.ScheduleDuration,
 			&i.DateCreated,
 			&i.DateUpdated,
 		)
@@ -2021,6 +2009,75 @@ func (b *CreateBatchPromotionDiscountBatchResults) QueryRow(f func(int, Promotio
 }
 
 func (b *CreateBatchPromotionDiscountBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchPromotionSchedule = `-- name: CreateBatchPromotionSchedule :batchone
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
+`
+
+type CreateBatchPromotionScheduleBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchPromotionScheduleParams struct {
+	PromotionID int64              `json:"promotion_id"`
+	Timezone    string             `json:"timezone"`
+	CronRule    string             `json:"cron_rule"`
+	Duration    int32              `json:"duration"`
+	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
+}
+
+func (q *Queries) CreateBatchPromotionSchedule(ctx context.Context, arg []CreateBatchPromotionScheduleParams) *CreateBatchPromotionScheduleBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.PromotionID,
+			a.Timezone,
+			a.CronRule,
+			a.Duration,
+			a.NextRunAt,
+			a.LastRunAt,
+		}
+		batch.Queue(createBatchPromotionSchedule, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchPromotionScheduleBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchPromotionScheduleBatchResults) QueryRow(f func(int, PromotionSchedule, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i PromotionSchedule
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.PromotionID,
+			&i.Timezone,
+			&i.CronRule,
+			&i.Duration,
+			&i.NextRunAt,
+			&i.LastRunAt,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchPromotionScheduleBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -3624,6 +3681,50 @@ func (b *DeleteBatchPromotionDiscountBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const deleteBatchPromotionSchedule = `-- name: DeleteBatchPromotionSchedule :batchexec
+DELETE FROM "promotion"."schedule"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchPromotionScheduleBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchPromotionSchedule(ctx context.Context, id []pgtype.Int8) *DeleteBatchPromotionScheduleBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchPromotionSchedule, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchPromotionScheduleBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchPromotionScheduleBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchPromotionScheduleBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const deleteBatchSharedResource = `-- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
 WHERE ("id" = $1) OR ("code" = $2)
@@ -4812,11 +4913,10 @@ SET "code" = COALESCE($1, "code"),
     "name" = COALESCE($7, "name"),
     "description" = COALESCE($8, "description"),
     "is_active" = COALESCE($9, "is_active"),
-    "date_manufactured" = COALESCE($10, "date_manufactured"),
-    "date_created" = COALESCE($11, "date_created"),
-    "date_updated" = COALESCE($12, "date_updated"),
-    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
-WHERE id = $15
+    "date_created" = COALESCE($10, "date_created"),
+    "date_updated" = COALESCE($11, "date_updated"),
+    "date_deleted" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_deleted") END
+WHERE id = $14
 `
 
 type UpdateBatchCatalogProductSpuBatchResults struct {
@@ -4835,7 +4935,6 @@ type UpdateBatchCatalogProductSpuParams struct {
 	Name              pgtype.Text        `json:"name"`
 	Description       pgtype.Text        `json:"description"`
 	IsActive          pgtype.Bool        `json:"is_active"`
-	DateManufactured  pgtype.Timestamptz `json:"date_manufactured"`
 	DateCreated       pgtype.Timestamptz `json:"date_created"`
 	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
 	NullDateDeleted   bool               `json:"null_date_deleted"`
@@ -4856,7 +4955,6 @@ func (q *Queries) UpdateBatchCatalogProductSpu(ctx context.Context, arg []Update
 			a.Name,
 			a.Description,
 			a.IsActive,
-			a.DateManufactured,
 			a.DateCreated,
 			a.DateUpdated,
 			a.NullDateDeleted,
@@ -5737,12 +5835,9 @@ SET "code" = COALESCE($1, "code"),
     "is_active" = COALESCE($11, "is_active"),
     "date_started" = COALESCE($12, "date_started"),
     "date_ended" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_ended") END,
-    "schedule_tz" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "schedule_tz") END,
-    "schedule_start" = CASE WHEN $17::bool = TRUE THEN NULL ELSE COALESCE($18, "schedule_start") END,
-    "schedule_duration" = CASE WHEN $19::bool = TRUE THEN NULL ELSE COALESCE($20, "schedule_duration") END,
-    "date_created" = COALESCE($21, "date_created"),
-    "date_updated" = COALESCE($22, "date_updated")
-WHERE id = $23
+    "date_created" = COALESCE($15, "date_created"),
+    "date_updated" = COALESCE($16, "date_updated")
+WHERE id = $17
 `
 
 type UpdateBatchPromotionBaseBatchResults struct {
@@ -5752,29 +5847,23 @@ type UpdateBatchPromotionBaseBatchResults struct {
 }
 
 type UpdateBatchPromotionBaseParams struct {
-	Code                 pgtype.Text          `json:"code"`
-	NullOwnerID          bool                 `json:"null_owner_id"`
-	OwnerID              pgtype.Int8          `json:"owner_id"`
-	RefType              NullPromotionRefType `json:"ref_type"`
-	NullRefID            bool                 `json:"null_ref_id"`
-	RefID                pgtype.Int8          `json:"ref_id"`
-	Type                 NullPromotionType    `json:"type"`
-	Title                pgtype.Text          `json:"title"`
-	NullDescription      bool                 `json:"null_description"`
-	Description          pgtype.Text          `json:"description"`
-	IsActive             pgtype.Bool          `json:"is_active"`
-	DateStarted          pgtype.Timestamptz   `json:"date_started"`
-	NullDateEnded        bool                 `json:"null_date_ended"`
-	DateEnded            pgtype.Timestamptz   `json:"date_ended"`
-	NullScheduleTz       bool                 `json:"null_schedule_tz"`
-	ScheduleTz           pgtype.Text          `json:"schedule_tz"`
-	NullScheduleStart    bool                 `json:"null_schedule_start"`
-	ScheduleStart        pgtype.Timestamptz   `json:"schedule_start"`
-	NullScheduleDuration bool                 `json:"null_schedule_duration"`
-	ScheduleDuration     pgtype.Int4          `json:"schedule_duration"`
-	DateCreated          pgtype.Timestamptz   `json:"date_created"`
-	DateUpdated          pgtype.Timestamptz   `json:"date_updated"`
-	ID                   int64                `json:"id"`
+	Code            pgtype.Text          `json:"code"`
+	NullOwnerID     bool                 `json:"null_owner_id"`
+	OwnerID         pgtype.Int8          `json:"owner_id"`
+	RefType         NullPromotionRefType `json:"ref_type"`
+	NullRefID       bool                 `json:"null_ref_id"`
+	RefID           pgtype.Int8          `json:"ref_id"`
+	Type            NullPromotionType    `json:"type"`
+	Title           pgtype.Text          `json:"title"`
+	NullDescription bool                 `json:"null_description"`
+	Description     pgtype.Text          `json:"description"`
+	IsActive        pgtype.Bool          `json:"is_active"`
+	DateStarted     pgtype.Timestamptz   `json:"date_started"`
+	NullDateEnded   bool                 `json:"null_date_ended"`
+	DateEnded       pgtype.Timestamptz   `json:"date_ended"`
+	DateCreated     pgtype.Timestamptz   `json:"date_created"`
+	DateUpdated     pgtype.Timestamptz   `json:"date_updated"`
+	ID              int64                `json:"id"`
 }
 
 func (q *Queries) UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults {
@@ -5795,12 +5884,6 @@ func (q *Queries) UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatc
 			a.DateStarted,
 			a.NullDateEnded,
 			a.DateEnded,
-			a.NullScheduleTz,
-			a.ScheduleTz,
-			a.NullScheduleStart,
-			a.ScheduleStart,
-			a.NullScheduleDuration,
-			a.ScheduleDuration,
 			a.DateCreated,
 			a.DateUpdated,
 			a.ID,
@@ -5895,6 +5978,76 @@ func (b *UpdateBatchPromotionDiscountBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchPromotionDiscountBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchPromotionSchedule = `-- name: UpdateBatchPromotionSchedule :batchexec
+UPDATE "promotion"."schedule"
+SET "promotion_id" = COALESCE($1, "promotion_id"),
+    "timezone" = COALESCE($2, "timezone"),
+    "cron_rule" = COALESCE($3, "cron_rule"),
+    "duration" = COALESCE($4, "duration"),
+    "next_run_at" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "next_run_at") END,
+    "last_run_at" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "last_run_at") END
+WHERE id = $9
+`
+
+type UpdateBatchPromotionScheduleBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchPromotionScheduleParams struct {
+	PromotionID   pgtype.Int8        `json:"promotion_id"`
+	Timezone      pgtype.Text        `json:"timezone"`
+	CronRule      pgtype.Text        `json:"cron_rule"`
+	Duration      pgtype.Int4        `json:"duration"`
+	NullNextRunAt bool               `json:"null_next_run_at"`
+	NextRunAt     pgtype.Timestamptz `json:"next_run_at"`
+	NullLastRunAt bool               `json:"null_last_run_at"`
+	LastRunAt     pgtype.Timestamptz `json:"last_run_at"`
+	ID            int64              `json:"id"`
+}
+
+func (q *Queries) UpdateBatchPromotionSchedule(ctx context.Context, arg []UpdateBatchPromotionScheduleParams) *UpdateBatchPromotionScheduleBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.PromotionID,
+			a.Timezone,
+			a.CronRule,
+			a.Duration,
+			a.NullNextRunAt,
+			a.NextRunAt,
+			a.NullLastRunAt,
+			a.LastRunAt,
+			a.ID,
+		}
+		batch.Queue(updateBatchPromotionSchedule, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchPromotionScheduleBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchPromotionScheduleBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchPromotionScheduleBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
