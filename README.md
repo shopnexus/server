@@ -10,12 +10,13 @@
 - Microservices: each service run its own process -> scaling and independent deployment, but hell for debugging 🥀
 
 ### 2. Support array in request params (separated by comma)
+
 - Example: `/products?ids=1,2,3`
 - Use sqlc.slice to filter by array of ids in sql query => faster fetching, reduce n+1 query problem
 
 ## My code, my rules
 
-### Every day, 8 hours per day, 6 days per week, ...
+### Every day, 8 hours per day, 6 days per week,
 
 🐧
 
@@ -35,10 +36,12 @@
 - Defensive programming, trust nothing, validate and verify everything. Fail fast, and fail early => Both transport and biz layer will validate the input
 
 #### Always use the null.XXX
-- Always use value instead of pointer (details: https://medium.com/eureka-engineering/understanding-allocations-in-go-stack-heap-memory-9a2631b5035d). IMO, using pointer may hard to debug in the future.
-- As because of prefer value to pointer, always use the null.XXX from https://github.com/guregu/null.
+
+- Always use value instead of pointer (details: <https://medium.com/eureka-engineering/understanding-allocations-in-go-stack-heap-memory-9a2631b5035d>). IMO, using pointer may hard to debug in the future.
+- As because of prefer value to pointer, always use the null.XXX from <https://github.com/guregu/null>.
 
 IMO it is better than sql.NullXXX or pgtype.XXX because:
+
 - Both not fully-compatible with validator/v10: does not have the TextUnmarshaller implemented -> won't work with query/param struct tag
 
 ### General
@@ -46,8 +49,7 @@ IMO it is better than sql.NullXXX or pgtype.XXX because:
 - No use orchestration patterns, use choreography instead.
 - Use choreography pattern with compensating transactions to handle failures gracefully.
 - Always use events to communicate between services to microservice friendly and avoid tight coupling.
-- Use "sqids" instead of raw id to avoid data leak and make it harder to guess the total number of records. https://sqids.org/?hashids
-
+- Use "sqids" instead of raw id to avoid data leak and make it harder to guess the total number of records. <https://sqids.org/?hashids>
 
 #### Early stage
 
@@ -61,7 +63,8 @@ IMO it is better than sql.NullXXX or pgtype.XXX because:
 - Each service is a different binary, so each service can have its own model package
 - Add permission checking
 - #1: Hide the internal id (the incremental primary key) in the DTO to avoid data leak, use "code" (the unique public identifier) instead for external reference
-- add https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/
+- add <https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/>
+- Outbox Pattern for reliable event publishing (kafka)
 
 ### Biz
 
@@ -116,13 +119,14 @@ flowchart TD
 ### Note
 
 - "Interface values are comparable. Two interface values are equal if they have identical dynamic types and equal dynamic values or if both have value nil."
-Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil. More details on https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here/29138676#29138676 and https://github.com/go-playground/validator/issues/134#issuecomment-126524931
+Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil. More details on <https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here/29138676#29138676> and <https://github.com/go-playground/validator/issues/134#issuecomment-126524931>
 - Omitempty only works for pointer, slice, map, and interface types not zero value from struct.
 - If you’re using pgx/v5 you get its implicit support for prepared statements. No additional sqlc configuration is required.
-- struct tag "omitnil" from validator/v10 not work with untyped-nil https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649
-- Implement https://github.com/TecharoHQ/anubis to stop AI crawlers
-- Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: https://echo.labstack.com/docs/category/middleware
-- https://medium.com/@zilliz_learn/elasticsearch-was-great-but-vector-databases-are-the-future-0d7ec24ab7f9
+- struct tag "omitnil" from validator/v10 not work with untyped-nil <https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649>
+- Implement <https://github.com/TecharoHQ/anubis> to stop AI crawlers
+- Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: <https://echo.labstack.com/docs/category/middleware>
+- <https://medium.com/@zilliz_learn/elasticsearch-was-great-but-vector-databases-are-the-future-0d7ec24ab7f9>
+- Add cursor pagination encode/decode into structs and use as filter conditions in queries
 
 ## Develop Timeline
 
@@ -147,28 +151,33 @@ WHERE (
 ```
 
 ### 5-9-2025 List products with caculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
+
 ![img.png](images/img3.png)
 
 ### 8-9-2025 Custom type need to be registered to pgx (pgxpool.go)
+
 Any custom DB types made with CREATE TYPE need to be registered with pgx.
-https://github.com/kyleconroy/sqlc/issues/2116
+<https://github.com/kyleconroy/sqlc/issues/2116>
 ![img.png](images/img4.png)
 
-### 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods.
+### 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods
+
 With "emit_enum_valid_method: true" in sqlc.yaml and "validateFn=Valid" in struct tag
 I can validate the enum field directly with the generated Valid() method from sqlc.
+
 ```go
 type CreateOrderParams struct {
-	Account     authmodel.AuthenticatedAccount
-	Address     string                `validate:"required"`
-	OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
-	SkuIDs      []int64               `validate:"required,dive,gt=0"`
+ Account     authmodel.AuthenticatedAccount
+ Address     string                `validate:"required"`
+ OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
+ SkuIDs      []int64               `validate:"required,dive,gt=0"`
 }
 ```
+
 I should write a blog on this btw.
 
+### 15-9-2025 Implement a well-structured custom Pub/Sub client for clean, maintainable publish/subscribe code
 
-### 15-9-2025 Implement a well-structured custom Pub/Sub client for clean, maintainable publish/subscribe code.
 ```go
 // The subcriber
 func (s *OrderBiz) SetupPubsub() error {
@@ -208,7 +217,9 @@ if err = s.pubsub.Publish("order.created", OrderCreatedParams{
 ```
 
 ### 25-9-2025 First demo of recommendation engine with milvus vector search
+
 **No more elasticsearch:**
+
 - Elasticsearch is great, but vector databases are the future.
 - After certain days with elasticsearch, found it is not suitable for vector search.
 - As I remember, I was using model MGTE (alibaba) storing 200rows took 8mb of storage 💀
