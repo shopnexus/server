@@ -42,31 +42,13 @@ LIMIT sqlc.arg('limit');
 
 -- name: ListProductDetail :many
 WITH filtered_spu AS (
-    SELECT 
-        p.id,
-        p.account_id,
-        p.category_id,
-        p.brand_id,
-        p.name,
-        p.description,
-        p.is_active,
-        p.date_manufactured,
-        p.date_created,
-        p.date_updated,
-        p.date_deleted
+    SELECT *
     FROM catalog.product_spu p
     WHERE p.id = ANY(sqlc.slice('spu_id')::bigint[])
 ),
 spu_data AS (
     SELECT 
-        fs.id,
-        fs.name,
-        fs.description,
-        fs.is_active,
-        fs.date_manufactured,
-        fs.date_created,
-        fs.date_updated,
-        fs.date_deleted,
+        fs.*,
         COALESCE(vp.name, '') as vendor_name,
         c.name as category_name,
         b.name as brand_name
@@ -87,17 +69,7 @@ rating_data AS (
     GROUP BY ref_id
 )
 SELECT 
-    spu.id as id,
-    spu.vendor_name as vendor,
-    spu.category_name as category,
-    spu.brand_name as brand,
-    spu.name,
-    spu.description,
-    spu.is_active,
-    spu.date_manufactured,
-    spu.date_created,
-    spu.date_updated,
-    spu.date_deleted,
+    spu.*,
     COALESCE(r.rating_total, 0) as rating_total,
     COALESCE(r.rating_score, 0) as rating_score
 FROM spu_data spu
