@@ -90,9 +90,9 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 			ID:          p.ID,
 			Name:        p.Name,
 			Description: p.Description,
-			Brand:       p.Brand,
+			Brand:       p.BrandName,
 			IsActive:    p.IsActive,
-			Category:    p.Category,
+			Category:    p.CategoryName,
 			Rating: catalogmodel.ProductDetailRating{
 				Score: p.RatingScore,
 				Total: p.RatingTotal,
