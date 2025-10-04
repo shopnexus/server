@@ -69,103 +69,116 @@ func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionPa
 type CreatePromotionParams struct {
 	Account authmodel.AuthenticatedAccount
 
-	Code             string              `validate:"required,alphanum,min=3,max=50"`
-	OwnerID          null.Int64          `validate:"omitnil"`
-	RefType          db.PromotionRefType `validate:"required,validateFn=Valid"`
-	RefID            null.Int64          `validate:"omitnil"`
-	Type             db.PromotionType    `validate:"required,validateFn=Valid"`
-	Title            string              `validate:"required,min=3,max=200"`
-	Description      null.String         `validate:"omitnil,max=1000"`
-	IsActive         bool                `validate:"required"`
-	DateStarted      time.Time           `validate:"required"`
-	DateEnded        null.Time           `validate:"omitnil,gtfield=DateStarted"`
-	ScheduleTz       null.String         `validate:"omitnil,timezone"`
-	ScheduleStart    null.Time           `validate:"omitnil"`
-	ScheduleDuration null.Int32          `validate:"omitnil,gte=0,lte=1440"`
+	Code        string              `validate:"required,alphanum,min=3,max=50"`
+	OwnerID     null.Int64          `validate:"omitnil"`
+	RefType     db.PromotionRefType `validate:"required,validateFn=Valid"`
+	RefID       null.Int64          `validate:"omitnil"`
+	Type        db.PromotionType    `validate:"required,validateFn=Valid"`
+	Title       string              `validate:"required,min=3,max=200"`
+	Description null.String         `validate:"omitnil,max=1000"`
+	IsActive    bool                `validate:"required"`
+	DateStarted time.Time           `validate:"required"`
+	DateEnded   null.Time           `validate:"omitnil,gtfield=DateStarted"`
 }
 
-type CreateDiscountParams struct {
-	CreatePromotionParams
-	OrderWide       bool       `validate:"required"`
-	MinSpend        int64      `validate:"min=0,max=1000000000"`
-	MaxDiscount     int64      `validate:"min=0,max=1000000000"`
-	DiscountPercent null.Int32 `validate:"omitnil,min=1,max=100"`
-	DiscountPrice   null.Int64 `validate:"omitnil,min=1,max=1000000000"`
-}
-
-func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscountParams) (promotionmodel.PromotionDiscount, error) {
-	var zero promotionmodel.PromotionDiscount
+func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgutil.TxStorage, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
+	var zero promotionmodel.PromotionBase
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	promotion, err := s.storage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
-		Code:             params.Code,
-		OwnerID:          pgutil.NullInt64ToPgInt8(params.OwnerID),
-		RefType:          params.RefType,
-		RefID:            pgutil.NullInt64ToPgInt8(params.RefID),
-		Type:             db.PromotionTypeDiscount,
-		Title:            params.Title,
-		Description:      pgutil.NullStringToPgText(params.Description),
-		IsActive:         params.IsActive,
-		DateStarted:      pgutil.TimeToPgTimestamptz(params.DateStarted),
-		DateEnded:        pgutil.NullTimeToPgTimestamptz(params.DateEnded),
-		ScheduleTz:       pgutil.NullStringToPgText(params.ScheduleTz),
-		ScheduleStart:    pgutil.NullTimeToPgTimestamptz(params.ScheduleStart),
-		ScheduleDuration: pgutil.NullInt32ToPgInt4(params.ScheduleDuration),
+	dbPromo, err := txStorage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
+		Code:        params.Code,
+		OwnerID:     pgutil.NullInt64ToPgInt8(params.OwnerID),
+		RefType:     params.RefType,
+		RefID:       pgutil.NullInt64ToPgInt8(params.RefID),
+		Type:        db.PromotionTypeDiscount,
+		Title:       params.Title,
+		Description: pgutil.NullStringToPgText(params.Description),
+		IsActive:    params.IsActive,
+		DateStarted: pgutil.TimeToPgTimestamptz(params.DateStarted),
+		DateEnded:   pgutil.NullTimeToPgTimestamptz(params.DateEnded),
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	discount, err := s.storage.CreateDefaultPromotionDiscount(ctx, db.CreateDefaultPromotionDiscountParams{
-		ID:              promotion.ID,
-		OrderWide:       params.OrderWide,
-		MinSpend:        params.MinSpend,
-		MaxDiscount:     params.MaxDiscount,
-		DiscountPercent: pgutil.NullInt32ToPgInt4(params.DiscountPercent),
-		DiscountPrice:   pgutil.NullInt64ToPgInt8(params.DiscountPrice),
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	return promotionmodel.PromotionDiscount{
-		PromotionBase: promotionmodel.PromotionBase{
-			ID:               discount.ID,
-			Code:             promotion.Code,
-			OwnerID:          pgutil.PgInt8ToNullInt64(promotion.OwnerID),
-			RefType:          promotion.RefType,
-			RefID:            pgutil.PgInt8ToNullInt64(promotion.RefID),
-			Type:             promotion.Type,
-			Title:            promotion.Title,
-			Description:      pgutil.PgTextToNullString(promotion.Description),
-			IsActive:         promotion.IsActive,
-			DateStarted:      promotion.DateStarted.Time,
-			DateEnded:        pgutil.PgTimestamptzToNullTime(promotion.DateEnded),
-			ScheduleTz:       pgutil.PgTextToNullString(promotion.ScheduleTz),
-			ScheduleStart:    pgutil.PgTimestamptzToNullTime(promotion.ScheduleStart),
-			ScheduleDuration: pgutil.PgInt4ToNullInt32(promotion.ScheduleDuration),
-			DateCreated:      promotion.DateCreated.Time,
-			DateUpdated:      promotion.DateUpdated.Time,
-		},
-	}, nil
+	return DbPromotionToPromotionBase(dbPromo), nil
 }
 
 type UpdatePromotionParams struct {
+	ID            int64                           `validate:"required"`
+	Code          null.String                     `validate:"omitnil"`
+	OwnerID       null.Int64                      `validate:"omitnil"`
+	RefType       null.Value[db.PromotionRefType] `validate:"omitnil"`
+	RefID         null.Int64                      `validate:"omitnil"`
+	Title         null.String                     `validate:"omitnil"`
+	Description   null.String                     `validate:"omitnil"`
+	IsActive      null.Bool                       `validate:"omitnil"`
+	DateStarted   null.Time                       `validate:"omitnil"`
+	DateEnded     null.Time                       `validate:"omitnil"`
+	NullDateEnded bool                            `validate:"omitempty"`
 }
 
-func (s *PromotionBiz) UpdatePromotion(ctx context.Context, params UpdatePromotionParams) error {
-	return nil
+func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgutil.TxStorage, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
+	var zero promotionmodel.PromotionBase
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	// If RefType is "all", we need to set RefID to null, no need to clear the RefID field as it will be ignored in the update query
+	var nullRefID bool
+	if params.RefType.Valid && params.RefType.V == db.PromotionRefTypeAll {
+		nullRefID = true
+	}
+	// TODO: check more biz like unique code, valid owner, valid refID for the refType, dateStarted < dateEnded, etc.
+	// dateEnded cannot less than dateStarted and current time
+
+	dbPromo, err := txStorage.UpdatePromotionBase(ctx, db.UpdatePromotionBaseParams{
+		ID:            params.ID,
+		Code:          pgutil.NullStringToPgText(params.Code),
+		RefType:       db.NullPromotionRefType{PromotionRefType: params.RefType.V, Valid: params.RefType.Valid},
+		NullRefID:     nullRefID,
+		RefID:         pgutil.NullInt64ToPgInt8(params.RefID),
+		Title:         pgutil.NullStringToPgText(params.Title),
+		Description:   pgutil.NullStringToPgText(params.Description),
+		IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
+		DateStarted:   pgutil.NullTimeToPgTimestamptz(params.DateStarted),
+		NullDateEnded: params.NullDateEnded,
+		DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	return DbPromotionToPromotionBase(dbPromo), nil
 }
 
 type DeletePromotionParams struct {
-	ID int64
+	Account authmodel.AuthenticatedAccount
+	ID      int64
 }
 
 func (s *PromotionBiz) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
 	return s.storage.DeletePromotionBase(ctx, db.DeletePromotionBaseParams{
 		ID: []int64{params.ID},
 	})
+}
+
+func DbPromotionToPromotionBase(dbPromo db.PromotionBase) promotionmodel.PromotionBase {
+	return promotionmodel.PromotionBase{
+		ID:          dbPromo.ID,
+		Code:        dbPromo.Code,
+		OwnerID:     pgutil.PgInt8ToNullInt64(dbPromo.OwnerID),
+		RefType:     dbPromo.RefType,
+		RefID:       pgutil.PgInt8ToNullInt64(dbPromo.RefID),
+		Type:        dbPromo.Type,
+		Title:       dbPromo.Title,
+		Description: pgutil.PgTextToNullString(dbPromo.Description),
+		IsActive:    dbPromo.IsActive,
+		DateStarted: dbPromo.DateStarted.Time,
+		DateEnded:   pgutil.PgTimestamptzToNullTime(dbPromo.DateEnded),
+	}
 }
