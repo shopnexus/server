@@ -4,6 +4,7 @@ import (
 	"net/http"
 	authbiz "shopnexus-remastered/internal/module/auth/biz"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
+	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
@@ -39,10 +40,10 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 }
 
 type CreateProductSkuRequest struct {
-	SpuID      int64             `validate:"required,gt=0"`
-	Price      int64             `validate:"required,gt=0"`
-	CanCombine bool              `validate:"required"`
-	Attribute  map[string]string `validate:"omitempty,dive,keys,min=1,max=100,endkeys,min=1,max=100"`
+	SpuID      int64                           `validate:"required,gt=0"`
+	Price      int64                           `validate:"required,gt=0"`
+	CanCombine bool                            `validate:"required"`
+	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 }
 
 func (h *Handler) CreateProductSku(c echo.Context) error {
@@ -64,7 +65,7 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 		SpuID:      req.SpuID,
 		Price:      req.Price,
 		CanCombine: req.CanCombine,
-		Attribute:  req.Attribute,
+		Attributes: req.Attributes,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -74,10 +75,10 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 }
 
 type UpdateProductSkuRequest struct {
-	ID         int64             `validate:"required,gt=0"`
-	Price      null.Int64        `validate:"omitnil,gt=0"`
-	CanCombine null.Bool         `validate:"omitnil"`
-	Attribute  map[string]string `validate:"omitnil,dive,keys,min=1,max=100,endkeys,min=1,max=100"`
+	ID         int64                           `validate:"required,gt=0"`
+	Price      null.Int64                      `validate:"omitnil,gt=0"`
+	CanCombine null.Bool                       `validate:"omitnil"`
+	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateProductSku(c echo.Context) error {
@@ -99,7 +100,7 @@ func (h *Handler) UpdateProductSku(c echo.Context) error {
 		ID:         req.ID,
 		Price:      req.Price,
 		CanCombine: req.CanCombine,
-		Attribute:  req.Attribute,
+		Attributes: req.Attributes,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

@@ -3,8 +3,10 @@ package catalogbiz
 import (
 	"context"
 	"encoding/json"
+
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
@@ -63,10 +65,10 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 
 type CreateProductSkuParams struct {
 	Account    authmodel.AuthenticatedAccount
-	SpuID      int64             `validate:"required,gt=0"`
-	Price      int64             `validate:"required,gt=0"`
-	CanCombine bool              `validate:"required"`
-	Attribute  map[string]string `validate:"omitempty,dive,keys,min=1,max=100,endkeys,min=1,max=100"`
+	SpuID      int64                           `validate:"required,gt=0"`
+	Price      int64                           `validate:"required,gt=0"`
+	CanCombine bool                            `validate:"required"`
+	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (db.CatalogProductSku, error) {
@@ -77,7 +79,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 	}
 	defer txStorage.Rollback(ctx)
 
-	attributesBytes, err := json.Marshal(params.Attribute)
+	attributesBytes, err := json.Marshal(params.Attributes)
 	if err != nil {
 		return zero, err
 	}
@@ -110,10 +112,10 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 
 type UpdateProductSkuParams struct {
 	Account    authmodel.AuthenticatedAccount
-	ID         int64             `validate:"required,gt=0"`
-	Price      null.Int64        `validate:"omitnil,gt=0"`
-	CanCombine null.Bool         `validate:"omitnil"`
-	Attribute  map[string]string `validate:"omitnil,dive,keys,min=1,max=100,endkeys,min=1,max=100"`
+	ID         int64                           `validate:"required,gt=0"`
+	Price      null.Int64                      `validate:"omitnil,gt=0"`
+	CanCombine null.Bool                       `validate:"omitnil"`
+	Attributes []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
 }
 
 func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (db.CatalogProductSku, error) {
@@ -129,7 +131,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 	}
 	defer txStorage.Rollback(ctx)
 
-	attributesBytes, err := json.Marshal(params.Attribute)
+	attributesBytes, err := json.Marshal(params.Attributes)
 	if err != nil {
 		return zero, err
 	}

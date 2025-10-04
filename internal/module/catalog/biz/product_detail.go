@@ -56,7 +56,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	stockMap := slice.NewMap(stocks, func(s db.InventoryStock) int64 { return s.RefID })
 
 	for _, sku := range skus {
-		var attributes map[string]string
+		var attributes []catalogmodel.ProductAttribute
 		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
 			return zero, err
 		}

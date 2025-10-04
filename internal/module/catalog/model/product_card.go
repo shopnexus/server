@@ -7,18 +7,17 @@ import (
 )
 
 type ProductCard struct {
-	ID               int64     `json:"id"`
-	Code             string    `json:"code"`
-	VendorID         int64     `json:"vendor_id"`
-	CategoryID       int64     `json:"category_id"`
-	BrandID          int64     `json:"brand_id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	IsActive         bool      `json:"is_active"`
-	DateManufactured time.Time `json:"date_manufactured"`
-	DateCreated      time.Time `json:"date_created"`
-	DateUpdated      time.Time `json:"date_updated"`
-	DateDeleted      time.Time `json:"date_deleted"`
+	ID          int64     `json:"id"`
+	Code        string    `json:"code"`
+	VendorID    int64     `json:"vendor_id"`
+	CategoryID  int64     `json:"category_id"`
+	BrandID     int64     `json:"brand_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsActive    bool      `json:"is_active"`
+	DateCreated time.Time `json:"date_created"`
+	DateUpdated time.Time `json:"date_updated"`
+	DateDeleted time.Time `json:"date_deleted"`
 
 	Price         int64                `json:"price"`
 	OriginalPrice int64                `json:"original_price"`

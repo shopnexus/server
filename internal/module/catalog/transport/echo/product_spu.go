@@ -6,7 +6,6 @@ import (
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
-	"time"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
@@ -46,11 +45,10 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 }
 
 type CreateProductSpuParams struct {
-	CategoryID       int64     `validate:"required,gt=0"`
-	BrandID          int64     `validate:"required,gt=0"`
-	Name             string    `validate:"required,min=1,max=200"`
-	Description      string    `validate:"required,max=1000"`
-	DateManufactured time.Time `validate:"required"`
+	CategoryID  int64  `validate:"required,gt=0"`
+	BrandID     int64  `validate:"required,gt=0"`
+	Name        string `validate:"required,min=1,max=200"`
+	Description string `validate:"required,max=1000"`
 }
 
 func (h *Handler) CreateProductSpu(c echo.Context) error {
@@ -68,12 +66,11 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 	}
 
 	spu, err := h.biz.CreateProductSpu(c.Request().Context(), catalogbiz.CreateProductSpuParams{
-		Account:          claims.Account,
-		CategoryID:       req.CategoryID,
-		BrandID:          req.BrandID,
-		Name:             req.Name,
-		Description:      req.Description,
-		DateManufactured: req.DateManufactured,
+		Account:     claims.Account,
+		CategoryID:  req.CategoryID,
+		BrandID:     req.BrandID,
+		Name:        req.Name,
+		Description: req.Description,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -83,14 +80,13 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 }
 
 type UpdateProductSpuParams struct {
-	ID               int64       `validate:"required,gt=0"`
-	CategoryID       null.Int64  `validate:"omitnil,gt=0"`
-	FeaturedSkuID    null.Int64  `validate:"omitnil,gt=0"`
-	BrandID          null.Int64  `validate:"omitnil,gt=0"`
-	Name             null.String `validate:"omitnil,min=1,max=200"`
-	Description      null.String `validate:"omitnil,max=1000"`
-	DateManufactured null.Time   `validate:"omitnil"`
-	IsActive         null.Bool   `validate:"omitnil"`
+	ID            int64       `validate:"required,gt=0"`
+	CategoryID    null.Int64  `validate:"omitnil,gt=0"`
+	FeaturedSkuID null.Int64  `validate:"omitnil,gt=0"`
+	BrandID       null.Int64  `validate:"omitnil,gt=0"`
+	Name          null.String `validate:"omitnil,min=1,max=200"`
+	Description   null.String `validate:"omitnil,max=1000"`
+	IsActive      null.Bool   `validate:"omitnil"`
 }
 
 func (h *Handler) UpdateProductSpu(c echo.Context) error {
@@ -108,15 +104,14 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 	}
 
 	spu, err := h.biz.UpdateProductSpu(c.Request().Context(), catalogbiz.UpdateProductSpuParams{
-		Account:          claims.Account,
-		ID:               req.ID,
-		FeaturedSkuID:    req.FeaturedSkuID,
-		CategoryID:       req.CategoryID,
-		BrandID:          req.BrandID,
-		Name:             req.Name,
-		Description:      req.Description,
-		DateManufactured: req.DateManufactured,
-		IsActive:         req.IsActive,
+		Account:       claims.Account,
+		ID:            req.ID,
+		FeaturedSkuID: req.FeaturedSkuID,
+		CategoryID:    req.CategoryID,
+		BrandID:       req.BrandID,
+		Name:          req.Name,
+		Description:   req.Description,
+		IsActive:      req.IsActive,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -150,5 +145,5 @@ func (h *Handler) DeleteProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{"status": "ok"})
+	return response.FromMessage(c.Response().Writer, http.StatusOK, "deleted")
 }

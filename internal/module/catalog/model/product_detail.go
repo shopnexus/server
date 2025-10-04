@@ -1,6 +1,8 @@
 package catalogmodel
 
-import sharedmodel "shopnexus-remastered/internal/module/shared/model"
+import (
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+)
 
 type ProductDetail struct {
 	ID             int64                  `json:"id"`
@@ -23,9 +25,15 @@ type ProductDetailRating struct {
 }
 
 type ProductDetailSku struct {
-	ID            int64             `json:"id"`
-	Price         int64             `json:"price"`
-	OriginalPrice int64             `json:"original_price"`
-	Attributes    map[string]string `json:"attributes"`
-	Sold          int64             `json:"sold"`
+	ID            int64              `json:"id"`
+	Price         int64              `json:"price"`
+	OriginalPrice int64              `json:"original_price"`
+	Attributes    []ProductAttribute `json:"attributes"`
+	Sold          int64              `json:"sold"`
+}
+
+type ProductAttribute struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	// Add more fields like referenced resource (for jumping across different thumbnails for each sku)
 }
