@@ -90,8 +90,8 @@ func (p *PaginationParams) GetCursorID() pgtype.Int8 {
 type PaginateResult[T any] struct {
 	PageParams PaginationParams
 	Data       []T
-	Total      null.Int64 // Only valid when using page pagination
-	NextCursor any
+	Total      null.Int64 // Only valid when using "page" pagination, "cursor" pagination will not
+	NextCursor any        // Any struct that can be marshaled to JSON (filter conditions for the next page)
 }
 
 func (p PaginateResult[T]) NextPage() null.Int32 {
