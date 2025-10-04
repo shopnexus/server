@@ -28,7 +28,7 @@ Table Profile {
 
 Table Customer {
   id BigInt [pk]
-  default_address_id BigInt
+  default_address_id BigInt [unique]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
@@ -124,6 +124,7 @@ Table ProductSpu {
   account_id BigInt [not null]
   category_id BigInt [not null]
   brand_id BigInt [not null]
+  featured_sku_id BigInt [unique]
   name String [not null]
   description String [not null]
   is_active Boolean [not null]
@@ -136,7 +137,6 @@ Table ProductSpu {
 Table ProductSku {
   id BigInt [pk, increment]
   spu_id BigInt [not null]
-  is_primary Boolean [not null]
   price BigInt [not null]
   can_combine Boolean [not null]
   attributes Json [not null]
@@ -296,11 +296,17 @@ Table Promotion {
   is_active Boolean [not null]
   date_started DateTime [not null]
   date_ended DateTime
-  schedule_tz String
-  schedule_start DateTime
-  schedule_duration Int
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
+}
+
+Table PromotionSchedule {
+  id BigInt [pk, increment]
+  promotion_id BigInt [not null]
+  timezone String [not null]
+  cron_rule String [not null]
+  duration Int [not null]
+  is_active Boolean [not null, default: false]
 }
 
 Table PromotionDiscount {
@@ -523,6 +529,8 @@ Ref: RefundDispute.issued_by_id > Vendor.id [delete: No Action]
 Ref: Invoice.receiver_id > Account.id [delete: No Action]
 
 Ref: Promotion.owner_id > Vendor.id [delete: Set Null]
+
+Ref: PromotionSchedule.promotion_id > Promotion.id [delete: Cascade]
 
 Ref: PromotionDiscount.id > Promotion.id [delete: Cascade]
 

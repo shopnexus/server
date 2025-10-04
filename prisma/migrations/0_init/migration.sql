@@ -229,7 +229,6 @@ CREATE TABLE "catalog"."product_spu" (
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
-    "date_manufactured" TIMESTAMPTZ(3) NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_deleted" TIMESTAMPTZ(3),
@@ -433,13 +432,23 @@ CREATE TABLE "promotion"."base" (
     "is_active" BOOLEAN NOT NULL,
     "date_started" TIMESTAMPTZ(3) NOT NULL,
     "date_ended" TIMESTAMPTZ(3),
-    "schedule_tz" TEXT,
-    "schedule_start" TIMESTAMPTZ(3),
-    "schedule_duration" INTEGER,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "base_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promotion"."schedule" (
+    "id" BIGSERIAL NOT NULL,
+    "promotion_id" BIGINT NOT NULL,
+    "timezone" TEXT NOT NULL,
+    "cron_rule" TEXT NOT NULL,
+    "duration" INTEGER NOT NULL,
+    "next_run_at" TIMESTAMPTZ(3),
+    "last_run_at" TIMESTAMPTZ(3),
+
+    CONSTRAINT "schedule_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -775,6 +784,9 @@ ALTER TABLE "order"."invoice" ADD CONSTRAINT "invoice_receiver_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "promotion"."base" ADD CONSTRAINT "base_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotion"."schedule" ADD CONSTRAINT "schedule_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "promotion"."discount" ADD CONSTRAINT "discount_id_fkey" FOREIGN KEY ("id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
