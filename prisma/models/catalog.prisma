@@ -59,7 +59,6 @@ model ProductSpu {
   name              String
   description       String
   is_active         Boolean
-  date_manufactured DateTime  @db.Timestamptz(3)
   date_created      DateTime  @default(now()) @db.Timestamptz(3)
   date_updated      DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
   date_deleted      DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
