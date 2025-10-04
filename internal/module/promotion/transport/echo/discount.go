@@ -16,13 +16,13 @@ type CreatePromotionRequest struct {
 	Code        string              `json:"code" validate:"required"`
 	OwnerID     null.Int64          `json:"owner_id" validate:"required"`
 	RefType     db.PromotionRefType `json:"ref_type" validate:"required"`
-	RefID       null.Int64          `json:"ref_id" validate:"required"`
+	RefID       null.Int64          `json:"ref_id" validate:"omitnil"`
 	Type        db.PromotionType    `json:"type" validate:"required"`
 	Title       string              `json:"title" validate:"required"`
-	Description null.String         `json:"description" validate:"required"`
+	Description null.String         `json:"description" validate:"omitnil"`
 	IsActive    bool                `json:"is_active" validate:"required"`
 	DateStarted time.Time           `json:"date_started" validate:"required"`
-	DateEnded   null.Time           `json:"date_ended" validate:"required"`
+	DateEnded   null.Time           `json:"date_ended" validate:"omitnil"`
 }
 
 type CreateDiscountRequest struct {
@@ -32,8 +32,8 @@ type CreateDiscountRequest struct {
 	MaxDiscount int64 `json:"max_discount" validate:"required"`
 
 	// TODO: Either DiscountPercent or DiscountPrice must be provided
-	DiscountPercent null.Int32 `json:"discount_percent" validate:"required"`
-	DiscountPrice   null.Int64 `json:"discount_price" validate:"required"`
+	DiscountPercent null.Int32 `json:"discount_percent" validate:"omitnil"`
+	DiscountPrice   null.Int64 `json:"discount_price" validate:"omitnil"`
 }
 
 func (h *Handler) CreateDiscount(c echo.Context) error {
@@ -77,51 +77,47 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
-type UpdatePromotionRequest struct {
-	ID               int64               `json:"id" validate:"required,gt=0"`
-	Code             null.String         `json:"code" validate:"required,alphanum,min=3,max=50"`
-	OwnerID          null.Int64          `json:"owner_id" validate:"omitnil"`
-	RefType          db.PromotionRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID            null.Int64          `json:"ref_id" validate:"omitnil"`
-	Type             db.PromotionType    `json:"type" validate:"required,validateFn=Valid"`
-	Title            string              `json:"title" validate:"required,min=3,max=200"`
-	Description      null.String         `json:"description" validate:"omitnil,max=1000"`
-	IsActive         bool                `json:"is_active" validate:"required"`
-	DateStarted      time.Time           `json:"date_started" validate:"required"`
-	DateEnded        null.Time           `json:"date_ended" validate:"omitnil,gtfield=DateStarted"`
-	ScheduleTz       null.String         `json:"schedule_tz" validate:"omitnil,timezone"`
-	ScheduleStart    null.Time           `json:"schedule_start" validate:"omitnil"`
-	ScheduleDuration null.Int32          `json:"schedule_duration" validate:"omitnil,gte=0,lte=1440"`
+type UpdateDiscountRequest struct {
+	UpdatePromotionRequest
+	OrderWide       null.Bool  `json:"order_wide" validate:"omitnil"`
+	MinSpend        null.Int64 `json:"min_spend" validate:"omitnil,min=0,max=1000000000"`
+	MaxDiscount     null.Int64 `json:"max_discount" validate:"omitnil,min=0,max=1000000000"`
+	DiscountPercent null.Int32 `json:"discount_percent" validate:"omitnil,min=1,max=100"`
+	DiscountPrice   null.Int64 `json:"discount_price" validate:"omitnil,min=1,max=1000000000"`
 }
 
-func (h *Handler) UpdatePromotion(c echo.Context) error {
-	var req UpdatePromotionRequest
+func (h *Handler) UpdateDiscount(c echo.Context) error {
+	var req UpdateDiscountRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 	if err := c.Validate(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
-	//
-	//result, err := h.biz.UpdatePromotion(c.Request().Context(), promotionbiz.UpdatePromotionParams{
-	//	ID:               req.ID,
-	//	Code:             req.Code,
-	//	OwnerID:          req.OwnerID,
-	//	RefType:          req.RefType,
-	//	RefID:            req.RefID,
-	//	Type:             req.Type,
-	//	Title:            req.Title,
-	//	Description:      req.Description,
-	//	IsActive:         req.IsActive,
-	//	DateStarted:      req.DateStarted,
-	//	DateEnded:        req.DateEnded,
-	//	ScheduleTz:       req.ScheduleTz,
-	//	ScheduleStart:    req.ScheduleStart,
-	//	ScheduleDuration: req.ScheduleDuration,
-	//})
-	//if err != nil {
-	//	return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	//}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, nil)
+	result, err := h.biz.UpdateDiscount(c.Request().Context(), promotionbiz.UpdateDiscountParams{
+		UpdatePromotionParams: promotionbiz.UpdatePromotionParams{
+			ID:            req.ID,
+			Code:          req.Code,
+			OwnerID:       req.OwnerID,
+			RefType:       req.RefType,
+			RefID:         req.RefID,
+			Title:         req.Title,
+			Description:   req.Description,
+			IsActive:      req.IsActive,
+			DateStarted:   req.DateStarted,
+			DateEnded:     req.DateEnded,
+			NullDateEnded: req.NullDateEnded,
+		},
+		OrderWide:       req.OrderWide,
+		MinSpend:        req.MinSpend,
+		MaxDiscount:     req.MaxDiscount,
+		DiscountPercent: req.DiscountPercent,
+		DiscountPrice:   req.DiscountPrice,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
