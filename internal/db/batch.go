@@ -1312,9 +1312,9 @@ func (b *CreateBatchInventoryStockHistoryBatchResults) Close() error {
 }
 
 const createBatchOrderBase = `-- name: CreateBatchOrderBase :batchone
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 `
 
 type CreateBatchOrderBaseBatchResults struct {
@@ -1326,8 +1326,7 @@ type CreateBatchOrderBaseBatchResults struct {
 type CreateBatchOrderBaseParams struct {
 	AccountID      int64              `json:"account_id"`
 	PaymentGateway string             `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8        `json:"confirmed_by_id"`
-	Status         SharedStatus       `json:"status"`
+	PaymentStatus  SharedStatus       `json:"payment_status"`
 	Address        string             `json:"address"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
@@ -1339,8 +1338,7 @@ func (q *Queries) CreateBatchOrderBase(ctx context.Context, arg []CreateBatchOrd
 		vals := []interface{}{
 			a.AccountID,
 			a.PaymentGateway,
-			a.ConfirmedByID,
-			a.Status,
+			a.PaymentStatus,
 			a.Address,
 			a.DateCreated,
 			a.DateUpdated,
@@ -1366,8 +1364,7 @@ func (b *CreateBatchOrderBaseBatchResults) QueryRow(f func(int, OrderBase, error
 			&i.ID,
 			&i.AccountID,
 			&i.PaymentGateway,
-			&i.ConfirmedByID,
-			&i.Status,
+			&i.PaymentStatus,
 			&i.Address,
 			&i.DateCreated,
 			&i.DateUpdated,
@@ -1465,9 +1462,9 @@ func (b *CreateBatchOrderInvoiceBatchResults) Close() error {
 }
 
 const createBatchOrderItem = `-- name: CreateBatchOrderItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 `
 
 type CreateBatchOrderItemBatchResults struct {
@@ -1477,12 +1474,14 @@ type CreateBatchOrderItemBatchResults struct {
 }
 
 type CreateBatchOrderItemParams struct {
-	OrderID          int64       `json:"order_id"`
-	SkuID            int64       `json:"sku_id"`
-	ShipmentProvider string      `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             string      `json:"note"`
-	Quantity         int64       `json:"quantity"`
+	OrderID          int64        `json:"order_id"`
+	SkuID            int64        `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentProvider string       `json:"shipment_provider"`
+	ShipmentID       pgtype.Int8  `json:"shipment_id"`
+	Note             string       `json:"note"`
+	Status           SharedStatus `json:"status"`
+	Quantity         int64        `json:"quantity"`
 }
 
 func (q *Queries) CreateBatchOrderItem(ctx context.Context, arg []CreateBatchOrderItemParams) *CreateBatchOrderItemBatchResults {
@@ -1491,9 +1490,11 @@ func (q *Queries) CreateBatchOrderItem(ctx context.Context, arg []CreateBatchOrd
 		vals := []interface{}{
 			a.OrderID,
 			a.SkuID,
+			a.ConfirmedByID,
 			a.ShipmentProvider,
 			a.ShipmentID,
 			a.Note,
+			a.Status,
 			a.Quantity,
 		}
 		batch.Queue(createBatchOrderItem, vals...)
@@ -1517,9 +1518,11 @@ func (b *CreateBatchOrderItemBatchResults) QueryRow(f func(int, OrderItem, error
 			&i.ID,
 			&i.OrderID,
 			&i.SkuID,
+			&i.ConfirmedByID,
 			&i.ShipmentProvider,
 			&i.ShipmentID,
 			&i.Note,
+			&i.Status,
 			&i.Quantity,
 		)
 		if f != nil {
@@ -5286,12 +5289,11 @@ const updateBatchOrderBase = `-- name: UpdateBatchOrderBase :batchexec
 UPDATE "order"."base"
 SET "account_id" = COALESCE($1, "account_id"),
     "payment_gateway" = COALESCE($2, "payment_gateway"),
-    "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
-    "status" = COALESCE($5, "status"),
-    "address" = COALESCE($6, "address"),
-    "date_created" = COALESCE($7, "date_created"),
-    "date_updated" = COALESCE($8, "date_updated")
-WHERE id = $9
+    "payment_status" = COALESCE($3, "payment_status"),
+    "address" = COALESCE($4, "address"),
+    "date_created" = COALESCE($5, "date_created"),
+    "date_updated" = COALESCE($6, "date_updated")
+WHERE id = $7
 `
 
 type UpdateBatchOrderBaseBatchResults struct {
@@ -5301,15 +5303,13 @@ type UpdateBatchOrderBaseBatchResults struct {
 }
 
 type UpdateBatchOrderBaseParams struct {
-	AccountID         pgtype.Int8        `json:"account_id"`
-	PaymentGateway    pgtype.Text        `json:"payment_gateway"`
-	NullConfirmedByID bool               `json:"null_confirmed_by_id"`
-	ConfirmedByID     pgtype.Int8        `json:"confirmed_by_id"`
-	Status            NullSharedStatus   `json:"status"`
-	Address           pgtype.Text        `json:"address"`
-	DateCreated       pgtype.Timestamptz `json:"date_created"`
-	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
-	ID                int64              `json:"id"`
+	AccountID      pgtype.Int8        `json:"account_id"`
+	PaymentGateway pgtype.Text        `json:"payment_gateway"`
+	PaymentStatus  NullSharedStatus   `json:"payment_status"`
+	Address        pgtype.Text        `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderBase(ctx context.Context, arg []UpdateBatchOrderBaseParams) *UpdateBatchOrderBaseBatchResults {
@@ -5318,9 +5318,7 @@ func (q *Queries) UpdateBatchOrderBase(ctx context.Context, arg []UpdateBatchOrd
 		vals := []interface{}{
 			a.AccountID,
 			a.PaymentGateway,
-			a.NullConfirmedByID,
-			a.ConfirmedByID,
-			a.Status,
+			a.PaymentStatus,
 			a.Address,
 			a.DateCreated,
 			a.DateUpdated,
@@ -5437,11 +5435,13 @@ const updateBatchOrderItem = `-- name: UpdateBatchOrderItem :batchexec
 UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
-    "shipment_provider" = COALESCE($3, "shipment_provider"),
-    "shipment_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "shipment_id") END,
-    "note" = COALESCE($6, "note"),
-    "quantity" = COALESCE($7, "quantity")
-WHERE id = $8
+    "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
+    "shipment_provider" = COALESCE($5, "shipment_provider"),
+    "shipment_id" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "shipment_id") END,
+    "note" = COALESCE($8, "note"),
+    "status" = COALESCE($9, "status"),
+    "quantity" = COALESCE($10, "quantity")
+WHERE id = $11
 `
 
 type UpdateBatchOrderItemBatchResults struct {
@@ -5451,14 +5451,17 @@ type UpdateBatchOrderItemBatchResults struct {
 }
 
 type UpdateBatchOrderItemParams struct {
-	OrderID          pgtype.Int8 `json:"order_id"`
-	SkuID            pgtype.Int8 `json:"sku_id"`
-	ShipmentProvider pgtype.Text `json:"shipment_provider"`
-	NullShipmentID   bool        `json:"null_shipment_id"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             pgtype.Text `json:"note"`
-	Quantity         pgtype.Int8 `json:"quantity"`
-	ID               int64       `json:"id"`
+	OrderID           pgtype.Int8      `json:"order_id"`
+	SkuID             pgtype.Int8      `json:"sku_id"`
+	NullConfirmedByID bool             `json:"null_confirmed_by_id"`
+	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
+	ShipmentProvider  pgtype.Text      `json:"shipment_provider"`
+	NullShipmentID    bool             `json:"null_shipment_id"`
+	ShipmentID        pgtype.Int8      `json:"shipment_id"`
+	Note              pgtype.Text      `json:"note"`
+	Status            NullSharedStatus `json:"status"`
+	Quantity          pgtype.Int8      `json:"quantity"`
+	ID                int64            `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderItem(ctx context.Context, arg []UpdateBatchOrderItemParams) *UpdateBatchOrderItemBatchResults {
@@ -5467,10 +5470,13 @@ func (q *Queries) UpdateBatchOrderItem(ctx context.Context, arg []UpdateBatchOrd
 		vals := []interface{}{
 			a.OrderID,
 			a.SkuID,
+			a.NullConfirmedByID,
+			a.ConfirmedByID,
 			a.ShipmentProvider,
 			a.NullShipmentID,
 			a.ShipmentID,
 			a.Note,
+			a.Status,
 			a.Quantity,
 			a.ID,
 		}

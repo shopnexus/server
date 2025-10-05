@@ -1,18 +1,16 @@
 model Order {
-  id              BigInt  @id @default(autoincrement())
-  account_id      BigInt
+  id         BigInt @id @default(autoincrement())
+  account_id BigInt
+
   payment_gateway String // PaymentGateway id, even COD
-  confirmed_by_id BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
+  payment_status  Status   @default(Pending)
+  address         String
+  date_created    DateTime @default(now()) @db.Timestamptz(3)
+  date_updated    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  status       Status   @default(Pending)
-  address      String
-  date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  gateway   PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  customer  Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  confirmer Vendor?        @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  products  OrderItem[]
+  gateway  PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  customer Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  products OrderItem[]
 
   @@index([payment_gateway])
   @@map("base")
@@ -23,17 +21,20 @@ model OrderItem {
   id                BigInt  @id @default(autoincrement())
   order_id          BigInt
   sku_id            BigInt
+  confirmed_by_id   BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
   shipment_provider String // e.g. "ghn", "ghtk", "dhl", etc.
   shipment_id       BigInt?
   note              String // Note for this item, e.g. "Please gift wrap this item"
+  status            Status  @default(Pending)
 
   quantity BigInt
 
-  serials  OrderItemSerial[]
-  refund   Refund[]
-  order    Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  sku      ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  shipment Shipment?         @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  serials   OrderItemSerial[]
+  refund    Refund[]
+  order     Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  sku       ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  shipment  Shipment?         @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  confirmer Vendor?           @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   //! @@unique([order_id, sku_id]); Should not be unique, because product can be added multiple times (due to product.can_combine)
   @@index([order_id])

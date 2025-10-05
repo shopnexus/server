@@ -1188,36 +1188,30 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" > $5 OR $5 IS NULL) AND
     ("account_id" < $6 OR $6 IS NULL) AND
-    ("confirmed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("confirmed_by_id" > $8 OR $8 IS NULL) AND
-    ("confirmed_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("payment_status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type CountOrderBaseParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	ConfirmedByID     []pgtype.Int8        `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8          `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8          `json:"confirmed_by_id_to"`
-	Status            []SharedStatus       `json:"status"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	AccountID       []int64              `json:"account_id"`
+	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) CountOrderBase(ctx context.Context, arg CountOrderBaseParams) (int64, error) {
@@ -1228,10 +1222,7 @@ func (q *Queries) CountOrderBase(ctx context.Context, arg CountOrderBaseParams) 
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1326,31 +1317,39 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" > $14 OR $14 IS NULL) AND
-    ("quantity" < $15 OR $15 IS NULL)
+    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
+    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("quantity" = ANY($17) OR $17 IS NULL) AND
+    ("quantity" > $18 OR $18 IS NULL) AND
+    ("quantity" < $19 OR $19 IS NULL)
 )
 `
 
 type CountOrderItemParams struct {
-	ID             []int64       `json:"id"`
-	IDFrom         pgtype.Int8   `json:"id_from"`
-	IDTo           pgtype.Int8   `json:"id_to"`
-	OrderID        []int64       `json:"order_id"`
-	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
-	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
-	SkuID          []int64       `json:"sku_id"`
-	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
-	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
-	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
-	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
-	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
-	Quantity       []int64       `json:"quantity"`
-	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
-	QuantityTo     pgtype.Int8   `json:"quantity_to"`
+	ID                []int64        `json:"id"`
+	IDFrom            pgtype.Int8    `json:"id_from"`
+	IDTo              pgtype.Int8    `json:"id_to"`
+	OrderID           []int64        `json:"order_id"`
+	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
+	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
+	SkuID             []int64        `json:"sku_id"`
+	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
+	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
+	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
+	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
+	ShipmentID        []pgtype.Int8  `json:"shipment_id"`
+	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
+	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
+	Status            []SharedStatus `json:"status"`
+	Quantity          []int64        `json:"quantity"`
+	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
+	QuantityTo        pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) (int64, error) {
@@ -1364,9 +1363,13 @@ func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) 
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ConfirmedByID,
+		arg.ConfirmedByIDFrom,
+		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
 		arg.ShipmentIDFrom,
 		arg.ShipmentIDTo,
+		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -2921,10 +2924,9 @@ type CreateCopyDefaultInventoryStockHistoryParams struct {
 }
 
 type CreateCopyDefaultOrderBaseParams struct {
-	AccountID      int64       `json:"account_id"`
-	PaymentGateway string      `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8 `json:"confirmed_by_id"`
-	Address        string      `json:"address"`
+	AccountID      int64  `json:"account_id"`
+	PaymentGateway string `json:"payment_gateway"`
+	Address        string `json:"address"`
 }
 
 type CreateCopyDefaultOrderInvoiceParams struct {
@@ -2942,6 +2944,7 @@ type CreateCopyDefaultOrderInvoiceParams struct {
 type CreateCopyDefaultOrderItemParams struct {
 	OrderID          int64       `json:"order_id"`
 	SkuID            int64       `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8 `json:"confirmed_by_id"`
 	ShipmentProvider string      `json:"shipment_provider"`
 	ShipmentID       pgtype.Int8 `json:"shipment_id"`
 	Note             string      `json:"note"`
@@ -3063,8 +3066,7 @@ type CreateCopyInventoryStockHistoryParams struct {
 type CreateCopyOrderBaseParams struct {
 	AccountID      int64              `json:"account_id"`
 	PaymentGateway string             `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8        `json:"confirmed_by_id"`
-	Status         SharedStatus       `json:"status"`
+	PaymentStatus  SharedStatus       `json:"payment_status"`
 	Address        string             `json:"address"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
@@ -3084,12 +3086,14 @@ type CreateCopyOrderInvoiceParams struct {
 }
 
 type CreateCopyOrderItemParams struct {
-	OrderID          int64       `json:"order_id"`
-	SkuID            int64       `json:"sku_id"`
-	ShipmentProvider string      `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             string      `json:"note"`
-	Quantity         int64       `json:"quantity"`
+	OrderID          int64        `json:"order_id"`
+	SkuID            int64        `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentProvider string       `json:"shipment_provider"`
+	ShipmentID       pgtype.Int8  `json:"shipment_id"`
+	Note             string       `json:"note"`
+	Status           SharedStatus `json:"status"`
+	Quantity         int64        `json:"quantity"`
 }
 
 type CreateCopyOrderItemSerialParams struct {
@@ -3783,32 +3787,25 @@ func (q *Queries) CreateDefaultInventoryStockHistory(ctx context.Context, arg Cr
 }
 
 const createDefaultOrderBase = `-- name: CreateDefaultOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "address")
-VALUES ($1, $2, $3, $4)
-RETURNING id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
+VALUES ($1, $2, $3)
+RETURNING id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 `
 
 type CreateDefaultOrderBaseParams struct {
-	AccountID      int64       `json:"account_id"`
-	PaymentGateway string      `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8 `json:"confirmed_by_id"`
-	Address        string      `json:"address"`
+	AccountID      int64  `json:"account_id"`
+	PaymentGateway string `json:"payment_gateway"`
+	Address        string `json:"address"`
 }
 
 func (q *Queries) CreateDefaultOrderBase(ctx context.Context, arg CreateDefaultOrderBaseParams) (OrderBase, error) {
-	row := q.db.QueryRow(ctx, createDefaultOrderBase,
-		arg.AccountID,
-		arg.PaymentGateway,
-		arg.ConfirmedByID,
-		arg.Address,
-	)
+	row := q.db.QueryRow(ctx, createDefaultOrderBase, arg.AccountID, arg.PaymentGateway, arg.Address)
 	var i OrderBase
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
 		&i.PaymentGateway,
-		&i.ConfirmedByID,
-		&i.Status,
+		&i.PaymentStatus,
 		&i.Address,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -3864,14 +3861,15 @@ func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefau
 }
 
 const createDefaultOrderItem = `-- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 `
 
 type CreateDefaultOrderItemParams struct {
 	OrderID          int64       `json:"order_id"`
 	SkuID            int64       `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8 `json:"confirmed_by_id"`
 	ShipmentProvider string      `json:"shipment_provider"`
 	ShipmentID       pgtype.Int8 `json:"shipment_id"`
 	Note             string      `json:"note"`
@@ -3882,6 +3880,7 @@ func (q *Queries) CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultO
 	row := q.db.QueryRow(ctx, createDefaultOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.ConfirmedByID,
 		arg.ShipmentProvider,
 		arg.ShipmentID,
 		arg.Note,
@@ -3892,9 +3891,11 @@ func (q *Queries) CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultO
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ConfirmedByID,
 		&i.ShipmentProvider,
 		&i.ShipmentID,
 		&i.Note,
+		&i.Status,
 		&i.Quantity,
 	)
 	return i, err
@@ -4368,16 +4369,15 @@ func (q *Queries) CreateInventoryStockHistory(ctx context.Context, arg CreateInv
 }
 
 const createOrderBase = `-- name: CreateOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 `
 
 type CreateOrderBaseParams struct {
 	AccountID      int64              `json:"account_id"`
 	PaymentGateway string             `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8        `json:"confirmed_by_id"`
-	Status         SharedStatus       `json:"status"`
+	PaymentStatus  SharedStatus       `json:"payment_status"`
 	Address        string             `json:"address"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
@@ -4387,8 +4387,7 @@ func (q *Queries) CreateOrderBase(ctx context.Context, arg CreateOrderBaseParams
 	row := q.db.QueryRow(ctx, createOrderBase,
 		arg.AccountID,
 		arg.PaymentGateway,
-		arg.ConfirmedByID,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.Address,
 		arg.DateCreated,
 		arg.DateUpdated,
@@ -4398,8 +4397,7 @@ func (q *Queries) CreateOrderBase(ctx context.Context, arg CreateOrderBaseParams
 		&i.ID,
 		&i.AccountID,
 		&i.PaymentGateway,
-		&i.ConfirmedByID,
-		&i.Status,
+		&i.PaymentStatus,
 		&i.Address,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -4457,27 +4455,31 @@ func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoice
 }
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 `
 
 type CreateOrderItemParams struct {
-	OrderID          int64       `json:"order_id"`
-	SkuID            int64       `json:"sku_id"`
-	ShipmentProvider string      `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             string      `json:"note"`
-	Quantity         int64       `json:"quantity"`
+	OrderID          int64        `json:"order_id"`
+	SkuID            int64        `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentProvider string       `json:"shipment_provider"`
+	ShipmentID       pgtype.Int8  `json:"shipment_id"`
+	Note             string       `json:"note"`
+	Status           SharedStatus `json:"status"`
+	Quantity         int64        `json:"quantity"`
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, createOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.ConfirmedByID,
 		arg.ShipmentProvider,
 		arg.ShipmentID,
 		arg.Note,
+		arg.Status,
 		arg.Quantity,
 	)
 	var i OrderItem
@@ -4485,9 +4487,11 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ConfirmedByID,
 		&i.ShipmentProvider,
 		&i.ShipmentID,
 		&i.Note,
+		&i.Status,
 		&i.Quantity,
 	)
 	return i, err
@@ -6031,36 +6035,30 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" > $5 OR $5 IS NULL) AND
     ("account_id" < $6 OR $6 IS NULL) AND
-    ("confirmed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("confirmed_by_id" > $8 OR $8 IS NULL) AND
-    ("confirmed_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("payment_status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type DeleteOrderBaseParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	ConfirmedByID     []pgtype.Int8        `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8          `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8          `json:"confirmed_by_id_to"`
-	Status            []SharedStatus       `json:"status"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	AccountID       []int64              `json:"account_id"`
+	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) DeleteOrderBase(ctx context.Context, arg DeleteOrderBaseParams) error {
@@ -6071,10 +6069,7 @@ func (q *Queries) DeleteOrderBase(ctx context.Context, arg DeleteOrderBaseParams
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -6163,31 +6158,39 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" > $14 OR $14 IS NULL) AND
-    ("quantity" < $15 OR $15 IS NULL)
+    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
+    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("quantity" = ANY($17) OR $17 IS NULL) AND
+    ("quantity" > $18 OR $18 IS NULL) AND
+    ("quantity" < $19 OR $19 IS NULL)
 )
 `
 
 type DeleteOrderItemParams struct {
-	ID             []int64       `json:"id"`
-	IDFrom         pgtype.Int8   `json:"id_from"`
-	IDTo           pgtype.Int8   `json:"id_to"`
-	OrderID        []int64       `json:"order_id"`
-	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
-	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
-	SkuID          []int64       `json:"sku_id"`
-	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
-	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
-	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
-	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
-	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
-	Quantity       []int64       `json:"quantity"`
-	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
-	QuantityTo     pgtype.Int8   `json:"quantity_to"`
+	ID                []int64        `json:"id"`
+	IDFrom            pgtype.Int8    `json:"id_from"`
+	IDTo              pgtype.Int8    `json:"id_to"`
+	OrderID           []int64        `json:"order_id"`
+	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
+	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
+	SkuID             []int64        `json:"sku_id"`
+	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
+	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
+	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
+	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
+	ShipmentID        []pgtype.Int8  `json:"shipment_id"`
+	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
+	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
+	Status            []SharedStatus `json:"status"`
+	Quantity          []int64        `json:"quantity"`
+	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
+	QuantityTo        pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) error {
@@ -6201,9 +6204,13 @@ func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ConfirmedByID,
+		arg.ConfirmedByIDFrom,
+		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
 		arg.ShipmentIDFrom,
 		arg.ShipmentIDTo,
+		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -8080,37 +8087,31 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" > $5 OR $5 IS NULL) AND
     ("account_id" < $6 OR $6 IS NULL) AND
-    ("confirmed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("confirmed_by_id" > $8 OR $8 IS NULL) AND
-    ("confirmed_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("payment_status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderBaseParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	ConfirmedByID     []pgtype.Int8        `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8          `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8          `json:"confirmed_by_id_to"`
-	Status            []SharedStatus       `json:"status"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	AccountID       []int64              `json:"account_id"`
+	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) ExistsOrderBase(ctx context.Context, arg ExistsOrderBaseParams) (bool, error) {
@@ -8121,10 +8122,7 @@ func (q *Queries) ExistsOrderBase(ctx context.Context, arg ExistsOrderBaseParams
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -8222,32 +8220,40 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" > $14 OR $14 IS NULL) AND
-    ("quantity" < $15 OR $15 IS NULL)
+    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
+    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("quantity" = ANY($17) OR $17 IS NULL) AND
+    ("quantity" > $18 OR $18 IS NULL) AND
+    ("quantity" < $19 OR $19 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderItemParams struct {
-	ID             []int64       `json:"id"`
-	IDFrom         pgtype.Int8   `json:"id_from"`
-	IDTo           pgtype.Int8   `json:"id_to"`
-	OrderID        []int64       `json:"order_id"`
-	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
-	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
-	SkuID          []int64       `json:"sku_id"`
-	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
-	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
-	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
-	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
-	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
-	Quantity       []int64       `json:"quantity"`
-	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
-	QuantityTo     pgtype.Int8   `json:"quantity_to"`
+	ID                []int64        `json:"id"`
+	IDFrom            pgtype.Int8    `json:"id_from"`
+	IDTo              pgtype.Int8    `json:"id_to"`
+	OrderID           []int64        `json:"order_id"`
+	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
+	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
+	SkuID             []int64        `json:"sku_id"`
+	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
+	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
+	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
+	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
+	ShipmentID        []pgtype.Int8  `json:"shipment_id"`
+	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
+	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
+	Status            []SharedStatus `json:"status"`
+	Quantity          []int64        `json:"quantity"`
+	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
+	QuantityTo        pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams) (bool, error) {
@@ -8261,9 +8267,13 @@ func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ConfirmedByID,
+		arg.ConfirmedByIDFrom,
+		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
 		arg.ShipmentIDFrom,
 		arg.ShipmentIDTo,
+		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -9558,7 +9568,7 @@ const getOrderBase = `-- name: GetOrderBase :one
 
 
 
-SELECT id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+SELECT id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 FROM "order"."base"
 WHERE ("id" = $1)
 `
@@ -9573,8 +9583,7 @@ func (q *Queries) GetOrderBase(ctx context.Context, id pgtype.Int8) (OrderBase, 
 		&i.ID,
 		&i.AccountID,
 		&i.PaymentGateway,
-		&i.ConfirmedByID,
-		&i.Status,
+		&i.PaymentStatus,
 		&i.Address,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -9622,7 +9631,7 @@ const getOrderItem = `-- name: GetOrderItem :one
 
 
 
-SELECT id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+SELECT id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 FROM "order"."item"
 WHERE ("id" = $1)
 `
@@ -9637,9 +9646,11 @@ func (q *Queries) GetOrderItem(ctx context.Context, id pgtype.Int8) (OrderItem, 
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ConfirmedByID,
 		&i.ShipmentProvider,
 		&i.ShipmentID,
 		&i.Note,
+		&i.Status,
 		&i.Quantity,
 	)
 	return i, err
@@ -11644,7 +11655,7 @@ func (q *Queries) ListInventoryStockHistory(ctx context.Context, arg ListInvento
 }
 
 const listOrderBase = `-- name: ListOrderBase :many
-SELECT id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+SELECT id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11653,41 +11664,35 @@ WHERE (
     ("account_id" = ANY($4) OR $4 IS NULL) AND
     ("account_id" > $5 OR $5 IS NULL) AND
     ("account_id" < $6 OR $6 IS NULL) AND
-    ("confirmed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("confirmed_by_id" > $8 OR $8 IS NULL) AND
-    ("confirmed_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("payment_status" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $15
+OFFSET $14
 `
 
 type ListOrderBaseParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	ConfirmedByID     []pgtype.Int8        `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8          `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8          `json:"confirmed_by_id_to"`
-	Status            []SharedStatus       `json:"status"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
-	Offset            pgtype.Int4          `json:"offset"`
-	Limit             pgtype.Int4          `json:"limit"`
+	ID              []int64              `json:"id"`
+	IDFrom          pgtype.Int8          `json:"id_from"`
+	IDTo            pgtype.Int8          `json:"id_to"`
+	AccountID       []int64              `json:"account_id"`
+	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([]OrderBase, error) {
@@ -11698,10 +11703,7 @@ func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([
 		arg.AccountID,
 		arg.AccountIDFrom,
 		arg.AccountIDTo,
-		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -11722,8 +11724,7 @@ func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([
 			&i.ID,
 			&i.AccountID,
 			&i.PaymentGateway,
-			&i.ConfirmedByID,
-			&i.Status,
+			&i.PaymentStatus,
 			&i.Address,
 			&i.DateCreated,
 			&i.DateUpdated,
@@ -11840,7 +11841,7 @@ func (q *Queries) ListOrderInvoice(ctx context.Context, arg ListOrderInvoicePara
 }
 
 const listOrderItem = `-- name: ListOrderItem :many
-SELECT id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+SELECT id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11852,36 +11853,44 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("quantity" = ANY($13) OR $13 IS NULL) AND
-    ("quantity" > $14 OR $14 IS NULL) AND
-    ("quantity" < $15 OR $15 IS NULL)
+    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
+    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("quantity" = ANY($17) OR $17 IS NULL) AND
+    ("quantity" > $18 OR $18 IS NULL) AND
+    ("quantity" < $19 OR $19 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $21
+OFFSET $20
 `
 
 type ListOrderItemParams struct {
-	ID             []int64       `json:"id"`
-	IDFrom         pgtype.Int8   `json:"id_from"`
-	IDTo           pgtype.Int8   `json:"id_to"`
-	OrderID        []int64       `json:"order_id"`
-	OrderIDFrom    pgtype.Int8   `json:"order_id_from"`
-	OrderIDTo      pgtype.Int8   `json:"order_id_to"`
-	SkuID          []int64       `json:"sku_id"`
-	SkuIDFrom      pgtype.Int8   `json:"sku_id_from"`
-	SkuIDTo        pgtype.Int8   `json:"sku_id_to"`
-	ShipmentID     []pgtype.Int8 `json:"shipment_id"`
-	ShipmentIDFrom pgtype.Int8   `json:"shipment_id_from"`
-	ShipmentIDTo   pgtype.Int8   `json:"shipment_id_to"`
-	Quantity       []int64       `json:"quantity"`
-	QuantityFrom   pgtype.Int8   `json:"quantity_from"`
-	QuantityTo     pgtype.Int8   `json:"quantity_to"`
-	Offset         pgtype.Int4   `json:"offset"`
-	Limit          pgtype.Int4   `json:"limit"`
+	ID                []int64        `json:"id"`
+	IDFrom            pgtype.Int8    `json:"id_from"`
+	IDTo              pgtype.Int8    `json:"id_to"`
+	OrderID           []int64        `json:"order_id"`
+	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
+	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
+	SkuID             []int64        `json:"sku_id"`
+	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
+	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
+	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
+	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
+	ShipmentID        []pgtype.Int8  `json:"shipment_id"`
+	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
+	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
+	Status            []SharedStatus `json:"status"`
+	Quantity          []int64        `json:"quantity"`
+	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
+	QuantityTo        pgtype.Int8    `json:"quantity_to"`
+	Offset            pgtype.Int4    `json:"offset"`
+	Limit             pgtype.Int4    `json:"limit"`
 }
 
 func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([]OrderItem, error) {
@@ -11895,9 +11904,13 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.ConfirmedByID,
+		arg.ConfirmedByIDFrom,
+		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
 		arg.ShipmentIDFrom,
 		arg.ShipmentIDTo,
+		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -11915,9 +11928,11 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 			&i.ID,
 			&i.OrderID,
 			&i.SkuID,
+			&i.ConfirmedByID,
 			&i.ShipmentProvider,
 			&i.ShipmentID,
 			&i.Note,
+			&i.Status,
 			&i.Quantity,
 		); err != nil {
 			return nil, err
@@ -13790,34 +13805,29 @@ const updateOrderBase = `-- name: UpdateOrderBase :one
 UPDATE "order"."base"
 SET "account_id" = COALESCE($1, "account_id"),
     "payment_gateway" = COALESCE($2, "payment_gateway"),
-    "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
-    "status" = COALESCE($5, "status"),
-    "address" = COALESCE($6, "address"),
-    "date_created" = COALESCE($7, "date_created"),
-    "date_updated" = COALESCE($8, "date_updated")
-WHERE id = $9
-RETURNING id, account_id, payment_gateway, confirmed_by_id, status, address, date_created, date_updated
+    "payment_status" = COALESCE($3, "payment_status"),
+    "address" = COALESCE($4, "address"),
+    "date_created" = COALESCE($5, "date_created"),
+    "date_updated" = COALESCE($6, "date_updated")
+WHERE id = $7
+RETURNING id, account_id, payment_gateway, payment_status, address, date_created, date_updated
 `
 
 type UpdateOrderBaseParams struct {
-	AccountID         pgtype.Int8        `json:"account_id"`
-	PaymentGateway    pgtype.Text        `json:"payment_gateway"`
-	NullConfirmedByID bool               `json:"null_confirmed_by_id"`
-	ConfirmedByID     pgtype.Int8        `json:"confirmed_by_id"`
-	Status            NullSharedStatus   `json:"status"`
-	Address           pgtype.Text        `json:"address"`
-	DateCreated       pgtype.Timestamptz `json:"date_created"`
-	DateUpdated       pgtype.Timestamptz `json:"date_updated"`
-	ID                int64              `json:"id"`
+	AccountID      pgtype.Int8        `json:"account_id"`
+	PaymentGateway pgtype.Text        `json:"payment_gateway"`
+	PaymentStatus  NullSharedStatus   `json:"payment_status"`
+	Address        pgtype.Text        `json:"address"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateOrderBase(ctx context.Context, arg UpdateOrderBaseParams) (OrderBase, error) {
 	row := q.db.QueryRow(ctx, updateOrderBase,
 		arg.AccountID,
 		arg.PaymentGateway,
-		arg.NullConfirmedByID,
-		arg.ConfirmedByID,
-		arg.Status,
+		arg.PaymentStatus,
 		arg.Address,
 		arg.DateCreated,
 		arg.DateUpdated,
@@ -13828,8 +13838,7 @@ func (q *Queries) UpdateOrderBase(ctx context.Context, arg UpdateOrderBaseParams
 		&i.ID,
 		&i.AccountID,
 		&i.PaymentGateway,
-		&i.ConfirmedByID,
-		&i.Status,
+		&i.PaymentStatus,
 		&i.Address,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -13904,33 +13913,41 @@ const updateOrderItem = `-- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
-    "shipment_provider" = COALESCE($3, "shipment_provider"),
-    "shipment_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "shipment_id") END,
-    "note" = COALESCE($6, "note"),
-    "quantity" = COALESCE($7, "quantity")
-WHERE id = $8
-RETURNING id, order_id, sku_id, shipment_provider, shipment_id, note, quantity
+    "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
+    "shipment_provider" = COALESCE($5, "shipment_provider"),
+    "shipment_id" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "shipment_id") END,
+    "note" = COALESCE($8, "note"),
+    "status" = COALESCE($9, "status"),
+    "quantity" = COALESCE($10, "quantity")
+WHERE id = $11
+RETURNING id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
 `
 
 type UpdateOrderItemParams struct {
-	OrderID          pgtype.Int8 `json:"order_id"`
-	SkuID            pgtype.Int8 `json:"sku_id"`
-	ShipmentProvider pgtype.Text `json:"shipment_provider"`
-	NullShipmentID   bool        `json:"null_shipment_id"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             pgtype.Text `json:"note"`
-	Quantity         pgtype.Int8 `json:"quantity"`
-	ID               int64       `json:"id"`
+	OrderID           pgtype.Int8      `json:"order_id"`
+	SkuID             pgtype.Int8      `json:"sku_id"`
+	NullConfirmedByID bool             `json:"null_confirmed_by_id"`
+	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
+	ShipmentProvider  pgtype.Text      `json:"shipment_provider"`
+	NullShipmentID    bool             `json:"null_shipment_id"`
+	ShipmentID        pgtype.Int8      `json:"shipment_id"`
+	Note              pgtype.Text      `json:"note"`
+	Status            NullSharedStatus `json:"status"`
+	Quantity          pgtype.Int8      `json:"quantity"`
+	ID                int64            `json:"id"`
 }
 
 func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, updateOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.NullConfirmedByID,
+		arg.ConfirmedByID,
 		arg.ShipmentProvider,
 		arg.NullShipmentID,
 		arg.ShipmentID,
 		arg.Note,
+		arg.Status,
 		arg.Quantity,
 		arg.ID,
 	)
@@ -13939,9 +13956,11 @@ func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.ConfirmedByID,
 		&i.ShipmentProvider,
 		&i.ShipmentID,
 		&i.Note,
+		&i.Status,
 		&i.Quantity,
 	)
 	return i, err

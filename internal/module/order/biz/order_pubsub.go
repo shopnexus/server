@@ -39,8 +39,8 @@ func (s *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error 
 
 	// Update the order status to success
 	order, err := txStorage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
-		ID:     params.OrderID,
-		Status: db.NullSharedStatus{SharedStatus: db.SharedStatusSuccess, Valid: true},
+		ID:            params.OrderID,
+		PaymentStatus: db.NullSharedStatus{SharedStatus: db.SharedStatusSuccess, Valid: true},
 	})
 	if err != nil {
 		return err

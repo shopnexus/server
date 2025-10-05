@@ -1,6 +1,7 @@
 package ordermodel
 
 const (
-	TopicOrderCreated = "order.created"
-	TopicOrderPaid    = "order.paid"
+	TopicOrderCreated   = "order.created"
+	TopicOrderPaid      = "order.paid"
+	TopicOrderConfirmed = "order.confirmed"
 )

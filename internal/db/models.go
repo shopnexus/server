@@ -1268,8 +1268,7 @@ type OrderBase struct {
 	ID             int64              `json:"id"`
 	AccountID      int64              `json:"account_id"`
 	PaymentGateway string             `json:"payment_gateway"`
-	ConfirmedByID  pgtype.Int8        `json:"confirmed_by_id"`
-	Status         SharedStatus       `json:"status"`
+	PaymentStatus  SharedStatus       `json:"payment_status"`
 	Address        string             `json:"address"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
@@ -1290,13 +1289,15 @@ type OrderInvoice struct {
 }
 
 type OrderItem struct {
-	ID               int64       `json:"id"`
-	OrderID          int64       `json:"order_id"`
-	SkuID            int64       `json:"sku_id"`
-	ShipmentProvider string      `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8 `json:"shipment_id"`
-	Note             string      `json:"note"`
-	Quantity         int64       `json:"quantity"`
+	ID               int64        `json:"id"`
+	OrderID          int64        `json:"order_id"`
+	SkuID            int64        `json:"sku_id"`
+	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentProvider string       `json:"shipment_provider"`
+	ShipmentID       pgtype.Int8  `json:"shipment_id"`
+	Note             string       `json:"note"`
+	Status           SharedStatus `json:"status"`
+	Quantity         int64        `json:"quantity"`
 }
 
 type OrderItemSerial struct {

@@ -17,9 +17,9 @@ type CreateShipmentParams struct {
 }
 
 type Dimensions struct {
-	LengthCM int
-	WidthCM  int
-	HeightCM int
+	LengthCM int `validate:"required,min=1"`
+	WidthCM  int `validate:"required,min=1"`
+	HeightCM int `validate:"required,min=1"`
 }
 
 // Shipment represents a created shipment with tracking info.

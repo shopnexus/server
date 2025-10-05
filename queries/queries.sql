@@ -2788,10 +2788,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2811,10 +2808,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2833,10 +2827,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2850,34 +2841,33 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateBatchOrderBase :batchone
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyOrderBase :copyfrom
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "address")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderBase :copyfrom
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "confirmed_by_id", "address")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
+VALUES ($1, $2, $3);
 
 -- name: UpdateOrderBase :one
 UPDATE "order"."base"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "payment_gateway" = COALESCE(sqlc.narg('payment_gateway'), "payment_gateway"),
-    "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
-    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "payment_status" = COALESCE(sqlc.narg('payment_status'), "payment_status"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
@@ -2888,8 +2878,7 @@ RETURNING *;
 UPDATE "order"."base"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "payment_gateway" = COALESCE(sqlc.narg('payment_gateway'), "payment_gateway"),
-    "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
-    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "payment_status" = COALESCE(sqlc.narg('payment_status'), "payment_status"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
@@ -2904,10 +2893,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2945,9 +2931,13 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
+    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
+    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
     ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
     ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
@@ -2967,9 +2957,13 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
+    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
+    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
     ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
     ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
@@ -2988,9 +2982,13 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
+    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
+    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
     ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
     ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
@@ -3001,35 +2999,37 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateBatchOrderItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
     "shipment_provider" = COALESCE(sqlc.narg('shipment_provider'), "shipment_provider"),
     "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
     "note" = COALESCE(sqlc.narg('note'), "note"),
+    "status" = COALESCE(sqlc.narg('status'), "status"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
 WHERE id = sqlc.arg('id')
 RETURNING *;
@@ -3038,9 +3038,11 @@ RETURNING *;
 UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
     "shipment_provider" = COALESCE(sqlc.narg('shipment_provider'), "shipment_provider"),
     "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
     "note" = COALESCE(sqlc.narg('note'), "note"),
+    "status" = COALESCE(sqlc.narg('status'), "status"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
 WHERE id = sqlc.arg('id');
 
@@ -3056,9 +3058,13 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
+    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
+    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
     ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
     ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
