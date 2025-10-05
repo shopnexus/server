@@ -29,10 +29,11 @@ model Promotion {
   ref_type PromotionRefType // Type of reference
   ref_id   BigInt? // Reference id, e.g. product id, category id | null when ref_type is All
 
-  type        PromotionType // Type of promotion, e.g: discount (voucher, flashsale, ...), bundle, buyXGetY, cashback
+  type        PromotionType // Type of promotion
   title       String // Title of the promotion
   description String? // Description of the promotion
   is_active   Boolean // Vendor can activate/deactivate the promotion
+  auto_apply  Boolean // true means the promotion is automatically applied when conditions are met, false means a code is required
 
   // date_started and date_ended is the scheduled time for the promotion to be active (override the schedules)
   date_started DateTime  @db.Timestamptz(3)

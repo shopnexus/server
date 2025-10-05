@@ -12,23 +12,32 @@ import (
 )
 
 const listActivePromotion = `-- name: ListActivePromotion :many
-SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 FROM promotion.base
 WHERE is_active = true
   AND (date_ended IS NULL OR date_ended > NOW())
-  AND ("ref_type" = ($1) OR $1 IS NULL)
+  AND (("ref_type" = ($1) OR $1 IS NULL)
   AND ("ref_id" = ANY($2) OR $2 IS NULL)
   AND ("type" = ANY($3) OR $3 IS NULL)
+  AND ("auto_apply" = $4 OR $4 IS NULL) OR "id" = ANY($5))
 `
 
 type ListActivePromotionParams struct {
-	RefType []NullPromotionRefType `json:"ref_type"`
-	RefID   pgtype.Int8            `json:"ref_id"`
-	Type    []PromotionType        `json:"type"`
+	RefType   []NullPromotionRefType `json:"ref_type"`
+	RefID     pgtype.Int8            `json:"ref_id"`
+	Type      []PromotionType        `json:"type"`
+	AutoApply pgtype.Bool            `json:"auto_apply"`
+	ID        []int64                `json:"id"`
 }
 
 func (q *Queries) ListActivePromotion(ctx context.Context, arg ListActivePromotionParams) ([]PromotionBase, error) {
-	rows, err := q.db.Query(ctx, listActivePromotion, arg.RefType, arg.RefID, arg.Type)
+	rows, err := q.db.Query(ctx, listActivePromotion,
+		arg.RefType,
+		arg.RefID,
+		arg.Type,
+		arg.AutoApply,
+		arg.ID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +55,7 @@ func (q *Queries) ListActivePromotion(ctx context.Context, arg ListActivePromoti
 			&i.Title,
 			&i.Description,
 			&i.IsActive,
+			&i.AutoApply,
 			&i.DateStarted,
 			&i.DateEnded,
 			&i.DateCreated,

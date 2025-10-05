@@ -321,6 +321,7 @@ CREATE TABLE "order"."base" (
     "id" BIGSERIAL NOT NULL,
     "account_id" BIGINT NOT NULL,
     "payment_gateway" TEXT NOT NULL,
+    "confirmed_by_id" BIGINT,
     "status" "shared"."status" NOT NULL DEFAULT 'Pending',
     "address" TEXT NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -334,7 +335,9 @@ CREATE TABLE "order"."item" (
     "id" BIGSERIAL NOT NULL,
     "order_id" BIGINT NOT NULL,
     "sku_id" BIGINT NOT NULL,
+    "shipment_provider" TEXT NOT NULL,
     "shipment_id" BIGINT,
+    "note" TEXT NOT NULL,
     "quantity" BIGINT NOT NULL,
 
     CONSTRAINT "item_pkey" PRIMARY KEY ("id")
@@ -412,9 +415,7 @@ CREATE TABLE "order"."shipment" (
     "status" "order"."shipment_status" NOT NULL DEFAULT 'Pending',
     "label_url" TEXT,
     "cost" BIGINT NOT NULL,
-    "estimated_etd" TIMESTAMPTZ(3),
-    "date_shipped" TIMESTAMPTZ(3),
-    "date_delivered" TIMESTAMPTZ(3),
+    "date_eta" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "shipment_pkey" PRIMARY KEY ("id")
 );
@@ -430,6 +431,7 @@ CREATE TABLE "promotion"."base" (
     "title" TEXT NOT NULL,
     "description" TEXT,
     "is_active" BOOLEAN NOT NULL,
+    "auto_apply" BOOLEAN NOT NULL,
     "date_started" TIMESTAMPTZ(3) NOT NULL,
     "date_ended" TIMESTAMPTZ(3),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -748,6 +750,9 @@ ALTER TABLE "order"."base" ADD CONSTRAINT "base_payment_gateway_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "order"."base" ADD CONSTRAINT "base_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."base" ADD CONSTRAINT "base_confirmed_by_id_fkey" FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."item" ADD CONSTRAINT "item_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1297,6 +1297,7 @@ func (r iteratorForCreateCopyDefaultOrderBase) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
 		r.rows[0].PaymentGateway,
+		r.rows[0].ConfirmedByID,
 		r.rows[0].Address,
 	}, nil
 }
@@ -1306,7 +1307,7 @@ func (r iteratorForCreateCopyDefaultOrderBase) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderBase(ctx context.Context, arg []CreateCopyDefaultOrderBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "base"}, []string{"account_id", "payment_gateway", "address"}, &iteratorForCreateCopyDefaultOrderBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "base"}, []string{"account_id", "payment_gateway", "confirmed_by_id", "address"}, &iteratorForCreateCopyDefaultOrderBase{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrderInvoice implements pgx.CopyFromSource.
@@ -1371,7 +1372,9 @@ func (r iteratorForCreateCopyDefaultOrderItem) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].OrderID,
 		r.rows[0].SkuID,
+		r.rows[0].ShipmentProvider,
 		r.rows[0].ShipmentID,
+		r.rows[0].Note,
 		r.rows[0].Quantity,
 	}, nil
 }
@@ -1381,7 +1384,7 @@ func (r iteratorForCreateCopyDefaultOrderItem) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderItem(ctx context.Context, arg []CreateCopyDefaultOrderItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "shipment_id", "quantity"}, &iteratorForCreateCopyDefaultOrderItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity"}, &iteratorForCreateCopyDefaultOrderItem{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrderItemSerial implements pgx.CopyFromSource.
@@ -1546,9 +1549,7 @@ func (r iteratorForCreateCopyDefaultOrderShipment) Values() ([]interface{}, erro
 		r.rows[0].TrackingCode,
 		r.rows[0].LabelUrl,
 		r.rows[0].Cost,
-		r.rows[0].EstimatedEtd,
-		r.rows[0].DateShipped,
-		r.rows[0].DateDelivered,
+		r.rows[0].DateEta,
 	}, nil
 }
 
@@ -1557,7 +1558,7 @@ func (r iteratorForCreateCopyDefaultOrderShipment) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderShipment(ctx context.Context, arg []CreateCopyDefaultOrderShipmentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"provider", "tracking_code", "label_url", "cost", "estimated_etd", "date_shipped", "date_delivered"}, &iteratorForCreateCopyDefaultOrderShipment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"provider", "tracking_code", "label_url", "cost", "date_eta"}, &iteratorForCreateCopyDefaultOrderShipment{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionBase implements pgx.CopyFromSource.
@@ -1588,6 +1589,7 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Values() ([]interface{}, erro
 		r.rows[0].Title,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
+		r.rows[0].AutoApply,
 		r.rows[0].DateStarted,
 		r.rows[0].DateEnded,
 	}, nil
@@ -1598,7 +1600,7 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionDiscount implements pgx.CopyFromSource.
@@ -1911,6 +1913,7 @@ func (r iteratorForCreateCopyOrderBase) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
 		r.rows[0].PaymentGateway,
+		r.rows[0].ConfirmedByID,
 		r.rows[0].Status,
 		r.rows[0].Address,
 		r.rows[0].DateCreated,
@@ -1923,7 +1926,7 @@ func (r iteratorForCreateCopyOrderBase) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderBase(ctx context.Context, arg []CreateCopyOrderBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "base"}, []string{"account_id", "payment_gateway", "status", "address", "date_created", "date_updated"}, &iteratorForCreateCopyOrderBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "base"}, []string{"account_id", "payment_gateway", "confirmed_by_id", "status", "address", "date_created", "date_updated"}, &iteratorForCreateCopyOrderBase{rows: arg})
 }
 
 // iteratorForCreateCopyOrderInvoice implements pgx.CopyFromSource.
@@ -1989,7 +1992,9 @@ func (r iteratorForCreateCopyOrderItem) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].OrderID,
 		r.rows[0].SkuID,
+		r.rows[0].ShipmentProvider,
 		r.rows[0].ShipmentID,
+		r.rows[0].Note,
 		r.rows[0].Quantity,
 	}, nil
 }
@@ -1999,7 +2004,7 @@ func (r iteratorForCreateCopyOrderItem) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderItem(ctx context.Context, arg []CreateCopyOrderItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "shipment_id", "quantity"}, &iteratorForCreateCopyOrderItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "shipment_provider", "shipment_id", "note", "quantity"}, &iteratorForCreateCopyOrderItem{rows: arg})
 }
 
 // iteratorForCreateCopyOrderItemSerial implements pgx.CopyFromSource.
@@ -2171,9 +2176,7 @@ func (r iteratorForCreateCopyOrderShipment) Values() ([]interface{}, error) {
 		r.rows[0].Status,
 		r.rows[0].LabelUrl,
 		r.rows[0].Cost,
-		r.rows[0].EstimatedEtd,
-		r.rows[0].DateShipped,
-		r.rows[0].DateDelivered,
+		r.rows[0].DateEta,
 	}, nil
 }
 
@@ -2182,7 +2185,7 @@ func (r iteratorForCreateCopyOrderShipment) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderShipment(ctx context.Context, arg []CreateCopyOrderShipmentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"provider", "tracking_code", "status", "label_url", "cost", "estimated_etd", "date_shipped", "date_delivered"}, &iteratorForCreateCopyOrderShipment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"provider", "tracking_code", "status", "label_url", "cost", "date_eta"}, &iteratorForCreateCopyOrderShipment{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionBase implements pgx.CopyFromSource.
@@ -2213,6 +2216,7 @@ func (r iteratorForCreateCopyPromotionBase) Values() ([]interface{}, error) {
 		r.rows[0].Title,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
+		r.rows[0].AutoApply,
 		r.rows[0].DateStarted,
 		r.rows[0].DateEnded,
 		r.rows[0].DateCreated,
@@ -2225,7 +2229,7 @@ func (r iteratorForCreateCopyPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "date_started", "date_ended", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionDiscount implements pgx.CopyFromSource.

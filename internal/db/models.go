@@ -1268,6 +1268,7 @@ type OrderBase struct {
 	ID             int64              `json:"id"`
 	AccountID      int64              `json:"account_id"`
 	PaymentGateway string             `json:"payment_gateway"`
+	ConfirmedByID  pgtype.Int8        `json:"confirmed_by_id"`
 	Status         SharedStatus       `json:"status"`
 	Address        string             `json:"address"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
@@ -1289,11 +1290,13 @@ type OrderInvoice struct {
 }
 
 type OrderItem struct {
-	ID         int64       `json:"id"`
-	OrderID    int64       `json:"order_id"`
-	SkuID      int64       `json:"sku_id"`
-	ShipmentID pgtype.Int8 `json:"shipment_id"`
-	Quantity   int64       `json:"quantity"`
+	ID               int64       `json:"id"`
+	OrderID          int64       `json:"order_id"`
+	SkuID            int64       `json:"sku_id"`
+	ShipmentProvider string      `json:"shipment_provider"`
+	ShipmentID       pgtype.Int8 `json:"shipment_id"`
+	Note             string      `json:"note"`
+	Quantity         int64       `json:"quantity"`
 }
 
 type OrderItemSerial struct {
@@ -1332,15 +1335,13 @@ type OrderRefundDispute struct {
 }
 
 type OrderShipment struct {
-	ID            int64               `json:"id"`
-	Provider      string              `json:"provider"`
-	TrackingCode  pgtype.Text         `json:"tracking_code"`
-	Status        OrderShipmentStatus `json:"status"`
-	LabelUrl      pgtype.Text         `json:"label_url"`
-	Cost          int64               `json:"cost"`
-	EstimatedEtd  pgtype.Timestamptz  `json:"estimated_etd"`
-	DateShipped   pgtype.Timestamptz  `json:"date_shipped"`
-	DateDelivered pgtype.Timestamptz  `json:"date_delivered"`
+	ID           int64               `json:"id"`
+	Provider     string              `json:"provider"`
+	TrackingCode pgtype.Text         `json:"tracking_code"`
+	Status       OrderShipmentStatus `json:"status"`
+	LabelUrl     pgtype.Text         `json:"label_url"`
+	Cost         int64               `json:"cost"`
+	DateEta      pgtype.Timestamptz  `json:"date_eta"`
 }
 
 type PromotionBase struct {
@@ -1353,6 +1354,7 @@ type PromotionBase struct {
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
 	IsActive    bool               `json:"is_active"`
+	AutoApply   bool               `json:"auto_apply"`
 	DateStarted pgtype.Timestamptz `json:"date_started"`
 	DateEnded   pgtype.Timestamptz `json:"date_ended"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`

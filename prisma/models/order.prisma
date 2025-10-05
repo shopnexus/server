@@ -1,16 +1,18 @@
 model Order {
-  id              BigInt @id @default(autoincrement())
+  id              BigInt  @id @default(autoincrement())
   account_id      BigInt
   payment_gateway String // PaymentGateway id, even COD
+  confirmed_by_id BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
 
   status       Status   @default(Pending)
   address      String
   date_created DateTime @default(now()) @db.Timestamptz(3)
   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  gateway  PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  customer Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  products OrderItem[]
+  gateway   PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  customer  Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  confirmer Vendor?        @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  products  OrderItem[]
 
   @@index([payment_gateway])
   @@map("base")
@@ -18,10 +20,12 @@ model Order {
 }
 
 model OrderItem {
-  id          BigInt  @id @default(autoincrement())
-  order_id    BigInt
-  sku_id      BigInt
-  shipment_id BigInt?
+  id                BigInt  @id @default(autoincrement())
+  order_id          BigInt
+  sku_id            BigInt
+  shipment_provider String // e.g. "ghn", "ghtk", "dhl", etc.
+  shipment_id       BigInt?
+  note              String // Note for this item, e.g. "Please gift wrap this item"
 
   quantity BigInt
 
@@ -167,17 +171,16 @@ model Invoice {
 }
 
 model Shipment {
-  id             BigInt         @id @default(autoincrement())
-  provider       String // e.g. "GHN", "GHTK", "DHL"
-  tracking_code  String? // Carrier-provided tracking number
-  status         ShipmentStatus @default(Pending)
-  label_url      String? // For customer download/printing
-  cost           BigInt
-  estimated_etd  DateTime?      @db.Timestamptz(3)
-  date_shipped   DateTime?      @db.Timestamptz(3)
-  date_delivered DateTime?      @db.Timestamptz(3)
-  items          OrderItem[]
-  refunds        Refund[]
+  id            BigInt         @id @default(autoincrement())
+  provider      String // e.g. "GHN", "GHTK", "DHL"
+  tracking_code String? // Carrier-provided tracking number
+  status        ShipmentStatus @default(Pending)
+  label_url     String? // For customer download/printing
+  cost          BigInt
+  date_eta      DateTime       @db.Timestamptz(3)
+
+  items   OrderItem[]
+  refunds Refund[]
 
   @@map("shipment")
   @@schema("order")
