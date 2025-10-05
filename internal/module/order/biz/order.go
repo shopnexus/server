@@ -7,6 +7,7 @@ import (
 
 	"shopnexus-remastered/internal/client/payment"
 	"shopnexus-remastered/internal/client/pubsub"
+	"shopnexus-remastered/internal/client/shipment"
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
@@ -20,10 +21,11 @@ import (
 )
 
 type OrderBiz struct {
-	storage    *pgutil.Storage
-	gatewayMap map[string]payment.Client // map[gatewayCode]payment.Client
-	pubsub     pubsub.Client
-	promotion  *promotionbiz.PromotionBiz
+	storage     *pgutil.Storage
+	gatewayMap  map[string]payment.Client  // map[gatewayCode]payment.Client
+	shipmentMap map[string]shipment.Client // map[provider]shipment.Client
+	pubsub      pubsub.Client
+	promotion   *promotionbiz.PromotionBiz
 }
 
 func NewOrderBiz(
@@ -39,6 +41,7 @@ func NewOrderBiz(
 
 	return b, errutil.Some(
 		b.SetupPaymentGateway(),
+		b.SetupShipmentProvider(),
 		b.SetupPubsub(),
 	)
 }
@@ -88,9 +91,16 @@ func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sha
 
 type CreateOrderParams struct {
 	Account        authmodel.AuthenticatedAccount
-	Address        string  `validate:"required"`
-	PaymentGateway string  `validate:"required,min=1,max=50"`
-	SkuIDs         []int64 `validate:"required,min=1,dive,gt=0"`
+	Address        string     `validate:"required"`
+	PaymentGateway string     `validate:"required,min=1,max=50"`
+	Skus           []OrderSku `validate:"required,min=1,dive"`
+}
+
+type OrderSku struct {
+	SkuID            int64   `json:"sku_id"`
+	PromotionIDs     []int64 `json:"promotion_ids"` // Promotions from system, vendor // TODO: Not handled yet
+	ShipmentProvider string  `json:"shipment_provider"`
+	Note             string  `json:"note"`
 }
 
 type CreateOrderResult struct {
@@ -113,14 +123,16 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	defer txStorage.Rollback(ctx)
 
 	// Remove the checkout items from cart
+	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
+	orderItemMap := slice.NewMap(params.Skus, func(s OrderSku) int64 { return s.SkuID })
 	cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
 		CartID: params.Account.ID,
-		SkuID:  params.SkuIDs,
+		SkuID:  skuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	if len(cartItems) != len(params.SkuIDs) {
+	if len(cartItems) != len(skuIDs) {
 		// Prevent duplicate skuIDs in params or some sku not found in cart
 		return zero, fmt.Errorf("some sku not found in cart")
 	}
@@ -145,12 +157,12 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Retrieve skus data
 	skus, err := txStorage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		ID: params.SkuIDs,
+		ID: skuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	if len(skus) != len(params.SkuIDs) {
+	if len(skus) != len(skuIDs) {
 		return zero, ordermodel.ErrOrderItemNotFound
 	}
 	skuMap := slice.NewMap(skus, func(s db.CatalogProductSku) int64 { return s.ID })
@@ -169,7 +181,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 	totalPrice := int64(0)
-	for _, skuID := range params.SkuIDs {
+	for _, skuID := range skuIDs {
 		totalPrice += priceMap[skuID].Price * cartMap[skuID].Quantity
 	}
 
@@ -185,19 +197,23 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Create order items
 	var createOrderItemArgs []db.CreateBatchOrderItemParams
-	for _, skuID := range params.SkuIDs {
+	for _, skuID := range skuIDs {
 		if skuMap[skuID].CanCombine {
 			createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
-				OrderID:  order.ID,
-				SkuID:    skuID,
-				Quantity: cartMap[skuID].Quantity,
+				OrderID:          order.ID,
+				SkuID:            skuID,
+				Quantity:         cartMap[skuID].Quantity,
+				ShipmentProvider: orderItemMap[skuID].ShipmentProvider,
+				Note:             orderItemMap[skuID].Note,
 			})
 		} else {
 			for i := int64(0); i < cartMap[skuID].Quantity; i++ {
 				createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
-					OrderID:  order.ID,
-					SkuID:    skuID,
-					Quantity: 1,
+					OrderID:          order.ID,
+					SkuID:            skuID,
+					Quantity:         1,
+					ShipmentProvider: orderItemMap[skuID].ShipmentProvider,
+					Note:             orderItemMap[skuID].Note,
 				})
 			}
 		}
@@ -205,7 +221,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Get available serial id and attach to order items
 	var getProductArgs []db.GetAvailableProductsParams
-	for _, skuID := range params.SkuIDs {
+	for _, skuID := range skuIDs {
 		getProductArgs = append(getProductArgs, db.GetAvailableProductsParams{
 			SkuID:  skuID,
 			Amount: int32(cartMap[skuID].Quantity),
@@ -303,13 +319,13 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, ordermodel.ErrPaymentGatewayNotFound
 	}
 
+	// TODO: Use outbox pattern to prevent lost event, currently if pubsub fails, rollback the whole transaction
 	if err = s.pubsub.Publish(ordermodel.TopicOrderCreated, OrderCreatedParams{
 		OrderID: order.ID,
 	}); err != nil {
 		return zero, err
 	}
 
-	// Rollback if purchase failed
 	if err = txStorage.Commit(ctx); err != nil {
 		return zero, err
 	}

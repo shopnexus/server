@@ -8,6 +8,7 @@ import (
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/labstack/echo/v4"
 )
@@ -87,9 +88,16 @@ func (h *Handler) ListOrders(c echo.Context) error {
 }
 
 type CheckoutRequest struct {
-	Address        string  `json:"address" validate:"required"`
-	PaymentGateway string  `json:"payment_gateway" validate:"required,min=1,max=50"`
-	SkuIDs         []int64 `json:"sku_ids" validate:"required"`
+	Address        string        `json:"address" validate:"required"`
+	PaymentGateway string        `json:"payment_gateway" validate:"required,min=1,max=50"`
+	Skus           []CheckoutSku `json:"skus" validate:"required,dive"`
+}
+
+type CheckoutSku struct {
+	SkuID            int64   `json:"sku_id" validate:"required,gt=0"`
+	PromotionIDs     []int64 `json:"promotion_ids" validate:"dive,gt=0"`
+	ShipmentProvider string  `json:"shipment_provider" validate:"required,oneof=ghtk ghn dhl"`
+	Note             string  `json:"note" validate:"max=500"` // Note for this item, e.g. "Please gift wrap this item"
 }
 
 func (h *Handler) Checkout(c echo.Context) error {
@@ -110,7 +118,14 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Account:        claims.Account,
 		Address:        req.Address,
 		PaymentGateway: req.PaymentGateway,
-		SkuIDs:         req.SkuIDs,
+		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
+			return orderbiz.OrderSku{
+				SkuID:            s.SkuID,
+				PromotionIDs:     s.PromotionIDs,
+				ShipmentProvider: s.ShipmentProvider,
+				Note:             s.Note,
+			}
+		}),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
