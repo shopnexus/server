@@ -4,6 +4,7 @@ import (
 	"context"
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
 
@@ -26,7 +27,9 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	}
 
 	// Get all active promotions
-	promotions, err := s.storage.ListActivePromotion(ctx, db.ListActivePromotionParams{})
+	promotions, err := s.storage.ListActivePromotion(ctx, db.ListActivePromotionParams{
+		AutoApply: pgutil.BoolToPgBool(true), // Only auto-apply promotions
+	})
 	if err != nil {
 		return nil, err
 	}
