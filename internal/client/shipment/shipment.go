@@ -1,24 +1,19 @@
 package shipment
 
-import "context"
+import (
+	"context"
+	"shopnexus-remastered/internal/db"
+	"time"
+)
 
-// ShipmentRequest represents the data required to create a shipment.
-type ShipmentRequest struct {
+// CreateShipmentParams represents the data required to create a shipment.
+type CreateShipmentParams struct {
 	OrderID     string
-	FromAddress Address
-	ToAddress   Address
+	FromAddress string
+	ToAddress   string
 	WeightGrams int64
 	Dimensions  Dimensions // Optional
 	Service     string     // e.g. "express", "standard"
-}
-
-type Address struct {
-	Name    string
-	Street  string
-	City    string
-	State   string
-	Zip     string
-	Country string
 }
 
 type Dimensions struct {
@@ -29,29 +24,29 @@ type Dimensions struct {
 
 // Shipment represents a created shipment with tracking info.
 type Shipment struct {
-	ID           string
-	LabelURL     string
-	TrackingID   string
-	Service      string
-	EstimatedETD string // e.g. ISO8601 format
-	CostCents    int64
+	ID         string
+	LabelURL   string
+	TrackingID string
+	Service    string
+	ETA        time.Time // e.g. ISO8601 format
+	CostCents  int64
 }
 
-// ShipmentStatus represents the real-time status of a shipment.
-type ShipmentStatus struct {
+// TrackResult represents the real-time status of a shipment.
+type TrackResult struct {
 	TrackingID string
-	Status     string // e.g. "in_transit", "delivered"
-	UpdatedAt  string // ISO8601 timestamp
-	Location   string // optional
+	Status     db.OrderShipmentStatus // e.g. "in_transit", "delivered"
+	UpdatedAt  string                 // ISO8601 timestamp
+	Location   string                 // optional
 }
 
 type Client interface {
 	// Quote calculates estimated cost & ETD without creating a shipment.
-	Quote(ctx context.Context, req ShipmentRequest) (Shipment, error)
+	Quote(ctx context.Context, params CreateShipmentParams) (Shipment, error)
 
 	// CreateShipment books a shipment and returns label + tracking info.
-	CreateShipment(ctx context.Context, req ShipmentRequest) (Shipment, error)
+	CreateShipment(ctx context.Context, params CreateShipmentParams) (Shipment, error)
 
 	// Track returns the current status for a given tracking ID.
-	Track(ctx context.Context, trackingID string) (ShipmentStatus, error)
+	Track(ctx context.Context, trackingID string) (TrackResult, error)
 }
