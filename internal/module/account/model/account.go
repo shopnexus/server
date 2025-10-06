@@ -29,9 +29,9 @@ type Profile struct {
 	PhoneVerified bool                         `json:"phone_verified"`
 
 	// Customer fields
-	DefaultAddressID null.Int64 `json:"default_address_id,omitempty"`
+	DefaultAddressID null.Int64 `json:"default_address_id"`
 	// Vendor fields
-	Description null.String `json:"description,omitempty"`
+	Description null.String `json:"description"`
 }
 
 //

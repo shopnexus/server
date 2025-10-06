@@ -2,10 +2,12 @@ package accountecho
 
 import (
 	"net/http"
+	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authbiz "shopnexus-remastered/internal/module/auth/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -16,8 +18,15 @@ type Handler struct {
 func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/account")
-	//api.GET("/", h.GetAccount)
-	api.GET("/me", h.GetMe)
+
+	// Account endpoints)
+	api.GET("", h.GetAccount)
+	api.PATCH("", h.UpdateAccount)
+
+	// Me endpoints
+	meApi := api.Group("/me")
+	meApi.GET("", h.GetMe)
+	meApi.PATCH("", h.UpdateMe)
 
 	// Cart endpoints
 	cartApi := api.Group("/cart")
@@ -28,14 +37,27 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	return h
 }
 
-func (h *Handler) GetMe(c echo.Context) error {
+type GetAccountParams struct {
+	AccountID int64
+}
+
+func (h *Handler) GetAccount(c echo.Context) error {
+	var req GetAccountParams
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
 	claims, err := authbiz.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
 	profile, err := h.biz.GetProfile(c.Request().Context(), accountbiz.GetProfileParams{
-		AccountID: claims.Account.ID,
+		Issuer:    claims.Account,
+		AccountID: req.AccountID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -44,30 +66,58 @@ func (h *Handler) GetMe(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, profile)
 }
 
-//type GetProfileRequest struct {
-//	AccountID int64 `query:"account_id" validate:"required"`
-//}
-//
-//func (h *Handler) GetProfile(c echo.Context) error {
-//	var req GetProfileRequest
-//	if err := c.Bind(&req); err != nil {
-//		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-//	}
-//	if err := c.Validate(&req); err != nil {
-//		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-//	}
-//
-//	//claims, err := authbiz.GetClaims(c.Request())
-//	//if err != nil {
-//	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-//	//}
-//
-//	result, err := h.biz.GetProfile(c.Request().Context(), accountbiz.GetProfileParams{
-//		AccountID: req.AccountID,
-//	})
-//	if err != nil {
-//		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-//	}
-//
-//	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-//}
+type UpdateAccountRequest struct {
+	// Account base fields
+	AccountID int64                        `json:"account_id" validate:"required"`
+	Status    null.Value[db.AccountStatus] `json:"status" validate:"omitempty,validFn=Valid"`
+	Username  null.String                  `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
+	Phone     null.String                  `json:"phone" validate:"omitempty,e164"`
+	Email     null.String                  `json:"email" validate:"omitempty,email"`
+
+	// Profile fields
+	Gender      null.Value[db.AccountGender] `json:"gender" validate:"omitnil,validFn=Valid"`
+	Name        null.String                  `json:"name" validate:"omitnil"`
+	DateOfBirth null.Time                    `json:"date_of_birth" validate:"omitnil"`
+	AvatarRsID  null.Int64                   `json:"avatar_rs_id" validate:"omitnil"`
+
+	// Customer fields
+	DefaultAddressID null.Int64 `json:"default_address_id" validate:"omitnil"`
+	// Vendor fields
+	Description null.String `json:"description" validate:"omitnil,max=500"`
+}
+
+func (h *Handler) UpdateAccount(c echo.Context) error {
+	var req UpdateAccountRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authbiz.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.UpdateProfile(c.Request().Context(), accountbiz.UpdateProfileParams{
+		Issuer:           claims.Account,
+		AccountID:        req.AccountID,
+		Status:           req.Status,
+		Username:         req.Username,
+		Phone:            req.Phone,
+		Email:            req.Email,
+		Gender:           req.Gender,
+		Name:             req.Name,
+		DateOfBirth:      req.DateOfBirth,
+		AvatarRsID:       req.AvatarRsID,
+		DefaultAddressID: req.DefaultAddressID,
+		Description:      req.Description,
+	})
+
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}

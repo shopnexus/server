@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"shopnexus-remastered/internal/db"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -114,91 +113,16 @@ func (s *AccountBiz) CreateAccount(ctx context.Context, params CreateAccountPara
 	return account, nil
 }
 
-type UpdateAccountParams struct {
-	ID       int64
-	Status   *db.AccountStatus
-	Username null.String
-	Phone    null.String
-	Email    null.String
-	Password null.String
-}
-
-func (s *AccountBiz) UpdateAccount(ctx context.Context, params UpdateAccountParams) (db.AccountBase, error) {
-	account, err := s.storage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
-		ID:       params.ID,
-		Status:   *pgutil.PtrBrandedToPgType(&db.NullAccountStatus{}, params.Status),
-		Phone:    pgutil.NullStringToPgText(params.Phone),
-		Email:    pgutil.NullStringToPgText(params.Email),
-		Username: pgutil.NullStringToPgText(params.Username),
-		Password: pgutil.NullStringToPgText(params.Password),
-	})
-	if err != nil {
-		return db.AccountBase{}, err
-	}
-
-	return account, nil
-}
-
-type GetProfileParams struct {
+type DeleteAccountParams struct {
 	AccountID int64
 }
 
-func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
-	var zero accountmodel.Profile
-	profile, err := s.storage.GetAccountProfile(ctx, db.GetAccountProfileParams{
-		ID: pgutil.Int64ToPgInt8(params.AccountID),
-	})
-	if err != nil {
-		return zero, err
+func (s *AccountBiz) DeleteAccount(ctx context.Context, params DeleteAccountParams) error {
+	if _, err := s.storage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
+		ID:     params.AccountID,
+		Status: db.NullAccountStatus{AccountStatus: db.AccountStatusSuspended, Valid: true},
+	}); err != nil {
+		return err
 	}
-
-	account, err := s.storage.GetAccountBase(ctx, db.GetAccountBaseParams{
-		ID: pgutil.Int64ToPgInt8(params.AccountID),
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	var (
-		defaultAddressID null.Int64
-		description      null.String
-	)
-	if account.Type == db.AccountTypeCustomer {
-		customer, err := s.storage.GetAccountCustomer(ctx, db.GetAccountCustomerParams{
-			ID: pgutil.Int64ToPgInt8(params.AccountID),
-		})
-		if err != nil {
-			return zero, err
-		}
-		defaultAddressID = pgutil.PgInt8ToNullInt64(customer.DefaultAddressID)
-	}
-	if account.Type == db.AccountTypeVendor {
-		vendor, err := s.storage.GetAccountVendor(ctx, pgutil.Int64ToPgInt8(params.AccountID))
-		if err != nil {
-			return zero, err
-		}
-		description.SetValid(vendor.Description)
-	}
-
-	return accountmodel.Profile{
-		ID:          account.ID,
-		DateCreated: account.DateCreated.Time,
-		DateUpdated: account.DateUpdated.Time,
-
-		Type:     account.Type,
-		Status:   account.Status,
-		Phone:    pgutil.PgTextToNullString(account.Phone),
-		Email:    pgutil.PgTextToNullString(account.Email),
-		Username: pgutil.PgTextToNullString(account.Username),
-
-		Gender:        null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
-		Name:          pgutil.PgTextToNullString(profile.Name),
-		DateOfBirth:   profile.DateOfBirth.Time,
-		AvatarRsID:    pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
-		EmailVerified: profile.EmailVerified,
-		PhoneVerified: profile.PhoneVerified,
-
-		DefaultAddressID: defaultAddressID,
-		Description:      description,
-	}, nil
+	return nil
 }
