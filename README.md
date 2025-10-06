@@ -2,6 +2,8 @@
 
 [![wakatime](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f.svg)](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f)
 
+## This project is under heavy development ☢️
+
 ## Epic features
 
 ### 1. Have two mode: modular monolith and microservices
@@ -16,7 +18,7 @@
 
 ## My code, my rules
 
-### Every day, 8 hours per day, 6 days per week,
+### Every day, 8 hours per day, 6 days per week
 
 🐧
 
