@@ -13,4 +13,7 @@ var Module = fx.Module("auth",
 		authbiz.NewAuthBiz,
 		authecho.NewHandler,
 	),
+	fx.Invoke(
+		authecho.NewHandler,
+	),
 )

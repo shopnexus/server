@@ -3,18 +3,10 @@ package app
 import (
 	"context"
 
-	analyticecho "shopnexus-remastered/internal/module/analytic/transport/echo"
-	orderecho "shopnexus-remastered/internal/module/order/transport/echo"
-	searchecho "shopnexus-remastered/internal/module/search/transport/echo"
-	sharedecho "shopnexus-remastered/internal/module/shared/transport/echo"
 	"shopnexus-remastered/internal/module/shared/transport/echo/binder"
-	systemecho "shopnexus-remastered/internal/module/system/transport/echo"
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/logger"
-	accountecho "shopnexus-remastered/internal/module/account/transport/echo"
-	authecho "shopnexus-remastered/internal/module/auth/transport/echo"
-	catalogecho "shopnexus-remastered/internal/module/catalog/transport/echo"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 
 	"github.com/labstack/echo/v4"
@@ -38,16 +30,6 @@ func NewEcho() *echo.Echo {
 type RouteParams struct {
 	fx.In
 	Echo *echo.Echo
-
-	Shared   *sharedecho.Handler
-	Account  *accountecho.Handler
-	Auth     *authecho.Handler
-	Catalog  *catalogecho.Handler
-	Order    *orderecho.Handler
-	Analytic *analyticecho.Handler
-	System   *systemecho.Handler
-	Search   *searchecho.Handler
-	// Add more handlers as needed
 }
 
 // SetupEcho registers all application routes

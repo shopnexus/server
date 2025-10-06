@@ -13,4 +13,7 @@ var Module = fx.Module("account",
 		accountbiz.NewAccountBiz,
 		accountecho.NewHandler,
 	),
+	fx.Invoke(
+		accountecho.NewHandler,
+	),
 )

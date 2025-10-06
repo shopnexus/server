@@ -13,4 +13,7 @@ var Module = fx.Module("system",
 		systembiz.NewSystemBiz,
 		systemecho.NewHandler,
 	),
+	fx.Invoke(
+		systemecho.NewHandler,
+	),
 )

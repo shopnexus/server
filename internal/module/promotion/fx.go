@@ -13,4 +13,7 @@ var Module = fx.Module("promotion",
 		promotionbiz.NewPromotionBiz,
 		promotionecho.NewHandler,
 	),
+	fx.Invoke(
+		promotionecho.NewHandler,
+	),
 )

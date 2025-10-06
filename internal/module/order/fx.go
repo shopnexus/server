@@ -13,4 +13,7 @@ var Module = fx.Module("order",
 		orderbiz.NewOrderBiz,
 		orderecho.NewHandler,
 	),
+	fx.Invoke(
+		orderecho.NewHandler,
+	),
 )

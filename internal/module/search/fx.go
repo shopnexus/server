@@ -13,4 +13,7 @@ var Module = fx.Module("search",
 		searchbiz.NewSearchBiz,
 		searchecho.NewHandler,
 	),
+	fx.Invoke(
+		searchecho.NewHandler,
+	),
 )

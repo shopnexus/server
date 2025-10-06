@@ -13,4 +13,7 @@ var Module = fx.Module("shared",
 		sharedbiz.NewSharedBiz,
 		sharedecho.NewHandler,
 	),
+	fx.Invoke(
+		sharedecho.NewHandler,
+	),
 )

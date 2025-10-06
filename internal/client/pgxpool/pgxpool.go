@@ -47,7 +47,6 @@ func New(opts Options) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(customTypes)
 	connConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		for _, t := range customTypes {
 			conn.TypeMap().RegisterType(t)

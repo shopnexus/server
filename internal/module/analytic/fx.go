@@ -13,4 +13,7 @@ var Module = fx.Module("analytic",
 		analyticbiz.NewAnalyticBiz,
 		analyticecho.NewHandler,
 	),
+	fx.Invoke(
+		analyticecho.NewHandler,
+	),
 )
