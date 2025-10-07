@@ -2,51 +2,59 @@ package shipment
 
 import (
 	"context"
-	"shopnexus-remastered/internal/db"
 	"time"
+
+	"shopnexus-remastered/internal/db"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 )
 
-// CreateShipmentParams represents the data required to create a shipment.
-type CreateShipmentParams struct {
-	OrderID     string
-	FromAddress string
-	ToAddress   string
-	WeightGrams int64
-	Dimensions  Dimensions // Optional
-	Service     string     // e.g. "express", "standard"
+// CreateParams represents the data required to create a shipment.
+type CreateParams struct {
+	FromAddress string `validate:"required,min=5,max=500"`
+	ToAddress   string `validate:"required,min=5,max=500"`
+
+	// Package details
+	WeightGrams int32 `validate:"required,min=1"`
+	LengthCM    int32 `validate:"required,min=1"`
+	WidthCM     int32 `validate:"required,min=1"`
+	HeightCM    int32 `validate:"required,min=1"`
 }
 
-type Dimensions struct {
-	LengthCM int `validate:"required,min=1"`
-	WidthCM  int `validate:"required,min=1"`
-	HeightCM int `validate:"required,min=1"`
+// ShippingOrder represents a created shipment with tracking info.
+type ShippingOrder struct {
+	ID       string // third-party tracking id
+	Service  string
+	LabelURL string
+	ETA      time.Time               // e.g. ISO8601 format
+	Costs    sharedmodel.Concurrency // in USDT
 }
 
-// Shipment represents a created shipment with tracking info.
-type Shipment struct {
-	ID         string
-	LabelURL   string
-	TrackingID string
-	Service    string
-	ETA        time.Time // e.g. ISO8601 format
-	CostCents  int64
+type QuoteResult struct {
+	ETA   time.Time               // e.g. ISO8601 format
+	Costs sharedmodel.Concurrency // in USDT
 }
 
 // TrackResult represents the real-time status of a shipment.
 type TrackResult struct {
-	TrackingID string
-	Status     db.OrderShipmentStatus // e.g. "in_transit", "delivered"
-	UpdatedAt  string                 // ISO8601 timestamp
-	Location   string                 // optional
+	ID        string                 // third-party tracking id
+	Status    db.OrderShipmentStatus // e.g. "in_transit", "delivered"
+	UpdatedAt string                 // ISO8601 timestamp
+	Location  string                 // optional
 }
 
 type Client interface {
+	// Config returns the option config for this shipment client.
+	Config() sharedmodel.OptionConfig
+
 	// Quote calculates estimated cost & ETD without creating a shipment.
-	Quote(ctx context.Context, params CreateShipmentParams) (Shipment, error)
+	Quote(ctx context.Context, params CreateParams) (QuoteResult, error)
 
-	// CreateShipment books a shipment and returns label + tracking info.
-	CreateShipment(ctx context.Context, params CreateShipmentParams) (Shipment, error)
+	// Create books a shipment and returns label + tracking info.
+	Create(ctx context.Context, params CreateParams) (ShippingOrder, error)
 
-	// Track returns the current status for a given tracking ID.
-	Track(ctx context.Context, trackingID string) (TrackResult, error)
+	// Track returns the current status for a given tracking id.
+	Track(ctx context.Context, id string) (TrackResult, error)
+
+	// Cancel attempts to cancel a shipment by its id.
+	Cancel(ctx context.Context, id string) error
 }
