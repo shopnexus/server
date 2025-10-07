@@ -228,3 +228,53 @@ if err = s.pubsub.Publish("order.created", OrderCreatedParams{
 ![img.png](images/img5.png)
 - Inserting into milvus took 60seconds per 100 products
 ![img.png](images/img6.png)
+
+### 7-10-2025 refactor payment and shipment with better interface
+
+- Maintainer will now easier to add new payment gateway or shipment provider
+
+```go
+func (s *OrderBiz) SetupPaymentMap() error {
+ var configs []sharedmodel.OptionConfig
+
+ s.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
+
+ // setup cod client
+ codClient := cod.NewClient()
+ s.paymentMap[codClient.Config().ID] = codClient
+ configs = append(configs, codClient.Config())
+
+ // setup vnpay client
+ vnpayClients := vnpay.NewClients(vnpay.ClientOptions{
+  TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
+  HashSecret: config.GetConfig().App.Vnpay.HashSecret,
+  ReturnURL:  config.GetConfig().App.Vnpay.ReturnURL,
+ })
+ for _, c := range vnpayClients {
+  s.paymentMap[c.Config().ID] = c
+  configs = append(configs, c.Config())
+ }
+
+ if err := s.shared.UpdateServiceOptions(context.Background(), "payment", configs); err != nil {
+  return err
+ }
+
+ return nil
+}
+```
+
+- Create shared service option table to store the payment and shipment options
+
+```sql
+CREATE TABLE "shared"."service_option" (
+    "id" VARCHAR(100) NOT NULL,
+    "category" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "method" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
+);
+```
