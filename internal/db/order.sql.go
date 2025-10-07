@@ -21,3 +21,41 @@ func (q *Queries) ExistsCartItems(ctx context.Context, skuIds []int64) (bool, er
 	err := row.Scan(&exists)
 	return exists, err
 }
+
+const getVendorAddressBySkuIDs = `-- name: GetVendorAddressBySkuIDs :many
+SELECT DISTINCT
+    v.id as vendor_id,
+    c.address,
+    sku.id as sku_id
+FROM catalog.product_sku AS sku
+JOIN catalog.product_spu AS spu ON spu.id = sku.spu_id
+JOIN account.vendor AS v ON v.account_id = spu.account_id
+JOIN account.contact AS c ON c.id = v.default_contact_id
+WHERE sku.id = ANY($1)
+`
+
+type GetVendorAddressBySkuIDsRow struct {
+	VendorID int64  `json:"vendor_id"`
+	Address  string `json:"address"`
+	SkuID    int64  `json:"sku_id"`
+}
+
+func (q *Queries) GetVendorAddressBySkuIDs(ctx context.Context, skuIds []int64) ([]GetVendorAddressBySkuIDsRow, error) {
+	rows, err := q.db.Query(ctx, getVendorAddressBySkuIDs, skuIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetVendorAddressBySkuIDsRow{}
+	for rows.Next() {
+		var i GetVendorAddressBySkuIDsRow
+		if err := rows.Scan(&i.VendorID, &i.Address, &i.SkuID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

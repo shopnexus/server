@@ -609,73 +609,6 @@ func AllOrderInvoiceTypeValues() []OrderInvoiceType {
 	}
 }
 
-type OrderPaymentMethod string
-
-const (
-	OrderPaymentMethodCOD          OrderPaymentMethod = "COD"
-	OrderPaymentMethodCard         OrderPaymentMethod = "Card"
-	OrderPaymentMethodBankTransfer OrderPaymentMethod = "BankTransfer"
-	OrderPaymentMethodCrypto       OrderPaymentMethod = "Crypto"
-	OrderPaymentMethodOther        OrderPaymentMethod = "Other"
-)
-
-func (e *OrderPaymentMethod) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OrderPaymentMethod(s)
-	case string:
-		*e = OrderPaymentMethod(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OrderPaymentMethod: %T", src)
-	}
-	return nil
-}
-
-type NullOrderPaymentMethod struct {
-	OrderPaymentMethod OrderPaymentMethod `json:"order_payment_method"`
-	Valid              bool               `json:"valid"` // Valid is true if OrderPaymentMethod is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOrderPaymentMethod) Scan(value interface{}) error {
-	if value == nil {
-		ns.OrderPaymentMethod, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OrderPaymentMethod.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOrderPaymentMethod) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OrderPaymentMethod), nil
-}
-
-func (e OrderPaymentMethod) Valid() bool {
-	switch e {
-	case OrderPaymentMethodCOD,
-		OrderPaymentMethodCard,
-		OrderPaymentMethodBankTransfer,
-		OrderPaymentMethodCrypto,
-		OrderPaymentMethodOther:
-		return true
-	}
-	return false
-}
-
-func AllOrderPaymentMethodValues() []OrderPaymentMethod {
-	return []OrderPaymentMethod{
-		OrderPaymentMethodCOD,
-		OrderPaymentMethodCard,
-		OrderPaymentMethodBankTransfer,
-		OrderPaymentMethodCrypto,
-		OrderPaymentMethodOther,
-	}
-}
-
 type OrderRefundMethod string
 
 const (
@@ -1078,21 +1011,6 @@ func AllSharedStatusValues() []SharedStatus {
 	}
 }
 
-type AccountAddress struct {
-	ID            int64              `json:"id"`
-	AccountID     int64              `json:"account_id"`
-	Type          AccountAddressType `json:"type"`
-	FullName      string             `json:"full_name"`
-	Phone         string             `json:"phone"`
-	PhoneVerified bool               `json:"phone_verified"`
-	AddressLine   string             `json:"address_line"`
-	City          string             `json:"city"`
-	StateProvince string             `json:"state_province"`
-	Country       string             `json:"country"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
-}
-
 type AccountBase struct {
 	ID          int64              `json:"id"`
 	Type        AccountType        `json:"type"`
@@ -1114,11 +1032,22 @@ type AccountCartItem struct {
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
+type AccountContact struct {
+	ID            int64              `json:"id"`
+	AccountID     int64              `json:"account_id"`
+	FullName      string             `json:"full_name"`
+	Phone         string             `json:"phone"`
+	PhoneVerified bool               `json:"phone_verified"`
+	Address       string             `json:"address"`
+	AddressType   AccountAddressType `json:"address_type"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+}
+
 type AccountCustomer struct {
-	ID               int64              `json:"id"`
-	DefaultAddressID pgtype.Int8        `json:"default_address_id"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	ID          int64              `json:"id"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 type AccountIncomeHistory struct {
@@ -1147,15 +1076,16 @@ type AccountNotification struct {
 }
 
 type AccountProfile struct {
-	ID            int64              `json:"id"`
-	Gender        NullAccountGender  `json:"gender"`
-	Name          pgtype.Text        `json:"name"`
-	DateOfBirth   pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID    pgtype.Int8        `json:"avatar_rs_id"`
-	EmailVerified bool               `json:"email_verified"`
-	PhoneVerified bool               `json:"phone_verified"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	ID               int64              `json:"id"`
+	Gender           NullAccountGender  `json:"gender"`
+	Name             pgtype.Text        `json:"name"`
+	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
+	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	EmailVerified    bool               `json:"email_verified"`
+	PhoneVerified    bool               `json:"phone_verified"`
+	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
 
 type AccountVendor struct {
@@ -1265,13 +1195,13 @@ type InventoryStockHistory struct {
 }
 
 type OrderBase struct {
-	ID             int64              `json:"id"`
-	AccountID      int64              `json:"account_id"`
-	PaymentGateway string             `json:"payment_gateway"`
-	PaymentStatus  SharedStatus       `json:"payment_status"`
-	Address        string             `json:"address"`
-	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	ID            int64              `json:"id"`
+	AccountID     int64              `json:"account_id"`
+	PaymentOption string             `json:"payment_option"`
+	PaymentStatus SharedStatus       `json:"payment_status"`
+	Address       string             `json:"address"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
 }
 
 type OrderInvoice struct {
@@ -1289,28 +1219,20 @@ type OrderInvoice struct {
 }
 
 type OrderItem struct {
-	ID               int64        `json:"id"`
-	OrderID          int64        `json:"order_id"`
-	SkuID            int64        `json:"sku_id"`
-	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
-	ShipmentProvider string       `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8  `json:"shipment_id"`
-	Note             string       `json:"note"`
-	Status           SharedStatus `json:"status"`
-	Quantity         int64        `json:"quantity"`
+	ID            int64        `json:"id"`
+	OrderID       int64        `json:"order_id"`
+	SkuID         int64        `json:"sku_id"`
+	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    int64        `json:"shipment_id"`
+	Note          string       `json:"note"`
+	Status        SharedStatus `json:"status"`
+	Quantity      int64        `json:"quantity"`
 }
 
 type OrderItemSerial struct {
 	ID              int64 `json:"id"`
 	OrderItemID     int64 `json:"order_item_id"`
 	ProductSerialID int64 `json:"product_serial_id"`
-}
-
-type OrderPaymentGateway struct {
-	ID          string             `json:"id"`
-	Method      OrderPaymentMethod `json:"method"`
-	Description pgtype.Text        `json:"description"`
-	IsActive    bool               `json:"is_active"`
 }
 
 type OrderRefund struct {
@@ -1337,12 +1259,19 @@ type OrderRefundDispute struct {
 
 type OrderShipment struct {
 	ID           int64               `json:"id"`
-	Provider     string              `json:"provider"`
+	Option       string              `json:"option"`
 	TrackingCode pgtype.Text         `json:"tracking_code"`
 	Status       OrderShipmentStatus `json:"status"`
 	LabelUrl     pgtype.Text         `json:"label_url"`
 	Cost         int64               `json:"cost"`
 	DateEta      pgtype.Timestamptz  `json:"date_eta"`
+	FromAddress  string              `json:"from_address"`
+	ToAddress    string              `json:"to_address"`
+	WeightGrams  int32               `json:"weight_grams"`
+	LengthCm     int32               `json:"length_cm"`
+	WidthCm      int32               `json:"width_cm"`
+	HeightCm     int32               `json:"height_cm"`
+	DateCreated  pgtype.Timestamptz  `json:"date_created"`
 }
 
 type PromotionBase struct {
@@ -1403,6 +1332,16 @@ type SharedResourceReference struct {
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
 	IsPrimary bool                  `json:"is_primary"`
+}
+
+type SharedServiceOption struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
 }
 
 type SystemSearchSync struct {

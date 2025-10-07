@@ -17,90 +17,6 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const createBatchAccountAddress = `-- name: CreateBatchAccountAddress :batchone
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "phone_verified", "address_line", "city", "state_province", "country", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, account_id, type, full_name, phone, phone_verified, address_line, city, state_province, country, date_created, date_updated
-`
-
-type CreateBatchAccountAddressBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchAccountAddressParams struct {
-	AccountID     int64              `json:"account_id"`
-	Type          AccountAddressType `json:"type"`
-	FullName      string             `json:"full_name"`
-	Phone         string             `json:"phone"`
-	PhoneVerified bool               `json:"phone_verified"`
-	AddressLine   string             `json:"address_line"`
-	City          string             `json:"city"`
-	StateProvince string             `json:"state_province"`
-	Country       string             `json:"country"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
-}
-
-func (q *Queries) CreateBatchAccountAddress(ctx context.Context, arg []CreateBatchAccountAddressParams) *CreateBatchAccountAddressBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.AccountID,
-			a.Type,
-			a.FullName,
-			a.Phone,
-			a.PhoneVerified,
-			a.AddressLine,
-			a.City,
-			a.StateProvince,
-			a.Country,
-			a.DateCreated,
-			a.DateUpdated,
-		}
-		batch.Queue(createBatchAccountAddress, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchAccountAddressBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchAccountAddressBatchResults) QueryRow(f func(int, AccountAddress, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountAddress
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.Type,
-			&i.FullName,
-			&i.Phone,
-			&i.PhoneVerified,
-			&i.AddressLine,
-			&i.City,
-			&i.StateProvince,
-			&i.Country,
-			&i.DateCreated,
-			&i.DateUpdated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchAccountAddressBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchAccountBase = `-- name: CreateBatchAccountBase :batchone
 INSERT INTO "account"."base" ("type", "status", "phone", "email", "username", "password", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -242,10 +158,85 @@ func (b *CreateBatchAccountCartItemBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const createBatchAccountContact = `-- name: CreateBatchAccountContact :batchone
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+`
+
+type CreateBatchAccountContactBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchAccountContactParams struct {
+	AccountID     int64              `json:"account_id"`
+	FullName      string             `json:"full_name"`
+	Phone         string             `json:"phone"`
+	PhoneVerified bool               `json:"phone_verified"`
+	Address       string             `json:"address"`
+	AddressType   AccountAddressType `json:"address_type"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+}
+
+func (q *Queries) CreateBatchAccountContact(ctx context.Context, arg []CreateBatchAccountContactParams) *CreateBatchAccountContactBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.AccountID,
+			a.FullName,
+			a.Phone,
+			a.PhoneVerified,
+			a.Address,
+			a.AddressType,
+			a.DateCreated,
+			a.DateUpdated,
+		}
+		batch.Queue(createBatchAccountContact, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchAccountContactBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchAccountContactBatchResults) QueryRow(f func(int, AccountContact, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i AccountContact
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.FullName,
+			&i.Phone,
+			&i.PhoneVerified,
+			&i.Address,
+			&i.AddressType,
+			&i.DateCreated,
+			&i.DateUpdated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchAccountContactBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const createBatchAccountCustomer = `-- name: CreateBatchAccountCustomer :batchone
-INSERT INTO "account"."customer" ("id", "default_address_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4)
-RETURNING id, default_address_id, date_created, date_updated
+INSERT INTO "account"."customer" ("id", "date_created", "date_updated")
+VALUES ($1, $2, $3)
+RETURNING id, date_created, date_updated
 `
 
 type CreateBatchAccountCustomerBatchResults struct {
@@ -255,10 +246,9 @@ type CreateBatchAccountCustomerBatchResults struct {
 }
 
 type CreateBatchAccountCustomerParams struct {
-	ID               int64              `json:"id"`
-	DefaultAddressID pgtype.Int8        `json:"default_address_id"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	ID          int64              `json:"id"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchAccountCustomer(ctx context.Context, arg []CreateBatchAccountCustomerParams) *CreateBatchAccountCustomerBatchResults {
@@ -266,7 +256,6 @@ func (q *Queries) CreateBatchAccountCustomer(ctx context.Context, arg []CreateBa
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
-			a.DefaultAddressID,
 			a.DateCreated,
 			a.DateUpdated,
 		}
@@ -287,12 +276,7 @@ func (b *CreateBatchAccountCustomerBatchResults) QueryRow(f func(int, AccountCus
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.DefaultAddressID,
-			&i.DateCreated,
-			&i.DateUpdated,
-		)
+		err := row.Scan(&i.ID, &i.DateCreated, &i.DateUpdated)
 		if f != nil {
 			f(t, i, err)
 		}
@@ -458,9 +442,9 @@ func (b *CreateBatchAccountNotificationBatchResults) Close() error {
 }
 
 const createBatchAccountProfile = `-- name: CreateBatchAccountProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, date_updated
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 `
 
 type CreateBatchAccountProfileBatchResults struct {
@@ -470,15 +454,16 @@ type CreateBatchAccountProfileBatchResults struct {
 }
 
 type CreateBatchAccountProfileParams struct {
-	ID            int64              `json:"id"`
-	Gender        NullAccountGender  `json:"gender"`
-	Name          pgtype.Text        `json:"name"`
-	DateOfBirth   pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID    pgtype.Int8        `json:"avatar_rs_id"`
-	EmailVerified bool               `json:"email_verified"`
-	PhoneVerified bool               `json:"phone_verified"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	ID               int64              `json:"id"`
+	Gender           NullAccountGender  `json:"gender"`
+	Name             pgtype.Text        `json:"name"`
+	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
+	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	EmailVerified    bool               `json:"email_verified"`
+	PhoneVerified    bool               `json:"phone_verified"`
+	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      pgtype.Timestamptz `json:"date_created"`
+	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchAccountProfile(ctx context.Context, arg []CreateBatchAccountProfileParams) *CreateBatchAccountProfileBatchResults {
@@ -492,6 +477,7 @@ func (q *Queries) CreateBatchAccountProfile(ctx context.Context, arg []CreateBat
 			a.AvatarRsID,
 			a.EmailVerified,
 			a.PhoneVerified,
+			a.DefaultContactID,
 			a.DateCreated,
 			a.DateUpdated,
 		}
@@ -520,6 +506,7 @@ func (b *CreateBatchAccountProfileBatchResults) QueryRow(f func(int, AccountProf
 			&i.AvatarRsID,
 			&i.EmailVerified,
 			&i.PhoneVerified,
+			&i.DefaultContactID,
 			&i.DateCreated,
 			&i.DateUpdated,
 		)
@@ -1312,9 +1299,9 @@ func (b *CreateBatchInventoryStockHistoryBatchResults) Close() error {
 }
 
 const createBatchOrderBase = `-- name: CreateBatchOrderBase :batchone
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+INSERT INTO "order"."base" ("account_id", "payment_option", "payment_status", "address", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, payment_gateway, payment_status, address, date_created, date_updated
+RETURNING id, account_id, payment_option, payment_status, address, date_created, date_updated
 `
 
 type CreateBatchOrderBaseBatchResults struct {
@@ -1324,12 +1311,12 @@ type CreateBatchOrderBaseBatchResults struct {
 }
 
 type CreateBatchOrderBaseParams struct {
-	AccountID      int64              `json:"account_id"`
-	PaymentGateway string             `json:"payment_gateway"`
-	PaymentStatus  SharedStatus       `json:"payment_status"`
-	Address        string             `json:"address"`
-	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	AccountID     int64              `json:"account_id"`
+	PaymentOption string             `json:"payment_option"`
+	PaymentStatus SharedStatus       `json:"payment_status"`
+	Address       string             `json:"address"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchOrderBase(ctx context.Context, arg []CreateBatchOrderBaseParams) *CreateBatchOrderBaseBatchResults {
@@ -1337,7 +1324,7 @@ func (q *Queries) CreateBatchOrderBase(ctx context.Context, arg []CreateBatchOrd
 	for _, a := range arg {
 		vals := []interface{}{
 			a.AccountID,
-			a.PaymentGateway,
+			a.PaymentOption,
 			a.PaymentStatus,
 			a.Address,
 			a.DateCreated,
@@ -1363,7 +1350,7 @@ func (b *CreateBatchOrderBaseBatchResults) QueryRow(f func(int, OrderBase, error
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.PaymentGateway,
+			&i.PaymentOption,
 			&i.PaymentStatus,
 			&i.Address,
 			&i.DateCreated,
@@ -1462,9 +1449,9 @@ func (b *CreateBatchOrderInvoiceBatchResults) Close() error {
 }
 
 const createBatchOrderItem = `-- name: CreateBatchOrderItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, order_id, sku_id, confirmed_by_id, shipment_provider, shipment_id, note, status, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
 `
 
 type CreateBatchOrderItemBatchResults struct {
@@ -1474,14 +1461,13 @@ type CreateBatchOrderItemBatchResults struct {
 }
 
 type CreateBatchOrderItemParams struct {
-	OrderID          int64        `json:"order_id"`
-	SkuID            int64        `json:"sku_id"`
-	ConfirmedByID    pgtype.Int8  `json:"confirmed_by_id"`
-	ShipmentProvider string       `json:"shipment_provider"`
-	ShipmentID       pgtype.Int8  `json:"shipment_id"`
-	Note             string       `json:"note"`
-	Status           SharedStatus `json:"status"`
-	Quantity         int64        `json:"quantity"`
+	OrderID       int64        `json:"order_id"`
+	SkuID         int64        `json:"sku_id"`
+	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    int64        `json:"shipment_id"`
+	Note          string       `json:"note"`
+	Status        SharedStatus `json:"status"`
+	Quantity      int64        `json:"quantity"`
 }
 
 func (q *Queries) CreateBatchOrderItem(ctx context.Context, arg []CreateBatchOrderItemParams) *CreateBatchOrderItemBatchResults {
@@ -1491,7 +1477,6 @@ func (q *Queries) CreateBatchOrderItem(ctx context.Context, arg []CreateBatchOrd
 			a.OrderID,
 			a.SkuID,
 			a.ConfirmedByID,
-			a.ShipmentProvider,
 			a.ShipmentID,
 			a.Note,
 			a.Status,
@@ -1519,7 +1504,6 @@ func (b *CreateBatchOrderItemBatchResults) QueryRow(f func(int, OrderItem, error
 			&i.OrderID,
 			&i.SkuID,
 			&i.ConfirmedByID,
-			&i.ShipmentProvider,
 			&i.ShipmentID,
 			&i.Note,
 			&i.Status,
@@ -1585,68 +1569,6 @@ func (b *CreateBatchOrderItemSerialBatchResults) QueryRow(f func(int, OrderItemS
 }
 
 func (b *CreateBatchOrderItemSerialBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchOrderPaymentGateway = `-- name: CreateBatchOrderPaymentGateway :batchone
-INSERT INTO "order"."payment_gateway" ("id", "method", "description", "is_active")
-VALUES ($1, $2, $3, $4)
-RETURNING id, method, description, is_active
-`
-
-type CreateBatchOrderPaymentGatewayBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchOrderPaymentGatewayParams struct {
-	ID          string             `json:"id"`
-	Method      OrderPaymentMethod `json:"method"`
-	Description pgtype.Text        `json:"description"`
-	IsActive    bool               `json:"is_active"`
-}
-
-func (q *Queries) CreateBatchOrderPaymentGateway(ctx context.Context, arg []CreateBatchOrderPaymentGatewayParams) *CreateBatchOrderPaymentGatewayBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Method,
-			a.Description,
-			a.IsActive,
-		}
-		batch.Queue(createBatchOrderPaymentGateway, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchOrderPaymentGatewayBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchOrderPaymentGatewayBatchResults) QueryRow(f func(int, OrderPaymentGateway, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i OrderPaymentGateway
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.Method,
-			&i.Description,
-			&i.IsActive,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchOrderPaymentGatewayBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -1796,9 +1718,9 @@ func (b *CreateBatchOrderRefundDisputeBatchResults) Close() error {
 }
 
 const createBatchOrderShipment = `-- name: CreateBatchOrderShipment :batchone
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "status", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, provider, tracking_code, status, label_url, cost, date_eta
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 `
 
 type CreateBatchOrderShipmentBatchResults struct {
@@ -1808,24 +1730,38 @@ type CreateBatchOrderShipmentBatchResults struct {
 }
 
 type CreateBatchOrderShipmentParams struct {
-	Provider     string              `json:"provider"`
+	Option       string              `json:"option"`
 	TrackingCode pgtype.Text         `json:"tracking_code"`
 	Status       OrderShipmentStatus `json:"status"`
 	LabelUrl     pgtype.Text         `json:"label_url"`
 	Cost         int64               `json:"cost"`
 	DateEta      pgtype.Timestamptz  `json:"date_eta"`
+	FromAddress  string              `json:"from_address"`
+	ToAddress    string              `json:"to_address"`
+	WeightGrams  int32               `json:"weight_grams"`
+	LengthCm     int32               `json:"length_cm"`
+	WidthCm      int32               `json:"width_cm"`
+	HeightCm     int32               `json:"height_cm"`
+	DateCreated  pgtype.Timestamptz  `json:"date_created"`
 }
 
 func (q *Queries) CreateBatchOrderShipment(ctx context.Context, arg []CreateBatchOrderShipmentParams) *CreateBatchOrderShipmentBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Provider,
+			a.Option,
 			a.TrackingCode,
 			a.Status,
 			a.LabelUrl,
 			a.Cost,
 			a.DateEta,
+			a.FromAddress,
+			a.ToAddress,
+			a.WeightGrams,
+			a.LengthCm,
+			a.WidthCm,
+			a.HeightCm,
+			a.DateCreated,
 		}
 		batch.Queue(createBatchOrderShipment, vals...)
 	}
@@ -1846,12 +1782,19 @@ func (b *CreateBatchOrderShipmentBatchResults) QueryRow(f func(int, OrderShipmen
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.Provider,
+			&i.Option,
 			&i.TrackingCode,
 			&i.Status,
 			&i.LabelUrl,
 			&i.Cost,
 			&i.DateEta,
+			&i.FromAddress,
+			&i.ToAddress,
+			&i.WeightGrams,
+			&i.LengthCm,
+			&i.WidthCm,
+			&i.HeightCm,
+			&i.DateCreated,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -2241,6 +2184,77 @@ func (b *CreateBatchSharedResourceReferenceBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const createBatchSharedServiceOption = `-- name: CreateBatchSharedServiceOption :batchone
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, category, name, description, provider, method, is_active
+`
+
+type CreateBatchSharedServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchSharedServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
+}
+
+func (q *Queries) CreateBatchSharedServiceOption(ctx context.Context, arg []CreateBatchSharedServiceOptionParams) *CreateBatchSharedServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.Category,
+			a.Name,
+			a.Description,
+			a.Provider,
+			a.Method,
+			a.IsActive,
+		}
+		batch.Queue(createBatchSharedServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchSharedServiceOptionBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchSharedServiceOptionBatchResults) QueryRow(f func(int, SharedServiceOption, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i SharedServiceOption
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Category,
+			&i.Name,
+			&i.Description,
+			&i.Provider,
+			&i.Method,
+			&i.IsActive,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchSharedServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const createBatchSystemSearchSync = `-- name: CreateBatchSystemSearchSync :batchone
 INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -2306,50 +2320,6 @@ func (b *CreateBatchSystemSearchSyncBatchResults) QueryRow(f func(int, SystemSea
 }
 
 func (b *CreateBatchSystemSearchSyncBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const deleteBatchAccountAddress = `-- name: DeleteBatchAccountAddress :batchexec
-DELETE FROM "account"."address"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchAccountAddressBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchAccountAddress(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountAddressBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchAccountAddress, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchAccountAddressBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchAccountAddressBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchAccountAddressBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -2460,9 +2430,53 @@ func (b *DeleteBatchAccountCartItemBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const deleteBatchAccountContact = `-- name: DeleteBatchAccountContact :batchexec
+DELETE FROM "account"."contact"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchAccountContactBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchAccountContact(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountContactBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchAccountContact, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchAccountContactBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchAccountContactBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchAccountContactBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const deleteBatchAccountCustomer = `-- name: DeleteBatchAccountCustomer :batchexec
 DELETE FROM "account"."customer"
-WHERE ("id" = $1) OR ("default_address_id" = $2)
+WHERE ("id" = $1)
 `
 
 type DeleteBatchAccountCustomerBatchResults struct {
@@ -2471,22 +2485,16 @@ type DeleteBatchAccountCustomerBatchResults struct {
 	closed bool
 }
 
-type DeleteBatchAccountCustomerParams struct {
-	ID               pgtype.Int8 `json:"id"`
-	DefaultAddressID pgtype.Int8 `json:"default_address_id"`
-}
-
-func (q *Queries) DeleteBatchAccountCustomer(ctx context.Context, arg []DeleteBatchAccountCustomerParams) *DeleteBatchAccountCustomerBatchResults {
+func (q *Queries) DeleteBatchAccountCustomer(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountCustomerBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range arg {
+	for _, a := range id {
 		vals := []interface{}{
-			a.ID,
-			a.DefaultAddressID,
+			a,
 		}
 		batch.Queue(deleteBatchAccountCustomer, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchAccountCustomerBatchResults{br, len(arg), false}
+	return &DeleteBatchAccountCustomerBatchResults{br, len(id), false}
 }
 
 func (b *DeleteBatchAccountCustomerBatchResults) Exec(f func(int, error)) {
@@ -2606,7 +2614,7 @@ func (b *DeleteBatchAccountNotificationBatchResults) Close() error {
 
 const deleteBatchAccountProfile = `-- name: DeleteBatchAccountProfile :batchexec
 DELETE FROM "account"."profile"
-WHERE ("id" = $1) OR ("avatar_rs_id" = $2)
+WHERE ("id" = $1) OR ("avatar_rs_id" = $2) OR ("default_contact_id" = $3)
 `
 
 type DeleteBatchAccountProfileBatchResults struct {
@@ -2616,8 +2624,9 @@ type DeleteBatchAccountProfileBatchResults struct {
 }
 
 type DeleteBatchAccountProfileParams struct {
-	ID         pgtype.Int8 `json:"id"`
-	AvatarRsID pgtype.Int8 `json:"avatar_rs_id"`
+	ID               pgtype.Int8 `json:"id"`
+	AvatarRsID       pgtype.Int8 `json:"avatar_rs_id"`
+	DefaultContactID pgtype.Int8 `json:"default_contact_id"`
 }
 
 func (q *Queries) DeleteBatchAccountProfile(ctx context.Context, arg []DeleteBatchAccountProfileParams) *DeleteBatchAccountProfileBatchResults {
@@ -2626,6 +2635,7 @@ func (q *Queries) DeleteBatchAccountProfile(ctx context.Context, arg []DeleteBat
 		vals := []interface{}{
 			a.ID,
 			a.AvatarRsID,
+			a.DefaultContactID,
 		}
 		batch.Queue(deleteBatchAccountProfile, vals...)
 	}
@@ -3420,50 +3430,6 @@ func (b *DeleteBatchOrderItemSerialBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const deleteBatchOrderPaymentGateway = `-- name: DeleteBatchOrderPaymentGateway :batchexec
-DELETE FROM "order"."payment_gateway"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchOrderPaymentGatewayBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchOrderPaymentGateway(ctx context.Context, id []pgtype.Text) *DeleteBatchOrderPaymentGatewayBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchOrderPaymentGateway, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchOrderPaymentGatewayBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchOrderPaymentGatewayBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchOrderPaymentGatewayBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const deleteBatchOrderRefund = `-- name: DeleteBatchOrderRefund :batchexec
 DELETE FROM "order"."refund"
 WHERE ("id" = $1)
@@ -3828,6 +3794,50 @@ func (b *DeleteBatchSharedResourceReferenceBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const deleteBatchSharedServiceOption = `-- name: DeleteBatchSharedServiceOption :batchexec
+DELETE FROM "shared"."service_option"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchSharedServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchSharedServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchSharedServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchSharedServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchSharedServiceOptionBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchSharedServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const deleteBatchSystemSearchSync = `-- name: DeleteBatchSystemSearchSync :batchexec
 DELETE FROM "system"."search_sync"
 WHERE ("id" = $1)
@@ -4003,87 +4013,6 @@ func (b *ReserveInventoryBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const updateBatchAccountAddress = `-- name: UpdateBatchAccountAddress :batchexec
-UPDATE "account"."address"
-SET "account_id" = COALESCE($1, "account_id"),
-    "type" = COALESCE($2, "type"),
-    "full_name" = COALESCE($3, "full_name"),
-    "phone" = COALESCE($4, "phone"),
-    "phone_verified" = COALESCE($5, "phone_verified"),
-    "address_line" = COALESCE($6, "address_line"),
-    "city" = COALESCE($7, "city"),
-    "state_province" = COALESCE($8, "state_province"),
-    "country" = COALESCE($9, "country"),
-    "date_created" = COALESCE($10, "date_created"),
-    "date_updated" = COALESCE($11, "date_updated")
-WHERE id = $12
-`
-
-type UpdateBatchAccountAddressBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchAccountAddressParams struct {
-	AccountID     pgtype.Int8            `json:"account_id"`
-	Type          NullAccountAddressType `json:"type"`
-	FullName      pgtype.Text            `json:"full_name"`
-	Phone         pgtype.Text            `json:"phone"`
-	PhoneVerified pgtype.Bool            `json:"phone_verified"`
-	AddressLine   pgtype.Text            `json:"address_line"`
-	City          pgtype.Text            `json:"city"`
-	StateProvince pgtype.Text            `json:"state_province"`
-	Country       pgtype.Text            `json:"country"`
-	DateCreated   pgtype.Timestamptz     `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
-	ID            int64                  `json:"id"`
-}
-
-func (q *Queries) UpdateBatchAccountAddress(ctx context.Context, arg []UpdateBatchAccountAddressParams) *UpdateBatchAccountAddressBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.AccountID,
-			a.Type,
-			a.FullName,
-			a.Phone,
-			a.PhoneVerified,
-			a.AddressLine,
-			a.City,
-			a.StateProvince,
-			a.Country,
-			a.DateCreated,
-			a.DateUpdated,
-			a.ID,
-		}
-		batch.Queue(updateBatchAccountAddress, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchAccountAddressBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchAccountAddressBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchAccountAddressBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const updateBatchAccountBase = `-- name: UpdateBatchAccountBase :batchexec
 UPDATE "account"."base"
 SET "type" = COALESCE($1, "type"),
@@ -4227,12 +4156,83 @@ func (b *UpdateBatchAccountCartItemBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const updateBatchAccountContact = `-- name: UpdateBatchAccountContact :batchexec
+UPDATE "account"."contact"
+SET "account_id" = COALESCE($1, "account_id"),
+    "full_name" = COALESCE($2, "full_name"),
+    "phone" = COALESCE($3, "phone"),
+    "phone_verified" = COALESCE($4, "phone_verified"),
+    "address" = COALESCE($5, "address"),
+    "address_type" = COALESCE($6, "address_type"),
+    "date_created" = COALESCE($7, "date_created"),
+    "date_updated" = COALESCE($8, "date_updated")
+WHERE id = $9
+`
+
+type UpdateBatchAccountContactBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchAccountContactParams struct {
+	AccountID     pgtype.Int8            `json:"account_id"`
+	FullName      pgtype.Text            `json:"full_name"`
+	Phone         pgtype.Text            `json:"phone"`
+	PhoneVerified pgtype.Bool            `json:"phone_verified"`
+	Address       pgtype.Text            `json:"address"`
+	AddressType   NullAccountAddressType `json:"address_type"`
+	DateCreated   pgtype.Timestamptz     `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz     `json:"date_updated"`
+	ID            int64                  `json:"id"`
+}
+
+func (q *Queries) UpdateBatchAccountContact(ctx context.Context, arg []UpdateBatchAccountContactParams) *UpdateBatchAccountContactBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.AccountID,
+			a.FullName,
+			a.Phone,
+			a.PhoneVerified,
+			a.Address,
+			a.AddressType,
+			a.DateCreated,
+			a.DateUpdated,
+			a.ID,
+		}
+		batch.Queue(updateBatchAccountContact, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchAccountContactBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchAccountContactBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchAccountContactBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const updateBatchAccountCustomer = `-- name: UpdateBatchAccountCustomer :batchexec
 UPDATE "account"."customer"
-SET "default_address_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "default_address_id") END,
-    "date_created" = COALESCE($3, "date_created"),
-    "date_updated" = COALESCE($4, "date_updated")
-WHERE id = $5
+SET "date_created" = COALESCE($1, "date_created"),
+    "date_updated" = COALESCE($2, "date_updated")
+WHERE id = $3
 `
 
 type UpdateBatchAccountCustomerBatchResults struct {
@@ -4242,19 +4242,15 @@ type UpdateBatchAccountCustomerBatchResults struct {
 }
 
 type UpdateBatchAccountCustomerParams struct {
-	NullDefaultAddressID bool               `json:"null_default_address_id"`
-	DefaultAddressID     pgtype.Int8        `json:"default_address_id"`
-	DateCreated          pgtype.Timestamptz `json:"date_created"`
-	DateUpdated          pgtype.Timestamptz `json:"date_updated"`
-	ID                   int64              `json:"id"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
+	ID          int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountCustomer(ctx context.Context, arg []UpdateBatchAccountCustomerParams) *UpdateBatchAccountCustomerBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.NullDefaultAddressID,
-			a.DefaultAddressID,
 			a.DateCreated,
 			a.DateUpdated,
 			a.ID,
@@ -4447,9 +4443,10 @@ SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") E
     "avatar_rs_id" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "avatar_rs_id") END,
     "email_verified" = COALESCE($9, "email_verified"),
     "phone_verified" = COALESCE($10, "phone_verified"),
-    "date_created" = COALESCE($11, "date_created"),
-    "date_updated" = COALESCE($12, "date_updated")
-WHERE id = $13
+    "default_contact_id" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "default_contact_id") END,
+    "date_created" = COALESCE($13, "date_created"),
+    "date_updated" = COALESCE($14, "date_updated")
+WHERE id = $15
 `
 
 type UpdateBatchAccountProfileBatchResults struct {
@@ -4459,19 +4456,21 @@ type UpdateBatchAccountProfileBatchResults struct {
 }
 
 type UpdateBatchAccountProfileParams struct {
-	NullGender      bool               `json:"null_gender"`
-	Gender          NullAccountGender  `json:"gender"`
-	NullName        bool               `json:"null_name"`
-	Name            pgtype.Text        `json:"name"`
-	NullDateOfBirth bool               `json:"null_date_of_birth"`
-	DateOfBirth     pgtype.Date        `json:"date_of_birth"`
-	NullAvatarRsID  bool               `json:"null_avatar_rs_id"`
-	AvatarRsID      pgtype.Int8        `json:"avatar_rs_id"`
-	EmailVerified   pgtype.Bool        `json:"email_verified"`
-	PhoneVerified   pgtype.Bool        `json:"phone_verified"`
-	DateCreated     pgtype.Timestamptz `json:"date_created"`
-	DateUpdated     pgtype.Timestamptz `json:"date_updated"`
-	ID              int64              `json:"id"`
+	NullGender           bool               `json:"null_gender"`
+	Gender               NullAccountGender  `json:"gender"`
+	NullName             bool               `json:"null_name"`
+	Name                 pgtype.Text        `json:"name"`
+	NullDateOfBirth      bool               `json:"null_date_of_birth"`
+	DateOfBirth          pgtype.Date        `json:"date_of_birth"`
+	NullAvatarRsID       bool               `json:"null_avatar_rs_id"`
+	AvatarRsID           pgtype.Int8        `json:"avatar_rs_id"`
+	EmailVerified        pgtype.Bool        `json:"email_verified"`
+	PhoneVerified        pgtype.Bool        `json:"phone_verified"`
+	NullDefaultContactID bool               `json:"null_default_contact_id"`
+	DefaultContactID     pgtype.Int8        `json:"default_contact_id"`
+	DateCreated          pgtype.Timestamptz `json:"date_created"`
+	DateUpdated          pgtype.Timestamptz `json:"date_updated"`
+	ID                   int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchAccountProfile(ctx context.Context, arg []UpdateBatchAccountProfileParams) *UpdateBatchAccountProfileBatchResults {
@@ -4488,6 +4487,8 @@ func (q *Queries) UpdateBatchAccountProfile(ctx context.Context, arg []UpdateBat
 			a.AvatarRsID,
 			a.EmailVerified,
 			a.PhoneVerified,
+			a.NullDefaultContactID,
+			a.DefaultContactID,
 			a.DateCreated,
 			a.DateUpdated,
 			a.ID,
@@ -5288,7 +5289,7 @@ func (b *UpdateBatchInventoryStockHistoryBatchResults) Close() error {
 const updateBatchOrderBase = `-- name: UpdateBatchOrderBase :batchexec
 UPDATE "order"."base"
 SET "account_id" = COALESCE($1, "account_id"),
-    "payment_gateway" = COALESCE($2, "payment_gateway"),
+    "payment_option" = COALESCE($2, "payment_option"),
     "payment_status" = COALESCE($3, "payment_status"),
     "address" = COALESCE($4, "address"),
     "date_created" = COALESCE($5, "date_created"),
@@ -5303,13 +5304,13 @@ type UpdateBatchOrderBaseBatchResults struct {
 }
 
 type UpdateBatchOrderBaseParams struct {
-	AccountID      pgtype.Int8        `json:"account_id"`
-	PaymentGateway pgtype.Text        `json:"payment_gateway"`
-	PaymentStatus  NullSharedStatus   `json:"payment_status"`
-	Address        pgtype.Text        `json:"address"`
-	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
-	ID             int64              `json:"id"`
+	AccountID     pgtype.Int8        `json:"account_id"`
+	PaymentOption pgtype.Text        `json:"payment_option"`
+	PaymentStatus NullSharedStatus   `json:"payment_status"`
+	Address       pgtype.Text        `json:"address"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
+	ID            int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchOrderBase(ctx context.Context, arg []UpdateBatchOrderBaseParams) *UpdateBatchOrderBaseBatchResults {
@@ -5317,7 +5318,7 @@ func (q *Queries) UpdateBatchOrderBase(ctx context.Context, arg []UpdateBatchOrd
 	for _, a := range arg {
 		vals := []interface{}{
 			a.AccountID,
-			a.PaymentGateway,
+			a.PaymentOption,
 			a.PaymentStatus,
 			a.Address,
 			a.DateCreated,
@@ -5436,12 +5437,11 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
     "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
-    "shipment_provider" = COALESCE($5, "shipment_provider"),
-    "shipment_id" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "shipment_id") END,
-    "note" = COALESCE($8, "note"),
-    "status" = COALESCE($9, "status"),
-    "quantity" = COALESCE($10, "quantity")
-WHERE id = $11
+    "shipment_id" = COALESCE($5, "shipment_id"),
+    "note" = COALESCE($6, "note"),
+    "status" = COALESCE($7, "status"),
+    "quantity" = COALESCE($8, "quantity")
+WHERE id = $9
 `
 
 type UpdateBatchOrderItemBatchResults struct {
@@ -5455,8 +5455,6 @@ type UpdateBatchOrderItemParams struct {
 	SkuID             pgtype.Int8      `json:"sku_id"`
 	NullConfirmedByID bool             `json:"null_confirmed_by_id"`
 	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
-	ShipmentProvider  pgtype.Text      `json:"shipment_provider"`
-	NullShipmentID    bool             `json:"null_shipment_id"`
 	ShipmentID        pgtype.Int8      `json:"shipment_id"`
 	Note              pgtype.Text      `json:"note"`
 	Status            NullSharedStatus `json:"status"`
@@ -5472,8 +5470,6 @@ func (q *Queries) UpdateBatchOrderItem(ctx context.Context, arg []UpdateBatchOrd
 			a.SkuID,
 			a.NullConfirmedByID,
 			a.ConfirmedByID,
-			a.ShipmentProvider,
-			a.NullShipmentID,
 			a.ShipmentID,
 			a.Note,
 			a.Status,
@@ -5557,65 +5553,6 @@ func (b *UpdateBatchOrderItemSerialBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchOrderItemSerialBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const updateBatchOrderPaymentGateway = `-- name: UpdateBatchOrderPaymentGateway :batchexec
-UPDATE "order"."payment_gateway"
-SET "method" = COALESCE($1, "method"),
-    "description" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "description") END,
-    "is_active" = COALESCE($4, "is_active")
-WHERE id = $5
-`
-
-type UpdateBatchOrderPaymentGatewayBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchOrderPaymentGatewayParams struct {
-	Method          NullOrderPaymentMethod `json:"method"`
-	NullDescription bool                   `json:"null_description"`
-	Description     pgtype.Text            `json:"description"`
-	IsActive        pgtype.Bool            `json:"is_active"`
-	ID              string                 `json:"id"`
-}
-
-func (q *Queries) UpdateBatchOrderPaymentGateway(ctx context.Context, arg []UpdateBatchOrderPaymentGatewayParams) *UpdateBatchOrderPaymentGatewayBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.Method,
-			a.NullDescription,
-			a.Description,
-			a.IsActive,
-			a.ID,
-		}
-		batch.Queue(updateBatchOrderPaymentGateway, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchOrderPaymentGatewayBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchOrderPaymentGatewayBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchOrderPaymentGatewayBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -5766,13 +5703,20 @@ func (b *UpdateBatchOrderRefundDisputeBatchResults) Close() error {
 
 const updateBatchOrderShipment = `-- name: UpdateBatchOrderShipment :batchexec
 UPDATE "order"."shipment"
-SET "provider" = COALESCE($1, "provider"),
+SET "option" = COALESCE($1, "option"),
     "tracking_code" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "tracking_code") END,
     "status" = COALESCE($4, "status"),
     "label_url" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "label_url") END,
     "cost" = COALESCE($7, "cost"),
-    "date_eta" = COALESCE($8, "date_eta")
-WHERE id = $9
+    "date_eta" = COALESCE($8, "date_eta"),
+    "from_address" = COALESCE($9, "from_address"),
+    "to_address" = COALESCE($10, "to_address"),
+    "weight_grams" = COALESCE($11, "weight_grams"),
+    "length_cm" = COALESCE($12, "length_cm"),
+    "width_cm" = COALESCE($13, "width_cm"),
+    "height_cm" = COALESCE($14, "height_cm"),
+    "date_created" = COALESCE($15, "date_created")
+WHERE id = $16
 `
 
 type UpdateBatchOrderShipmentBatchResults struct {
@@ -5782,7 +5726,7 @@ type UpdateBatchOrderShipmentBatchResults struct {
 }
 
 type UpdateBatchOrderShipmentParams struct {
-	Provider         pgtype.Text             `json:"provider"`
+	Option           pgtype.Text             `json:"option"`
 	NullTrackingCode bool                    `json:"null_tracking_code"`
 	TrackingCode     pgtype.Text             `json:"tracking_code"`
 	Status           NullOrderShipmentStatus `json:"status"`
@@ -5790,6 +5734,13 @@ type UpdateBatchOrderShipmentParams struct {
 	LabelUrl         pgtype.Text             `json:"label_url"`
 	Cost             pgtype.Int8             `json:"cost"`
 	DateEta          pgtype.Timestamptz      `json:"date_eta"`
+	FromAddress      pgtype.Text             `json:"from_address"`
+	ToAddress        pgtype.Text             `json:"to_address"`
+	WeightGrams      pgtype.Int4             `json:"weight_grams"`
+	LengthCm         pgtype.Int4             `json:"length_cm"`
+	WidthCm          pgtype.Int4             `json:"width_cm"`
+	HeightCm         pgtype.Int4             `json:"height_cm"`
+	DateCreated      pgtype.Timestamptz      `json:"date_created"`
 	ID               int64                   `json:"id"`
 }
 
@@ -5797,7 +5748,7 @@ func (q *Queries) UpdateBatchOrderShipment(ctx context.Context, arg []UpdateBatc
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Provider,
+			a.Option,
 			a.NullTrackingCode,
 			a.TrackingCode,
 			a.Status,
@@ -5805,6 +5756,13 @@ func (q *Queries) UpdateBatchOrderShipment(ctx context.Context, arg []UpdateBatc
 			a.LabelUrl,
 			a.Cost,
 			a.DateEta,
+			a.FromAddress,
+			a.ToAddress,
+			a.WeightGrams,
+			a.LengthCm,
+			a.WidthCm,
+			a.HeightCm,
+			a.DateCreated,
 			a.ID,
 		}
 		batch.Queue(updateBatchOrderShipment, vals...)
@@ -6218,6 +6176,72 @@ func (b *UpdateBatchSharedResourceReferenceBatchResults) Exec(f func(int, error)
 }
 
 func (b *UpdateBatchSharedResourceReferenceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchSharedServiceOption = `-- name: UpdateBatchSharedServiceOption :batchexec
+UPDATE "shared"."service_option"
+SET "category" = COALESCE($1, "category"),
+    "name" = COALESCE($2, "name"),
+    "description" = COALESCE($3, "description"),
+    "provider" = COALESCE($4, "provider"),
+    "method" = COALESCE($5, "method"),
+    "is_active" = COALESCE($6, "is_active")
+WHERE id = $7
+`
+
+type UpdateBatchSharedServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchSharedServiceOptionParams struct {
+	Category    pgtype.Text `json:"category"`
+	Name        pgtype.Text `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Provider    pgtype.Text `json:"provider"`
+	Method      pgtype.Text `json:"method"`
+	IsActive    pgtype.Bool `json:"is_active"`
+	ID          string      `json:"id"`
+}
+
+func (q *Queries) UpdateBatchSharedServiceOption(ctx context.Context, arg []UpdateBatchSharedServiceOptionParams) *UpdateBatchSharedServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Category,
+			a.Name,
+			a.Description,
+			a.Provider,
+			a.Method,
+			a.IsActive,
+			a.ID,
+		}
+		batch.Queue(updateBatchSharedServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchSharedServiceOptionBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchSharedServiceOptionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

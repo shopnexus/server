@@ -163,7 +163,7 @@ WHERE ("id" = sqlc.narg('id')) OR ("phone" = sqlc.narg('phone')) OR ("email" = s
 -- name: GetAccountProfile :one
 SELECT *
 FROM "account"."profile"
-WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
+WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id')) OR ("default_contact_id" = sqlc.narg('default_contact_id'));
 
 -- name: ExistsAccountProfile :one
 SELECT EXISTS (
@@ -183,6 +183,9 @@ WHERE (
     ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
+    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -209,6 +212,9 @@ WHERE (
     ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
+    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -234,6 +240,9 @@ WHERE (
     ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
+    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -247,27 +256,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateAccountProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchAccountProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyAccountProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultAccountProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "default_contact_id")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultAccountProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "default_contact_id")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateAccountProfile :one
 UPDATE "account"."profile"
@@ -277,6 +286,7 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "avatar_rs_id" = CASE WHEN sqlc.arg('null_avatar_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('avatar_rs_id'), "avatar_rs_id") END,
     "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
+    "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
@@ -290,6 +300,7 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "avatar_rs_id" = CASE WHEN sqlc.arg('null_avatar_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('avatar_rs_id'), "avatar_rs_id") END,
     "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
+    "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
@@ -310,6 +321,9 @@ WHERE (
     ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
+    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -320,7 +334,7 @@ WHERE (
 
 -- name: DeleteBatchAccountProfile :batchexec
 DELETE FROM "account"."profile"
-WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
+WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id')) OR ("default_contact_id" = sqlc.narg('default_contact_id'));
 
 -- ========================================
 
@@ -331,7 +345,7 @@ WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
 -- name: GetAccountCustomer :one
 SELECT *
 FROM "account"."customer"
-WHERE ("id" = sqlc.narg('id')) OR ("default_address_id" = sqlc.narg('default_address_id'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: ExistsAccountCustomer :one
 SELECT EXISTS (
@@ -341,9 +355,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("default_address_id" = ANY(sqlc.slice('default_address_id')) OR sqlc.slice('default_address_id') IS NULL) AND
-    ("default_address_id" > sqlc.narg('default_address_id_from') OR sqlc.narg('default_address_id_from') IS NULL) AND
-    ("default_address_id" < sqlc.narg('default_address_id_to') OR sqlc.narg('default_address_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -360,9 +371,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("default_address_id" = ANY(sqlc.slice('default_address_id')) OR sqlc.slice('default_address_id') IS NULL) AND
-    ("default_address_id" > sqlc.narg('default_address_id_from') OR sqlc.narg('default_address_id_from') IS NULL) AND
-    ("default_address_id" < sqlc.narg('default_address_id_to') OR sqlc.narg('default_address_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -378,9 +386,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("default_address_id" = ANY(sqlc.slice('default_address_id')) OR sqlc.slice('default_address_id') IS NULL) AND
-    ("default_address_id" > sqlc.narg('default_address_id_from') OR sqlc.narg('default_address_id_from') IS NULL) AND
-    ("default_address_id" < sqlc.narg('default_address_id_to') OR sqlc.narg('default_address_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -394,40 +399,38 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateAccountCustomer :one
-INSERT INTO "account"."customer" ("id", "default_address_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "account"."customer" ("id", "date_created", "date_updated")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateBatchAccountCustomer :batchone
-INSERT INTO "account"."customer" ("id", "default_address_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "account"."customer" ("id", "date_created", "date_updated")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyAccountCustomer :copyfrom
-INSERT INTO "account"."customer" ("id", "default_address_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "account"."customer" ("id", "date_created", "date_updated")
+VALUES ($1, $2, $3);
 
 -- name: CreateDefaultAccountCustomer :one
-INSERT INTO "account"."customer" ("id", "default_address_id")
-VALUES ($1, $2)
+INSERT INTO "account"."customer" ("id")
+VALUES ($1)
 RETURNING *;
 
 -- name: CreateCopyDefaultAccountCustomer :copyfrom
-INSERT INTO "account"."customer" ("id", "default_address_id")
-VALUES ($1, $2);
+INSERT INTO "account"."customer" ("id")
+VALUES ($1);
 
 -- name: UpdateAccountCustomer :one
 UPDATE "account"."customer"
-SET "default_address_id" = CASE WHEN sqlc.arg('null_default_address_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_address_id'), "default_address_id") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+SET "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchAccountCustomer :batchexec
 UPDATE "account"."customer"
-SET "default_address_id" = CASE WHEN sqlc.arg('null_default_address_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_address_id'), "default_address_id") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+SET "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
@@ -437,9 +440,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("default_address_id" = ANY(sqlc.slice('default_address_id')) OR sqlc.slice('default_address_id') IS NULL) AND
-    ("default_address_id" > sqlc.narg('default_address_id_from') OR sqlc.narg('default_address_id_from') IS NULL) AND
-    ("default_address_id" < sqlc.narg('default_address_id_to') OR sqlc.narg('default_address_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -450,7 +450,7 @@ WHERE (
 
 -- name: DeleteBatchAccountCustomer :batchexec
 DELETE FROM "account"."customer"
-WHERE ("id" = sqlc.narg('id')) OR ("default_address_id" = sqlc.narg('default_address_id'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
@@ -1052,19 +1052,19 @@ WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id"
 
 -- ========================================
 
--- Queries for table: account.address
+-- Queries for table: account.contact
 
 -- ========================================
 
--- name: GetAccountAddress :one
+-- name: GetAccountContact :one
 SELECT *
-FROM "account"."address"
+FROM "account"."contact"
 WHERE ("id" = sqlc.narg('id'));
 
--- name: ExistsAccountAddress :one
+-- name: ExistsAccountContact :one
 SELECT EXISTS (
 SELECT 1
-FROM "account"."address"
+FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
@@ -1072,14 +1072,11 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address_line" = ANY(sqlc.slice('address_line')) OR sqlc.slice('address_line') IS NULL) AND
-    ("city" = ANY(sqlc.slice('city')) OR sqlc.slice('city') IS NULL) AND
-    ("state_province" = ANY(sqlc.slice('state_province')) OR sqlc.slice('state_province') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1089,9 +1086,9 @@ WHERE (
 )
 ) as exists;
 
--- name: CountAccountAddress :one
+-- name: CountAccountContact :one
 SELECT COUNT(*)
-FROM "account"."address"
+FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
@@ -1099,14 +1096,11 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address_line" = ANY(sqlc.slice('address_line')) OR sqlc.slice('address_line') IS NULL) AND
-    ("city" = ANY(sqlc.slice('city')) OR sqlc.slice('city') IS NULL) AND
-    ("state_province" = ANY(sqlc.slice('state_province')) OR sqlc.slice('state_province') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1115,9 +1109,9 @@ WHERE (
     ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
--- name: ListAccountAddress :many
+-- name: ListAccountContact :many
 SELECT *
-FROM "account"."address"
+FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
@@ -1125,14 +1119,11 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address_line" = ANY(sqlc.slice('address_line')) OR sqlc.slice('address_line') IS NULL) AND
-    ("city" = ANY(sqlc.slice('city')) OR sqlc.slice('city') IS NULL) AND
-    ("state_province" = ANY(sqlc.slice('state_province')) OR sqlc.slice('state_province') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1145,62 +1136,56 @@ LIMIT sqlc.narg('limit')
 OFFSET sqlc.narg('offset');
 
 
--- name: CreateAccountAddress :one
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "phone_verified", "address_line", "city", "state_province", "country", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateBatchAccountAddress :batchone
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "phone_verified", "address_line", "city", "state_province", "country", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateCopyAccountAddress :copyfrom
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "phone_verified", "address_line", "city", "state_province", "country", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-
--- name: CreateDefaultAccountAddress :one
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "address_line", "city", "state_province", "country")
+-- name: CreateAccountContact :one
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
--- name: CreateCopyDefaultAccountAddress :copyfrom
-INSERT INTO "account"."address" ("account_id", "type", "full_name", "phone", "address_line", "city", "state_province", "country")
+-- name: CreateBatchAccountContact :batchone
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: CreateCopyAccountContact :copyfrom
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
--- name: UpdateAccountAddress :one
-UPDATE "account"."address"
+-- name: CreateDefaultAccountContact :one
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyDefaultAccountContact :copyfrom
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: UpdateAccountContact :one
+UPDATE "account"."contact"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "type" = COALESCE(sqlc.narg('type'), "type"),
     "full_name" = COALESCE(sqlc.narg('full_name'), "full_name"),
     "phone" = COALESCE(sqlc.narg('phone'), "phone"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
-    "address_line" = COALESCE(sqlc.narg('address_line'), "address_line"),
-    "city" = COALESCE(sqlc.narg('city'), "city"),
-    "state_province" = COALESCE(sqlc.narg('state_province'), "state_province"),
-    "country" = COALESCE(sqlc.narg('country'), "country"),
+    "address" = COALESCE(sqlc.narg('address'), "address"),
+    "address_type" = COALESCE(sqlc.narg('address_type'), "address_type"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
--- name: UpdateBatchAccountAddress :batchexec
-UPDATE "account"."address"
+-- name: UpdateBatchAccountContact :batchexec
+UPDATE "account"."contact"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "type" = COALESCE(sqlc.narg('type'), "type"),
     "full_name" = COALESCE(sqlc.narg('full_name'), "full_name"),
     "phone" = COALESCE(sqlc.narg('phone'), "phone"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
-    "address_line" = COALESCE(sqlc.narg('address_line'), "address_line"),
-    "city" = COALESCE(sqlc.narg('city'), "city"),
-    "state_province" = COALESCE(sqlc.narg('state_province'), "state_province"),
-    "country" = COALESCE(sqlc.narg('country'), "country"),
+    "address" = COALESCE(sqlc.narg('address'), "address"),
+    "address_type" = COALESCE(sqlc.narg('address_type'), "address_type"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id');
 
--- name: DeleteAccountAddress :exec
-DELETE FROM "account"."address"
+-- name: DeleteAccountContact :exec
+DELETE FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
@@ -1208,14 +1193,11 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
     ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address_line" = ANY(sqlc.slice('address_line')) OR sqlc.slice('address_line') IS NULL) AND
-    ("city" = ANY(sqlc.slice('city')) OR sqlc.slice('city') IS NULL) AND
-    ("state_province" = ANY(sqlc.slice('state_province')) OR sqlc.slice('state_province') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1224,8 +1206,8 @@ WHERE (
     ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
--- name: DeleteBatchAccountAddress :batchexec
-DELETE FROM "account"."address"
+-- name: DeleteBatchAccountContact :batchexec
+DELETE FROM "account"."contact"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
@@ -2841,32 +2823,32 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+INSERT INTO "order"."base" ("account_id", "payment_option", "payment_status", "address", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateBatchOrderBase :batchone
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+INSERT INTO "order"."base" ("account_id", "payment_option", "payment_status", "address", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyOrderBase :copyfrom
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "payment_status", "address", "date_created", "date_updated")
+INSERT INTO "order"."base" ("account_id", "payment_option", "payment_status", "address", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultOrderBase :one
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
+INSERT INTO "order"."base" ("account_id", "payment_option", "address")
 VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderBase :copyfrom
-INSERT INTO "order"."base" ("account_id", "payment_gateway", "address")
+INSERT INTO "order"."base" ("account_id", "payment_option", "address")
 VALUES ($1, $2, $3);
 
 -- name: UpdateOrderBase :one
 UPDATE "order"."base"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "payment_gateway" = COALESCE(sqlc.narg('payment_gateway'), "payment_gateway"),
+    "payment_option" = COALESCE(sqlc.narg('payment_option'), "payment_option"),
     "payment_status" = COALESCE(sqlc.narg('payment_status'), "payment_status"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
@@ -2877,7 +2859,7 @@ RETURNING *;
 -- name: UpdateBatchOrderBase :batchexec
 UPDATE "order"."base"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "payment_gateway" = COALESCE(sqlc.narg('payment_gateway'), "payment_gateway"),
+    "payment_option" = COALESCE(sqlc.narg('payment_option'), "payment_option"),
     "payment_status" = COALESCE(sqlc.narg('payment_status'), "payment_status"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
@@ -2999,35 +2981,34 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: CreateBatchOrderItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: CreateCopyOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-
--- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "quantity")
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
--- name: CreateCopyDefaultOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_provider", "shipment_id", "note", "quantity")
+-- name: CreateBatchOrderItem :batchone
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateCopyOrderItem :copyfrom
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
 VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: CreateDefaultOrderItem :one
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyDefaultOrderItem :copyfrom
+INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
-    "shipment_provider" = COALESCE(sqlc.narg('shipment_provider'), "shipment_provider"),
-    "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
+    "shipment_id" = COALESCE(sqlc.narg('shipment_id'), "shipment_id"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
@@ -3039,8 +3020,7 @@ UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
-    "shipment_provider" = COALESCE(sqlc.narg('shipment_provider'), "shipment_provider"),
-    "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
+    "shipment_id" = COALESCE(sqlc.narg('shipment_id'), "shipment_id"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
@@ -3189,100 +3169,6 @@ WHERE (
 -- name: DeleteBatchOrderItemSerial :batchexec
 DELETE FROM "order"."item_serial"
 WHERE ("id" = sqlc.narg('id')) OR ("order_item_id" = sqlc.narg('order_item_id') AND "product_serial_id" = sqlc.narg('product_serial_id'));
-
--- ========================================
-
--- Queries for table: order.payment_gateway
-
--- ========================================
-
--- name: GetOrderPaymentGateway :one
-SELECT *
-FROM "order"."payment_gateway"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: ExistsOrderPaymentGateway :one
-SELECT EXISTS (
-SELECT 1
-FROM "order"."payment_gateway"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
-)
-) as exists;
-
--- name: CountOrderPaymentGateway :one
-SELECT COUNT(*)
-FROM "order"."payment_gateway"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
-);
-
--- name: ListOrderPaymentGateway :many
-SELECT *
-FROM "order"."payment_gateway"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')
-OFFSET sqlc.narg('offset');
-
-
--- name: CreateOrderPaymentGateway :one
-INSERT INTO "order"."payment_gateway" ("id", "method", "description", "is_active")
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: CreateBatchOrderPaymentGateway :batchone
-INSERT INTO "order"."payment_gateway" ("id", "method", "description", "is_active")
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: CreateCopyOrderPaymentGateway :copyfrom
-INSERT INTO "order"."payment_gateway" ("id", "method", "description", "is_active")
-VALUES ($1, $2, $3, $4);
-
--- name: CreateDefaultOrderPaymentGateway :one
-INSERT INTO "order"."payment_gateway" ("id", "method", "description")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateCopyDefaultOrderPaymentGateway :copyfrom
-INSERT INTO "order"."payment_gateway" ("id", "method", "description")
-VALUES ($1, $2, $3);
-
--- name: UpdateOrderPaymentGateway :one
-UPDATE "order"."payment_gateway"
-SET "method" = COALESCE(sqlc.narg('method'), "method"),
-    "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END,
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: UpdateBatchOrderPaymentGateway :batchexec
-UPDATE "order"."payment_gateway"
-SET "method" = COALESCE(sqlc.narg('method'), "method"),
-    "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END,
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
-WHERE id = sqlc.arg('id');
-
--- name: DeleteOrderPaymentGateway :exec
-DELETE FROM "order"."payment_gateway"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
-);
-
--- name: DeleteBatchOrderPaymentGateway :batchexec
-DELETE FROM "order"."payment_gateway"
-WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
@@ -3785,7 +3671,22 @@ WHERE (
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
-    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL)
+    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
+    ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
+    ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
+    ("length_cm" = ANY(sqlc.slice('length_cm')) OR sqlc.slice('length_cm') IS NULL) AND
+    ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
+    ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
+    ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
+    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
+    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
+    ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
+    ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
+    ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ) as exists;
 
@@ -3802,7 +3703,22 @@ WHERE (
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
-    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL)
+    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
+    ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
+    ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
+    ("length_cm" = ANY(sqlc.slice('length_cm')) OR sqlc.slice('length_cm') IS NULL) AND
+    ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
+    ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
+    ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
+    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
+    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
+    ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
+    ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
+    ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListOrderShipment :many
@@ -3818,7 +3734,22 @@ WHERE (
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
-    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL)
+    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
+    ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
+    ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
+    ("length_cm" = ANY(sqlc.slice('length_cm')) OR sqlc.slice('length_cm') IS NULL) AND
+    ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
+    ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
+    ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
+    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
+    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
+    ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
+    ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
+    ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -3826,47 +3757,61 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderShipment :one
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "status", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateBatchOrderShipment :batchone
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "status", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateCopyOrderShipment :copyfrom
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "status", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: CreateDefaultOrderShipment :one
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderShipment :copyfrom
-INSERT INTO "order"."shipment" ("provider", "tracking_code", "label_url", "cost", "date_eta")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: UpdateOrderShipment :one
 UPDATE "order"."shipment"
-SET "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "tracking_code" = CASE WHEN sqlc.arg('null_tracking_code')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('tracking_code'), "tracking_code") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "label_url" = CASE WHEN sqlc.arg('null_label_url')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('label_url'), "label_url") END,
     "cost" = COALESCE(sqlc.narg('cost'), "cost"),
-    "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta")
+    "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta"),
+    "from_address" = COALESCE(sqlc.narg('from_address'), "from_address"),
+    "to_address" = COALESCE(sqlc.narg('to_address'), "to_address"),
+    "weight_grams" = COALESCE(sqlc.narg('weight_grams'), "weight_grams"),
+    "length_cm" = COALESCE(sqlc.narg('length_cm'), "length_cm"),
+    "width_cm" = COALESCE(sqlc.narg('width_cm'), "width_cm"),
+    "height_cm" = COALESCE(sqlc.narg('height_cm'), "height_cm"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchOrderShipment :batchexec
 UPDATE "order"."shipment"
-SET "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "tracking_code" = CASE WHEN sqlc.arg('null_tracking_code')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('tracking_code'), "tracking_code") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "label_url" = CASE WHEN sqlc.arg('null_label_url')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('label_url'), "label_url") END,
     "cost" = COALESCE(sqlc.narg('cost'), "cost"),
-    "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta")
+    "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta"),
+    "from_address" = COALESCE(sqlc.narg('from_address'), "from_address"),
+    "to_address" = COALESCE(sqlc.narg('to_address'), "to_address"),
+    "weight_grams" = COALESCE(sqlc.narg('weight_grams'), "weight_grams"),
+    "length_cm" = COALESCE(sqlc.narg('length_cm'), "length_cm"),
+    "width_cm" = COALESCE(sqlc.narg('width_cm'), "width_cm"),
+    "height_cm" = COALESCE(sqlc.narg('height_cm'), "height_cm"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteOrderShipment :exec
@@ -3881,7 +3826,22 @@ WHERE (
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
-    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL)
+    ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
+    ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
+    ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
+    ("length_cm" = ANY(sqlc.slice('length_cm')) OR sqlc.slice('length_cm') IS NULL) AND
+    ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
+    ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
+    ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
+    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
+    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
+    ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
+    ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
+    ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: DeleteBatchOrderShipment :batchexec
@@ -4722,6 +4682,102 @@ WHERE (
 
 -- name: DeleteBatchSharedResourceReference :batchexec
 DELETE FROM "shared"."resource_reference"
+WHERE ("id" = sqlc.narg('id'));
+
+-- ========================================
+
+-- Queries for table: shared.service_option
+
+-- ========================================
+
+-- name: GetSharedServiceOption :one
+SELECT *
+FROM "shared"."service_option"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsSharedServiceOption :one
+SELECT EXISTS (
+SELECT 1
+FROM "shared"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+)
+) as exists;
+
+-- name: CountSharedServiceOption :one
+SELECT COUNT(*)
+FROM "shared"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+);
+
+-- name: ListSharedServiceOption :many
+SELECT *
+FROM "shared"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateSharedServiceOption :one
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateBatchSharedServiceOption :batchone
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateCopySharedServiceOption :copyfrom
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: CreateDefaultSharedServiceOption :one
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyDefaultSharedServiceOption :copyfrom
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method")
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: UpdateSharedServiceOption :one
+UPDATE "shared"."service_option"
+SET "category" = COALESCE(sqlc.narg('category'), "category"),
+    "name" = COALESCE(sqlc.narg('name'), "name"),
+    "description" = COALESCE(sqlc.narg('description'), "description"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "method" = COALESCE(sqlc.narg('method'), "method"),
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchSharedServiceOption :batchexec
+UPDATE "shared"."service_option"
+SET "category" = COALESCE(sqlc.narg('category'), "category"),
+    "name" = COALESCE(sqlc.narg('name'), "name"),
+    "description" = COALESCE(sqlc.narg('description'), "description"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "method" = COALESCE(sqlc.narg('method'), "method"),
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteSharedServiceOption :exec
+DELETE FROM "shared"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+);
+
+-- name: DeleteBatchSharedServiceOption :batchexec
+DELETE FROM "shared"."service_option"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
