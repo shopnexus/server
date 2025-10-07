@@ -22,13 +22,13 @@ Table Profile {
   avatar_rs_id BigInt [unique]
   email_verified Boolean [not null, default: false]
   phone_verified Boolean [not null, default: false]
+  default_contact_id BigInt [unique]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
 
 Table Customer {
   id BigInt [pk]
-  default_address_id BigInt [unique]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
@@ -76,17 +76,14 @@ Table CartItem {
   }
 }
 
-Table Address {
+Table Contact {
   id BigInt [pk, increment]
   account_id BigInt [not null]
-  type AddressType [not null]
   full_name String [not null]
   phone String [not null]
   phone_verified Boolean [not null, default: false]
-  address_line String [not null]
-  city String [not null]
-  state_province String [not null]
-  country String [not null]
+  address String [not null]
+  address_type AddressType [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
@@ -128,7 +125,6 @@ Table ProductSpu {
   name String [not null]
   description String [not null]
   is_active Boolean [not null]
-  date_manufactured DateTime [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
   date_deleted DateTime
@@ -204,8 +200,8 @@ Table StockHistory {
 Table Order {
   id BigInt [pk, increment]
   account_id BigInt [not null]
-  payment_gateway String [not null]
-  status Status [not null, default: 'Pending']
+  payment_option String [not null]
+  payment_status Status [not null, default: 'Pending']
   address String [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
@@ -215,7 +211,10 @@ Table OrderItem {
   id BigInt [pk, increment]
   order_id BigInt [not null]
   sku_id BigInt [not null]
-  shipment_id BigInt
+  confirmed_by_id BigInt
+  shipment_id BigInt [not null]
+  note String [not null]
+  status Status [not null, default: 'Pending']
   quantity BigInt [not null]
 }
 
@@ -227,13 +226,6 @@ Table OrderItemSerial {
   indexes {
     (order_item_id, product_serial_id) [unique]
   }
-}
-
-Table PaymentGateway {
-  id String [pk]
-  method PaymentMethod [not null]
-  description String
-  is_active Boolean [not null, default: true]
 }
 
 Table Refund {
@@ -274,14 +266,19 @@ Table Invoice {
 
 Table Shipment {
   id BigInt [pk, increment]
-  provider String [not null]
+  option String [not null]
   tracking_code String
   status ShipmentStatus [not null, default: 'Pending']
   label_url String
   cost BigInt [not null]
-  estimated_etd DateTime
-  date_shipped DateTime
-  date_delivered DateTime
+  date_eta DateTime [not null]
+  from_address String [not null]
+  to_address String [not null]
+  weight_grams Int [not null]
+  length_cm Int [not null]
+  width_cm Int [not null]
+  height_cm Int [not null]
+  date_created DateTime [default: `now()`, not null]
 }
 
 Table Promotion {
@@ -294,6 +291,7 @@ Table Promotion {
   title String [not null]
   description String
   is_active Boolean [not null]
+  auto_apply Boolean [not null]
   date_started DateTime [not null]
   date_ended DateTime
   date_created DateTime [default: `now()`, not null]
@@ -306,7 +304,8 @@ Table PromotionSchedule {
   timezone String [not null]
   cron_rule String [not null]
   duration Int [not null]
-  is_active Boolean [not null, default: false]
+  next_run_at DateTime
+  last_run_at DateTime
 }
 
 Table PromotionDiscount {
@@ -340,6 +339,16 @@ Table ResourceReference {
   ref_id BigInt [not null]
   order Int [not null]
   is_primary Boolean [not null]
+}
+
+Table ServiceOption {
+  id String [pk]
+  category String [not null]
+  name String [not null]
+  description String [not null]
+  provider String [not null]
+  method String [not null]
+  is_active Boolean [not null, default: true]
 }
 
 Table SearchSync {
@@ -395,14 +404,6 @@ Enum ProductStatus {
   Inactive
   Sold
   Damaged
-}
-
-Enum PaymentMethod {
-  COD
-  Card
-  BankTransfer
-  Crypto
-  Other
 }
 
 Enum RefundMethod {
@@ -464,6 +465,8 @@ Enum Status {
   Failed
 }
 
+Ref: Profile.default_contact_id - Contact.id [delete: Set Null]
+
 Ref: Profile.id - Account.id [delete: Cascade]
 
 Ref: Profile.avatar_rs_id - Resource.id [delete: Set Null]
@@ -480,7 +483,7 @@ Ref: CartItem.cart_id > Customer.id [delete: Cascade]
 
 Ref: CartItem.sku_id > ProductSku.id [delete: No Action]
 
-Ref: Address.account_id > Account.id [delete: Cascade]
+Ref: Contact.account_id > Account.id [delete: Cascade]
 
 Ref: Interaction.account_id > Customer.id [delete: Cascade]
 
@@ -502,7 +505,7 @@ Ref: ProductSerial.sku_id > ProductSku.id [delete: Cascade]
 
 Ref: StockHistory.stock_id > Stock.id [delete: Cascade]
 
-Ref: Order.payment_gateway > PaymentGateway.id [delete: No Action]
+Ref: Order.payment_option > ServiceOption.id [delete: No Action]
 
 Ref: Order.account_id > Customer.id [delete: Cascade]
 
@@ -511,6 +514,8 @@ Ref: OrderItem.order_id > Order.id [delete: Cascade]
 Ref: OrderItem.sku_id > ProductSku.id [delete: No Action]
 
 Ref: OrderItem.shipment_id > Shipment.id [delete: No Action]
+
+Ref: OrderItem.confirmed_by_id > Vendor.id [delete: Set Null]
 
 Ref: OrderItemSerial.order_item_id > OrderItem.id [delete: Cascade]
 
@@ -527,6 +532,8 @@ Ref: RefundDispute.refund_id > Refund.id [delete: Cascade]
 Ref: RefundDispute.issued_by_id > Vendor.id [delete: No Action]
 
 Ref: Invoice.receiver_id > Account.id [delete: No Action]
+
+Ref: Shipment.option > ServiceOption.id [delete: No Action]
 
 Ref: Promotion.owner_id > Vendor.id [delete: Set Null]
 
