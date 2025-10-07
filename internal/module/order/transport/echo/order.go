@@ -23,6 +23,11 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 
 	api.POST("/checkout", h.Checkout)
 
+	refundApi := api.Group("/refund")
+	refundApi.GET("", h.ListRefunds)
+	refundApi.PATCH("", h.UpdateRefund)
+	refundApi.DELETE("", h.CancelRefund)
+
 	// Verify vnpay ipn
 	//api.GET("/vnpay/ipn", echo.WrapHandler(h.biz.))
 	api.GET("/ipn", h.VnpayVerifyIPN)
