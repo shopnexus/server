@@ -9,15 +9,20 @@ import (
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
+
+	"github.com/guregu/null/v6"
 )
 
 // ConfirmOrderParams represents the parameters required to confirm an order by SKU (not the whole order).
 type ConfirmOrderParams struct {
-	Account     authmodel.AuthenticatedAccount
-	SkuID       int64  `validate:"required,min=1"` // Confirmed SKU
-	FromAddress string `validate:"required"`
-	WeightGrams int64  `validate:"required,min=1"` // in grams
-	Dimensions  shipment.Dimensions
+	Account authmodel.AuthenticatedAccount
+	SkuID   int64 `validate:"required,min=1"` // Confirmed SKU
+
+	FromAddress null.String `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
+	WeightGrams int32       `validate:"required,min=1"`        // Revalidated weight, dimensions
+	LengthCM    int32       `validate:"required,min=1"`
+	WidthCM     int32       `validate:"required,min=1"`
+	HeightCM    int32       `validate:"required,min=1"`
 }
 
 func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) error {
@@ -45,36 +50,47 @@ func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		return err
 	}
 
-	// Create shipment
-	shipmentClient, ok := s.shipmentMap[orderItem.ShipmentProvider]
-	if !ok {
-		return fmt.Errorf("unsupported shipment provider: %s", orderItem.ShipmentProvider)
-	}
-
-	order, err := txStorage.GetOrderBase(ctx, pgutil.Int64ToPgInt8(orderItem.OrderID))
+	dbShipment, err := txStorage.GetOrderShipment(ctx, pgutil.Int64ToPgInt8(orderItem.ShipmentID))
 	if err != nil {
 		return err
 	}
 
-	shipment, err := shipmentClient.CreateShipment(ctx, shipment.CreateShipmentParams{
-		OrderID:     fmt.Sprintf("%d", orderItem.OrderID),
-		FromAddress: params.FromAddress,
-		ToAddress:   order.Address,
-		WeightGrams: params.WeightGrams,
-		Dimensions:  params.Dimensions,
-		Service:     "express",
+	shipmentClient, ok := s.shipmentMap[dbShipment.Option]
+	if !ok {
+		return fmt.Errorf("unknown shipment option: %s", dbShipment.Option)
+	}
+
+	var fromAddress string
+	if params.FromAddress.Valid {
+		fromAddress = params.FromAddress.String
+	} else {
+		fromAddress = dbShipment.FromAddress
+	}
+
+	ship, err := shipmentClient.Create(ctx, shipment.CreateParams{
+		FromAddress: fromAddress,
+		ToAddress:   dbShipment.ToAddress,
+		WeightGrams: dbShipment.WeightGrams,
+		LengthCM:    dbShipment.LengthCm,
+		WidthCM:     dbShipment.WidthCm,
+		HeightCM:    dbShipment.HeightCm,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create shipment: %w", err)
 	}
 
-	_, err = txStorage.CreateOrderShipment(ctx, db.CreateOrderShipmentParams{
-		Provider:     orderItem.ShipmentProvider,
-		TrackingCode: pgutil.StringToPgText(shipment.TrackingID),
-		Status:       db.OrderShipmentStatusPending,
-		LabelUrl:     pgutil.StringToPgText("https://example.com/label.pdf"),
-		Cost:         shipment.CostCents,
-		DateEta:      pgutil.TimeToPgTimestamptz(shipment.ETA),
+	_, err = txStorage.UpdateOrderShipment(ctx, db.UpdateOrderShipmentParams{
+		ID:           orderItem.ShipmentID,
+		TrackingCode: pgutil.StringToPgText(ship.ID),
+		Status:       db.NullOrderShipmentStatus{OrderShipmentStatus: db.OrderShipmentStatusLabelCreated, Valid: true},
+		LabelUrl:     pgutil.StringToPgText("https://example.com/label.pdf"), // TODO: get real label URL from shipment client
+		Cost:         pgutil.Int64ToPgInt8(dbShipment.Cost),                  // Always keep original cost, we only quote before
+		DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
+		FromAddress:  pgutil.StringToPgText(fromAddress),
+		WeightGrams:  pgutil.Int32ToPgInt4(params.WeightGrams),
+		LengthCm:     pgutil.Int32ToPgInt4(params.LengthCM),
+		WidthCm:      pgutil.Int32ToPgInt4(params.WidthCM),
+		HeightCm:     pgutil.Int32ToPgInt4(params.HeightCM),
 	})
 	if err != nil {
 		return err
@@ -84,6 +100,10 @@ func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		return err
 	}
 
+	order, err := s.storage.GetOrderBase(ctx, pgutil.Int64ToPgInt8(orderItem.OrderID))
+	if err != nil {
+		return err
+	}
 	if err := s.pubsub.Publish(ordermodel.TopicOrderConfirmed, order); err != nil {
 		return err
 	}

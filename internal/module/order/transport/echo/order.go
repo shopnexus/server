@@ -88,16 +88,16 @@ func (h *Handler) ListOrders(c echo.Context) error {
 }
 
 type CheckoutRequest struct {
-	Address        string        `json:"address" validate:"required"`
-	PaymentGateway string        `json:"payment_gateway" validate:"required,min=1,max=50"`
-	Skus           []CheckoutSku `json:"skus" validate:"required,dive"`
+	Address       string        `json:"address" validate:"required"`
+	PaymentOption string        `json:"payment_option" validate:"required,min=1,max=100"`
+	Skus          []CheckoutSku `json:"skus" validate:"required,dive"`
 }
 
 type CheckoutSku struct {
-	SkuID            int64   `json:"sku_id" validate:"required,gt=0"`
-	PromotionIDs     []int64 `json:"promotion_ids" validate:"dive,gt=0"`
-	ShipmentProvider string  `json:"shipment_provider" validate:"required,oneof=ghtk ghn dhl"`
-	Note             string  `json:"note" validate:"max=500"` // Note for this item, e.g. "Please gift wrap this item"
+	SkuID          int64   `json:"sku_id" validate:"required,gt=0"`
+	PromotionIDs   []int64 `json:"promotion_ids" validate:"dive,gt=0"`
+	ShipmentOption string  `json:"shipment_option" validate:"required,min=1,max=100"`
+	Note           string  `json:"note" validate:"max=500"` // Note for this item, e.g. "Please gift wrap this item"
 }
 
 func (h *Handler) Checkout(c echo.Context) error {
@@ -115,15 +115,15 @@ func (h *Handler) Checkout(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateOrder(c.Request().Context(), orderbiz.CreateOrderParams{
-		Account:        claims.Account,
-		Address:        req.Address,
-		PaymentGateway: req.PaymentGateway,
+		Account:       claims.Account,
+		Address:       req.Address,
+		PaymentOption: req.PaymentOption,
 		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
-				SkuID:            s.SkuID,
-				PromotionIDs:     s.PromotionIDs,
-				ShipmentProvider: s.ShipmentProvider,
-				Note:             s.Note,
+				SkuID:          s.SkuID,
+				PromotionIDs:   s.PromotionIDs,
+				ShipmentOption: s.ShipmentOption,
+				Note:           s.Note,
 			}
 		}),
 	})
