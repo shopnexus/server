@@ -49,6 +49,23 @@ model ResourceReference {
   @@schema("shared")
 }
 
+model ServiceOption {
+  id          String  @id @db.VarChar(100) // e.g. "ghn-standard", "vnpay-qr"
+  category    String // For listing, e.g. "shipment", "payment", etc.
+  name        String // e.g. "Giao hàng nhanh - Standard", "VNPay - QR"
+  description String
+  provider    String // "ghn", "vnpay", "momo"
+  method      String // "standard", "qr", "bank"
+  is_active   Boolean @default(true)
+
+  shipments Shipment[]
+  orders    Order[]
+
+  @@index([category, provider])
+  @@map("service_option")
+  @@schema("shared")
+}
+
 enum Status {
   Pending
   Processing

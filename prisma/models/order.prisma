@@ -2,30 +2,30 @@ model Order {
   id         BigInt @id @default(autoincrement())
   account_id BigInt
 
-  payment_gateway String // PaymentGateway id, even COD
-  payment_status  Status   @default(Pending)
-  address         String
-  date_created    DateTime @default(now()) @db.Timestamptz(3)
-  date_updated    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  payment_option String // PaymentGateway id, even COD
+  payment_status Status   @default(Pending)
+  address        String
+  date_created   DateTime @default(now()) @db.Timestamptz(3)
+  date_updated   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  gateway  PaymentGateway @relation(fields: [payment_gateway], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  customer Customer       @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  opt      ServiceOption @relation(fields: [payment_option], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  customer Customer      @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   products OrderItem[]
 
-  @@index([payment_gateway])
+  @@index([account_id])
+  @@index([payment_option])
   @@map("base")
   @@schema("order")
 }
 
 model OrderItem {
-  id                BigInt  @id @default(autoincrement())
-  order_id          BigInt
-  sku_id            BigInt
-  confirmed_by_id   BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
-  shipment_provider String // e.g. "ghn", "ghtk", "dhl", etc.
-  shipment_id       BigInt?
-  note              String // Note for this item, e.g. "Please gift wrap this item"
-  status            Status  @default(Pending)
+  id              BigInt  @id @default(autoincrement())
+  order_id        BigInt
+  sku_id          BigInt
+  confirmed_by_id BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
+  shipment_id     BigInt
+  note            String // Note for this item, e.g. "Please gift wrap this item"
+  status          Status  @default(Pending)
 
   quantity BigInt
 
@@ -33,7 +33,7 @@ model OrderItem {
   refund    Refund[]
   order     Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   sku       ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  shipment  Shipment?         @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  shipment  Shipment          @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
   confirmer Vendor?           @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   //! @@unique([order_id, sku_id]); Should not be unique, because product can be added multiple times (due to product.can_combine)
@@ -56,29 +56,16 @@ model OrderItemSerial {
   @@schema("order")
 }
 
-model PaymentGateway {
-  id          String        @id @db.VarChar(50)
-  method      PaymentMethod
-  description String?
-  is_active   Boolean       @default(true)
+// enum PaymentMethod {
+//   COD // Cash on Delivery
+//   Card // Credit/Debit Card
+//   BankTransfer // Bank Transfer (internal only)
+//   Crypto // Cryptocurrency
+//   Other // Other payment methods
 
-  order Order[]
-
-  @@index([method, is_active])
-  @@map("payment_gateway")
-  @@schema("order")
-}
-
-enum PaymentMethod {
-  COD // Cash on Delivery
-  Card // Credit/Debit Card
-  BankTransfer // Bank Transfer (internal only)
-  Crypto // Cryptocurrency
-  Other // Other payment methods
-
-  @@map("payment_method")
-  @@schema("order")
-}
+//   @@map("payment_method")
+//   @@schema("order")
+// }
 
 enum RefundMethod {
   PickUp
@@ -173,15 +160,23 @@ model Invoice {
 
 model Shipment {
   id            BigInt         @id @default(autoincrement())
-  provider      String // e.g. "GHN", "GHTK", "DHL"
+  option        String // e.g. "ghn-standard", references ShipmentOption.id
   tracking_code String? // Carrier-provided tracking number
   status        ShipmentStatus @default(Pending)
   label_url     String? // For customer download/printing
   cost          BigInt
   date_eta      DateTime       @db.Timestamptz(3)
+  from_address  String
+  to_address    String
+  weight_grams  Int
+  length_cm     Int
+  width_cm      Int
+  height_cm     Int
+  date_created  DateTime       @default(now()) @db.Timestamptz(3)
 
   items   OrderItem[]
   refunds Refund[]
+  opt     ServiceOption @relation(fields: [option], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
   @@map("shipment")
   @@schema("order")
