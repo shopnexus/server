@@ -1,6 +1,9 @@
 package payment
 
-import "context"
+import (
+	"context"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+)
 
 type CreateOrderParams struct {
 	RefID  int64
@@ -17,6 +20,9 @@ type VerifyResult struct {
 }
 
 type Client interface {
+	// Config returns the payment configuration.
+	Config() sharedmodel.OptionConfig
+
 	// CreateOrder creates a payment order and returns either:
 	// - a redirect URL (for online payments),
 	// - or an empty string + metadata (for COD, Bank Transfer, etc.)

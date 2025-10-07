@@ -1,0 +1,55 @@
+package cod
+
+import (
+	"context"
+
+	"shopnexus-remastered/internal/client/payment"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+)
+
+// Type guard
+var _ payment.Client = (*ClientImpl)(nil)
+
+const (
+	// MethodCOD represents the Cash on Delivery method.
+	MethodCOD sharedmodel.OptionMethod = "cod"
+)
+
+// ClientImpl default COD (Cash on Delivery) client implementation
+type ClientImpl struct {
+	config sharedmodel.OptionConfig
+}
+
+func NewClient() *ClientImpl {
+	return &ClientImpl{
+		config: sharedmodel.OptionConfig{
+			ID:       "system-cod",
+			Provider: "system",
+			Method:   MethodCOD,
+			Name:     "System - COD",
+			IsActive: true,
+		},
+	}
+}
+
+func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+	return c.config
+}
+
+func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrderParams) (payment.CreateOrderResult, error) {
+	// For COD, we don't need a redirect URL.
+	return payment.CreateOrderResult{
+		RedirectURL: "",
+	}, nil
+}
+
+func (c *ClientImpl) VerifyPayment(ctx context.Context, data map[string]any) (payment.VerifyResult, error) {
+	// For COD, we assume payment is verified upon delivery.
+	refID, ok := data["ref_id"].(int64)
+	if !ok {
+		return payment.VerifyResult{}, nil // or return an error
+	}
+	return payment.VerifyResult{
+		RefID: refID,
+	}, nil
+}
