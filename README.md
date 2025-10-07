@@ -129,6 +129,7 @@ Which means when compare an interface value with nil, it will always return fals
 - Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: <https://echo.labstack.com/docs/category/middleware>
 - <https://medium.com/@zilliz_learn/elasticsearch-was-great-but-vector-databases-are-the-future-0d7ec24ab7f9>
 - Add cursor pagination encode/decode into structs and use as filter conditions in queries
+- Use <https://www.x402.org/> for crypto exchanging
 
 ## Develop Timeline
 
