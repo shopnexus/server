@@ -1,4 +1,4 @@
-package biz
+package sharedbiz
 
 import (
 	"shopnexus-remastered/internal/utils/pgutil"

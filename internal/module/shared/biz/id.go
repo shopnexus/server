@@ -1,4 +1,4 @@
-package biz
+package sharedbiz
 
 func (b *SharedBiz) HashID(id int64) string {
 	newId, _ := b.idhash.Encode([]uint64{uint64(id)})
