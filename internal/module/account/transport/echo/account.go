@@ -75,13 +75,12 @@ type UpdateAccountRequest struct {
 	Email     null.String                  `json:"email" validate:"omitempty,email"`
 
 	// Profile fields
-	Gender      null.Value[db.AccountGender] `json:"gender" validate:"omitnil,validFn=Valid"`
-	Name        null.String                  `json:"name" validate:"omitnil"`
-	DateOfBirth null.Time                    `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID  null.Int64                   `json:"avatar_rs_id" validate:"omitnil"`
+	Gender           null.Value[db.AccountGender] `json:"gender" validate:"omitnil,validFn=Valid"`
+	Name             null.String                  `json:"name" validate:"omitnil"`
+	DateOfBirth      null.Time                    `json:"date_of_birth" validate:"omitnil"`
+	AvatarRsID       null.Int64                   `json:"avatar_rs_id" validate:"omitnil"`
+	DefaultContactID null.Int64                   `json:"default_contact_id" validate:"omitnil"`
 
-	// Customer fields
-	DefaultAddressID null.Int64 `json:"default_address_id" validate:"omitnil"`
 	// Vendor fields
 	Description null.String `json:"description" validate:"omitnil,max=500"`
 }
@@ -111,7 +110,7 @@ func (h *Handler) UpdateAccount(c echo.Context) error {
 		Name:             req.Name,
 		DateOfBirth:      req.DateOfBirth,
 		AvatarRsID:       req.AvatarRsID,
-		DefaultAddressID: req.DefaultAddressID,
+		DefaultContactID: req.DefaultContactID,
 		Description:      req.Description,
 	})
 

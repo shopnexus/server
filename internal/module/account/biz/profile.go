@@ -34,17 +34,13 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 	}
 
 	var (
-		defaultAddressID null.Int64
-		description      null.String
+		description null.String
 	)
 	if account.Type == db.AccountTypeCustomer {
-		customer, err := s.storage.GetAccountCustomer(ctx, db.GetAccountCustomerParams{
-			ID: pgutil.Int64ToPgInt8(params.AccountID),
-		})
-		if err != nil {
-			return zero, err
-		}
-		defaultAddressID = pgutil.PgInt8ToNullInt64(customer.DefaultAddressID)
+		// customer, err := s.storage.GetAccountCustomer(ctx, pgutil.Int64ToPgInt8(params.AccountID))
+		// if err != nil {
+		// 	return zero, err
+		// }
 	}
 	if account.Type == db.AccountTypeVendor {
 		vendor, err := s.storage.GetAccountVendor(ctx, pgutil.Int64ToPgInt8(params.AccountID))
@@ -65,15 +61,16 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 		Email:    pgutil.PgTextToNullString(account.Email),
 		Username: pgutil.PgTextToNullString(account.Username),
 
-		Gender:        null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
-		Name:          pgutil.PgTextToNullString(profile.Name),
-		DateOfBirth:   profile.DateOfBirth.Time,
-		AvatarRsID:    pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
-		EmailVerified: profile.EmailVerified,
-		PhoneVerified: profile.PhoneVerified,
+		Gender:           null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
+		Name:             pgutil.PgTextToNullString(profile.Name),
+		DateOfBirth:      profile.DateOfBirth.Time,
+		AvatarRsID:       pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
+		EmailVerified:    profile.EmailVerified,
+		PhoneVerified:    profile.PhoneVerified,
+		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
 
-		DefaultAddressID: defaultAddressID,
-		Description:      description,
+		// Vendor fields
+		Description: description,
 	}, nil
 }
 
@@ -88,13 +85,12 @@ type UpdateProfileParams struct {
 	Email    null.String
 
 	// Profile fields
-	Gender      null.Value[db.AccountGender]
-	Name        null.String
-	DateOfBirth null.Time
-	AvatarRsID  null.Int64
+	Gender           null.Value[db.AccountGender]
+	Name             null.String
+	DateOfBirth      null.Time
+	AvatarRsID       null.Int64
+	DefaultContactID null.Int64
 
-	// Customer fields
-	DefaultAddressID null.Int64
 	// Vendor fields
 	Description null.String
 }
@@ -124,11 +120,12 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 	}
 
 	profile, err := txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
-		ID:          params.AccountID,
-		Gender:      db.NullAccountGender{AccountGender: params.Gender.V, Valid: params.Gender.Valid},
-		Name:        pgutil.NullStringToPgText(params.Name),
-		DateOfBirth: pgtype.Date{Time: params.DateOfBirth.Time, Valid: params.DateOfBirth.Valid},
-		AvatarRsID:  pgutil.NullInt64ToPgInt8(params.AvatarRsID),
+		ID:               params.AccountID,
+		Gender:           db.NullAccountGender{AccountGender: params.Gender.V, Valid: params.Gender.Valid},
+		Name:             pgutil.NullStringToPgText(params.Name),
+		DateOfBirth:      pgtype.Date{Time: params.DateOfBirth.Time, Valid: params.DateOfBirth.Valid},
+		AvatarRsID:       pgutil.NullInt64ToPgInt8(params.AvatarRsID),
+		DefaultContactID: pgutil.NullInt64ToPgInt8(params.DefaultContactID),
 	})
 	if err != nil {
 		return zero, err
@@ -138,8 +135,7 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 	switch account.Type {
 	case db.AccountTypeCustomer:
 		_, err = txStorage.UpdateAccountCustomer(ctx, db.UpdateAccountCustomerParams{
-			ID:               params.AccountID,
-			DefaultAddressID: pgutil.NullInt64ToPgInt8(params.DefaultAddressID),
+			ID: params.AccountID,
 		})
 	case db.AccountTypeVendor:
 		_, err = txStorage.UpdateAccountVendor(ctx, db.UpdateAccountVendorParams{
@@ -172,7 +168,7 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		AvatarRsID:       pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
-		DefaultAddressID: params.DefaultAddressID,
+		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
 		Description:      params.Description,
 	}, nil
 }

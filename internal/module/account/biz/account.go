@@ -94,9 +94,7 @@ func (s *AccountBiz) CreateAccount(ctx context.Context, params CreateAccountPara
 	// Create empty customer/vendor additional profile
 	switch account.Type {
 	case db.AccountTypeCustomer:
-		_, err = txStorage.CreateDefaultAccountCustomer(ctx, db.CreateDefaultAccountCustomerParams{
-			ID: account.ID,
-		})
+		_, err = txStorage.CreateDefaultAccountCustomer(ctx, account.ID)
 	case db.AccountTypeVendor:
 		_, err = txStorage.CreateDefaultAccountVendor(ctx, account.ID)
 	default:
