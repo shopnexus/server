@@ -71,6 +71,7 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 	}
 	defer conn.Release()
 
+	// TODO: Currently hard code, should find a way to auto load all custom types instead
 	dataTypeNames := []string{
 		`"account"."type"`,
 		`"account"."_type"`,
@@ -89,8 +90,6 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 		`"inventory"."product_status"`,
 		`"inventory"."_product_status"`,
 
-		`"order"."payment_method"`,
-		`"order"."_payment_method"`,
 		`"order"."refund_method"`,
 		`"order"."_refund_method"`,
 		`"order"."invoice_type"`,
