@@ -73,5 +73,5 @@ type S3Filestore struct {
 	SecretAccessKey string `yaml:"secretAccessKey" mapstructure:"secretAccessKey"`
 	Region          string `yaml:"region" mapstructure:"region"`
 	Bucket          string `yaml:"bucket" mapstructure:"bucket"`
-	CloudfrontURL   string `yaml:"cloudfrontUrl" mapstructure:"cloudfrontUrl" validate:"omitempty,url"`
+	CloudfrontURL   string `yaml:"cloudfrontUrl" mapstructure:"cloudfrontUrl" validate:"omitempty"`
 }
