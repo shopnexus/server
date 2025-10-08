@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/module/auth/biz"
+	authbiz "shopnexus-remastered/internal/module/auth/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/guregu/null/v6"
@@ -15,8 +15,8 @@ type Handler struct {
 	biz *authbiz.AuthBiz
 }
 
-func NewHandler(e *echo.Echo, authbiz *authbiz.AuthBiz) *Handler {
-	h := &Handler{biz: authbiz}
+func NewHandler(e *echo.Echo, biz *authbiz.AuthBiz) *Handler {
+	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/auth")
 	api.POST("/login/basic", h.LoginBasic)
 	api.POST("/register/basic", h.RegisterBasic)
