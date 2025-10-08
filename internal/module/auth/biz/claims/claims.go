@@ -1,4 +1,4 @@
-package authbiz
+package authclaims
 
 import (
 	"context"

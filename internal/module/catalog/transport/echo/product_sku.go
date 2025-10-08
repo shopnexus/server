@@ -2,7 +2,7 @@ package catalogecho
 
 import (
 	"net/http"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
@@ -55,7 +55,7 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -90,7 +90,7 @@ func (h *Handler) UpdateProductSku(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -122,7 +122,7 @@ func (h *Handler) DeleteProductSku(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

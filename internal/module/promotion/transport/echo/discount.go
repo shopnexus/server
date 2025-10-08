@@ -3,7 +3,7 @@ package catalogecho
 import (
 	"net/http"
 	"shopnexus-remastered/internal/db"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 	"time"
@@ -45,7 +45,7 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

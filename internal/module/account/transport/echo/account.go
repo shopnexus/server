@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/guregu/null/v6"
@@ -50,7 +50,7 @@ func (h *Handler) GetAccount(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -94,7 +94,7 @@ func (h *Handler) UpdateAccount(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

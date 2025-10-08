@@ -6,7 +6,7 @@ import (
 	"github.com/guregu/null/v6"
 
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/labstack/echo/v4"
@@ -24,7 +24,7 @@ func (h *Handler) GetCart(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -55,7 +55,7 @@ func (h *Handler) UpdateCart(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -84,7 +84,7 @@ func (h *Handler) ClearCart(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"shopnexus-remastered/internal/logger"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
@@ -48,7 +48,7 @@ func (h *Handler) GetOrder(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
@@ -77,7 +77,7 @@ func (h *Handler) ListOrders(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	//claims, err := authbiz.GetClaims(c.Request())
+	//claims, err := authclaims.GetClaims(c.Request())
 	//if err != nil {
 	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	//}
@@ -114,7 +114,7 @@ func (h *Handler) Checkout(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

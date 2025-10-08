@@ -6,7 +6,7 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
@@ -50,7 +50,7 @@ func (h *Handler) ListRecommendedProductCard(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

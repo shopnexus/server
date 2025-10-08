@@ -13,6 +13,7 @@ import (
 	"shopnexus-remastered/internal/client/cachestruct"
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -287,7 +288,7 @@ type RefreshResult struct {
 // Refresh validates the provided refresh token, loads the account, and issues new tokens
 func (a *AuthBiz) Refresh(ctx context.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
-	claims, err := ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
+	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
 	if err != nil {
 		return zero, err
 	}

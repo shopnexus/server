@@ -7,7 +7,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 )
 
@@ -38,7 +38,7 @@ func (h *Handler) CreateInteraction(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

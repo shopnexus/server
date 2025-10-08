@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"shopnexus-remastered/internal/db"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
@@ -84,7 +84,7 @@ func (h *Handler) DeletePromotion(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authbiz.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}

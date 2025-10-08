@@ -6,7 +6,7 @@ import (
 	"log"
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/db"
-	authbiz "shopnexus-remastered/internal/module/auth/biz"
+	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	"shopnexus-remastered/internal/utils/pgutil"
 
@@ -74,7 +74,7 @@ func (b *SharedBiz) NewTusHandler() (*tusd.Handler, error) {
 }
 
 func (b *SharedBiz) NewTusEventContext(event tusd.HookEvent) TusEventContext {
-	claims, _ := authbiz.GetClaimsByHeader(event.HTTPRequest.Header)
+	claims, _ := authclaims.GetClaimsByHeader(event.HTTPRequest.Header)
 
 	return TusEventContext{
 		Context: event.Context,
