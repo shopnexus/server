@@ -34,3 +34,7 @@ func NewError(code, message string) Error {
 		Message: message,
 	}
 }
+
+var (
+	ErrResourceNotFound = NewError("resource.not_found", "Resource not found")
+)
