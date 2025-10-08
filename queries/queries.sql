@@ -4372,6 +4372,10 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4384,9 +4388,6 @@ WHERE (
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4402,6 +4403,10 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4414,9 +4419,6 @@ WHERE (
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4431,6 +4433,10 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4443,9 +4449,6 @@ WHERE (
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4457,39 +4460,39 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
+    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "url" = COALESCE(sqlc.narg('url'), "url"),
     "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
     "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
     "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
     "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
-    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
 WHERE id = sqlc.arg('id')
@@ -4498,14 +4501,14 @@ RETURNING *;
 -- name: UpdateBatchSharedResource :batchexec
 UPDATE "shared"."resource"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
+    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "url" = COALESCE(sqlc.narg('url'), "url"),
     "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
     "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
     "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
     "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
-    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
 WHERE id = sqlc.arg('id');
@@ -4517,6 +4520,10 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4529,9 +4536,6 @@ WHERE (
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND

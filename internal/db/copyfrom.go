@@ -1663,14 +1663,14 @@ func (r *iteratorForCreateCopyDefaultSharedResource) Next() bool {
 func (r iteratorForCreateCopyDefaultSharedResource) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].Code,
+		r.rows[0].UploadedBy,
+		r.rows[0].Provider,
 		r.rows[0].Mime,
-		r.rows[0].Url,
 		r.rows[0].FileSize,
 		r.rows[0].Width,
 		r.rows[0].Height,
 		r.rows[0].Duration,
 		r.rows[0].Checksum,
-		r.rows[0].UploadedBy,
 	}, nil
 }
 
@@ -1679,7 +1679,7 @@ func (r iteratorForCreateCopyDefaultSharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSharedResourceReference implements pgx.CopyFromSource.
@@ -2301,14 +2301,14 @@ func (r *iteratorForCreateCopySharedResource) Next() bool {
 func (r iteratorForCreateCopySharedResource) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].Code,
+		r.rows[0].UploadedBy,
+		r.rows[0].Provider,
 		r.rows[0].Mime,
-		r.rows[0].Url,
 		r.rows[0].FileSize,
 		r.rows[0].Width,
 		r.rows[0].Height,
 		r.rows[0].Duration,
 		r.rows[0].Checksum,
-		r.rows[0].UploadedBy,
 		r.rows[0].Status,
 		r.rows[0].CreatedAt,
 	}, nil
@@ -2319,7 +2319,7 @@ func (r iteratorForCreateCopySharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
 }
 
 // iteratorForCreateCopySharedResourceReference implements pgx.CopyFromSource.

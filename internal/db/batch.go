@@ -2035,9 +2035,9 @@ func (b *CreateBatchPromotionScheduleBatchResults) Close() error {
 }
 
 const createBatchSharedResource = `-- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+RETURNING id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 `
 
 type CreateBatchSharedResourceBatchResults struct {
@@ -2047,17 +2047,17 @@ type CreateBatchSharedResourceBatchResults struct {
 }
 
 type CreateBatchSharedResourceParams struct {
-	Code       string             `json:"code"`
-	Mime       string             `json:"mime"`
-	Url        string             `json:"url"`
-	FileSize   pgtype.Int8        `json:"file_size"`
-	Width      pgtype.Int4        `json:"width"`
-	Height     pgtype.Int4        `json:"height"`
-	Duration   pgtype.Float8      `json:"duration"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
+	Status     SharedStatus           `json:"status"`
+	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
 }
 
 func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults {
@@ -2065,14 +2065,14 @@ func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBat
 	for _, a := range arg {
 		vals := []interface{}{
 			a.Code,
+			a.UploadedBy,
+			a.Provider,
 			a.Mime,
-			a.Url,
 			a.FileSize,
 			a.Width,
 			a.Height,
 			a.Duration,
 			a.Checksum,
-			a.UploadedBy,
 			a.Status,
 			a.CreatedAt,
 		}
@@ -2096,14 +2096,14 @@ func (b *CreateBatchSharedResourceBatchResults) QueryRow(f func(int, SharedResou
 		err := row.Scan(
 			&i.ID,
 			&i.Code,
+			&i.UploadedBy,
+			&i.Provider,
 			&i.Mime,
-			&i.Url,
 			&i.FileSize,
 			&i.Width,
 			&i.Height,
 			&i.Duration,
 			&i.Checksum,
-			&i.UploadedBy,
 			&i.Status,
 			&i.CreatedAt,
 		)
@@ -6027,14 +6027,14 @@ func (b *UpdateBatchPromotionScheduleBatchResults) Close() error {
 const updateBatchSharedResource = `-- name: UpdateBatchSharedResource :batchexec
 UPDATE "shared"."resource"
 SET "code" = COALESCE($1, "code"),
-    "mime" = COALESCE($2, "mime"),
-    "url" = COALESCE($3, "url"),
-    "file_size" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "file_size") END,
-    "width" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "width") END,
-    "height" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "height") END,
-    "duration" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "duration") END,
-    "checksum" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "checksum") END,
-    "uploaded_by" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "uploaded_by") END,
+    "uploaded_by" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "uploaded_by") END,
+    "provider" = COALESCE($4, "provider"),
+    "mime" = COALESCE($5, "mime"),
+    "file_size" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "file_size") END,
+    "width" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "width") END,
+    "height" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "height") END,
+    "duration" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "duration") END,
+    "checksum" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "checksum") END,
     "status" = COALESCE($16, "status"),
     "created_at" = COALESCE($17, "created_at")
 WHERE id = $18
@@ -6047,24 +6047,24 @@ type UpdateBatchSharedResourceBatchResults struct {
 }
 
 type UpdateBatchSharedResourceParams struct {
-	Code           pgtype.Text        `json:"code"`
-	Mime           pgtype.Text        `json:"mime"`
-	Url            pgtype.Text        `json:"url"`
-	NullFileSize   bool               `json:"null_file_size"`
-	FileSize       pgtype.Int8        `json:"file_size"`
-	NullWidth      bool               `json:"null_width"`
-	Width          pgtype.Int4        `json:"width"`
-	NullHeight     bool               `json:"null_height"`
-	Height         pgtype.Int4        `json:"height"`
-	NullDuration   bool               `json:"null_duration"`
-	Duration       pgtype.Float8      `json:"duration"`
-	NullChecksum   bool               `json:"null_checksum"`
-	Checksum       pgtype.Text        `json:"checksum"`
-	NullUploadedBy bool               `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
-	Status         NullSharedStatus   `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             int64              `json:"id"`
+	Code           pgtype.Text                `json:"code"`
+	NullUploadedBy bool                       `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8                `json:"uploaded_by"`
+	Provider       NullSharedResourceProvider `json:"provider"`
+	Mime           pgtype.Text                `json:"mime"`
+	NullFileSize   bool                       `json:"null_file_size"`
+	FileSize       pgtype.Int8                `json:"file_size"`
+	NullWidth      bool                       `json:"null_width"`
+	Width          pgtype.Int4                `json:"width"`
+	NullHeight     bool                       `json:"null_height"`
+	Height         pgtype.Int4                `json:"height"`
+	NullDuration   bool                       `json:"null_duration"`
+	Duration       pgtype.Float8              `json:"duration"`
+	NullChecksum   bool                       `json:"null_checksum"`
+	Checksum       pgtype.Text                `json:"checksum"`
+	Status         NullSharedStatus           `json:"status"`
+	CreatedAt      pgtype.Timestamptz         `json:"created_at"`
+	ID             int64                      `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
@@ -6072,8 +6072,10 @@ func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBat
 	for _, a := range arg {
 		vals := []interface{}{
 			a.Code,
+			a.NullUploadedBy,
+			a.UploadedBy,
+			a.Provider,
 			a.Mime,
-			a.Url,
 			a.NullFileSize,
 			a.FileSize,
 			a.NullWidth,
@@ -6084,8 +6086,6 @@ func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBat
 			a.Duration,
 			a.NullChecksum,
 			a.Checksum,
-			a.NullUploadedBy,
-			a.UploadedBy,
 			a.Status,
 			a.CreatedAt,
 			a.ID,

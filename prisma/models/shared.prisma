@@ -11,21 +11,30 @@ enum ResourceRefType {
   @@schema("shared")
 }
 
+enum ResourceProvider {
+  S3
+  Cloudinary
+  Local
+
+  @@map("resource_provider")
+  @@schema("shared")
+}
+
 // TODO: should catch "remove" event and remove them in s3;
 model Resource {
-  id   BigInt @id @default(autoincrement())
-  code String @unique // unique code for the resource to identify on third party host (s3, cloudinary, or on local, etc.), e.g. "invoice_1234567890", "photo_1234567890", etc.
-
-  mime        String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
-  url         String
-  file_size   BigInt?
-  width       Int? // for images
-  height      Int? // for images
-  duration    Float? // for videos/audio
-  checksum    String?
+  id          BigInt  @id @default(autoincrement())
+  code        String  @unique // unique code for the resource to identify on third party host (s3, cloudinary, or on local, etc.), e.g. "invoice_1234567890", "photo_1234567890", etc.
   uploaded_by BigInt?
-  status      Status   @default(Pending)
-  created_at  DateTime @default(now()) @db.Timestamptz(3)
+
+  provider   ResourceProvider
+  mime       String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
+  file_size  BigInt?
+  width      Int? // for images
+  height     Int? // for images
+  duration   Float? // for videos/audio
+  checksum   String?
+  status     Status           @default(Pending)
+  created_at DateTime         @default(now()) @db.Timestamptz(3)
 
   author  Account?            @relation("resource_upload_by", fields: [uploaded_by], references: [id], onUpdate: Cascade, onDelete: SetNull)
   profile Profile?            @relation("profile_avatar")

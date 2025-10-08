@@ -1876,52 +1876,54 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
-    ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" > $6 OR $6 IS NULL) AND
-    ("file_size" < $7 OR $7 IS NULL) AND
-    ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" > $9 OR $9 IS NULL) AND
-    ("width" < $10 OR $10 IS NULL) AND
-    ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" > $12 OR $12 IS NULL) AND
-    ("height" < $13 OR $13 IS NULL) AND
-    ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" > $15 OR $15 IS NULL) AND
-    ("duration" < $16 OR $16 IS NULL) AND
-    ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" > $18 OR $18 IS NULL) AND
-    ("uploaded_by" < $19 OR $19 IS NULL) AND
-    ("status" = ANY($20) OR $20 IS NULL) AND
-    ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" > $22 OR $22 IS NULL) AND
-    ("created_at" < $23 OR $23 IS NULL)
+    ("uploaded_by" = ANY($5) OR $5 IS NULL) AND
+    ("uploaded_by" > $6 OR $6 IS NULL) AND
+    ("uploaded_by" < $7 OR $7 IS NULL) AND
+    ("provider" = ANY($8) OR $8 IS NULL) AND
+    ("file_size" = ANY($9) OR $9 IS NULL) AND
+    ("file_size" > $10 OR $10 IS NULL) AND
+    ("file_size" < $11 OR $11 IS NULL) AND
+    ("width" = ANY($12) OR $12 IS NULL) AND
+    ("width" > $13 OR $13 IS NULL) AND
+    ("width" < $14 OR $14 IS NULL) AND
+    ("height" = ANY($15) OR $15 IS NULL) AND
+    ("height" > $16 OR $16 IS NULL) AND
+    ("height" < $17 OR $17 IS NULL) AND
+    ("duration" = ANY($18) OR $18 IS NULL) AND
+    ("duration" > $19 OR $19 IS NULL) AND
+    ("duration" < $20 OR $20 IS NULL) AND
+    ("status" = ANY($21) OR $21 IS NULL) AND
+    ("created_at" = ANY($22) OR $22 IS NULL) AND
+    ("created_at" > $23 OR $23 IS NULL) AND
+    ("created_at" < $24 OR $24 IS NULL)
 )
 `
 
 type CountSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Code           []string             `json:"code"`
-	FileSize       []pgtype.Int8        `json:"file_size"`
-	FileSizeFrom   pgtype.Int8          `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8          `json:"file_size_to"`
-	Width          []pgtype.Int4        `json:"width"`
-	WidthFrom      pgtype.Int4          `json:"width_from"`
-	WidthTo        pgtype.Int4          `json:"width_to"`
-	Height         []pgtype.Int4        `json:"height"`
-	HeightFrom     pgtype.Int4          `json:"height_from"`
-	HeightTo       pgtype.Int4          `json:"height_to"`
-	Duration       []pgtype.Float8      `json:"duration"`
-	DurationFrom   pgtype.Float8        `json:"duration_from"`
-	DurationTo     pgtype.Float8        `json:"duration_to"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+	ID             []int64                  `json:"id"`
+	IDFrom         pgtype.Int8              `json:"id_from"`
+	IDTo           pgtype.Int8              `json:"id_to"`
+	Code           []string                 `json:"code"`
+	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
+	Provider       []SharedResourceProvider `json:"provider"`
+	FileSize       []pgtype.Int8            `json:"file_size"`
+	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
+	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
+	Width          []pgtype.Int4            `json:"width"`
+	WidthFrom      pgtype.Int4              `json:"width_from"`
+	WidthTo        pgtype.Int4              `json:"width_to"`
+	Height         []pgtype.Int4            `json:"height"`
+	HeightFrom     pgtype.Int4              `json:"height_from"`
+	HeightTo       pgtype.Int4              `json:"height_to"`
+	Duration       []pgtype.Float8          `json:"duration"`
+	DurationFrom   pgtype.Float8            `json:"duration_from"`
+	DurationTo     pgtype.Float8            `json:"duration_to"`
+	Status         []SharedStatus           `json:"status"`
+	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
 }
 
 func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error) {
@@ -1930,6 +1932,10 @@ func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResour
 		arg.IDFrom,
 		arg.IDTo,
 		arg.Code,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
 		arg.FileSize,
 		arg.FileSizeFrom,
 		arg.FileSizeTo,
@@ -1942,9 +1948,6 @@ func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResour
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -3024,15 +3027,15 @@ type CreateCopyDefaultPromotionScheduleParams struct {
 }
 
 type CreateCopyDefaultSharedResourceParams struct {
-	Code       string        `json:"code"`
-	Mime       string        `json:"mime"`
-	Url        string        `json:"url"`
-	FileSize   pgtype.Int8   `json:"file_size"`
-	Width      pgtype.Int4   `json:"width"`
-	Height     pgtype.Int4   `json:"height"`
-	Duration   pgtype.Float8 `json:"duration"`
-	Checksum   pgtype.Text   `json:"checksum"`
-	UploadedBy pgtype.Int8   `json:"uploaded_by"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
 }
 
 type CreateCopyDefaultSharedResourceReferenceParams struct {
@@ -3186,17 +3189,17 @@ type CreateCopyPromotionScheduleParams struct {
 }
 
 type CreateCopySharedResourceParams struct {
-	Code       string             `json:"code"`
-	Mime       string             `json:"mime"`
-	Url        string             `json:"url"`
-	FileSize   pgtype.Int8        `json:"file_size"`
-	Width      pgtype.Int4        `json:"width"`
-	Height     pgtype.Int4        `json:"height"`
-	Duration   pgtype.Float8      `json:"duration"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
+	Status     SharedStatus           `json:"status"`
+	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
 }
 
 type CreateCopySharedResourceReferenceParams struct {
@@ -4172,47 +4175,47 @@ func (q *Queries) CreateDefaultPromotionSchedule(ctx context.Context, arg Create
 }
 
 const createDefaultSharedResource = `-- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+RETURNING id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 `
 
 type CreateDefaultSharedResourceParams struct {
-	Code       string        `json:"code"`
-	Mime       string        `json:"mime"`
-	Url        string        `json:"url"`
-	FileSize   pgtype.Int8   `json:"file_size"`
-	Width      pgtype.Int4   `json:"width"`
-	Height     pgtype.Int4   `json:"height"`
-	Duration   pgtype.Float8 `json:"duration"`
-	Checksum   pgtype.Text   `json:"checksum"`
-	UploadedBy pgtype.Int8   `json:"uploaded_by"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
 }
 
 func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error) {
 	row := q.db.QueryRow(ctx, createDefaultSharedResource,
 		arg.Code,
+		arg.UploadedBy,
+		arg.Provider,
 		arg.Mime,
-		arg.Url,
 		arg.FileSize,
 		arg.Width,
 		arg.Height,
 		arg.Duration,
 		arg.Checksum,
-		arg.UploadedBy,
 	)
 	var i SharedResource
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
+		&i.UploadedBy,
+		&i.Provider,
 		&i.Mime,
-		&i.Url,
 		&i.FileSize,
 		&i.Width,
 		&i.Height,
 		&i.Duration,
 		&i.Checksum,
-		&i.UploadedBy,
 		&i.Status,
 		&i.CreatedAt,
 	)
@@ -4819,36 +4822,36 @@ func (q *Queries) CreatePromotionSchedule(ctx context.Context, arg CreatePromoti
 }
 
 const createSharedResource = `-- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("code", "mime", "url", "file_size", "width", "height", "duration", "checksum", "uploaded_by", "status", "created_at")
+INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+RETURNING id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 `
 
 type CreateSharedResourceParams struct {
-	Code       string             `json:"code"`
-	Mime       string             `json:"mime"`
-	Url        string             `json:"url"`
-	FileSize   pgtype.Int8        `json:"file_size"`
-	Width      pgtype.Int4        `json:"width"`
-	Height     pgtype.Int4        `json:"height"`
-	Duration   pgtype.Float8      `json:"duration"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
+	Status     SharedStatus           `json:"status"`
+	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
 }
 
 func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error) {
 	row := q.db.QueryRow(ctx, createSharedResource,
 		arg.Code,
+		arg.UploadedBy,
+		arg.Provider,
 		arg.Mime,
-		arg.Url,
 		arg.FileSize,
 		arg.Width,
 		arg.Height,
 		arg.Duration,
 		arg.Checksum,
-		arg.UploadedBy,
 		arg.Status,
 		arg.CreatedAt,
 	)
@@ -4856,14 +4859,14 @@ func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedReso
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
+		&i.UploadedBy,
+		&i.Provider,
 		&i.Mime,
-		&i.Url,
 		&i.FileSize,
 		&i.Width,
 		&i.Height,
 		&i.Duration,
 		&i.Checksum,
-		&i.UploadedBy,
 		&i.Status,
 		&i.CreatedAt,
 	)
@@ -6757,52 +6760,54 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
-    ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" > $6 OR $6 IS NULL) AND
-    ("file_size" < $7 OR $7 IS NULL) AND
-    ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" > $9 OR $9 IS NULL) AND
-    ("width" < $10 OR $10 IS NULL) AND
-    ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" > $12 OR $12 IS NULL) AND
-    ("height" < $13 OR $13 IS NULL) AND
-    ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" > $15 OR $15 IS NULL) AND
-    ("duration" < $16 OR $16 IS NULL) AND
-    ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" > $18 OR $18 IS NULL) AND
-    ("uploaded_by" < $19 OR $19 IS NULL) AND
-    ("status" = ANY($20) OR $20 IS NULL) AND
-    ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" > $22 OR $22 IS NULL) AND
-    ("created_at" < $23 OR $23 IS NULL)
+    ("uploaded_by" = ANY($5) OR $5 IS NULL) AND
+    ("uploaded_by" > $6 OR $6 IS NULL) AND
+    ("uploaded_by" < $7 OR $7 IS NULL) AND
+    ("provider" = ANY($8) OR $8 IS NULL) AND
+    ("file_size" = ANY($9) OR $9 IS NULL) AND
+    ("file_size" > $10 OR $10 IS NULL) AND
+    ("file_size" < $11 OR $11 IS NULL) AND
+    ("width" = ANY($12) OR $12 IS NULL) AND
+    ("width" > $13 OR $13 IS NULL) AND
+    ("width" < $14 OR $14 IS NULL) AND
+    ("height" = ANY($15) OR $15 IS NULL) AND
+    ("height" > $16 OR $16 IS NULL) AND
+    ("height" < $17 OR $17 IS NULL) AND
+    ("duration" = ANY($18) OR $18 IS NULL) AND
+    ("duration" > $19 OR $19 IS NULL) AND
+    ("duration" < $20 OR $20 IS NULL) AND
+    ("status" = ANY($21) OR $21 IS NULL) AND
+    ("created_at" = ANY($22) OR $22 IS NULL) AND
+    ("created_at" > $23 OR $23 IS NULL) AND
+    ("created_at" < $24 OR $24 IS NULL)
 )
 `
 
 type DeleteSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Code           []string             `json:"code"`
-	FileSize       []pgtype.Int8        `json:"file_size"`
-	FileSizeFrom   pgtype.Int8          `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8          `json:"file_size_to"`
-	Width          []pgtype.Int4        `json:"width"`
-	WidthFrom      pgtype.Int4          `json:"width_from"`
-	WidthTo        pgtype.Int4          `json:"width_to"`
-	Height         []pgtype.Int4        `json:"height"`
-	HeightFrom     pgtype.Int4          `json:"height_from"`
-	HeightTo       pgtype.Int4          `json:"height_to"`
-	Duration       []pgtype.Float8      `json:"duration"`
-	DurationFrom   pgtype.Float8        `json:"duration_from"`
-	DurationTo     pgtype.Float8        `json:"duration_to"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+	ID             []int64                  `json:"id"`
+	IDFrom         pgtype.Int8              `json:"id_from"`
+	IDTo           pgtype.Int8              `json:"id_to"`
+	Code           []string                 `json:"code"`
+	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
+	Provider       []SharedResourceProvider `json:"provider"`
+	FileSize       []pgtype.Int8            `json:"file_size"`
+	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
+	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
+	Width          []pgtype.Int4            `json:"width"`
+	WidthFrom      pgtype.Int4              `json:"width_from"`
+	WidthTo        pgtype.Int4              `json:"width_to"`
+	Height         []pgtype.Int4            `json:"height"`
+	HeightFrom     pgtype.Int4              `json:"height_from"`
+	HeightTo       pgtype.Int4              `json:"height_to"`
+	Duration       []pgtype.Float8          `json:"duration"`
+	DurationFrom   pgtype.Float8            `json:"duration_from"`
+	DurationTo     pgtype.Float8            `json:"duration_to"`
+	Status         []SharedStatus           `json:"status"`
+	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
 }
 
 func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error {
@@ -6811,6 +6816,10 @@ func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedReso
 		arg.IDFrom,
 		arg.IDTo,
 		arg.Code,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
 		arg.FileSize,
 		arg.FileSizeFrom,
 		arg.FileSizeTo,
@@ -6823,9 +6832,6 @@ func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedReso
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -8893,53 +8899,55 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
-    ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" > $6 OR $6 IS NULL) AND
-    ("file_size" < $7 OR $7 IS NULL) AND
-    ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" > $9 OR $9 IS NULL) AND
-    ("width" < $10 OR $10 IS NULL) AND
-    ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" > $12 OR $12 IS NULL) AND
-    ("height" < $13 OR $13 IS NULL) AND
-    ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" > $15 OR $15 IS NULL) AND
-    ("duration" < $16 OR $16 IS NULL) AND
-    ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" > $18 OR $18 IS NULL) AND
-    ("uploaded_by" < $19 OR $19 IS NULL) AND
-    ("status" = ANY($20) OR $20 IS NULL) AND
-    ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" > $22 OR $22 IS NULL) AND
-    ("created_at" < $23 OR $23 IS NULL)
+    ("uploaded_by" = ANY($5) OR $5 IS NULL) AND
+    ("uploaded_by" > $6 OR $6 IS NULL) AND
+    ("uploaded_by" < $7 OR $7 IS NULL) AND
+    ("provider" = ANY($8) OR $8 IS NULL) AND
+    ("file_size" = ANY($9) OR $9 IS NULL) AND
+    ("file_size" > $10 OR $10 IS NULL) AND
+    ("file_size" < $11 OR $11 IS NULL) AND
+    ("width" = ANY($12) OR $12 IS NULL) AND
+    ("width" > $13 OR $13 IS NULL) AND
+    ("width" < $14 OR $14 IS NULL) AND
+    ("height" = ANY($15) OR $15 IS NULL) AND
+    ("height" > $16 OR $16 IS NULL) AND
+    ("height" < $17 OR $17 IS NULL) AND
+    ("duration" = ANY($18) OR $18 IS NULL) AND
+    ("duration" > $19 OR $19 IS NULL) AND
+    ("duration" < $20 OR $20 IS NULL) AND
+    ("status" = ANY($21) OR $21 IS NULL) AND
+    ("created_at" = ANY($22) OR $22 IS NULL) AND
+    ("created_at" > $23 OR $23 IS NULL) AND
+    ("created_at" < $24 OR $24 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Code           []string             `json:"code"`
-	FileSize       []pgtype.Int8        `json:"file_size"`
-	FileSizeFrom   pgtype.Int8          `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8          `json:"file_size_to"`
-	Width          []pgtype.Int4        `json:"width"`
-	WidthFrom      pgtype.Int4          `json:"width_from"`
-	WidthTo        pgtype.Int4          `json:"width_to"`
-	Height         []pgtype.Int4        `json:"height"`
-	HeightFrom     pgtype.Int4          `json:"height_from"`
-	HeightTo       pgtype.Int4          `json:"height_to"`
-	Duration       []pgtype.Float8      `json:"duration"`
-	DurationFrom   pgtype.Float8        `json:"duration_from"`
-	DurationTo     pgtype.Float8        `json:"duration_to"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+	ID             []int64                  `json:"id"`
+	IDFrom         pgtype.Int8              `json:"id_from"`
+	IDTo           pgtype.Int8              `json:"id_to"`
+	Code           []string                 `json:"code"`
+	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
+	Provider       []SharedResourceProvider `json:"provider"`
+	FileSize       []pgtype.Int8            `json:"file_size"`
+	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
+	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
+	Width          []pgtype.Int4            `json:"width"`
+	WidthFrom      pgtype.Int4              `json:"width_from"`
+	WidthTo        pgtype.Int4              `json:"width_to"`
+	Height         []pgtype.Int4            `json:"height"`
+	HeightFrom     pgtype.Int4              `json:"height_from"`
+	HeightTo       pgtype.Int4              `json:"height_to"`
+	Duration       []pgtype.Float8          `json:"duration"`
+	DurationFrom   pgtype.Float8            `json:"duration_from"`
+	DurationTo     pgtype.Float8            `json:"duration_to"`
+	Status         []SharedStatus           `json:"status"`
+	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
 }
 
 func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error) {
@@ -8948,6 +8956,10 @@ func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedReso
 		arg.IDFrom,
 		arg.IDTo,
 		arg.Code,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
 		arg.FileSize,
 		arg.FileSizeFrom,
 		arg.FileSizeTo,
@@ -8960,9 +8972,6 @@ func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedReso
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -9987,7 +9996,7 @@ const getSharedResource = `-- name: GetSharedResource :one
 
 
 
-SELECT id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+SELECT id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 FROM "shared"."resource"
 WHERE ("id" = $1) OR ("code" = $2)
 `
@@ -10006,14 +10015,14 @@ func (q *Queries) GetSharedResource(ctx context.Context, arg GetSharedResourcePa
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
+		&i.UploadedBy,
+		&i.Provider,
 		&i.Mime,
-		&i.Url,
 		&i.FileSize,
 		&i.Width,
 		&i.Height,
 		&i.Duration,
 		&i.Checksum,
-		&i.UploadedBy,
 		&i.Status,
 		&i.CreatedAt,
 	)
@@ -12760,64 +12769,66 @@ func (q *Queries) ListPromotionSchedule(ctx context.Context, arg ListPromotionSc
 }
 
 const listSharedResource = `-- name: ListSharedResource :many
-SELECT id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+SELECT id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("code" = ANY($4) OR $4 IS NULL) AND
-    ("file_size" = ANY($5) OR $5 IS NULL) AND
-    ("file_size" > $6 OR $6 IS NULL) AND
-    ("file_size" < $7 OR $7 IS NULL) AND
-    ("width" = ANY($8) OR $8 IS NULL) AND
-    ("width" > $9 OR $9 IS NULL) AND
-    ("width" < $10 OR $10 IS NULL) AND
-    ("height" = ANY($11) OR $11 IS NULL) AND
-    ("height" > $12 OR $12 IS NULL) AND
-    ("height" < $13 OR $13 IS NULL) AND
-    ("duration" = ANY($14) OR $14 IS NULL) AND
-    ("duration" > $15 OR $15 IS NULL) AND
-    ("duration" < $16 OR $16 IS NULL) AND
-    ("uploaded_by" = ANY($17) OR $17 IS NULL) AND
-    ("uploaded_by" > $18 OR $18 IS NULL) AND
-    ("uploaded_by" < $19 OR $19 IS NULL) AND
-    ("status" = ANY($20) OR $20 IS NULL) AND
-    ("created_at" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" > $22 OR $22 IS NULL) AND
-    ("created_at" < $23 OR $23 IS NULL)
+    ("uploaded_by" = ANY($5) OR $5 IS NULL) AND
+    ("uploaded_by" > $6 OR $6 IS NULL) AND
+    ("uploaded_by" < $7 OR $7 IS NULL) AND
+    ("provider" = ANY($8) OR $8 IS NULL) AND
+    ("file_size" = ANY($9) OR $9 IS NULL) AND
+    ("file_size" > $10 OR $10 IS NULL) AND
+    ("file_size" < $11 OR $11 IS NULL) AND
+    ("width" = ANY($12) OR $12 IS NULL) AND
+    ("width" > $13 OR $13 IS NULL) AND
+    ("width" < $14 OR $14 IS NULL) AND
+    ("height" = ANY($15) OR $15 IS NULL) AND
+    ("height" > $16 OR $16 IS NULL) AND
+    ("height" < $17 OR $17 IS NULL) AND
+    ("duration" = ANY($18) OR $18 IS NULL) AND
+    ("duration" > $19 OR $19 IS NULL) AND
+    ("duration" < $20 OR $20 IS NULL) AND
+    ("status" = ANY($21) OR $21 IS NULL) AND
+    ("created_at" = ANY($22) OR $22 IS NULL) AND
+    ("created_at" > $23 OR $23 IS NULL) AND
+    ("created_at" < $24 OR $24 IS NULL)
 )
 ORDER BY "id"
-LIMIT $25
-OFFSET $24
+LIMIT $26
+OFFSET $25
 `
 
 type ListSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
-	Code           []string             `json:"code"`
-	FileSize       []pgtype.Int8        `json:"file_size"`
-	FileSizeFrom   pgtype.Int8          `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8          `json:"file_size_to"`
-	Width          []pgtype.Int4        `json:"width"`
-	WidthFrom      pgtype.Int4          `json:"width_from"`
-	WidthTo        pgtype.Int4          `json:"width_to"`
-	Height         []pgtype.Int4        `json:"height"`
-	HeightFrom     pgtype.Int4          `json:"height_from"`
-	HeightTo       pgtype.Int4          `json:"height_to"`
-	Duration       []pgtype.Float8      `json:"duration"`
-	DurationFrom   pgtype.Float8        `json:"duration_from"`
-	DurationTo     pgtype.Float8        `json:"duration_to"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
-	Offset         pgtype.Int4          `json:"offset"`
-	Limit          pgtype.Int4          `json:"limit"`
+	ID             []int64                  `json:"id"`
+	IDFrom         pgtype.Int8              `json:"id_from"`
+	IDTo           pgtype.Int8              `json:"id_to"`
+	Code           []string                 `json:"code"`
+	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
+	Provider       []SharedResourceProvider `json:"provider"`
+	FileSize       []pgtype.Int8            `json:"file_size"`
+	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
+	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
+	Width          []pgtype.Int4            `json:"width"`
+	WidthFrom      pgtype.Int4              `json:"width_from"`
+	WidthTo        pgtype.Int4              `json:"width_to"`
+	Height         []pgtype.Int4            `json:"height"`
+	HeightFrom     pgtype.Int4              `json:"height_from"`
+	HeightTo       pgtype.Int4              `json:"height_to"`
+	Duration       []pgtype.Float8          `json:"duration"`
+	DurationFrom   pgtype.Float8            `json:"duration_from"`
+	DurationTo     pgtype.Float8            `json:"duration_to"`
+	Status         []SharedStatus           `json:"status"`
+	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
+	Offset         pgtype.Int4              `json:"offset"`
+	Limit          pgtype.Int4              `json:"limit"`
 }
 
 func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error) {
@@ -12826,6 +12837,10 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 		arg.IDFrom,
 		arg.IDTo,
 		arg.Code,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
 		arg.FileSize,
 		arg.FileSizeFrom,
 		arg.FileSizeTo,
@@ -12838,9 +12853,6 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -12858,14 +12870,14 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 		if err := rows.Scan(
 			&i.ID,
 			&i.Code,
+			&i.UploadedBy,
+			&i.Provider,
 			&i.Mime,
-			&i.Url,
 			&i.FileSize,
 			&i.Width,
 			&i.Height,
 			&i.Duration,
 			&i.Checksum,
-			&i.UploadedBy,
 			&i.Status,
 			&i.CreatedAt,
 		); err != nil {
@@ -14485,46 +14497,48 @@ func (q *Queries) UpdatePromotionSchedule(ctx context.Context, arg UpdatePromoti
 const updateSharedResource = `-- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
 SET "code" = COALESCE($1, "code"),
-    "mime" = COALESCE($2, "mime"),
-    "url" = COALESCE($3, "url"),
-    "file_size" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "file_size") END,
-    "width" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "width") END,
-    "height" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "height") END,
-    "duration" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "duration") END,
-    "checksum" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "checksum") END,
-    "uploaded_by" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "uploaded_by") END,
+    "uploaded_by" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "uploaded_by") END,
+    "provider" = COALESCE($4, "provider"),
+    "mime" = COALESCE($5, "mime"),
+    "file_size" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "file_size") END,
+    "width" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "width") END,
+    "height" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "height") END,
+    "duration" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "duration") END,
+    "checksum" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "checksum") END,
     "status" = COALESCE($16, "status"),
     "created_at" = COALESCE($17, "created_at")
 WHERE id = $18
-RETURNING id, code, mime, url, file_size, width, height, duration, checksum, uploaded_by, status, created_at
+RETURNING id, code, uploaded_by, provider, mime, file_size, width, height, duration, checksum, status, created_at
 `
 
 type UpdateSharedResourceParams struct {
-	Code           pgtype.Text        `json:"code"`
-	Mime           pgtype.Text        `json:"mime"`
-	Url            pgtype.Text        `json:"url"`
-	NullFileSize   bool               `json:"null_file_size"`
-	FileSize       pgtype.Int8        `json:"file_size"`
-	NullWidth      bool               `json:"null_width"`
-	Width          pgtype.Int4        `json:"width"`
-	NullHeight     bool               `json:"null_height"`
-	Height         pgtype.Int4        `json:"height"`
-	NullDuration   bool               `json:"null_duration"`
-	Duration       pgtype.Float8      `json:"duration"`
-	NullChecksum   bool               `json:"null_checksum"`
-	Checksum       pgtype.Text        `json:"checksum"`
-	NullUploadedBy bool               `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
-	Status         NullSharedStatus   `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             int64              `json:"id"`
+	Code           pgtype.Text                `json:"code"`
+	NullUploadedBy bool                       `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8                `json:"uploaded_by"`
+	Provider       NullSharedResourceProvider `json:"provider"`
+	Mime           pgtype.Text                `json:"mime"`
+	NullFileSize   bool                       `json:"null_file_size"`
+	FileSize       pgtype.Int8                `json:"file_size"`
+	NullWidth      bool                       `json:"null_width"`
+	Width          pgtype.Int4                `json:"width"`
+	NullHeight     bool                       `json:"null_height"`
+	Height         pgtype.Int4                `json:"height"`
+	NullDuration   bool                       `json:"null_duration"`
+	Duration       pgtype.Float8              `json:"duration"`
+	NullChecksum   bool                       `json:"null_checksum"`
+	Checksum       pgtype.Text                `json:"checksum"`
+	Status         NullSharedStatus           `json:"status"`
+	CreatedAt      pgtype.Timestamptz         `json:"created_at"`
+	ID             int64                      `json:"id"`
 }
 
 func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error) {
 	row := q.db.QueryRow(ctx, updateSharedResource,
 		arg.Code,
+		arg.NullUploadedBy,
+		arg.UploadedBy,
+		arg.Provider,
 		arg.Mime,
-		arg.Url,
 		arg.NullFileSize,
 		arg.FileSize,
 		arg.NullWidth,
@@ -14535,8 +14549,6 @@ func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedReso
 		arg.Duration,
 		arg.NullChecksum,
 		arg.Checksum,
-		arg.NullUploadedBy,
-		arg.UploadedBy,
 		arg.Status,
 		arg.CreatedAt,
 		arg.ID,
@@ -14545,14 +14557,14 @@ func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedReso
 	err := row.Scan(
 		&i.ID,
 		&i.Code,
+		&i.UploadedBy,
+		&i.Provider,
 		&i.Mime,
-		&i.Url,
 		&i.FileSize,
 		&i.Width,
 		&i.Height,
 		&i.Duration,
 		&i.Checksum,
-		&i.UploadedBy,
 		&i.Status,
 		&i.CreatedAt,
 	)

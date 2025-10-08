@@ -320,14 +320,14 @@ Table PromotionDiscount {
 Table Resource {
   id BigInt [pk, increment]
   code String [unique, not null]
+  uploaded_by BigInt
+  provider ResourceProvider [not null]
   mime String [not null]
-  url String [not null]
   file_size BigInt
   width Int
   height Int
   duration Float
   checksum String
-  uploaded_by BigInt
   status Status [not null, default: 'Pending']
   created_at DateTime [default: `now()`, not null]
 }
@@ -455,6 +455,12 @@ Enum ResourceRefType {
   Refund
   ReturnDispute
   Comment
+}
+
+Enum ResourceProvider {
+  S3
+  Cloudinary
+  Local
 }
 
 Enum Status {

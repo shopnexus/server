@@ -12,7 +12,7 @@ import (
 )
 
 const listSortedResources = `-- name: ListSortedResources :many
-SELECT r.id, r.code, r.mime, r.url, r.file_size, r.width, r.height, r.duration, r.checksum, r.uploaded_by, r.status, r.created_at, rr.ref_id
+SELECT r.id, r.code, r.uploaded_by, r.provider, r.mime, r.file_size, r.width, r.height, r.duration, r.checksum, r.status, r.created_at, rr.ref_id
 FROM "shared"."resource_reference" AS rr
 INNER JOIN "shared"."resource" AS r ON rr.rs_id = r.id
 WHERE
@@ -29,19 +29,19 @@ type ListSortedResourcesParams struct {
 }
 
 type ListSortedResourcesRow struct {
-	ID         int64              `json:"id"`
-	Code       string             `json:"code"`
-	Mime       string             `json:"mime"`
-	Url        string             `json:"url"`
-	FileSize   pgtype.Int8        `json:"file_size"`
-	Width      pgtype.Int4        `json:"width"`
-	Height     pgtype.Int4        `json:"height"`
-	Duration   pgtype.Float8      `json:"duration"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	RefID      int64              `json:"ref_id"`
+	ID         int64                  `json:"id"`
+	Code       string                 `json:"code"`
+	UploadedBy pgtype.Int8            `json:"uploaded_by"`
+	Provider   SharedResourceProvider `json:"provider"`
+	Mime       string                 `json:"mime"`
+	FileSize   pgtype.Int8            `json:"file_size"`
+	Width      pgtype.Int4            `json:"width"`
+	Height     pgtype.Int4            `json:"height"`
+	Duration   pgtype.Float8          `json:"duration"`
+	Checksum   pgtype.Text            `json:"checksum"`
+	Status     SharedStatus           `json:"status"`
+	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
+	RefID      int64                  `json:"ref_id"`
 }
 
 func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error) {
@@ -56,14 +56,14 @@ func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourc
 		if err := rows.Scan(
 			&i.ID,
 			&i.Code,
+			&i.UploadedBy,
+			&i.Provider,
 			&i.Mime,
-			&i.Url,
 			&i.FileSize,
 			&i.Width,
 			&i.Height,
 			&i.Duration,
 			&i.Checksum,
-			&i.UploadedBy,
 			&i.Status,
 			&i.CreatedAt,
 			&i.RefID,
