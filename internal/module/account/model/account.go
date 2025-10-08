@@ -24,10 +24,10 @@ type Profile struct {
 	Gender           null.Value[db.AccountGender] `json:"gender"`
 	Name             null.String                  `json:"name"`
 	DateOfBirth      time.Time                    `json:"date_of_birth"`
-	AvatarRsID       null.Int64                   `json:"avatar_rs_id"`
 	EmailVerified    bool                         `json:"email_verified"`
 	PhoneVerified    bool                         `json:"phone_verified"`
 	DefaultContactID null.Int64                   `json:"default_contact_id"`
+	AvatarURL        null.String                  `json:"avatar_url"`
 
 	// Vendor fields
 	Description null.String `json:"description"`

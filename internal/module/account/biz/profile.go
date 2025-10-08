@@ -64,10 +64,10 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 		Gender:           null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
 		Name:             pgutil.PgTextToNullString(profile.Name),
 		DateOfBirth:      profile.DateOfBirth.Time,
-		AvatarRsID:       pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
+		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Int64),
 
 		// Vendor fields
 		Description: description,
@@ -165,10 +165,10 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		Gender:           null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
 		Name:             pgutil.PgTextToNullString(profile.Name),
 		DateOfBirth:      profile.DateOfBirth.Time,
-		AvatarRsID:       pgutil.PgInt8ToNullInt64(profile.AvatarRsID),
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
 		Description:      params.Description,
+		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Int64),
 	}, nil
 }

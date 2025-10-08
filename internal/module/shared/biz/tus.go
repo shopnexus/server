@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -92,7 +91,7 @@ func (b *SharedBiz) OnCreatedUpload(event tusd.HookEvent) {
 	_, err := b.storage.CreateDefaultSharedResource(event.Context, db.CreateDefaultSharedResourceParams{
 		UploadedBy: pgutil.Int64ToPgInt8(ctx.Account.ID),
 		Provider:   db.SharedResourceProviderLocal,
-		Mime:       event.Upload.MetaData["filetype"],
+		Mime:       event.Upload.MetaData["filetype"], // TODO: double check FE
 		FileSize:   pgutil.Int64ToPgInt8(event.Upload.Size),
 	})
 	if err != nil {
@@ -137,15 +136,4 @@ func (b *SharedBiz) OnTerminateUpload(event tusd.HookEvent) {
 	}
 
 	log.Printf("🗑️  Resource %s deleted\n", event.Upload.ID)
-}
-
-func GetResourceURL(resourceCode string) string {
-	switch config.GetConfig().Filestore.Type {
-	case "local":
-		return fmt.Sprintf("%s/api/v1/shared/files/%s", config.GetConfig().App.PublicURL, resourceCode)
-	case "s3":
-		return fmt.Sprintf("https://%s/%s", config.GetConfig().Filestore.S3.CloudfrontURL, resourceCode)
-	default:
-		return "" // TODO: add 404 link
-	}
 }

@@ -6,20 +6,23 @@ import (
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	"shopnexus-remastered/internal/utils/pgutil"
 )
 
 type AccountBiz struct {
 	storage   *pgutil.Storage
 	pubsub    pubsub.Client
+	shared    *sharedbiz.SharedBiz
 	promotion *promotionbiz.PromotionBiz
 }
 
 // NewAccountBiz creates a new instance of AccountBiz.
-func NewAccountBiz(storage *pgutil.Storage, pubsub pubsub.Client, promotionBiz *promotionbiz.PromotionBiz) *AccountBiz {
+func NewAccountBiz(storage *pgutil.Storage, pubsub pubsub.Client, promotionBiz *promotionbiz.PromotionBiz, sharedBiz *sharedbiz.SharedBiz) *AccountBiz {
 	return &AccountBiz{
 		storage:   storage,
 		pubsub:    pubsub,
+		shared:    sharedBiz,
 		promotion: promotionBiz,
 	}
 }
