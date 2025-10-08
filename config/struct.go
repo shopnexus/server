@@ -7,14 +7,16 @@ type Config struct {
 	App App    `yaml:"app" mapstructure:"app" validate:"required"`
 
 	// Infrastructure components
-	Postgres Postgres `yaml:"postgres" mapstructure:"postgres" validate:"required"`
-	Redis    Redis    `yaml:"redis" mapstructure:"redis" validate:"required"`
+	Postgres  Postgres  `yaml:"postgres" mapstructure:"postgres" validate:"required"`
+	Redis     Redis     `yaml:"redis" mapstructure:"redis" validate:"required"`
+	Filestore Filestore `yaml:"filestore" mapstructure:"filestore" validate:"required"`
 }
 
 type App struct {
-	Name  string `yaml:"name" mapstructure:"name" validate:"required"`
-	JWT   JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
-	Vnpay Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
+	Name      string `yaml:"name" mapstructure:"name" validate:"required"`
+	PublicURL string `yaml:"publicUrl" mapstructure:"publicUrl" validate:"required,url"`
+	JWT       JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
+	Vnpay     Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
 }
 
 type JWT struct {
@@ -59,4 +61,17 @@ type Redis struct {
 	Port     string `yaml:"port" mapstructure:"port" validate:"required"`
 	Password string `yaml:"password" mapstructure:"password"`
 	DB       int64  `yaml:"db" mapstructure:"db" validate:"gte=0"`
+}
+
+type Filestore struct {
+	Type string      `yaml:"type" mapstructure:"type" validate:"required,oneof=local s3"`
+	S3   S3Filestore `yaml:"s3" mapstructure:"s3"`
+}
+
+type S3Filestore struct {
+	AccessKeyID     string `yaml:"accessKeyID" mapstructure:"accessKeyID"`
+	SecretAccessKey string `yaml:"secretAccessKey" mapstructure:"secretAccessKey"`
+	Region          string `yaml:"region" mapstructure:"region"`
+	Bucket          string `yaml:"bucket" mapstructure:"bucket"`
+	CloudfrontURL   string `yaml:"cloudfrontUrl" mapstructure:"cloudfrontUrl" validate:"omitempty,url"`
 }
