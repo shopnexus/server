@@ -22,9 +22,9 @@ const (
 
 var claimsCache = cachestruct.NewInMemoryClient()
 
-// GetClaims retrieves and validates JWT claims from the token, using an in-memory cache
-func GetClaims(r *http.Request) (authmodel.Claims, error) {
-	token := r.Header.Get(tokenHeader)
+// GetClaimsByHeader retrieves and validates JWT claims from the token, using an in-memory cache
+func GetClaimsByHeader(header http.Header) (authmodel.Claims, error) {
+	token := header.Get(tokenHeader)
 
 	if token == "" {
 		return authmodel.Claims{}, fmt.Errorf("missing authorization header")
@@ -48,6 +48,10 @@ func GetClaims(r *http.Request) (authmodel.Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func GetClaims(r *http.Request) (authmodel.Claims, error) {
+	return GetClaimsByHeader(r.Header)
 }
 
 func ValidateAccessToken(secret string, tokenStr string) (claims authmodel.Claims, err error) {
