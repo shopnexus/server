@@ -1,18 +1,21 @@
 package authbiz
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/client/cachestruct"
+	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/guregu/null/v6"
@@ -26,17 +29,19 @@ type AuthBiz struct {
 	refreshTokenDuration time.Duration
 	refreshSecret        []byte
 
-	accountBiz *accountbiz.AccountBiz
-	cache      cachestruct.Client
+	storage *pgutil.Storage
+	pubsub  pubsub.Client
+	cache   cachestruct.Client
 }
 
-func NewAuthBiz(accountBiz *accountbiz.AccountBiz, cache cachestruct.Client) *AuthBiz {
+func NewAuthBiz(storage *pgutil.Storage, pubsub pubsub.Client, cache cachestruct.Client) *AuthBiz {
 	return &AuthBiz{
 		tokenDuration:        time.Duration(config.GetConfig().App.JWT.AccessTokenDuration * int64(time.Second)),
 		jwtSecret:            []byte(config.GetConfig().App.JWT.Secret),
 		refreshTokenDuration: time.Duration(config.GetConfig().App.JWT.RefreshTokenDuration * int64(time.Second)),
 		refreshSecret:        []byte(config.GetConfig().App.JWT.RefreshSecret),
-		accountBiz:           accountBiz,
+		storage:              storage,
+		pubsub:               pubsub,
 		cache:                cache,
 	}
 }
@@ -119,7 +124,7 @@ type LoginParams struct {
 	Username null.String `validate:"omitnil"`
 	Email    null.String `validate:"omitnil"`
 	Phone    null.String `validate:"omitnil"`
-	Password null.String `validate:"required,min=8,max=72"`
+	Password null.String `validate:"omitnil,min=8,max=72"`
 }
 
 type LoginResult struct {
@@ -135,12 +140,19 @@ func (a *AuthBiz) Login(ctx context.Context, params LoginParams) (LoginResult, e
 		return zero, err
 	}
 
-	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
-		Username: params.Username,
-		Email:    params.Email,
-		Phone:    params.Phone,
+	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
+		return zero, fmt.Errorf("at least one of username, email, or phone must be provided")
+	}
+
+	account, err := a.storage.GetAccountBase(ctx, db.GetAccountBaseParams{
+		Phone:    pgutil.NullStringToPgText(params.Phone),
+		Email:    pgutil.NullStringToPgText(params.Email),
+		Username: pgutil.NullStringToPgText(params.Username),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return zero, authmodel.ErrAccountNotFound
+		}
 		return zero, err
 	}
 
@@ -192,6 +204,12 @@ func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (Register
 		return zero, authmodel.ErrMissingIdentifier
 	}
 
+	txStorage, err := a.storage.BeginTx(ctx)
+	if err != nil {
+		return zero, err
+	}
+	defer txStorage.Rollback(ctx)
+
 	// If register via Google OAuth, password can be nil => password is nil, email is required
 	//! More oauth providers can be added in the future
 	if !params.Password.Valid && !params.Email.Valid {
@@ -208,14 +226,39 @@ func (a *AuthBiz) Register(ctx context.Context, params RegisterParams) (Register
 		hashedPassword.SetValid(hashed)
 	}
 
-	account, err := a.accountBiz.CreateAccount(ctx, accountbiz.CreateAccountParams{
+	// Create account base
+	account, err := txStorage.CreateDefaultAccountBase(ctx, db.CreateDefaultAccountBaseParams{
 		Type:     params.Type,
-		Username: params.Username,
-		Email:    params.Email,
-		Phone:    params.Phone,
-		Password: hashedPassword,
+		Phone:    pgutil.NullStringToPgText(params.Phone),
+		Email:    pgutil.NullStringToPgText(params.Email),
+		Username: pgutil.NullStringToPgText(params.Username),
+		Password: pgutil.NullStringToPgText(hashedPassword),
 	})
 	if err != nil {
+		return zero, err
+	}
+
+	// Create empty profile
+	if _, err := txStorage.CreateDefaultAccountProfile(ctx, db.CreateDefaultAccountProfileParams{
+		ID: account.ID,
+	}); err != nil {
+		return zero, err
+	}
+
+	// Create empty customer/vendor additional profile
+	switch account.Type {
+	case db.AccountTypeCustomer:
+		_, err = txStorage.CreateDefaultAccountCustomer(ctx, account.ID)
+	case db.AccountTypeVendor:
+		_, err = txStorage.CreateDefaultAccountVendor(ctx, account.ID)
+	default:
+		return zero, fmt.Errorf("unsupported account type: %v", account.Type)
+	}
+	if err != nil {
+		return zero, err
+	}
+
+	if err := txStorage.Commit(ctx); err != nil {
 		return zero, err
 	}
 
@@ -249,8 +292,8 @@ func (a *AuthBiz) Refresh(ctx context.Context, refreshToken string) (RefreshResu
 		return zero, err
 	}
 
-	account, err := a.accountBiz.FindAccount(ctx, accountbiz.FindAccountParams{
-		ID: null.NewInt(claims.Account.ID, true),
+	account, err := a.storage.GetAccountBase(ctx, db.GetAccountBaseParams{
+		ID: pgutil.Int64ToPgInt8(claims.Account.ID),
 	})
 	if err != nil {
 		return zero, err
