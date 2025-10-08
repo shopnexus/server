@@ -6,6 +6,7 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -93,14 +94,18 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 	}
 	resourceMap := make(map[int64][]sharedmodel.Resource)
 	for _, row := range dbResources {
+		// url, err :=
+
 		resourceMap[row.RefID] = append(resourceMap[row.RefID], sharedmodel.Resource{
-			ID:       row.ID,
-			Mime:     row.Mime,
-			Url:      row.Url,
+			ID:   row.ID,
+			Url:  sharedbiz.GetResourceURL(row.Code),
+			Mime: row.Mime,
+
 			FileSize: pgutil.PgInt8ToNullInt64(row.FileSize),
 			Width:    pgutil.PgInt4ToNullInt32(row.Width),
 			Height:   pgutil.PgInt4ToNullInt32(row.Height),
 			Duration: pgutil.PgFloat8ToNullFloat(row.Duration),
+			Checksum: pgutil.PgTextToNullString(row.Checksum),
 		})
 	}
 
@@ -116,8 +121,8 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 			a := avatarMap[profile.AvatarRsID.Int64]
 			avatar = &sharedmodel.Resource{
 				ID:       a.ID,
+				Url:      sharedbiz.GetResourceURL(a.Code),
 				Mime:     a.Mime,
-				Url:      a.Url,
 				FileSize: pgutil.PgInt8ToNullInt64(a.FileSize),
 				Width:    pgutil.PgInt4ToNullInt32(a.Width),
 				Height:   pgutil.PgInt4ToNullInt32(a.Height),
@@ -185,20 +190,34 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		return zero, err
 	}
 
-	var createResourceArgs []db.CreateCopyDefaultSharedResourceParams
-	for _, res := range params.Resources {
-		createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceParams{
-			Mime: "image/jpeg", // TODO: support other mime types
-			//OwnerType: db.SharedResourceTypeProductSpu,
-			//OwnerID:   comment.ID,
-			//Order:     res.Order,
-			Url:        res.Url,
-			UploadedBy: pgtype.Int8{Int64: params.Account.ID, Valid: true},
+	// Attach resources
+	if len(params.Resources) > 0 {
+		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
+
+		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
+			ID:         slice.Map(params.Resources, func(r sharedmodel.CreateResource) int64 { return r.FileID }),
+			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 		})
-	}
-	if len(createResourceArgs) > 0 {
-		if _, err := txStorage.CreateCopyDefaultSharedResource(ctx, createResourceArgs); err != nil {
+		if err != nil {
 			return zero, err
+		}
+		if len(resources) != len(params.Resources) {
+			// Some resources not found or not belong to the user
+			return zero, sharedmodel.ErrResourceNotFound
+		}
+
+		for order, res := range params.Resources {
+			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
+				RsID:      res.FileID,
+				RefType:   db.SharedResourceRefTypeComment,
+				RefID:     comment.ID,
+				Order:     int32(order),
+				IsPrimary: false,
+			})
+
+			if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
+				return zero, err
+			}
 		}
 	}
 
@@ -257,7 +276,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	}
 
 	// Update resources
-	if len(params.Resources) > 0 {
+	if len(params.Resources) > 0 || params.EmptyResources {
 		// Delete old resources
 		if err := txStorage.DeleteSharedResourceReference(ctx, db.DeleteSharedResourceReferenceParams{
 			RefType: []db.SharedResourceRefType{db.SharedResourceRefTypeComment},
@@ -266,22 +285,32 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 			return zero, err
 		}
 
-		// Add new resources
-		var createResourceArgs []db.CreateCopyDefaultSharedResourceParams
-		for _, res := range params.Resources {
-			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceParams{
-				Mime: "image/jpeg", // TODO: support other mime types
-				Url:  res.Url,
-				//FileSize:   pgtype.Int8{},
-				//Width:      pgtype.Int4{},
-				//Height:     pgtype.Int4{},
-				//Duration:   pgtype.Float8{},
-				//Checksum:   pgtype.Text{},
-				UploadedBy: pgtype.Int8{Int64: params.Account.ID, Valid: true},
-			})
+		// Attach resources
+
+		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
+
+		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
+			ID:         slice.Map(params.Resources, func(r sharedmodel.CreateResource) int64 { return r.FileID }),
+			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
+		})
+		if err != nil {
+			return zero, err
 		}
-		if len(createResourceArgs) > 0 {
-			if _, err := txStorage.CreateCopyDefaultSharedResource(ctx, createResourceArgs); err != nil {
+		if len(resources) != len(params.Resources) {
+			// Some resources not found or not belong to the user
+			return zero, sharedmodel.ErrResourceNotFound
+		}
+
+		for order, res := range params.Resources {
+			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
+				RsID:      res.FileID,
+				RefType:   db.SharedResourceRefTypeComment,
+				RefID:     comment.ID,
+				Order:     int32(order),
+				IsPrimary: false,
+			})
+
+			if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
 				return zero, err
 			}
 		}

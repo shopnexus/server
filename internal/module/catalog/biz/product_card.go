@@ -12,6 +12,7 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -141,7 +142,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 			Resource: sharedmodel.Resource{
 				ID:       resource.ID,
 				Mime:     resource.Mime,
-				Url:      resource.Url,
+				Url:      sharedbiz.GetResourceURL(resource.Code),
 				FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
 				Width:    pgutil.PgInt4ToNullInt32(resource.Width),
 				Height:   pgutil.PgInt4ToNullInt32(resource.Height),

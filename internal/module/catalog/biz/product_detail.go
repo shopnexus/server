@@ -8,6 +8,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -83,7 +84,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
 			ID:       res.ID,
 			Mime:     res.Mime,
-			Url:      res.Url,
+			Url:      sharedbiz.GetResourceURL(res.Code),
 			FileSize: pgutil.PgInt8ToNullInt64(res.FileSize),
 			Width:    pgutil.PgInt4ToNullInt32(res.Width),
 			Height:   pgutil.PgInt4ToNullInt32(res.Height),
