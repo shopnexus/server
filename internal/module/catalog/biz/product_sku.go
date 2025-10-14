@@ -8,59 +8,64 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListProductSkuParams struct {
-	sharedmodel.PaginationParams
-	SpuID      []int64 `validate:"omitempty,dive,gt=0"`
-	Price      []int64 `validate:"omitempty,dive,gt=0"`
-	PriceFrom  null.Int64
-	PriceTo    null.Int64
-	CanCombine []bool
+	SpuID      int64      `validate:"omitempty,gt=0"`
+	PriceFrom  null.Int64 `validate:"omitnil,gt=0"`
+	PriceTo    null.Int64 `validate:"omitnil,gt=0,gtefield=PriceFrom"`
+	CanCombine null.Bool  `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) (sharedmodel.PaginateResult[db.CatalogProductSku], error) {
-	var zero sharedmodel.PaginateResult[db.CatalogProductSku]
+func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{
-		SpuID:      params.SpuID,
-		Price:      params.Price,
+	dbSkus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+		SpuID:      []int64{params.SpuID},
 		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
 		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
-		CanCombine: params.CanCombine,
+		CanCombine: pgutil.NullBoolToSlice(params.CanCombine),
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		IDFrom:     params.GetCursorID(),
-		Limit:      pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:     pgutil.Int32ToPgInt4(params.Offset()),
-		SpuID:      params.SpuID,
-		Price:      params.Price,
-		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
-		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
-		CanCombine: params.CanCombine,
+	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
+		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
+		RefID:   slice.Map(dbSkus, func(s db.CatalogProductSku) int64 { return s.ID }),
 	})
 	if err != nil {
 		return zero, err
 	}
+	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
 
-	return sharedmodel.PaginateResult[db.CatalogProductSku]{
-		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
-		Data:       skus,
-	}, nil
+	var skus []catalogmodel.ProductSku
+	for _, dbSku := range dbSkus {
+		var attributes []catalogmodel.ProductAttribute
+		if err := json.Unmarshal(dbSku.Attributes, &attributes); err != nil {
+			return zero, err
+		}
+		skus = append(skus, catalogmodel.ProductSku{
+			ID:          dbSku.ID,
+			SpuID:       dbSku.SpuID,
+			Price:       dbSku.Price,
+			CanCombine:  dbSku.CanCombine,
+			DateCreated: dbSku.DateCreated.Time,
+			Stock:       stockMap[dbSku.ID].CurrentStock,
+			Attributes:  attributes,
+		})
+	}
+
+	return skus, nil
 }
 
 type CreateProductSkuParams struct {

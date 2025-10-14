@@ -73,7 +73,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		return zero, err
 	}
 	// map[accountID]db.AccountProfile
-	profileMap := slice.NewMap(dbProfiles, func(a db.AccountProfile) int64 { return a.ID })
+	profileMap := slice.GroupBy(dbProfiles, func(a db.AccountProfile) (int64, db.AccountProfile) { return a.ID, a })
 
 	// Map avatar accounts
 	avatars, err := b.storage.ListSharedResource(ctx, db.ListSharedResourceParams{
@@ -82,7 +82,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 	if err != nil {
 		return zero, err
 	}
-	avatarMap := slice.NewMap(avatars, func(r db.SharedResource) int64 { return r.ID })
+	avatarMap := slice.GroupBy(avatars, func(r db.SharedResource) (int64, db.SharedResource) { return r.ID, r })
 
 	// Map resources to comments
 	dbResources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
@@ -98,7 +98,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 
 		resourceMap[row.RefID] = append(resourceMap[row.RefID], sharedmodel.Resource{
 			ID:   row.ID,
-			Url:  sharedbiz.GetResourceURL(row.Code),
+			Url:  sharedbiz.GetResourceURL(string(row.Provider), row.ObjectKey),
 			Mime: row.Mime,
 
 			FileSize: pgutil.PgInt8ToNullInt64(row.FileSize),
@@ -121,7 +121,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 			a := avatarMap[profile.AvatarRsID.Int64]
 			avatar = &sharedmodel.Resource{
 				ID:       a.ID,
-				Url:      sharedbiz.GetResourceURL(a.Code),
+				Url:      sharedbiz.GetResourceURL(string(a.Provider), a.ObjectKey),
 				Mime:     a.Mime,
 				FileSize: pgutil.PgInt8ToNullInt64(a.FileSize),
 				Width:    pgutil.PgInt4ToNullInt32(a.Width),

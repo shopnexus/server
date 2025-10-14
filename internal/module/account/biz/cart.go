@@ -41,9 +41,9 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 		return nil, nil
 	}
 	var spuIDs []int64
-	skuMap := slice.NewSliceMapID(skus, func(sku db.CatalogProductSku) int64 {
+	skuMap := slice.GroupBy(skus, func(sku db.CatalogProductSku) (int64, db.CatalogProductSku) {
 		spuIDs = append(spuIDs, sku.SpuID)
-		return sku.ID
+		return sku.ID, sku
 	})
 
 	// List all SPUs that user want to see
@@ -52,13 +52,13 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 		return nil, err
 	}
 	categoryIDs := make([]int64, 0, len(spus))
-	spuMap := slice.NewSliceMapID(spus, func(spu db.CatalogProductSpu) int64 {
+	spuMap := slice.GroupBy(spus, func(spu db.CatalogProductSpu) (int64, db.CatalogProductSpu) {
 		categoryIDs = append(categoryIDs, spu.CategoryID)
-		return spu.ID
+		return spu.ID, spu
 	})
 
 	// Calculate price using promotion biz map[skuID]*catalogmodel.ProductPrice
-	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap.Map)
+	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 		return nil, err
 	}
 	// map[spuID]resource
-	resourceMap := slice.NewMap(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
+	resourceMap := slice.GroupBy(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
 
 	// Get category
 	categories, err := s.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
@@ -90,8 +90,8 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 	// Build result
 	result := make([]accountmodel.CartItem, 0, len(cartItems))
 	for _, item := range cartItems {
-		sku := skuMap.Map[item.SkuID]
-		spu := spuMap.Map[sku.SpuID]
+		sku := skuMap[item.SkuID]
+		spu := spuMap[sku.SpuID]
 		promos := []int64{}
 		for _, promo := range priceMap[sku.ID].Promotions {
 			promos = append(promos, promo.ID)
@@ -112,7 +112,7 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 			Quantity:      item.Quantity,
 			Resource: sharedmodel.Resource{
 				ID:       resourceMap[spu.ID].ID,
-				Url:      sharedbiz.GetResourceURL(resourceMap[spu.ID].Code),
+				Url:      sharedbiz.GetResourceURL(string(resourceMap[spu.ID].Provider), resourceMap[spu.ID].ObjectKey),
 				Mime:     resourceMap[spu.ID].Mime,
 				FileSize: pgutil.PgInt8ToNullInt64(resourceMap[spu.ID].FileSize),
 				Width:    pgutil.PgInt4ToNullInt32(resourceMap[spu.ID].Width),

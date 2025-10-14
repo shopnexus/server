@@ -70,7 +70,6 @@ type CreatePromotionParams struct {
 	Account authmodel.AuthenticatedAccount
 
 	Code        string              `validate:"required,alphanum,min=3,max=50"`
-	OwnerID     null.Int64          `validate:"omitnil"`
 	RefType     db.PromotionRefType `validate:"required,validateFn=Valid"`
 	RefID       null.Int64          `validate:"omitnil"`
 	Type        db.PromotionType    `validate:"required,validateFn=Valid"`
@@ -90,7 +89,7 @@ func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgutil.Tx
 
 	dbPromo, err := txStorage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
 		Code:        params.Code,
-		OwnerID:     pgutil.NullInt64ToPgInt8(params.OwnerID),
+		OwnerID:     pgutil.Int64ToPgInt8(params.Account.ID),
 		RefType:     params.RefType,
 		RefID:       pgutil.NullInt64ToPgInt8(params.RefID),
 		Type:        db.PromotionTypeDiscount,

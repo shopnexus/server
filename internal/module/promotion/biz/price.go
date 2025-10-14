@@ -13,7 +13,7 @@ import (
 func (s *PromotionBiz) CalculatePromotedPrices(
 	ctx context.Context,
 	skus []db.CatalogProductSku, // All skus to calculate price for
-	spuMap map[int64]*db.CatalogProductSpu, // Map of sku.spuID to SPU
+	spuMap map[int64]db.CatalogProductSpu, // Map of sku.spuID to SPU
 ) (map[int64]*catalogmodel.ProductPrice, error) {
 	priceMap := make(map[int64]*catalogmodel.ProductPrice)
 
@@ -33,8 +33,8 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	if err != nil {
 		return nil, err
 	}
-	promotionMap := slice.NewSliceMapID(promotions, func(promo db.PromotionBase) int64 {
-		return promo.ID
+	promotionMap := slice.GroupBy(promotions, func(promo db.PromotionBase) (int64, db.PromotionBase) {
+		return promo.ID, promo
 	})
 
 	promoDiscounts, err := s.storage.ListPromotionDiscount(ctx, db.ListPromotionDiscountParams{
@@ -54,14 +54,14 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 		price := priceMap[sku.ID]
 
 		for _, discount := range promoDiscounts {
-			if !IsPromotionApplicable(*promotionMap.Map[discount.ID], *spuMap[sku.SpuID], price.SkuID) {
+			if !IsPromotionApplicable(promotionMap[discount.ID], spuMap[sku.SpuID], price.SkuID) {
 				continue
 			}
 
 			// Calculate discounted price
 			discounted := CalculateDiscountedItemPrice(price.OriginalPrice, discount)
 			if price.Price > discounted {
-				price.Promotions = append(price.Promotions, *promotionMap.Map[discount.ID])
+				price.Promotions = append(price.Promotions, promotionMap[discount.ID])
 				price.Price = discounted
 			}
 		}

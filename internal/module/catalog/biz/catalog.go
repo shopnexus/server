@@ -9,25 +9,25 @@ import (
 )
 
 type CatalogBiz struct {
-	cache        cachestruct.Client
-	pubsub       pubsub.Client
-	storage      *pgutil.Storage
-	promotionBiz *promotionbiz.PromotionBiz
-	search       *searchbiz.SearchBiz
+	cache     cachestruct.Client
+	pubsub    pubsub.Client
+	storage   *pgutil.Storage
+	promotion *promotionbiz.PromotionBiz
+	search    *searchbiz.SearchBiz
 }
 
 func NewCatalogBiz(
 	cache cachestruct.Client,
 	pubsub pubsub.Client,
 	storage *pgutil.Storage,
-	promotionBiz *promotionbiz.PromotionBiz,
+	promotion *promotionbiz.PromotionBiz,
 	search *searchbiz.SearchBiz,
 ) *CatalogBiz {
 	return &CatalogBiz{
-		cache:        cache,
-		pubsub:       pubsub.Group("catalog"),
-		storage:      storage,
-		promotionBiz: promotionBiz,
-		search:       search,
+		cache:     cache,
+		pubsub:    pubsub.Group("catalog"),
+		storage:   storage,
+		promotion: promotion,
+		search:    search,
 	}
 }

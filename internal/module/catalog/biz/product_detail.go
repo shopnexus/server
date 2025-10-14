@@ -54,7 +54,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	if err != nil {
 		return zero, err
 	}
-	stockMap := slice.NewMap(stocks, func(s db.InventoryStock) int64 { return s.RefID })
+	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
 
 	for _, sku := range skus {
 		var attributes []catalogmodel.ProductAttribute
@@ -84,7 +84,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
 			ID:       res.ID,
 			Mime:     res.Mime,
-			Url:      sharedbiz.GetResourceURL(res.Code),
+			Url:      sharedbiz.GetResourceURL(string(res.Provider), res.ObjectKey),
 			FileSize: pgutil.PgInt8ToNullInt64(res.FileSize),
 			Width:    pgutil.PgInt4ToNullInt32(res.Width),
 			Height:   pgutil.PgInt4ToNullInt32(res.Height),
@@ -114,8 +114,8 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		return zero, err
 	}
 
-	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, skus, map[int64]*db.CatalogProductSpu{
-		spu.ID: &spu,
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, map[int64]db.CatalogProductSpu{
+		spu.ID: spu,
 	})
 	if err != nil {
 		return zero, err
@@ -145,12 +145,13 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
+		Code:        spu.Code,
 		Name:        spu.Name,
 		Description: spu.Description,
 		Brand:       brand.Name,
 		IsActive:    spu.IsActive,
 		Category:    category.Name,
-		Rating: catalogmodel.ProductDetailRating{
+		Rating: catalogmodel.ProductRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,

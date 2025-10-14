@@ -22,6 +22,7 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	// Product Spu
 	spuApi := api.Group("/product-spu")
 	spuApi.GET("", h.ListProductSpu)
+	spuApi.GET("/:id", h.GetProductSpu)
 	spuApi.POST("", h.CreateProductSpu)
 	spuApi.PATCH("", h.UpdateProductSpu)
 	spuApi.DELETE("", h.DeleteProductSpu)

@@ -128,7 +128,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	// Remove the checkout items from cart
 	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
-	orderItemMap := slice.NewMap(params.Skus, func(s OrderSku) int64 { return s.SkuID })
+	orderItemMap := slice.GroupBy(params.Skus, func(s OrderSku) (int64, OrderSku) { return s.SkuID, s })
 	cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
 		CartID: params.Account.ID,
 		SkuID:  skuIDs,
@@ -140,7 +140,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		// Prevent duplicate skuIDs in params or some sku not found in cart
 		return zero, fmt.Errorf("some sku not found in cart")
 	}
-	cartMap := slice.NewMap(cartItems, func(item db.AccountCartItem) int64 { return item.SkuID })
+	cartMap := slice.GroupBy(cartItems, func(item db.AccountCartItem) (int64, db.AccountCartItem) { return item.SkuID, item })
 
 	// Reserve stock for the skus in cart
 	var reserveStockErr error
@@ -169,7 +169,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	if len(skus) != len(skuIDs) {
 		return zero, ordermodel.ErrOrderItemNotFound
 	}
-	skuMap := slice.NewMap(skus, func(s db.CatalogProductSku) int64 { return s.ID })
+	skuMap := slice.GroupBy(skus, func(s db.CatalogProductSku) (int64, db.CatalogProductSku) { return s.ID, s })
 
 	// Calculate prices
 	spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
@@ -178,7 +178,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	if err != nil {
 		return zero, err
 	}
-	spuMap := slice.NewMap(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
+	spuMap := slice.GroupBy(spus, func(s db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return s.ID, s })
 
 	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 	if err != nil {
@@ -208,7 +208,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 	// map[skuID]contact
-	contactMap := slice.NewMap(contacts, func(c db.GetVendorAddressBySkuIDsRow) int64 { return c.SkuID })
+	contactMap := slice.GroupBy(contacts, func(c db.GetVendorAddressBySkuIDsRow) (int64, db.GetVendorAddressBySkuIDsRow) { return c.SkuID, c })
 
 	for _, skuID := range skuIDs {
 		// Only quote shipment, after vendor confirm the order, we will create the shipment
@@ -384,156 +384,45 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	return CreateOrderResult{Order: order, RedirectUrl: redirectUrl}, nil
 }
 
-//
-//type UpdateOrderParams struct {
-//	ShipmentID        int64
-//	AccountID int64
-//	Role      db.AccountType
-//	Method    *db.OrderOrderMethod
-//	Address   *string
-//	Status    *db.Status
-//}
-//
-//func (s *OrderBiz) UpdateOrder(ctx context.Context, params UpdateOrderParams) error {
-//	txStorage, err := s.storage.Begin(ctx)
-//	if err != nil {
-//		return err
-//	}
-//	defer txStorage.Rollback(ctx)
-//
-//	getOrderParams := db.GetOrderParams{
-//		ShipmentID:     params.ShipmentID,
-//		Status: ptr.ToPtr(db.StatusPending),
-//	}
-//
-//	// User only see their own payments
-//	if params.Role == db.RoleUser {
-//		getOrderParams.UserID = &params.AccountID
-//	}
-//
-//	// ShippingOrder must be pending
-//	payment, err := txStorage.GetOrder(ctx, getOrderParams)
-//	if err != nil {
-//		return err
-//	}
-//
-//	// If payment method is cash, address is required
-//	if (params.Method == nil && payment.Method == db.OrderOrderMethodCash || params.Method != nil && *params.Method == db.OrderOrderMethodCash) &&
-//		(params.Address == nil && payment.Address == "" || params.Address != nil && *params.Address == "") {
-//		return fmt.Errorf("address is required for payment method %s", *params.Method)
-//	}
-//
-//	// If params.Status is not nil and not admin, check if account (staff, ...) has permission to update status
-//	if params.Status != nil && params.Role != db.RoleAdmin {
-//		if ok, err := s.accountSvc.HasPermission(ctx, account.HasPermissionParams{
-//			AccountID: params.AccountID,
-//			Permissions: []db.Permission{
-//				db.PermissionUpdateOrder,
-//			},
-//		}); err != nil {
-//			return err
-//		} else if !ok {
-//			return fmt.Errorf("account %d does not have permission to update payment status", params.AccountID)
-//		}
-//	}
-//
-//	if err = txStorage.UpdateOrder(ctx, db.UpdateOrderParams{
-//		ShipmentID:      params.ShipmentID,
-//		Method:  params.Method,
-//		Address: params.Address,
-//		Status:  params.Status,
-//	}); err != nil {
-//		return err
-//	}
-//
-//	if err = txStorage.Commit(ctx); err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
-//
-//type CancelOrderParams = struct {
-//	UserID  int64
-//	OrderID int64
-//}
-//
-//func (s *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) error {
-//	txStorage, err := s.storage.Begin(ctx)
-//	if err != nil {
-//		return err
-//	}
-//	defer txStorage.Rollback(ctx)
-//
-//	payment, err := txStorage.GetOrder(ctx, db.GetOrderParams{
-//		ShipmentID:     params.OrderID,
-//		UserID: &params.UserID,
-//	})
-//	if err != nil {
-//		return err
-//	}
-//
-//	// No need to check ownership as we already check it in GetOrder
-//	// if payment.UserID != *params.UserID {
-//	// 	return fmt.Errorf("payment %d not belong to user %d", params.OrderID, params.UserID)
-//	// }
-//
-//	if payment.Status != db.StatusPending {
-//		return fmt.Errorf("payment %d cannot be canceled", params.OrderID)
-//	}
-//
-//	if err = txStorage.UpdateOrder(ctx, db.UpdateOrderParams{
-//		ShipmentID:     params.OrderID,
-//		Status: ptr.ToPtr(db.StatusCanceled),
-//	}); err != nil {
-//		return err
-//	}
-//
-//	if err = txStorage.Commit(ctx); err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
-//
-//type CancelRefundParams = struct {
-//	UserID   int64
-//	RefundID int64
-//}
-//
-//func (s *OrderBiz) CancelRefund(ctx context.Context, params CancelRefundParams) error {
-//	txStorage, err := s.storage.BeginTx(ctx)
-//	if err != nil {
-//		return err
-//	}
-//	defer txStorage.Rollback(ctx)
-//
-//	refund, err := txStorage.GetRefund(ctx, db.GetRefundParams{
-//		ShipmentID:     params.RefundID,
-//		UserID: &params.UserID,
-//	})
-//	if err != nil {
-//		return err
-//	}
-//
-//	if refund.Status != db.StatusPending {
-//		return fmt.Errorf("refund %d cannot be canceled", params.RefundID)
-//	}
-//
-//	if err = txStorage.UpdateRefund(ctx, db.UpdateRefundParams{
-//		ShipmentID:     params.RefundID,
-//		UserID: &params.UserID,
-//		Status: ptr.ToPtr(db.StatusCanceled),
-//	}); err != nil {
-//		return err
-//	}
-//
-//	if err = txStorage.Commit(ctx); err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
+type CancelOrderParams = struct {
+	Account authmodel.AuthenticatedAccount
+	OrderID int64
+}
+
+func (s *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) error {
+	txStorage, err := s.storage.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer txStorage.Rollback(ctx)
+
+	payment, err := txStorage.GetOrderBase(ctx, pgutil.Int64ToPgInt8(params.OrderID))
+	if err != nil {
+		return err
+	}
+
+	// No need to check ownership as we already check it in GetOrder
+	// if payment.UserID != *params.UserID {
+	// 	return fmt.Errorf("payment %d not belong to user %d", params.OrderID, params.UserID)
+	// }
+
+	if payment.PaymentStatus != db.SharedStatusPending {
+		return fmt.Errorf("payment %d cannot be canceled", params.OrderID)
+	}
+
+	if _, err = txStorage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
+		ID:            params.OrderID,
+		PaymentStatus: db.NullSharedStatus{SharedStatus: db.SharedStatusCanceled, Valid: true},
+	}); err != nil {
+		return err
+	}
+
+	if err = txStorage.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 type VerifyPaymentParams struct {
 	PaymentGateway string `validate:"required,min=1,max=50"`

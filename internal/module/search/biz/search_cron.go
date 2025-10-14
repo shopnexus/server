@@ -88,12 +88,13 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 	for i, p := range products {
 		productDetails[i] = catalogmodel.ProductDetail{
 			ID:          p.ID,
+			Code:        p.Code,
 			Name:        p.Name,
 			Description: p.Description,
 			Brand:       p.BrandName,
 			IsActive:    p.IsActive,
 			Category:    p.CategoryName,
-			Rating: catalogmodel.ProductDetailRating{
+			Rating: catalogmodel.ProductRating{
 				Score: p.RatingScore,
 				Total: p.RatingTotal,
 			},

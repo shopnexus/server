@@ -13,11 +13,10 @@ import (
 
 type ListProductSpuParams struct {
 	sharedmodel.PaginationParams
-	Code       []string `query:"code" comma_separated:"true" validate:"required"`
-	VendorID   []int64  `query:"vendor_id" comma_separated:"true" validate:"required"`
-	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"required"`
-	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"required"`
-	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"required"`
+	Code       []string `query:"code" comma_separated:"true" validate:"omitempty"`
+	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"omitempty"`
+	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"omitempty"`
+	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"omitempty"`
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
@@ -29,10 +28,15 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
 		PaginationParams: req.PaginationParams,
+		Account:          claims.Account,
 		Code:             req.Code,
-		AccountID:        req.VendorID,
 		CategoryID:       req.CategoryID,
 		BrandID:          req.BrandID,
 		IsActive:         req.IsActive,
@@ -42,6 +46,38 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 	}
 
 	return response.FromPaginate(c.Response().Writer, result)
+}
+
+type GetProductSpuParams struct {
+	ID int64 `param:"id" validate:"required,gt=0"`
+}
+
+func (h *Handler) GetProductSpu(c echo.Context) error {
+	var req GetProductSpuParams
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
+		Account: claims.Account,
+		ID:      []int64{req.ID},
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	if len(result.Data) == 0 {
+		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "product spu not found"))
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
 
 type CreateProductSpuParams struct {

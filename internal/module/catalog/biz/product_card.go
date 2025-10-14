@@ -29,7 +29,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	spuMap := slice.NewMap(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+	spuMap := slice.GroupBy(spus, func(spu db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return spu.ID, spu })
 
 	// Get featured SKUs for each spu
 	var featuredIDs []int64
@@ -47,10 +47,10 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 		return zero, err
 	}
 	// map[spuID]FeaturedSKU
-	featuredMap := slice.NewMap(featuredSkus, func(f db.CatalogProductSku) int64 { return f.SpuID })
+	featuredMap := slice.GroupBy(featuredSkus, func(f db.CatalogProductSku) (int64, db.CatalogProductSku) { return f.SpuID, f })
 
 	// map[skuID]*ProductPrice
-	priceMap, err := b.promotionBiz.CalculatePromotedPrices(ctx, slice.Map(featuredSkus, func(f db.CatalogProductSku) db.CatalogProductSku {
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, slice.Map(featuredSkus, func(f db.CatalogProductSku) db.CatalogProductSku {
 		return db.CatalogProductSku{
 			ID:          f.ID,
 			SpuID:       f.SpuID,
@@ -73,7 +73,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	ratingMap := slice.NewMap(ratings, func(r db.ListRatingRow) int64 { return r.RefID })
+	ratingMap := slice.GroupBy(ratings, func(r db.ListRatingRow) (int64, db.ListRatingRow) { return r.RefID, r })
 
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
@@ -84,7 +84,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := slice.NewMap(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
+	resourceMap := slice.GroupBy(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
 
 	// Map promotion to ProductCardPromo
 	promoCardsMap := make(map[int64][]catalogmodel.ProductCardPromo) // map[spuID]ProductCardPromo
@@ -101,22 +101,13 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	}
 
 	for _, spu := range spus {
-		var featured db.CatalogProductSku
-		var price catalogmodel.ProductPrice
-		var rating db.ListRatingRow
-		var resource db.ListSortedResourcesRow
+		featured := featuredMap[spu.ID]
+		rating := ratingMap[spu.ID]
+		resource := resourceMap[spu.ID]
 
-		if featuredMap[spu.ID] != nil {
-			featured = *featuredMap[spu.ID]
-		}
+		var price catalogmodel.ProductPrice
 		if priceMap[featured.ID] != nil {
 			price = *priceMap[featured.ID]
-		}
-		if ratingMap[spu.ID] != nil {
-			rating = *ratingMap[spu.ID]
-		}
-		if resourceMap[spu.ID] != nil {
-			resource = *resourceMap[spu.ID]
 		}
 
 		productMap[spu.ID] = &catalogmodel.ProductCard{
@@ -142,7 +133,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 			Resource: sharedmodel.Resource{
 				ID:       resource.ID,
 				Mime:     resource.Mime,
-				Url:      sharedbiz.GetResourceURL(resource.Code),
+				Url:      sharedbiz.GetResourceURL(string(resource.Provider), resource.ObjectKey),
 				FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
 				Width:    pgutil.PgInt4ToNullInt32(resource.Width),
 				Height:   pgutil.PgInt4ToNullInt32(resource.Height),

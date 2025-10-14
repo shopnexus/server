@@ -174,6 +174,7 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		return zero, err
 	}
 
+	// TODO: shorten the update resource, create reuseable function
 	// Update resources
 	if len(params.Resources) > 0 {
 		// Delete old resources
