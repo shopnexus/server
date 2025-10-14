@@ -22,11 +22,18 @@ func NewHandler(e *echo.Echo, biz *promotionbiz.PromotionBiz) *Handler {
 	api := e.Group("/api/v1/catalog")
 	_ = api
 
+	promotionApi := api.Group("/promotion")
+	promotionApi.GET("/:id", h.GetPromotion)
+	promotionApi.GET("", h.ListPromotion)
+	promotionApi.DELETE("/:id", h.DeletePromotion)
+	promotionApi.PATCH("/discount", h.UpdateDiscount)
+	promotionApi.POST("/discount", h.CreateDiscount)
+
 	return h
 }
 
 type GetPromotionRequest struct {
-	ID int64 `query:"id" validate:"required"`
+	ID int64 `param:"id" validate:"required"`
 }
 
 func (h *Handler) GetPromotion(c echo.Context) error {
@@ -72,7 +79,7 @@ func (h *Handler) ListPromotion(c echo.Context) error {
 }
 
 type DeletePromotionRequest struct {
-	ID int64 `query:"id" validate:"required,gt=0"`
+	ID int64 `param:"id" validate:"required,gt=0"`
 }
 
 func (h *Handler) DeletePromotion(c echo.Context) error {

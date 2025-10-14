@@ -14,7 +14,6 @@ import (
 
 type CreatePromotionRequest struct {
 	Code        string              `json:"code" validate:"required"`
-	OwnerID     null.Int64          `json:"owner_id" validate:"required"`
 	RefType     db.PromotionRefType `json:"ref_type" validate:"required"`
 	RefID       null.Int64          `json:"ref_id" validate:"omitnil"`
 	Type        db.PromotionType    `json:"type" validate:"required"`
@@ -54,7 +53,6 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 		CreatePromotionParams: promotionbiz.CreatePromotionParams{
 			Account:     claims.Account,
 			Code:        req.Code,
-			OwnerID:     req.OwnerID,
 			RefType:     req.RefType,
 			RefID:       req.RefID,
 			Type:        req.Type,
