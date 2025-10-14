@@ -177,8 +177,10 @@ async function main(inputs: InputProduct1[] = []) {
           order: order++,
           resource: {
             create: {
-              code: slugify((input.title || 'image')) + '-' + uuidv4(),
-              url,
+              provider: 'Remote',
+              object_key: url,
+              uploaded_by: account.id,
+              status: 'Success',
               mime: url.includes('.png') ? 'image/png' : 'image/jpeg',
             }
           }
