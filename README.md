@@ -36,6 +36,7 @@
 - Folder structure: Vertical slice (by service)
 - Use grpc generated code as domain model to reduce mapping code (<https://www.reddit.com/r/golang/comments/rdkqwv/grpc_use_the_generated_proto_as_a_model/>)
 - Defensive programming, trust nothing, validate and verify everything. Fail fast, and fail early => Both transport and biz layer will validate the input
+- Always use db+entityName for naming the storage entity received from sqlc (e.g dbResources, dbComment, etc.)
 
 #### Always use the null.XXX
 
@@ -218,6 +219,9 @@ if err = s.pubsub.Publish("order.created", OrderCreatedParams{
     return zero, err
 }
 ```
+
+With this approach, I can easily add new event handlers by simply defining a new struct for the event parameters and implementing the corresponding handler method.
+Also when finding subcribers, I can search globally by "OrderCreated*" or "OrderPaid*" to find all related handlers because the handler name is the same as the event name.
 
 ### 25-9-2025 First demo of recommendation engine with milvus vector search
 
