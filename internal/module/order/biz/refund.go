@@ -46,7 +46,7 @@ func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (s
 type CreateRefundParams struct {
 	Account     authmodel.AuthenticatedAccount
 	OrderItemID int64                        `validate:"required"`
-	Method      db.OrderRefundMethod         `validate:"required,validFn=Valid"`
+	Method      db.OrderRefundMethod         `validate:"required,validateFn=Valid"`
 	Reason      string                       `validate:"required,max=500"`
 	Address     null.String                  `validate:"omitempty,max=500"`
 	Resources   []sharedmodel.CreateResource `validate:"required,dive"`
@@ -121,12 +121,12 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 type UpdateRefundParams struct {
 	Account  authmodel.AuthenticatedAccount
 	RefundID int64                            `validate:"required"`
-	Method   null.Value[db.OrderRefundMethod] `validate:"omitnil,validFn=Valid"`
+	Method   null.Value[db.OrderRefundMethod] `validate:"omitnil,validateFn=Valid"`
 	Address  null.String                      `validate:"omitnil,max=500"`
 	Reason   null.String                      `validate:"omitnil,max=500"`
 
 	// Fields below are only updated after vendor confirms
-	Status       null.Value[db.SharedStatus]  `validate:"omitnil,validFn=Valid"`
+	Status       null.Value[db.SharedStatus]  `validate:"omitnil,validateFn=Valid"`
 	ReviewedByID null.Int64                   `validate:"omitnil,gt=0"`
 	Resources    []sharedmodel.CreateResource `validate:"omitempty,dive"`
 }

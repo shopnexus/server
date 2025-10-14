@@ -21,7 +21,10 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/order")
 
+	api.GET("", h.ListOrders)
+	api.GET("/:id", h.GetOrder)
 	api.POST("/checkout", h.Checkout)
+	api.POST("/confirm", h.ConfirmOrder)
 
 	refundApi := api.Group("/refund")
 	refundApi.GET("", h.ListRefunds)

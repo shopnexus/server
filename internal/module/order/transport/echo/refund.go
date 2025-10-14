@@ -14,7 +14,7 @@ import (
 
 type CreateRefundRequest struct {
 	OrderItemID int64                `json:"order_item_id" validate:"required"`
-	Method      db.OrderRefundMethod `json:"method" validate:"required,validFn=Valid"`
+	Method      db.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
 	Reason      string               `json:"reason" validate:"required,max=500"`
 	Address     null.String          `json:"address" validate:"omitnil,max=500"`
 }
@@ -72,7 +72,7 @@ func (h *Handler) ListRefunds(c echo.Context) error {
 
 type UpdateRefundRequest struct {
 	RefundID int64                            `json:"id" validate:"required"`
-	Method   null.Value[db.OrderRefundMethod] `json:"method" validate:"omitnil,validFn=Valid"`
+	Method   null.Value[db.OrderRefundMethod] `json:"method" validate:"omitnil,validateFn=Valid"`
 	Address  null.String                      `json:"address" validate:"omitnil,max=500"`
 	Reason   null.String                      `json:"reason" validate:"omitnil,max=500"`
 }
