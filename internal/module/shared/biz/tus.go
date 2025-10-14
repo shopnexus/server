@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+
 	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -42,12 +43,12 @@ func (b *SharedBiz) NewTusHandler() (*tusd.Handler, error) {
 	// The StoreComposer property must be set to allow the handler to function.
 	//logger.Log.Info(fmt.Sprintf("Tus url: %s", config.GetConfig().App.TusUrl))
 	handler, err := tusd.NewHandler(tusd.Config{
-		BasePath:                "/",
+		BasePath:                "http://localhost:8080/api/v1/shared/files",
 		StoreComposer:           composer,
 		NotifyCreatedUploads:    true,
 		NotifyCompleteUploads:   true,
 		NotifyTerminatedUploads: true,
-		DisableDownload:         true,
+		// DisableDownload:         true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create handler: %w", err)
@@ -74,6 +75,9 @@ func (b *SharedBiz) NewTusHandler() (*tusd.Handler, error) {
 
 func (b *SharedBiz) NewTusEventContext(event tusd.HookEvent) TusEventContext {
 	claims, _ := authclaims.GetClaimsByHeader(event.HTTPRequest.Header)
+	// if err != nil {
+	// 	log.Fatalf("error while getting claims from header: %v", err)
+	// }
 
 	return TusEventContext{
 		Context: event.Context,
@@ -84,19 +88,7 @@ func (b *SharedBiz) NewTusEventContext(event tusd.HookEvent) TusEventContext {
 func (b *SharedBiz) OnCreatedUpload(event tusd.HookEvent) {
 	log.Printf("➕ Upload %s created\n", event.Upload.ID)
 
-	ctx := b.NewTusEventContext(event)
-
 	fmt.Println("metadata", event.Upload.MetaData)
-
-	_, err := b.storage.CreateDefaultSharedResource(event.Context, db.CreateDefaultSharedResourceParams{
-		UploadedBy: pgutil.Int64ToPgInt8(ctx.Account.ID),
-		Provider:   db.SharedResourceProviderLocal,
-		Mime:       event.Upload.MetaData["filetype"], // TODO: double check FE
-		FileSize:   pgutil.Int64ToPgInt8(event.Upload.Size),
-	})
-	if err != nil {
-		log.Fatalf("error while inserting resource to db %w", err)
-	}
 
 	log.Printf("🆔 Resource %s is created\n", event.Upload.ID)
 }
@@ -106,19 +98,15 @@ func (b *SharedBiz) OnCompleteUpload(event tusd.HookEvent) {
 
 	ctx := b.NewTusEventContext(event)
 
-	rs, err := b.storage.GetSharedResource(ctx, db.GetSharedResourceParams{
-		Code: pgutil.StringToPgText(event.Upload.ID),
+	_, err := b.storage.CreateDefaultSharedResource(ctx, db.CreateDefaultSharedResourceParams{
+		// UploadedBy: pgutil.Int64ToPgInt8(ctx.Account.ID),
+		Provider:  db.SharedResourceProviderLocal,
+		ObjectKey: event.Upload.ID,
+		Mime:      event.Upload.MetaData["filetype"], // TODO: double check FE
+		FileSize:  pgutil.Int64ToPgInt8(event.Upload.Size),
 	})
 	if err != nil {
-		log.Fatalf("error while getting resource to db %w", err)
-	}
-
-	_, err = b.storage.UpdateSharedResource(ctx, db.UpdateSharedResourceParams{
-		ID:     rs.ID,
-		Status: db.NullSharedStatus{SharedStatus: db.SharedStatusSuccess, Valid: true},
-	})
-	if err != nil {
-		log.Fatalf("error while updating resource to db %w", err)
+		log.Fatalf("error while inserting resource to db %w", err)
 	}
 
 	log.Printf("🎉 Resource %s is ready\n", event.Upload.ID)
@@ -130,7 +118,8 @@ func (b *SharedBiz) OnTerminateUpload(event tusd.HookEvent) {
 	ctx := b.NewTusEventContext(event)
 
 	if err := b.storage.DeleteSharedResource(ctx, db.DeleteSharedResourceParams{
-		Code: []string{event.Upload.ID},
+		Provider:  []db.SharedResourceProvider{db.SharedResourceProviderLocal},
+		ObjectKey: []string{event.Upload.ID},
 	}); err != nil {
 		log.Fatalf("error while deleting resource to db %w", err)
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 type GetFileRequest struct {
-	ResourceCode string `param:"resource_code" validate:"required,uuid"`
+	ResourceCode string `param:"file_code" validate:"required"`
 }
 
 func (h *Handler) GetFile(c echo.Context) error {
@@ -24,6 +24,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 
 	if config.GetConfig().Filestore.Type == "local" {
 		// Manually serve the file using tus handler (because we disabled download in tus config before)
+		c.Request().URL.Path = fmt.Sprintf("/%s", req.ResourceCode)
 		h.tusHandler.GetFile(c.Response().Writer, c.Request())
 		return nil
 	}

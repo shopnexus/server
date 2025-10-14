@@ -1,6 +1,8 @@
 package sharedecho
 
 import (
+	"net/http"
+
 	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 
 	"github.com/labstack/echo/v4"
@@ -24,7 +26,8 @@ func NewHandler(e *echo.Echo, biz *sharedbiz.SharedBiz) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	api.Any("/files", echo.WrapHandler(h.tusHandler))
+	api.Any("/files", echo.WrapHandler(http.StripPrefix("/api/v1/shared/files", h.tusHandler)))
+	api.Any("/files/:id", echo.WrapHandler(http.StripPrefix("/api/v1/shared/files", h.tusHandler)))
 	api.GET("/files/:file_code", h.GetFile)
 
 	return h, nil

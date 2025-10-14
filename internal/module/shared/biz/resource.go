@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
@@ -15,22 +14,25 @@ func (b *SharedBiz) GetResourceURLByID(ctx context.Context, resourceID int64) nu
 		return null.String{}
 	}
 
-	rs, err := b.storage.GetSharedResource(ctx, db.GetSharedResourceParams{
-		ID: pgutil.Int64ToPgInt8(resourceID),
-	})
+	rs, err := b.storage.GetSharedResource(ctx, pgutil.Int64ToPgInt8(resourceID))
 	if err != nil {
 		return null.String{}
 	}
 
-	return null.StringFrom(GetResourceURL(rs.Code))
+	return null.StringFrom(GetResourceURL(string(rs.Provider), rs.ObjectKey))
 }
 
-func GetResourceURL(resourceCode string) string {
-	switch config.GetConfig().Filestore.Type {
+func GetResourceURL(provider string, objectKey string) string {
+	fmt.Printf("GetResourceURL: provider=%s, objectKey=%s\n", provider, objectKey)
+	switch provider {
+	case "S3":
+		return fmt.Sprintf("https://%s/%s", config.GetConfig().Filestore.S3.CloudfrontURL, objectKey)
+	case "Cloudinary":
+		return ""
 	case "local":
-		return fmt.Sprintf("%s/api/v1/shared/files/%s", config.GetConfig().App.PublicURL, resourceCode)
-	case "s3":
-		return fmt.Sprintf("https://%s/%s", config.GetConfig().Filestore.S3.CloudfrontURL, resourceCode)
+		return fmt.Sprintf("%s/api/v1/shared/files/%s", config.GetConfig().App.PublicURL, objectKey)
+	case "Remote":
+		return objectKey
 	default:
 		return "" // TODO: add 404 link
 	}
