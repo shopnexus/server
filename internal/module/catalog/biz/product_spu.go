@@ -127,7 +127,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 			Code:          spu.Code,
 			Category:      b.getCategoryName(ctx, spu.CategoryID),
 			Brand:         b.getBrandName(ctx, spu.BrandID),
-			FeaturedSkuID: null.NewInt(spu.FeaturedSkuID.Int64, spu.FeaturedSkuID.Valid),
+			FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
 			Name:          spu.Name,
 			Description:   spu.Description,
 			IsActive:      spu.IsActive,
