@@ -53,32 +53,22 @@ func FilterMap[T any, U any](slice []T, transform func(T) (U, bool)) []U {
 	return result
 }
 
-func NewMap[T any, G comparable](items []T, keyFunc func(T) G) map[G]*T {
-	m := make(map[G]*T)
+func GroupBy[A any, V any, K comparable](items []A, kvFunc func(A) (K, V)) map[K]V {
+	m := make(map[K]V)
 	for _, item := range items {
-		k := keyFunc(item)
-		m[k] = &item
+		k, v := kvFunc(item)
+		m[k] = v
 	}
 	return m
 }
 
-type SliceMapID[T any, G comparable] struct {
-	Map map[G]*T
-	IDs []G
-}
-
-func NewSliceMapID[T any, G comparable](items []T, keyFunc func(T) G) *SliceMapID[T, G] {
-	m := make(map[G]*T)
-	ids := make([]G, 0, len(items))
+func GroupBySlice[A any, T any, G comparable](items []A, kvFunc func(A) (G, T)) map[G][]T {
+	m := make(map[G][]T)
 	for _, item := range items {
-		k := keyFunc(item)
-		m[k] = &item
-		ids = append(ids, k)
+		k, v := kvFunc(item)
+		m[k] = append(m[k], v)
 	}
-	return &SliceMapID[T, G]{
-		Map: m,
-		IDs: ids,
-	}
+	return m
 }
 
 func MapToSlice[T any, G comparable](m map[G]T) []T {
