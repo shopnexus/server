@@ -4361,7 +4361,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetSharedResource :one
 SELECT *
 FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: ExistsSharedResource :one
 SELECT EXISTS (
@@ -4371,11 +4371,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4402,11 +4402,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4432,11 +4432,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4460,33 +4460,33 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("code", "uploaded_by", "provider", "mime", "file_size", "width", "height", "duration", "checksum")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
-SET "code" = COALESCE(sqlc.narg('code'), "code"),
-    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
     "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
     "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
@@ -4500,9 +4500,9 @@ RETURNING *;
 
 -- name: UpdateBatchSharedResource :batchexec
 UPDATE "shared"."resource"
-SET "code" = COALESCE(sqlc.narg('code'), "code"),
-    "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
     "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
     "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
@@ -4519,11 +4519,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
     ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
     ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
@@ -4544,7 +4544,7 @@ WHERE (
 
 -- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 

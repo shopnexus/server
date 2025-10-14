@@ -319,9 +319,9 @@ Table PromotionDiscount {
 
 Table Resource {
   id BigInt [pk, increment]
-  code String [unique, not null]
   uploaded_by BigInt
   provider ResourceProvider [not null]
+  object_key String [not null]
   mime String [not null]
   file_size BigInt
   width Int
@@ -461,6 +461,7 @@ Enum ResourceProvider {
   S3
   Cloudinary
   Local
+  Remote
 }
 
 Enum Status {

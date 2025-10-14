@@ -15,6 +15,7 @@ enum ResourceProvider {
   S3
   Cloudinary
   Local
+  Remote // Then the object_key should be the full url
 
   @@map("resource_provider")
   @@schema("shared")
@@ -23,10 +24,10 @@ enum ResourceProvider {
 // TODO: should catch "remove" event and remove them in s3;
 model Resource {
   id          BigInt  @id @default(autoincrement())
-  code        String  @unique // unique code for the resource to identify on third party host (s3, cloudinary, or on local, etc.), e.g. "invoice_1234567890", "photo_1234567890", etc.
   uploaded_by BigInt?
 
   provider   ResourceProvider
+  object_key String           @db.VarChar(2048) // e.g. S3 object key, Cloudinary public_id, or local file path
   mime       String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
   file_size  BigInt?
   width      Int? // for images

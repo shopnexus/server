@@ -68,7 +68,7 @@ CREATE TYPE "promotion"."ref_type" AS ENUM ('All', 'ProductSpu', 'ProductSku', '
 CREATE TYPE "shared"."resource_ref_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
 
 -- CreateEnum
-CREATE TYPE "shared"."resource_provider" AS ENUM ('S3', 'Cloudinary', 'Local');
+CREATE TYPE "shared"."resource_provider" AS ENUM ('S3', 'Cloudinary', 'Local', 'Remote');
 
 -- CreateEnum
 CREATE TYPE "shared"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
@@ -462,9 +462,9 @@ CREATE TABLE "promotion"."discount" (
 -- CreateTable
 CREATE TABLE "shared"."resource" (
     "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
     "uploaded_by" BIGINT,
     "provider" "shared"."resource_provider" NOT NULL,
+    "object_key" VARCHAR(2048) NOT NULL,
     "mime" TEXT NOT NULL,
     "file_size" BIGINT,
     "width" INTEGER,
@@ -673,9 +673,6 @@ CREATE INDEX "invoice_ref_type_ref_id_idx" ON "order"."invoice"("ref_type", "ref
 
 -- CreateIndex
 CREATE UNIQUE INDEX "base_code_key" ON "promotion"."base"("code");
-
--- CreateIndex
-CREATE UNIQUE INDEX "resource_code_key" ON "shared"."resource"("code");
 
 -- CreateIndex
 CREATE INDEX "service_option_category_provider_idx" ON "shared"."service_option"("category", "provider");
