@@ -14,6 +14,7 @@ import (
 	"shopnexus-remastered/internal/module/analytic"
 	"shopnexus-remastered/internal/module/auth"
 	"shopnexus-remastered/internal/module/catalog"
+	"shopnexus-remastered/internal/module/inventory"
 	"shopnexus-remastered/internal/module/order"
 	"shopnexus-remastered/internal/module/promotion"
 	"shopnexus-remastered/internal/module/search"
@@ -37,6 +38,7 @@ var Module = fx.Module("main",
 	account.Module,
 	auth.Module,
 	catalog.Module,
+	inventory.Module,
 	order.Module,
 	promotion.Module,
 	analytic.Module,
