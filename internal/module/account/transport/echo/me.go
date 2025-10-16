@@ -29,17 +29,17 @@ func (h *Handler) GetMe(c echo.Context) error {
 
 type UpdateMeRequest struct {
 	// Account base fields
-	Status   null.Value[db.AccountStatus] `json:"status" validate:"omitempty,validateFn=Valid"`
-	Username null.String                  `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
-	Phone    null.String                  `json:"phone" validate:"omitempty,e164"`
-	Email    null.String                  `json:"email" validate:"omitempty,email"`
+	Status   db.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
+	Username null.String      `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
+	Phone    null.String      `json:"phone" validate:"omitempty,e164"`
+	Email    null.String      `json:"email" validate:"omitempty,email"`
 
 	// Profile fields
-	Gender           null.Value[db.AccountGender] `json:"gender" validate:"omitnil,validateFn=Valid"`
-	Name             null.String                  `json:"name" validate:"omitnil"`
-	DateOfBirth      null.Time                    `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID       null.Int64                   `json:"avatar_rs_id" validate:"omitnil"`
-	DefaultContactID null.Int64                   `json:"default_contact_id" validate:"omitnil"`
+	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
+	Name             null.String      `json:"name" validate:"omitnil"`
+	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
+	AvatarRsID       null.Int64       `json:"avatar_rs_id" validate:"omitnil"`
+	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
 
 	// Vendor fields
 	Description null.String `json:"description" validate:"omitnil,max=500"`

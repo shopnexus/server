@@ -107,17 +107,17 @@ func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgutil.Tx
 }
 
 type UpdatePromotionParams struct {
-	ID            int64                           `validate:"required"`
-	Code          null.String                     `validate:"omitnil"`
-	OwnerID       null.Int64                      `validate:"omitnil"`
-	RefType       null.Value[db.PromotionRefType] `validate:"omitnil"`
-	RefID         null.Int64                      `validate:"omitnil"`
-	Title         null.String                     `validate:"omitnil"`
-	Description   null.String                     `validate:"omitnil"`
-	IsActive      null.Bool                       `validate:"omitnil"`
-	DateStarted   null.Time                       `validate:"omitnil"`
-	DateEnded     null.Time                       `validate:"omitnil"`
-	NullDateEnded bool                            `validate:"omitempty"`
+	ID            int64               `validate:"required"`
+	Code          null.String         `validate:"omitnil"`
+	OwnerID       null.Int64          `validate:"omitnil"`
+	RefType       db.PromotionRefType `validate:"omitempty,validateFn=Valid"`
+	RefID         null.Int64          `validate:"omitnil"`
+	Title         null.String         `validate:"omitnil"`
+	Description   null.String         `validate:"omitnil"`
+	IsActive      null.Bool           `validate:"omitnil"`
+	DateStarted   null.Time           `validate:"omitnil"`
+	DateEnded     null.Time           `validate:"omitnil"`
+	NullDateEnded bool                `validate:"omitempty"`
 }
 
 func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgutil.TxStorage, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
@@ -129,7 +129,7 @@ func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgutil.Tx
 
 	// If RefType is "all", we need to set RefID to null, no need to clear the RefID field as it will be ignored in the update query
 	var nullRefID bool
-	if params.RefType.Valid && params.RefType.V == db.PromotionRefTypeAll {
+	if params.RefType == db.PromotionRefTypeAll {
 		nullRefID = true
 	}
 	// TODO: check more biz like unique code, valid owner, valid refID for the refType, dateStarted < dateEnded, etc.
@@ -138,7 +138,7 @@ func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgutil.Tx
 	dbPromo, err := txStorage.UpdatePromotionBase(ctx, db.UpdatePromotionBaseParams{
 		ID:            params.ID,
 		Code:          pgutil.NullStringToPgText(params.Code),
-		RefType:       db.NullPromotionRefType{PromotionRefType: params.RefType.V, Valid: params.RefType.Valid},
+		RefType:       db.NullPromotionRefType{PromotionRefType: params.RefType, Valid: params.RefType != ""},
 		NullRefID:     nullRefID,
 		RefID:         pgutil.NullInt64ToPgInt8(params.RefID),
 		Title:         pgutil.NullStringToPgText(params.Title),

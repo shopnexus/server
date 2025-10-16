@@ -49,7 +49,7 @@ type CreateRefundParams struct {
 	Method      db.OrderRefundMethod         `validate:"required,validateFn=Valid"`
 	Reason      string                       `validate:"required,max=500"`
 	Address     null.String                  `validate:"omitempty,max=500"`
-	Resources   []sharedmodel.CreateResource `validate:"required,dive"`
+	Resources   []sharedmodel.CreateResource `validate:"omitempty,dive"`
 }
 
 func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) (db.OrderRefund, error) {
@@ -120,13 +120,13 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 
 type UpdateRefundParams struct {
 	Account  authmodel.AuthenticatedAccount
-	RefundID int64                            `validate:"required"`
-	Method   null.Value[db.OrderRefundMethod] `validate:"omitnil,validateFn=Valid"`
-	Address  null.String                      `validate:"omitnil,max=500"`
-	Reason   null.String                      `validate:"omitnil,max=500"`
+	RefundID int64                `validate:"required"`
+	Method   db.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
+	Address  null.String          `validate:"omitnil,max=500"`
+	Reason   null.String          `validate:"omitnil,max=500"`
 
 	// Fields below are only updated after vendor confirms
-	Status       null.Value[db.SharedStatus]  `validate:"omitnil,validateFn=Valid"`
+	Status       db.SharedStatus              `validate:"omitempty,validateFn=Valid"`
 	ReviewedByID null.Int64                   `validate:"omitnil,gt=0"`
 	Resources    []sharedmodel.CreateResource `validate:"omitempty,dive"`
 }
@@ -155,19 +155,19 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 	}
 
 	var nullAddress bool
-	if params.Method.Valid && params.Method.V == db.OrderRefundMethodDropOff {
+	if params.Method == db.OrderRefundMethodDropOff {
 		nullAddress = true
 	}
 
 	refund, err = txStorage.UpdateOrderRefund(ctx, db.UpdateOrderRefundParams{
 		ID:          params.RefundID,
-		Method:      db.NullOrderRefundMethod{OrderRefundMethod: params.Method.V, Valid: params.Method.Valid},
+		Method:      db.NullOrderRefundMethod{OrderRefundMethod: params.Method, Valid: params.Method != ""},
 		Reason:      pgutil.NullStringToPgText(params.Reason),
 		Address:     pgutil.NullStringToPgText(params.Address),
 		NullAddress: nullAddress,
 
 		// Update fields after vendor confirms
-		Status:       db.NullSharedStatus{SharedStatus: params.Status.V, Valid: params.Status.Valid}, // Only vendor can update status
+		Status:       db.NullSharedStatus{SharedStatus: params.Status, Valid: params.Status != ""},
 		ReviewedByID: pgutil.NullInt64ToPgInt8(params.ReviewedByID),
 	})
 	if err != nil {
@@ -270,7 +270,7 @@ func (b *OrderBiz) ConfirmRefund(ctx context.Context, params ConfirmRefundParams
 	return b.UpdateRefund(ctx, UpdateRefundParams{
 		Account:      params.Account,
 		RefundID:     params.RefundID,
-		Status:       null.NewValue(db.SharedStatusProcessing, true),
+		Status:       db.SharedStatusProcessing,
 		ReviewedByID: null.NewInt(params.Account.ID, true),
 	})
 }

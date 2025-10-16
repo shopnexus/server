@@ -107,15 +107,15 @@ func (h *Handler) DeletePromotion(c echo.Context) error {
 }
 
 type UpdatePromotionRequest struct {
-	ID            int64                           `json:"id" validate:"required"`
-	Code          null.String                     `json:"code" validate:"omitnil"`
-	OwnerID       null.Int64                      `json:"owner_id" validate:"omitnil"`
-	RefType       null.Value[db.PromotionRefType] `json:"ref_type" validate:"omitnil,validateFn=Valid"`
-	RefID         null.Int64                      `json:"ref_id" validate:"omitnil"`
-	Title         null.String                     `json:"title" validate:"omitnil"`
-	Description   null.String                     `json:"description" validate:"omitnil"`
-	IsActive      null.Bool                       `json:"is_active" validate:"omitnil"`
-	DateStarted   null.Time                       `json:"date_started" validate:"omitnil"`
-	DateEnded     null.Time                       `json:"date_ended" validate:"omitnil"`
-	NullDateEnded bool                            `json:"null_date_ended" validate:"omitempty"`
+	ID            int64               `json:"id" validate:"required"`
+	Code          null.String         `json:"code" validate:"omitnil"`
+	OwnerID       null.Int64          `json:"owner_id" validate:"omitnil"`
+	RefType       db.PromotionRefType `json:"ref_type" validate:"omitempty,validateFn=Valid"`
+	RefID         null.Int64          `json:"ref_id" validate:"omitnil"`
+	Title         null.String         `json:"title" validate:"omitnil"`
+	Description   null.String         `json:"description" validate:"omitnil"`
+	IsActive      null.Bool           `json:"is_active" validate:"omitnil"`
+	DateStarted   null.Time           `json:"date_started" validate:"omitnil"`
+	DateEnded     null.Time           `json:"date_ended" validate:"omitnil"`
+	NullDateEnded bool                `json:"null_date_ended" validate:"omitempty"`
 }

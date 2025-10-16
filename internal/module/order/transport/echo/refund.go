@@ -71,10 +71,10 @@ func (h *Handler) ListRefunds(c echo.Context) error {
 }
 
 type UpdateRefundRequest struct {
-	RefundID int64                            `json:"id" validate:"required"`
-	Method   null.Value[db.OrderRefundMethod] `json:"method" validate:"omitnil,validateFn=Valid"`
-	Address  null.String                      `json:"address" validate:"omitnil,max=500"`
-	Reason   null.String                      `json:"reason" validate:"omitnil,max=500"`
+	RefundID int64                `json:"id" validate:"required"`
+	Method   db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
+	Address  null.String          `json:"address" validate:"omitnil,max=500"`
+	Reason   null.String          `json:"reason" validate:"omitnil,max=500"`
 }
 
 func (h *Handler) UpdateRefund(c echo.Context) error {

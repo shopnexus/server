@@ -28,6 +28,7 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 
 	refundApi := api.Group("/refund")
 	refundApi.GET("", h.ListRefunds)
+	refundApi.POST("", h.CreateRefund)
 	refundApi.PATCH("", h.UpdateRefund)
 	refundApi.DELETE("", h.CancelRefund)
 

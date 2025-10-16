@@ -79,13 +79,13 @@ type UpdateProfileParams struct {
 	AccountID int64                          // Whose profile to be updated
 
 	// Account base fields
-	Status   null.Value[db.AccountStatus]
+	Status   db.AccountStatus
 	Username null.String
 	Phone    null.String
 	Email    null.String
 
 	// Profile fields
-	Gender           null.Value[db.AccountGender]
+	Gender           db.AccountGender
 	Name             null.String
 	DateOfBirth      null.Time
 	AvatarRsID       null.Int64
@@ -110,7 +110,7 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 
 	account, err := txStorage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
 		ID:       params.AccountID,
-		Status:   db.NullAccountStatus{AccountStatus: params.Status.V, Valid: params.Status.Valid},
+		Status:   db.NullAccountStatus{AccountStatus: params.Status, Valid: params.Status != ""},
 		Username: pgutil.NullStringToPgText(params.Username),
 		Phone:    pgutil.NullStringToPgText(params.Phone),
 		Email:    pgutil.NullStringToPgText(params.Email),
@@ -121,7 +121,7 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 
 	profile, err := txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
 		ID:               params.AccountID,
-		Gender:           db.NullAccountGender{AccountGender: params.Gender.V, Valid: params.Gender.Valid},
+		Gender:           db.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
 		Name:             pgutil.NullStringToPgText(params.Name),
 		DateOfBirth:      pgtype.Date{Time: params.DateOfBirth.Time, Valid: params.DateOfBirth.Valid},
 		AvatarRsID:       pgutil.NullInt64ToPgInt8(params.AvatarRsID),
