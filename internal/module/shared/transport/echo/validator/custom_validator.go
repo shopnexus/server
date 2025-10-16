@@ -87,7 +87,7 @@ var nilValue *struct{}
 func ValidateNullable(field reflect.Value) interface{} {
 	if nullValue, ok := field.Interface().(NullType); ok {
 		if nullValue.IsZero() {
-			return nilValue // If the value is "untyped nil", validator with struct tag "omitnil" will skip the validation
+			return nilValue // The "omitnil" validator work only with typed nil values
 		}
 		if val, err := nullValue.Value(); err == nil {
 			return val
