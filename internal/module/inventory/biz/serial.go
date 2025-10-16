@@ -41,11 +41,11 @@ func (b *InventoryBiz) ListProductSerial(ctx context.Context, params ListProduct
 	var serials []inventorymodel.ProductSerial
 	for _, serial := range dbSerials {
 		serials = append(serials, inventorymodel.ProductSerial{
-			ID:           serial.ID,
-			SerialNumber: serial.SerialNumber,
-			SkuID:        serial.SkuID,
-			Status:       serial.Status,
-			DateCreated:  serial.DateCreated.Time,
+			ID:          serial.ID,
+			SerialID:    serial.SerialID,
+			SkuID:       serial.SkuID,
+			Status:      serial.Status,
+			DateCreated: serial.DateCreated.Time,
 		})
 	}
 

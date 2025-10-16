@@ -5,13 +5,11 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgutil"
 )
 
 func (b *InventoryBiz) InitPubsub() error {
@@ -37,16 +35,6 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 	}
 	defer txStorage.Rollback(ctx)
 
-	// Update the current_stock
-	txStorage.UpdateInventoryStock(ctx, db.UpdateInventoryStockParams{
-		RefType:      db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
-		RefID:        pgutil.Int64ToPgInt8(params.RefID),
-		CurrentStock: pgutil.Int64ToPgInt8(params.Change),
-		Sold:         pgtype.Int8{},
-		DateCreated:  pgtype.Timestamptz{},
-		ID:           0,
-	})
-
 	if params.RefType == db.InventoryStockRefTypeProductSku {
 		// Use the vendor passing serial ids (if provided)
 		if len(params.SerialIDs) != 0 {
@@ -56,16 +44,16 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 
 			for _, serialID := range params.SerialIDs {
 				args = append(args, db.CreateCopyDefaultInventorySkuSerialParams{
-					SerialNumber: serialID,
-					SkuID:        params.RefID,
+					SerialID: serialID,
+					SkuID:    params.RefID,
 				})
 			}
 		} else {
 			// Use our generated serial ids
 			for i := int64(0); i < params.Change; i++ {
 				args = append(args, db.CreateCopyDefaultInventorySkuSerialParams{
-					SerialNumber: uuid.NewString(),
-					SkuID:        0,
+					SerialID: uuid.NewString(),
+					SkuID:    params.RefID,
 				})
 			}
 		}
@@ -73,6 +61,18 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 		if _, err := txStorage.CreateCopyDefaultInventorySkuSerial(ctx, args); err != nil {
 			return err
 		}
+	}
+
+	// Update the current_stock
+	if err := txStorage.UpdateCurrentStock(ctx, db.UpdateCurrentStockParams{
+		ID:     params.StockID,
+		Change: params.Change,
+	}); err != nil {
+		return err
+	}
+
+	if err := txStorage.Commit(ctx); err != nil {
+		return err
 	}
 
 	return nil

@@ -181,8 +181,8 @@ func (b *InventoryBiz) UpdateSkuSerial(ctx context.Context, params UpdateSkuSeri
 	}
 
 	if err := b.storage.UpdateSerialStatus(ctx, db.UpdateSerialStatusParams{
-		SerialNumber: params.SerialIDs,
-		Status:       params.Status,
+		SerialID: params.SerialIDs,
+		Status:   params.Status,
 	}); err != nil {
 		return err
 	}

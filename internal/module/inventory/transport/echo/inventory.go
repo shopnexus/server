@@ -19,11 +19,14 @@ func NewHandler(e *echo.Echo, biz *inventorybiz.InventoryBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/inventory")
 
-	api.GET("/serial", h.ListProductSerial)
-	api.GET("/stock", h.GetStock)
-	api.GET("/stock-history", h.ListStockHistory)
-	api.POST("/import", h.ImportStock)
-	api.PATCH("/sku-serial", h.UpdateSkuSerial)
+	stockApi := api.Group("/stock")
+	stockApi.GET("", h.GetStock)
+	stockApi.GET("/history", h.ListStockHistory)
+	stockApi.POST("/import", h.ImportStock)
+
+	serialApi := api.Group("/serial")
+	serialApi.GET("", h.ListProductSerial)
+	serialApi.PATCH("", h.UpdateSkuSerial)
 	return h
 }
 

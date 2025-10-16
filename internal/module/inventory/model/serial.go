@@ -6,9 +6,9 @@ import (
 )
 
 type ProductSerial struct {
-	ID           int64                     `json:"id"`
-	SerialNumber string                    `json:"serial_number"`
-	SkuID        int64                     `json:"sku_id"`
-	Status       db.InventoryProductStatus `json:"status"`
-	DateCreated  time.Time                 `json:"date_created"`
+	ID          int64                     `json:"id"`
+	SerialID    string                    `json:"serial_id"`
+	SkuID       int64                     `json:"sku_id"`
+	Status      db.InventoryProductStatus `json:"status"`
+	DateCreated time.Time                 `json:"date_created"`
 }
