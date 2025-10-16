@@ -1,5 +1,5 @@
 -- name: GetAvailableProducts :batchmany
-SELECT id, sku_id, serial_number
+SELECT id, sku_id, serial_id
 FROM "inventory"."sku_serial"
 WHERE sku_id = sqlc.arg('sku_id') AND "status" = 'Active'
 ORDER BY date_created DESC
@@ -17,4 +17,9 @@ WHERE ref_type = sqlc.arg('ref_type')
 -- name: UpdateSerialStatus :exec
 UPDATE inventory.sku_serial
 SET status = sqlc.arg('status')
-WHERE id = ANY(sqlc.slice('id')) OR serial_number = ANY(sqlc.slice('serial_number'));
+WHERE id = ANY(sqlc.slice('id')) OR serial_id = ANY(sqlc.slice('serial_id'));
+
+-- name: UpdateCurrentStock :exec
+UPDATE "inventory"."stock"
+SET "current_stock" = current_stock + sqlc.arg('change')
+WHERE id = sqlc.arg('id');
