@@ -2349,7 +2349,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetInventorySkuSerial :one
 SELECT *
 FROM "inventory"."sku_serial"
-WHERE ("id" = sqlc.narg('id')) OR ("serial_number" = sqlc.narg('serial_number'));
+WHERE ("id" = sqlc.narg('id')) OR ("serial_id" = sqlc.narg('serial_id'));
 
 -- name: ExistsInventorySkuSerial :one
 SELECT EXISTS (
@@ -2359,7 +2359,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("serial_number" = ANY(sqlc.slice('serial_number')) OR sqlc.slice('serial_number') IS NULL) AND
+    ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
@@ -2377,7 +2377,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("serial_number" = ANY(sqlc.slice('serial_number')) OR sqlc.slice('serial_number') IS NULL) AND
+    ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
@@ -2394,7 +2394,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("serial_number" = ANY(sqlc.slice('serial_number')) OR sqlc.slice('serial_number') IS NULL) AND
+    ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
@@ -2409,31 +2409,31 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateInventorySkuSerial :one
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status", "date_created")
+INSERT INTO "inventory"."sku_serial" ("serial_id", "sku_id", "status", "date_created")
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateBatchInventorySkuSerial :batchone
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status", "date_created")
+INSERT INTO "inventory"."sku_serial" ("serial_id", "sku_id", "status", "date_created")
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateCopyInventorySkuSerial :copyfrom
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id", "status", "date_created")
+INSERT INTO "inventory"."sku_serial" ("serial_id", "sku_id", "status", "date_created")
 VALUES ($1, $2, $3, $4);
 
 -- name: CreateDefaultInventorySkuSerial :one
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id")
+INSERT INTO "inventory"."sku_serial" ("serial_id", "sku_id")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultInventorySkuSerial :copyfrom
-INSERT INTO "inventory"."sku_serial" ("serial_number", "sku_id")
+INSERT INTO "inventory"."sku_serial" ("serial_id", "sku_id")
 VALUES ($1, $2);
 
 -- name: UpdateInventorySkuSerial :one
 UPDATE "inventory"."sku_serial"
-SET "serial_number" = COALESCE(sqlc.narg('serial_number'), "serial_number"),
+SET "serial_id" = COALESCE(sqlc.narg('serial_id'), "serial_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
@@ -2442,7 +2442,7 @@ RETURNING *;
 
 -- name: UpdateBatchInventorySkuSerial :batchexec
 UPDATE "inventory"."sku_serial"
-SET "serial_number" = COALESCE(sqlc.narg('serial_number'), "serial_number"),
+SET "serial_id" = COALESCE(sqlc.narg('serial_id'), "serial_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
@@ -2454,7 +2454,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("serial_number" = ANY(sqlc.slice('serial_number')) OR sqlc.slice('serial_number') IS NULL) AND
+    ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
@@ -2466,7 +2466,7 @@ WHERE (
 
 -- name: DeleteBatchInventorySkuSerial :batchexec
 DELETE FROM "inventory"."sku_serial"
-WHERE ("id" = sqlc.narg('id')) OR ("serial_number" = sqlc.narg('serial_number'));
+WHERE ("id" = sqlc.narg('id')) OR ("serial_id" = sqlc.narg('serial_id'));
 
 -- ========================================
 

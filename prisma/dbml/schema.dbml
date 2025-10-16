@@ -171,7 +171,7 @@ Table Comment {
 
 Table ProductSerial {
   id BigInt [pk, increment]
-  serial_number String [unique, not null]
+  serial_id String [unique, not null]
   sku_id BigInt [not null]
   status ProductStatus [not null, default: 'Active']
   date_created DateTime [default: `now()`, not null]

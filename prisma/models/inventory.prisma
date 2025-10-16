@@ -17,9 +17,9 @@ enum ProductStatus {
 }
 
 model ProductSerial {
-  id            BigInt @id @default(autoincrement())
-  serial_number String @unique @db.VarChar(50) // Unique serial number for this product
-  sku_id        BigInt
+  id        BigInt @id @default(autoincrement())
+  serial_id String @unique @db.VarChar(50) // Unique serial number for this product
+  sku_id    BigInt
 
   status       ProductStatus @default(Active)
   date_created DateTime      @default(now()) @db.Timestamptz(3)

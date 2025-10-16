@@ -283,7 +283,7 @@ CREATE TABLE "catalog"."comment" (
 -- CreateTable
 CREATE TABLE "inventory"."sku_serial" (
     "id" BIGSERIAL NOT NULL,
-    "serial_number" VARCHAR(50) NOT NULL,
+    "serial_id" VARCHAR(50) NOT NULL,
     "sku_id" BIGINT NOT NULL,
     "status" "inventory"."product_status" NOT NULL DEFAULT 'Active',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -621,7 +621,7 @@ CREATE INDEX "product_spu_tag_tag_id_idx" ON "catalog"."product_spu_tag"("tag_id
 CREATE UNIQUE INDEX "product_spu_tag_spu_id_tag_id_key" ON "catalog"."product_spu_tag"("spu_id", "tag_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "sku_serial_serial_number_key" ON "inventory"."sku_serial"("serial_number");
+CREATE UNIQUE INDEX "sku_serial_serial_id_key" ON "inventory"."sku_serial"("serial_id");
 
 -- CreateIndex
 CREATE INDEX "sku_serial_sku_id_idx" ON "inventory"."sku_serial"("sku_id");
