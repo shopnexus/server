@@ -23,7 +23,6 @@ func (b *SharedBiz) GetResourceURLByID(ctx context.Context, resourceID int64) nu
 }
 
 func GetResourceURL(provider string, objectKey string) string {
-	fmt.Printf("GetResourceURL: provider=%s, objectKey=%s\n", provider, objectKey)
 	switch provider {
 	case "S3":
 		return fmt.Sprintf("https://%s/%s", config.GetConfig().Filestore.S3.CloudfrontURL, objectKey)
