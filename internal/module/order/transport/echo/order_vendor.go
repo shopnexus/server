@@ -4,11 +4,41 @@ import (
 	"net/http"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
+
+type ListVendorOrderRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListVendorOrder(c echo.Context) error {
+	var req ListVendorOrderRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.ListVendorOrder(c.Request().Context(), orderbiz.ListVendorOrderParams{
+		Account:          claims.Account,
+		PaginationParams: req.PaginationParams,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromPaginate(c.Response().Writer, result)
+}
 
 type ConfirmOrderRequest struct {
 	SkuID int64 `json:"sku_id" validate:"required,min=1"` // Confirmed SKU

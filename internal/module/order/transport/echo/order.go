@@ -25,6 +25,8 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 	api.GET("/:id", h.GetOrder)
 	api.POST("/checkout", h.Checkout)
 	api.POST("/confirm", h.ConfirmOrder)
+	api.POST("/quote", h.QuoteOrder)
+	api.GET("/vendor", h.ListVendorOrder)
 
 	refundApi := api.Group("/refund")
 	refundApi.GET("", h.ListRefunds)
@@ -81,11 +83,6 @@ func (h *Handler) ListOrders(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	//claims, err := authclaims.GetClaims(c.Request())
-	//if err != nil {
-	//	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	//}
-
 	result, err := h.biz.ListOrders(c.Request().Context(), orderbiz.ListOrdersParams{
 		PaginationParams: req.PaginationParams,
 	})
@@ -93,7 +90,7 @@ func (h *Handler) ListOrders(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+	return response.FromPaginate(c.Response().Writer, result)
 }
 
 type CheckoutRequest struct {
@@ -127,6 +124,44 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Account:       claims.Account,
 		Address:       req.Address,
 		PaymentOption: req.PaymentOption,
+		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
+			return orderbiz.OrderSku{
+				SkuID:          s.SkuID,
+				PromotionIDs:   s.PromotionIDs,
+				ShipmentOption: s.ShipmentOption,
+				Note:           s.Note,
+			}
+		}),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type QuoteRequest struct {
+	Address string        `json:"address" validate:"required"`
+	Skus    []CheckoutSku `json:"skus" validate:"required,dive"`
+}
+
+func (h *Handler) QuoteOrder(c echo.Context) error {
+	var req QuoteRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.QuoteOrder(c.Request().Context(), orderbiz.QuoteOrderParams{
+		Account: claims.Account,
+		Address: req.Address,
 		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,

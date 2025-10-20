@@ -7,11 +7,43 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
+
+type ListVendorOrderParams struct {
+	Account authmodel.AuthenticatedAccount
+	sharedmodel.PaginationParams
+}
+
+func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[db.OrderItem], error) {
+	var zero sharedmodel.PaginateResult[db.OrderItem]
+
+	total, err := s.storage.CountOrderItem(ctx, db.CountOrderItemParams{
+		VendorID: []int64{params.Account.ID},
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	orders, err := s.storage.ListOrderItem(ctx, db.ListOrderItemParams{
+		Limit:    pgutil.Int32ToPgInt4(params.GetLimit()),
+		Offset:   pgutil.Int32ToPgInt4(params.Offset()),
+		VendorID: []int64{params.Account.ID},
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	return sharedmodel.PaginateResult[db.OrderItem]{
+		PageParams: params.PaginationParams,
+		Total:      null.IntFrom(total),
+		Data:       orders,
+	}, nil
+}
 
 // ConfirmOrderParams represents the parameters required to confirm an order by SKU (not the whole order).
 type ConfirmOrderParams struct {
@@ -84,7 +116,8 @@ func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		TrackingCode: pgutil.StringToPgText(ship.ID),
 		Status:       db.NullOrderShipmentStatus{OrderShipmentStatus: db.OrderShipmentStatusLabelCreated, Valid: true},
 		LabelUrl:     pgutil.StringToPgText("https://example.com/label.pdf"), // TODO: get real label URL from shipment client
-		Cost:         pgutil.Int64ToPgInt8(dbShipment.Cost),                  // Always keep original cost, we only quote before
+		Cost:         pgutil.Int64ToPgInt8(dbShipment.Cost),
+		NewCost:      pgutil.Int64ToPgInt8(ship.Costs.Int64()),
 		DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
 		FromAddress:  pgutil.StringToPgText(fromAddress),
 		WeightGrams:  pgutil.Int32ToPgInt4(params.WeightGrams),

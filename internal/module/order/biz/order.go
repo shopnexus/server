@@ -3,6 +3,8 @@ package orderbiz
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"shopnexus-remastered/internal/utils/errutil"
 
 	"shopnexus-remastered/internal/client/payment"
@@ -66,22 +68,15 @@ type ListOrdersParams struct {
 func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[db.OrderBase], error) {
 	var zero sharedmodel.PaginateResult[db.OrderBase]
 
-	storageParams := db.ListOrderBaseParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
-	}
-
-	// User only see their own orders
-	//if params.Role == db.RoleUser {
-	//	storageParams.UserID = &params.AccountID
-	//}
-
 	total, err := s.storage.CountOrderBase(ctx, db.CountOrderBaseParams{})
 	if err != nil {
 		return zero, err
 	}
 
-	orders, err := s.storage.ListOrderBase(ctx, storageParams)
+	orders, err := s.storage.ListOrderBase(ctx, db.ListOrderBaseParams{
+		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
+		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+	})
 	if err != nil {
 		return zero, err
 	}
@@ -184,9 +179,9 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	if err != nil {
 		return zero, err
 	}
-	totalPrice := int64(0)
+	var totalPrice sharedmodel.Concurrency
 	for _, skuID := range skuIDs {
-		totalPrice += priceMap[skuID].Price * cartMap[skuID].Quantity
+		totalPrice += priceMap[skuID].Price.Mul(cartMap[skuID].Quantity)
 	}
 
 	// Create order
@@ -210,10 +205,12 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	// map[skuID]contact
 	contactMap := slice.GroupBy(contacts, func(c db.GetVendorAddressBySkuIDsRow) (int64, db.GetVendorAddressBySkuIDsRow) { return c.SkuID, c })
 
-	for _, skuID := range skuIDs {
+	for _, orderSku := range params.Skus {
+		vendorAddress := contactMap[orderSku.SkuID].Address // TODO: get nearest vendor address instead of default address
+
 		// Only quote shipment, after vendor confirm the order, we will create the shipment
-		ship, err := s.shipmentMap[orderItemMap[skuID].ShipmentOption].Quote(ctx, shipment.CreateParams{
-			FromAddress: contactMap[skuID].Address, // TODO: get nearest vendor address instead of default address
+		ship, err := s.shipmentMap[orderItemMap[orderSku.SkuID].ShipmentOption].Quote(ctx, shipment.CreateParams{
+			FromAddress: vendorAddress,
 			ToAddress:   params.Address,
 			WeightGrams: 10, // TODO: Fetch the real weightgrams, lengthcm, ... in product specification table, dimensions, service, ...
 			LengthCM:    10,
@@ -225,20 +222,27 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		}
 
 		createShipmentArgs = append(createShipmentArgs, db.CreateBatchOrderShipmentParams{
-			Option:       orderItemMap[skuID].ShipmentOption,
+			FromAddress:  vendorAddress,
+			ToAddress:    params.Address,
+			Option:       orderItemMap[orderSku.SkuID].ShipmentOption,
 			TrackingCode: pgutil.StringToPgText(""), // To be updated when vendor confirm the order
 			LabelUrl:     pgutil.StringToPgText(""), // To be updated when vendor confirm the order
 			Status:       db.OrderShipmentStatusPending,
 			Cost:         ship.Costs.Int64(),
 			DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
+			WeightGrams:  10, // TODO: Fetch the real weightgrams, lengthcm, ... in product specification table, dimensions, service, ...
+			LengthCm:     10,
+			WidthCm:      10,
+			HeightCm:     10,
+			DateCreated:  pgutil.TimeToPgTimestamptz(time.Now()),
 		})
 	}
 
-	var shipmentMap map[int64]db.OrderShipment // map[skuID]shipment
+	shipmentMap := make(map[int64]db.OrderShipment) // map[skuID]shipment
 	var createShipmentErr error
-	txStorage.CreateBatchOrderShipment(ctx, createShipmentArgs).QueryRow(func(_ int, s db.OrderShipment, err error) {
+	txStorage.CreateBatchOrderShipment(ctx, createShipmentArgs).QueryRow(func(index int, s db.OrderShipment, err error) {
 		createShipmentErr = err
-		shipmentMap[s.ID] = s
+		shipmentMap[skuIDs[index]] = s
 	})
 	if createShipmentErr != nil {
 		return zero, createShipmentErr
@@ -249,6 +253,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	for _, skuID := range skuIDs {
 		if skuMap[skuID].CanCombine {
 			createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
+				VendorID:   contactMap[skuID].VendorID,
 				OrderID:    order.ID,
 				SkuID:      skuID,
 				Quantity:   cartMap[skuID].Quantity,
@@ -259,6 +264,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		} else {
 			for i := int64(0); i < cartMap[skuID].Quantity; i++ {
 				createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
+					VendorID:   contactMap[skuID].VendorID,
 					OrderID:    order.ID,
 					SkuID:      skuID,
 					Quantity:   1,
@@ -455,4 +461,109 @@ func (s *OrderBiz) VerifyPayment(ctx context.Context, params VerifyPaymentParams
 	}
 
 	return nil
+}
+
+type QuoteOrderParams struct {
+	Account authmodel.AuthenticatedAccount
+	Address string     `validate:"required"`
+	Skus    []OrderSku `validate:"required,min=1,dive"`
+}
+type QuoteOrderResult struct {
+	Subtotal sharedmodel.Concurrency `json:"subtotal"`
+	Shipping sharedmodel.Concurrency `json:"shipping"`
+}
+
+func (s *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
+	var zero QuoteOrderResult
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	txStorage, err := s.storage.BeginTx(ctx)
+	if err != nil {
+		return zero, err
+	}
+	defer txStorage.Rollback(ctx)
+
+	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
+	skus, err := txStorage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+		ID: skuIDs,
+	})
+	if err != nil {
+		return zero, err
+	}
+	skuMap := slice.GroupBy(skus, func(s db.CatalogProductSku) (int64, db.CatalogProductSku) { return s.ID, s })
+
+	cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
+		CartID: params.Account.ID,
+		SkuID:  skuIDs,
+	})
+	if err != nil {
+		return zero, err
+	}
+	if len(cartItems) != len(skuIDs) {
+		// Prevent duplicate skuIDs in params or some sku not found in cart
+		return zero, fmt.Errorf("some sku not found in cart")
+	}
+	cartMap := slice.GroupBy(cartItems, func(item db.AccountCartItem) (int64, db.AccountCartItem) { return item.SkuID, item })
+
+	spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
+		ID: slice.Map(skus, func(s db.CatalogProductSku) int64 { return s.SpuID }),
+	})
+	if err != nil {
+		return zero, err
+	}
+	spuMap := slice.GroupBy(spus, func(s db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return s.ID, s })
+
+	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
+	if err != nil {
+		return zero, err
+	}
+
+	var subtotal, shippingPrice sharedmodel.Concurrency
+	for _, sku := range params.Skus {
+		subtotal += priceMap[sku.SkuID].Price.Mul(cartMap[sku.SkuID].Quantity)
+
+		vendorContact, err := s.getDefaultContact(ctx, spuMap[skuMap[sku.SkuID].SpuID].AccountID)
+		if err != nil {
+			return zero, err
+		}
+
+		shipment, err := s.shipmentMap[sku.ShipmentOption].Quote(ctx, shipment.CreateParams{
+			FromAddress: vendorContact.Address,
+			ToAddress:   params.Address,
+			WeightGrams: 10, // TODO: change later
+			LengthCM:    10,
+			WidthCM:     10,
+			HeightCM:    10,
+		})
+		if err != nil {
+			return zero, err
+		}
+		shippingPrice += shipment.Costs.Mul(cartMap[sku.SkuID].Quantity)
+	}
+
+	return QuoteOrderResult{
+		Subtotal: subtotal,
+		Shipping: shippingPrice,
+	}, nil
+}
+
+func (s *OrderBiz) getDefaultContact(ctx context.Context, accountID int64) (db.AccountContact, error) {
+	var zero db.AccountContact
+
+	profile, err := s.storage.GetAccountProfile(ctx, db.GetAccountProfileParams{
+		ID: pgutil.Int64ToPgInt8(accountID),
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	contact, err := s.storage.GetAccountContact(ctx, profile.DefaultContactID)
+	if err != nil {
+		return zero, err
+	}
+
+	return contact, nil
 }
