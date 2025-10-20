@@ -6,6 +6,22 @@ const FloatingPointPrecision = 1e9
 
 type Concurrency int64
 
+func (c Concurrency) Add(other Concurrency) Concurrency {
+	return c + other
+}
+
+func (c Concurrency) Sub(other Concurrency) Concurrency {
+	return c - other
+}
+
+func (c Concurrency) Mul(factor int64) Concurrency {
+	return c * Concurrency(factor)
+}
+
+func (c Concurrency) Div(divisor int64) Concurrency {
+	return c / Concurrency(divisor)
+}
+
 // Int64 returns the Concurrency value as an int64 (original, no scaling by FloatingPointPrecision).
 func (c Concurrency) Int64() int64 {
 	return int64(c)
@@ -24,10 +40,10 @@ func (c Concurrency) Float64() float64 {
 	return float64(c) / FloatingPointPrecision
 }
 
-func FromInt64(v int64) Concurrency {
+func Int64ToConcurrency(v int64) Concurrency {
 	return Concurrency(v * FloatingPointPrecision)
 }
 
-func FromFloat64(v float64) Concurrency {
+func FloatToConcurrency(v float64) Concurrency {
 	return Concurrency(v * FloatingPointPrecision)
 }

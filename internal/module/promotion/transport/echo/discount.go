@@ -26,7 +26,6 @@ type CreatePromotionRequest struct {
 
 type CreateDiscountRequest struct {
 	CreatePromotionRequest
-	OrderWide   bool  `json:"order_wide" validate:"required"`
 	MinSpend    int64 `json:"min_spend" validate:"required"`
 	MaxDiscount int64 `json:"max_discount" validate:"required"`
 
@@ -62,7 +61,6 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 			DateStarted: req.DateStarted,
 			DateEnded:   req.DateEnded,
 		},
-		OrderWide:       req.OrderWide,
 		MinSpend:        req.MinSpend,
 		MaxDiscount:     req.MaxDiscount,
 		DiscountPercent: req.DiscountPercent,

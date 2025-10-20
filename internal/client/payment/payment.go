@@ -7,7 +7,7 @@ import (
 
 type CreateOrderParams struct {
 	RefID  int64
-	Amount int64
+	Amount sharedmodel.Concurrency
 	Info   string
 }
 

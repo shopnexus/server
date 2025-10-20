@@ -19,11 +19,11 @@ type ProductCard struct {
 	DateUpdated time.Time `json:"date_updated"`
 	DateDeleted time.Time `json:"date_deleted"`
 
-	Price         int64                `json:"price"`
-	OriginalPrice int64                `json:"original_price"`
-	Rating        Rating               `json:"rating"`
-	Resource      sharedmodel.Resource `json:"resource"`
-	Promotions    []ProductCardPromo   `json:"promotions"`
+	Price         sharedmodel.Concurrency `json:"price"`
+	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
+	Rating        Rating                  `json:"rating"`
+	Resource      sharedmodel.Resource    `json:"resource"`
+	Promotions    []ProductCardPromo      `json:"promotions"`
 }
 
 type ProductCardPromo struct {

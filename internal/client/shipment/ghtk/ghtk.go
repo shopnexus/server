@@ -85,7 +85,7 @@ func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (sh
 
 	return shipment.QuoteResult{
 		ETA:   etd,
-		Costs: sharedmodel.FromInt64(cost),
+		Costs: sharedmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 
@@ -121,7 +121,7 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		LabelURL: ship.LabelURL,
 		Service:  ship.Service,
 		ETA:      eta,
-		Costs:    sharedmodel.FromInt64(cost),
+		Costs:    sharedmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 

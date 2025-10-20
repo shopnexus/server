@@ -2,6 +2,7 @@ package catalogmodel
 
 import (
 	"shopnexus-remastered/internal/db"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 )
 
 const (
@@ -13,8 +14,8 @@ const (
 // ProductPrice is the final price of a product SKU after applying promotions
 type ProductPrice struct {
 	SkuID         int64
-	Price         int64
-	OriginalPrice int64
+	Price         sharedmodel.Concurrency
+	OriginalPrice sharedmodel.Concurrency
 	Promotions    []db.PromotionBase
 }
 

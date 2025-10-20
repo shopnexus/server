@@ -4,6 +4,7 @@ import (
 	"context"
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -20,8 +21,8 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	// Initialize prices
 	for _, sku := range skus {
 		priceMap[sku.ID] = &catalogmodel.ProductPrice{
-			OriginalPrice: sku.Price,
-			Price:         sku.Price,
+			OriginalPrice: sharedmodel.Int64ToConcurrency(sku.Price),
+			Price:         sharedmodel.Int64ToConcurrency(sku.Price),
 			SkuID:         sku.ID,
 		}
 	}
@@ -92,22 +93,23 @@ func IsPromotionApplicable(promo db.PromotionBase, spu db.CatalogProductSpu, sku
 	}
 }
 
-func CalculateDiscountedItemPrice(originalPrice int64, discount db.PromotionDiscount) int64 {
-	discountedPrice := originalPrice
-
-	// If the order is apply to specific item and original price is less than the minimum spend, return the original price
-	if !discount.OrderWide && originalPrice < discount.MinSpend {
+func CalculateDiscountedItemPrice(originalPrice sharedmodel.Concurrency, dbDiscount db.PromotionDiscount) sharedmodel.Concurrency {
+	// If original price is less than the minimum spend, return the original price
+	if originalPrice.Int64() < dbDiscount.MinSpend {
 		return originalPrice
 	}
 
-	if discount.DiscountPercent.Valid {
-		discountAmount := originalPrice * int64(discount.DiscountPercent.Int32) / 100
-		discountedPrice -= min(discountAmount, discount.MaxDiscount)
-	} else if discount.DiscountPrice.Valid {
-		discountedPrice -= min(discount.DiscountPrice.Int64, discount.MaxDiscount)
+	var discount int64
+	if dbDiscount.DiscountPercent.Valid {
+		discountAmount := originalPrice.Int64() * int64(dbDiscount.DiscountPercent.Int32) / 100
+		discount = min(discountAmount, dbDiscount.MaxDiscount)
+	} else if dbDiscount.DiscountPrice.Valid {
+		discount = min(dbDiscount.DiscountPrice.Int64, dbDiscount.MaxDiscount)
 	}
 
-	if discountedPrice < 0 {
+	discountedPrice := sharedmodel.Int64ToConcurrency(originalPrice.Int64() - discount)
+
+	if discountedPrice.Int64() < 0 {
 		return 0
 	}
 	return discountedPrice
