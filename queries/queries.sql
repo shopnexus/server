@@ -2913,6 +2913,9 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
+    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
     ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
@@ -2939,6 +2942,9 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
+    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
     ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
@@ -2964,6 +2970,9 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
+    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
     ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
@@ -2981,32 +2990,33 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateBatchOrderItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "vendor_id" = COALESCE(sqlc.narg('vendor_id'), "vendor_id"),
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
     "shipment_id" = COALESCE(sqlc.narg('shipment_id'), "shipment_id"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
@@ -3019,6 +3029,7 @@ RETURNING *;
 UPDATE "order"."item"
 SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "vendor_id" = COALESCE(sqlc.narg('vendor_id'), "vendor_id"),
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
     "shipment_id" = COALESCE(sqlc.narg('shipment_id'), "shipment_id"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
@@ -3038,6 +3049,9 @@ WHERE (
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
     ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
+    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
+    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
     ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
@@ -3669,6 +3683,9 @@ WHERE (
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
+    ("new_cost" = ANY(sqlc.slice('new_cost')) OR sqlc.slice('new_cost') IS NULL) AND
+    ("new_cost" > sqlc.narg('new_cost_from') OR sqlc.narg('new_cost_from') IS NULL) AND
+    ("new_cost" < sqlc.narg('new_cost_to') OR sqlc.narg('new_cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
@@ -3701,6 +3718,9 @@ WHERE (
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
+    ("new_cost" = ANY(sqlc.slice('new_cost')) OR sqlc.slice('new_cost') IS NULL) AND
+    ("new_cost" > sqlc.narg('new_cost_from') OR sqlc.narg('new_cost_from') IS NULL) AND
+    ("new_cost" < sqlc.narg('new_cost_to') OR sqlc.narg('new_cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
@@ -3732,6 +3752,9 @@ WHERE (
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
+    ("new_cost" = ANY(sqlc.slice('new_cost')) OR sqlc.slice('new_cost') IS NULL) AND
+    ("new_cost" > sqlc.narg('new_cost_from') OR sqlc.narg('new_cost_from') IS NULL) AND
+    ("new_cost" < sqlc.narg('new_cost_to') OR sqlc.narg('new_cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
@@ -3757,27 +3780,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderShipment :one
-INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateBatchOrderShipment :batchone
-INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateCopyOrderShipment :copyfrom
-INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
 
 -- name: CreateDefaultOrderShipment :one
-INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderShipment :copyfrom
-INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdateOrderShipment :one
 UPDATE "order"."shipment"
@@ -3786,6 +3809,7 @@ SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "label_url" = CASE WHEN sqlc.arg('null_label_url')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('label_url'), "label_url") END,
     "cost" = COALESCE(sqlc.narg('cost'), "cost"),
+    "new_cost" = COALESCE(sqlc.narg('new_cost'), "new_cost"),
     "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta"),
     "from_address" = COALESCE(sqlc.narg('from_address'), "from_address"),
     "to_address" = COALESCE(sqlc.narg('to_address'), "to_address"),
@@ -3804,6 +3828,7 @@ SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "label_url" = CASE WHEN sqlc.arg('null_label_url')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('label_url'), "label_url") END,
     "cost" = COALESCE(sqlc.narg('cost'), "cost"),
+    "new_cost" = COALESCE(sqlc.narg('new_cost'), "new_cost"),
     "date_eta" = COALESCE(sqlc.narg('date_eta'), "date_eta"),
     "from_address" = COALESCE(sqlc.narg('from_address'), "from_address"),
     "to_address" = COALESCE(sqlc.narg('to_address'), "to_address"),
@@ -3824,6 +3849,9 @@ WHERE (
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
+    ("new_cost" = ANY(sqlc.slice('new_cost')) OR sqlc.slice('new_cost') IS NULL) AND
+    ("new_cost" > sqlc.narg('new_cost_from') OR sqlc.narg('new_cost_from') IS NULL) AND
+    ("new_cost" < sqlc.narg('new_cost_to') OR sqlc.narg('new_cost_to') IS NULL) AND
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
@@ -4221,7 +4249,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("order_wide" = ANY(sqlc.slice('order_wide')) OR sqlc.slice('order_wide') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4244,7 +4271,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("order_wide" = ANY(sqlc.slice('order_wide')) OR sqlc.slice('order_wide') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4266,7 +4292,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("order_wide" = ANY(sqlc.slice('order_wide')) OR sqlc.slice('order_wide') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4286,32 +4311,31 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreatePromotionDiscount :one
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateBatchPromotionDiscount :batchone
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyPromotionDiscount :copyfrom
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: CreateDefaultPromotionDiscount :one
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultPromotionDiscount :copyfrom
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdatePromotionDiscount :one
 UPDATE "promotion"."discount"
-SET "order_wide" = COALESCE(sqlc.narg('order_wide'), "order_wide"),
-    "min_spend" = COALESCE(sqlc.narg('min_spend'), "min_spend"),
+SET "min_spend" = COALESCE(sqlc.narg('min_spend'), "min_spend"),
     "max_discount" = COALESCE(sqlc.narg('max_discount'), "max_discount"),
     "discount_percent" = CASE WHEN sqlc.arg('null_discount_percent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_percent'), "discount_percent") END,
     "discount_price" = CASE WHEN sqlc.arg('null_discount_price')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_price'), "discount_price") END
@@ -4320,8 +4344,7 @@ RETURNING *;
 
 -- name: UpdateBatchPromotionDiscount :batchexec
 UPDATE "promotion"."discount"
-SET "order_wide" = COALESCE(sqlc.narg('order_wide'), "order_wide"),
-    "min_spend" = COALESCE(sqlc.narg('min_spend'), "min_spend"),
+SET "min_spend" = COALESCE(sqlc.narg('min_spend'), "min_spend"),
     "max_discount" = COALESCE(sqlc.narg('max_discount'), "max_discount"),
     "discount_percent" = CASE WHEN sqlc.arg('null_discount_percent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_percent'), "discount_percent") END,
     "discount_price" = CASE WHEN sqlc.arg('null_discount_price')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('discount_price'), "discount_price") END
@@ -4333,7 +4356,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("order_wide" = ANY(sqlc.slice('order_wide')) OR sqlc.slice('order_wide') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND

@@ -1365,6 +1365,7 @@ func (r iteratorForCreateCopyDefaultOrderItem) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].OrderID,
 		r.rows[0].SkuID,
+		r.rows[0].VendorID,
 		r.rows[0].ConfirmedByID,
 		r.rows[0].ShipmentID,
 		r.rows[0].Note,
@@ -1377,7 +1378,7 @@ func (r iteratorForCreateCopyDefaultOrderItem) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderItem(ctx context.Context, arg []CreateCopyDefaultOrderItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity"}, &iteratorForCreateCopyDefaultOrderItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "quantity"}, &iteratorForCreateCopyDefaultOrderItem{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrderItemSerial implements pgx.CopyFromSource.
@@ -1508,6 +1509,7 @@ func (r iteratorForCreateCopyDefaultOrderShipment) Values() ([]interface{}, erro
 		r.rows[0].TrackingCode,
 		r.rows[0].LabelUrl,
 		r.rows[0].Cost,
+		r.rows[0].NewCost,
 		r.rows[0].DateEta,
 		r.rows[0].FromAddress,
 		r.rows[0].ToAddress,
@@ -1523,7 +1525,7 @@ func (r iteratorForCreateCopyDefaultOrderShipment) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderShipment(ctx context.Context, arg []CreateCopyDefaultOrderShipmentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm"}, &iteratorForCreateCopyDefaultOrderShipment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"option", "tracking_code", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm"}, &iteratorForCreateCopyDefaultOrderShipment{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionBase implements pgx.CopyFromSource.
@@ -1589,7 +1591,6 @@ func (r *iteratorForCreateCopyDefaultPromotionDiscount) Next() bool {
 func (r iteratorForCreateCopyDefaultPromotionDiscount) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
-		r.rows[0].OrderWide,
 		r.rows[0].MinSpend,
 		r.rows[0].MaxDiscount,
 		r.rows[0].DiscountPercent,
@@ -1602,7 +1603,7 @@ func (r iteratorForCreateCopyDefaultPromotionDiscount) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyDefaultPromotionDiscount{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyDefaultPromotionDiscount{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionSchedule implements pgx.CopyFromSource.
@@ -1993,6 +1994,7 @@ func (r iteratorForCreateCopyOrderItem) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].OrderID,
 		r.rows[0].SkuID,
+		r.rows[0].VendorID,
 		r.rows[0].ConfirmedByID,
 		r.rows[0].ShipmentID,
 		r.rows[0].Note,
@@ -2006,7 +2008,7 @@ func (r iteratorForCreateCopyOrderItem) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderItem(ctx context.Context, arg []CreateCopyOrderItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity"}, &iteratorForCreateCopyOrderItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity"}, &iteratorForCreateCopyOrderItem{rows: arg})
 }
 
 // iteratorForCreateCopyOrderItemSerial implements pgx.CopyFromSource.
@@ -2143,6 +2145,7 @@ func (r iteratorForCreateCopyOrderShipment) Values() ([]interface{}, error) {
 		r.rows[0].Status,
 		r.rows[0].LabelUrl,
 		r.rows[0].Cost,
+		r.rows[0].NewCost,
 		r.rows[0].DateEta,
 		r.rows[0].FromAddress,
 		r.rows[0].ToAddress,
@@ -2159,7 +2162,7 @@ func (r iteratorForCreateCopyOrderShipment) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderShipment(ctx context.Context, arg []CreateCopyOrderShipmentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created"}, &iteratorForCreateCopyOrderShipment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "shipment"}, []string{"option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created"}, &iteratorForCreateCopyOrderShipment{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionBase implements pgx.CopyFromSource.
@@ -2227,7 +2230,6 @@ func (r *iteratorForCreateCopyPromotionDiscount) Next() bool {
 func (r iteratorForCreateCopyPromotionDiscount) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
-		r.rows[0].OrderWide,
 		r.rows[0].MinSpend,
 		r.rows[0].MaxDiscount,
 		r.rows[0].DiscountPercent,
@@ -2240,7 +2242,7 @@ func (r iteratorForCreateCopyPromotionDiscount) Err() error {
 }
 
 func (q *Queries) CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyPromotionDiscount{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyPromotionDiscount{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionSchedule implements pgx.CopyFromSource.

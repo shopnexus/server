@@ -211,6 +211,7 @@ Table OrderItem {
   id BigInt [pk, increment]
   order_id BigInt [not null]
   sku_id BigInt [not null]
+  vendor_id BigInt [not null]
   confirmed_by_id BigInt
   shipment_id BigInt [not null]
   note String [not null]
@@ -271,6 +272,7 @@ Table Shipment {
   status ShipmentStatus [not null, default: 'Pending']
   label_url String
   cost BigInt [not null]
+  new_cost BigInt [not null]
   date_eta DateTime [not null]
   from_address String [not null]
   to_address String [not null]
@@ -310,7 +312,6 @@ Table PromotionSchedule {
 
 Table PromotionDiscount {
   id BigInt [pk]
-  order_wide Boolean [not null]
   min_spend BigInt [not null]
   max_discount BigInt [not null]
   discount_percent Int
@@ -434,6 +435,7 @@ Enum ShipmentStatus {
 
 Enum PromotionType {
   Discount
+  ShipDiscount
   Bundle
   BuyXGetY
   Cashback
@@ -523,6 +525,8 @@ Ref: OrderItem.sku_id > ProductSku.id [delete: No Action]
 Ref: OrderItem.shipment_id > Shipment.id [delete: No Action]
 
 Ref: OrderItem.confirmed_by_id > Vendor.id [delete: Set Null]
+
+Ref: OrderItem.vendor_id > Vendor.id [delete: Set Null]
 
 Ref: OrderItemSerial.order_item_id > OrderItem.id [delete: Cascade]
 

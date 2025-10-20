@@ -59,7 +59,7 @@ CREATE TYPE "order"."invoice_ref_type" AS ENUM ('Order', 'Fee');
 CREATE TYPE "order"."shipment_status" AS ENUM ('Pending', 'LabelCreated', 'InTransit', 'OutForDelivery', 'Delivered', 'Failed', 'Cancelled');
 
 -- CreateEnum
-CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'Bundle', 'BuyXGetY', 'Cashback');
+CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'ShipDiscount', 'Bundle', 'BuyXGetY', 'Cashback');
 
 -- CreateEnum
 CREATE TYPE "promotion"."ref_type" AS ENUM ('All', 'ProductSpu', 'ProductSku', 'Category', 'Brand');
@@ -331,6 +331,7 @@ CREATE TABLE "order"."item" (
     "id" BIGSERIAL NOT NULL,
     "order_id" BIGINT NOT NULL,
     "sku_id" BIGINT NOT NULL,
+    "vendor_id" BIGINT NOT NULL,
     "confirmed_by_id" BIGINT,
     "shipment_id" BIGINT NOT NULL,
     "note" TEXT NOT NULL,
@@ -402,6 +403,7 @@ CREATE TABLE "order"."shipment" (
     "status" "order"."shipment_status" NOT NULL DEFAULT 'Pending',
     "label_url" TEXT,
     "cost" BIGINT NOT NULL,
+    "new_cost" BIGINT NOT NULL,
     "date_eta" TIMESTAMPTZ(3) NOT NULL,
     "from_address" TEXT NOT NULL,
     "to_address" TEXT NOT NULL,
@@ -450,7 +452,6 @@ CREATE TABLE "promotion"."schedule" (
 -- CreateTable
 CREATE TABLE "promotion"."discount" (
     "id" BIGINT NOT NULL,
-    "order_wide" BOOLEAN NOT NULL,
     "min_spend" BIGINT NOT NULL,
     "max_discount" BIGINT NOT NULL,
     "discount_percent" INTEGER,
@@ -648,6 +649,9 @@ CREATE INDEX "item_order_id_idx" ON "order"."item"("order_id");
 CREATE INDEX "item_sku_id_idx" ON "order"."item"("sku_id");
 
 -- CreateIndex
+CREATE INDEX "item_vendor_id_idx" ON "order"."item"("vendor_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "item_serial_order_item_id_product_serial_id_key" ON "order"."item_serial"("order_item_id", "product_serial_id");
 
 -- CreateIndex
@@ -766,6 +770,9 @@ ALTER TABLE "order"."item" ADD CONSTRAINT "item_shipment_id_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "order"."item" ADD CONSTRAINT "item_confirmed_by_id_fkey" FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."item" ADD CONSTRAINT "item_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."item_serial" ADD CONSTRAINT "item_serial_order_item_id_fkey" FOREIGN KEY ("order_item_id") REFERENCES "order"."item"("id") ON DELETE CASCADE ON UPDATE CASCADE;

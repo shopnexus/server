@@ -1308,16 +1308,19 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
-    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("quantity" = ANY($17) OR $17 IS NULL) AND
-    ("quantity" > $18 OR $18 IS NULL) AND
-    ("quantity" < $19 OR $19 IS NULL)
+    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
+    ("vendor_id" > $11 OR $11 IS NULL) AND
+    ("vendor_id" < $12 OR $12 IS NULL) AND
+    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
+    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
+    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
+    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
+    ("shipment_id" > $17 OR $17 IS NULL) AND
+    ("shipment_id" < $18 OR $18 IS NULL) AND
+    ("status" = ANY($19) OR $19 IS NULL) AND
+    ("quantity" = ANY($20) OR $20 IS NULL) AND
+    ("quantity" > $21 OR $21 IS NULL) AND
+    ("quantity" < $22 OR $22 IS NULL)
 )
 `
 
@@ -1331,6 +1334,9 @@ type CountOrderItemParams struct {
 	SkuID             []int64        `json:"sku_id"`
 	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
 	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	VendorID          []int64        `json:"vendor_id"`
+	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
+	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
 	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
 	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
 	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
@@ -1354,6 +1360,9 @@ func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) 
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.VendorID,
+		arg.VendorIDFrom,
+		arg.VendorIDTo,
 		arg.ConfirmedByID,
 		arg.ConfirmedByIDFrom,
 		arg.ConfirmedByIDTo,
@@ -1561,24 +1570,27 @@ WHERE (
     ("cost" = ANY($5) OR $5 IS NULL) AND
     ("cost" > $6 OR $6 IS NULL) AND
     ("cost" < $7 OR $7 IS NULL) AND
-    ("date_eta" = ANY($8) OR $8 IS NULL) AND
-    ("date_eta" > $9 OR $9 IS NULL) AND
-    ("date_eta" < $10 OR $10 IS NULL) AND
-    ("weight_grams" = ANY($11) OR $11 IS NULL) AND
-    ("weight_grams" > $12 OR $12 IS NULL) AND
-    ("weight_grams" < $13 OR $13 IS NULL) AND
-    ("length_cm" = ANY($14) OR $14 IS NULL) AND
-    ("length_cm" > $15 OR $15 IS NULL) AND
-    ("length_cm" < $16 OR $16 IS NULL) AND
-    ("width_cm" = ANY($17) OR $17 IS NULL) AND
-    ("width_cm" > $18 OR $18 IS NULL) AND
-    ("width_cm" < $19 OR $19 IS NULL) AND
-    ("height_cm" = ANY($20) OR $20 IS NULL) AND
-    ("height_cm" > $21 OR $21 IS NULL) AND
-    ("height_cm" < $22 OR $22 IS NULL) AND
-    ("date_created" = ANY($23) OR $23 IS NULL) AND
-    ("date_created" > $24 OR $24 IS NULL) AND
-    ("date_created" < $25 OR $25 IS NULL)
+    ("new_cost" = ANY($8) OR $8 IS NULL) AND
+    ("new_cost" > $9 OR $9 IS NULL) AND
+    ("new_cost" < $10 OR $10 IS NULL) AND
+    ("date_eta" = ANY($11) OR $11 IS NULL) AND
+    ("date_eta" > $12 OR $12 IS NULL) AND
+    ("date_eta" < $13 OR $13 IS NULL) AND
+    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
+    ("weight_grams" > $15 OR $15 IS NULL) AND
+    ("weight_grams" < $16 OR $16 IS NULL) AND
+    ("length_cm" = ANY($17) OR $17 IS NULL) AND
+    ("length_cm" > $18 OR $18 IS NULL) AND
+    ("length_cm" < $19 OR $19 IS NULL) AND
+    ("width_cm" = ANY($20) OR $20 IS NULL) AND
+    ("width_cm" > $21 OR $21 IS NULL) AND
+    ("width_cm" < $22 OR $22 IS NULL) AND
+    ("height_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" > $24 OR $24 IS NULL) AND
+    ("height_cm" < $25 OR $25 IS NULL) AND
+    ("date_created" = ANY($26) OR $26 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL)
 )
 `
 
@@ -1590,6 +1602,9 @@ type CountOrderShipmentParams struct {
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
+	NewCost         []int64               `json:"new_cost"`
+	NewCostFrom     pgtype.Int8           `json:"new_cost_from"`
+	NewCostTo       pgtype.Int8           `json:"new_cost_to"`
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
@@ -1619,6 +1634,9 @@ func (q *Queries) CountOrderShipment(ctx context.Context, arg CountOrderShipment
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
+		arg.NewCost,
+		arg.NewCostFrom,
+		arg.NewCostTo,
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
@@ -1746,19 +1764,18 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_wide" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" > $6 OR $6 IS NULL) AND
-    ("min_spend" < $7 OR $7 IS NULL) AND
-    ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" > $9 OR $9 IS NULL) AND
-    ("max_discount" < $10 OR $10 IS NULL) AND
-    ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" > $12 OR $12 IS NULL) AND
-    ("discount_percent" < $13 OR $13 IS NULL) AND
-    ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" > $15 OR $15 IS NULL) AND
-    ("discount_price" < $16 OR $16 IS NULL)
+    ("min_spend" = ANY($4) OR $4 IS NULL) AND
+    ("min_spend" > $5 OR $5 IS NULL) AND
+    ("min_spend" < $6 OR $6 IS NULL) AND
+    ("max_discount" = ANY($7) OR $7 IS NULL) AND
+    ("max_discount" > $8 OR $8 IS NULL) AND
+    ("max_discount" < $9 OR $9 IS NULL) AND
+    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
+    ("discount_percent" > $11 OR $11 IS NULL) AND
+    ("discount_percent" < $12 OR $12 IS NULL) AND
+    ("discount_price" = ANY($13) OR $13 IS NULL) AND
+    ("discount_price" > $14 OR $14 IS NULL) AND
+    ("discount_price" < $15 OR $15 IS NULL)
 )
 `
 
@@ -1766,7 +1783,6 @@ type CountPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
 	IDFrom              pgtype.Int8   `json:"id_from"`
 	IDTo                pgtype.Int8   `json:"id_to"`
-	OrderWide           []bool        `json:"order_wide"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -1786,7 +1802,6 @@ func (q *Queries) CountPromotionDiscount(ctx context.Context, arg CountPromotion
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -2954,6 +2969,7 @@ type CreateCopyDefaultOrderInvoiceParams struct {
 type CreateCopyDefaultOrderItemParams struct {
 	OrderID       int64       `json:"order_id"`
 	SkuID         int64       `json:"sku_id"`
+	VendorID      int64       `json:"vendor_id"`
 	ConfirmedByID pgtype.Int8 `json:"confirmed_by_id"`
 	ShipmentID    int64       `json:"shipment_id"`
 	Note          string      `json:"note"`
@@ -2985,6 +3001,7 @@ type CreateCopyDefaultOrderShipmentParams struct {
 	TrackingCode pgtype.Text        `json:"tracking_code"`
 	LabelUrl     pgtype.Text        `json:"label_url"`
 	Cost         int64              `json:"cost"`
+	NewCost      int64              `json:"new_cost"`
 	DateEta      pgtype.Timestamptz `json:"date_eta"`
 	FromAddress  string             `json:"from_address"`
 	ToAddress    string             `json:"to_address"`
@@ -3010,7 +3027,6 @@ type CreateCopyDefaultPromotionBaseParams struct {
 
 type CreateCopyDefaultPromotionDiscountParams struct {
 	ID              int64       `json:"id"`
-	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
@@ -3106,6 +3122,7 @@ type CreateCopyOrderInvoiceParams struct {
 type CreateCopyOrderItemParams struct {
 	OrderID       int64        `json:"order_id"`
 	SkuID         int64        `json:"sku_id"`
+	VendorID      int64        `json:"vendor_id"`
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
@@ -3144,6 +3161,7 @@ type CreateCopyOrderShipmentParams struct {
 	Status       OrderShipmentStatus `json:"status"`
 	LabelUrl     pgtype.Text         `json:"label_url"`
 	Cost         int64               `json:"cost"`
+	NewCost      int64               `json:"new_cost"`
 	DateEta      pgtype.Timestamptz  `json:"date_eta"`
 	FromAddress  string              `json:"from_address"`
 	ToAddress    string              `json:"to_address"`
@@ -3172,7 +3190,6 @@ type CreateCopyPromotionBaseParams struct {
 
 type CreateCopyPromotionDiscountParams struct {
 	ID              int64       `json:"id"`
-	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
@@ -3872,14 +3889,15 @@ func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefau
 }
 
 const createDefaultOrderItem = `-- name: CreateDefaultOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, status, quantity
 `
 
 type CreateDefaultOrderItemParams struct {
 	OrderID       int64       `json:"order_id"`
 	SkuID         int64       `json:"sku_id"`
+	VendorID      int64       `json:"vendor_id"`
 	ConfirmedByID pgtype.Int8 `json:"confirmed_by_id"`
 	ShipmentID    int64       `json:"shipment_id"`
 	Note          string      `json:"note"`
@@ -3890,6 +3908,7 @@ func (q *Queries) CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultO
 	row := q.db.QueryRow(ctx, createDefaultOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.VendorID,
 		arg.ConfirmedByID,
 		arg.ShipmentID,
 		arg.Note,
@@ -3900,6 +3919,7 @@ func (q *Queries) CreateDefaultOrderItem(ctx context.Context, arg CreateDefaultO
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.VendorID,
 		&i.ConfirmedByID,
 		&i.ShipmentID,
 		&i.Note,
@@ -3994,9 +4014,9 @@ func (q *Queries) CreateDefaultOrderRefundDispute(ctx context.Context, arg Creat
 }
 
 const createDefaultOrderShipment = `-- name: CreateDefaultOrderShipment :one
-INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+INSERT INTO "order"."shipment" ("option", "tracking_code", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 `
 
 type CreateDefaultOrderShipmentParams struct {
@@ -4004,6 +4024,7 @@ type CreateDefaultOrderShipmentParams struct {
 	TrackingCode pgtype.Text        `json:"tracking_code"`
 	LabelUrl     pgtype.Text        `json:"label_url"`
 	Cost         int64              `json:"cost"`
+	NewCost      int64              `json:"new_cost"`
 	DateEta      pgtype.Timestamptz `json:"date_eta"`
 	FromAddress  string             `json:"from_address"`
 	ToAddress    string             `json:"to_address"`
@@ -4019,6 +4040,7 @@ func (q *Queries) CreateDefaultOrderShipment(ctx context.Context, arg CreateDefa
 		arg.TrackingCode,
 		arg.LabelUrl,
 		arg.Cost,
+		arg.NewCost,
 		arg.DateEta,
 		arg.FromAddress,
 		arg.ToAddress,
@@ -4035,6 +4057,7 @@ func (q *Queries) CreateDefaultOrderShipment(ctx context.Context, arg CreateDefa
 		&i.Status,
 		&i.LabelUrl,
 		&i.Cost,
+		&i.NewCost,
 		&i.DateEta,
 		&i.FromAddress,
 		&i.ToAddress,
@@ -4102,14 +4125,13 @@ func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultPromotionDiscount = `-- name: CreateDefaultPromotionDiscount :one
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_wide, min_spend, max_discount, discount_percent, discount_price
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, min_spend, max_discount, discount_percent, discount_price
 `
 
 type CreateDefaultPromotionDiscountParams struct {
 	ID              int64       `json:"id"`
-	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
@@ -4119,7 +4141,6 @@ type CreateDefaultPromotionDiscountParams struct {
 func (q *Queries) CreateDefaultPromotionDiscount(ctx context.Context, arg CreateDefaultPromotionDiscountParams) (PromotionDiscount, error) {
 	row := q.db.QueryRow(ctx, createDefaultPromotionDiscount,
 		arg.ID,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MaxDiscount,
 		arg.DiscountPercent,
@@ -4128,7 +4149,6 @@ func (q *Queries) CreateDefaultPromotionDiscount(ctx context.Context, arg Create
 	var i PromotionDiscount
 	err := row.Scan(
 		&i.ID,
-		&i.OrderWide,
 		&i.MinSpend,
 		&i.MaxDiscount,
 		&i.DiscountPercent,
@@ -4495,14 +4515,15 @@ func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoice
 }
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
+INSERT INTO "order"."item" ("order_id", "sku_id", "vendor_id", "confirmed_by_id", "shipment_id", "note", "status", "quantity")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, status, quantity
 `
 
 type CreateOrderItemParams struct {
 	OrderID       int64        `json:"order_id"`
 	SkuID         int64        `json:"sku_id"`
+	VendorID      int64        `json:"vendor_id"`
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
@@ -4514,6 +4535,7 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	row := q.db.QueryRow(ctx, createOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.VendorID,
 		arg.ConfirmedByID,
 		arg.ShipmentID,
 		arg.Note,
@@ -4525,6 +4547,7 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.VendorID,
 		&i.ConfirmedByID,
 		&i.ShipmentID,
 		&i.Note,
@@ -4633,9 +4656,9 @@ func (q *Queries) CreateOrderRefundDispute(ctx context.Context, arg CreateOrderR
 }
 
 const createOrderShipment = `-- name: CreateOrderShipment :one
-INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+INSERT INTO "order"."shipment" ("option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 `
 
 type CreateOrderShipmentParams struct {
@@ -4644,6 +4667,7 @@ type CreateOrderShipmentParams struct {
 	Status       OrderShipmentStatus `json:"status"`
 	LabelUrl     pgtype.Text         `json:"label_url"`
 	Cost         int64               `json:"cost"`
+	NewCost      int64               `json:"new_cost"`
 	DateEta      pgtype.Timestamptz  `json:"date_eta"`
 	FromAddress  string              `json:"from_address"`
 	ToAddress    string              `json:"to_address"`
@@ -4661,6 +4685,7 @@ func (q *Queries) CreateOrderShipment(ctx context.Context, arg CreateOrderShipme
 		arg.Status,
 		arg.LabelUrl,
 		arg.Cost,
+		arg.NewCost,
 		arg.DateEta,
 		arg.FromAddress,
 		arg.ToAddress,
@@ -4678,6 +4703,7 @@ func (q *Queries) CreateOrderShipment(ctx context.Context, arg CreateOrderShipme
 		&i.Status,
 		&i.LabelUrl,
 		&i.Cost,
+		&i.NewCost,
 		&i.DateEta,
 		&i.FromAddress,
 		&i.ToAddress,
@@ -4749,14 +4775,13 @@ func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBa
 }
 
 const createPromotionDiscount = `-- name: CreatePromotionDiscount :one
-INSERT INTO "promotion"."discount" ("id", "order_wide", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_wide, min_spend, max_discount, discount_percent, discount_price
+INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, min_spend, max_discount, discount_percent, discount_price
 `
 
 type CreatePromotionDiscountParams struct {
 	ID              int64       `json:"id"`
-	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
@@ -4766,7 +4791,6 @@ type CreatePromotionDiscountParams struct {
 func (q *Queries) CreatePromotionDiscount(ctx context.Context, arg CreatePromotionDiscountParams) (PromotionDiscount, error) {
 	row := q.db.QueryRow(ctx, createPromotionDiscount,
 		arg.ID,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MaxDiscount,
 		arg.DiscountPercent,
@@ -4775,7 +4799,6 @@ func (q *Queries) CreatePromotionDiscount(ctx context.Context, arg CreatePromoti
 	var i PromotionDiscount
 	err := row.Scan(
 		&i.ID,
-		&i.OrderWide,
 		&i.MinSpend,
 		&i.MaxDiscount,
 		&i.DiscountPercent,
@@ -6216,16 +6239,19 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
-    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("quantity" = ANY($17) OR $17 IS NULL) AND
-    ("quantity" > $18 OR $18 IS NULL) AND
-    ("quantity" < $19 OR $19 IS NULL)
+    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
+    ("vendor_id" > $11 OR $11 IS NULL) AND
+    ("vendor_id" < $12 OR $12 IS NULL) AND
+    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
+    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
+    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
+    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
+    ("shipment_id" > $17 OR $17 IS NULL) AND
+    ("shipment_id" < $18 OR $18 IS NULL) AND
+    ("status" = ANY($19) OR $19 IS NULL) AND
+    ("quantity" = ANY($20) OR $20 IS NULL) AND
+    ("quantity" > $21 OR $21 IS NULL) AND
+    ("quantity" < $22 OR $22 IS NULL)
 )
 `
 
@@ -6239,6 +6265,9 @@ type DeleteOrderItemParams struct {
 	SkuID             []int64        `json:"sku_id"`
 	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
 	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	VendorID          []int64        `json:"vendor_id"`
+	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
+	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
 	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
 	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
 	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
@@ -6262,6 +6291,9 @@ func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.VendorID,
+		arg.VendorIDFrom,
+		arg.VendorIDTo,
 		arg.ConfirmedByID,
 		arg.ConfirmedByIDFrom,
 		arg.ConfirmedByIDTo,
@@ -6457,24 +6489,27 @@ WHERE (
     ("cost" = ANY($5) OR $5 IS NULL) AND
     ("cost" > $6 OR $6 IS NULL) AND
     ("cost" < $7 OR $7 IS NULL) AND
-    ("date_eta" = ANY($8) OR $8 IS NULL) AND
-    ("date_eta" > $9 OR $9 IS NULL) AND
-    ("date_eta" < $10 OR $10 IS NULL) AND
-    ("weight_grams" = ANY($11) OR $11 IS NULL) AND
-    ("weight_grams" > $12 OR $12 IS NULL) AND
-    ("weight_grams" < $13 OR $13 IS NULL) AND
-    ("length_cm" = ANY($14) OR $14 IS NULL) AND
-    ("length_cm" > $15 OR $15 IS NULL) AND
-    ("length_cm" < $16 OR $16 IS NULL) AND
-    ("width_cm" = ANY($17) OR $17 IS NULL) AND
-    ("width_cm" > $18 OR $18 IS NULL) AND
-    ("width_cm" < $19 OR $19 IS NULL) AND
-    ("height_cm" = ANY($20) OR $20 IS NULL) AND
-    ("height_cm" > $21 OR $21 IS NULL) AND
-    ("height_cm" < $22 OR $22 IS NULL) AND
-    ("date_created" = ANY($23) OR $23 IS NULL) AND
-    ("date_created" > $24 OR $24 IS NULL) AND
-    ("date_created" < $25 OR $25 IS NULL)
+    ("new_cost" = ANY($8) OR $8 IS NULL) AND
+    ("new_cost" > $9 OR $9 IS NULL) AND
+    ("new_cost" < $10 OR $10 IS NULL) AND
+    ("date_eta" = ANY($11) OR $11 IS NULL) AND
+    ("date_eta" > $12 OR $12 IS NULL) AND
+    ("date_eta" < $13 OR $13 IS NULL) AND
+    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
+    ("weight_grams" > $15 OR $15 IS NULL) AND
+    ("weight_grams" < $16 OR $16 IS NULL) AND
+    ("length_cm" = ANY($17) OR $17 IS NULL) AND
+    ("length_cm" > $18 OR $18 IS NULL) AND
+    ("length_cm" < $19 OR $19 IS NULL) AND
+    ("width_cm" = ANY($20) OR $20 IS NULL) AND
+    ("width_cm" > $21 OR $21 IS NULL) AND
+    ("width_cm" < $22 OR $22 IS NULL) AND
+    ("height_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" > $24 OR $24 IS NULL) AND
+    ("height_cm" < $25 OR $25 IS NULL) AND
+    ("date_created" = ANY($26) OR $26 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL)
 )
 `
 
@@ -6486,6 +6521,9 @@ type DeleteOrderShipmentParams struct {
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
+	NewCost         []int64               `json:"new_cost"`
+	NewCostFrom     pgtype.Int8           `json:"new_cost_from"`
+	NewCostTo       pgtype.Int8           `json:"new_cost_to"`
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
@@ -6515,6 +6553,9 @@ func (q *Queries) DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipme
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
+		arg.NewCost,
+		arg.NewCostFrom,
+		arg.NewCostTo,
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
@@ -6636,19 +6677,18 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_wide" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" > $6 OR $6 IS NULL) AND
-    ("min_spend" < $7 OR $7 IS NULL) AND
-    ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" > $9 OR $9 IS NULL) AND
-    ("max_discount" < $10 OR $10 IS NULL) AND
-    ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" > $12 OR $12 IS NULL) AND
-    ("discount_percent" < $13 OR $13 IS NULL) AND
-    ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" > $15 OR $15 IS NULL) AND
-    ("discount_price" < $16 OR $16 IS NULL)
+    ("min_spend" = ANY($4) OR $4 IS NULL) AND
+    ("min_spend" > $5 OR $5 IS NULL) AND
+    ("min_spend" < $6 OR $6 IS NULL) AND
+    ("max_discount" = ANY($7) OR $7 IS NULL) AND
+    ("max_discount" > $8 OR $8 IS NULL) AND
+    ("max_discount" < $9 OR $9 IS NULL) AND
+    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
+    ("discount_percent" > $11 OR $11 IS NULL) AND
+    ("discount_percent" < $12 OR $12 IS NULL) AND
+    ("discount_price" = ANY($13) OR $13 IS NULL) AND
+    ("discount_price" > $14 OR $14 IS NULL) AND
+    ("discount_price" < $15 OR $15 IS NULL)
 )
 `
 
@@ -6656,7 +6696,6 @@ type DeletePromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
 	IDFrom              pgtype.Int8   `json:"id_from"`
 	IDTo                pgtype.Int8   `json:"id_to"`
-	OrderWide           []bool        `json:"order_wide"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -6676,7 +6715,6 @@ func (q *Queries) DeletePromotionDiscount(ctx context.Context, arg DeletePromoti
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -8315,16 +8353,19 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
-    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("quantity" = ANY($17) OR $17 IS NULL) AND
-    ("quantity" > $18 OR $18 IS NULL) AND
-    ("quantity" < $19 OR $19 IS NULL)
+    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
+    ("vendor_id" > $11 OR $11 IS NULL) AND
+    ("vendor_id" < $12 OR $12 IS NULL) AND
+    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
+    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
+    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
+    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
+    ("shipment_id" > $17 OR $17 IS NULL) AND
+    ("shipment_id" < $18 OR $18 IS NULL) AND
+    ("status" = ANY($19) OR $19 IS NULL) AND
+    ("quantity" = ANY($20) OR $20 IS NULL) AND
+    ("quantity" > $21 OR $21 IS NULL) AND
+    ("quantity" < $22 OR $22 IS NULL)
 )
 ) as exists
 `
@@ -8339,6 +8380,9 @@ type ExistsOrderItemParams struct {
 	SkuID             []int64        `json:"sku_id"`
 	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
 	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	VendorID          []int64        `json:"vendor_id"`
+	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
+	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
 	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
 	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
 	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
@@ -8362,6 +8406,9 @@ func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.VendorID,
+		arg.VendorIDFrom,
+		arg.VendorIDTo,
 		arg.ConfirmedByID,
 		arg.ConfirmedByIDFrom,
 		arg.ConfirmedByIDTo,
@@ -8576,24 +8623,27 @@ WHERE (
     ("cost" = ANY($5) OR $5 IS NULL) AND
     ("cost" > $6 OR $6 IS NULL) AND
     ("cost" < $7 OR $7 IS NULL) AND
-    ("date_eta" = ANY($8) OR $8 IS NULL) AND
-    ("date_eta" > $9 OR $9 IS NULL) AND
-    ("date_eta" < $10 OR $10 IS NULL) AND
-    ("weight_grams" = ANY($11) OR $11 IS NULL) AND
-    ("weight_grams" > $12 OR $12 IS NULL) AND
-    ("weight_grams" < $13 OR $13 IS NULL) AND
-    ("length_cm" = ANY($14) OR $14 IS NULL) AND
-    ("length_cm" > $15 OR $15 IS NULL) AND
-    ("length_cm" < $16 OR $16 IS NULL) AND
-    ("width_cm" = ANY($17) OR $17 IS NULL) AND
-    ("width_cm" > $18 OR $18 IS NULL) AND
-    ("width_cm" < $19 OR $19 IS NULL) AND
-    ("height_cm" = ANY($20) OR $20 IS NULL) AND
-    ("height_cm" > $21 OR $21 IS NULL) AND
-    ("height_cm" < $22 OR $22 IS NULL) AND
-    ("date_created" = ANY($23) OR $23 IS NULL) AND
-    ("date_created" > $24 OR $24 IS NULL) AND
-    ("date_created" < $25 OR $25 IS NULL)
+    ("new_cost" = ANY($8) OR $8 IS NULL) AND
+    ("new_cost" > $9 OR $9 IS NULL) AND
+    ("new_cost" < $10 OR $10 IS NULL) AND
+    ("date_eta" = ANY($11) OR $11 IS NULL) AND
+    ("date_eta" > $12 OR $12 IS NULL) AND
+    ("date_eta" < $13 OR $13 IS NULL) AND
+    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
+    ("weight_grams" > $15 OR $15 IS NULL) AND
+    ("weight_grams" < $16 OR $16 IS NULL) AND
+    ("length_cm" = ANY($17) OR $17 IS NULL) AND
+    ("length_cm" > $18 OR $18 IS NULL) AND
+    ("length_cm" < $19 OR $19 IS NULL) AND
+    ("width_cm" = ANY($20) OR $20 IS NULL) AND
+    ("width_cm" > $21 OR $21 IS NULL) AND
+    ("width_cm" < $22 OR $22 IS NULL) AND
+    ("height_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" > $24 OR $24 IS NULL) AND
+    ("height_cm" < $25 OR $25 IS NULL) AND
+    ("date_created" = ANY($26) OR $26 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL)
 )
 ) as exists
 `
@@ -8606,6 +8656,9 @@ type ExistsOrderShipmentParams struct {
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
+	NewCost         []int64               `json:"new_cost"`
+	NewCostFrom     pgtype.Int8           `json:"new_cost_from"`
+	NewCostTo       pgtype.Int8           `json:"new_cost_to"`
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
@@ -8635,6 +8688,9 @@ func (q *Queries) ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipme
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
+		arg.NewCost,
+		arg.NewCostFrom,
+		arg.NewCostTo,
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
@@ -8765,19 +8821,18 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_wide" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" > $6 OR $6 IS NULL) AND
-    ("min_spend" < $7 OR $7 IS NULL) AND
-    ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" > $9 OR $9 IS NULL) AND
-    ("max_discount" < $10 OR $10 IS NULL) AND
-    ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" > $12 OR $12 IS NULL) AND
-    ("discount_percent" < $13 OR $13 IS NULL) AND
-    ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" > $15 OR $15 IS NULL) AND
-    ("discount_price" < $16 OR $16 IS NULL)
+    ("min_spend" = ANY($4) OR $4 IS NULL) AND
+    ("min_spend" > $5 OR $5 IS NULL) AND
+    ("min_spend" < $6 OR $6 IS NULL) AND
+    ("max_discount" = ANY($7) OR $7 IS NULL) AND
+    ("max_discount" > $8 OR $8 IS NULL) AND
+    ("max_discount" < $9 OR $9 IS NULL) AND
+    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
+    ("discount_percent" > $11 OR $11 IS NULL) AND
+    ("discount_percent" < $12 OR $12 IS NULL) AND
+    ("discount_price" = ANY($13) OR $13 IS NULL) AND
+    ("discount_price" > $14 OR $14 IS NULL) AND
+    ("discount_price" < $15 OR $15 IS NULL)
 )
 ) as exists
 `
@@ -8786,7 +8841,6 @@ type ExistsPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
 	IDFrom              pgtype.Int8   `json:"id_from"`
 	IDTo                pgtype.Int8   `json:"id_to"`
-	OrderWide           []bool        `json:"order_wide"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -8806,7 +8860,6 @@ func (q *Queries) ExistsPromotionDiscount(ctx context.Context, arg ExistsPromoti
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -9761,7 +9814,7 @@ const getOrderItem = `-- name: GetOrderItem :one
 
 
 
-SELECT id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
+SELECT id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, status, quantity
 FROM "order"."item"
 WHERE ("id" = $1)
 `
@@ -9776,6 +9829,7 @@ func (q *Queries) GetOrderItem(ctx context.Context, id pgtype.Int8) (OrderItem, 
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.VendorID,
 		&i.ConfirmedByID,
 		&i.ShipmentID,
 		&i.Note,
@@ -9870,7 +9924,7 @@ const getOrderShipment = `-- name: GetOrderShipment :one
 
 
 
-SELECT id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+SELECT id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 FROM "order"."shipment"
 WHERE ("id" = $1)
 `
@@ -9888,6 +9942,7 @@ func (q *Queries) GetOrderShipment(ctx context.Context, id pgtype.Int8) (OrderSh
 		&i.Status,
 		&i.LabelUrl,
 		&i.Cost,
+		&i.NewCost,
 		&i.DateEta,
 		&i.FromAddress,
 		&i.ToAddress,
@@ -9943,7 +9998,7 @@ const getPromotionDiscount = `-- name: GetPromotionDiscount :one
 
 
 
-SELECT id, order_wide, min_spend, max_discount, discount_percent, discount_price
+SELECT id, min_spend, max_discount, discount_percent, discount_price
 FROM "promotion"."discount"
 WHERE ("id" = $1)
 `
@@ -9956,7 +10011,6 @@ func (q *Queries) GetPromotionDiscount(ctx context.Context, id pgtype.Int8) (Pro
 	var i PromotionDiscount
 	err := row.Scan(
 		&i.ID,
-		&i.OrderWide,
 		&i.MinSpend,
 		&i.MaxDiscount,
 		&i.DiscountPercent,
@@ -11959,7 +12013,7 @@ func (q *Queries) ListOrderInvoice(ctx context.Context, arg ListOrderInvoicePara
 }
 
 const listOrderItem = `-- name: ListOrderItem :many
-SELECT id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
+SELECT id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, status, quantity
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11971,20 +12025,23 @@ WHERE (
     ("sku_id" = ANY($7) OR $7 IS NULL) AND
     ("sku_id" > $8 OR $8 IS NULL) AND
     ("sku_id" < $9 OR $9 IS NULL) AND
-    ("confirmed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("confirmed_by_id" > $11 OR $11 IS NULL) AND
-    ("confirmed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("quantity" = ANY($17) OR $17 IS NULL) AND
-    ("quantity" > $18 OR $18 IS NULL) AND
-    ("quantity" < $19 OR $19 IS NULL)
+    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
+    ("vendor_id" > $11 OR $11 IS NULL) AND
+    ("vendor_id" < $12 OR $12 IS NULL) AND
+    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
+    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
+    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
+    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
+    ("shipment_id" > $17 OR $17 IS NULL) AND
+    ("shipment_id" < $18 OR $18 IS NULL) AND
+    ("status" = ANY($19) OR $19 IS NULL) AND
+    ("quantity" = ANY($20) OR $20 IS NULL) AND
+    ("quantity" > $21 OR $21 IS NULL) AND
+    ("quantity" < $22 OR $22 IS NULL)
 )
 ORDER BY "id"
-LIMIT $21
-OFFSET $20
+LIMIT $24
+OFFSET $23
 `
 
 type ListOrderItemParams struct {
@@ -11997,6 +12054,9 @@ type ListOrderItemParams struct {
 	SkuID             []int64        `json:"sku_id"`
 	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
 	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
+	VendorID          []int64        `json:"vendor_id"`
+	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
+	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
 	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
 	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
 	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
@@ -12022,6 +12082,9 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 		arg.SkuID,
 		arg.SkuIDFrom,
 		arg.SkuIDTo,
+		arg.VendorID,
+		arg.VendorIDFrom,
+		arg.VendorIDTo,
 		arg.ConfirmedByID,
 		arg.ConfirmedByIDFrom,
 		arg.ConfirmedByIDTo,
@@ -12046,6 +12109,7 @@ func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([
 			&i.ID,
 			&i.OrderID,
 			&i.SkuID,
+			&i.VendorID,
 			&i.ConfirmedByID,
 			&i.ShipmentID,
 			&i.Note,
@@ -12321,7 +12385,7 @@ func (q *Queries) ListOrderRefundDispute(ctx context.Context, arg ListOrderRefun
 }
 
 const listOrderShipment = `-- name: ListOrderShipment :many
-SELECT id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+SELECT id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -12331,28 +12395,31 @@ WHERE (
     ("cost" = ANY($5) OR $5 IS NULL) AND
     ("cost" > $6 OR $6 IS NULL) AND
     ("cost" < $7 OR $7 IS NULL) AND
-    ("date_eta" = ANY($8) OR $8 IS NULL) AND
-    ("date_eta" > $9 OR $9 IS NULL) AND
-    ("date_eta" < $10 OR $10 IS NULL) AND
-    ("weight_grams" = ANY($11) OR $11 IS NULL) AND
-    ("weight_grams" > $12 OR $12 IS NULL) AND
-    ("weight_grams" < $13 OR $13 IS NULL) AND
-    ("length_cm" = ANY($14) OR $14 IS NULL) AND
-    ("length_cm" > $15 OR $15 IS NULL) AND
-    ("length_cm" < $16 OR $16 IS NULL) AND
-    ("width_cm" = ANY($17) OR $17 IS NULL) AND
-    ("width_cm" > $18 OR $18 IS NULL) AND
-    ("width_cm" < $19 OR $19 IS NULL) AND
-    ("height_cm" = ANY($20) OR $20 IS NULL) AND
-    ("height_cm" > $21 OR $21 IS NULL) AND
-    ("height_cm" < $22 OR $22 IS NULL) AND
-    ("date_created" = ANY($23) OR $23 IS NULL) AND
-    ("date_created" > $24 OR $24 IS NULL) AND
-    ("date_created" < $25 OR $25 IS NULL)
+    ("new_cost" = ANY($8) OR $8 IS NULL) AND
+    ("new_cost" > $9 OR $9 IS NULL) AND
+    ("new_cost" < $10 OR $10 IS NULL) AND
+    ("date_eta" = ANY($11) OR $11 IS NULL) AND
+    ("date_eta" > $12 OR $12 IS NULL) AND
+    ("date_eta" < $13 OR $13 IS NULL) AND
+    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
+    ("weight_grams" > $15 OR $15 IS NULL) AND
+    ("weight_grams" < $16 OR $16 IS NULL) AND
+    ("length_cm" = ANY($17) OR $17 IS NULL) AND
+    ("length_cm" > $18 OR $18 IS NULL) AND
+    ("length_cm" < $19 OR $19 IS NULL) AND
+    ("width_cm" = ANY($20) OR $20 IS NULL) AND
+    ("width_cm" > $21 OR $21 IS NULL) AND
+    ("width_cm" < $22 OR $22 IS NULL) AND
+    ("height_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" > $24 OR $24 IS NULL) AND
+    ("height_cm" < $25 OR $25 IS NULL) AND
+    ("date_created" = ANY($26) OR $26 IS NULL) AND
+    ("date_created" > $27 OR $27 IS NULL) AND
+    ("date_created" < $28 OR $28 IS NULL)
 )
 ORDER BY "id"
-LIMIT $27
-OFFSET $26
+LIMIT $30
+OFFSET $29
 `
 
 type ListOrderShipmentParams struct {
@@ -12363,6 +12430,9 @@ type ListOrderShipmentParams struct {
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
+	NewCost         []int64               `json:"new_cost"`
+	NewCostFrom     pgtype.Int8           `json:"new_cost_from"`
+	NewCostTo       pgtype.Int8           `json:"new_cost_to"`
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
@@ -12394,6 +12464,9 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
+		arg.NewCost,
+		arg.NewCostFrom,
+		arg.NewCostTo,
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
@@ -12429,6 +12502,7 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 			&i.Status,
 			&i.LabelUrl,
 			&i.Cost,
+			&i.NewCost,
 			&i.DateEta,
 			&i.FromAddress,
 			&i.ToAddress,
@@ -12580,36 +12654,34 @@ func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBasePa
 }
 
 const listPromotionDiscount = `-- name: ListPromotionDiscount :many
-SELECT id, order_wide, min_spend, max_discount, discount_percent, discount_price
+SELECT id, min_spend, max_discount, discount_percent, discount_price
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_wide" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" = ANY($5) OR $5 IS NULL) AND
-    ("min_spend" > $6 OR $6 IS NULL) AND
-    ("min_spend" < $7 OR $7 IS NULL) AND
-    ("max_discount" = ANY($8) OR $8 IS NULL) AND
-    ("max_discount" > $9 OR $9 IS NULL) AND
-    ("max_discount" < $10 OR $10 IS NULL) AND
-    ("discount_percent" = ANY($11) OR $11 IS NULL) AND
-    ("discount_percent" > $12 OR $12 IS NULL) AND
-    ("discount_percent" < $13 OR $13 IS NULL) AND
-    ("discount_price" = ANY($14) OR $14 IS NULL) AND
-    ("discount_price" > $15 OR $15 IS NULL) AND
-    ("discount_price" < $16 OR $16 IS NULL)
+    ("min_spend" = ANY($4) OR $4 IS NULL) AND
+    ("min_spend" > $5 OR $5 IS NULL) AND
+    ("min_spend" < $6 OR $6 IS NULL) AND
+    ("max_discount" = ANY($7) OR $7 IS NULL) AND
+    ("max_discount" > $8 OR $8 IS NULL) AND
+    ("max_discount" < $9 OR $9 IS NULL) AND
+    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
+    ("discount_percent" > $11 OR $11 IS NULL) AND
+    ("discount_percent" < $12 OR $12 IS NULL) AND
+    ("discount_price" = ANY($13) OR $13 IS NULL) AND
+    ("discount_price" > $14 OR $14 IS NULL) AND
+    ("discount_price" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $17
+OFFSET $16
 `
 
 type ListPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
 	IDFrom              pgtype.Int8   `json:"id_from"`
 	IDTo                pgtype.Int8   `json:"id_to"`
-	OrderWide           []bool        `json:"order_wide"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -12631,7 +12703,6 @@ func (q *Queries) ListPromotionDiscount(ctx context.Context, arg ListPromotionDi
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -12656,7 +12727,6 @@ func (q *Queries) ListPromotionDiscount(ctx context.Context, arg ListPromotionDi
 		var i PromotionDiscount
 		if err := rows.Scan(
 			&i.ID,
-			&i.OrderWide,
 			&i.MinSpend,
 			&i.MaxDiscount,
 			&i.DiscountPercent,
@@ -14065,18 +14135,20 @@ const updateOrderItem = `-- name: UpdateOrderItem :one
 UPDATE "order"."item"
 SET "order_id" = COALESCE($1, "order_id"),
     "sku_id" = COALESCE($2, "sku_id"),
-    "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
-    "shipment_id" = COALESCE($5, "shipment_id"),
-    "note" = COALESCE($6, "note"),
-    "status" = COALESCE($7, "status"),
-    "quantity" = COALESCE($8, "quantity")
-WHERE id = $9
-RETURNING id, order_id, sku_id, confirmed_by_id, shipment_id, note, status, quantity
+    "vendor_id" = COALESCE($3, "vendor_id"),
+    "confirmed_by_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "confirmed_by_id") END,
+    "shipment_id" = COALESCE($6, "shipment_id"),
+    "note" = COALESCE($7, "note"),
+    "status" = COALESCE($8, "status"),
+    "quantity" = COALESCE($9, "quantity")
+WHERE id = $10
+RETURNING id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, status, quantity
 `
 
 type UpdateOrderItemParams struct {
 	OrderID           pgtype.Int8      `json:"order_id"`
 	SkuID             pgtype.Int8      `json:"sku_id"`
+	VendorID          pgtype.Int8      `json:"vendor_id"`
 	NullConfirmedByID bool             `json:"null_confirmed_by_id"`
 	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
 	ShipmentID        pgtype.Int8      `json:"shipment_id"`
@@ -14090,6 +14162,7 @@ func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams
 	row := q.db.QueryRow(ctx, updateOrderItem,
 		arg.OrderID,
 		arg.SkuID,
+		arg.VendorID,
 		arg.NullConfirmedByID,
 		arg.ConfirmedByID,
 		arg.ShipmentID,
@@ -14103,6 +14176,7 @@ func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams
 		&i.ID,
 		&i.OrderID,
 		&i.SkuID,
+		&i.VendorID,
 		&i.ConfirmedByID,
 		&i.ShipmentID,
 		&i.Note,
@@ -14244,16 +14318,17 @@ SET "option" = COALESCE($1, "option"),
     "status" = COALESCE($4, "status"),
     "label_url" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "label_url") END,
     "cost" = COALESCE($7, "cost"),
-    "date_eta" = COALESCE($8, "date_eta"),
-    "from_address" = COALESCE($9, "from_address"),
-    "to_address" = COALESCE($10, "to_address"),
-    "weight_grams" = COALESCE($11, "weight_grams"),
-    "length_cm" = COALESCE($12, "length_cm"),
-    "width_cm" = COALESCE($13, "width_cm"),
-    "height_cm" = COALESCE($14, "height_cm"),
-    "date_created" = COALESCE($15, "date_created")
-WHERE id = $16
-RETURNING id, option, tracking_code, status, label_url, cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+    "new_cost" = COALESCE($8, "new_cost"),
+    "date_eta" = COALESCE($9, "date_eta"),
+    "from_address" = COALESCE($10, "from_address"),
+    "to_address" = COALESCE($11, "to_address"),
+    "weight_grams" = COALESCE($12, "weight_grams"),
+    "length_cm" = COALESCE($13, "length_cm"),
+    "width_cm" = COALESCE($14, "width_cm"),
+    "height_cm" = COALESCE($15, "height_cm"),
+    "date_created" = COALESCE($16, "date_created")
+WHERE id = $17
+RETURNING id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
 `
 
 type UpdateOrderShipmentParams struct {
@@ -14264,6 +14339,7 @@ type UpdateOrderShipmentParams struct {
 	NullLabelUrl     bool                    `json:"null_label_url"`
 	LabelUrl         pgtype.Text             `json:"label_url"`
 	Cost             pgtype.Int8             `json:"cost"`
+	NewCost          pgtype.Int8             `json:"new_cost"`
 	DateEta          pgtype.Timestamptz      `json:"date_eta"`
 	FromAddress      pgtype.Text             `json:"from_address"`
 	ToAddress        pgtype.Text             `json:"to_address"`
@@ -14284,6 +14360,7 @@ func (q *Queries) UpdateOrderShipment(ctx context.Context, arg UpdateOrderShipme
 		arg.NullLabelUrl,
 		arg.LabelUrl,
 		arg.Cost,
+		arg.NewCost,
 		arg.DateEta,
 		arg.FromAddress,
 		arg.ToAddress,
@@ -14302,6 +14379,7 @@ func (q *Queries) UpdateOrderShipment(ctx context.Context, arg UpdateOrderShipme
 		&i.Status,
 		&i.LabelUrl,
 		&i.Cost,
+		&i.NewCost,
 		&i.DateEta,
 		&i.FromAddress,
 		&i.ToAddress,
@@ -14397,17 +14475,15 @@ func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBa
 
 const updatePromotionDiscount = `-- name: UpdatePromotionDiscount :one
 UPDATE "promotion"."discount"
-SET "order_wide" = COALESCE($1, "order_wide"),
-    "min_spend" = COALESCE($2, "min_spend"),
-    "max_discount" = COALESCE($3, "max_discount"),
-    "discount_percent" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "discount_percent") END,
-    "discount_price" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "discount_price") END
-WHERE id = $8
-RETURNING id, order_wide, min_spend, max_discount, discount_percent, discount_price
+SET "min_spend" = COALESCE($1, "min_spend"),
+    "max_discount" = COALESCE($2, "max_discount"),
+    "discount_percent" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "discount_percent") END,
+    "discount_price" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "discount_price") END
+WHERE id = $7
+RETURNING id, min_spend, max_discount, discount_percent, discount_price
 `
 
 type UpdatePromotionDiscountParams struct {
-	OrderWide           pgtype.Bool `json:"order_wide"`
 	MinSpend            pgtype.Int8 `json:"min_spend"`
 	MaxDiscount         pgtype.Int8 `json:"max_discount"`
 	NullDiscountPercent bool        `json:"null_discount_percent"`
@@ -14419,7 +14495,6 @@ type UpdatePromotionDiscountParams struct {
 
 func (q *Queries) UpdatePromotionDiscount(ctx context.Context, arg UpdatePromotionDiscountParams) (PromotionDiscount, error) {
 	row := q.db.QueryRow(ctx, updatePromotionDiscount,
-		arg.OrderWide,
 		arg.MinSpend,
 		arg.MaxDiscount,
 		arg.NullDiscountPercent,
@@ -14431,7 +14506,6 @@ func (q *Queries) UpdatePromotionDiscount(ctx context.Context, arg UpdatePromoti
 	var i PromotionDiscount
 	err := row.Scan(
 		&i.ID,
-		&i.OrderWide,
 		&i.MinSpend,
 		&i.MaxDiscount,
 		&i.DiscountPercent,

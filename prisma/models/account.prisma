@@ -103,7 +103,8 @@ model Vendor {
   refund_disputes  RefundDispute[]
   promotions       Promotion[]
   income_histories IncomeHistory[]
-  confirmed_items  OrderItem[] // Items confirmed by this vendor
+  confirmed_items  OrderItem[]     @relation("confirmer")
+  vendor_orders    OrderItem[]     @relation("vendor")
 
   @@index([id])
   @@map("vendor")

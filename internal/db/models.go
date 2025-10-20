@@ -810,10 +810,11 @@ func AllPromotionRefTypeValues() []PromotionRefType {
 type PromotionType string
 
 const (
-	PromotionTypeDiscount PromotionType = "Discount"
-	PromotionTypeBundle   PromotionType = "Bundle"
-	PromotionTypeBuyXGetY PromotionType = "BuyXGetY"
-	PromotionTypeCashback PromotionType = "Cashback"
+	PromotionTypeDiscount     PromotionType = "Discount"
+	PromotionTypeShipDiscount PromotionType = "ShipDiscount"
+	PromotionTypeBundle       PromotionType = "Bundle"
+	PromotionTypeBuyXGetY     PromotionType = "BuyXGetY"
+	PromotionTypeCashback     PromotionType = "Cashback"
 )
 
 func (e *PromotionType) Scan(src interface{}) error {
@@ -854,6 +855,7 @@ func (ns NullPromotionType) Value() (driver.Value, error) {
 func (e PromotionType) Valid() bool {
 	switch e {
 	case PromotionTypeDiscount,
+		PromotionTypeShipDiscount,
 		PromotionTypeBundle,
 		PromotionTypeBuyXGetY,
 		PromotionTypeCashback:
@@ -865,6 +867,7 @@ func (e PromotionType) Valid() bool {
 func AllPromotionTypeValues() []PromotionType {
 	return []PromotionType{
 		PromotionTypeDiscount,
+		PromotionTypeShipDiscount,
 		PromotionTypeBundle,
 		PromotionTypeBuyXGetY,
 		PromotionTypeCashback,
@@ -1286,6 +1289,7 @@ type OrderItem struct {
 	ID            int64        `json:"id"`
 	OrderID       int64        `json:"order_id"`
 	SkuID         int64        `json:"sku_id"`
+	VendorID      int64        `json:"vendor_id"`
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
@@ -1328,6 +1332,7 @@ type OrderShipment struct {
 	Status       OrderShipmentStatus `json:"status"`
 	LabelUrl     pgtype.Text         `json:"label_url"`
 	Cost         int64               `json:"cost"`
+	NewCost      int64               `json:"new_cost"`
 	DateEta      pgtype.Timestamptz  `json:"date_eta"`
 	FromAddress  string              `json:"from_address"`
 	ToAddress    string              `json:"to_address"`
@@ -1357,7 +1362,6 @@ type PromotionBase struct {
 
 type PromotionDiscount struct {
 	ID              int64       `json:"id"`
-	OrderWide       bool        `json:"order_wide"`
 	MinSpend        int64       `json:"min_spend"`
 	MaxDiscount     int64       `json:"max_discount"`
 	DiscountPercent pgtype.Int4 `json:"discount_percent"`
