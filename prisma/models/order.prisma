@@ -22,6 +22,7 @@ model OrderItem {
   id              BigInt  @id @default(autoincrement())
   order_id        BigInt
   sku_id          BigInt
+  vendor_id       BigInt // Vendor id who sells this product (denormalized from ProductSpu.account_id for easier and faster querying)
   confirmed_by_id BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
   shipment_id     BigInt
   note            String // Note for this item, e.g. "Please gift wrap this item"
@@ -34,11 +35,13 @@ model OrderItem {
   order     Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   sku       ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
   shipment  Shipment          @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  confirmer Vendor?           @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  confirmer Vendor?           @relation("confirmer", fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  vendor    Vendor            @relation("vendor", fields: [vendor_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
   //! @@unique([order_id, sku_id]); Should not be unique, because product can be added multiple times (due to product.can_combine)
   @@index([order_id])
   @@index([sku_id])
+  @@index([vendor_id])
   @@map("item")
   @@schema("order")
 }
@@ -165,6 +168,7 @@ model Shipment {
   status        ShipmentStatus @default(Pending)
   label_url     String? // For customer download/printing
   cost          BigInt
+  new_cost      BigInt // Updated cost after shipment created, e.g. after weight/size confirmed
   date_eta      DateTime       @db.Timestamptz(3)
   from_address  String
   to_address    String
