@@ -13,9 +13,8 @@ import (
 
 type CreateDiscountParams struct {
 	CreatePromotionParams
-	OrderWide       bool       `validate:"required"`
-	MinSpend        int64      `validate:"min=0,max=1000000000"`
-	MaxDiscount     int64      `validate:"min=0,max=1000000000"`
+	MinSpend        int64      `validate:"required,min=0,max=1000000000"`
+	MaxDiscount     int64      `validate:"required,min=0,max=1000000000"`
 	DiscountPercent null.Int32 `validate:"omitnil,min=1,max=100"`
 	DiscountPrice   null.Int64 `validate:"omitnil,min=1,max=1000000000"`
 }
@@ -40,7 +39,6 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 
 	discount, err := txStorage.CreateDefaultPromotionDiscount(ctx, db.CreateDefaultPromotionDiscountParams{
 		ID:              promotion.ID,
-		OrderWide:       params.OrderWide,
 		MinSpend:        params.MinSpend,
 		MaxDiscount:     params.MaxDiscount,
 		DiscountPercent: pgutil.NullInt32ToPgInt4(params.DiscountPercent),
@@ -56,7 +54,6 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 
 	return promotionmodel.PromotionDiscount{
 		PromotionBase:   promotion,
-		OrderWide:       discount.OrderWide,
 		MinSpend:        discount.MinSpend,
 		MaxDiscount:     discount.MaxDiscount,
 		DiscountPercent: pgutil.PgInt4ToNullInt32(discount.DiscountPercent),
@@ -106,7 +103,6 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 
 	discount, err := txStorage.UpdatePromotionDiscount(ctx, db.UpdatePromotionDiscountParams{
 		ID:                  promotion.ID,
-		OrderWide:           pgutil.NullBoolToPgBool(params.OrderWide),
 		MinSpend:            pgutil.NullInt64ToPgInt8(params.MinSpend),
 		MaxDiscount:         pgutil.NullInt64ToPgInt8(params.MaxDiscount),
 		DiscountPercent:     pgutil.NullInt32ToPgInt4(params.DiscountPercent),
@@ -124,7 +120,6 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 
 	return promotionmodel.PromotionDiscount{
 		PromotionBase:   promotion,
-		OrderWide:       discount.OrderWide,
 		MinSpend:        discount.MinSpend,
 		MaxDiscount:     discount.MaxDiscount,
 		DiscountPercent: pgutil.PgInt4ToNullInt32(discount.DiscountPercent),
