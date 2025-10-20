@@ -41,7 +41,7 @@ func NewClients(cfg ClientOptions) []*ClientImpl {
 	for _, method := range methods {
 		clients = append(clients, &ClientImpl{
 			config: sharedmodel.OptionConfig{
-				ID:       "vnpay-" + string(method),
+				ID:       "vnpay_" + string(method),
 				Provider: "vnpay",
 				Method:   method,
 				Name:     "VNPay - " + string(method),
