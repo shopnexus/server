@@ -5,11 +5,11 @@ SELECT EXISTS(
 
 -- name: GetVendorAddressBySkuIDs :many
 SELECT DISTINCT
-    v.id as vendor_id,
+    p.id as vendor_id,
     c.address,
     sku.id as sku_id
 FROM catalog.product_sku AS sku
 JOIN catalog.product_spu AS spu ON spu.id = sku.spu_id
-JOIN account.vendor AS v ON v.account_id = spu.account_id
-JOIN account.contact AS c ON c.id = v.default_contact_id
+JOIN account.profile AS p ON p.id = spu.account_id
+JOIN account.contact AS c ON c.id = p.default_contact_id
 WHERE sku.id = ANY(sqlc.slice('sku_ids'));
