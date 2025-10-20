@@ -33,6 +33,7 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 				if err != nil {
 					return err
 				}
+				continue
 			}
 
 			// other db error
