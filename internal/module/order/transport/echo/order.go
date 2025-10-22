@@ -33,6 +33,7 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 	refundApi.POST("", h.CreateRefund)
 	refundApi.PATCH("", h.UpdateRefund)
 	refundApi.DELETE("", h.CancelRefund)
+	refundApi.POST("/confirm", h.ConfirmRefund)
 
 	// Verify vnpay ipn
 	//api.GET("/vnpay/ipn", echo.WrapHandler(h.biz.))
@@ -94,13 +95,14 @@ func (h *Handler) ListOrders(c echo.Context) error {
 }
 
 type CheckoutRequest struct {
-	Address       string        `json:"address" validate:"required"`
-	PaymentOption string        `json:"payment_option" validate:"required,min=1,max=100"`
-	Skus          []CheckoutSku `json:"skus" validate:"required,dive"`
+	Address       string     `json:"address" validate:"required"`
+	PaymentOption string     `json:"payment_option" validate:"required,min=1,max=100"`
+	Skus          []OrderSku `json:"skus" validate:"required,dive"`
 }
 
-type CheckoutSku struct {
+type OrderSku struct {
 	SkuID          int64   `json:"sku_id" validate:"required,gt=0"`
+	Quantity       int64   `json:"quantity" validate:"required,gt=0"`
 	PromotionIDs   []int64 `json:"promotion_ids" validate:"dive,gt=0"`
 	ShipmentOption string  `json:"shipment_option" validate:"required,min=1,max=100"`
 	Note           string  `json:"note" validate:"max=500"` // Note for this item, e.g. "Please gift wrap this item"
@@ -124,9 +126,10 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Account:       claims.Account,
 		Address:       req.Address,
 		PaymentOption: req.PaymentOption,
-		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
+		Skus: slice.Map(req.Skus, func(s OrderSku) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,
+				Quantity:       s.Quantity,
 				PromotionIDs:   s.PromotionIDs,
 				ShipmentOption: s.ShipmentOption,
 				Note:           s.Note,
@@ -141,8 +144,8 @@ func (h *Handler) Checkout(c echo.Context) error {
 }
 
 type QuoteRequest struct {
-	Address string        `json:"address" validate:"required"`
-	Skus    []CheckoutSku `json:"skus" validate:"required,dive"`
+	Address string     `json:"address" validate:"required"`
+	Skus    []OrderSku `json:"skus" validate:"required,dive"`
 }
 
 func (h *Handler) QuoteOrder(c echo.Context) error {
@@ -162,9 +165,10 @@ func (h *Handler) QuoteOrder(c echo.Context) error {
 	result, err := h.biz.QuoteOrder(c.Request().Context(), orderbiz.QuoteOrderParams{
 		Account: claims.Account,
 		Address: req.Address,
-		Skus: slice.Map(req.Skus, func(s CheckoutSku) orderbiz.OrderSku {
+		Skus: slice.Map(req.Skus, func(s OrderSku) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,
+				Quantity:       s.Quantity,
 				PromotionIDs:   s.PromotionIDs,
 				ShipmentOption: s.ShipmentOption,
 				Note:           s.Note,
