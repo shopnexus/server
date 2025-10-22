@@ -49,12 +49,12 @@ func (h *Handler) ListComment(c echo.Context) error {
 }
 
 type CreateCommentRequest struct {
-	RefType db.CatalogCommentRefType `json:"ref_type" validate:"required"`
+	RefType db.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
 	RefID   int64                    `json:"ref_id" validate:"required"`
 	Body    string                   `json:"body" validate:"required"`
 	Score   int32                    `json:"score" validate:"required"`
 
-	Resources []sharedmodel.CreateResource `json:"resources" validate:"required"`
+	ResourceIDs []int64 `json:"resource_ids" validate:"required"`
 }
 
 func (h *Handler) CreateComment(c echo.Context) error {
@@ -78,7 +78,7 @@ func (h *Handler) CreateComment(c echo.Context) error {
 		Body:    req.Body,
 		Score:   req.Score,
 
-		Resources: req.Resources,
+		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -88,10 +88,11 @@ func (h *Handler) CreateComment(c echo.Context) error {
 }
 
 type UpdateCommentRequest struct {
-	Body           null.String                  `json:"body" validate:"required"`
-	Score          null.Int32                   `json:"score" validate:"required"`
-	Resources      []sharedmodel.CreateResource `json:"resources" validate:"required"`
-	EmptyResources bool                         `json:"empty_resources" validate:"required"`
+	CommentID      int64       `json:"comment_id" validate:"required"`
+	Body           null.String `json:"body" validate:"required"`
+	Score          null.Int32  `json:"score" validate:"required"`
+	ResourceIDs    []int64     `json:"resource_ids" validate:"required"`
+	EmptyResources bool        `json:"empty_resources" validate:"omitempty"`
 }
 
 func (h *Handler) UpdateComment(c echo.Context) error {
@@ -109,11 +110,11 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 	}
 
 	comment, err := h.biz.UpdateComment(c.Request().Context(), catalogbiz.UpdateCommentParams{
-		Account:   claims.Account,
-		ID:        claims.Account.ID,
-		Body:      req.Body,
-		Score:     req.Score,
-		Resources: req.Resources,
+		Account:     claims.Account,
+		CommentID:   req.CommentID,
+		Body:        req.Body,
+		Score:       req.Score,
+		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -123,7 +124,7 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 }
 
 type DeleteCommentRequest struct {
-	IDs []int64 `json:"ids" validate:"required"`
+	CommentIDs []int64 `json:"comment_ids" validate:"required"`
 }
 
 func (h *Handler) DeleteComment(c echo.Context) error {
@@ -141,8 +142,8 @@ func (h *Handler) DeleteComment(c echo.Context) error {
 	}
 
 	if err := h.biz.DeleteComment(c.Request().Context(), catalogbiz.DeleteCommentParams{
-		Account: claims.Account,
-		IDs:     req.IDs,
+		Account:    claims.Account,
+		CommentIDs: req.CommentIDs,
 	}); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

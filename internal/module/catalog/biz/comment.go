@@ -163,7 +163,7 @@ type CreateCommentParams struct {
 	Body    string                   `validate:"required,min=1,max=1000"`
 	Score   int32                    `validate:"required,gte=1,lte=10"`
 
-	Resources []sharedmodel.CreateResource `validate:"omitempty,dive"`
+	ResourceIDs []int64 `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentParams) (db.CatalogComment, error) {
@@ -191,24 +191,24 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 	}
 
 	// Attach resources
-	if len(params.Resources) > 0 {
+	if len(params.ResourceIDs) > 0 {
 		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
 
 		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-			ID:         slice.Map(params.Resources, func(r sharedmodel.CreateResource) int64 { return r.FileID }),
+			ID:         params.ResourceIDs,
 			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 		})
 		if err != nil {
 			return zero, err
 		}
-		if len(resources) != len(params.Resources) {
+		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
 			return zero, sharedmodel.ErrResourceNotFound
 		}
 
-		for order, res := range params.Resources {
+		for order, rsID := range params.ResourceIDs {
 			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-				RsID:      res.FileID,
+				RsID:      rsID,
 				RefType:   db.SharedResourceRefTypeComment,
 				RefID:     comment.ID,
 				Order:     int32(order),
@@ -231,13 +231,13 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 type UpdateCommentParams struct {
 	Account authmodel.AuthenticatedAccount
 
-	ID            int64
+	CommentID     int64       `validate:"required,gt=0"`
 	Body          null.String `validate:"omitempty,min=1,max=1000"`
 	Score         null.Int32  `validate:"omitempty,gte=1,lte=10"`
 	UpvoteDelta   null.Int64  `validate:"omitempty,ne=0"`
 	DownvoteDelta null.Int64  `validate:"omitempty,ne=0"`
 
-	Resources      []sharedmodel.CreateResource `validate:"omitempty,dive"`
+	ResourceIDs    []int64 `validate:"omitempty,dive"`
 	EmptyResources bool
 }
 
@@ -256,7 +256,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 
 	// Update base comment info
 	comment, err := txStorage.UpdateCatalogComment(ctx, db.UpdateCatalogCommentParams{
-		ID:    params.ID,
+		ID:    params.CommentID,
 		Body:  pgutil.NullStringToPgText(params.Body),
 		Score: pgutil.NullInt32ToPgInt4(params.Score),
 	})
@@ -267,7 +267,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	// Update upvote/downvote count
 	if params.UpvoteDelta.Valid || params.DownvoteDelta.Valid {
 		if err := txStorage.UpdateCatalogCommentUpvoteDownvote(ctx, db.UpdateCatalogCommentUpvoteDownvoteParams{
-			ID:            params.ID,
+			ID:            params.CommentID,
 			UpvoteDelta:   pgutil.NullInt64ToPgInt8(params.UpvoteDelta),
 			DownvoteDelta: pgutil.NullInt64ToPgInt8(params.DownvoteDelta),
 		}); err != nil {
@@ -276,11 +276,11 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	}
 
 	// Update resources
-	if len(params.Resources) > 0 || params.EmptyResources {
+	if len(params.ResourceIDs) > 0 || params.EmptyResources {
 		// Delete old resources
 		if err := txStorage.DeleteSharedResourceReference(ctx, db.DeleteSharedResourceReferenceParams{
 			RefType: []db.SharedResourceRefType{db.SharedResourceRefTypeComment},
-			RefID:   []int64{params.ID},
+			RefID:   []int64{params.CommentID},
 		}); err != nil {
 			return zero, err
 		}
@@ -290,20 +290,20 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
 
 		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-			ID:         slice.Map(params.Resources, func(r sharedmodel.CreateResource) int64 { return r.FileID }),
+			ID:         params.ResourceIDs,
 			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 		})
 		if err != nil {
 			return zero, err
 		}
-		if len(resources) != len(params.Resources) {
+		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
 			return zero, sharedmodel.ErrResourceNotFound
 		}
 
-		for order, res := range params.Resources {
+		for order, rsID := range params.ResourceIDs {
 			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-				RsID:      res.FileID,
+				RsID:      rsID,
 				RefType:   db.SharedResourceRefTypeComment,
 				RefID:     comment.ID,
 				Order:     int32(order),
@@ -326,7 +326,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 type DeleteCommentParams struct {
 	Account authmodel.AuthenticatedAccount
 
-	IDs []int64 `validate:"required,dive,gt=0"`
+	CommentIDs []int64 `validate:"required,dive,gt=0"`
 }
 
 func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentParams) error {
@@ -342,7 +342,7 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 
 	// Delete base comments
 	if err := txStorage.DeleteCatalogComment(ctx, db.DeleteCatalogCommentParams{
-		ID: params.IDs,
+		ID: params.CommentIDs,
 	}); err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 	// Remove associated resources
 	if err = txStorage.DeleteSharedResourceReference(ctx, db.DeleteSharedResourceReferenceParams{
 		RefType: []db.SharedResourceRefType{db.SharedResourceRefTypeComment},
-		RefID:   params.IDs,
+		RefID:   params.CommentIDs,
 	}); err != nil {
 		return err
 	}
