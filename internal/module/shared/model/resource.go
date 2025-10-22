@@ -1,11 +1,14 @@
 package sharedmodel
 
 import (
+	"shopnexus-remastered/internal/db"
+
 	"github.com/guregu/null/v6"
 )
 
 type CreateResource struct {
-	FileID int64 `json:"file_id" validate:"required"`
+	Provider  db.SharedResourceProvider `json:"provider" validate:"required,validateFn=Valid"`
+	ObjectKey string                    `json:"object_key" validate:"required"`
 }
 
 type Resource struct {
