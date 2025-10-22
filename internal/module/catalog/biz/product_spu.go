@@ -86,19 +86,13 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 	spuIDs := slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 
-	tagRefs, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
+	tags, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
 		SpuID: spuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	tags, err := b.storage.ListCatalogTag(ctx, db.ListCatalogTagParams{
-		ID: slice.Map(tagRefs, func(ref db.CatalogProductSpuTag) int64 { return ref.TagID }),
-	})
-	if err != nil {
-		return zero, err
-	}
-	tagsMap := slice.GroupBySlice(tags, func(tag db.CatalogTag) (int64, string) { return tag.ID, tag.Tag })
+	tagsMap := slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.ID, tag.Tag })
 
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
