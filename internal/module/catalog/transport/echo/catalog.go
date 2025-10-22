@@ -41,5 +41,10 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	commentApi.PATCH("", h.UpdateComment)
 	commentApi.DELETE("", h.DeleteComment)
 
+	// Tag
+	tagApi := api.Group("/tag")
+	tagApi.GET("", h.ListTag)
+	tagApi.GET("/:tag", h.GetTag)
+
 	return h
 }
