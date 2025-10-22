@@ -248,8 +248,7 @@ CREATE TABLE "catalog"."product_sku" (
 
 -- CreateTable
 CREATE TABLE "catalog"."tag" (
-    "id" BIGSERIAL NOT NULL,
-    "tag" VARCHAR(50) NOT NULL,
+    "id" VARCHAR(50) NOT NULL,
     "description" TEXT NOT NULL,
 
     CONSTRAINT "tag_pkey" PRIMARY KEY ("id")
@@ -259,7 +258,7 @@ CREATE TABLE "catalog"."tag" (
 CREATE TABLE "catalog"."product_spu_tag" (
     "id" BIGSERIAL NOT NULL,
     "spu_id" BIGINT NOT NULL,
-    "tag_id" BIGINT NOT NULL,
+    "tag" VARCHAR(50) NOT NULL,
 
     CONSTRAINT "product_spu_tag_pkey" PRIMARY KEY ("id")
 );
@@ -353,6 +352,7 @@ CREATE TABLE "order"."item_serial" (
 -- CreateTable
 CREATE TABLE "order"."refund" (
     "id" BIGSERIAL NOT NULL,
+    "account_id" BIGINT NOT NULL,
     "order_item_id" BIGINT NOT NULL,
     "reviewed_by_id" BIGINT,
     "shipment_id" BIGINT,
@@ -610,16 +610,13 @@ CREATE INDEX "product_spu_brand_id_idx" ON "catalog"."product_spu"("brand_id");
 CREATE INDEX "product_sku_spu_id_idx" ON "catalog"."product_sku"("spu_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tag_tag_key" ON "catalog"."tag"("tag");
-
--- CreateIndex
 CREATE INDEX "product_spu_tag_spu_id_idx" ON "catalog"."product_spu_tag"("spu_id");
 
 -- CreateIndex
-CREATE INDEX "product_spu_tag_tag_id_idx" ON "catalog"."product_spu_tag"("tag_id");
+CREATE INDEX "product_spu_tag_tag_idx" ON "catalog"."product_spu_tag"("tag");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_spu_tag_spu_id_tag_id_key" ON "catalog"."product_spu_tag"("spu_id", "tag_id");
+CREATE UNIQUE INDEX "product_spu_tag_spu_id_tag_key" ON "catalog"."product_spu_tag"("spu_id", "tag");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "sku_serial_serial_id_key" ON "inventory"."sku_serial"("serial_id");
@@ -653,6 +650,9 @@ CREATE INDEX "item_vendor_id_idx" ON "order"."item"("vendor_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "item_serial_order_item_id_product_serial_id_key" ON "order"."item_serial"("order_item_id", "product_serial_id");
+
+-- CreateIndex
+CREATE INDEX "refund_account_id_idx" ON "order"."refund"("account_id");
 
 -- CreateIndex
 CREATE INDEX "refund_order_item_id_idx" ON "order"."refund"("order_item_id");
@@ -742,7 +742,7 @@ ALTER TABLE "catalog"."product_sku" ADD CONSTRAINT "product_sku_spu_id_fkey" FOR
 ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_spu_id_fkey" FOREIGN KEY ("spu_id") REFERENCES "catalog"."product_spu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "catalog"."tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_tag_fkey" FOREIGN KEY ("tag") REFERENCES "catalog"."tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "catalog"."comment" ADD CONSTRAINT "comment_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -779,6 +779,9 @@ ALTER TABLE "order"."item_serial" ADD CONSTRAINT "item_serial_order_item_id_fkey
 
 -- AddForeignKey
 ALTER TABLE "order"."item_serial" ADD CONSTRAINT "item_serial_product_serial_id_fkey" FOREIGN KEY ("product_serial_id") REFERENCES "inventory"."sku_serial"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_order_item_id_fkey" FOREIGN KEY ("order_item_id") REFERENCES "order"."item"("id") ON DELETE NO ACTION ON UPDATE CASCADE;

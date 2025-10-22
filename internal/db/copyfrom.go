@@ -558,7 +558,7 @@ func (r *iteratorForCreateCopyCatalogProductSpuTag) Next() bool {
 func (r iteratorForCreateCopyCatalogProductSpuTag) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].SpuID,
-		r.rows[0].TagID,
+		r.rows[0].Tag,
 	}, nil
 }
 
@@ -567,7 +567,7 @@ func (r iteratorForCreateCopyCatalogProductSpuTag) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogProductSpuTag(ctx context.Context, arg []CreateCopyCatalogProductSpuTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag_id"}, &iteratorForCreateCopyCatalogProductSpuTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag"}, &iteratorForCreateCopyCatalogProductSpuTag{rows: arg})
 }
 
 // iteratorForCreateCopyCatalogTag implements pgx.CopyFromSource.
@@ -590,7 +590,7 @@ func (r *iteratorForCreateCopyCatalogTag) Next() bool {
 
 func (r iteratorForCreateCopyCatalogTag) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0].Tag,
+		r.rows[0].ID,
 		r.rows[0].Description,
 	}, nil
 }
@@ -600,7 +600,7 @@ func (r iteratorForCreateCopyCatalogTag) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogTag(ctx context.Context, arg []CreateCopyCatalogTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "tag"}, []string{"tag", "description"}, &iteratorForCreateCopyCatalogTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "tag"}, []string{"id", "description"}, &iteratorForCreateCopyCatalogTag{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultAccountBase implements pgx.CopyFromSource.
@@ -1125,7 +1125,7 @@ func (r *iteratorForCreateCopyDefaultCatalogProductSpuTag) Next() bool {
 func (r iteratorForCreateCopyDefaultCatalogProductSpuTag) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].SpuID,
-		r.rows[0].TagID,
+		r.rows[0].Tag,
 	}, nil
 }
 
@@ -1134,7 +1134,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSpuTag) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogProductSpuTag(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag_id"}, &iteratorForCreateCopyDefaultCatalogProductSpuTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag"}, &iteratorForCreateCopyDefaultCatalogProductSpuTag{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogTag implements pgx.CopyFromSource.
@@ -1157,7 +1157,7 @@ func (r *iteratorForCreateCopyDefaultCatalogTag) Next() bool {
 
 func (r iteratorForCreateCopyDefaultCatalogTag) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0].Tag,
+		r.rows[0].ID,
 		r.rows[0].Description,
 	}, nil
 }
@@ -1167,7 +1167,7 @@ func (r iteratorForCreateCopyDefaultCatalogTag) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogTag(ctx context.Context, arg []CreateCopyDefaultCatalogTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "tag"}, []string{"tag", "description"}, &iteratorForCreateCopyDefaultCatalogTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "tag"}, []string{"id", "description"}, &iteratorForCreateCopyDefaultCatalogTag{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultInventorySkuSerial implements pgx.CopyFromSource.
@@ -1434,6 +1434,7 @@ func (r *iteratorForCreateCopyDefaultOrderRefund) Next() bool {
 
 func (r iteratorForCreateCopyDefaultOrderRefund) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].AccountID,
 		r.rows[0].OrderItemID,
 		r.rows[0].ReviewedByID,
 		r.rows[0].ShipmentID,
@@ -1448,7 +1449,7 @@ func (r iteratorForCreateCopyDefaultOrderRefund) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderRefund(ctx context.Context, arg []CreateCopyDefaultOrderRefundParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address"}, &iteratorForCreateCopyDefaultOrderRefund{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address"}, &iteratorForCreateCopyDefaultOrderRefund{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrderRefundDispute implements pgx.CopyFromSource.
@@ -2064,6 +2065,7 @@ func (r *iteratorForCreateCopyOrderRefund) Next() bool {
 
 func (r iteratorForCreateCopyOrderRefund) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].AccountID,
 		r.rows[0].OrderItemID,
 		r.rows[0].ReviewedByID,
 		r.rows[0].ShipmentID,
@@ -2080,7 +2082,7 @@ func (r iteratorForCreateCopyOrderRefund) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderRefund(ctx context.Context, arg []CreateCopyOrderRefundParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created"}, &iteratorForCreateCopyOrderRefund{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created"}, &iteratorForCreateCopyOrderRefund{rows: arg})
 }
 
 // iteratorForCreateCopyOrderRefundDispute implements pgx.CopyFromSource.

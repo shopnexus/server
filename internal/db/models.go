@@ -1226,14 +1226,13 @@ type CatalogProductSpu struct {
 }
 
 type CatalogProductSpuTag struct {
-	ID    int64 `json:"id"`
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	ID    int64  `json:"id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 type CatalogTag struct {
-	ID          int64  `json:"id"`
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
@@ -1305,6 +1304,7 @@ type OrderItemSerial struct {
 
 type OrderRefund struct {
 	ID           int64              `json:"id"`
+	AccountID    int64              `json:"account_id"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`

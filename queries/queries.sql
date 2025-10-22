@@ -1943,17 +1943,14 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetCatalogTag :one
 SELECT *
 FROM "catalog"."tag"
-WHERE ("id" = sqlc.narg('id')) OR ("tag" = sqlc.narg('tag'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: ExistsCatalogTag :one
 SELECT EXISTS (
 SELECT 1
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
 )
 ) as exists;
 
@@ -1961,20 +1958,14 @@ WHERE (
 SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
 );
 
 -- name: ListCatalogTag :many
 SELECT *
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -1982,53 +1973,48 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogTag :one
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateBatchCatalogTag :batchone
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyCatalogTag :copyfrom
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2);
 
 -- name: CreateDefaultCatalogTag :one
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogTag :copyfrom
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2);
 
 -- name: UpdateCatalogTag :one
 UPDATE "catalog"."tag"
-SET "tag" = COALESCE(sqlc.narg('tag'), "tag"),
-    "description" = COALESCE(sqlc.narg('description'), "description")
+SET "description" = COALESCE(sqlc.narg('description'), "description")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogTag :batchexec
 UPDATE "catalog"."tag"
-SET "tag" = COALESCE(sqlc.narg('tag'), "tag"),
-    "description" = COALESCE(sqlc.narg('description'), "description")
+SET "description" = COALESCE(sqlc.narg('description'), "description")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteCatalogTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
 );
 
 -- name: DeleteBatchCatalogTag :batchexec
 DELETE FROM "catalog"."tag"
-WHERE ("id" = sqlc.narg('id')) OR ("tag" = sqlc.narg('tag'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
@@ -2039,7 +2025,7 @@ WHERE ("id" = sqlc.narg('id')) OR ("tag" = sqlc.narg('tag'));
 -- name: GetCatalogProductSpuTag :one
 SELECT *
 FROM "catalog"."product_spu_tag"
-WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag_id" = sqlc.narg('tag_id'));
+WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag" = sqlc.narg('tag'));
 
 -- name: ExistsCatalogProductSpuTag :one
 SELECT EXISTS (
@@ -2052,9 +2038,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
-    ("tag_id" = ANY(sqlc.slice('tag_id')) OR sqlc.slice('tag_id') IS NULL) AND
-    ("tag_id" > sqlc.narg('tag_id_from') OR sqlc.narg('tag_id_from') IS NULL) AND
-    ("tag_id" < sqlc.narg('tag_id_to') OR sqlc.narg('tag_id_to') IS NULL)
+    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 )
 ) as exists;
 
@@ -2068,9 +2052,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
-    ("tag_id" = ANY(sqlc.slice('tag_id')) OR sqlc.slice('tag_id') IS NULL) AND
-    ("tag_id" > sqlc.narg('tag_id_from') OR sqlc.narg('tag_id_from') IS NULL) AND
-    ("tag_id" < sqlc.narg('tag_id_to') OR sqlc.narg('tag_id_to') IS NULL)
+    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 );
 
 -- name: ListCatalogProductSpuTag :many
@@ -2083,9 +2065,7 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
-    ("tag_id" = ANY(sqlc.slice('tag_id')) OR sqlc.slice('tag_id') IS NULL) AND
-    ("tag_id" > sqlc.narg('tag_id_from') OR sqlc.narg('tag_id_from') IS NULL) AND
-    ("tag_id" < sqlc.narg('tag_id_to') OR sqlc.narg('tag_id_to') IS NULL)
+    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -2093,39 +2073,39 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSpuTag :batchone
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSpuTag :copyfrom
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2);
 
 -- name: CreateDefaultCatalogProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSpuTag :copyfrom
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2);
 
 -- name: UpdateCatalogProductSpuTag :one
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
-    "tag_id" = COALESCE(sqlc.narg('tag_id'), "tag_id")
+    "tag" = COALESCE(sqlc.narg('tag'), "tag")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: UpdateBatchCatalogProductSpuTag :batchexec
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
-    "tag_id" = COALESCE(sqlc.narg('tag_id'), "tag_id")
+    "tag" = COALESCE(sqlc.narg('tag'), "tag")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteCatalogProductSpuTag :exec
@@ -2137,14 +2117,12 @@ WHERE (
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
     ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
-    ("tag_id" = ANY(sqlc.slice('tag_id')) OR sqlc.slice('tag_id') IS NULL) AND
-    ("tag_id" > sqlc.narg('tag_id_from') OR sqlc.narg('tag_id_from') IS NULL) AND
-    ("tag_id" < sqlc.narg('tag_id_to') OR sqlc.narg('tag_id_to') IS NULL)
+    ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 );
 
 -- name: DeleteBatchCatalogProductSpuTag :batchexec
 DELETE FROM "catalog"."product_spu_tag"
-WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag_id" = sqlc.narg('tag_id'));
+WHERE ("id" = sqlc.narg('id')) OR ("spu_id" = sqlc.narg('spu_id') AND "tag" = sqlc.narg('tag'));
 
 -- ========================================
 
@@ -3203,6 +3181,9 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
     ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
     ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
@@ -3227,6 +3208,9 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
     ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
     ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
@@ -3250,6 +3234,9 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
     ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
     ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
@@ -3271,31 +3258,32 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchOrderRefund :batchone
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyOrderRefund :copyfrom
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderRefund :copyfrom
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateOrderRefund :one
 UPDATE "order"."refund"
-SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
+SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+    "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "reviewed_by_id" = CASE WHEN sqlc.arg('null_reviewed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('reviewed_by_id'), "reviewed_by_id") END,
     "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
     "method" = COALESCE(sqlc.narg('method'), "method"),
@@ -3308,7 +3296,8 @@ RETURNING *;
 
 -- name: UpdateBatchOrderRefund :batchexec
 UPDATE "order"."refund"
-SET "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
+SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+    "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
     "reviewed_by_id" = CASE WHEN sqlc.arg('null_reviewed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('reviewed_by_id'), "reviewed_by_id") END,
     "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
     "method" = COALESCE(sqlc.narg('method'), "method"),
@@ -3324,6 +3313,9 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
+    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
     ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
     ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND

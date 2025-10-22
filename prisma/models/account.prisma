@@ -87,6 +87,7 @@ model Customer {
   orders          Order[]
   CartItem        CartItem[]
   UserInteraction Interaction[]
+  refunds         Refund[]
 
   @@map("customer")
   @@schema("account")

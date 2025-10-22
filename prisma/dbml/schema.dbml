@@ -141,18 +141,17 @@ Table ProductSku {
 }
 
 Table Tag {
-  id BigInt [pk, increment]
-  tag String [unique, not null]
+  name String [pk]
   description String [not null]
 }
 
 Table ProductTag {
   id BigInt [pk, increment]
   spu_id BigInt [not null]
-  tag_id BigInt [not null]
+  tag String [not null]
 
   indexes {
-    (spu_id, tag_id) [unique]
+    (spu_id, tag) [unique]
   }
 }
 
@@ -231,6 +230,7 @@ Table OrderItemSerial {
 
 Table Refund {
   id BigInt [pk, increment]
+  account_id BigInt [not null]
   order_item_id BigInt [not null]
   reviewed_by_id BigInt
   shipment_id BigInt
@@ -506,7 +506,7 @@ Ref: ProductSku.spu_id > ProductSpu.id [delete: Cascade]
 
 Ref: ProductTag.spu_id > ProductSpu.id [delete: Cascade]
 
-Ref: ProductTag.tag_id > Tag.id [delete: Cascade]
+Ref: ProductTag.tag > Tag.name [delete: Cascade]
 
 Ref: Comment.account_id > Account.id [delete: Cascade]
 
@@ -531,6 +531,8 @@ Ref: OrderItem.vendor_id > Vendor.id [delete: Set Null]
 Ref: OrderItemSerial.order_item_id > OrderItem.id [delete: Cascade]
 
 Ref: OrderItemSerial.product_serial_id > ProductSerial.id [delete: No Action]
+
+Ref: Refund.account_id > Customer.id [delete: No Action]
 
 Ref: Refund.order_item_id > OrderItem.id [delete: No Action]
 

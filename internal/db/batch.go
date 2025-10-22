@@ -1004,9 +1004,9 @@ func (b *CreateBatchCatalogProductSpuBatchResults) Close() error {
 }
 
 const createBatchCatalogProductSpuTag = `-- name: CreateBatchCatalogProductSpuTag :batchone
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
-RETURNING id, spu_id, tag_id
+RETURNING id, spu_id, tag
 `
 
 type CreateBatchCatalogProductSpuTagBatchResults struct {
@@ -1016,8 +1016,8 @@ type CreateBatchCatalogProductSpuTagBatchResults struct {
 }
 
 type CreateBatchCatalogProductSpuTagParams struct {
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 func (q *Queries) CreateBatchCatalogProductSpuTag(ctx context.Context, arg []CreateBatchCatalogProductSpuTagParams) *CreateBatchCatalogProductSpuTagBatchResults {
@@ -1025,7 +1025,7 @@ func (q *Queries) CreateBatchCatalogProductSpuTag(ctx context.Context, arg []Cre
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
-			a.TagID,
+			a.Tag,
 		}
 		batch.Queue(createBatchCatalogProductSpuTag, vals...)
 	}
@@ -1044,7 +1044,7 @@ func (b *CreateBatchCatalogProductSpuTagBatchResults) QueryRow(f func(int, Catal
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.SpuID, &i.TagID)
+		err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 		if f != nil {
 			f(t, i, err)
 		}
@@ -1057,9 +1057,9 @@ func (b *CreateBatchCatalogProductSpuTagBatchResults) Close() error {
 }
 
 const createBatchCatalogTag = `-- name: CreateBatchCatalogTag :batchone
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
-RETURNING id, tag, description
+RETURNING id, description
 `
 
 type CreateBatchCatalogTagBatchResults struct {
@@ -1069,7 +1069,7 @@ type CreateBatchCatalogTagBatchResults struct {
 }
 
 type CreateBatchCatalogTagParams struct {
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
@@ -1077,7 +1077,7 @@ func (q *Queries) CreateBatchCatalogTag(ctx context.Context, arg []CreateBatchCa
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Tag,
+			a.ID,
 			a.Description,
 		}
 		batch.Queue(createBatchCatalogTag, vals...)
@@ -1097,7 +1097,7 @@ func (b *CreateBatchCatalogTagBatchResults) QueryRow(f func(int, CatalogTag, err
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.Tag, &i.Description)
+		err := row.Scan(&i.ID, &i.Description)
 		if f != nil {
 			f(t, i, err)
 		}
@@ -1577,9 +1577,9 @@ func (b *CreateBatchOrderItemSerialBatchResults) Close() error {
 }
 
 const createBatchOrderRefund = `-- name: CreateBatchOrderRefund :batchone
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type CreateBatchOrderRefundBatchResults struct {
@@ -1589,6 +1589,7 @@ type CreateBatchOrderRefundBatchResults struct {
 }
 
 type CreateBatchOrderRefundParams struct {
+	AccountID    int64              `json:"account_id"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
@@ -1603,6 +1604,7 @@ func (q *Queries) CreateBatchOrderRefund(ctx context.Context, arg []CreateBatchO
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.AccountID,
 			a.OrderItemID,
 			a.ReviewedByID,
 			a.ShipmentID,
@@ -1631,6 +1633,7 @@ func (b *CreateBatchOrderRefundBatchResults) QueryRow(f func(int, OrderRefund, e
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
+			&i.AccountID,
 			&i.OrderItemID,
 			&i.ReviewedByID,
 			&i.ShipmentID,
@@ -2997,7 +3000,7 @@ func (b *DeleteBatchCatalogProductSpuBatchResults) Close() error {
 
 const deleteBatchCatalogProductSpuTag = `-- name: DeleteBatchCatalogProductSpuTag :batchexec
 DELETE FROM "catalog"."product_spu_tag"
-WHERE ("id" = $1) OR ("spu_id" = $2 AND "tag_id" = $3)
+WHERE ("id" = $1) OR ("spu_id" = $2 AND "tag" = $3)
 `
 
 type DeleteBatchCatalogProductSpuTagBatchResults struct {
@@ -3009,7 +3012,7 @@ type DeleteBatchCatalogProductSpuTagBatchResults struct {
 type DeleteBatchCatalogProductSpuTagParams struct {
 	ID    pgtype.Int8 `json:"id"`
 	SpuID pgtype.Int8 `json:"spu_id"`
-	TagID pgtype.Int8 `json:"tag_id"`
+	Tag   pgtype.Text `json:"tag"`
 }
 
 func (q *Queries) DeleteBatchCatalogProductSpuTag(ctx context.Context, arg []DeleteBatchCatalogProductSpuTagParams) *DeleteBatchCatalogProductSpuTagBatchResults {
@@ -3018,7 +3021,7 @@ func (q *Queries) DeleteBatchCatalogProductSpuTag(ctx context.Context, arg []Del
 		vals := []interface{}{
 			a.ID,
 			a.SpuID,
-			a.TagID,
+			a.Tag,
 		}
 		batch.Queue(deleteBatchCatalogProductSpuTag, vals...)
 	}
@@ -3049,7 +3052,7 @@ func (b *DeleteBatchCatalogProductSpuTagBatchResults) Close() error {
 
 const deleteBatchCatalogTag = `-- name: DeleteBatchCatalogTag :batchexec
 DELETE FROM "catalog"."tag"
-WHERE ("id" = $1) OR ("tag" = $2)
+WHERE ("id" = $1)
 `
 
 type DeleteBatchCatalogTagBatchResults struct {
@@ -3058,22 +3061,16 @@ type DeleteBatchCatalogTagBatchResults struct {
 	closed bool
 }
 
-type DeleteBatchCatalogTagParams struct {
-	ID  pgtype.Int8 `json:"id"`
-	Tag pgtype.Text `json:"tag"`
-}
-
-func (q *Queries) DeleteBatchCatalogTag(ctx context.Context, arg []DeleteBatchCatalogTagParams) *DeleteBatchCatalogTagBatchResults {
+func (q *Queries) DeleteBatchCatalogTag(ctx context.Context, id []pgtype.Text) *DeleteBatchCatalogTagBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range arg {
+	for _, a := range id {
 		vals := []interface{}{
-			a.ID,
-			a.Tag,
+			a,
 		}
 		batch.Queue(deleteBatchCatalogTag, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchCatalogTagBatchResults{br, len(arg), false}
+	return &DeleteBatchCatalogTagBatchResults{br, len(id), false}
 }
 
 func (b *DeleteBatchCatalogTagBatchResults) Exec(f func(int, error)) {
@@ -4998,7 +4995,7 @@ func (b *UpdateBatchCatalogProductSpuBatchResults) Close() error {
 const updateBatchCatalogProductSpuTag = `-- name: UpdateBatchCatalogProductSpuTag :batchexec
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "tag_id" = COALESCE($2, "tag_id")
+    "tag" = COALESCE($2, "tag")
 WHERE id = $3
 `
 
@@ -5010,7 +5007,7 @@ type UpdateBatchCatalogProductSpuTagBatchResults struct {
 
 type UpdateBatchCatalogProductSpuTagParams struct {
 	SpuID pgtype.Int8 `json:"spu_id"`
-	TagID pgtype.Int8 `json:"tag_id"`
+	Tag   pgtype.Text `json:"tag"`
 	ID    int64       `json:"id"`
 }
 
@@ -5019,7 +5016,7 @@ func (q *Queries) UpdateBatchCatalogProductSpuTag(ctx context.Context, arg []Upd
 	for _, a := range arg {
 		vals := []interface{}{
 			a.SpuID,
-			a.TagID,
+			a.Tag,
 			a.ID,
 		}
 		batch.Queue(updateBatchCatalogProductSpuTag, vals...)
@@ -5051,9 +5048,8 @@ func (b *UpdateBatchCatalogProductSpuTagBatchResults) Close() error {
 
 const updateBatchCatalogTag = `-- name: UpdateBatchCatalogTag :batchexec
 UPDATE "catalog"."tag"
-SET "tag" = COALESCE($1, "tag"),
-    "description" = COALESCE($2, "description")
-WHERE id = $3
+SET "description" = COALESCE($1, "description")
+WHERE id = $2
 `
 
 type UpdateBatchCatalogTagBatchResults struct {
@@ -5063,16 +5059,14 @@ type UpdateBatchCatalogTagBatchResults struct {
 }
 
 type UpdateBatchCatalogTagParams struct {
-	Tag         pgtype.Text `json:"tag"`
 	Description pgtype.Text `json:"description"`
-	ID          int64       `json:"id"`
+	ID          string      `json:"id"`
 }
 
 func (q *Queries) UpdateBatchCatalogTag(ctx context.Context, arg []UpdateBatchCatalogTagParams) *UpdateBatchCatalogTagBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.Tag,
 			a.Description,
 			a.ID,
 		}
@@ -5559,15 +5553,16 @@ func (b *UpdateBatchOrderItemSerialBatchResults) Close() error {
 
 const updateBatchOrderRefund = `-- name: UpdateBatchOrderRefund :batchexec
 UPDATE "order"."refund"
-SET "order_item_id" = COALESCE($1, "order_item_id"),
-    "reviewed_by_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "reviewed_by_id") END,
-    "shipment_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "shipment_id") END,
-    "method" = COALESCE($6, "method"),
-    "status" = COALESCE($7, "status"),
-    "reason" = COALESCE($8, "reason"),
-    "address" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "address") END,
-    "date_created" = COALESCE($11, "date_created")
-WHERE id = $12
+SET "account_id" = COALESCE($1, "account_id"),
+    "order_item_id" = COALESCE($2, "order_item_id"),
+    "reviewed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "reviewed_by_id") END,
+    "shipment_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "shipment_id") END,
+    "method" = COALESCE($7, "method"),
+    "status" = COALESCE($8, "status"),
+    "reason" = COALESCE($9, "reason"),
+    "address" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "address") END,
+    "date_created" = COALESCE($12, "date_created")
+WHERE id = $13
 `
 
 type UpdateBatchOrderRefundBatchResults struct {
@@ -5577,6 +5572,7 @@ type UpdateBatchOrderRefundBatchResults struct {
 }
 
 type UpdateBatchOrderRefundParams struct {
+	AccountID        pgtype.Int8           `json:"account_id"`
 	OrderItemID      pgtype.Int8           `json:"order_item_id"`
 	NullReviewedByID bool                  `json:"null_reviewed_by_id"`
 	ReviewedByID     pgtype.Int8           `json:"reviewed_by_id"`
@@ -5595,6 +5591,7 @@ func (q *Queries) UpdateBatchOrderRefund(ctx context.Context, arg []UpdateBatchO
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.AccountID,
 			a.OrderItemID,
 			a.NullReviewedByID,
 			a.ReviewedByID,

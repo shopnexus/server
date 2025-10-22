@@ -933,9 +933,7 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" > $8 OR $8 IS NULL) AND
-    ("tag_id" < $9 OR $9 IS NULL)
+    ("tag" = ANY($7) OR $7 IS NULL)
 )
 `
 
@@ -946,9 +944,7 @@ type CountCatalogProductSpuTagParams struct {
 	SpuID     []int64     `json:"spu_id"`
 	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
 	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	TagID     []int64     `json:"tag_id"`
-	TagIDFrom pgtype.Int8 `json:"tag_id_from"`
-	TagIDTo   pgtype.Int8 `json:"tag_id_to"`
+	Tag       []string    `json:"tag"`
 }
 
 func (q *Queries) CountCatalogProductSpuTag(ctx context.Context, arg CountCatalogProductSpuTagParams) (int64, error) {
@@ -959,9 +955,7 @@ func (q *Queries) CountCatalogProductSpuTag(ctx context.Context, arg CountCatalo
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.TagID,
-		arg.TagIDFrom,
-		arg.TagIDTo,
+		arg.Tag,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -972,27 +966,12 @@ const countCatalogTag = `-- name: CountCatalogTag :one
 SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("tag" = ANY($4) OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL)
 )
 `
 
-type CountCatalogTagParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Tag    []string    `json:"tag"`
-}
-
-func (q *Queries) CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Tag,
-	)
+func (q *Queries) CountCatalogTag(ctx context.Context, id []string) (int64, error) {
+	row := q.db.QueryRow(ctx, countCatalogTag, id)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1431,20 +1410,23 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("method" = ANY($13) OR $13 IS NULL) AND
-    ("status" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
+    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
+    ("order_item_id" > $8 OR $8 IS NULL) AND
+    ("order_item_id" < $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
+    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("method" = ANY($16) OR $16 IS NULL) AND
+    ("status" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL)
 )
 `
 
@@ -1452,6 +1434,9 @@ type CountOrderRefundParams struct {
 	ID               []int64              `json:"id"`
 	IDFrom           pgtype.Int8          `json:"id_from"`
 	IDTo             pgtype.Int8          `json:"id_to"`
+	AccountID        []int64              `json:"account_id"`
+	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
 	OrderItemID      []int64              `json:"order_item_id"`
 	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
 	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
@@ -1473,6 +1458,9 @@ func (q *Queries) CountOrderRefund(ctx context.Context, arg CountOrderRefundPara
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
 		arg.OrderItemID,
 		arg.OrderItemIDFrom,
 		arg.OrderItemIDTo,
@@ -2641,38 +2629,38 @@ func (q *Queries) CreateCatalogProductSpu(ctx context.Context, arg CreateCatalog
 }
 
 const createCatalogProductSpuTag = `-- name: CreateCatalogProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
-RETURNING id, spu_id, tag_id
+RETURNING id, spu_id, tag
 `
 
 type CreateCatalogProductSpuTagParams struct {
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 func (q *Queries) CreateCatalogProductSpuTag(ctx context.Context, arg CreateCatalogProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, createCatalogProductSpuTag, arg.SpuID, arg.TagID)
+	row := q.db.QueryRow(ctx, createCatalogProductSpuTag, arg.SpuID, arg.Tag)
 	var i CatalogProductSpuTag
-	err := row.Scan(&i.ID, &i.SpuID, &i.TagID)
+	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
 const createCatalogTag = `-- name: CreateCatalogTag :one
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
-RETURNING id, tag, description
+RETURNING id, description
 `
 
 type CreateCatalogTagParams struct {
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
 func (q *Queries) CreateCatalogTag(ctx context.Context, arg CreateCatalogTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, createCatalogTag, arg.Tag, arg.Description)
+	row := q.db.QueryRow(ctx, createCatalogTag, arg.ID, arg.Description)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Tag, &i.Description)
+	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -2813,12 +2801,12 @@ type CreateCopyCatalogProductSpuParams struct {
 }
 
 type CreateCopyCatalogProductSpuTagParams struct {
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 type CreateCopyCatalogTagParams struct {
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
@@ -2924,12 +2912,12 @@ type CreateCopyDefaultCatalogProductSpuParams struct {
 }
 
 type CreateCopyDefaultCatalogProductSpuTagParams struct {
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 type CreateCopyDefaultCatalogTagParams struct {
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
@@ -2982,6 +2970,7 @@ type CreateCopyDefaultOrderItemSerialParams struct {
 }
 
 type CreateCopyDefaultOrderRefundParams struct {
+	AccountID    int64             `json:"account_id"`
 	OrderItemID  int64             `json:"order_item_id"`
 	ReviewedByID pgtype.Int8       `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8       `json:"shipment_id"`
@@ -3136,6 +3125,7 @@ type CreateCopyOrderItemSerialParams struct {
 }
 
 type CreateCopyOrderRefundParams struct {
+	AccountID    int64              `json:"account_id"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
@@ -3707,38 +3697,38 @@ func (q *Queries) CreateDefaultCatalogProductSpu(ctx context.Context, arg Create
 }
 
 const createDefaultCatalogProductSpuTag = `-- name: CreateDefaultCatalogProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag_id")
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
 VALUES ($1, $2)
-RETURNING id, spu_id, tag_id
+RETURNING id, spu_id, tag
 `
 
 type CreateDefaultCatalogProductSpuTagParams struct {
-	SpuID int64 `json:"spu_id"`
-	TagID int64 `json:"tag_id"`
+	SpuID int64  `json:"spu_id"`
+	Tag   string `json:"tag"`
 }
 
 func (q *Queries) CreateDefaultCatalogProductSpuTag(ctx context.Context, arg CreateDefaultCatalogProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, createDefaultCatalogProductSpuTag, arg.SpuID, arg.TagID)
+	row := q.db.QueryRow(ctx, createDefaultCatalogProductSpuTag, arg.SpuID, arg.Tag)
 	var i CatalogProductSpuTag
-	err := row.Scan(&i.ID, &i.SpuID, &i.TagID)
+	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
 const createDefaultCatalogTag = `-- name: CreateDefaultCatalogTag :one
-INSERT INTO "catalog"."tag" ("tag", "description")
+INSERT INTO "catalog"."tag" ("id", "description")
 VALUES ($1, $2)
-RETURNING id, tag, description
+RETURNING id, description
 `
 
 type CreateDefaultCatalogTagParams struct {
-	Tag         string `json:"tag"`
+	ID          string `json:"id"`
 	Description string `json:"description"`
 }
 
 func (q *Queries) CreateDefaultCatalogTag(ctx context.Context, arg CreateDefaultCatalogTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, createDefaultCatalogTag, arg.Tag, arg.Description)
+	row := q.db.QueryRow(ctx, createDefaultCatalogTag, arg.ID, arg.Description)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Tag, &i.Description)
+	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -3948,12 +3938,13 @@ func (q *Queries) CreateDefaultOrderItemSerial(ctx context.Context, arg CreateDe
 }
 
 const createDefaultOrderRefund = `-- name: CreateDefaultOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "reason", "address")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type CreateDefaultOrderRefundParams struct {
+	AccountID    int64             `json:"account_id"`
 	OrderItemID  int64             `json:"order_item_id"`
 	ReviewedByID pgtype.Int8       `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8       `json:"shipment_id"`
@@ -3964,6 +3955,7 @@ type CreateDefaultOrderRefundParams struct {
 
 func (q *Queries) CreateDefaultOrderRefund(ctx context.Context, arg CreateDefaultOrderRefundParams) (OrderRefund, error) {
 	row := q.db.QueryRow(ctx, createDefaultOrderRefund,
+		arg.AccountID,
 		arg.OrderItemID,
 		arg.ReviewedByID,
 		arg.ShipmentID,
@@ -3974,6 +3966,7 @@ func (q *Queries) CreateDefaultOrderRefund(ctx context.Context, arg CreateDefaul
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
+		&i.AccountID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
 		&i.ShipmentID,
@@ -4576,12 +4569,13 @@ func (q *Queries) CreateOrderItemSerial(ctx context.Context, arg CreateOrderItem
 }
 
 const createOrderRefund = `-- name: CreateOrderRefund :one
-INSERT INTO "order"."refund" ("order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("account_id", "order_item_id", "reviewed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type CreateOrderRefundParams struct {
+	AccountID    int64              `json:"account_id"`
 	OrderItemID  int64              `json:"order_item_id"`
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
@@ -4594,6 +4588,7 @@ type CreateOrderRefundParams struct {
 
 func (q *Queries) CreateOrderRefund(ctx context.Context, arg CreateOrderRefundParams) (OrderRefund, error) {
 	row := q.db.QueryRow(ctx, createOrderRefund,
+		arg.AccountID,
 		arg.OrderItemID,
 		arg.ReviewedByID,
 		arg.ShipmentID,
@@ -4606,6 +4601,7 @@ func (q *Queries) CreateOrderRefund(ctx context.Context, arg CreateOrderRefundPa
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
+		&i.AccountID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
 		&i.ShipmentID,
@@ -5885,9 +5881,7 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" > $8 OR $8 IS NULL) AND
-    ("tag_id" < $9 OR $9 IS NULL)
+    ("tag" = ANY($7) OR $7 IS NULL)
 )
 `
 
@@ -5898,9 +5892,7 @@ type DeleteCatalogProductSpuTagParams struct {
 	SpuID     []int64     `json:"spu_id"`
 	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
 	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	TagID     []int64     `json:"tag_id"`
-	TagIDFrom pgtype.Int8 `json:"tag_id_from"`
-	TagIDTo   pgtype.Int8 `json:"tag_id_to"`
+	Tag       []string    `json:"tag"`
 }
 
 func (q *Queries) DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error {
@@ -5911,9 +5903,7 @@ func (q *Queries) DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCata
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.TagID,
-		arg.TagIDFrom,
-		arg.TagIDTo,
+		arg.Tag,
 	)
 	return err
 }
@@ -5921,27 +5911,12 @@ func (q *Queries) DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCata
 const deleteCatalogTag = `-- name: DeleteCatalogTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("tag" = ANY($4) OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL)
 )
 `
 
-type DeleteCatalogTagParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Tag    []string    `json:"tag"`
-}
-
-func (q *Queries) DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error {
-	_, err := q.db.Exec(ctx, deleteCatalogTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Tag,
-	)
+func (q *Queries) DeleteCatalogTag(ctx context.Context, id []string) error {
+	_, err := q.db.Exec(ctx, deleteCatalogTag, id)
 	return err
 }
 
@@ -6356,20 +6331,23 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("method" = ANY($13) OR $13 IS NULL) AND
-    ("status" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
+    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
+    ("order_item_id" > $8 OR $8 IS NULL) AND
+    ("order_item_id" < $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
+    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("method" = ANY($16) OR $16 IS NULL) AND
+    ("status" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL)
 )
 `
 
@@ -6377,6 +6355,9 @@ type DeleteOrderRefundParams struct {
 	ID               []int64              `json:"id"`
 	IDFrom           pgtype.Int8          `json:"id_from"`
 	IDTo             pgtype.Int8          `json:"id_to"`
+	AccountID        []int64              `json:"account_id"`
+	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
 	OrderItemID      []int64              `json:"order_item_id"`
 	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
 	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
@@ -6398,6 +6379,9 @@ func (q *Queries) DeleteOrderRefund(ctx context.Context, arg DeleteOrderRefundPa
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
 		arg.OrderItemID,
 		arg.OrderItemIDFrom,
 		arg.OrderItemIDTo,
@@ -7964,9 +7948,7 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" > $8 OR $8 IS NULL) AND
-    ("tag_id" < $9 OR $9 IS NULL)
+    ("tag" = ANY($7) OR $7 IS NULL)
 )
 ) as exists
 `
@@ -7978,9 +7960,7 @@ type ExistsCatalogProductSpuTagParams struct {
 	SpuID     []int64     `json:"spu_id"`
 	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
 	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	TagID     []int64     `json:"tag_id"`
-	TagIDFrom pgtype.Int8 `json:"tag_id_from"`
-	TagIDTo   pgtype.Int8 `json:"tag_id_to"`
+	Tag       []string    `json:"tag"`
 }
 
 func (q *Queries) ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCatalogProductSpuTagParams) (bool, error) {
@@ -7991,9 +7971,7 @@ func (q *Queries) ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCata
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.TagID,
-		arg.TagIDFrom,
-		arg.TagIDTo,
+		arg.Tag,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -8005,28 +7983,13 @@ SELECT EXISTS (
 SELECT 1
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("tag" = ANY($4) OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL)
 )
 ) as exists
 `
 
-type ExistsCatalogTagParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Tag    []string    `json:"tag"`
-}
-
-func (q *Queries) ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsCatalogTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Tag,
-	)
+func (q *Queries) ExistsCatalogTag(ctx context.Context, id []string) (bool, error) {
+	row := q.db.QueryRow(ctx, existsCatalogTag, id)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -8480,20 +8443,23 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("method" = ANY($13) OR $13 IS NULL) AND
-    ("status" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
+    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
+    ("order_item_id" > $8 OR $8 IS NULL) AND
+    ("order_item_id" < $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
+    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("method" = ANY($16) OR $16 IS NULL) AND
+    ("status" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL)
 )
 ) as exists
 `
@@ -8502,6 +8468,9 @@ type ExistsOrderRefundParams struct {
 	ID               []int64              `json:"id"`
 	IDFrom           pgtype.Int8          `json:"id_from"`
 	IDTo             pgtype.Int8          `json:"id_to"`
+	AccountID        []int64              `json:"account_id"`
+	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
 	OrderItemID      []int64              `json:"order_item_id"`
 	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
 	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
@@ -8523,6 +8492,9 @@ func (q *Queries) ExistsOrderRefund(ctx context.Context, arg ExistsOrderRefundPa
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
 		arg.OrderItemID,
 		arg.OrderItemIDFrom,
 		arg.OrderItemIDTo,
@@ -9616,24 +9588,24 @@ const getCatalogProductSpuTag = `-- name: GetCatalogProductSpuTag :one
 
 
 
-SELECT id, spu_id, tag_id
+SELECT id, spu_id, tag
 FROM "catalog"."product_spu_tag"
-WHERE ("id" = $1) OR ("spu_id" = $2 AND "tag_id" = $3)
+WHERE ("id" = $1) OR ("spu_id" = $2 AND "tag" = $3)
 `
 
 type GetCatalogProductSpuTagParams struct {
 	ID    pgtype.Int8 `json:"id"`
 	SpuID pgtype.Int8 `json:"spu_id"`
-	TagID pgtype.Int8 `json:"tag_id"`
+	Tag   pgtype.Text `json:"tag"`
 }
 
 // ========================================
 // Queries for table: catalog.product_spu_tag
 // ========================================
 func (q *Queries) GetCatalogProductSpuTag(ctx context.Context, arg GetCatalogProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, getCatalogProductSpuTag, arg.ID, arg.SpuID, arg.TagID)
+	row := q.db.QueryRow(ctx, getCatalogProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
 	var i CatalogProductSpuTag
-	err := row.Scan(&i.ID, &i.SpuID, &i.TagID)
+	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
@@ -9641,23 +9613,18 @@ const getCatalogTag = `-- name: GetCatalogTag :one
 
 
 
-SELECT id, tag, description
+SELECT id, description
 FROM "catalog"."tag"
-WHERE ("id" = $1) OR ("tag" = $2)
+WHERE ("id" = $1)
 `
-
-type GetCatalogTagParams struct {
-	ID  pgtype.Int8 `json:"id"`
-	Tag pgtype.Text `json:"tag"`
-}
 
 // ========================================
 // Queries for table: catalog.tag
 // ========================================
-func (q *Queries) GetCatalogTag(ctx context.Context, arg GetCatalogTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, getCatalogTag, arg.ID, arg.Tag)
+func (q *Queries) GetCatalogTag(ctx context.Context, id pgtype.Text) (CatalogTag, error) {
+	row := q.db.QueryRow(ctx, getCatalogTag, id)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Tag, &i.Description)
+	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -9868,7 +9835,7 @@ const getOrderRefund = `-- name: GetOrderRefund :one
 
 
 
-SELECT id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+SELECT id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE ("id" = $1)
 `
@@ -9881,6 +9848,7 @@ func (q *Queries) GetOrderRefund(ctx context.Context, id pgtype.Int8) (OrderRefu
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
+		&i.AccountID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
 		&i.ShipmentID,
@@ -11463,7 +11431,7 @@ func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProd
 }
 
 const listCatalogProductSpuTag = `-- name: ListCatalogProductSpuTag :many
-SELECT id, spu_id, tag_id
+SELECT id, spu_id, tag
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -11472,13 +11440,11 @@ WHERE (
     ("spu_id" = ANY($4) OR $4 IS NULL) AND
     ("spu_id" > $5 OR $5 IS NULL) AND
     ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag_id" = ANY($7) OR $7 IS NULL) AND
-    ("tag_id" > $8 OR $8 IS NULL) AND
-    ("tag_id" < $9 OR $9 IS NULL)
+    ("tag" = ANY($7) OR $7 IS NULL)
 )
 ORDER BY "id"
-LIMIT $11
-OFFSET $10
+LIMIT $9
+OFFSET $8
 `
 
 type ListCatalogProductSpuTagParams struct {
@@ -11488,9 +11454,7 @@ type ListCatalogProductSpuTagParams struct {
 	SpuID     []int64     `json:"spu_id"`
 	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
 	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	TagID     []int64     `json:"tag_id"`
-	TagIDFrom pgtype.Int8 `json:"tag_id_from"`
-	TagIDTo   pgtype.Int8 `json:"tag_id_to"`
+	Tag       []string    `json:"tag"`
 	Offset    pgtype.Int4 `json:"offset"`
 	Limit     pgtype.Int4 `json:"limit"`
 }
@@ -11503,9 +11467,7 @@ func (q *Queries) ListCatalogProductSpuTag(ctx context.Context, arg ListCatalogP
 		arg.SpuID,
 		arg.SpuIDFrom,
 		arg.SpuIDTo,
-		arg.TagID,
-		arg.TagIDFrom,
-		arg.TagIDTo,
+		arg.Tag,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -11516,7 +11478,7 @@ func (q *Queries) ListCatalogProductSpuTag(ctx context.Context, arg ListCatalogP
 	items := []CatalogProductSpuTag{}
 	for rows.Next() {
 		var i CatalogProductSpuTag
-		if err := rows.Scan(&i.ID, &i.SpuID, &i.TagID); err != nil {
+		if err := rows.Scan(&i.ID, &i.SpuID, &i.Tag); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -11528,37 +11490,24 @@ func (q *Queries) ListCatalogProductSpuTag(ctx context.Context, arg ListCatalogP
 }
 
 const listCatalogTag = `-- name: ListCatalogTag :many
-SELECT id, tag, description
+SELECT id, description
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("tag" = ANY($4) OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL)
 )
 ORDER BY "id"
-LIMIT $6
-OFFSET $5
+LIMIT $3
+OFFSET $2
 `
 
 type ListCatalogTagParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Tag    []string    `json:"tag"`
+	ID     []string    `json:"id"`
 	Offset pgtype.Int4 `json:"offset"`
 	Limit  pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListCatalogTag(ctx context.Context, arg ListCatalogTagParams) ([]CatalogTag, error) {
-	rows, err := q.db.Query(ctx, listCatalogTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Tag,
-		arg.Offset,
-		arg.Limit,
-	)
+	rows, err := q.db.Query(ctx, listCatalogTag, arg.ID, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -11566,7 +11515,7 @@ func (q *Queries) ListCatalogTag(ctx context.Context, arg ListCatalogTagParams) 
 	items := []CatalogTag{}
 	for rows.Next() {
 		var i CatalogTag
-		if err := rows.Scan(&i.ID, &i.Tag, &i.Description); err != nil {
+		if err := rows.Scan(&i.ID, &i.Description); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -12192,36 +12141,42 @@ func (q *Queries) ListOrderItemSerial(ctx context.Context, arg ListOrderItemSeri
 }
 
 const listOrderRefund = `-- name: ListOrderRefund :many
-SELECT id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+SELECT id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("reviewed_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("reviewed_by_id" > $8 OR $8 IS NULL) AND
-    ("reviewed_by_id" < $9 OR $9 IS NULL) AND
-    ("shipment_id" = ANY($10) OR $10 IS NULL) AND
-    ("shipment_id" > $11 OR $11 IS NULL) AND
-    ("shipment_id" < $12 OR $12 IS NULL) AND
-    ("method" = ANY($13) OR $13 IS NULL) AND
-    ("status" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($4) OR $4 IS NULL) AND
+    ("account_id" > $5 OR $5 IS NULL) AND
+    ("account_id" < $6 OR $6 IS NULL) AND
+    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
+    ("order_item_id" > $8 OR $8 IS NULL) AND
+    ("order_item_id" < $9 OR $9 IS NULL) AND
+    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
+    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
+    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
+    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
+    ("shipment_id" > $14 OR $14 IS NULL) AND
+    ("shipment_id" < $15 OR $15 IS NULL) AND
+    ("method" = ANY($16) OR $16 IS NULL) AND
+    ("status" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19
-OFFSET $18
+LIMIT $22
+OFFSET $21
 `
 
 type ListOrderRefundParams struct {
 	ID               []int64              `json:"id"`
 	IDFrom           pgtype.Int8          `json:"id_from"`
 	IDTo             pgtype.Int8          `json:"id_to"`
+	AccountID        []int64              `json:"account_id"`
+	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
+	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
 	OrderItemID      []int64              `json:"order_item_id"`
 	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
 	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
@@ -12245,6 +12200,9 @@ func (q *Queries) ListOrderRefund(ctx context.Context, arg ListOrderRefundParams
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
+		arg.AccountID,
+		arg.AccountIDFrom,
+		arg.AccountIDTo,
 		arg.OrderItemID,
 		arg.OrderItemIDFrom,
 		arg.OrderItemIDTo,
@@ -12271,6 +12229,7 @@ func (q *Queries) ListOrderRefund(ctx context.Context, arg ListOrderRefundParams
 		var i OrderRefund
 		if err := rows.Scan(
 			&i.ID,
+			&i.AccountID,
 			&i.OrderItemID,
 			&i.ReviewedByID,
 			&i.ShipmentID,
@@ -13873,42 +13832,40 @@ func (q *Queries) UpdateCatalogProductSpu(ctx context.Context, arg UpdateCatalog
 const updateCatalogProductSpuTag = `-- name: UpdateCatalogProductSpuTag :one
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE($1, "spu_id"),
-    "tag_id" = COALESCE($2, "tag_id")
+    "tag" = COALESCE($2, "tag")
 WHERE id = $3
-RETURNING id, spu_id, tag_id
+RETURNING id, spu_id, tag
 `
 
 type UpdateCatalogProductSpuTagParams struct {
 	SpuID pgtype.Int8 `json:"spu_id"`
-	TagID pgtype.Int8 `json:"tag_id"`
+	Tag   pgtype.Text `json:"tag"`
 	ID    int64       `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogProductSpuTag(ctx context.Context, arg UpdateCatalogProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, updateCatalogProductSpuTag, arg.SpuID, arg.TagID, arg.ID)
+	row := q.db.QueryRow(ctx, updateCatalogProductSpuTag, arg.SpuID, arg.Tag, arg.ID)
 	var i CatalogProductSpuTag
-	err := row.Scan(&i.ID, &i.SpuID, &i.TagID)
+	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
 const updateCatalogTag = `-- name: UpdateCatalogTag :one
 UPDATE "catalog"."tag"
-SET "tag" = COALESCE($1, "tag"),
-    "description" = COALESCE($2, "description")
-WHERE id = $3
-RETURNING id, tag, description
+SET "description" = COALESCE($1, "description")
+WHERE id = $2
+RETURNING id, description
 `
 
 type UpdateCatalogTagParams struct {
-	Tag         pgtype.Text `json:"tag"`
 	Description pgtype.Text `json:"description"`
-	ID          int64       `json:"id"`
+	ID          string      `json:"id"`
 }
 
 func (q *Queries) UpdateCatalogTag(ctx context.Context, arg UpdateCatalogTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, updateCatalogTag, arg.Tag, arg.Description, arg.ID)
+	row := q.db.QueryRow(ctx, updateCatalogTag, arg.Description, arg.ID)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Tag, &i.Description)
+	err := row.Scan(&i.ID, &i.Description)
 	return i, err
 }
 
@@ -14209,19 +14166,21 @@ func (q *Queries) UpdateOrderItemSerial(ctx context.Context, arg UpdateOrderItem
 
 const updateOrderRefund = `-- name: UpdateOrderRefund :one
 UPDATE "order"."refund"
-SET "order_item_id" = COALESCE($1, "order_item_id"),
-    "reviewed_by_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "reviewed_by_id") END,
-    "shipment_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "shipment_id") END,
-    "method" = COALESCE($6, "method"),
-    "status" = COALESCE($7, "status"),
-    "reason" = COALESCE($8, "reason"),
-    "address" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "address") END,
-    "date_created" = COALESCE($11, "date_created")
-WHERE id = $12
-RETURNING id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
+SET "account_id" = COALESCE($1, "account_id"),
+    "order_item_id" = COALESCE($2, "order_item_id"),
+    "reviewed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "reviewed_by_id") END,
+    "shipment_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "shipment_id") END,
+    "method" = COALESCE($7, "method"),
+    "status" = COALESCE($8, "status"),
+    "reason" = COALESCE($9, "reason"),
+    "address" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "address") END,
+    "date_created" = COALESCE($12, "date_created")
+WHERE id = $13
+RETURNING id, account_id, order_item_id, reviewed_by_id, shipment_id, method, status, reason, address, date_created
 `
 
 type UpdateOrderRefundParams struct {
+	AccountID        pgtype.Int8           `json:"account_id"`
 	OrderItemID      pgtype.Int8           `json:"order_item_id"`
 	NullReviewedByID bool                  `json:"null_reviewed_by_id"`
 	ReviewedByID     pgtype.Int8           `json:"reviewed_by_id"`
@@ -14238,6 +14197,7 @@ type UpdateOrderRefundParams struct {
 
 func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (OrderRefund, error) {
 	row := q.db.QueryRow(ctx, updateOrderRefund,
+		arg.AccountID,
 		arg.OrderItemID,
 		arg.NullReviewedByID,
 		arg.ReviewedByID,
@@ -14254,6 +14214,7 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
+		&i.AccountID,
 		&i.OrderItemID,
 		&i.ReviewedByID,
 		&i.ShipmentID,

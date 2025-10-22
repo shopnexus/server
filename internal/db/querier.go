@@ -26,7 +26,7 @@ type Querier interface {
 	CountCatalogProductSku(ctx context.Context, arg CountCatalogProductSkuParams) (int64, error)
 	CountCatalogProductSpu(ctx context.Context, arg CountCatalogProductSpuParams) (int64, error)
 	CountCatalogProductSpuTag(ctx context.Context, arg CountCatalogProductSpuTagParams) (int64, error)
-	CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error)
+	CountCatalogTag(ctx context.Context, id []string) (int64, error)
 	CountInventorySkuSerial(ctx context.Context, arg CountInventorySkuSerialParams) (int64, error)
 	CountInventoryStock(ctx context.Context, arg CountInventoryStockParams) (int64, error)
 	CountInventoryStockHistory(ctx context.Context, arg CountInventoryStockHistoryParams) (int64, error)
@@ -233,7 +233,7 @@ type Querier interface {
 	DeleteBatchCatalogProductSku(ctx context.Context, id []pgtype.Int8) *DeleteBatchCatalogProductSkuBatchResults
 	DeleteBatchCatalogProductSpu(ctx context.Context, arg []DeleteBatchCatalogProductSpuParams) *DeleteBatchCatalogProductSpuBatchResults
 	DeleteBatchCatalogProductSpuTag(ctx context.Context, arg []DeleteBatchCatalogProductSpuTagParams) *DeleteBatchCatalogProductSpuTagBatchResults
-	DeleteBatchCatalogTag(ctx context.Context, arg []DeleteBatchCatalogTagParams) *DeleteBatchCatalogTagBatchResults
+	DeleteBatchCatalogTag(ctx context.Context, id []pgtype.Text) *DeleteBatchCatalogTagBatchResults
 	DeleteBatchInventorySkuSerial(ctx context.Context, arg []DeleteBatchInventorySkuSerialParams) *DeleteBatchInventorySkuSerialBatchResults
 	DeleteBatchInventoryStock(ctx context.Context, arg []DeleteBatchInventoryStockParams) *DeleteBatchInventoryStockBatchResults
 	DeleteBatchInventoryStockHistory(ctx context.Context, id []pgtype.Int8) *DeleteBatchInventoryStockHistoryBatchResults
@@ -257,7 +257,7 @@ type Querier interface {
 	DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalogProductSkuParams) error
 	DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error
 	DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error
-	DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error
+	DeleteCatalogTag(ctx context.Context, id []string) error
 	DeleteInventorySkuSerial(ctx context.Context, arg DeleteInventorySkuSerialParams) error
 	DeleteInventoryStock(ctx context.Context, arg DeleteInventoryStockParams) error
 	DeleteInventoryStockHistory(ctx context.Context, arg DeleteInventoryStockHistoryParams) error
@@ -292,7 +292,7 @@ type Querier interface {
 	ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalogProductSkuParams) (bool, error)
 	ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalogProductSpuParams) (bool, error)
 	ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCatalogProductSpuTagParams) (bool, error)
-	ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error)
+	ExistsCatalogTag(ctx context.Context, id []string) (bool, error)
 	ExistsInventorySkuSerial(ctx context.Context, arg ExistsInventorySkuSerialParams) (bool, error)
 	ExistsInventoryStock(ctx context.Context, arg ExistsInventoryStockParams) (bool, error)
 	ExistsInventoryStockHistory(ctx context.Context, arg ExistsInventoryStockHistoryParams) (bool, error)
@@ -376,7 +376,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: catalog.tag
 	// ========================================
-	GetCatalogTag(ctx context.Context, arg GetCatalogTagParams) (CatalogTag, error)
+	GetCatalogTag(ctx context.Context, id pgtype.Text) (CatalogTag, error)
 	// ========================================
 	// Queries for table: inventory.sku_serial
 	// ========================================

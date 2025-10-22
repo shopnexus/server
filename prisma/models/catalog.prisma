@@ -56,12 +56,12 @@ model ProductSpu {
   brand_id        BigInt
   featured_sku_id BigInt? @unique // If not null, this SKU is the featured SKU for this product
 
-  name              String
-  description       String
-  is_active         Boolean
-  date_created      DateTime  @default(now()) @db.Timestamptz(3)
-  date_updated      DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  date_deleted      DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
+  name         String
+  description  String
+  is_active    Boolean
+  date_created DateTime  @default(now()) @db.Timestamptz(3)
+  date_updated DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  date_deleted DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
   vendor   Vendor          @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   category ProductCategory @relation(fields: [category_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
@@ -98,8 +98,7 @@ model ProductSku {
 }
 
 model Tag {
-  id          BigInt @id @default(autoincrement())
-  tag         String @unique @db.VarChar(50)
+  id          String @id @db.VarChar(50)
   description String
 
   spuTags ProductTag[]
@@ -111,14 +110,14 @@ model Tag {
 model ProductTag {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
-  tag_id BigInt
+  tag    String @db.VarChar(50)
 
-  spu ProductSpu @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  tag Tag        @relation(fields: [tag_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  spu     ProductSpu @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  tag_rel Tag        @relation(fields: [tag], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  @@unique([spu_id, tag_id])
+  @@unique([spu_id, tag])
   @@index([spu_id])
-  @@index([tag_id])
+  @@index([tag])
   @@map("product_spu_tag")
   @@schema("catalog")
 }
