@@ -50,21 +50,21 @@ func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inv
 		return zero, err
 	}
 
-	dbChanges, err := b.storage.ListInventoryStockHistory(ctx, db.ListInventoryStockHistoryParams{
-		StockID: []int64{stock.ID},
-	})
-	if err != nil {
-		return zero, err
-	}
+	// dbChanges, err := b.storage.ListInventoryStockHistory(ctx, db.ListInventoryStockHistoryParams{
+	// 	StockID: []int64{stock.ID},
+	// })
+	// if err != nil {
+	// 	return zero, err
+	// }
 
-	var changes []inventorymodel.StockHistory
-	for _, change := range dbChanges {
-		changes = append(changes, inventorymodel.StockHistory{
-			ID:          change.ID,
-			Change:      change.Change,
-			DateCreated: change.DateCreated.Time,
-		})
-	}
+	// var changes []inventorymodel.StockHistory
+	// for _, change := range dbChanges {
+	// 	changes = append(changes, inventorymodel.StockHistory{
+	// 		ID:          change.ID,
+	// 		Change:      change.Change,
+	// 		DateCreated: change.DateCreated.Time,
+	// 	})
+	// }
 
 	return inventorymodel.Stock{
 		ID:           stock.ID,
@@ -73,7 +73,7 @@ func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inv
 		CurrentStock: stock.CurrentStock,
 		Sold:         stock.Sold,
 		DateCreated:  stock.DateCreated.Time,
-		Changes:      changes,
+		// Changes:      changes,
 	}, nil
 }
 

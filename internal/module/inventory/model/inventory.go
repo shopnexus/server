@@ -16,8 +16,6 @@ type Stock struct {
 	CurrentStock int64                    `json:"current_stock"`
 	Sold         int64                    `json:"sold"`
 	DateCreated  time.Time                `json:"date_created"`
-
-	Changes []StockHistory `json:"changes,omitempty"`
 }
 
 type StockHistory struct {
