@@ -17,6 +17,7 @@ type CreateRefundRequest struct {
 	Method      db.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
 	Reason      string               `json:"reason" validate:"required,max=500"`
 	Address     null.String          `json:"address" validate:"omitnil,max=500"`
+	ResourceIDs []int64              `json:"resource_ids" validate:"dive"`
 }
 
 func (h *Handler) CreateRefund(c echo.Context) error {
@@ -39,6 +40,7 @@ func (h *Handler) CreateRefund(c echo.Context) error {
 		Method:      req.Method,
 		Reason:      req.Reason,
 		Address:     req.Address,
+		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -67,14 +69,15 @@ func (h *Handler) ListRefunds(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+	return response.FromPaginate(c.Response().Writer, result)
 }
 
 type UpdateRefundRequest struct {
-	RefundID int64                `json:"id" validate:"required"`
-	Method   db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
-	Address  null.String          `json:"address" validate:"omitnil,max=500"`
-	Reason   null.String          `json:"reason" validate:"omitnil,max=500"`
+	RefundID    int64                `json:"id" validate:"required"`
+	Method      db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
+	Address     null.String          `json:"address" validate:"omitnil,max=500"`
+	Reason      null.String          `json:"reason" validate:"omitnil,max=500"`
+	ResourceIDs []int64              `json:"resource_ids" validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateRefund(c echo.Context) error {
@@ -92,11 +95,12 @@ func (h *Handler) UpdateRefund(c echo.Context) error {
 	}
 
 	result, err := h.biz.UpdateRefund(c.Request().Context(), orderbiz.UpdateRefundParams{
-		Account:  claims.Account,
-		RefundID: req.RefundID,
-		Method:   req.Method,
-		Address:  req.Address,
-		Reason:   req.Reason,
+		Account:     claims.Account,
+		RefundID:    req.RefundID,
+		Method:      req.Method,
+		Address:     req.Address,
+		Reason:      req.Reason,
+		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
