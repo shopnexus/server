@@ -2,12 +2,10 @@ package accountecho
 
 import (
 	"net/http"
-	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
-	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -21,7 +19,7 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 
 	// Account endpoints)
 	api.GET("", h.GetAccount)
-	api.PATCH("", h.UpdateAccount)
+	// api.PATCH("", h.UpdateAccount)
 
 	// Me endpoints
 	meApi := api.Group("/me")
@@ -34,11 +32,19 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	cartApi.POST("", h.UpdateCart)
 	cartApi.DELETE("", h.ClearCart)
 
+	// Contact endpoints
+	contactApi := api.Group("/contact")
+	contactApi.GET("/:contact_id", h.GetContact)
+	contactApi.GET("", h.ListContact)
+	contactApi.POST("", h.CreateContact)
+	contactApi.PATCH("", h.UpdateContact)
+	contactApi.DELETE("", h.DeleteContact)
+
 	return h
 }
 
 type GetAccountParams struct {
-	AccountID int64
+	AccountID int64 `query:"account_id" validate:"required"`
 }
 
 func (h *Handler) GetAccount(c echo.Context) error {
@@ -66,57 +72,57 @@ func (h *Handler) GetAccount(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, profile)
 }
 
-type UpdateAccountRequest struct {
-	// Account base fields
-	AccountID int64            `json:"account_id" validate:"required"`
-	Status    db.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
-	Username  null.String      `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
-	Phone     null.String      `json:"phone" validate:"omitempty,e164"`
-	Email     null.String      `json:"email" validate:"omitempty,email"`
+// type UpdateAccountRequest struct {
+// 	// Account base fields
+// 	AccountID int64            `json:"account_id" validate:"required"`
+// 	Status    db.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
+// 	Username  null.String      `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
+// 	Phone     null.String      `json:"phone" validate:"omitempty,e164"`
+// 	Email     null.String      `json:"email" validate:"omitempty,email"`
 
-	// Profile fields
-	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
-	Name             null.String      `json:"name" validate:"omitnil"`
-	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID       null.Int64       `json:"avatar_rs_id" validate:"omitnil"`
-	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
+// 	// Profile fields
+// 	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
+// 	Name             null.String      `json:"name" validate:"omitnil"`
+// 	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
+// 	AvatarRsID       null.Int64       `json:"avatar_rs_id" validate:"omitnil"`
+// 	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
 
-	// Vendor fields
-	Description null.String `json:"description" validate:"omitnil,max=500"`
-}
+// 	// Vendor fields
+// 	Description null.String `json:"description" validate:"omitnil,max=500"`
+// }
 
-func (h *Handler) UpdateAccount(c echo.Context) error {
-	var req UpdateAccountRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
+// func (h *Handler) UpdateAccount(c echo.Context) error {
+// 	var req UpdateAccountRequest
+// 	if err := c.Bind(&req); err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+// 	}
+// 	if err := c.Validate(&req); err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+// 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
+// 	claims, err := authclaims.GetClaims(c.Request())
+// 	if err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+// 	}
 
-	result, err := h.biz.UpdateProfile(c.Request().Context(), accountbiz.UpdateProfileParams{
-		Issuer:           claims.Account,
-		AccountID:        req.AccountID,
-		Status:           req.Status,
-		Username:         req.Username,
-		Phone:            req.Phone,
-		Email:            req.Email,
-		Gender:           req.Gender,
-		Name:             req.Name,
-		DateOfBirth:      req.DateOfBirth,
-		AvatarRsID:       req.AvatarRsID,
-		DefaultContactID: req.DefaultContactID,
-		Description:      req.Description,
-	})
+// 	result, err := h.biz.UpdateProfile(c.Request().Context(), accountbiz.UpdateProfileParams{
+// 		Issuer:           claims.Account,
+// 		AccountID:        req.AccountID,
+// 		Status:           req.Status,
+// 		Username:         req.Username,
+// 		Phone:            req.Phone,
+// 		Email:            req.Email,
+// 		Gender:           req.Gender,
+// 		Name:             req.Name,
+// 		DateOfBirth:      req.DateOfBirth,
+// 		AvatarRsID:       req.AvatarRsID,
+// 		DefaultContactID: req.DefaultContactID,
+// 		Description:      req.Description,
+// 	})
 
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
+// 	if err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+// 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-}
+// 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+// }
