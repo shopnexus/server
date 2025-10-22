@@ -98,7 +98,7 @@ model ProductSku {
 }
 
 model Tag {
-  id          String @id @db.VarChar(50)
+  id          String @id @db.VarChar(100)
   description String
 
   spuTags ProductTag[]
@@ -110,7 +110,7 @@ model Tag {
 model ProductTag {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
-  tag    String @db.VarChar(50)
+  tag    String @db.VarChar(100)
 
   spu     ProductSpu @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   tag_rel Tag        @relation(fields: [tag], references: [id], onUpdate: Cascade, onDelete: Cascade)

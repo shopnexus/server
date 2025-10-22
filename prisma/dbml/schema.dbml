@@ -141,7 +141,7 @@ Table ProductSku {
 }
 
 Table Tag {
-  name String [pk]
+  id String [pk]
   description String [not null]
 }
 
@@ -506,7 +506,7 @@ Ref: ProductSku.spu_id > ProductSpu.id [delete: Cascade]
 
 Ref: ProductTag.spu_id > ProductSpu.id [delete: Cascade]
 
-Ref: ProductTag.tag > Tag.name [delete: Cascade]
+Ref: ProductTag.tag > Tag.id [delete: Cascade]
 
 Ref: Comment.account_id > Account.id [delete: Cascade]
 
