@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"context"
 	"fmt"
+
 	"shopnexus-remastered/internal/client/shipment"
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -47,8 +48,8 @@ func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderPa
 
 // ConfirmOrderParams represents the parameters required to confirm an order by SKU (not the whole order).
 type ConfirmOrderParams struct {
-	Account authmodel.AuthenticatedAccount
-	SkuID   int64 `validate:"required,min=1"` // Confirmed SKU
+	Account     authmodel.AuthenticatedAccount
+	OrderItemID int64 `validate:"required,min=1"` // Confirmed SKU
 
 	FromAddress null.String `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
 	WeightGrams int32       `validate:"required,min=1"`        // Revalidated weight, dimensions
@@ -68,13 +69,17 @@ func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 	}
 	defer txStorage.Rollback(ctx)
 
-	orderItem, err := txStorage.GetOrderItem(ctx, pgutil.Int64ToPgInt8(params.SkuID))
+	orderItem, err := txStorage.GetOrderItem(ctx, pgutil.Int64ToPgInt8(params.OrderItemID))
 	if err != nil {
 		return err
 	}
 
+	if orderItem.Status != db.SharedStatusPending {
+		return fmt.Errorf("only pending order items can be confirmed")
+	}
+
 	orderItem, err = txStorage.UpdateOrderItem(ctx, db.UpdateOrderItemParams{
-		ID:            params.SkuID,
+		ID:            params.OrderItemID,
 		ConfirmedByID: pgutil.Int64ToPgInt8(params.Account.ID),
 		Status:        db.NullSharedStatus{SharedStatus: db.SharedStatusProcessing, Valid: true},
 	})

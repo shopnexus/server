@@ -2,6 +2,7 @@ package orderecho
 
 import (
 	"net/http"
+
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
@@ -41,7 +42,7 @@ func (h *Handler) ListVendorOrder(c echo.Context) error {
 }
 
 type ConfirmOrderRequest struct {
-	SkuID int64 `json:"sku_id" validate:"required,min=1"` // Confirmed SKU
+	OrderItemID int64 `json:"order_item_id" validate:"required,min=1"` // Confirmed SKU
 
 	FromAddress null.String `json:"from_address" validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
 	WeightGrams int32       `json:"weight_grams" validate:"required,min=1"`        // Revalidated weight, dimensions
@@ -66,7 +67,7 @@ func (h *Handler) ConfirmOrder(c echo.Context) error {
 
 	if err = h.biz.ConfirmOrder(c.Request().Context(), orderbiz.ConfirmOrderParams{
 		Account:     claims.Account,
-		SkuID:       req.SkuID,
+		OrderItemID: req.OrderItemID,
 		FromAddress: req.FromAddress,
 		WeightGrams: req.WeightGrams,
 		LengthCM:    req.LengthCM,
