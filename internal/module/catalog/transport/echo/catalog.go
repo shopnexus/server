@@ -46,5 +46,9 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	tagApi.GET("", h.ListTag)
 	tagApi.GET("/:tag", h.GetTag)
 
+	// Brand
+	brandApi := api.Group("/brand")
+	brandApi.GET("", h.ListBrand)
+
 	return h
 }
