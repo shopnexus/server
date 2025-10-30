@@ -27,7 +27,6 @@ func NewClient() *ClientImpl {
 			Provider: "system",
 			Method:   MethodCOD,
 			Name:     "System - COD",
-			IsActive: true,
 		},
 	}
 }

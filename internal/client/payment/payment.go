@@ -20,9 +20,6 @@ type VerifyResult struct {
 }
 
 type Client interface {
-	// Config returns the payment configuration.
-	Config() sharedmodel.OptionConfig
-
 	// CreateOrder creates a payment order and returns either:
 	// - a redirect URL (for online payments),
 	// - or an empty string + metadata (for COD, Bank Transfer, etc.)

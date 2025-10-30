@@ -45,7 +45,6 @@ func NewClients(cfg ClientOptions) []*ClientImpl {
 				Provider: "vnpay",
 				Method:   method,
 				Name:     "VNPay - " + string(method),
-				IsActive: true,
 			},
 			tmnCode:    cfg.TmnCode,
 			hashSecret: cfg.HashSecret,
