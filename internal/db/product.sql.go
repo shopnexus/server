@@ -242,3 +242,105 @@ func (q *Queries) ListRating(ctx context.Context, arg ListRatingParams) ([]ListR
 	}
 	return items, nil
 }
+
+const searchCatalogProductSpu = `-- name: SearchCatalogProductSpu :many
+SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, date_created, date_updated, date_deleted
+FROM "catalog"."product_spu"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("category_id" = ANY($4) OR $4 IS NULL) AND
+    ("brand_id" = ANY($5) OR $5 IS NULL) AND
+    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL) AND
+    ("date_deleted" = ANY($14) OR $14 IS NULL) AND
+    ("date_deleted" > $15 OR $15 IS NULL) AND
+    ("date_deleted" < $16 OR $16 IS NULL) AND
+    ("description" ILIKE  '%' || $17 || '%' OR $17 IS NULL)
+)
+ORDER BY "id"
+LIMIT $19
+OFFSET $18
+`
+
+type SearchCatalogProductSpuParams struct {
+	ID              []int64              `json:"id"`
+	Code            []string             `json:"code"`
+	AccountID       []int64              `json:"account_id"`
+	CategoryID      []int64              `json:"category_id"`
+	BrandID         []int64              `json:"brand_id"`
+	FeaturedSkuID   []pgtype.Int8        `json:"featured_sku_id"`
+	IsActive        []bool               `json:"is_active"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted     []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo   pgtype.Timestamptz   `json:"date_deleted_to"`
+	Description     pgtype.Text          `json:"description"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
+}
+
+func (q *Queries) SearchCatalogProductSpu(ctx context.Context, arg SearchCatalogProductSpuParams) ([]CatalogProductSpu, error) {
+	rows, err := q.db.Query(ctx, searchCatalogProductSpu,
+		arg.ID,
+		arg.Code,
+		arg.AccountID,
+		arg.CategoryID,
+		arg.BrandID,
+		arg.FeaturedSkuID,
+		arg.IsActive,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+		arg.DateDeleted,
+		arg.DateDeletedFrom,
+		arg.DateDeletedTo,
+		arg.Description,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CatalogProductSpu{}
+	for rows.Next() {
+		var i CatalogProductSpu
+		if err := rows.Scan(
+			&i.ID,
+			&i.Code,
+			&i.AccountID,
+			&i.CategoryID,
+			&i.BrandID,
+			&i.FeaturedSkuID,
+			&i.Name,
+			&i.Description,
+			&i.IsActive,
+			&i.DateCreated,
+			&i.DateUpdated,
+			&i.DateDeleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

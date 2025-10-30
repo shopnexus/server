@@ -62,13 +62,10 @@ CREATE TYPE "order"."shipment_status" AS ENUM ('Pending', 'LabelCreated', 'InTra
 CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'ShipDiscount', 'Bundle', 'BuyXGetY', 'Cashback');
 
 -- CreateEnum
-CREATE TYPE "promotion"."ref_type" AS ENUM ('All', 'ProductSpu', 'ProductSku', 'Category', 'Brand');
+CREATE TYPE "promotion"."ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Category', 'Brand');
 
 -- CreateEnum
 CREATE TYPE "shared"."resource_ref_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
-
--- CreateEnum
-CREATE TYPE "shared"."resource_provider" AS ENUM ('S3', 'Cloudinary', 'Local', 'Remote');
 
 -- CreateEnum
 CREATE TYPE "shared"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
@@ -248,7 +245,7 @@ CREATE TABLE "catalog"."product_sku" (
 
 -- CreateTable
 CREATE TABLE "catalog"."tag" (
-    "id" VARCHAR(50) NOT NULL,
+    "id" VARCHAR(100) NOT NULL,
     "description" TEXT NOT NULL,
 
     CONSTRAINT "tag_pkey" PRIMARY KEY ("id")
@@ -258,7 +255,7 @@ CREATE TABLE "catalog"."tag" (
 CREATE TABLE "catalog"."product_spu_tag" (
     "id" BIGSERIAL NOT NULL,
     "spu_id" BIGINT NOT NULL,
-    "tag" VARCHAR(50) NOT NULL,
+    "tag" VARCHAR(100) NOT NULL,
 
     CONSTRAINT "product_spu_tag_pkey" PRIMARY KEY ("id")
 );
@@ -421,8 +418,6 @@ CREATE TABLE "promotion"."base" (
     "id" BIGSERIAL NOT NULL,
     "code" TEXT NOT NULL,
     "owner_id" BIGINT,
-    "ref_type" "promotion"."ref_type" NOT NULL,
-    "ref_id" BIGINT,
     "type" "promotion"."type" NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
@@ -434,6 +429,16 @@ CREATE TABLE "promotion"."base" (
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "base_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "promotion"."ref" (
+    "id" BIGSERIAL NOT NULL,
+    "promotion_id" BIGINT NOT NULL,
+    "ref_type" "promotion"."ref_type" NOT NULL,
+    "ref_id" BIGINT NOT NULL,
+
+    CONSTRAINT "ref_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -464,13 +469,11 @@ CREATE TABLE "promotion"."discount" (
 CREATE TABLE "shared"."resource" (
     "id" BIGSERIAL NOT NULL,
     "uploaded_by" BIGINT,
-    "provider" "shared"."resource_provider" NOT NULL,
+    "provider" TEXT NOT NULL,
     "object_key" VARCHAR(2048) NOT NULL,
     "mime" TEXT NOT NULL,
-    "file_size" BIGINT,
-    "width" INTEGER,
-    "height" INTEGER,
-    "duration" DOUBLE PRECISION,
+    "size" BIGINT NOT NULL,
+    "metadata" JSONB NOT NULL,
     "checksum" TEXT,
     "status" "shared"."status" NOT NULL DEFAULT 'Pending',
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -679,6 +682,12 @@ CREATE INDEX "invoice_ref_type_ref_id_idx" ON "order"."invoice"("ref_type", "ref
 CREATE UNIQUE INDEX "base_code_key" ON "promotion"."base"("code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ref_promotion_id_ref_type_ref_id_key" ON "promotion"."ref"("promotion_id", "ref_type", "ref_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "resource_provider_object_key_key" ON "shared"."resource"("provider", "object_key");
+
+-- CreateIndex
 CREATE INDEX "service_option_category_provider_idx" ON "shared"."service_option"("category", "provider");
 
 -- CreateIndex
@@ -806,6 +815,9 @@ ALTER TABLE "order"."shipment" ADD CONSTRAINT "shipment_option_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "promotion"."base" ADD CONSTRAINT "base_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "promotion"."ref" ADD CONSTRAINT "ref_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "promotion"."schedule" ADD CONSTRAINT "schedule_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;

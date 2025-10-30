@@ -74,3 +74,29 @@ SELECT
     COALESCE(r.rating_score, 0) as rating_score
 FROM spu_data spu
 LEFT JOIN rating_data r ON spu.id = r.spu_id;
+
+-- name: SearchCatalogProductSpu :many
+SELECT *
+FROM "catalog"."product_spu"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
+    ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
+    ("featured_sku_id" = ANY(sqlc.slice('featured_sku_id')) OR sqlc.slice('featured_sku_id') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
+    ("date_deleted" > sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" < sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL) AND
+    ("description" ILIKE  '%' || sqlc.narg('description') || '%' OR sqlc.narg('description') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');

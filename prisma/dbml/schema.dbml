@@ -287,8 +287,6 @@ Table Promotion {
   id BigInt [pk, increment]
   code String [unique, not null]
   owner_id BigInt
-  ref_type PromotionRefType [not null]
-  ref_id BigInt
   type PromotionType [not null]
   title String [not null]
   description String
@@ -298,6 +296,17 @@ Table Promotion {
   date_ended DateTime
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
+}
+
+Table PromotionRef {
+  id BigInt [pk, increment]
+  promotion_id BigInt [not null]
+  ref_type PromotionRefType [not null]
+  ref_id BigInt [not null]
+
+  indexes {
+    (promotion_id, ref_type, ref_id) [unique]
+  }
 }
 
 Table PromotionSchedule {
@@ -321,16 +330,18 @@ Table PromotionDiscount {
 Table Resource {
   id BigInt [pk, increment]
   uploaded_by BigInt
-  provider ResourceProvider [not null]
+  provider String [not null]
   object_key String [not null]
   mime String [not null]
-  file_size BigInt
-  width Int
-  height Int
-  duration Float
+  size BigInt [not null]
+  metadata Json [not null]
   checksum String
   status Status [not null, default: 'Pending']
   created_at DateTime [default: `now()`, not null]
+
+  indexes {
+    (provider, object_key) [unique]
+  }
 }
 
 Table ResourceReference {
@@ -442,7 +453,6 @@ Enum PromotionType {
 }
 
 Enum PromotionRefType {
-  All
   ProductSpu
   ProductSku
   Category
@@ -457,13 +467,6 @@ Enum ResourceRefType {
   Refund
   ReturnDispute
   Comment
-}
-
-Enum ResourceProvider {
-  S3
-  Cloudinary
-  Local
-  Remote
 }
 
 Enum Status {
@@ -549,6 +552,8 @@ Ref: Invoice.receiver_id > Account.id [delete: No Action]
 Ref: Shipment.option > ServiceOption.id [delete: No Action]
 
 Ref: Promotion.owner_id > Vendor.id [delete: Set Null]
+
+Ref: PromotionRef.promotion_id > Promotion.id [delete: Cascade]
 
 Ref: PromotionSchedule.promotion_id > Promotion.id [delete: Cascade]
 

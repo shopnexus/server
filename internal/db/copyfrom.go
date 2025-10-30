@@ -1551,8 +1551,6 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Values() ([]interface{}, erro
 	return []interface{}{
 		r.rows[0].Code,
 		r.rows[0].OwnerID,
-		r.rows[0].RefType,
-		r.rows[0].RefID,
 		r.rows[0].Type,
 		r.rows[0].Title,
 		r.rows[0].Description,
@@ -1568,7 +1566,7 @@ func (r iteratorForCreateCopyDefaultPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionDiscount implements pgx.CopyFromSource.
@@ -1605,6 +1603,40 @@ func (r iteratorForCreateCopyDefaultPromotionDiscount) Err() error {
 
 func (q *Queries) CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyDefaultPromotionDiscount{rows: arg})
+}
+
+// iteratorForCreateCopyDefaultPromotionRef implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultPromotionRef struct {
+	rows                 []CreateCopyDefaultPromotionRefParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultPromotionRef) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultPromotionRef) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].PromotionID,
+		r.rows[0].RefType,
+		r.rows[0].RefID,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultPromotionRef) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultPromotionRef(ctx context.Context, arg []CreateCopyDefaultPromotionRefParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"promotion", "ref"}, []string{"promotion_id", "ref_type", "ref_id"}, &iteratorForCreateCopyDefaultPromotionRef{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPromotionSchedule implements pgx.CopyFromSource.
@@ -1668,10 +1700,8 @@ func (r iteratorForCreateCopyDefaultSharedResource) Values() ([]interface{}, err
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
 		r.rows[0].Mime,
-		r.rows[0].FileSize,
-		r.rows[0].Width,
-		r.rows[0].Height,
-		r.rows[0].Duration,
+		r.rows[0].Size,
+		r.rows[0].Metadata,
 		r.rows[0].Checksum,
 	}, nil
 }
@@ -1681,7 +1711,7 @@ func (r iteratorForCreateCopyDefaultSharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSharedResourceReference implements pgx.CopyFromSource.
@@ -2189,8 +2219,6 @@ func (r iteratorForCreateCopyPromotionBase) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].Code,
 		r.rows[0].OwnerID,
-		r.rows[0].RefType,
-		r.rows[0].RefID,
 		r.rows[0].Type,
 		r.rows[0].Title,
 		r.rows[0].Description,
@@ -2208,7 +2236,7 @@ func (r iteratorForCreateCopyPromotionBase) Err() error {
 }
 
 func (q *Queries) CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "base"}, []string{"code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated"}, &iteratorForCreateCopyPromotionBase{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionDiscount implements pgx.CopyFromSource.
@@ -2245,6 +2273,40 @@ func (r iteratorForCreateCopyPromotionDiscount) Err() error {
 
 func (q *Queries) CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"promotion", "discount"}, []string{"id", "min_spend", "max_discount", "discount_percent", "discount_price"}, &iteratorForCreateCopyPromotionDiscount{rows: arg})
+}
+
+// iteratorForCreateCopyPromotionRef implements pgx.CopyFromSource.
+type iteratorForCreateCopyPromotionRef struct {
+	rows                 []CreateCopyPromotionRefParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyPromotionRef) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyPromotionRef) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].PromotionID,
+		r.rows[0].RefType,
+		r.rows[0].RefID,
+	}, nil
+}
+
+func (r iteratorForCreateCopyPromotionRef) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyPromotionRef(ctx context.Context, arg []CreateCopyPromotionRefParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"promotion", "ref"}, []string{"promotion_id", "ref_type", "ref_id"}, &iteratorForCreateCopyPromotionRef{rows: arg})
 }
 
 // iteratorForCreateCopyPromotionSchedule implements pgx.CopyFromSource.
@@ -2308,10 +2370,8 @@ func (r iteratorForCreateCopySharedResource) Values() ([]interface{}, error) {
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
 		r.rows[0].Mime,
-		r.rows[0].FileSize,
-		r.rows[0].Width,
-		r.rows[0].Height,
-		r.rows[0].Duration,
+		r.rows[0].Size,
+		r.rows[0].Metadata,
 		r.rows[0].Checksum,
 		r.rows[0].Status,
 		r.rows[0].CreatedAt,
@@ -2323,7 +2383,7 @@ func (r iteratorForCreateCopySharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
 }
 
 // iteratorForCreateCopySharedResourceReference implements pgx.CopyFromSource.

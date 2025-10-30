@@ -3891,10 +3891,6 @@ WHERE (
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
     ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
@@ -3924,10 +3920,6 @@ WHERE (
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
     ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
@@ -3956,10 +3948,6 @@ WHERE (
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
     ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
@@ -3982,34 +3970,32 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreatePromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING *;
-
--- name: CreateBatchPromotionBase :batchone
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING *;
-
--- name: CreateCopyPromotionBase :copyfrom
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
-
--- name: CreateDefaultPromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
--- name: CreateCopyDefaultPromotionBase :copyfrom
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
+-- name: CreateBatchPromotionBase :batchone
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING *;
+
+-- name: CreateCopyPromotionBase :copyfrom
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+
+-- name: CreateDefaultPromotionBase :one
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: CreateCopyDefaultPromotionBase :copyfrom
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdatePromotionBase :one
 UPDATE "promotion"."base"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "owner_id" = CASE WHEN sqlc.arg('null_owner_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('owner_id'), "owner_id") END,
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
-    "ref_id" = CASE WHEN sqlc.arg('null_ref_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('ref_id'), "ref_id") END,
     "type" = COALESCE(sqlc.narg('type'), "type"),
     "title" = COALESCE(sqlc.narg('title'), "title"),
     "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END,
@@ -4026,8 +4012,6 @@ RETURNING *;
 UPDATE "promotion"."base"
 SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "owner_id" = CASE WHEN sqlc.arg('null_owner_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('owner_id'), "owner_id") END,
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
-    "ref_id" = CASE WHEN sqlc.arg('null_ref_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('ref_id'), "ref_id") END,
     "type" = COALESCE(sqlc.narg('type'), "type"),
     "title" = COALESCE(sqlc.narg('title'), "title"),
     "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END,
@@ -4049,10 +4033,6 @@ WHERE (
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
     ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
@@ -4073,6 +4053,128 @@ WHERE (
 -- name: DeleteBatchPromotionBase :batchexec
 DELETE FROM "promotion"."base"
 WHERE ("id" = sqlc.narg('id')) OR ("code" = sqlc.narg('code'));
+
+-- ========================================
+
+-- Queries for table: promotion.ref
+
+-- ========================================
+
+-- name: GetPromotionRef :one
+SELECT *
+FROM "promotion"."ref"
+WHERE ("id" = sqlc.narg('id')) OR ("promotion_id" = sqlc.narg('promotion_id') AND "ref_type" = sqlc.narg('ref_type') AND "ref_id" = sqlc.narg('ref_id'));
+
+-- name: ExistsPromotionRef :one
+SELECT EXISTS (
+SELECT 1
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+)
+) as exists;
+
+-- name: CountPromotionRef :one
+SELECT COUNT(*)
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+);
+
+-- name: ListPromotionRef :many
+SELECT *
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreatePromotionRef :one
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateBatchPromotionRef :batchone
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyPromotionRef :copyfrom
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3);
+
+-- name: CreateDefaultPromotionRef :one
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyDefaultPromotionRef :copyfrom
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3);
+
+-- name: UpdatePromotionRef :one
+UPDATE "promotion"."ref"
+SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchPromotionRef :batchexec
+UPDATE "promotion"."ref"
+SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id")
+WHERE id = sqlc.arg('id');
+
+-- name: DeletePromotionRef :exec
+DELETE FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
+    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
+    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
+    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+);
+
+-- name: DeleteBatchPromotionRef :batchexec
+DELETE FROM "promotion"."ref"
+WHERE ("id" = sqlc.narg('id')) OR ("promotion_id" = sqlc.narg('promotion_id') AND "ref_type" = sqlc.narg('ref_type') AND "ref_id" = sqlc.narg('ref_id'));
 
 -- ========================================
 
@@ -4375,7 +4477,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetSharedResource :one
 SELECT *
 FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
 
 -- name: ExistsSharedResource :one
 SELECT EXISTS (
@@ -4388,20 +4490,11 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
-    ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
-    ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
-    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
-    ("width" > sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
-    ("width" < sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
-    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
-    ("height" > sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
-    ("height" < sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
-    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4419,20 +4512,11 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
-    ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
-    ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
-    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
-    ("width" > sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
-    ("width" < sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
-    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
-    ("height" > sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
-    ("height" < sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
-    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4449,20 +4533,11 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
-    ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
-    ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
-    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
-    ("width" > sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
-    ("width" < sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
-    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
-    ("height" > sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
-    ("height" < sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
-    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4474,27 +4549,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-
--- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum")
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
--- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum")
+-- name: CreateBatchSharedResource :batchone
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: CreateCopySharedResource :copyfrom
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+
+-- name: CreateDefaultSharedResource :one
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateCopyDefaultSharedResource :copyfrom
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
@@ -4502,10 +4577,8 @@ SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NUL
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
-    "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
-    "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
-    "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
+    "size" = COALESCE(sqlc.narg('size'), "size"),
+    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
@@ -4518,10 +4591,8 @@ SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NUL
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "file_size" = CASE WHEN sqlc.arg('null_file_size')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('file_size'), "file_size") END,
-    "width" = CASE WHEN sqlc.arg('null_width')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('width'), "width") END,
-    "height" = CASE WHEN sqlc.arg('null_height')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('height'), "height") END,
-    "duration" = CASE WHEN sqlc.arg('null_duration')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('duration'), "duration") END,
+    "size" = COALESCE(sqlc.narg('size'), "size"),
+    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
@@ -4536,20 +4607,11 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("file_size" = ANY(sqlc.slice('file_size')) OR sqlc.slice('file_size') IS NULL) AND
-    ("file_size" > sqlc.narg('file_size_from') OR sqlc.narg('file_size_from') IS NULL) AND
-    ("file_size" < sqlc.narg('file_size_to') OR sqlc.narg('file_size_to') IS NULL) AND
-    ("width" = ANY(sqlc.slice('width')) OR sqlc.slice('width') IS NULL) AND
-    ("width" > sqlc.narg('width_from') OR sqlc.narg('width_from') IS NULL) AND
-    ("width" < sqlc.narg('width_to') OR sqlc.narg('width_to') IS NULL) AND
-    ("height" = ANY(sqlc.slice('height')) OR sqlc.slice('height') IS NULL) AND
-    ("height" > sqlc.narg('height_from') OR sqlc.narg('height_from') IS NULL) AND
-    ("height" < sqlc.narg('height_to') OR sqlc.narg('height_to') IS NULL) AND
-    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4558,7 +4620,7 @@ WHERE (
 
 -- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
 
 -- ========================================
 

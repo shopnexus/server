@@ -13,7 +13,6 @@ enum PromotionType {
 }
 
 enum PromotionRefType {
-  All // All products, the entire product catalog is being promoted
   ProductSpu // Product SPU, the specific product that is being promoted
   ProductSku // Product SKU, the specific SKU of the product that is being promoted
   Category // Category, the category of products that are being promoted
@@ -24,11 +23,9 @@ enum PromotionRefType {
 }
 
 model Promotion {
-  id       BigInt           @id @default(autoincrement())
-  code     String           @unique
+  id       BigInt  @id @default(autoincrement())
+  code     String  @unique
   owner_id BigInt? // null means system promotion
-  ref_type PromotionRefType // Type of reference
-  ref_id   BigInt? // Reference id, e.g. product id, category id | null when ref_type is All
 
   type        PromotionType // Type of promotion
   title       String // Title of the promotion
@@ -46,8 +43,22 @@ model Promotion {
   vendor    Vendor?             @relation(fields: [owner_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
   discounts PromotionDiscount[]
   schedules PromotionSchedule[]
+  refs      PromotionRef[]
 
   @@map("base")
+  @@schema("promotion")
+}
+
+model PromotionRef {
+  id           BigInt           @id @default(autoincrement())
+  promotion_id BigInt
+  ref_type     PromotionRefType // Type of reference
+  ref_id       BigInt // Reference id, e.g. product id, category id
+
+  promotion Promotion @relation(fields: [promotion_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique([promotion_id, ref_type, ref_id])
+  @@map("ref")
   @@schema("promotion")
 }
 

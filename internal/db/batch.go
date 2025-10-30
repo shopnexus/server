@@ -1817,9 +1817,9 @@ func (b *CreateBatchOrderShipmentBatchResults) Close() error {
 }
 
 const createBatchPromotionBase = `-- name: CreateBatchPromotionBase :batchone
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 `
 
 type CreateBatchPromotionBaseBatchResults struct {
@@ -1831,8 +1831,6 @@ type CreateBatchPromotionBaseBatchResults struct {
 type CreateBatchPromotionBaseParams struct {
 	Code        string             `json:"code"`
 	OwnerID     pgtype.Int8        `json:"owner_id"`
-	RefType     PromotionRefType   `json:"ref_type"`
-	RefID       pgtype.Int8        `json:"ref_id"`
 	Type        PromotionType      `json:"type"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
@@ -1850,8 +1848,6 @@ func (q *Queries) CreateBatchPromotionBase(ctx context.Context, arg []CreateBatc
 		vals := []interface{}{
 			a.Code,
 			a.OwnerID,
-			a.RefType,
-			a.RefID,
 			a.Type,
 			a.Title,
 			a.Description,
@@ -1883,8 +1879,6 @@ func (b *CreateBatchPromotionBaseBatchResults) QueryRow(f func(int, PromotionBas
 			&i.ID,
 			&i.Code,
 			&i.OwnerID,
-			&i.RefType,
-			&i.RefID,
 			&i.Type,
 			&i.Title,
 			&i.Description,
@@ -1971,6 +1965,66 @@ func (b *CreateBatchPromotionDiscountBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const createBatchPromotionRef = `-- name: CreateBatchPromotionRef :batchone
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING id, promotion_id, ref_type, ref_id
+`
+
+type CreateBatchPromotionRefBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchPromotionRefParams struct {
+	PromotionID int64            `json:"promotion_id"`
+	RefType     PromotionRefType `json:"ref_type"`
+	RefID       int64            `json:"ref_id"`
+}
+
+func (q *Queries) CreateBatchPromotionRef(ctx context.Context, arg []CreateBatchPromotionRefParams) *CreateBatchPromotionRefBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.PromotionID,
+			a.RefType,
+			a.RefID,
+		}
+		batch.Queue(createBatchPromotionRef, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchPromotionRefBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchPromotionRefBatchResults) QueryRow(f func(int, PromotionRef, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i PromotionRef
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.PromotionID,
+			&i.RefType,
+			&i.RefID,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchPromotionRefBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const createBatchPromotionSchedule = `-- name: CreateBatchPromotionSchedule :batchone
 INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -2041,9 +2095,9 @@ func (b *CreateBatchPromotionScheduleBatchResults) Close() error {
 }
 
 const createBatchSharedResource = `-- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type CreateBatchSharedResourceBatchResults struct {
@@ -2053,17 +2107,15 @@ type CreateBatchSharedResourceBatchResults struct {
 }
 
 type CreateBatchSharedResourceParams struct {
-	UploadedBy pgtype.Int8            `json:"uploaded_by"`
-	Provider   SharedResourceProvider `json:"provider"`
-	ObjectKey  string                 `json:"object_key"`
-	Mime       string                 `json:"mime"`
-	FileSize   pgtype.Int8            `json:"file_size"`
-	Width      pgtype.Int4            `json:"width"`
-	Height     pgtype.Int4            `json:"height"`
-	Duration   pgtype.Float8          `json:"duration"`
-	Checksum   pgtype.Text            `json:"checksum"`
-	Status     SharedStatus           `json:"status"`
-	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults {
@@ -2074,10 +2126,8 @@ func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBat
 			a.Provider,
 			a.ObjectKey,
 			a.Mime,
-			a.FileSize,
-			a.Width,
-			a.Height,
-			a.Duration,
+			a.Size,
+			a.Metadata,
 			a.Checksum,
 			a.Status,
 			a.CreatedAt,
@@ -2105,10 +2155,8 @@ func (b *CreateBatchSharedResourceBatchResults) QueryRow(f func(int, SharedResou
 			&i.Provider,
 			&i.ObjectKey,
 			&i.Mime,
-			&i.FileSize,
-			&i.Width,
-			&i.Height,
-			&i.Duration,
+			&i.Size,
+			&i.Metadata,
 			&i.Checksum,
 			&i.Status,
 			&i.CreatedAt,
@@ -3656,6 +3704,60 @@ func (b *DeleteBatchPromotionDiscountBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const deleteBatchPromotionRef = `-- name: DeleteBatchPromotionRef :batchexec
+DELETE FROM "promotion"."ref"
+WHERE ("id" = $1) OR ("promotion_id" = $2 AND "ref_type" = $3 AND "ref_id" = $4)
+`
+
+type DeleteBatchPromotionRefBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type DeleteBatchPromotionRefParams struct {
+	ID          pgtype.Int8          `json:"id"`
+	PromotionID pgtype.Int8          `json:"promotion_id"`
+	RefType     NullPromotionRefType `json:"ref_type"`
+	RefID       pgtype.Int8          `json:"ref_id"`
+}
+
+func (q *Queries) DeleteBatchPromotionRef(ctx context.Context, arg []DeleteBatchPromotionRefParams) *DeleteBatchPromotionRefBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.PromotionID,
+			a.RefType,
+			a.RefID,
+		}
+		batch.Queue(deleteBatchPromotionRef, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchPromotionRefBatchResults{br, len(arg), false}
+}
+
+func (b *DeleteBatchPromotionRefBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchPromotionRefBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const deleteBatchPromotionSchedule = `-- name: DeleteBatchPromotionSchedule :batchexec
 DELETE FROM "promotion"."schedule"
 WHERE ("id" = $1)
@@ -3702,7 +3804,7 @@ func (b *DeleteBatchPromotionScheduleBatchResults) Close() error {
 
 const deleteBatchSharedResource = `-- name: DeleteBatchSharedResource :batchexec
 DELETE FROM "shared"."resource"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
 `
 
 type DeleteBatchSharedResourceBatchResults struct {
@@ -3711,16 +3813,24 @@ type DeleteBatchSharedResourceBatchResults struct {
 	closed bool
 }
 
-func (q *Queries) DeleteBatchSharedResource(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceBatchResults {
+type DeleteBatchSharedResourceParams struct {
+	ID        pgtype.Int8 `json:"id"`
+	Provider  pgtype.Text `json:"provider"`
+	ObjectKey pgtype.Text `json:"object_key"`
+}
+
+func (q *Queries) DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range id {
+	for _, a := range arg {
 		vals := []interface{}{
-			a,
+			a.ID,
+			a.Provider,
+			a.ObjectKey,
 		}
 		batch.Queue(deleteBatchSharedResource, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSharedResourceBatchResults{br, len(id), false}
+	return &DeleteBatchSharedResourceBatchResults{br, len(arg), false}
 }
 
 func (b *DeleteBatchSharedResourceBatchResults) Exec(f func(int, error)) {
@@ -5796,18 +5906,16 @@ const updateBatchPromotionBase = `-- name: UpdateBatchPromotionBase :batchexec
 UPDATE "promotion"."base"
 SET "code" = COALESCE($1, "code"),
     "owner_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "owner_id") END,
-    "ref_type" = COALESCE($4, "ref_type"),
-    "ref_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "ref_id") END,
-    "type" = COALESCE($7, "type"),
-    "title" = COALESCE($8, "title"),
-    "description" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "description") END,
-    "is_active" = COALESCE($11, "is_active"),
-    "auto_apply" = COALESCE($12, "auto_apply"),
-    "date_started" = COALESCE($13, "date_started"),
-    "date_ended" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "date_ended") END,
-    "date_created" = COALESCE($16, "date_created"),
-    "date_updated" = COALESCE($17, "date_updated")
-WHERE id = $18
+    "type" = COALESCE($4, "type"),
+    "title" = COALESCE($5, "title"),
+    "description" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "description") END,
+    "is_active" = COALESCE($8, "is_active"),
+    "auto_apply" = COALESCE($9, "auto_apply"),
+    "date_started" = COALESCE($10, "date_started"),
+    "date_ended" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_ended") END,
+    "date_created" = COALESCE($13, "date_created"),
+    "date_updated" = COALESCE($14, "date_updated")
+WHERE id = $15
 `
 
 type UpdateBatchPromotionBaseBatchResults struct {
@@ -5817,24 +5925,21 @@ type UpdateBatchPromotionBaseBatchResults struct {
 }
 
 type UpdateBatchPromotionBaseParams struct {
-	Code            pgtype.Text          `json:"code"`
-	NullOwnerID     bool                 `json:"null_owner_id"`
-	OwnerID         pgtype.Int8          `json:"owner_id"`
-	RefType         NullPromotionRefType `json:"ref_type"`
-	NullRefID       bool                 `json:"null_ref_id"`
-	RefID           pgtype.Int8          `json:"ref_id"`
-	Type            NullPromotionType    `json:"type"`
-	Title           pgtype.Text          `json:"title"`
-	NullDescription bool                 `json:"null_description"`
-	Description     pgtype.Text          `json:"description"`
-	IsActive        pgtype.Bool          `json:"is_active"`
-	AutoApply       pgtype.Bool          `json:"auto_apply"`
-	DateStarted     pgtype.Timestamptz   `json:"date_started"`
-	NullDateEnded   bool                 `json:"null_date_ended"`
-	DateEnded       pgtype.Timestamptz   `json:"date_ended"`
-	DateCreated     pgtype.Timestamptz   `json:"date_created"`
-	DateUpdated     pgtype.Timestamptz   `json:"date_updated"`
-	ID              int64                `json:"id"`
+	Code            pgtype.Text        `json:"code"`
+	NullOwnerID     bool               `json:"null_owner_id"`
+	OwnerID         pgtype.Int8        `json:"owner_id"`
+	Type            NullPromotionType  `json:"type"`
+	Title           pgtype.Text        `json:"title"`
+	NullDescription bool               `json:"null_description"`
+	Description     pgtype.Text        `json:"description"`
+	IsActive        pgtype.Bool        `json:"is_active"`
+	AutoApply       pgtype.Bool        `json:"auto_apply"`
+	DateStarted     pgtype.Timestamptz `json:"date_started"`
+	NullDateEnded   bool               `json:"null_date_ended"`
+	DateEnded       pgtype.Timestamptz `json:"date_ended"`
+	DateCreated     pgtype.Timestamptz `json:"date_created"`
+	DateUpdated     pgtype.Timestamptz `json:"date_updated"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults {
@@ -5844,9 +5949,6 @@ func (q *Queries) UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatc
 			a.Code,
 			a.NullOwnerID,
 			a.OwnerID,
-			a.RefType,
-			a.NullRefID,
-			a.RefID,
 			a.Type,
 			a.Title,
 			a.NullDescription,
@@ -5951,6 +6053,63 @@ func (b *UpdateBatchPromotionDiscountBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const updateBatchPromotionRef = `-- name: UpdateBatchPromotionRef :batchexec
+UPDATE "promotion"."ref"
+SET "promotion_id" = COALESCE($1, "promotion_id"),
+    "ref_type" = COALESCE($2, "ref_type"),
+    "ref_id" = COALESCE($3, "ref_id")
+WHERE id = $4
+`
+
+type UpdateBatchPromotionRefBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchPromotionRefParams struct {
+	PromotionID pgtype.Int8          `json:"promotion_id"`
+	RefType     NullPromotionRefType `json:"ref_type"`
+	RefID       pgtype.Int8          `json:"ref_id"`
+	ID          int64                `json:"id"`
+}
+
+func (q *Queries) UpdateBatchPromotionRef(ctx context.Context, arg []UpdateBatchPromotionRefParams) *UpdateBatchPromotionRefBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.PromotionID,
+			a.RefType,
+			a.RefID,
+			a.ID,
+		}
+		batch.Queue(updateBatchPromotionRef, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchPromotionRefBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchPromotionRefBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchPromotionRefBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const updateBatchPromotionSchedule = `-- name: UpdateBatchPromotionSchedule :batchexec
 UPDATE "promotion"."schedule"
 SET "promotion_id" = COALESCE($1, "promotion_id"),
@@ -6027,14 +6186,12 @@ SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploa
     "provider" = COALESCE($3, "provider"),
     "object_key" = COALESCE($4, "object_key"),
     "mime" = COALESCE($5, "mime"),
-    "file_size" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "file_size") END,
-    "width" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "width") END,
-    "height" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "height") END,
-    "duration" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "duration") END,
-    "checksum" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "checksum") END,
-    "status" = COALESCE($16, "status"),
-    "created_at" = COALESCE($17, "created_at")
-WHERE id = $18
+    "size" = COALESCE($6, "size"),
+    "metadata" = COALESCE($7, "metadata"),
+    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
+    "status" = COALESCE($10, "status"),
+    "created_at" = COALESCE($11, "created_at")
+WHERE id = $12
 `
 
 type UpdateBatchSharedResourceBatchResults struct {
@@ -6044,24 +6201,18 @@ type UpdateBatchSharedResourceBatchResults struct {
 }
 
 type UpdateBatchSharedResourceParams struct {
-	NullUploadedBy bool                       `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8                `json:"uploaded_by"`
-	Provider       NullSharedResourceProvider `json:"provider"`
-	ObjectKey      pgtype.Text                `json:"object_key"`
-	Mime           pgtype.Text                `json:"mime"`
-	NullFileSize   bool                       `json:"null_file_size"`
-	FileSize       pgtype.Int8                `json:"file_size"`
-	NullWidth      bool                       `json:"null_width"`
-	Width          pgtype.Int4                `json:"width"`
-	NullHeight     bool                       `json:"null_height"`
-	Height         pgtype.Int4                `json:"height"`
-	NullDuration   bool                       `json:"null_duration"`
-	Duration       pgtype.Float8              `json:"duration"`
-	NullChecksum   bool                       `json:"null_checksum"`
-	Checksum       pgtype.Text                `json:"checksum"`
-	Status         NullSharedStatus           `json:"status"`
-	CreatedAt      pgtype.Timestamptz         `json:"created_at"`
-	ID             int64                      `json:"id"`
+	NullUploadedBy bool               `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
+	Provider       pgtype.Text        `json:"provider"`
+	ObjectKey      pgtype.Text        `json:"object_key"`
+	Mime           pgtype.Text        `json:"mime"`
+	Size           pgtype.Int8        `json:"size"`
+	Metadata       []byte             `json:"metadata"`
+	NullChecksum   bool               `json:"null_checksum"`
+	Checksum       pgtype.Text        `json:"checksum"`
+	Status         NullSharedStatus   `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
@@ -6073,14 +6224,8 @@ func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBat
 			a.Provider,
 			a.ObjectKey,
 			a.Mime,
-			a.NullFileSize,
-			a.FileSize,
-			a.NullWidth,
-			a.Width,
-			a.NullHeight,
-			a.Height,
-			a.NullDuration,
-			a.Duration,
+			a.Size,
+			a.Metadata,
 			a.NullChecksum,
 			a.Checksum,
 			a.Status,

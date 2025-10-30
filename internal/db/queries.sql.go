@@ -1660,25 +1660,21 @@ WHERE (
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
     ("owner_id" > $6 OR $6 IS NULL) AND
     ("owner_id" < $7 OR $7 IS NULL) AND
-    ("ref_type" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" > $10 OR $10 IS NULL) AND
-    ("ref_id" < $11 OR $11 IS NULL) AND
-    ("type" = ANY($12) OR $12 IS NULL) AND
-    ("is_active" = ANY($13) OR $13 IS NULL) AND
-    ("auto_apply" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" = ANY($15) OR $15 IS NULL) AND
-    ("date_started" > $16 OR $16 IS NULL) AND
-    ("date_started" < $17 OR $17 IS NULL) AND
-    ("date_ended" = ANY($18) OR $18 IS NULL) AND
-    ("date_ended" > $19 OR $19 IS NULL) AND
-    ("date_ended" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL)
+    ("type" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
+    ("date_started" = ANY($11) OR $11 IS NULL) AND
+    ("date_started" > $12 OR $12 IS NULL) AND
+    ("date_started" < $13 OR $13 IS NULL) AND
+    ("date_ended" = ANY($14) OR $14 IS NULL) AND
+    ("date_ended" > $15 OR $15 IS NULL) AND
+    ("date_ended" < $16 OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" > $18 OR $18 IS NULL) AND
+    ("date_created" < $19 OR $19 IS NULL) AND
+    ("date_updated" = ANY($20) OR $20 IS NULL) AND
+    ("date_updated" > $21 OR $21 IS NULL) AND
+    ("date_updated" < $22 OR $22 IS NULL)
 )
 `
 
@@ -1690,10 +1686,6 @@ type CountPromotionBaseParams struct {
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
 	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
 	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
-	RefType         []PromotionRefType   `json:"ref_type"`
-	RefID           []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
 	Type            []PromotionType      `json:"type"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
@@ -1720,10 +1712,6 @@ func (q *Queries) CountPromotionBase(ctx context.Context, arg CountPromotionBase
 		arg.OwnerID,
 		arg.OwnerIDFrom,
 		arg.OwnerIDTo,
-		arg.RefType,
-		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.IsActive,
 		arg.AutoApply,
@@ -1808,6 +1796,54 @@ func (q *Queries) CountPromotionDiscount(ctx context.Context, arg CountPromotion
 	return count, err
 }
 
+const countPromotionRef = `-- name: CountPromotionRef :one
+SELECT COUNT(*)
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL)
+)
+`
+
+type CountPromotionRefParams struct {
+	ID              []int64            `json:"id"`
+	IDFrom          pgtype.Int8        `json:"id_from"`
+	IDTo            pgtype.Int8        `json:"id_to"`
+	PromotionID     []int64            `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
+	RefType         []PromotionRefType `json:"ref_type"`
+	RefID           []int64            `json:"ref_id"`
+	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+}
+
+func (q *Queries) CountPromotionRef(ctx context.Context, arg CountPromotionRefParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPromotionRef,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPromotionSchedule = `-- name: CountPromotionSchedule :one
 SELECT COUNT(*)
 FROM "promotion"."schedule"
@@ -1881,52 +1917,34 @@ WHERE (
     ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
     ("uploaded_by" > $5 OR $5 IS NULL) AND
     ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("provider" = ANY($7) OR $7 IS NULL) AND
-    ("object_key" = ANY($8) OR $8 IS NULL) AND
-    ("file_size" = ANY($9) OR $9 IS NULL) AND
-    ("file_size" > $10 OR $10 IS NULL) AND
-    ("file_size" < $11 OR $11 IS NULL) AND
-    ("width" = ANY($12) OR $12 IS NULL) AND
-    ("width" > $13 OR $13 IS NULL) AND
-    ("width" < $14 OR $14 IS NULL) AND
-    ("height" = ANY($15) OR $15 IS NULL) AND
-    ("height" > $16 OR $16 IS NULL) AND
-    ("height" < $17 OR $17 IS NULL) AND
-    ("duration" = ANY($18) OR $18 IS NULL) AND
-    ("duration" > $19 OR $19 IS NULL) AND
-    ("duration" < $20 OR $20 IS NULL) AND
-    ("status" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" = ANY($22) OR $22 IS NULL) AND
-    ("created_at" > $23 OR $23 IS NULL) AND
-    ("created_at" < $24 OR $24 IS NULL)
+    ("object_key" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("status" = ANY($12) OR $12 IS NULL) AND
+    ("created_at" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" > $14 OR $14 IS NULL) AND
+    ("created_at" < $15 OR $15 IS NULL)
 )
 `
 
 type CountSharedResourceParams struct {
-	ID             []int64                  `json:"id"`
-	IDFrom         pgtype.Int8              `json:"id_from"`
-	IDTo           pgtype.Int8              `json:"id_to"`
-	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
-	Provider       []SharedResourceProvider `json:"provider"`
-	ObjectKey      []string                 `json:"object_key"`
-	FileSize       []pgtype.Int8            `json:"file_size"`
-	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
-	Width          []pgtype.Int4            `json:"width"`
-	WidthFrom      pgtype.Int4              `json:"width_from"`
-	WidthTo        pgtype.Int4              `json:"width_to"`
-	Height         []pgtype.Int4            `json:"height"`
-	HeightFrom     pgtype.Int4              `json:"height_from"`
-	HeightTo       pgtype.Int4              `json:"height_to"`
-	Duration       []pgtype.Float8          `json:"duration"`
-	DurationFrom   pgtype.Float8            `json:"duration_from"`
-	DurationTo     pgtype.Float8            `json:"duration_to"`
-	Status         []SharedStatus           `json:"status"`
-	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
+	ID             []int64              `json:"id"`
+	IDFrom         pgtype.Int8          `json:"id_from"`
+	IDTo           pgtype.Int8          `json:"id_to"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	ObjectKey      []string             `json:"object_key"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Status         []SharedStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
 }
 
 func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error) {
@@ -1937,20 +1955,11 @@ func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResour
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
-		arg.Provider,
 		arg.ObjectKey,
-		arg.FileSize,
-		arg.FileSizeFrom,
-		arg.FileSizeTo,
-		arg.Width,
-		arg.WidthFrom,
-		arg.WidthTo,
-		arg.Height,
-		arg.HeightFrom,
-		arg.HeightTo,
-		arg.Duration,
-		arg.DurationFrom,
-		arg.DurationTo,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -3003,8 +3012,6 @@ type CreateCopyDefaultOrderShipmentParams struct {
 type CreateCopyDefaultPromotionBaseParams struct {
 	Code        string             `json:"code"`
 	OwnerID     pgtype.Int8        `json:"owner_id"`
-	RefType     PromotionRefType   `json:"ref_type"`
-	RefID       pgtype.Int8        `json:"ref_id"`
 	Type        PromotionType      `json:"type"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
@@ -3022,6 +3029,12 @@ type CreateCopyDefaultPromotionDiscountParams struct {
 	DiscountPrice   pgtype.Int8 `json:"discount_price"`
 }
 
+type CreateCopyDefaultPromotionRefParams struct {
+	PromotionID int64            `json:"promotion_id"`
+	RefType     PromotionRefType `json:"ref_type"`
+	RefID       int64            `json:"ref_id"`
+}
+
 type CreateCopyDefaultPromotionScheduleParams struct {
 	PromotionID int64              `json:"promotion_id"`
 	Timezone    string             `json:"timezone"`
@@ -3032,15 +3045,13 @@ type CreateCopyDefaultPromotionScheduleParams struct {
 }
 
 type CreateCopyDefaultSharedResourceParams struct {
-	UploadedBy pgtype.Int8            `json:"uploaded_by"`
-	Provider   SharedResourceProvider `json:"provider"`
-	ObjectKey  string                 `json:"object_key"`
-	Mime       string                 `json:"mime"`
-	FileSize   pgtype.Int8            `json:"file_size"`
-	Width      pgtype.Int4            `json:"width"`
-	Height     pgtype.Int4            `json:"height"`
-	Duration   pgtype.Float8          `json:"duration"`
-	Checksum   pgtype.Text            `json:"checksum"`
+	UploadedBy pgtype.Int8 `json:"uploaded_by"`
+	Provider   string      `json:"provider"`
+	ObjectKey  string      `json:"object_key"`
+	Mime       string      `json:"mime"`
+	Size       int64       `json:"size"`
+	Metadata   []byte      `json:"metadata"`
+	Checksum   pgtype.Text `json:"checksum"`
 }
 
 type CreateCopyDefaultSharedResourceReferenceParams struct {
@@ -3165,8 +3176,6 @@ type CreateCopyOrderShipmentParams struct {
 type CreateCopyPromotionBaseParams struct {
 	Code        string             `json:"code"`
 	OwnerID     pgtype.Int8        `json:"owner_id"`
-	RefType     PromotionRefType   `json:"ref_type"`
-	RefID       pgtype.Int8        `json:"ref_id"`
 	Type        PromotionType      `json:"type"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
@@ -3186,6 +3195,12 @@ type CreateCopyPromotionDiscountParams struct {
 	DiscountPrice   pgtype.Int8 `json:"discount_price"`
 }
 
+type CreateCopyPromotionRefParams struct {
+	PromotionID int64            `json:"promotion_id"`
+	RefType     PromotionRefType `json:"ref_type"`
+	RefID       int64            `json:"ref_id"`
+}
+
 type CreateCopyPromotionScheduleParams struct {
 	PromotionID int64              `json:"promotion_id"`
 	Timezone    string             `json:"timezone"`
@@ -3196,17 +3211,15 @@ type CreateCopyPromotionScheduleParams struct {
 }
 
 type CreateCopySharedResourceParams struct {
-	UploadedBy pgtype.Int8            `json:"uploaded_by"`
-	Provider   SharedResourceProvider `json:"provider"`
-	ObjectKey  string                 `json:"object_key"`
-	Mime       string                 `json:"mime"`
-	FileSize   pgtype.Int8            `json:"file_size"`
-	Width      pgtype.Int4            `json:"width"`
-	Height     pgtype.Int4            `json:"height"`
-	Duration   pgtype.Float8          `json:"duration"`
-	Checksum   pgtype.Text            `json:"checksum"`
-	Status     SharedStatus           `json:"status"`
-	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type CreateCopySharedResourceReferenceParams struct {
@@ -4064,16 +4077,14 @@ func (q *Queries) CreateDefaultOrderShipment(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultPromotionBase = `-- name: CreateDefaultPromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 `
 
 type CreateDefaultPromotionBaseParams struct {
 	Code        string             `json:"code"`
 	OwnerID     pgtype.Int8        `json:"owner_id"`
-	RefType     PromotionRefType   `json:"ref_type"`
-	RefID       pgtype.Int8        `json:"ref_id"`
 	Type        PromotionType      `json:"type"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
@@ -4087,8 +4098,6 @@ func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefa
 	row := q.db.QueryRow(ctx, createDefaultPromotionBase,
 		arg.Code,
 		arg.OwnerID,
-		arg.RefType,
-		arg.RefID,
 		arg.Type,
 		arg.Title,
 		arg.Description,
@@ -4102,8 +4111,6 @@ func (q *Queries) CreateDefaultPromotionBase(ctx context.Context, arg CreateDefa
 		&i.ID,
 		&i.Code,
 		&i.OwnerID,
-		&i.RefType,
-		&i.RefID,
 		&i.Type,
 		&i.Title,
 		&i.Description,
@@ -4150,6 +4157,30 @@ func (q *Queries) CreateDefaultPromotionDiscount(ctx context.Context, arg Create
 	return i, err
 }
 
+const createDefaultPromotionRef = `-- name: CreateDefaultPromotionRef :one
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING id, promotion_id, ref_type, ref_id
+`
+
+type CreateDefaultPromotionRefParams struct {
+	PromotionID int64            `json:"promotion_id"`
+	RefType     PromotionRefType `json:"ref_type"`
+	RefID       int64            `json:"ref_id"`
+}
+
+func (q *Queries) CreateDefaultPromotionRef(ctx context.Context, arg CreateDefaultPromotionRefParams) (PromotionRef, error) {
+	row := q.db.QueryRow(ctx, createDefaultPromotionRef, arg.PromotionID, arg.RefType, arg.RefID)
+	var i PromotionRef
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.RefType,
+		&i.RefID,
+	)
+	return i, err
+}
+
 const createDefaultPromotionSchedule = `-- name: CreateDefaultPromotionSchedule :one
 INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -4188,21 +4219,19 @@ func (q *Queries) CreateDefaultPromotionSchedule(ctx context.Context, arg Create
 }
 
 const createDefaultSharedResource = `-- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type CreateDefaultSharedResourceParams struct {
-	UploadedBy pgtype.Int8            `json:"uploaded_by"`
-	Provider   SharedResourceProvider `json:"provider"`
-	ObjectKey  string                 `json:"object_key"`
-	Mime       string                 `json:"mime"`
-	FileSize   pgtype.Int8            `json:"file_size"`
-	Width      pgtype.Int4            `json:"width"`
-	Height     pgtype.Int4            `json:"height"`
-	Duration   pgtype.Float8          `json:"duration"`
-	Checksum   pgtype.Text            `json:"checksum"`
+	UploadedBy pgtype.Int8 `json:"uploaded_by"`
+	Provider   string      `json:"provider"`
+	ObjectKey  string      `json:"object_key"`
+	Mime       string      `json:"mime"`
+	Size       int64       `json:"size"`
+	Metadata   []byte      `json:"metadata"`
+	Checksum   pgtype.Text `json:"checksum"`
 }
 
 func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error) {
@@ -4211,10 +4240,8 @@ func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDef
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
-		arg.FileSize,
-		arg.Width,
-		arg.Height,
-		arg.Duration,
+		arg.Size,
+		arg.Metadata,
 		arg.Checksum,
 	)
 	var i SharedResource
@@ -4224,10 +4251,8 @@ func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDef
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
-		&i.FileSize,
-		&i.Width,
-		&i.Height,
-		&i.Duration,
+		&i.Size,
+		&i.Metadata,
 		&i.Checksum,
 		&i.Status,
 		&i.CreatedAt,
@@ -4713,16 +4738,14 @@ func (q *Queries) CreateOrderShipment(ctx context.Context, arg CreateOrderShipme
 }
 
 const createPromotionBase = `-- name: CreatePromotionBase :one
-INSERT INTO "promotion"."base" ("code", "owner_id", "ref_type", "ref_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."base" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 `
 
 type CreatePromotionBaseParams struct {
 	Code        string             `json:"code"`
 	OwnerID     pgtype.Int8        `json:"owner_id"`
-	RefType     PromotionRefType   `json:"ref_type"`
-	RefID       pgtype.Int8        `json:"ref_id"`
 	Type        PromotionType      `json:"type"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
@@ -4738,8 +4761,6 @@ func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBa
 	row := q.db.QueryRow(ctx, createPromotionBase,
 		arg.Code,
 		arg.OwnerID,
-		arg.RefType,
-		arg.RefID,
 		arg.Type,
 		arg.Title,
 		arg.Description,
@@ -4755,8 +4776,6 @@ func (q *Queries) CreatePromotionBase(ctx context.Context, arg CreatePromotionBa
 		&i.ID,
 		&i.Code,
 		&i.OwnerID,
-		&i.RefType,
-		&i.RefID,
 		&i.Type,
 		&i.Title,
 		&i.Description,
@@ -4803,6 +4822,30 @@ func (q *Queries) CreatePromotionDiscount(ctx context.Context, arg CreatePromoti
 	return i, err
 }
 
+const createPromotionRef = `-- name: CreatePromotionRef :one
+INSERT INTO "promotion"."ref" ("promotion_id", "ref_type", "ref_id")
+VALUES ($1, $2, $3)
+RETURNING id, promotion_id, ref_type, ref_id
+`
+
+type CreatePromotionRefParams struct {
+	PromotionID int64            `json:"promotion_id"`
+	RefType     PromotionRefType `json:"ref_type"`
+	RefID       int64            `json:"ref_id"`
+}
+
+func (q *Queries) CreatePromotionRef(ctx context.Context, arg CreatePromotionRefParams) (PromotionRef, error) {
+	row := q.db.QueryRow(ctx, createPromotionRef, arg.PromotionID, arg.RefType, arg.RefID)
+	var i PromotionRef
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.RefType,
+		&i.RefID,
+	)
+	return i, err
+}
+
 const createPromotionSchedule = `-- name: CreatePromotionSchedule :one
 INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -4841,23 +4884,21 @@ func (q *Queries) CreatePromotionSchedule(ctx context.Context, arg CreatePromoti
 }
 
 const createSharedResource = `-- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "file_size", "width", "height", "duration", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type CreateSharedResourceParams struct {
-	UploadedBy pgtype.Int8            `json:"uploaded_by"`
-	Provider   SharedResourceProvider `json:"provider"`
-	ObjectKey  string                 `json:"object_key"`
-	Mime       string                 `json:"mime"`
-	FileSize   pgtype.Int8            `json:"file_size"`
-	Width      pgtype.Int4            `json:"width"`
-	Height     pgtype.Int4            `json:"height"`
-	Duration   pgtype.Float8          `json:"duration"`
-	Checksum   pgtype.Text            `json:"checksum"`
-	Status     SharedStatus           `json:"status"`
-	CreatedAt  pgtype.Timestamptz     `json:"created_at"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     SharedStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error) {
@@ -4866,10 +4907,8 @@ func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedReso
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
-		arg.FileSize,
-		arg.Width,
-		arg.Height,
-		arg.Duration,
+		arg.Size,
+		arg.Metadata,
 		arg.Checksum,
 		arg.Status,
 		arg.CreatedAt,
@@ -4881,10 +4920,8 @@ func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedReso
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
-		&i.FileSize,
-		&i.Width,
-		&i.Height,
-		&i.Duration,
+		&i.Size,
+		&i.Metadata,
 		&i.Checksum,
 		&i.Status,
 		&i.CreatedAt,
@@ -6572,25 +6609,21 @@ WHERE (
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
     ("owner_id" > $6 OR $6 IS NULL) AND
     ("owner_id" < $7 OR $7 IS NULL) AND
-    ("ref_type" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" > $10 OR $10 IS NULL) AND
-    ("ref_id" < $11 OR $11 IS NULL) AND
-    ("type" = ANY($12) OR $12 IS NULL) AND
-    ("is_active" = ANY($13) OR $13 IS NULL) AND
-    ("auto_apply" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" = ANY($15) OR $15 IS NULL) AND
-    ("date_started" > $16 OR $16 IS NULL) AND
-    ("date_started" < $17 OR $17 IS NULL) AND
-    ("date_ended" = ANY($18) OR $18 IS NULL) AND
-    ("date_ended" > $19 OR $19 IS NULL) AND
-    ("date_ended" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL)
+    ("type" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
+    ("date_started" = ANY($11) OR $11 IS NULL) AND
+    ("date_started" > $12 OR $12 IS NULL) AND
+    ("date_started" < $13 OR $13 IS NULL) AND
+    ("date_ended" = ANY($14) OR $14 IS NULL) AND
+    ("date_ended" > $15 OR $15 IS NULL) AND
+    ("date_ended" < $16 OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" > $18 OR $18 IS NULL) AND
+    ("date_created" < $19 OR $19 IS NULL) AND
+    ("date_updated" = ANY($20) OR $20 IS NULL) AND
+    ("date_updated" > $21 OR $21 IS NULL) AND
+    ("date_updated" < $22 OR $22 IS NULL)
 )
 `
 
@@ -6602,10 +6635,6 @@ type DeletePromotionBaseParams struct {
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
 	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
 	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
-	RefType         []PromotionRefType   `json:"ref_type"`
-	RefID           []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
 	Type            []PromotionType      `json:"type"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
@@ -6632,10 +6661,6 @@ func (q *Queries) DeletePromotionBase(ctx context.Context, arg DeletePromotionBa
 		arg.OwnerID,
 		arg.OwnerIDFrom,
 		arg.OwnerIDTo,
-		arg.RefType,
-		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.IsActive,
 		arg.AutoApply,
@@ -6715,6 +6740,51 @@ func (q *Queries) DeletePromotionDiscount(ctx context.Context, arg DeletePromoti
 	return err
 }
 
+const deletePromotionRef = `-- name: DeletePromotionRef :exec
+DELETE FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL)
+)
+`
+
+type DeletePromotionRefParams struct {
+	ID              []int64            `json:"id"`
+	IDFrom          pgtype.Int8        `json:"id_from"`
+	IDTo            pgtype.Int8        `json:"id_to"`
+	PromotionID     []int64            `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
+	RefType         []PromotionRefType `json:"ref_type"`
+	RefID           []int64            `json:"ref_id"`
+	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+}
+
+func (q *Queries) DeletePromotionRef(ctx context.Context, arg DeletePromotionRefParams) error {
+	_, err := q.db.Exec(ctx, deletePromotionRef,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+	)
+	return err
+}
+
 const deletePromotionSchedule = `-- name: DeletePromotionSchedule :exec
 DELETE FROM "promotion"."schedule"
 WHERE (
@@ -6784,52 +6854,34 @@ WHERE (
     ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
     ("uploaded_by" > $5 OR $5 IS NULL) AND
     ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("provider" = ANY($7) OR $7 IS NULL) AND
-    ("object_key" = ANY($8) OR $8 IS NULL) AND
-    ("file_size" = ANY($9) OR $9 IS NULL) AND
-    ("file_size" > $10 OR $10 IS NULL) AND
-    ("file_size" < $11 OR $11 IS NULL) AND
-    ("width" = ANY($12) OR $12 IS NULL) AND
-    ("width" > $13 OR $13 IS NULL) AND
-    ("width" < $14 OR $14 IS NULL) AND
-    ("height" = ANY($15) OR $15 IS NULL) AND
-    ("height" > $16 OR $16 IS NULL) AND
-    ("height" < $17 OR $17 IS NULL) AND
-    ("duration" = ANY($18) OR $18 IS NULL) AND
-    ("duration" > $19 OR $19 IS NULL) AND
-    ("duration" < $20 OR $20 IS NULL) AND
-    ("status" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" = ANY($22) OR $22 IS NULL) AND
-    ("created_at" > $23 OR $23 IS NULL) AND
-    ("created_at" < $24 OR $24 IS NULL)
+    ("object_key" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("status" = ANY($12) OR $12 IS NULL) AND
+    ("created_at" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" > $14 OR $14 IS NULL) AND
+    ("created_at" < $15 OR $15 IS NULL)
 )
 `
 
 type DeleteSharedResourceParams struct {
-	ID             []int64                  `json:"id"`
-	IDFrom         pgtype.Int8              `json:"id_from"`
-	IDTo           pgtype.Int8              `json:"id_to"`
-	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
-	Provider       []SharedResourceProvider `json:"provider"`
-	ObjectKey      []string                 `json:"object_key"`
-	FileSize       []pgtype.Int8            `json:"file_size"`
-	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
-	Width          []pgtype.Int4            `json:"width"`
-	WidthFrom      pgtype.Int4              `json:"width_from"`
-	WidthTo        pgtype.Int4              `json:"width_to"`
-	Height         []pgtype.Int4            `json:"height"`
-	HeightFrom     pgtype.Int4              `json:"height_from"`
-	HeightTo       pgtype.Int4              `json:"height_to"`
-	Duration       []pgtype.Float8          `json:"duration"`
-	DurationFrom   pgtype.Float8            `json:"duration_from"`
-	DurationTo     pgtype.Float8            `json:"duration_to"`
-	Status         []SharedStatus           `json:"status"`
-	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
+	ID             []int64              `json:"id"`
+	IDFrom         pgtype.Int8          `json:"id_from"`
+	IDTo           pgtype.Int8          `json:"id_to"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	ObjectKey      []string             `json:"object_key"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Status         []SharedStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
 }
 
 func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error {
@@ -6840,20 +6892,11 @@ func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedReso
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
-		arg.Provider,
 		arg.ObjectKey,
-		arg.FileSize,
-		arg.FileSizeFrom,
-		arg.FileSizeTo,
-		arg.Width,
-		arg.WidthFrom,
-		arg.WidthTo,
-		arg.Height,
-		arg.HeightFrom,
-		arg.HeightTo,
-		arg.Duration,
-		arg.DurationFrom,
-		arg.DurationTo,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -8699,25 +8742,21 @@ WHERE (
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
     ("owner_id" > $6 OR $6 IS NULL) AND
     ("owner_id" < $7 OR $7 IS NULL) AND
-    ("ref_type" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" > $10 OR $10 IS NULL) AND
-    ("ref_id" < $11 OR $11 IS NULL) AND
-    ("type" = ANY($12) OR $12 IS NULL) AND
-    ("is_active" = ANY($13) OR $13 IS NULL) AND
-    ("auto_apply" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" = ANY($15) OR $15 IS NULL) AND
-    ("date_started" > $16 OR $16 IS NULL) AND
-    ("date_started" < $17 OR $17 IS NULL) AND
-    ("date_ended" = ANY($18) OR $18 IS NULL) AND
-    ("date_ended" > $19 OR $19 IS NULL) AND
-    ("date_ended" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL)
+    ("type" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
+    ("date_started" = ANY($11) OR $11 IS NULL) AND
+    ("date_started" > $12 OR $12 IS NULL) AND
+    ("date_started" < $13 OR $13 IS NULL) AND
+    ("date_ended" = ANY($14) OR $14 IS NULL) AND
+    ("date_ended" > $15 OR $15 IS NULL) AND
+    ("date_ended" < $16 OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" > $18 OR $18 IS NULL) AND
+    ("date_created" < $19 OR $19 IS NULL) AND
+    ("date_updated" = ANY($20) OR $20 IS NULL) AND
+    ("date_updated" > $21 OR $21 IS NULL) AND
+    ("date_updated" < $22 OR $22 IS NULL)
 )
 ) as exists
 `
@@ -8730,10 +8769,6 @@ type ExistsPromotionBaseParams struct {
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
 	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
 	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
-	RefType         []PromotionRefType   `json:"ref_type"`
-	RefID           []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
 	Type            []PromotionType      `json:"type"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
@@ -8760,10 +8795,6 @@ func (q *Queries) ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBa
 		arg.OwnerID,
 		arg.OwnerIDFrom,
 		arg.OwnerIDTo,
-		arg.RefType,
-		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.IsActive,
 		arg.AutoApply,
@@ -8850,6 +8881,56 @@ func (q *Queries) ExistsPromotionDiscount(ctx context.Context, arg ExistsPromoti
 	return exists, err
 }
 
+const existsPromotionRef = `-- name: ExistsPromotionRef :one
+SELECT EXISTS (
+SELECT 1
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL)
+)
+) as exists
+`
+
+type ExistsPromotionRefParams struct {
+	ID              []int64            `json:"id"`
+	IDFrom          pgtype.Int8        `json:"id_from"`
+	IDTo            pgtype.Int8        `json:"id_to"`
+	PromotionID     []int64            `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
+	RefType         []PromotionRefType `json:"ref_type"`
+	RefID           []int64            `json:"ref_id"`
+	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+}
+
+func (q *Queries) ExistsPromotionRef(ctx context.Context, arg ExistsPromotionRefParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsPromotionRef,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const existsPromotionSchedule = `-- name: ExistsPromotionSchedule :one
 SELECT EXISTS (
 SELECT 1
@@ -8926,53 +9007,35 @@ WHERE (
     ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
     ("uploaded_by" > $5 OR $5 IS NULL) AND
     ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("provider" = ANY($7) OR $7 IS NULL) AND
-    ("object_key" = ANY($8) OR $8 IS NULL) AND
-    ("file_size" = ANY($9) OR $9 IS NULL) AND
-    ("file_size" > $10 OR $10 IS NULL) AND
-    ("file_size" < $11 OR $11 IS NULL) AND
-    ("width" = ANY($12) OR $12 IS NULL) AND
-    ("width" > $13 OR $13 IS NULL) AND
-    ("width" < $14 OR $14 IS NULL) AND
-    ("height" = ANY($15) OR $15 IS NULL) AND
-    ("height" > $16 OR $16 IS NULL) AND
-    ("height" < $17 OR $17 IS NULL) AND
-    ("duration" = ANY($18) OR $18 IS NULL) AND
-    ("duration" > $19 OR $19 IS NULL) AND
-    ("duration" < $20 OR $20 IS NULL) AND
-    ("status" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" = ANY($22) OR $22 IS NULL) AND
-    ("created_at" > $23 OR $23 IS NULL) AND
-    ("created_at" < $24 OR $24 IS NULL)
+    ("object_key" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("status" = ANY($12) OR $12 IS NULL) AND
+    ("created_at" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" > $14 OR $14 IS NULL) AND
+    ("created_at" < $15 OR $15 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedResourceParams struct {
-	ID             []int64                  `json:"id"`
-	IDFrom         pgtype.Int8              `json:"id_from"`
-	IDTo           pgtype.Int8              `json:"id_to"`
-	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
-	Provider       []SharedResourceProvider `json:"provider"`
-	ObjectKey      []string                 `json:"object_key"`
-	FileSize       []pgtype.Int8            `json:"file_size"`
-	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
-	Width          []pgtype.Int4            `json:"width"`
-	WidthFrom      pgtype.Int4              `json:"width_from"`
-	WidthTo        pgtype.Int4              `json:"width_to"`
-	Height         []pgtype.Int4            `json:"height"`
-	HeightFrom     pgtype.Int4              `json:"height_from"`
-	HeightTo       pgtype.Int4              `json:"height_to"`
-	Duration       []pgtype.Float8          `json:"duration"`
-	DurationFrom   pgtype.Float8            `json:"duration_from"`
-	DurationTo     pgtype.Float8            `json:"duration_to"`
-	Status         []SharedStatus           `json:"status"`
-	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
+	ID             []int64              `json:"id"`
+	IDFrom         pgtype.Int8          `json:"id_from"`
+	IDTo           pgtype.Int8          `json:"id_to"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	ObjectKey      []string             `json:"object_key"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Status         []SharedStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
 }
 
 func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error) {
@@ -8983,20 +9046,11 @@ func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedReso
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
-		arg.Provider,
 		arg.ObjectKey,
-		arg.FileSize,
-		arg.FileSizeFrom,
-		arg.FileSizeTo,
-		arg.Width,
-		arg.WidthFrom,
-		arg.WidthTo,
-		arg.Height,
-		arg.HeightFrom,
-		arg.HeightTo,
-		arg.Duration,
-		arg.DurationFrom,
-		arg.DurationTo,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -9927,7 +9981,7 @@ const getPromotionBase = `-- name: GetPromotionBase :one
 
 
 
-SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 FROM "promotion"."base"
 WHERE ("id" = $1) OR ("code" = $2)
 `
@@ -9947,8 +10001,6 @@ func (q *Queries) GetPromotionBase(ctx context.Context, arg GetPromotionBasePara
 		&i.ID,
 		&i.Code,
 		&i.OwnerID,
-		&i.RefType,
-		&i.RefID,
 		&i.Type,
 		&i.Title,
 		&i.Description,
@@ -9987,6 +10039,42 @@ func (q *Queries) GetPromotionDiscount(ctx context.Context, id pgtype.Int8) (Pro
 	return i, err
 }
 
+const getPromotionRef = `-- name: GetPromotionRef :one
+
+
+
+SELECT id, promotion_id, ref_type, ref_id
+FROM "promotion"."ref"
+WHERE ("id" = $1) OR ("promotion_id" = $2 AND "ref_type" = $3 AND "ref_id" = $4)
+`
+
+type GetPromotionRefParams struct {
+	ID          pgtype.Int8          `json:"id"`
+	PromotionID pgtype.Int8          `json:"promotion_id"`
+	RefType     NullPromotionRefType `json:"ref_type"`
+	RefID       pgtype.Int8          `json:"ref_id"`
+}
+
+// ========================================
+// Queries for table: promotion.ref
+// ========================================
+func (q *Queries) GetPromotionRef(ctx context.Context, arg GetPromotionRefParams) (PromotionRef, error) {
+	row := q.db.QueryRow(ctx, getPromotionRef,
+		arg.ID,
+		arg.PromotionID,
+		arg.RefType,
+		arg.RefID,
+	)
+	var i PromotionRef
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.RefType,
+		&i.RefID,
+	)
+	return i, err
+}
+
 const getPromotionSchedule = `-- name: GetPromotionSchedule :one
 
 
@@ -10018,16 +10106,22 @@ const getSharedResource = `-- name: GetSharedResource :one
 
 
 
-SELECT id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 FROM "shared"."resource"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
 `
+
+type GetSharedResourceParams struct {
+	ID        pgtype.Int8 `json:"id"`
+	Provider  pgtype.Text `json:"provider"`
+	ObjectKey pgtype.Text `json:"object_key"`
+}
 
 // ========================================
 // Queries for table: shared.resource
 // ========================================
-func (q *Queries) GetSharedResource(ctx context.Context, id pgtype.Int8) (SharedResource, error) {
-	row := q.db.QueryRow(ctx, getSharedResource, id)
+func (q *Queries) GetSharedResource(ctx context.Context, arg GetSharedResourceParams) (SharedResource, error) {
+	row := q.db.QueryRow(ctx, getSharedResource, arg.ID, arg.Provider, arg.ObjectKey)
 	var i SharedResource
 	err := row.Scan(
 		&i.ID,
@@ -10035,10 +10129,8 @@ func (q *Queries) GetSharedResource(ctx context.Context, id pgtype.Int8) (Shared
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
-		&i.FileSize,
-		&i.Width,
-		&i.Height,
-		&i.Duration,
+		&i.Size,
+		&i.Metadata,
 		&i.Checksum,
 		&i.Status,
 		&i.CreatedAt,
@@ -12482,7 +12574,7 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 }
 
 const listPromotionBase = `-- name: ListPromotionBase :many
-SELECT id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -12492,29 +12584,25 @@ WHERE (
     ("owner_id" = ANY($5) OR $5 IS NULL) AND
     ("owner_id" > $6 OR $6 IS NULL) AND
     ("owner_id" < $7 OR $7 IS NULL) AND
-    ("ref_type" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" = ANY($9) OR $9 IS NULL) AND
-    ("ref_id" > $10 OR $10 IS NULL) AND
-    ("ref_id" < $11 OR $11 IS NULL) AND
-    ("type" = ANY($12) OR $12 IS NULL) AND
-    ("is_active" = ANY($13) OR $13 IS NULL) AND
-    ("auto_apply" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" = ANY($15) OR $15 IS NULL) AND
-    ("date_started" > $16 OR $16 IS NULL) AND
-    ("date_started" < $17 OR $17 IS NULL) AND
-    ("date_ended" = ANY($18) OR $18 IS NULL) AND
-    ("date_ended" > $19 OR $19 IS NULL) AND
-    ("date_ended" < $20 OR $20 IS NULL) AND
-    ("date_created" = ANY($21) OR $21 IS NULL) AND
-    ("date_created" > $22 OR $22 IS NULL) AND
-    ("date_created" < $23 OR $23 IS NULL) AND
-    ("date_updated" = ANY($24) OR $24 IS NULL) AND
-    ("date_updated" > $25 OR $25 IS NULL) AND
-    ("date_updated" < $26 OR $26 IS NULL)
+    ("type" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
+    ("date_started" = ANY($11) OR $11 IS NULL) AND
+    ("date_started" > $12 OR $12 IS NULL) AND
+    ("date_started" < $13 OR $13 IS NULL) AND
+    ("date_ended" = ANY($14) OR $14 IS NULL) AND
+    ("date_ended" > $15 OR $15 IS NULL) AND
+    ("date_ended" < $16 OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" > $18 OR $18 IS NULL) AND
+    ("date_created" < $19 OR $19 IS NULL) AND
+    ("date_updated" = ANY($20) OR $20 IS NULL) AND
+    ("date_updated" > $21 OR $21 IS NULL) AND
+    ("date_updated" < $22 OR $22 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28
-OFFSET $27
+LIMIT $24
+OFFSET $23
 `
 
 type ListPromotionBaseParams struct {
@@ -12525,10 +12613,6 @@ type ListPromotionBaseParams struct {
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
 	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
 	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
-	RefType         []PromotionRefType   `json:"ref_type"`
-	RefID           []pgtype.Int8        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8          `json:"ref_id_to"`
 	Type            []PromotionType      `json:"type"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
@@ -12557,10 +12641,6 @@ func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBasePa
 		arg.OwnerID,
 		arg.OwnerIDFrom,
 		arg.OwnerIDTo,
-		arg.RefType,
-		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.IsActive,
 		arg.AutoApply,
@@ -12590,8 +12670,6 @@ func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBasePa
 			&i.ID,
 			&i.Code,
 			&i.OwnerID,
-			&i.RefType,
-			&i.RefID,
 			&i.Type,
 			&i.Title,
 			&i.Description,
@@ -12701,6 +12779,79 @@ func (q *Queries) ListPromotionDiscount(ctx context.Context, arg ListPromotionDi
 	return items, nil
 }
 
+const listPromotionRef = `-- name: ListPromotionRef :many
+SELECT id, promotion_id, ref_type, ref_id
+FROM "promotion"."ref"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("id" > $2 OR $2 IS NULL) AND
+    ("id" < $3 OR $3 IS NULL) AND
+    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
+    ("promotion_id" > $5 OR $5 IS NULL) AND
+    ("promotion_id" < $6 OR $6 IS NULL) AND
+    ("ref_type" = ANY($7) OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("ref_id" > $9 OR $9 IS NULL) AND
+    ("ref_id" < $10 OR $10 IS NULL)
+)
+ORDER BY "id"
+LIMIT $12
+OFFSET $11
+`
+
+type ListPromotionRefParams struct {
+	ID              []int64            `json:"id"`
+	IDFrom          pgtype.Int8        `json:"id_from"`
+	IDTo            pgtype.Int8        `json:"id_to"`
+	PromotionID     []int64            `json:"promotion_id"`
+	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
+	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
+	RefType         []PromotionRefType `json:"ref_type"`
+	RefID           []int64            `json:"ref_id"`
+	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
+	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+	Offset          pgtype.Int4        `json:"offset"`
+	Limit           pgtype.Int4        `json:"limit"`
+}
+
+func (q *Queries) ListPromotionRef(ctx context.Context, arg ListPromotionRefParams) ([]PromotionRef, error) {
+	rows, err := q.db.Query(ctx, listPromotionRef,
+		arg.ID,
+		arg.IDFrom,
+		arg.IDTo,
+		arg.PromotionID,
+		arg.PromotionIDFrom,
+		arg.PromotionIDTo,
+		arg.RefType,
+		arg.RefID,
+		arg.RefIDFrom,
+		arg.RefIDTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PromotionRef{}
+	for rows.Next() {
+		var i PromotionRef
+		if err := rows.Scan(
+			&i.ID,
+			&i.PromotionID,
+			&i.RefType,
+			&i.RefID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPromotionSchedule = `-- name: ListPromotionSchedule :many
 SELECT id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
 FROM "promotion"."schedule"
@@ -12793,7 +12944,7 @@ func (q *Queries) ListPromotionSchedule(ctx context.Context, arg ListPromotionSc
 }
 
 const listSharedResource = `-- name: ListSharedResource :many
-SELECT id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -12802,57 +12953,39 @@ WHERE (
     ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
     ("uploaded_by" > $5 OR $5 IS NULL) AND
     ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("provider" = ANY($7) OR $7 IS NULL) AND
-    ("object_key" = ANY($8) OR $8 IS NULL) AND
-    ("file_size" = ANY($9) OR $9 IS NULL) AND
-    ("file_size" > $10 OR $10 IS NULL) AND
-    ("file_size" < $11 OR $11 IS NULL) AND
-    ("width" = ANY($12) OR $12 IS NULL) AND
-    ("width" > $13 OR $13 IS NULL) AND
-    ("width" < $14 OR $14 IS NULL) AND
-    ("height" = ANY($15) OR $15 IS NULL) AND
-    ("height" > $16 OR $16 IS NULL) AND
-    ("height" < $17 OR $17 IS NULL) AND
-    ("duration" = ANY($18) OR $18 IS NULL) AND
-    ("duration" > $19 OR $19 IS NULL) AND
-    ("duration" < $20 OR $20 IS NULL) AND
-    ("status" = ANY($21) OR $21 IS NULL) AND
-    ("created_at" = ANY($22) OR $22 IS NULL) AND
-    ("created_at" > $23 OR $23 IS NULL) AND
-    ("created_at" < $24 OR $24 IS NULL)
+    ("object_key" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("status" = ANY($12) OR $12 IS NULL) AND
+    ("created_at" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" > $14 OR $14 IS NULL) AND
+    ("created_at" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $26
-OFFSET $25
+LIMIT $17
+OFFSET $16
 `
 
 type ListSharedResourceParams struct {
-	ID             []int64                  `json:"id"`
-	IDFrom         pgtype.Int8              `json:"id_from"`
-	IDTo           pgtype.Int8              `json:"id_to"`
-	UploadedBy     []pgtype.Int8            `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8              `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8              `json:"uploaded_by_to"`
-	Provider       []SharedResourceProvider `json:"provider"`
-	ObjectKey      []string                 `json:"object_key"`
-	FileSize       []pgtype.Int8            `json:"file_size"`
-	FileSizeFrom   pgtype.Int8              `json:"file_size_from"`
-	FileSizeTo     pgtype.Int8              `json:"file_size_to"`
-	Width          []pgtype.Int4            `json:"width"`
-	WidthFrom      pgtype.Int4              `json:"width_from"`
-	WidthTo        pgtype.Int4              `json:"width_to"`
-	Height         []pgtype.Int4            `json:"height"`
-	HeightFrom     pgtype.Int4              `json:"height_from"`
-	HeightTo       pgtype.Int4              `json:"height_to"`
-	Duration       []pgtype.Float8          `json:"duration"`
-	DurationFrom   pgtype.Float8            `json:"duration_from"`
-	DurationTo     pgtype.Float8            `json:"duration_to"`
-	Status         []SharedStatus           `json:"status"`
-	CreatedAt      []pgtype.Timestamptz     `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz       `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz       `json:"created_at_to"`
-	Offset         pgtype.Int4              `json:"offset"`
-	Limit          pgtype.Int4              `json:"limit"`
+	ID             []int64              `json:"id"`
+	IDFrom         pgtype.Int8          `json:"id_from"`
+	IDTo           pgtype.Int8          `json:"id_to"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	ObjectKey      []string             `json:"object_key"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Status         []SharedStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+	Offset         pgtype.Int4          `json:"offset"`
+	Limit          pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error) {
@@ -12863,20 +12996,11 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
-		arg.Provider,
 		arg.ObjectKey,
-		arg.FileSize,
-		arg.FileSizeFrom,
-		arg.FileSizeTo,
-		arg.Width,
-		arg.WidthFrom,
-		arg.WidthTo,
-		arg.Height,
-		arg.HeightFrom,
-		arg.HeightTo,
-		arg.Duration,
-		arg.DurationFrom,
-		arg.DurationTo,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -12897,10 +13021,8 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 			&i.Provider,
 			&i.ObjectKey,
 			&i.Mime,
-			&i.FileSize,
-			&i.Width,
-			&i.Height,
-			&i.Duration,
+			&i.Size,
+			&i.Metadata,
 			&i.Checksum,
 			&i.Status,
 			&i.CreatedAt,
@@ -14357,40 +14479,35 @@ const updatePromotionBase = `-- name: UpdatePromotionBase :one
 UPDATE "promotion"."base"
 SET "code" = COALESCE($1, "code"),
     "owner_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "owner_id") END,
-    "ref_type" = COALESCE($4, "ref_type"),
-    "ref_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "ref_id") END,
-    "type" = COALESCE($7, "type"),
-    "title" = COALESCE($8, "title"),
-    "description" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "description") END,
-    "is_active" = COALESCE($11, "is_active"),
-    "auto_apply" = COALESCE($12, "auto_apply"),
-    "date_started" = COALESCE($13, "date_started"),
-    "date_ended" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "date_ended") END,
-    "date_created" = COALESCE($16, "date_created"),
-    "date_updated" = COALESCE($17, "date_updated")
-WHERE id = $18
-RETURNING id, code, owner_id, ref_type, ref_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+    "type" = COALESCE($4, "type"),
+    "title" = COALESCE($5, "title"),
+    "description" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "description") END,
+    "is_active" = COALESCE($8, "is_active"),
+    "auto_apply" = COALESCE($9, "auto_apply"),
+    "date_started" = COALESCE($10, "date_started"),
+    "date_ended" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_ended") END,
+    "date_created" = COALESCE($13, "date_created"),
+    "date_updated" = COALESCE($14, "date_updated")
+WHERE id = $15
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
 `
 
 type UpdatePromotionBaseParams struct {
-	Code            pgtype.Text          `json:"code"`
-	NullOwnerID     bool                 `json:"null_owner_id"`
-	OwnerID         pgtype.Int8          `json:"owner_id"`
-	RefType         NullPromotionRefType `json:"ref_type"`
-	NullRefID       bool                 `json:"null_ref_id"`
-	RefID           pgtype.Int8          `json:"ref_id"`
-	Type            NullPromotionType    `json:"type"`
-	Title           pgtype.Text          `json:"title"`
-	NullDescription bool                 `json:"null_description"`
-	Description     pgtype.Text          `json:"description"`
-	IsActive        pgtype.Bool          `json:"is_active"`
-	AutoApply       pgtype.Bool          `json:"auto_apply"`
-	DateStarted     pgtype.Timestamptz   `json:"date_started"`
-	NullDateEnded   bool                 `json:"null_date_ended"`
-	DateEnded       pgtype.Timestamptz   `json:"date_ended"`
-	DateCreated     pgtype.Timestamptz   `json:"date_created"`
-	DateUpdated     pgtype.Timestamptz   `json:"date_updated"`
-	ID              int64                `json:"id"`
+	Code            pgtype.Text        `json:"code"`
+	NullOwnerID     bool               `json:"null_owner_id"`
+	OwnerID         pgtype.Int8        `json:"owner_id"`
+	Type            NullPromotionType  `json:"type"`
+	Title           pgtype.Text        `json:"title"`
+	NullDescription bool               `json:"null_description"`
+	Description     pgtype.Text        `json:"description"`
+	IsActive        pgtype.Bool        `json:"is_active"`
+	AutoApply       pgtype.Bool        `json:"auto_apply"`
+	DateStarted     pgtype.Timestamptz `json:"date_started"`
+	NullDateEnded   bool               `json:"null_date_ended"`
+	DateEnded       pgtype.Timestamptz `json:"date_ended"`
+	DateCreated     pgtype.Timestamptz `json:"date_created"`
+	DateUpdated     pgtype.Timestamptz `json:"date_updated"`
+	ID              int64              `json:"id"`
 }
 
 func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error) {
@@ -14398,9 +14515,6 @@ func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBa
 		arg.Code,
 		arg.NullOwnerID,
 		arg.OwnerID,
-		arg.RefType,
-		arg.NullRefID,
-		arg.RefID,
 		arg.Type,
 		arg.Title,
 		arg.NullDescription,
@@ -14419,8 +14533,6 @@ func (q *Queries) UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBa
 		&i.ID,
 		&i.Code,
 		&i.OwnerID,
-		&i.RefType,
-		&i.RefID,
 		&i.Type,
 		&i.Title,
 		&i.Description,
@@ -14471,6 +14583,39 @@ func (q *Queries) UpdatePromotionDiscount(ctx context.Context, arg UpdatePromoti
 		&i.MaxDiscount,
 		&i.DiscountPercent,
 		&i.DiscountPrice,
+	)
+	return i, err
+}
+
+const updatePromotionRef = `-- name: UpdatePromotionRef :one
+UPDATE "promotion"."ref"
+SET "promotion_id" = COALESCE($1, "promotion_id"),
+    "ref_type" = COALESCE($2, "ref_type"),
+    "ref_id" = COALESCE($3, "ref_id")
+WHERE id = $4
+RETURNING id, promotion_id, ref_type, ref_id
+`
+
+type UpdatePromotionRefParams struct {
+	PromotionID pgtype.Int8          `json:"promotion_id"`
+	RefType     NullPromotionRefType `json:"ref_type"`
+	RefID       pgtype.Int8          `json:"ref_id"`
+	ID          int64                `json:"id"`
+}
+
+func (q *Queries) UpdatePromotionRef(ctx context.Context, arg UpdatePromotionRefParams) (PromotionRef, error) {
+	row := q.db.QueryRow(ctx, updatePromotionRef,
+		arg.PromotionID,
+		arg.RefType,
+		arg.RefID,
+		arg.ID,
+	)
+	var i PromotionRef
+	err := row.Scan(
+		&i.ID,
+		&i.PromotionID,
+		&i.RefType,
+		&i.RefID,
 	)
 	return i, err
 }
@@ -14530,36 +14675,28 @@ SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploa
     "provider" = COALESCE($3, "provider"),
     "object_key" = COALESCE($4, "object_key"),
     "mime" = COALESCE($5, "mime"),
-    "file_size" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "file_size") END,
-    "width" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "width") END,
-    "height" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "height") END,
-    "duration" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "duration") END,
-    "checksum" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "checksum") END,
-    "status" = COALESCE($16, "status"),
-    "created_at" = COALESCE($17, "created_at")
-WHERE id = $18
-RETURNING id, uploaded_by, provider, object_key, mime, file_size, width, height, duration, checksum, status, created_at
+    "size" = COALESCE($6, "size"),
+    "metadata" = COALESCE($7, "metadata"),
+    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
+    "status" = COALESCE($10, "status"),
+    "created_at" = COALESCE($11, "created_at")
+WHERE id = $12
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type UpdateSharedResourceParams struct {
-	NullUploadedBy bool                       `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8                `json:"uploaded_by"`
-	Provider       NullSharedResourceProvider `json:"provider"`
-	ObjectKey      pgtype.Text                `json:"object_key"`
-	Mime           pgtype.Text                `json:"mime"`
-	NullFileSize   bool                       `json:"null_file_size"`
-	FileSize       pgtype.Int8                `json:"file_size"`
-	NullWidth      bool                       `json:"null_width"`
-	Width          pgtype.Int4                `json:"width"`
-	NullHeight     bool                       `json:"null_height"`
-	Height         pgtype.Int4                `json:"height"`
-	NullDuration   bool                       `json:"null_duration"`
-	Duration       pgtype.Float8              `json:"duration"`
-	NullChecksum   bool                       `json:"null_checksum"`
-	Checksum       pgtype.Text                `json:"checksum"`
-	Status         NullSharedStatus           `json:"status"`
-	CreatedAt      pgtype.Timestamptz         `json:"created_at"`
-	ID             int64                      `json:"id"`
+	NullUploadedBy bool               `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
+	Provider       pgtype.Text        `json:"provider"`
+	ObjectKey      pgtype.Text        `json:"object_key"`
+	Mime           pgtype.Text        `json:"mime"`
+	Size           pgtype.Int8        `json:"size"`
+	Metadata       []byte             `json:"metadata"`
+	NullChecksum   bool               `json:"null_checksum"`
+	Checksum       pgtype.Text        `json:"checksum"`
+	Status         NullSharedStatus   `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID             int64              `json:"id"`
 }
 
 func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error) {
@@ -14569,14 +14706,8 @@ func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedReso
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
-		arg.NullFileSize,
-		arg.FileSize,
-		arg.NullWidth,
-		arg.Width,
-		arg.NullHeight,
-		arg.Height,
-		arg.NullDuration,
-		arg.Duration,
+		arg.Size,
+		arg.Metadata,
 		arg.NullChecksum,
 		arg.Checksum,
 		arg.Status,
@@ -14590,10 +14721,8 @@ func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedReso
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
-		&i.FileSize,
-		&i.Width,
-		&i.Height,
-		&i.Duration,
+		&i.Size,
+		&i.Metadata,
 		&i.Checksum,
 		&i.Status,
 		&i.CreatedAt,

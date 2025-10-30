@@ -39,6 +39,7 @@ type Querier interface {
 	CountOrderShipment(ctx context.Context, arg CountOrderShipmentParams) (int64, error)
 	CountPromotionBase(ctx context.Context, arg CountPromotionBaseParams) (int64, error)
 	CountPromotionDiscount(ctx context.Context, arg CountPromotionDiscountParams) (int64, error)
+	CountPromotionRef(ctx context.Context, arg CountPromotionRefParams) (int64, error)
 	CountPromotionSchedule(ctx context.Context, arg CountPromotionScheduleParams) (int64, error)
 	CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error)
 	CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error)
@@ -81,6 +82,7 @@ type Querier interface {
 	CreateBatchOrderShipment(ctx context.Context, arg []CreateBatchOrderShipmentParams) *CreateBatchOrderShipmentBatchResults
 	CreateBatchPromotionBase(ctx context.Context, arg []CreateBatchPromotionBaseParams) *CreateBatchPromotionBaseBatchResults
 	CreateBatchPromotionDiscount(ctx context.Context, arg []CreateBatchPromotionDiscountParams) *CreateBatchPromotionDiscountBatchResults
+	CreateBatchPromotionRef(ctx context.Context, arg []CreateBatchPromotionRefParams) *CreateBatchPromotionRefBatchResults
 	CreateBatchPromotionSchedule(ctx context.Context, arg []CreateBatchPromotionScheduleParams) *CreateBatchPromotionScheduleBatchResults
 	CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults
 	CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults
@@ -137,6 +139,7 @@ type Querier interface {
 	CreateCopyDefaultOrderShipment(ctx context.Context, arg []CreateCopyDefaultOrderShipmentParams) (int64, error)
 	CreateCopyDefaultPromotionBase(ctx context.Context, arg []CreateCopyDefaultPromotionBaseParams) (int64, error)
 	CreateCopyDefaultPromotionDiscount(ctx context.Context, arg []CreateCopyDefaultPromotionDiscountParams) (int64, error)
+	CreateCopyDefaultPromotionRef(ctx context.Context, arg []CreateCopyDefaultPromotionRefParams) (int64, error)
 	CreateCopyDefaultPromotionSchedule(ctx context.Context, arg []CreateCopyDefaultPromotionScheduleParams) (int64, error)
 	CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error)
 	CreateCopyDefaultSharedResourceReference(ctx context.Context, arg []CreateCopyDefaultSharedResourceReferenceParams) (int64, error)
@@ -154,6 +157,7 @@ type Querier interface {
 	CreateCopyOrderShipment(ctx context.Context, arg []CreateCopyOrderShipmentParams) (int64, error)
 	CreateCopyPromotionBase(ctx context.Context, arg []CreateCopyPromotionBaseParams) (int64, error)
 	CreateCopyPromotionDiscount(ctx context.Context, arg []CreateCopyPromotionDiscountParams) (int64, error)
+	CreateCopyPromotionRef(ctx context.Context, arg []CreateCopyPromotionRefParams) (int64, error)
 	CreateCopyPromotionSchedule(ctx context.Context, arg []CreateCopyPromotionScheduleParams) (int64, error)
 	CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error)
 	CreateCopySharedResourceReference(ctx context.Context, arg []CreateCopySharedResourceReferenceParams) (int64, error)
@@ -187,6 +191,7 @@ type Querier interface {
 	CreateDefaultOrderShipment(ctx context.Context, arg CreateDefaultOrderShipmentParams) (OrderShipment, error)
 	CreateDefaultPromotionBase(ctx context.Context, arg CreateDefaultPromotionBaseParams) (PromotionBase, error)
 	CreateDefaultPromotionDiscount(ctx context.Context, arg CreateDefaultPromotionDiscountParams) (PromotionDiscount, error)
+	CreateDefaultPromotionRef(ctx context.Context, arg CreateDefaultPromotionRefParams) (PromotionRef, error)
 	CreateDefaultPromotionSchedule(ctx context.Context, arg CreateDefaultPromotionScheduleParams) (PromotionSchedule, error)
 	CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error)
 	CreateDefaultSharedResourceReference(ctx context.Context, arg CreateDefaultSharedResourceReferenceParams) (SharedResourceReference, error)
@@ -204,6 +209,7 @@ type Querier interface {
 	CreateOrderShipment(ctx context.Context, arg CreateOrderShipmentParams) (OrderShipment, error)
 	CreatePromotionBase(ctx context.Context, arg CreatePromotionBaseParams) (PromotionBase, error)
 	CreatePromotionDiscount(ctx context.Context, arg CreatePromotionDiscountParams) (PromotionDiscount, error)
+	CreatePromotionRef(ctx context.Context, arg CreatePromotionRefParams) (PromotionRef, error)
 	CreatePromotionSchedule(ctx context.Context, arg CreatePromotionScheduleParams) (PromotionSchedule, error)
 	CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error)
 	CreateSharedResourceReference(ctx context.Context, arg CreateSharedResourceReferenceParams) (SharedResourceReference, error)
@@ -246,8 +252,9 @@ type Querier interface {
 	DeleteBatchOrderShipment(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderShipmentBatchResults
 	DeleteBatchPromotionBase(ctx context.Context, arg []DeleteBatchPromotionBaseParams) *DeleteBatchPromotionBaseBatchResults
 	DeleteBatchPromotionDiscount(ctx context.Context, id []pgtype.Int8) *DeleteBatchPromotionDiscountBatchResults
+	DeleteBatchPromotionRef(ctx context.Context, arg []DeleteBatchPromotionRefParams) *DeleteBatchPromotionRefBatchResults
 	DeleteBatchPromotionSchedule(ctx context.Context, id []pgtype.Int8) *DeleteBatchPromotionScheduleBatchResults
-	DeleteBatchSharedResource(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceBatchResults
+	DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults
 	DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults
 	DeleteBatchSharedServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchSharedServiceOptionBatchResults
 	DeleteBatchSystemSearchSync(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemSearchSyncBatchResults
@@ -270,6 +277,7 @@ type Querier interface {
 	DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipmentParams) error
 	DeletePromotionBase(ctx context.Context, arg DeletePromotionBaseParams) error
 	DeletePromotionDiscount(ctx context.Context, arg DeletePromotionDiscountParams) error
+	DeletePromotionRef(ctx context.Context, arg DeletePromotionRefParams) error
 	DeletePromotionSchedule(ctx context.Context, arg DeletePromotionScheduleParams) error
 	DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error
 	DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error
@@ -305,6 +313,7 @@ type Querier interface {
 	ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipmentParams) (bool, error)
 	ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBaseParams) (bool, error)
 	ExistsPromotionDiscount(ctx context.Context, arg ExistsPromotionDiscountParams) (bool, error)
+	ExistsPromotionRef(ctx context.Context, arg ExistsPromotionRefParams) (bool, error)
 	ExistsPromotionSchedule(ctx context.Context, arg ExistsPromotionScheduleParams) (bool, error)
 	ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error)
 	ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error)
@@ -426,13 +435,17 @@ type Querier interface {
 	// ========================================
 	GetPromotionDiscount(ctx context.Context, id pgtype.Int8) (PromotionDiscount, error)
 	// ========================================
+	// Queries for table: promotion.ref
+	// ========================================
+	GetPromotionRef(ctx context.Context, arg GetPromotionRefParams) (PromotionRef, error)
+	// ========================================
 	// Queries for table: promotion.schedule
 	// ========================================
 	GetPromotionSchedule(ctx context.Context, id pgtype.Int8) (PromotionSchedule, error)
 	// ========================================
 	// Queries for table: shared.resource
 	// ========================================
-	GetSharedResource(ctx context.Context, id pgtype.Int8) (SharedResource, error)
+	GetSharedResource(ctx context.Context, arg GetSharedResourceParams) (SharedResource, error)
 	// ========================================
 	// Queries for table: shared.resource_reference
 	// ========================================
@@ -477,6 +490,7 @@ type Querier interface {
 	ListProductDetail(ctx context.Context, spuID []int64) ([]ListProductDetailRow, error)
 	ListPromotionBase(ctx context.Context, arg ListPromotionBaseParams) ([]PromotionBase, error)
 	ListPromotionDiscount(ctx context.Context, arg ListPromotionDiscountParams) ([]PromotionDiscount, error)
+	ListPromotionRef(ctx context.Context, arg ListPromotionRefParams) ([]PromotionRef, error)
 	ListPromotionSchedule(ctx context.Context, arg ListPromotionScheduleParams) ([]PromotionSchedule, error)
 	ListRating(ctx context.Context, arg ListRatingParams) ([]ListRatingRow, error)
 	ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error)
@@ -487,6 +501,8 @@ type Querier interface {
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
+	SearchCatalogProductSpu(ctx context.Context, arg SearchCatalogProductSpuParams) ([]CatalogProductSpu, error)
+	SearchSharedResource(ctx context.Context, arg SearchSharedResourceParams) ([]SharedResource, error)
 	UpdateAccountBase(ctx context.Context, arg UpdateAccountBaseParams) (AccountBase, error)
 	UpdateAccountCartItem(ctx context.Context, arg UpdateAccountCartItemParams) (AccountCartItem, error)
 	UpdateAccountContact(ctx context.Context, arg UpdateAccountContactParams) (AccountContact, error)
@@ -524,6 +540,7 @@ type Querier interface {
 	UpdateBatchOrderShipment(ctx context.Context, arg []UpdateBatchOrderShipmentParams) *UpdateBatchOrderShipmentBatchResults
 	UpdateBatchPromotionBase(ctx context.Context, arg []UpdateBatchPromotionBaseParams) *UpdateBatchPromotionBaseBatchResults
 	UpdateBatchPromotionDiscount(ctx context.Context, arg []UpdateBatchPromotionDiscountParams) *UpdateBatchPromotionDiscountBatchResults
+	UpdateBatchPromotionRef(ctx context.Context, arg []UpdateBatchPromotionRefParams) *UpdateBatchPromotionRefBatchResults
 	UpdateBatchPromotionSchedule(ctx context.Context, arg []UpdateBatchPromotionScheduleParams) *UpdateBatchPromotionScheduleBatchResults
 	UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults
 	UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults
@@ -551,6 +568,7 @@ type Querier interface {
 	UpdateOrderShipment(ctx context.Context, arg UpdateOrderShipmentParams) (OrderShipment, error)
 	UpdatePromotionBase(ctx context.Context, arg UpdatePromotionBaseParams) (PromotionBase, error)
 	UpdatePromotionDiscount(ctx context.Context, arg UpdatePromotionDiscountParams) (PromotionDiscount, error)
+	UpdatePromotionRef(ctx context.Context, arg UpdatePromotionRefParams) (PromotionRef, error)
 	UpdatePromotionSchedule(ctx context.Context, arg UpdatePromotionScheduleParams) (PromotionSchedule, error)
 	UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error
 	UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error)
