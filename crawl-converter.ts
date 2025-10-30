@@ -176,12 +176,22 @@ async function main(inputs: InputProduct1[] = []) {
           is_primary: order === 0,
           order: order++,
           resource: {
-            create: {
-              provider: 'Remote',
-              object_key: url,
-              uploaded_by: account.id,
-              status: 'Success',
-              mime: url.includes('.png') ? 'image/png' : 'image/jpeg',
+            connectOrCreate: {
+              create: {
+                provider: 'remote',
+                metadata: Prisma.JsonNull,
+                object_key: url,
+                uploaded_by: account.id,
+                status: 'Success',
+                mime: url.includes('.png') ? 'image/png' : 'image/jpeg',
+                size: BigInt(0),
+              },
+              where: {
+                provider_object_key: {
+                  provider: 'remote',
+                  object_key: url,
+                }
+              }
             }
           }
         }
