@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/guregu/null/v6"
-
 	"shopnexus-remastered/internal/client/cachestruct"
 	"shopnexus-remastered/internal/client/pubsub"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
@@ -58,8 +56,8 @@ type SearchParams struct {
 	Query      string
 }
 
-func (b *SearchBiz) Search(ctx context.Context, params SearchParams) (sharedmodel.PaginateResult[catalogmodel.ProductRecommend], error) {
-	var zero sharedmodel.PaginateResult[catalogmodel.ProductRecommend]
+func (b *SearchBiz) Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
+	var zero []catalogmodel.ProductRecommend
 	body := map[string]interface{}{
 		"query":  params.Query,
 		"offset": params.Offset(),
@@ -85,18 +83,7 @@ func (b *SearchBiz) Search(ctx context.Context, params SearchParams) (sharedmode
 		return zero, err
 	}
 
-	// Dynamic total
-	// Always make total more than offset to indicate there is more data
-	total := params.Offset() + int32(len(results))
-	if len(results) == int(params.GetLimit()) {
-		total += params.GetLimit()
-	}
-
-	return sharedmodel.PaginateResult[catalogmodel.ProductRecommend]{
-		PageParams: params.PaginationParams,
-		Data:       results,
-		Total:      null.IntFrom(int64(total)),
-	}, nil
+	return results, nil
 }
 
 type GetRecommendationsParams struct {

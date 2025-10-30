@@ -6,7 +6,6 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -97,14 +96,10 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		// url, err :=
 
 		resourceMap[row.RefID] = append(resourceMap[row.RefID], sharedmodel.Resource{
-			ID:   row.ID,
-			Url:  sharedbiz.GetResourceURL(string(row.Provider), row.ObjectKey),
-			Mime: row.Mime,
-
-			FileSize: pgutil.PgInt8ToNullInt64(row.FileSize),
-			Width:    pgutil.PgInt4ToNullInt32(row.Width),
-			Height:   pgutil.PgInt4ToNullInt32(row.Height),
-			Duration: pgutil.PgFloat8ToNullFloat(row.Duration),
+			ID:       row.ID,
+			Url:      b.shared.MustGetFileURL(ctx, row.Provider, row.ObjectKey),
+			Mime:     row.Mime,
+			Size:     row.Size,
 			Checksum: pgutil.PgTextToNullString(row.Checksum),
 		})
 	}
@@ -120,13 +115,10 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		if profile.AvatarRsID.Valid {
 			a := avatarMap[profile.AvatarRsID.Int64]
 			avatar = &sharedmodel.Resource{
-				ID:       a.ID,
-				Url:      sharedbiz.GetResourceURL(string(a.Provider), a.ObjectKey),
-				Mime:     a.Mime,
-				FileSize: pgutil.PgInt8ToNullInt64(a.FileSize),
-				Width:    pgutil.PgInt4ToNullInt32(a.Width),
-				Height:   pgutil.PgInt4ToNullInt32(a.Height),
-				Duration: pgutil.PgFloat8ToNullFloat(a.Duration),
+				ID:   a.ID,
+				Url:  b.shared.MustGetFileURL(ctx, a.Provider, a.ObjectKey),
+				Mime: a.Mime,
+				Size: a.Size,
 			}
 		}
 

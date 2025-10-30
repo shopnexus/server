@@ -18,12 +18,17 @@ type AccountBiz struct {
 }
 
 // NewAccountBiz creates a new instance of AccountBiz.
-func NewAccountBiz(storage *pgutil.Storage, pubsub pubsub.Client, promotionBiz *promotionbiz.PromotionBiz, sharedBiz *sharedbiz.SharedBiz) *AccountBiz {
+func NewAccountBiz(
+	storage *pgutil.Storage,
+	pubsub pubsub.Client,
+	shared *sharedbiz.SharedBiz,
+	promotion *promotionbiz.PromotionBiz,
+) *AccountBiz {
 	return &AccountBiz{
 		storage:   storage,
 		pubsub:    pubsub,
-		shared:    sharedBiz,
-		promotion: promotionBiz,
+		shared:    shared,
+		promotion: promotion,
 	}
 }
 

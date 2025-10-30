@@ -11,8 +11,8 @@ import (
 	"shopnexus-remastered/internal/logger"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -91,7 +91,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	for _, featured := range featuredSkus {
 		price := priceMap[featured.ID]
 
-		promoCardsMap[featured.SpuID] = slice.Map(price.Promotions, func(p db.PromotionBase) catalogmodel.ProductCardPromo {
+		promoCardsMap[featured.SpuID] = slice.Map(price.Promotions, func(p promotionmodel.PromotionBase) catalogmodel.ProductCardPromo {
 			return catalogmodel.ProductCardPromo{
 				ID:          p.ID,
 				Title:       p.Title,
@@ -131,13 +131,10 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 				Total: int(rating.Count),
 			},
 			Resource: sharedmodel.Resource{
-				ID:       resource.ID,
-				Mime:     resource.Mime,
-				Url:      sharedbiz.GetResourceURL(string(resource.Provider), resource.ObjectKey),
-				FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
-				Width:    pgutil.PgInt4ToNullInt32(resource.Width),
-				Height:   pgutil.PgInt4ToNullInt32(resource.Height),
-				Duration: pgutil.PgFloat8ToNullFloat(resource.Duration),
+				ID:   resource.ID,
+				Mime: resource.Mime,
+				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
+				Size: resource.Size,
 			},
 		}
 	}
@@ -162,45 +159,45 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	var spus []db.CatalogProductSpu
 	var total int64
 	var spuIDs []int64 // To respect order of search result
+	var searchArg = db.SearchCatalogProductSpuParams{
+		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
+		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+	}
 
 	// If search is provided, use search service to get product IDs
 	if params.Search.Valid {
-		searchProductResult, err := b.search.Search(ctx, searchbiz.SearchParams{
+		searchProducts, err := b.search.Search(ctx, searchbiz.SearchParams{
 			PaginationParams: params.PaginationParams,
 			Collection:       "products",
 			Query:            params.Search.String,
 		})
 		if err != nil {
-			return zero, err
+			logger.Log.Sugar().Errorf("failed to search products: %v", err)
+			searchArg.Description = pgutil.NullStringToPgText(params.Search)
+		} else {
+			searchArg.ID = slice.Map(searchProducts, func(p catalogmodel.ProductRecommend) int64 { return p.ID })
+			spuIDs = slice.Map(searchProducts, func(p catalogmodel.ProductRecommend) int64 { return p.ID }) // respect order
 		}
-		total = searchProductResult.Total.Int64
-		spuIDs = slice.Map(searchProductResult.Data, func(p catalogmodel.ProductRecommend) int64 { return p.ID })
+	}
 
-		spus, err = b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			ID: slice.Map(searchProductResult.Data, func(p catalogmodel.ProductRecommend) int64 { return p.ID }),
-		})
-		if err != nil {
-			return zero, err
-		}
-	} else {
-		total, err = b.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{})
-		if err != nil {
-			return zero, err
-		}
+	total, err = b.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{})
+	if err != nil {
+		return zero, err
+	}
 
-		spus, err = b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-			Offset: pgutil.Int32ToPgInt4(params.Offset()),
-		})
-		if err != nil {
-			return zero, err
-		}
-		spuIDs = slice.Map(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+	spus, err = b.storage.SearchCatalogProductSpu(ctx, searchArg)
+	if err != nil {
+		return zero, err
 	}
 
 	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, slice.Map(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID }))
 	if err != nil {
 		return zero, err
+	}
+
+	// respect the order from search result, else use the order from DB query
+	if len(spuIDs) == 0 {
+		spuIDs = slice.Map(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 	}
 
 	for _, id := range spuIDs {
@@ -253,7 +250,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
 		if err != nil {
-			return zero, err
+			logger.Log.Sugar().Errorf("failed to get recommendations for account %d: %v", params.Account.ID, err)
 		}
 
 		// Reset feed offset

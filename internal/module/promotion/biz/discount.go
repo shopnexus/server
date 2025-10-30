@@ -63,7 +63,6 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 
 type UpdateDiscountParams struct {
 	UpdatePromotionParams
-	OrderWide       null.Bool  `validate:"omitnil"`
 	MinSpend        null.Int64 `validate:"omitnil,min=0,max=1000000000"`
 	MaxDiscount     null.Int64 `validate:"omitnil,min=0,max=1000000000"`
 	DiscountPercent null.Int32 `validate:"omitnil,min=1,max=100"`

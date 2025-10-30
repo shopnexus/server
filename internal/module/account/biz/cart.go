@@ -13,7 +13,6 @@ import (
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -111,13 +110,10 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
 			Resource: sharedmodel.Resource{
-				ID:       resourceMap[spu.ID].ID,
-				Url:      sharedbiz.GetResourceURL(string(resourceMap[spu.ID].Provider), resourceMap[spu.ID].ObjectKey),
-				Mime:     resourceMap[spu.ID].Mime,
-				FileSize: pgutil.PgInt8ToNullInt64(resourceMap[spu.ID].FileSize),
-				Width:    pgutil.PgInt4ToNullInt32(resourceMap[spu.ID].Width),
-				Height:   pgutil.PgInt4ToNullInt32(resourceMap[spu.ID].Height),
-				Duration: pgutil.PgFloat8ToNullFloat(resourceMap[spu.ID].Duration),
+				ID:   resourceMap[spu.ID].ID,
+				Url:  s.shared.MustGetFileURL(ctx, resourceMap[spu.ID].Provider, resourceMap[spu.ID].ObjectKey),
+				Mime: resourceMap[spu.ID].Mime,
+				Size: resourceMap[spu.ID].Size,
 			},
 			Category:      categoryMap[spu.CategoryID],
 			Promotions:    promos,

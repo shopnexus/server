@@ -1,7 +1,7 @@
 package catalogmodel
 
 import (
-	"shopnexus-remastered/internal/db"
+	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 )
 
@@ -16,7 +16,7 @@ type ProductPrice struct {
 	SkuID         int64
 	Price         sharedmodel.Concurrency
 	OriginalPrice sharedmodel.Concurrency
-	Promotions    []db.PromotionBase
+	Promotions    []promotionmodel.PromotionBase
 }
 
 type Rating struct {

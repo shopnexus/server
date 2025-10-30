@@ -6,7 +6,6 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -64,13 +63,10 @@ func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (s
 				DateCreated:  refund.DateCreated.Time,
 				Resources: slice.Map(resourceMap[refund.ID], func(resource db.ListSortedResourcesRow) sharedmodel.Resource {
 					return sharedmodel.Resource{
-						ID:       resource.ID,
-						Mime:     resource.Mime,
-						Url:      sharedbiz.GetResourceURL(string(resource.Provider), resource.ObjectKey),
-						FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
-						Width:    pgutil.PgInt4ToNullInt32(resource.Width),
-						Height:   pgutil.PgInt4ToNullInt32(resource.Height),
-						Duration: pgutil.PgFloat8ToNullFloat(resource.Duration),
+						ID:   resource.ID,
+						Mime: resource.Mime,
+						Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
+						Size: resource.Size,
 					}
 				}),
 			}
@@ -172,13 +168,10 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 		DateCreated:  refund.DateCreated.Time,
 		Resources: slice.Map(resources, func(resource db.SharedResource) sharedmodel.Resource {
 			return sharedmodel.Resource{
-				ID:       resource.ID,
-				Mime:     resource.Mime,
-				Url:      sharedbiz.GetResourceURL(string(resource.Provider), resource.ObjectKey),
-				FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
-				Width:    pgutil.PgInt4ToNullInt32(resource.Width),
-				Height:   pgutil.PgInt4ToNullInt32(resource.Height),
-				Duration: pgutil.PgFloat8ToNullFloat(resource.Duration),
+				ID:   resource.ID,
+				Mime: resource.Mime,
+				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
+				Size: resource.Size,
 			}
 		}),
 	}, nil
@@ -300,13 +293,10 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		DateCreated:  refund.DateCreated.Time,
 		Resources: slice.Map(resources, func(resource db.SharedResource) sharedmodel.Resource {
 			return sharedmodel.Resource{
-				ID:       resource.ID,
-				Mime:     resource.Mime,
-				Url:      sharedbiz.GetResourceURL(string(resource.Provider), resource.ObjectKey),
-				FileSize: pgutil.PgInt8ToNullInt64(resource.FileSize),
-				Width:    pgutil.PgInt4ToNullInt32(resource.Width),
-				Height:   pgutil.PgInt4ToNullInt32(resource.Height),
-				Duration: pgutil.PgFloat8ToNullFloat(resource.Duration),
+				ID:   resource.ID,
+				Mime: resource.Mime,
+				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
+				Size: resource.Size,
 			}
 		}),
 	}, nil
