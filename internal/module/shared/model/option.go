@@ -8,5 +8,4 @@ type OptionConfig struct {
 	Method      OptionMethod // "standard", "express" "qr", "bank", "atm", "cod"
 	Name        string       // e.g. "Giao hàng nhanh - Standard", "Giao hàng tiết kiệm - Express", "VNPay - QR", "COD"
 	Description string
-	IsActive    bool
 }

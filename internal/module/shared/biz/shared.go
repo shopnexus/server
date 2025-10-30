@@ -1,23 +1,22 @@
 package sharedbiz
 
 import (
+	"shopnexus-remastered/internal/client/objectstore"
+	"shopnexus-remastered/internal/utils/errutil"
 	"shopnexus-remastered/internal/utils/pgutil"
-
-	"github.com/sqids/sqids-go"
 )
 
 type SharedBiz struct {
-	idhash  *sqids.Sqids
-	storage *pgutil.Storage
+	storage        *pgutil.Storage
+	objectstoreMap map[string]objectstore.Client
 }
 
-func NewSharedBiz(storage *pgutil.Storage) *SharedBiz {
-	idhash, _ := sqids.New(sqids.Options{
-		MinLength: 10,
-	})
-
-	return &SharedBiz{
-		idhash:  idhash,
+func NewSharedBiz(storage *pgutil.Storage) (*SharedBiz, error) {
+	b := &SharedBiz{
 		storage: storage,
 	}
+
+	return b, errutil.Some(
+		b.SetupObjectStore(),
+	)
 }

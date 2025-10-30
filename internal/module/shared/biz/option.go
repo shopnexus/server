@@ -28,7 +28,6 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 					Description: cfg.Description,
 					Provider:    cfg.Provider,
 					Method:      string(cfg.Method),
-					IsActive:    cfg.IsActive,
 				})
 				if err != nil {
 					return err
@@ -46,7 +45,7 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 				Description: pgutil.StringToPgText(cfg.Description),
 				Provider:    pgutil.StringToPgText(cfg.Provider),
 				Method:      pgutil.StringToPgText(string(cfg.Method)),
-				IsActive:    pgutil.BoolToPgBool(cfg.IsActive),
+				IsActive:    pgutil.BoolToPgBool(true),
 				Category:    pgutil.StringToPgText(category),
 			})
 			if err != nil {
