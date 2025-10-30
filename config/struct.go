@@ -64,8 +64,9 @@ type Redis struct {
 }
 
 type Filestore struct {
-	Type string      `yaml:"type" mapstructure:"type" validate:"required,oneof=local s3"`
-	S3   S3Filestore `yaml:"s3" mapstructure:"s3"`
+	Type                string      `yaml:"type" mapstructure:"type" validate:"required,oneof=local s3"`
+	PresignedDefaultTTL int64       `yaml:"presignedDefaultTTL" mapstructure:"presignedDefaultTTL" validate:"gte=1"`
+	S3                  S3Filestore `yaml:"s3" mapstructure:"s3"`
 }
 
 type S3Filestore struct {
