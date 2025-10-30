@@ -12,7 +12,6 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -133,7 +132,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 			},
 			Tags: slice.NonNil(tagsMap[spu.ID]),
 			Resources: slice.Map(resourcesMap[spu.ID], func(r db.ListSortedResourcesRow) string {
-				return sharedbiz.GetResourceURL(string(r.Provider), r.ObjectKey)
+				return b.shared.MustGetFileURL(ctx, r.Provider, r.ObjectKey)
 			}),
 		})
 	}
@@ -147,10 +146,12 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 type CreateProductSpuParams struct {
 	Account     authmodel.AuthenticatedAccount
-	CategoryID  int64  `validate:"required,gt=0"`
-	BrandID     int64  `validate:"required,gt=0"`
-	Name        string `validate:"required,min=1,max=200"`
-	Description string `validate:"required,max=1000"`
+	CategoryID  int64   `validate:"required,gt=0"`
+	BrandID     int64   `validate:"required,gt=0"`
+	Name        string  `validate:"required,min=1,max=200"`
+	Description string  `validate:"required,max=1000"`
+	IsActive    bool    `validate:"omitempty"`
+	ResourceIDs []int64 `validate:"dive,gt=0"`
 }
 
 func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (db.CatalogProductSpu, error) {
@@ -173,10 +174,42 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		BrandID:     params.BrandID,
 		Name:        params.Name,
 		Description: params.Description,
-		IsActive:    true,
+		IsActive:    params.IsActive,
 	})
 	if err != nil {
 		return zero, err
+	}
+
+	// Attach resources
+	if len(params.ResourceIDs) > 0 {
+		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
+
+		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
+			ID: params.ResourceIDs,
+			// UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources TODO: uncomment this
+		})
+		if err != nil {
+			return zero, err
+		}
+		if len(resources) != len(params.ResourceIDs) {
+			fmt.Println("found resources:", resources, "expected:", params.ResourceIDs)
+			// Some resources not found or not belong to the user
+			return zero, sharedmodel.ErrResourceNotFound
+		}
+
+		for order, rsID := range params.ResourceIDs {
+			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
+				RsID:      rsID,
+				RefType:   db.SharedResourceRefTypeProductSpu,
+				RefID:     spu.ID,
+				Order:     int32(order),
+				IsPrimary: false,
+			})
+
+			if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
+				return zero, err
+			}
+		}
 	}
 
 	if err := txStorage.Commit(ctx); err != nil {
@@ -288,4 +321,9 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 
 func GenerateSlug(name string) string {
 	return fmt.Sprintf("%s.%s", slug.Make(name), uuid.NewString())
+}
+
+// TODO: remove this
+func (b *CatalogBiz) Storage() *pgutil.Storage {
+	return b.storage
 }

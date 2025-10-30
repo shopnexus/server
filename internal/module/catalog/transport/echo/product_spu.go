@@ -2,10 +2,13 @@ package catalogecho
 
 import (
 	"net/http"
+	"shopnexus-remastered/config"
+	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
@@ -81,10 +84,12 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 }
 
 type CreateProductSpuParams struct {
-	CategoryID  int64  `validate:"required,gt=0"`
-	BrandID     int64  `validate:"required,gt=0"`
-	Name        string `validate:"required,min=1,max=200"`
-	Description string `validate:"required,max=1000"`
+	CategoryID  int64    `json:"category_id" validate:"required,gt=0"`
+	BrandID     int64    `json:"brand_id" validate:"required,gt=0"`
+	Name        string   `json:"name" validate:"required,min=1,max=200"`
+	Description string   `json:"description" validate:"required,max=1000"`
+	IsActive    bool     `json:"is_active" validate:"omitempty"`
+	Resources   []string `json:"resources" validate:"dive,gt=0"`
 }
 
 func (h *Handler) CreateProductSpu(c echo.Context) error {
@@ -101,12 +106,22 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
+	resources, err := h.biz.Storage().SearchSharedResource(c.Request().Context(), db.SearchSharedResourceParams{
+		Provider:  []string{config.GetConfig().Filestore.Type},
+		ObjectKey: req.Resources,
+	})
+	rids := slice.Map(resources, func(r db.SharedResource) int64 {
+		return r.ID
+	})
+
 	spu, err := h.biz.CreateProductSpu(c.Request().Context(), catalogbiz.CreateProductSpuParams{
 		Account:     claims.Account,
 		CategoryID:  req.CategoryID,
 		BrandID:     req.BrandID,
 		Name:        req.Name,
 		Description: req.Description,
+		IsActive:    req.IsActive,
+		ResourceIDs: rids,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
