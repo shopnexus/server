@@ -4,6 +4,7 @@ import (
 	"context"
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
@@ -34,8 +35,21 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	if err != nil {
 		return nil, err
 	}
-	promotionMap := slice.GroupBy(promotions, func(promo db.PromotionBase) (int64, db.PromotionBase) {
-		return promo.ID, promo
+
+	refs, err := s.storage.ListPromotionRef(ctx, db.ListPromotionRefParams{
+		PromotionID: slice.Map(promotions, func(p db.PromotionBase) int64 {
+			return p.ID
+		}),
+	})
+	if err != nil {
+		return nil, err
+	}
+	refsMap := slice.GroupBySlice(refs, func(r db.PromotionRef) (int64, db.PromotionRef) {
+		return r.PromotionID, r
+	})
+
+	promotionMap := slice.GroupBy(promotions, func(promo db.PromotionBase) (int64, promotionmodel.PromotionBase) {
+		return promo.ID, DbPromotionToPromotionBase(promo, refsMap[promo.ID])
 	})
 
 	promoDiscounts, err := s.storage.ListPromotionDiscount(ctx, db.ListPromotionDiscountParams{
@@ -71,26 +85,24 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	return priceMap, nil
 }
 
-func IsPromotionApplicable(promo db.PromotionBase, spu db.CatalogProductSpu, skuID int64) bool {
-	if !promo.RefID.Valid {
-		return promo.RefType == db.PromotionRefTypeAll
+func IsPromotionApplicable(promo promotionmodel.PromotionBase, spu db.CatalogProductSpu, skuID int64) bool {
+	for _, ref := range promo.Refs {
+		refID := ref.RefID
+		switch ref.RefType {
+		case db.PromotionRefTypeCategory:
+			return refID == spu.CategoryID
+		case db.PromotionRefTypeBrand:
+			return refID == spu.BrandID
+		case db.PromotionRefTypeProductSpu:
+			return refID == spu.ID
+		case db.PromotionRefTypeProductSku:
+			return refID == skuID
+		default:
+			return false
+		}
 	}
 
-	refID := promo.RefID.Int64
-	switch promo.RefType {
-	case db.PromotionRefTypeCategory:
-		return refID == spu.CategoryID
-	case db.PromotionRefTypeBrand:
-		return refID == spu.BrandID
-	case db.PromotionRefTypeProductSpu:
-		return refID == spu.ID
-	case db.PromotionRefTypeProductSku:
-		return refID == skuID
-	case db.PromotionRefTypeAll:
-		return true // shouldn't happen since RefID should be null for "all"
-	default:
-		return false
-	}
+	return false
 }
 
 func CalculateDiscountedItemPrice(originalPrice sharedmodel.Concurrency, dbDiscount db.PromotionDiscount) sharedmodel.Concurrency {
