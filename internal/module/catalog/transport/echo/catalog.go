@@ -25,7 +25,7 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	spuApi.GET("/:id", h.GetProductSpu)
 	spuApi.POST("", h.CreateProductSpu)
 	spuApi.PATCH("", h.UpdateProductSpu)
-	spuApi.DELETE("", h.DeleteProductSpu)
+	spuApi.DELETE("/:id", h.DeleteProductSpu)
 
 	// Product Sku
 	skuApi := api.Group("/product-sku")
@@ -49,6 +49,10 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	// Brand
 	brandApi := api.Group("/brand")
 	brandApi.GET("", h.ListBrand)
+
+	// Category
+	categoryApi := api.Group("/category")
+	categoryApi.GET("", h.ListCategory)
 
 	return h
 }
