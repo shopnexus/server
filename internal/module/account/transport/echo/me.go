@@ -7,6 +7,7 @@ import (
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
@@ -38,7 +39,7 @@ type UpdateMeRequest struct {
 	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
 	Name             null.String      `json:"name" validate:"omitnil"`
 	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID       null.Int64       `json:"avatar_rs_id" validate:"omitnil"`
+	AvatarRsID       uuid.NullUUID    `json:"avatar_rs_id" validate:"omitnil"`
 	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
 
 	// Vendor fields

@@ -8,6 +8,7 @@ import (
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
@@ -17,7 +18,7 @@ type CreateRefundRequest struct {
 	Method      db.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
 	Reason      string               `json:"reason" validate:"required,max=500"`
 	Address     null.String          `json:"address" validate:"omitnil,max=500"`
-	ResourceIDs []int64              `json:"resource_ids" validate:"dive"`
+	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"dive"`
 }
 
 func (h *Handler) CreateRefund(c echo.Context) error {
@@ -77,7 +78,7 @@ type UpdateRefundRequest struct {
 	Method      db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
 	Address     null.String          `json:"address" validate:"omitnil,max=500"`
 	Reason      null.String          `json:"reason" validate:"omitnil,max=500"`
-	ResourceIDs []int64              `json:"resource_ids" validate:"omitempty,dive"`
+	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateRefund(c echo.Context) error {

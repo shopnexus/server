@@ -19,6 +19,8 @@ type ListProductCardRequest struct {
 
 func (h *Handler) ListProductCard(c echo.Context) error {
 	var req ListProductCardRequest
+
+	// TODO: improve binder error message (currently it not show which field has error)
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}

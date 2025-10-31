@@ -3,6 +3,7 @@ package pgutil
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -32,4 +33,8 @@ func Float64ToPgFloat8(f float64) pgtype.Float8 {
 
 func TimeToPgTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func UUIDToPgUUID(id uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: [16]byte(id), Valid: true}
 }

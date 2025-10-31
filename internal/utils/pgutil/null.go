@@ -1,6 +1,7 @@
 package pgutil
 
 import (
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -31,6 +32,10 @@ func NullTimeToPgTimestamptz(t null.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t.Time, Valid: t.Valid}
 }
 
+func NullUUIDToPgUUID(s uuid.NullUUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: [16]byte(s.UUID), Valid: s.Valid}
+}
+
 // Convert pgx/pgtype types to guregu/null types
 
 func PgTextToNullString(t pgtype.Text) null.String {
@@ -55,4 +60,8 @@ func PgFloat8ToNullFloat(f pgtype.Float8) null.Float {
 
 func PgTimestamptzToNullTime(t pgtype.Timestamptz) null.Time {
 	return null.NewTime(t.Time, t.Valid)
+}
+
+func PgUUIDToNullUUID(u pgtype.UUID) uuid.NullUUID {
+	return uuid.NullUUID{UUID: uuid.UUID(u.Bytes), Valid: u.Valid}
 }

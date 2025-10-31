@@ -64,9 +64,8 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 
 	// Get first image of the product
 	resources, err := s.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType:   db.SharedResourceRefTypeProductSpu,
-		RefID:     spuIDs,
-		IsPrimary: pgutil.BoolToPgBool(true),
+		RefType: db.SharedResourceRefTypeProductSpu,
+		RefID:   spuIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +109,7 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
 			Resource: sharedmodel.Resource{
-				ID:   resourceMap[spu.ID].ID,
+				ID:   resourceMap[spu.ID].ID.Bytes,
 				Url:  s.shared.MustGetFileURL(ctx, resourceMap[spu.ID].Provider, resourceMap[spu.ID].ObjectKey),
 				Mime: resourceMap[spu.ID].Mime,
 				Size: resourceMap[spu.ID].Size,

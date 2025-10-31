@@ -8,6 +8,7 @@ import (
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -67,7 +68,7 @@ func (s *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
-		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Int64),
+		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Bytes),
 
 		// Vendor fields
 		Description: description,
@@ -88,7 +89,7 @@ type UpdateProfileParams struct {
 	Gender           db.AccountGender
 	Name             null.String
 	DateOfBirth      null.Time
-	AvatarRsID       null.Int64
+	AvatarRsID       uuid.NullUUID
 	DefaultContactID null.Int64
 
 	// Vendor fields
@@ -124,7 +125,7 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		Gender:           db.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
 		Name:             pgutil.NullStringToPgText(params.Name),
 		DateOfBirth:      pgtype.Date{Time: params.DateOfBirth.Time, Valid: params.DateOfBirth.Valid},
-		AvatarRsID:       pgutil.NullInt64ToPgInt8(params.AvatarRsID),
+		AvatarRsID:       pgutil.NullUUIDToPgUUID(params.AvatarRsID),
 		DefaultContactID: pgutil.NullInt64ToPgInt8(params.DefaultContactID),
 	})
 	if err != nil {
@@ -169,6 +170,6 @@ func (s *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
 		Description:      params.Description,
-		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Int64),
+		AvatarURL:        s.shared.GetResourceURLByID(ctx, profile.AvatarRsID.Bytes),
 	}, nil
 }
