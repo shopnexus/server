@@ -81,7 +81,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	resourceMap := make(map[int64][]sharedmodel.Resource) // map[spuID][]Resource
 	for _, res := range resources {
 		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
-			ID:   res.ID,
+			ID:   res.ID.Bytes,
 			Mime: res.Mime,
 			Url:  b.shared.MustGetFileURL(ctx, res.Provider, res.ObjectKey),
 			Size: res.Size,

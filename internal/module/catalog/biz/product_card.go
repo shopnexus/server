@@ -77,9 +77,8 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType:   db.SharedResourceRefTypeProductSpu,
-		RefID:     spuIDs,
-		IsPrimary: pgutil.BoolToPgBool(true),
+		RefType: db.SharedResourceRefTypeProductSpu,
+		RefID:   spuIDs,
 	})
 	if err != nil {
 		return zero, err
@@ -131,7 +130,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 				Total: int(rating.Count),
 			},
 			Resource: sharedmodel.Resource{
-				ID:   resource.ID,
+				ID:   resource.ID.Bytes,
 				Mime: resource.Mime,
 				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
 				Size: resource.Size,

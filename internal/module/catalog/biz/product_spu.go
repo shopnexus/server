@@ -12,6 +12,7 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -20,24 +21,34 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-func (b *CatalogBiz) getCategoryName(ctx context.Context, categoryID int64) string {
-	category, err := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
-		ID: pgutil.Int64ToPgInt8(categoryID),
+func (b *CatalogBiz) getTagsMap(ctx context.Context, spuID []int64) (map[int64][]string, error) { // map[spuID][]tag
+	tags, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
+		SpuID: spuID,
 	})
 	if err != nil {
-		return ""
+		return nil, err
 	}
-	return category.Name
+	return slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag }), nil
 }
 
-func (b *CatalogBiz) getBrandName(ctx context.Context, brandID int64) string {
-	brand, err := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
-		ID: pgutil.Int64ToPgInt8(brandID),
+func (b *CatalogBiz) getCategoryMap(ctx context.Context, categoryID []int64) (map[int64]db.CatalogCategory, error) {
+	categories, err := b.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
+		ID: categoryID,
 	})
 	if err != nil {
-		return ""
+		return nil, err
 	}
-	return brand.Name
+	return slice.GroupBy(categories, func(category db.CatalogCategory) (int64, db.CatalogCategory) { return category.ID, category }), nil
+}
+
+func (b *CatalogBiz) getBrandMap(ctx context.Context, brandID []int64) (map[int64]db.CatalogBrand, error) {
+	brands, err := b.storage.ListCatalogBrand(ctx, db.ListCatalogBrandParams{
+		ID: brandID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return slice.GroupBy(brands, func(brand db.CatalogBrand) (int64, db.CatalogBrand) { return brand.ID, brand }), nil
 }
 
 type ListProductSpuParams struct {
@@ -85,24 +96,6 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 	spuIDs := slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 
-	tags, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
-		SpuID: spuIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
-	tagsMap := slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.ID, tag.Tag })
-
-	// Get first image of the product
-	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeProductSpu,
-		RefID:   spuIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
-	resourcesMap := slice.GroupBySlice(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
-
 	// Calculate rating score
 	ratings, err := b.storage.ListRating(ctx, db.ListRatingParams{
 		RefType: db.CatalogCommentRefTypeProductSpu,
@@ -113,13 +106,33 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 	}
 	ratingMap := slice.GroupBy(ratings, func(r db.ListRatingRow) (int64, db.ListRatingRow) { return r.RefID, r })
 
+	categoryMap, err := b.getCategoryMap(ctx, slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.CategoryID }))
+	if err != nil {
+		return zero, err
+	}
+
+	brandMap, err := b.getBrandMap(ctx, slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.BrandID }))
+	if err != nil {
+		return zero, err
+	}
+
+	tagsMap, err := b.getTagsMap(ctx, spuIDs)
+	if err != nil {
+		return zero, err
+	}
+
+	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeProductSpu, spuIDs)
+	if err != nil {
+		return zero, err
+	}
+
 	var spus []catalogmodel.ProductSpu
 	for _, spu := range dbSpus {
 		spus = append(spus, catalogmodel.ProductSpu{
 			ID:            spu.ID,
 			Code:          spu.Code,
-			Category:      b.getCategoryName(ctx, spu.CategoryID),
-			Brand:         b.getBrandName(ctx, spu.BrandID),
+			Category:      categoryMap[spu.CategoryID],
+			Brand:         brandMap[spu.BrandID],
 			FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
 			Name:          spu.Name,
 			Description:   spu.Description,
@@ -130,10 +143,8 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 				Score: ratingMap[spu.ID].Score,
 				Total: ratingMap[spu.ID].Count,
 			},
-			Tags: slice.NonNil(tagsMap[spu.ID]),
-			Resources: slice.Map(resourcesMap[spu.ID], func(r db.ListSortedResourcesRow) string {
-				return b.shared.MustGetFileURL(ctx, r.Provider, r.ObjectKey)
-			}),
+			Tags:      slice.NonNil(tagsMap[spu.ID]),
+			Resources: resourcesMap[spu.ID],
 		})
 	}
 
@@ -146,16 +157,16 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 type CreateProductSpuParams struct {
 	Account     authmodel.AuthenticatedAccount
-	CategoryID  int64   `validate:"required,gt=0"`
-	BrandID     int64   `validate:"required,gt=0"`
-	Name        string  `validate:"required,min=1,max=200"`
-	Description string  `validate:"required,max=1000"`
-	IsActive    bool    `validate:"omitempty"`
-	ResourceIDs []int64 `validate:"dive,gt=0"`
+	CategoryID  int64       `validate:"required,gt=0"`
+	BrandID     int64       `validate:"required,gt=0"`
+	Name        string      `validate:"required,min=1,max=200"`
+	Description string      `validate:"required,max=1000"`
+	IsActive    bool        `validate:"omitempty"`
+	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (db.CatalogProductSpu, error) {
-	var zero db.CatalogProductSpu
+func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
+	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -180,43 +191,56 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		return zero, err
 	}
 
-	// Attach resources
-	if len(params.ResourceIDs) > 0 {
-		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
-
-		resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-			ID: params.ResourceIDs,
-			// UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources TODO: uncomment this
-		})
-		if err != nil {
-			return zero, err
-		}
-		if len(resources) != len(params.ResourceIDs) {
-			fmt.Println("found resources:", resources, "expected:", params.ResourceIDs)
-			// Some resources not found or not belong to the user
-			return zero, sharedmodel.ErrResourceNotFound
-		}
-
-		for order, rsID := range params.ResourceIDs {
-			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-				RsID:      rsID,
-				RefType:   db.SharedResourceRefTypeProductSpu,
-				RefID:     spu.ID,
-				Order:     int32(order),
-				IsPrimary: false,
-			})
-
-			if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
-				return zero, err
-			}
-		}
+	// Create resources
+	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		Account:        params.Account,
+		RefType:        db.SharedResourceRefTypeProductSpu,
+		RefID:          spu.ID,
+		ResourceIDs:    params.ResourceIDs,
+		EmptyResources: true,
+	}); err != nil {
+		return zero, err
 	}
 
 	if err := txStorage.Commit(ctx); err != nil {
 		return zero, err
 	}
 
-	return spu, nil
+	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeProductSpu, []int64{spu.ID})
+	if err != nil {
+		return zero, err
+	}
+
+	brandMap, err := b.getBrandMap(ctx, []int64{spu.BrandID})
+	if err != nil {
+		return zero, err
+	}
+
+	categoryMap, err := b.getCategoryMap(ctx, []int64{spu.CategoryID})
+	if err != nil {
+		return zero, err
+	}
+
+	tagsMap, err := b.getTagsMap(ctx, []int64{spu.ID})
+	if err != nil {
+		return zero, err
+	}
+
+	return catalogmodel.ProductSpu{
+		ID:            spu.ID,
+		Code:          spu.Code,
+		Category:      categoryMap[spu.CategoryID],
+		Brand:         brandMap[spu.BrandID],
+		FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
+		Name:          spu.Name,
+		Description:   spu.Description,
+		IsActive:      spu.IsActive,
+		DateCreated:   spu.DateCreated.Time,
+		DateUpdated:   spu.DateUpdated.Time,
+		Rating:        catalogmodel.ProductRating{},
+		Tags:          slice.NonNil(tagsMap[spu.ID]),
+		Resources:     resourcesMap[spu.ID],
+	}, nil
 }
 
 type UpdateProductSpuParams struct {
@@ -228,6 +252,7 @@ type UpdateProductSpuParams struct {
 	Name          null.String `validate:"omitnil,min=1,max=200"`
 	Description   null.String `validate:"omitnil,max=1000"`
 	IsActive      null.Bool   `validate:"omitnil"`
+	ResourceIDs   []uuid.UUID `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (db.CatalogProductSpu, error) {
@@ -263,6 +288,18 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
 	})
 	if err != nil {
+		return zero, err
+	}
+
+	// Create resources
+	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		Account:         params.Account,
+		RefType:         db.SharedResourceRefTypeProductSpu,
+		RefID:           spu.ID,
+		ResourceIDs:     params.ResourceIDs,
+		EmptyResources:  true,
+		DeleteResources: true,
+	}); err != nil {
 		return zero, err
 	}
 
@@ -321,9 +358,4 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 
 func GenerateSlug(name string) string {
 	return fmt.Sprintf("%s.%s", slug.Make(name), uuid.NewString())
-}
-
-// TODO: remove this
-func (b *CatalogBiz) Storage() *pgutil.Storage {
-	return b.storage
 }
