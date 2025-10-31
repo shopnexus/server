@@ -19,7 +19,7 @@ Table Profile {
   gender Gender
   name String
   date_of_birth DateTime
-  avatar_rs_id BigInt [unique]
+  avatar_rs_id String [unique]
   email_verified Boolean [not null, default: false]
   phone_verified Boolean [not null, default: false]
   default_contact_id BigInt [unique]
@@ -328,7 +328,7 @@ Table PromotionDiscount {
 }
 
 Table Resource {
-  id BigInt [pk, increment]
+  id String [pk]
   uploaded_by BigInt
   provider String [not null]
   object_key String [not null]
@@ -346,7 +346,7 @@ Table Resource {
 
 Table ResourceReference {
   id BigInt [pk, increment]
-  rs_id BigInt [not null]
+  rs_id String [not null]
   ref_type ResourceRefType [not null]
   ref_id BigInt [not null]
   order Int [not null]

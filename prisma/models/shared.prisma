@@ -13,7 +13,7 @@ enum ResourceRefType {
 
 // TODO: should catch "remove" event and remove them in s3;
 model Resource {
-  id          BigInt  @id @default(autoincrement())
+  id          String  @id @db.Uuid
   uploaded_by BigInt?
 
   provider   String // From ServiceOption
@@ -37,7 +37,7 @@ model Resource {
 
 model ResourceReference {
   id         BigInt          @id @default(autoincrement())
-  rs_id      BigInt
+  rs_id      String          @db.Uuid
   ref_type   ResourceRefType
   ref_id     BigInt
   order      Int

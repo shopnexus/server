@@ -91,7 +91,7 @@ CREATE TABLE "account"."profile" (
     "gender" "account"."gender",
     "name" VARCHAR(100),
     "date_of_birth" DATE,
-    "avatar_rs_id" BIGINT,
+    "avatar_rs_id" UUID,
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
     "default_contact_id" BIGINT,
@@ -467,7 +467,7 @@ CREATE TABLE "promotion"."discount" (
 
 -- CreateTable
 CREATE TABLE "shared"."resource" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL,
     "uploaded_by" BIGINT,
     "provider" TEXT NOT NULL,
     "object_key" VARCHAR(2048) NOT NULL,
@@ -484,7 +484,7 @@ CREATE TABLE "shared"."resource" (
 -- CreateTable
 CREATE TABLE "shared"."resource_reference" (
     "id" BIGSERIAL NOT NULL,
-    "rs_id" BIGINT NOT NULL,
+    "rs_id" UUID NOT NULL,
     "ref_type" "shared"."resource_ref_type" NOT NULL,
     "ref_id" BIGINT NOT NULL,
     "order" INTEGER NOT NULL,
