@@ -9,6 +9,7 @@ import (
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
@@ -54,7 +55,7 @@ type CreateCommentRequest struct {
 	Body    string                   `json:"body" validate:"required"`
 	Score   int32                    `json:"score" validate:"required"`
 
-	ResourceIDs []int64 `json:"resource_ids" validate:"required"`
+	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"required"`
 }
 
 func (h *Handler) CreateComment(c echo.Context) error {
@@ -91,7 +92,7 @@ type UpdateCommentRequest struct {
 	CommentID      int64       `json:"comment_id" validate:"required"`
 	Body           null.String `json:"body" validate:"required"`
 	Score          null.Int32  `json:"score" validate:"required"`
-	ResourceIDs    []int64     `json:"resource_ids" validate:"required"`
+	ResourceIDs    []uuid.UUID `json:"resource_ids" validate:"required"`
 	EmptyResources bool        `json:"empty_resources" validate:"omitempty"`
 }
 
