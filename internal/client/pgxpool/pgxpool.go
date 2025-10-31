@@ -3,6 +3,7 @@ package pgxpool
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"shopnexus-remastered/internal/logger"
 
@@ -13,14 +14,14 @@ import (
 )
 
 type Options struct {
-	Url             string `yaml:"url"`
-	Host            string `yaml:"host"`
-	Port            int    `yaml:"port"`
-	Username        string `yaml:"username"`
-	Password        string `yaml:"password"`
-	Database        string `yaml:"database"`
-	MaxConnections  int32  `yaml:"maxConnections"`
-	MaxConnIdleTime int32  `yaml:"maxConnIdleTime"`
+	Url             string        `yaml:"url"`
+	Host            string        `yaml:"host"`
+	Port            int           `yaml:"port"`
+	Username        string        `yaml:"username"`
+	Password        string        `yaml:"password"`
+	Database        string        `yaml:"database"`
+	MaxConnections  int32         `yaml:"maxConnections"`
+	MaxConnIdleTime time.Duration `yaml:"maxConnIdleTime"`
 }
 
 func New(opts Options) (*pgxpool.Pool, error) {
@@ -33,6 +34,7 @@ func New(opts Options) (*pgxpool.Pool, error) {
 
 	// Set maximum number of connections
 	connConfig.MaxConns = opts.MaxConnections
+	connConfig.MaxConnIdleTime = opts.MaxConnIdleTime
 	connConfig.ConnConfig.OnNotice = func(conn *pgconn.PgConn, notice *pgconn.Notice) {
 		logger.Log.Warn("PostgreSQL notice: " + notice.Message)
 	}
