@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const existsCartItems = `-- name: ExistsCartItems :one
@@ -50,6 +52,102 @@ func (q *Queries) GetVendorAddressBySkuIDs(ctx context.Context, skuIds []int64) 
 	for rows.Next() {
 		var i GetVendorAddressBySkuIDsRow
 		if err := rows.Scan(&i.VendorID, &i.Address, &i.SkuID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVendorOrderItem = `-- name: ListVendorOrderItem :many
+WITH vendor_orders AS (
+    SELECT oi.id, oi.order_id, oi.sku_id, oi.vendor_id, oi.confirmed_by_id, oi.shipment_id, oi.note, oi.status, oi.quantity
+    FROM "order"."item" oi
+    WHERE (
+        (oi."id" = ANY($3) OR $3 IS NULL) AND
+        (oi."order_id" = ANY($4) OR $4 IS NULL) AND
+        (oi."sku_id" = ANY($5) OR $5 IS NULL) AND
+        (oi."vendor_id" = ANY($6) OR $6 IS NULL) AND
+        (oi."confirmed_by_id" = ANY($7) OR $7 IS NULL) AND
+        (oi."shipment_id" = ANY($8) OR $8 IS NULL) AND
+        (oi."status" = ANY($9) OR $9 IS NULL) AND
+        (oi."quantity" = ANY($10) OR $10 IS NULL) AND
+        (oi."quantity" > $11 OR $11 IS NULL) AND
+        (oi."quantity" < $12 OR $12 IS NULL)
+    )
+)
+SELECT orders.id, orders.order_id, orders.sku_id, orders.vendor_id, orders.confirmed_by_id, orders.shipment_id, orders.note, orders.status, orders.quantity
+FROM vendor_orders orders
+INNER JOIN "order"."base" base ON base.id = orders.order_id
+WHERE base.payment_status = 'Success'
+ORDER BY orders."id"
+LIMIT $2
+OFFSET $1
+`
+
+type ListVendorOrderItemParams struct {
+	Offset        pgtype.Int4    `json:"offset"`
+	Limit         pgtype.Int4    `json:"limit"`
+	ID            []int64        `json:"id"`
+	OrderID       []int64        `json:"order_id"`
+	SkuID         []int64        `json:"sku_id"`
+	VendorID      []int64        `json:"vendor_id"`
+	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    []int64        `json:"shipment_id"`
+	Status        []SharedStatus `json:"status"`
+	Quantity      []int64        `json:"quantity"`
+	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
+	QuantityTo    pgtype.Int8    `json:"quantity_to"`
+}
+
+type ListVendorOrderItemRow struct {
+	ID            int64        `json:"id"`
+	OrderID       int64        `json:"order_id"`
+	SkuID         int64        `json:"sku_id"`
+	VendorID      int64        `json:"vendor_id"`
+	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    int64        `json:"shipment_id"`
+	Note          string       `json:"note"`
+	Status        SharedStatus `json:"status"`
+	Quantity      int64        `json:"quantity"`
+}
+
+func (q *Queries) ListVendorOrderItem(ctx context.Context, arg ListVendorOrderItemParams) ([]ListVendorOrderItemRow, error) {
+	rows, err := q.db.Query(ctx, listVendorOrderItem,
+		arg.Offset,
+		arg.Limit,
+		arg.ID,
+		arg.OrderID,
+		arg.SkuID,
+		arg.VendorID,
+		arg.ConfirmedByID,
+		arg.ShipmentID,
+		arg.Status,
+		arg.Quantity,
+		arg.QuantityFrom,
+		arg.QuantityTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVendorOrderItemRow{}
+	for rows.Next() {
+		var i ListVendorOrderItemRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.SkuID,
+			&i.VendorID,
+			&i.ConfirmedByID,
+			&i.ShipmentID,
+			&i.Note,
+			&i.Status,
+			&i.Quantity,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

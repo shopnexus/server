@@ -499,6 +499,7 @@ type Querier interface {
 	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
 	ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
+	ListVendorOrderItem(ctx context.Context, arg ListVendorOrderItemParams) ([]ListVendorOrderItemRow, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
 	SearchCatalogProductSpu(ctx context.Context, arg SearchCatalogProductSpuParams) ([]CatalogProductSpu, error)
