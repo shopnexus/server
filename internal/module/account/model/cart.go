@@ -13,6 +13,4 @@ type CartItem struct {
 	Resource      sharedmodel.Resource    `json:"resource"`
 	Category      string                  `json:"category"`
 	Promotions    []int64                 `json:"promotions"`
-	BulkPrice     *int64                  `json:"bulk_price"`
-	BulkThreshold *int64                  `json:"bulk_threshold"`
 }

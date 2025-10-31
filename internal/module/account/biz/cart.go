@@ -114,10 +114,8 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 				Mime: resourceMap[spu.ID].Mime,
 				Size: resourceMap[spu.ID].Size,
 			},
-			Category:      categoryMap[spu.CategoryID],
-			Promotions:    promos,
-			BulkPrice:     nil, // TODO
-			BulkThreshold: nil,
+			Category:   categoryMap[spu.CategoryID],
+			Promotions: promos,
 		})
 	}
 
