@@ -3,6 +3,7 @@ package binder
 import (
 	"fmt"
 	"reflect"
+	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"strconv"
 	"strings"
 
@@ -26,11 +27,15 @@ func (cb *CustomBinder) Bind(i interface{}, c echo.Context) error {
 
 	// Handle comma-separated fields first
 	if err := cb.bindCommaSeparatedFields(i, c, commaSeparatedFields); err != nil {
-		return err
+		return sharedmodel.ErrValidation.Fmt("failed to bind comma-separated fields: %v", err)
 	}
 
 	// Then handle regular fields with modified query params
-	return cb.bindRegularFields(i, c, commaSeparatedFields)
+	if err := cb.bindRegularFields(i, c, commaSeparatedFields); err != nil {
+		return sharedmodel.ErrValidation.Fmt(err.Error())
+	}
+
+	return nil
 }
 
 func (cb *CustomBinder) getCommaSeparatedFieldMap(i interface{}) map[string]bool {

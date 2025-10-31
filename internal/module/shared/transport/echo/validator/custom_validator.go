@@ -13,6 +13,7 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	entranslations "github.com/go-playground/validator/v10/translations/en"
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 )
 
@@ -41,7 +42,7 @@ func New() (*CustomValidator, error) {
 
 	// Register all null.* types to use the ValidateNullable CustomTypeFunc
 	validate.RegisterCustomTypeFunc(
-		ValidateNullable,
+		ParseNullable,
 		null.Bool{},
 		null.Byte{},
 		null.Float{},
@@ -50,6 +51,8 @@ func New() (*CustomValidator, error) {
 		null.Int64{},
 		null.String{},
 		null.Time{},
+		// uuid.UUID{}, // uuid.UUID has TextUnmarshaler implemented, no need to register
+		uuid.NullUUID{},
 	)
 
 	return &CustomValidator{
@@ -68,14 +71,13 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 			return valErr
 		}
 
-		return sharedmodel.NewError("validation", string(text))
+		return sharedmodel.ErrValidation.Fmt(string(text))
 	}
 
 	return err
 }
 
-type NullType interface {
-	IsZero() bool
+type Nullable interface {
 	driver.Valuer
 }
 
@@ -83,17 +85,18 @@ type NullType interface {
 // https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649
 var nilValue *struct{}
 
-// ValidateNullable implements validator.CustomTypeFunc
-func ValidateNullable(field reflect.Value) interface{} {
-	if nullValue, ok := field.Interface().(NullType); ok {
-		if nullValue.IsZero() {
-			return nilValue // The "omitnil" validator work only with typed nil values
-		}
+// ParseNullable implements validator.CustomTypeFunc
+func ParseNullable(field reflect.Value) interface{} {
+	if nullValue, ok := field.Interface().(Nullable); ok {
 		if val, err := nullValue.Value(); err == nil {
+			if val == nil {
+				return nilValue // Return typed nil to indicate "nil" value
+			}
 			return val
 		}
 	}
-	return nil
+
+	return nil // Return untyped nil means we tell the validator to throw error (because we cannot parse the value)
 }
 
 // Export shortcut to get the singleton validator instance

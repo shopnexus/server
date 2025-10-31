@@ -77,21 +77,34 @@ type UploadFileParams struct {
 	Private     bool      `validate:"omitempty"`
 }
 
+type UploadFileResult struct {
+	ResourceID uuid.UUID
+	Provider   string
+	ObjectKey  string
+	URL        string
+}
+
 // UploadFile stores a single uploaded file to the configured object store
 // and creates a corresponding shared resource record.
-func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (objectKey string, publicURL string, err error) {
+func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
+	var zero UploadFileResult
+
 	if err := validator.Validate(params); err != nil {
-		return "", "", fmt.Errorf("invalid upload params: %w", err)
+		return zero, fmt.Errorf("invalid upload params: %w", err)
 	}
+
+	var err error
+	var objectKey string
 
 	myKey := fmt.Sprintf("%s_%s", uuid.New().String(), params.Filename)
 
 	objectKey, err = b.mustGetObjectStore(config.GetConfig().Filestore.Type).Upload(ctx, myKey, params.File, params.Private)
 	if err != nil {
-		return "", "", fmt.Errorf("upload local: %w", err)
+		return zero, fmt.Errorf("upload local: %w", err)
 	}
 
-	_, err = b.storage.CreateDefaultSharedResource(ctx, db.CreateDefaultSharedResourceParams{
+	resource, err := b.storage.CreateDefaultSharedResource(ctx, db.CreateDefaultSharedResourceParams{
+		ID:         pgutil.UUIDToPgUUID(uuid.New()),
 		Provider:   config.GetConfig().Filestore.Type,
 		ObjectKey:  objectKey,
 		UploadedBy: pgutil.Int64ToPgInt8(params.Account.ID),
@@ -100,17 +113,20 @@ func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (ob
 		Metadata:   []byte("{}"),
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("insert resource: %w", err)
+		return zero, fmt.Errorf("insert resource: %w", err)
 	}
 
 	url, err := b.mustGetObjectStore(config.GetConfig().Filestore.Type).GetURL(ctx, objectKey)
 	if err != nil {
-		return "", "", fmt.Errorf("get file url: %w", err)
+		return zero, fmt.Errorf("get file url: %w", err)
 	}
 
-	fmt.Println("uploaded file to object store:", objectKey, url)
-
-	return objectKey, url, nil
+	return UploadFileResult{
+		ResourceID: resource.ID.Bytes,
+		Provider:   config.GetConfig().Filestore.Type,
+		ObjectKey:  objectKey,
+		URL:        url,
+	}, nil
 }
 
 func (b *SharedBiz) GetFileURL(ctx context.Context, provider string, objectKey string) (string, error) {

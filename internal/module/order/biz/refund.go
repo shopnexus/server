@@ -6,11 +6,13 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
+	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -63,7 +65,7 @@ func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (s
 				DateCreated:  refund.DateCreated.Time,
 				Resources: slice.Map(resourceMap[refund.ID], func(resource db.ListSortedResourcesRow) sharedmodel.Resource {
 					return sharedmodel.Resource{
-						ID:   resource.ID,
+						ID:   resource.ID.Bytes,
 						Mime: resource.Mime,
 						Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
 						Size: resource.Size,
@@ -80,7 +82,7 @@ type CreateRefundParams struct {
 	Method      db.OrderRefundMethod `validate:"required,validateFn=Valid"`
 	Reason      string               `validate:"required,max=500"`
 	Address     null.String          `validate:"omitempty,max=500"`
-	ResourceIDs []int64              `validate:"dive"`
+	ResourceIDs []uuid.UUID          `validate:"dive"`
 }
 
 func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) (ordermodel.Refund, error) {
@@ -126,7 +128,7 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 	var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
 
 	resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-		ID:         params.ResourceIDs,
+		ID:         slice.Map(params.ResourceIDs, func(id uuid.UUID) pgtype.UUID { return pgutil.UUIDToPgUUID(id) }),
 		UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 	})
 	if err != nil {
@@ -139,16 +141,16 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 
 	for order, rsID := range params.ResourceIDs {
 		createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-			RsID:      rsID,
+			RsID:      pgutil.UUIDToPgUUID(rsID),
 			RefType:   db.SharedResourceRefTypeRefund,
 			RefID:     refund.ID,
 			Order:     int32(order),
 			IsPrimary: false,
 		})
+	}
 
-		if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
-			return zero, err
-		}
+	if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
+		return zero, err
 	}
 
 	if err := txStorage.Commit(ctx); err != nil {
@@ -168,7 +170,7 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 		DateCreated:  refund.DateCreated.Time,
 		Resources: slice.Map(resources, func(resource db.SharedResource) sharedmodel.Resource {
 			return sharedmodel.Resource{
-				ID:   resource.ID,
+				ID:   resource.ID.Bytes,
 				Mime: resource.Mime,
 				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
 				Size: resource.Size,
@@ -185,9 +187,10 @@ type UpdateRefundParams struct {
 	Reason   null.String          `validate:"omitnil,max=500"`
 
 	// Fields below are only updated after vendor confirms
-	Status       db.SharedStatus `validate:"omitempty,validateFn=Valid"`
-	ReviewedByID null.Int64      `validate:"omitnil,gt=0"`
-	ResourceIDs  []int64         `validate:"omitempty,dive"`
+	Status         db.SharedStatus `validate:"omitempty,validateFn=Valid"`
+	ReviewedByID   null.Int64      `validate:"omitnil,gt=0"`
+	ResourceIDs    []uuid.UUID     `validate:"omitempty,dive"`
+	EmptyResources bool            `validate:"omitempty"`
 }
 
 func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
@@ -233,50 +236,24 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		return zero, err
 	}
 
-	// TODO: shorten the update resource, create reuseable function
 	// Update resources
-	var resources []db.SharedResource
-	if len(params.ResourceIDs) > 0 {
-		// Delete old resources
-		if err := txStorage.DeleteSharedResourceReference(ctx, db.DeleteSharedResourceReferenceParams{
-			RefType: []db.SharedResourceRefType{db.SharedResourceRefTypeRefund},
-			RefID:   []int64{params.RefundID},
-		}); err != nil {
-			return zero, err
-		}
-
-		// Attach resources
-
-		var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
-
-		resources, err = txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-			ID:         params.ResourceIDs,
-			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
-		})
-		if err != nil {
-			return zero, err
-		}
-		if len(resources) != len(params.ResourceIDs) {
-			// Some resources not found or not belong to the user
-			return zero, sharedmodel.ErrResourceNotFound
-		}
-
-		for order, rsID := range params.ResourceIDs {
-			createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-				RsID:      rsID,
-				RefType:   db.SharedResourceRefTypeRefund,
-				RefID:     refund.ID,
-				Order:     int32(order),
-				IsPrimary: false,
-			})
-
-			if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
-				return zero, err
-			}
-		}
+	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		Account:         params.Account,
+		RefType:         db.SharedResourceRefTypeRefund,
+		RefID:           refund.ID,
+		ResourceIDs:     params.ResourceIDs,
+		EmptyResources:  params.EmptyResources,
+		DeleteResources: true,
+	}); err != nil {
+		return zero, err
 	}
 
 	if err := txStorage.Commit(ctx); err != nil {
+		return zero, err
+	}
+
+	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeRefund, []int64{refund.ID})
+	if err != nil {
 		return zero, err
 	}
 
@@ -291,14 +268,7 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		ReviewedByID: pgutil.PgInt8ToNullInt64(refund.ReviewedByID),
 		ShipmentID:   pgutil.PgInt8ToNullInt64(refund.ShipmentID),
 		DateCreated:  refund.DateCreated.Time,
-		Resources: slice.Map(resources, func(resource db.SharedResource) sharedmodel.Resource {
-			return sharedmodel.Resource{
-				ID:   resource.ID,
-				Mime: resource.Mime,
-				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
-				Size: resource.Size,
-			}
-		}),
+		Resources:    resourcesMap[refund.ID],
 	}, nil
 }
 
@@ -324,8 +294,6 @@ func (b *OrderBiz) CancelRefund(ctx context.Context, params CancelRefundParams) 
 	}); err != nil {
 		return err
 	}
-
-	//TODO: Also remove all associated resources
 
 	if err := txStorage.Commit(ctx); err != nil {
 		return err

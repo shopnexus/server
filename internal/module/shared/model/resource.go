@@ -1,19 +1,15 @@
 package sharedmodel
 
 import (
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 )
 
-type CreateResource struct {
-	Provider  string `json:"provider" validate:"required,validateFn=Valid"`
-	ObjectKey string `json:"object_key" validate:"required"`
-}
-
 type Resource struct {
-	ID   int64  `json:"id"`
-	Url  string `json:"url"`
-	Mime string `json:"mime"`
-	Size int64  `json:"size"`
+	ID   uuid.UUID `json:"id"`
+	Url  string    `json:"url"`
+	Mime string    `json:"mime"`
+	Size int64     `json:"size"`
 	// Width    null.Int32  `json:"width"`
 	// Height   null.Int32  `json:"height"`
 	// Duration null.Float  `json:"duration"`

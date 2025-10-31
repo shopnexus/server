@@ -36,5 +36,6 @@ func NewError(code, message string) Error {
 }
 
 var (
+	ErrValidation       = NewError("validation", "Validation error: %s")
 	ErrResourceNotFound = NewError("resource.not_found", "Resource not found")
 )

@@ -22,54 +22,50 @@ func (h *Handler) UploadFile(c echo.Context) error {
 	}
 	defer src.Close()
 
+	private := c.FormValue("private")
+
 	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	objectKey, publicURL, err := h.biz.UploadFile(c.Request().Context(), sharedbiz.UploadFileParams{
+	result, err := h.biz.UploadFile(c.Request().Context(), sharedbiz.UploadFileParams{
 		Account:     claims.Account,
 		File:        src,
 		Filename:    fileHeader.Filename,
 		ContentType: fileHeader.Header.Get("Content-Type"),
 		Size:        fileHeader.Size,
-		Private:     false, // TODO: let the client specify
+		Private:     private == "true",
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	// If no public URL (e.g., local store), build via GET endpoint using request host
-	if publicURL == "" {
-		publicURL = fmt.Sprintf("%s://%s/api/v1/shared/files/%s", c.Scheme(), c.Request().Host, objectKey)
-	}
-
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{
-		"key": objectKey,
-		"url": publicURL,
+	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]any{
+		"id":  result.ResourceID,
+		"url": result.URL,
 	})
 }
 
-// TODO: remove this (no use)
-type GetFileRequest struct {
-	ObjectKey string `param:"object_key" validate:"required"`
-}
+// type GetFileRequest struct {
+// 	ObjectKey string `param:"object_key" validate:"required"`
+// }
 
-func (h *Handler) GetFile(c echo.Context) error {
-	var req GetFileRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
+// func (h *Handler) GetFile(c echo.Context) error {
+// 	var req GetFileRequest
+// 	if err := c.Bind(&req); err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+// 	}
+// 	if err := c.Validate(&req); err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+// 	}
 
-	url, err := h.biz.GetFileURL(c.Request().Context(), "TODO: bruh", req.ObjectKey)
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
+// 	url, err := h.biz.GetFileURL(c.Request().Context(), "TODO: bruh", req.ObjectKey)
+// 	if err != nil {
+// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+// 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{
-		"url": url,
-	})
-}
+// 	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{
+// 		"url": url,
+// 	})
+// }
