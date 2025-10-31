@@ -1080,7 +1080,7 @@ type AccountProfile struct {
 	Gender           NullAccountGender  `json:"gender"`
 	Name             pgtype.Text        `json:"name"`
 	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified    bool               `json:"email_verified"`
 	PhoneVerified    bool               `json:"phone_verified"`
 	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
@@ -1317,7 +1317,7 @@ type PromotionSchedule struct {
 }
 
 type SharedResource struct {
-	ID         int64              `json:"id"`
+	ID         pgtype.UUID        `json:"id"`
 	UploadedBy pgtype.Int8        `json:"uploaded_by"`
 	Provider   string             `json:"provider"`
 	ObjectKey  string             `json:"object_key"`
@@ -1331,7 +1331,7 @@ type SharedResource struct {
 
 type SharedResourceReference struct {
 	ID        int64                 `json:"id"`
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`

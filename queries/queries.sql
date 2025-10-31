@@ -179,8 +179,6 @@ WHERE (
     ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
     ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("avatar_rs_id" > sqlc.narg('avatar_rs_id_from') OR sqlc.narg('avatar_rs_id_from') IS NULL) AND
-    ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
@@ -208,8 +206,6 @@ WHERE (
     ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
     ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("avatar_rs_id" > sqlc.narg('avatar_rs_id_from') OR sqlc.narg('avatar_rs_id_from') IS NULL) AND
-    ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
@@ -236,8 +232,6 @@ WHERE (
     ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
     ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("avatar_rs_id" > sqlc.narg('avatar_rs_id_from') OR sqlc.narg('avatar_rs_id_from') IS NULL) AND
-    ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
@@ -317,8 +311,6 @@ WHERE (
     ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
     ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("avatar_rs_id" > sqlc.narg('avatar_rs_id_from') OR sqlc.narg('avatar_rs_id_from') IS NULL) AND
-    ("avatar_rs_id" < sqlc.narg('avatar_rs_id_to') OR sqlc.narg('avatar_rs_id_to') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
@@ -4485,8 +4477,6 @@ SELECT 1
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
@@ -4507,8 +4497,6 @@ SELECT COUNT(*)
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
@@ -4528,8 +4516,6 @@ SELECT *
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
@@ -4549,27 +4535,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateSharedResource :one
 UPDATE "shared"."resource"
@@ -4602,8 +4588,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "shared"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
@@ -4642,8 +4626,6 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("rs_id" > sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
-    ("rs_id" < sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
@@ -4663,8 +4645,6 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("rs_id" > sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
-    ("rs_id" < sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
@@ -4683,8 +4663,6 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("rs_id" > sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
-    ("rs_id" < sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
@@ -4748,8 +4726,6 @@ WHERE (
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
     ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("rs_id" > sqlc.narg('rs_id_from') OR sqlc.narg('rs_id_from') IS NULL) AND
-    ("rs_id" < sqlc.narg('rs_id_to') OR sqlc.narg('rs_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND

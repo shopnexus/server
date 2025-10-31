@@ -429,19 +429,17 @@ WHERE (
     ("date_of_birth" > $7 OR $7 IS NULL) AND
     ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
-    ("email_verified" = ANY($12) OR $12 IS NULL) AND
-    ("phone_verified" = ANY($13) OR $13 IS NULL) AND
-    ("default_contact_id" = ANY($14) OR $14 IS NULL) AND
-    ("default_contact_id" > $15 OR $15 IS NULL) AND
-    ("default_contact_id" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("email_verified" = ANY($10) OR $10 IS NULL) AND
+    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
+    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
+    ("default_contact_id" > $13 OR $13 IS NULL) AND
+    ("default_contact_id" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
@@ -454,9 +452,7 @@ type CountAccountProfileParams struct {
 	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
 	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
 	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.Int8        `json:"avatar_rs_id"`
-	AvatarRsIDFrom       pgtype.Int8          `json:"avatar_rs_id_from"`
-	AvatarRsIDTo         pgtype.Int8          `json:"avatar_rs_id_to"`
+	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        []bool               `json:"email_verified"`
 	PhoneVerified        []bool               `json:"phone_verified"`
 	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
@@ -481,8 +477,6 @@ func (q *Queries) CountAccountProfile(ctx context.Context, arg CountAccountProfi
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
 		arg.AvatarRsID,
-		arg.AvatarRsIDFrom,
-		arg.AvatarRsIDTo,
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
@@ -1912,27 +1906,23 @@ SELECT COUNT(*)
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
-    ("uploaded_by" > $5 OR $5 IS NULL) AND
-    ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("object_key" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("status" = ANY($12) OR $12 IS NULL) AND
-    ("created_at" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" > $14 OR $14 IS NULL) AND
-    ("created_at" < $15 OR $15 IS NULL)
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("object_key" = ANY($5) OR $5 IS NULL) AND
+    ("size" = ANY($6) OR $6 IS NULL) AND
+    ("size" > $7 OR $7 IS NULL) AND
+    ("size" < $8 OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("status" = ANY($10) OR $10 IS NULL) AND
+    ("created_at" = ANY($11) OR $11 IS NULL) AND
+    ("created_at" > $12 OR $12 IS NULL) AND
+    ("created_at" < $13 OR $13 IS NULL)
 )
 `
 
 type CountSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
+	ID             []pgtype.UUID        `json:"id"`
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
@@ -1950,8 +1940,6 @@ type CountSharedResourceParams struct {
 func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSharedResource,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
@@ -1978,16 +1966,14 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" > $5 OR $5 IS NULL) AND
-    ("rs_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" > $12 OR $12 IS NULL) AND
-    ("order" < $13 OR $13 IS NULL) AND
-    ("is_primary" = ANY($14) OR $14 IS NULL)
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" = ANY($6) OR $6 IS NULL) AND
+    ("ref_id" > $7 OR $7 IS NULL) AND
+    ("ref_id" < $8 OR $8 IS NULL) AND
+    ("order" = ANY($9) OR $9 IS NULL) AND
+    ("order" > $10 OR $10 IS NULL) AND
+    ("order" < $11 OR $11 IS NULL) AND
+    ("is_primary" = ANY($12) OR $12 IS NULL)
 )
 `
 
@@ -1995,9 +1981,7 @@ type CountSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
 	IDFrom    pgtype.Int8             `json:"id_from"`
 	IDTo      pgtype.Int8             `json:"id_to"`
-	RsID      []int64                 `json:"rs_id"`
-	RsIDFrom  pgtype.Int8             `json:"rs_id_from"`
-	RsIDTo    pgtype.Int8             `json:"rs_id_to"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
 	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
@@ -2014,8 +1998,6 @@ func (q *Queries) CountSharedResourceReference(ctx context.Context, arg CountSha
 		arg.IDFrom,
 		arg.IDTo,
 		arg.RsID,
-		arg.RsIDFrom,
-		arg.RsIDTo,
 		arg.RefType,
 		arg.RefID,
 		arg.RefIDFrom,
@@ -2353,7 +2335,7 @@ type CreateAccountProfileParams struct {
 	Gender           NullAccountGender  `json:"gender"`
 	Name             pgtype.Text        `json:"name"`
 	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified    bool               `json:"email_verified"`
 	PhoneVerified    bool               `json:"phone_verified"`
 	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
@@ -2737,7 +2719,7 @@ type CreateCopyAccountProfileParams struct {
 	Gender           NullAccountGender  `json:"gender"`
 	Name             pgtype.Text        `json:"name"`
 	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified    bool               `json:"email_verified"`
 	PhoneVerified    bool               `json:"phone_verified"`
 	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
@@ -2865,7 +2847,7 @@ type CreateCopyDefaultAccountProfileParams struct {
 	Gender           NullAccountGender `json:"gender"`
 	Name             pgtype.Text       `json:"name"`
 	DateOfBirth      pgtype.Date       `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8       `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID       `json:"avatar_rs_id"`
 	DefaultContactID pgtype.Int8       `json:"default_contact_id"`
 }
 
@@ -3045,6 +3027,7 @@ type CreateCopyDefaultPromotionScheduleParams struct {
 }
 
 type CreateCopyDefaultSharedResourceParams struct {
+	ID         pgtype.UUID `json:"id"`
 	UploadedBy pgtype.Int8 `json:"uploaded_by"`
 	Provider   string      `json:"provider"`
 	ObjectKey  string      `json:"object_key"`
@@ -3055,7 +3038,7 @@ type CreateCopyDefaultSharedResourceParams struct {
 }
 
 type CreateCopyDefaultSharedResourceReferenceParams struct {
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
@@ -3211,6 +3194,7 @@ type CreateCopyPromotionScheduleParams struct {
 }
 
 type CreateCopySharedResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
 	UploadedBy pgtype.Int8        `json:"uploaded_by"`
 	Provider   string             `json:"provider"`
 	ObjectKey  string             `json:"object_key"`
@@ -3223,7 +3207,7 @@ type CreateCopySharedResourceParams struct {
 }
 
 type CreateCopySharedResourceReferenceParams struct {
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
@@ -3454,7 +3438,7 @@ type CreateDefaultAccountProfileParams struct {
 	Gender           NullAccountGender `json:"gender"`
 	Name             pgtype.Text       `json:"name"`
 	DateOfBirth      pgtype.Date       `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8       `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID       `json:"avatar_rs_id"`
 	DefaultContactID pgtype.Int8       `json:"default_contact_id"`
 }
 
@@ -4219,12 +4203,13 @@ func (q *Queries) CreateDefaultPromotionSchedule(ctx context.Context, arg Create
 }
 
 const createDefaultSharedResource = `-- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type CreateDefaultSharedResourceParams struct {
+	ID         pgtype.UUID `json:"id"`
 	UploadedBy pgtype.Int8 `json:"uploaded_by"`
 	Provider   string      `json:"provider"`
 	ObjectKey  string      `json:"object_key"`
@@ -4236,6 +4221,7 @@ type CreateDefaultSharedResourceParams struct {
 
 func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error) {
 	row := q.db.QueryRow(ctx, createDefaultSharedResource,
+		arg.ID,
 		arg.UploadedBy,
 		arg.Provider,
 		arg.ObjectKey,
@@ -4267,7 +4253,7 @@ RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
 `
 
 type CreateDefaultSharedResourceReferenceParams struct {
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
@@ -4884,12 +4870,13 @@ func (q *Queries) CreatePromotionSchedule(ctx context.Context, arg CreatePromoti
 }
 
 const createSharedResource = `-- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
 type CreateSharedResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
 	UploadedBy pgtype.Int8        `json:"uploaded_by"`
 	Provider   string             `json:"provider"`
 	ObjectKey  string             `json:"object_key"`
@@ -4903,6 +4890,7 @@ type CreateSharedResourceParams struct {
 
 func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error) {
 	row := q.db.QueryRow(ctx, createSharedResource,
+		arg.ID,
 		arg.UploadedBy,
 		arg.Provider,
 		arg.ObjectKey,
@@ -4936,7 +4924,7 @@ RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
 `
 
 type CreateSharedResourceReferenceParams struct {
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
@@ -5438,19 +5426,17 @@ WHERE (
     ("date_of_birth" > $7 OR $7 IS NULL) AND
     ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
-    ("email_verified" = ANY($12) OR $12 IS NULL) AND
-    ("phone_verified" = ANY($13) OR $13 IS NULL) AND
-    ("default_contact_id" = ANY($14) OR $14 IS NULL) AND
-    ("default_contact_id" > $15 OR $15 IS NULL) AND
-    ("default_contact_id" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("email_verified" = ANY($10) OR $10 IS NULL) AND
+    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
+    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
+    ("default_contact_id" > $13 OR $13 IS NULL) AND
+    ("default_contact_id" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
@@ -5463,9 +5449,7 @@ type DeleteAccountProfileParams struct {
 	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
 	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
 	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.Int8        `json:"avatar_rs_id"`
-	AvatarRsIDFrom       pgtype.Int8          `json:"avatar_rs_id_from"`
-	AvatarRsIDTo         pgtype.Int8          `json:"avatar_rs_id_to"`
+	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        []bool               `json:"email_verified"`
 	PhoneVerified        []bool               `json:"phone_verified"`
 	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
@@ -5490,8 +5474,6 @@ func (q *Queries) DeleteAccountProfile(ctx context.Context, arg DeleteAccountPro
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
 		arg.AvatarRsID,
-		arg.AvatarRsIDFrom,
-		arg.AvatarRsIDTo,
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
@@ -6849,27 +6831,23 @@ const deleteSharedResource = `-- name: DeleteSharedResource :exec
 DELETE FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
-    ("uploaded_by" > $5 OR $5 IS NULL) AND
-    ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("object_key" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("status" = ANY($12) OR $12 IS NULL) AND
-    ("created_at" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" > $14 OR $14 IS NULL) AND
-    ("created_at" < $15 OR $15 IS NULL)
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("object_key" = ANY($5) OR $5 IS NULL) AND
+    ("size" = ANY($6) OR $6 IS NULL) AND
+    ("size" > $7 OR $7 IS NULL) AND
+    ("size" < $8 OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("status" = ANY($10) OR $10 IS NULL) AND
+    ("created_at" = ANY($11) OR $11 IS NULL) AND
+    ("created_at" > $12 OR $12 IS NULL) AND
+    ("created_at" < $13 OR $13 IS NULL)
 )
 `
 
 type DeleteSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
+	ID             []pgtype.UUID        `json:"id"`
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
@@ -6887,8 +6865,6 @@ type DeleteSharedResourceParams struct {
 func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error {
 	_, err := q.db.Exec(ctx, deleteSharedResource,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
@@ -6912,16 +6888,14 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" > $5 OR $5 IS NULL) AND
-    ("rs_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" > $12 OR $12 IS NULL) AND
-    ("order" < $13 OR $13 IS NULL) AND
-    ("is_primary" = ANY($14) OR $14 IS NULL)
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" = ANY($6) OR $6 IS NULL) AND
+    ("ref_id" > $7 OR $7 IS NULL) AND
+    ("ref_id" < $8 OR $8 IS NULL) AND
+    ("order" = ANY($9) OR $9 IS NULL) AND
+    ("order" > $10 OR $10 IS NULL) AND
+    ("order" < $11 OR $11 IS NULL) AND
+    ("is_primary" = ANY($12) OR $12 IS NULL)
 )
 `
 
@@ -6929,9 +6903,7 @@ type DeleteSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
 	IDFrom    pgtype.Int8             `json:"id_from"`
 	IDTo      pgtype.Int8             `json:"id_to"`
-	RsID      []int64                 `json:"rs_id"`
-	RsIDFrom  pgtype.Int8             `json:"rs_id_from"`
-	RsIDTo    pgtype.Int8             `json:"rs_id_to"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
 	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
@@ -6948,8 +6920,6 @@ func (q *Queries) DeleteSharedResourceReference(ctx context.Context, arg DeleteS
 		arg.IDFrom,
 		arg.IDTo,
 		arg.RsID,
-		arg.RsIDFrom,
-		arg.RsIDTo,
 		arg.RefType,
 		arg.RefID,
 		arg.RefIDFrom,
@@ -7471,19 +7441,17 @@ WHERE (
     ("date_of_birth" > $7 OR $7 IS NULL) AND
     ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
-    ("email_verified" = ANY($12) OR $12 IS NULL) AND
-    ("phone_verified" = ANY($13) OR $13 IS NULL) AND
-    ("default_contact_id" = ANY($14) OR $14 IS NULL) AND
-    ("default_contact_id" > $15 OR $15 IS NULL) AND
-    ("default_contact_id" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("email_verified" = ANY($10) OR $10 IS NULL) AND
+    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
+    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
+    ("default_contact_id" > $13 OR $13 IS NULL) AND
+    ("default_contact_id" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ) as exists
 `
@@ -7497,9 +7465,7 @@ type ExistsAccountProfileParams struct {
 	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
 	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
 	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.Int8        `json:"avatar_rs_id"`
-	AvatarRsIDFrom       pgtype.Int8          `json:"avatar_rs_id_from"`
-	AvatarRsIDTo         pgtype.Int8          `json:"avatar_rs_id_to"`
+	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        []bool               `json:"email_verified"`
 	PhoneVerified        []bool               `json:"phone_verified"`
 	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
@@ -7524,8 +7490,6 @@ func (q *Queries) ExistsAccountProfile(ctx context.Context, arg ExistsAccountPro
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
 		arg.AvatarRsID,
-		arg.AvatarRsIDFrom,
-		arg.AvatarRsIDTo,
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
@@ -9002,28 +8966,24 @@ SELECT 1
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
-    ("uploaded_by" > $5 OR $5 IS NULL) AND
-    ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("object_key" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("status" = ANY($12) OR $12 IS NULL) AND
-    ("created_at" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" > $14 OR $14 IS NULL) AND
-    ("created_at" < $15 OR $15 IS NULL)
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("object_key" = ANY($5) OR $5 IS NULL) AND
+    ("size" = ANY($6) OR $6 IS NULL) AND
+    ("size" > $7 OR $7 IS NULL) AND
+    ("size" < $8 OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("status" = ANY($10) OR $10 IS NULL) AND
+    ("created_at" = ANY($11) OR $11 IS NULL) AND
+    ("created_at" > $12 OR $12 IS NULL) AND
+    ("created_at" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
+	ID             []pgtype.UUID        `json:"id"`
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
@@ -9041,8 +9001,6 @@ type ExistsSharedResourceParams struct {
 func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsSharedResource,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
@@ -9070,16 +9028,14 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" > $5 OR $5 IS NULL) AND
-    ("rs_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" > $12 OR $12 IS NULL) AND
-    ("order" < $13 OR $13 IS NULL) AND
-    ("is_primary" = ANY($14) OR $14 IS NULL)
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" = ANY($6) OR $6 IS NULL) AND
+    ("ref_id" > $7 OR $7 IS NULL) AND
+    ("ref_id" < $8 OR $8 IS NULL) AND
+    ("order" = ANY($9) OR $9 IS NULL) AND
+    ("order" > $10 OR $10 IS NULL) AND
+    ("order" < $11 OR $11 IS NULL) AND
+    ("is_primary" = ANY($12) OR $12 IS NULL)
 )
 ) as exists
 `
@@ -9088,9 +9044,7 @@ type ExistsSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
 	IDFrom    pgtype.Int8             `json:"id_from"`
 	IDTo      pgtype.Int8             `json:"id_to"`
-	RsID      []int64                 `json:"rs_id"`
-	RsIDFrom  pgtype.Int8             `json:"rs_id_from"`
-	RsIDTo    pgtype.Int8             `json:"rs_id_to"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
 	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
@@ -9107,8 +9061,6 @@ func (q *Queries) ExistsSharedResourceReference(ctx context.Context, arg ExistsS
 		arg.IDFrom,
 		arg.IDTo,
 		arg.RsID,
-		arg.RsIDFrom,
-		arg.RsIDTo,
 		arg.RefType,
 		arg.RefID,
 		arg.RefIDFrom,
@@ -9411,7 +9363,7 @@ WHERE ("id" = $1) OR ("avatar_rs_id" = $2) OR ("default_contact_id" = $3)
 
 type GetAccountProfileParams struct {
 	ID               pgtype.Int8 `json:"id"`
-	AvatarRsID       pgtype.Int8 `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID `json:"avatar_rs_id"`
 	DefaultContactID pgtype.Int8 `json:"default_contact_id"`
 }
 
@@ -10112,7 +10064,7 @@ WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
 `
 
 type GetSharedResourceParams struct {
-	ID        pgtype.Int8 `json:"id"`
+	ID        pgtype.UUID `json:"id"`
 	Provider  pgtype.Text `json:"provider"`
 	ObjectKey pgtype.Text `json:"object_key"`
 }
@@ -10804,23 +10756,21 @@ WHERE (
     ("date_of_birth" > $7 OR $7 IS NULL) AND
     ("date_of_birth" < $8 OR $8 IS NULL) AND
     ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("avatar_rs_id" > $10 OR $10 IS NULL) AND
-    ("avatar_rs_id" < $11 OR $11 IS NULL) AND
-    ("email_verified" = ANY($12) OR $12 IS NULL) AND
-    ("phone_verified" = ANY($13) OR $13 IS NULL) AND
-    ("default_contact_id" = ANY($14) OR $14 IS NULL) AND
-    ("default_contact_id" > $15 OR $15 IS NULL) AND
-    ("default_contact_id" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("email_verified" = ANY($10) OR $10 IS NULL) AND
+    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
+    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
+    ("default_contact_id" > $13 OR $13 IS NULL) AND
+    ("default_contact_id" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ORDER BY "id"
-LIMIT $24
-OFFSET $23
+LIMIT $22
+OFFSET $21
 `
 
 type ListAccountProfileParams struct {
@@ -10832,9 +10782,7 @@ type ListAccountProfileParams struct {
 	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
 	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
 	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.Int8        `json:"avatar_rs_id"`
-	AvatarRsIDFrom       pgtype.Int8          `json:"avatar_rs_id_from"`
-	AvatarRsIDTo         pgtype.Int8          `json:"avatar_rs_id_to"`
+	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        []bool               `json:"email_verified"`
 	PhoneVerified        []bool               `json:"phone_verified"`
 	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
@@ -10861,8 +10809,6 @@ func (q *Queries) ListAccountProfile(ctx context.Context, arg ListAccountProfile
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
 		arg.AvatarRsID,
-		arg.AvatarRsIDFrom,
-		arg.AvatarRsIDTo,
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
@@ -12948,30 +12894,26 @@ SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, st
 FROM "shared"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("uploaded_by" = ANY($4) OR $4 IS NULL) AND
-    ("uploaded_by" > $5 OR $5 IS NULL) AND
-    ("uploaded_by" < $6 OR $6 IS NULL) AND
-    ("object_key" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("status" = ANY($12) OR $12 IS NULL) AND
-    ("created_at" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" > $14 OR $14 IS NULL) AND
-    ("created_at" < $15 OR $15 IS NULL)
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("object_key" = ANY($5) OR $5 IS NULL) AND
+    ("size" = ANY($6) OR $6 IS NULL) AND
+    ("size" > $7 OR $7 IS NULL) AND
+    ("size" < $8 OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("status" = ANY($10) OR $10 IS NULL) AND
+    ("created_at" = ANY($11) OR $11 IS NULL) AND
+    ("created_at" > $12 OR $12 IS NULL) AND
+    ("created_at" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $15
+OFFSET $14
 `
 
 type ListSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
+	ID             []pgtype.UUID        `json:"id"`
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
@@ -12991,8 +12933,6 @@ type ListSharedResourceParams struct {
 func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error) {
 	rows, err := q.db.Query(ctx, listSharedResource,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
@@ -13045,29 +12985,25 @@ WHERE (
     ("id" > $2 OR $2 IS NULL) AND
     ("id" < $3 OR $3 IS NULL) AND
     ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("rs_id" > $5 OR $5 IS NULL) AND
-    ("rs_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("order" = ANY($11) OR $11 IS NULL) AND
-    ("order" > $12 OR $12 IS NULL) AND
-    ("order" < $13 OR $13 IS NULL) AND
-    ("is_primary" = ANY($14) OR $14 IS NULL)
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_id" = ANY($6) OR $6 IS NULL) AND
+    ("ref_id" > $7 OR $7 IS NULL) AND
+    ("ref_id" < $8 OR $8 IS NULL) AND
+    ("order" = ANY($9) OR $9 IS NULL) AND
+    ("order" > $10 OR $10 IS NULL) AND
+    ("order" < $11 OR $11 IS NULL) AND
+    ("is_primary" = ANY($12) OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16
-OFFSET $15
+LIMIT $14
+OFFSET $13
 `
 
 type ListSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
 	IDFrom    pgtype.Int8             `json:"id_from"`
 	IDTo      pgtype.Int8             `json:"id_to"`
-	RsID      []int64                 `json:"rs_id"`
-	RsIDFrom  pgtype.Int8             `json:"rs_id_from"`
-	RsIDTo    pgtype.Int8             `json:"rs_id_to"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
 	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
@@ -13086,8 +13022,6 @@ func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListShare
 		arg.IDFrom,
 		arg.IDTo,
 		arg.RsID,
-		arg.RsIDFrom,
-		arg.RsIDTo,
 		arg.RefType,
 		arg.RefID,
 		arg.RefIDFrom,
@@ -13582,7 +13516,7 @@ type UpdateAccountProfileParams struct {
 	NullDateOfBirth      bool               `json:"null_date_of_birth"`
 	DateOfBirth          pgtype.Date        `json:"date_of_birth"`
 	NullAvatarRsID       bool               `json:"null_avatar_rs_id"`
-	AvatarRsID           pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID           pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        pgtype.Bool        `json:"email_verified"`
 	PhoneVerified        pgtype.Bool        `json:"phone_verified"`
 	NullDefaultContactID bool               `json:"null_default_contact_id"`
@@ -14696,7 +14630,7 @@ type UpdateSharedResourceParams struct {
 	Checksum       pgtype.Text        `json:"checksum"`
 	Status         NullSharedStatus   `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             int64              `json:"id"`
+	ID             pgtype.UUID        `json:"id"`
 }
 
 func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error) {
@@ -14742,7 +14676,7 @@ RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
 `
 
 type UpdateSharedResourceReferenceParams struct {
-	RsID      pgtype.Int8               `json:"rs_id"`
+	RsID      pgtype.UUID               `json:"rs_id"`
 	RefType   NullSharedResourceRefType `json:"ref_type"`
 	RefID     pgtype.Int8               `json:"ref_id"`
 	Order     pgtype.Int4               `json:"order"`

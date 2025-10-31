@@ -458,7 +458,7 @@ type CreateBatchAccountProfileParams struct {
 	Gender           NullAccountGender  `json:"gender"`
 	Name             pgtype.Text        `json:"name"`
 	DateOfBirth      pgtype.Date        `json:"date_of_birth"`
-	AvatarRsID       pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified    bool               `json:"email_verified"`
 	PhoneVerified    bool               `json:"phone_verified"`
 	DefaultContactID pgtype.Int8        `json:"default_contact_id"`
@@ -2095,8 +2095,8 @@ func (b *CreateBatchPromotionScheduleBatchResults) Close() error {
 }
 
 const createBatchSharedResource = `-- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
 `
 
@@ -2107,6 +2107,7 @@ type CreateBatchSharedResourceBatchResults struct {
 }
 
 type CreateBatchSharedResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
 	UploadedBy pgtype.Int8        `json:"uploaded_by"`
 	Provider   string             `json:"provider"`
 	ObjectKey  string             `json:"object_key"`
@@ -2122,6 +2123,7 @@ func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBat
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.ID,
 			a.UploadedBy,
 			a.Provider,
 			a.ObjectKey,
@@ -2185,7 +2187,7 @@ type CreateBatchSharedResourceReferenceBatchResults struct {
 }
 
 type CreateBatchSharedResourceReferenceParams struct {
-	RsID      int64                 `json:"rs_id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
 	RefType   SharedResourceRefType `json:"ref_type"`
 	RefID     int64                 `json:"ref_id"`
 	Order     int32                 `json:"order"`
@@ -2679,7 +2681,7 @@ type DeleteBatchAccountProfileBatchResults struct {
 
 type DeleteBatchAccountProfileParams struct {
 	ID               pgtype.Int8 `json:"id"`
-	AvatarRsID       pgtype.Int8 `json:"avatar_rs_id"`
+	AvatarRsID       pgtype.UUID `json:"avatar_rs_id"`
 	DefaultContactID pgtype.Int8 `json:"default_contact_id"`
 }
 
@@ -3814,7 +3816,7 @@ type DeleteBatchSharedResourceBatchResults struct {
 }
 
 type DeleteBatchSharedResourceParams struct {
-	ID        pgtype.Int8 `json:"id"`
+	ID        pgtype.UUID `json:"id"`
 	Provider  pgtype.Text `json:"provider"`
 	ObjectKey pgtype.Text `json:"object_key"`
 }
@@ -4567,7 +4569,7 @@ type UpdateBatchAccountProfileParams struct {
 	NullDateOfBirth      bool               `json:"null_date_of_birth"`
 	DateOfBirth          pgtype.Date        `json:"date_of_birth"`
 	NullAvatarRsID       bool               `json:"null_avatar_rs_id"`
-	AvatarRsID           pgtype.Int8        `json:"avatar_rs_id"`
+	AvatarRsID           pgtype.UUID        `json:"avatar_rs_id"`
 	EmailVerified        pgtype.Bool        `json:"email_verified"`
 	PhoneVerified        pgtype.Bool        `json:"phone_verified"`
 	NullDefaultContactID bool               `json:"null_default_contact_id"`
@@ -6212,7 +6214,7 @@ type UpdateBatchSharedResourceParams struct {
 	Checksum       pgtype.Text        `json:"checksum"`
 	Status         NullSharedStatus   `json:"status"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             int64              `json:"id"`
+	ID             pgtype.UUID        `json:"id"`
 }
 
 func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
@@ -6276,7 +6278,7 @@ type UpdateBatchSharedResourceReferenceBatchResults struct {
 }
 
 type UpdateBatchSharedResourceReferenceParams struct {
-	RsID      pgtype.Int8               `json:"rs_id"`
+	RsID      pgtype.UUID               `json:"rs_id"`
 	RefType   NullSharedResourceRefType `json:"ref_type"`
 	RefID     pgtype.Int8               `json:"ref_id"`
 	Order     pgtype.Int4               `json:"order"`

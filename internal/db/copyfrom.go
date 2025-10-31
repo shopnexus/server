@@ -1696,6 +1696,7 @@ func (r *iteratorForCreateCopyDefaultSharedResource) Next() bool {
 
 func (r iteratorForCreateCopyDefaultSharedResource) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].UploadedBy,
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
@@ -1711,7 +1712,7 @@ func (r iteratorForCreateCopyDefaultSharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum"}, &iteratorForCreateCopyDefaultSharedResource{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSharedResourceReference implements pgx.CopyFromSource.
@@ -2366,6 +2367,7 @@ func (r *iteratorForCreateCopySharedResource) Next() bool {
 
 func (r iteratorForCreateCopySharedResource) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].UploadedBy,
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
@@ -2383,7 +2385,7 @@ func (r iteratorForCreateCopySharedResource) Err() error {
 }
 
 func (q *Queries) CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "resource"}, []string{"id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at"}, &iteratorForCreateCopySharedResource{rows: arg})
 }
 
 // iteratorForCreateCopySharedResourceReference implements pgx.CopyFromSource.

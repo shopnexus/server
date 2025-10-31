@@ -17,19 +17,17 @@ FROM "shared"."resource_reference" AS rr
 INNER JOIN "shared"."resource" AS r ON rr.rs_id = r.id
 WHERE
     rr.ref_type = $1 AND
-    rr.ref_id = ANY($2) AND
-    (rr.is_primary = $3 OR $3 IS NULL)
-ORDER BY rr.ref_id, rr."order" ASC
+    rr.ref_id = ANY($2)
+ORDER BY rr.is_primary DESC, rr."order", rr.id ASC
 `
 
 type ListSortedResourcesParams struct {
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     []int64               `json:"ref_id"`
-	IsPrimary pgtype.Bool           `json:"is_primary"`
+	RefType SharedResourceRefType `json:"ref_type"`
+	RefID   []int64               `json:"ref_id"`
 }
 
 type ListSortedResourcesRow struct {
-	ID         int64              `json:"id"`
+	ID         pgtype.UUID        `json:"id"`
 	UploadedBy pgtype.Int8        `json:"uploaded_by"`
 	Provider   string             `json:"provider"`
 	ObjectKey  string             `json:"object_key"`
@@ -43,7 +41,7 @@ type ListSortedResourcesRow struct {
 }
 
 func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error) {
-	rows, err := q.db.Query(ctx, listSortedResources, arg.RefType, arg.RefID, arg.IsPrimary)
+	rows, err := q.db.Query(ctx, listSortedResources, arg.RefType, arg.RefID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,9 +99,9 @@ OFFSET $17
 `
 
 type SearchSharedResourceParams struct {
-	ID             []int64              `json:"id"`
-	IDFrom         pgtype.Int8          `json:"id_from"`
-	IDTo           pgtype.Int8          `json:"id_to"`
+	ID             []pgtype.UUID        `json:"id"`
+	IDFrom         pgtype.UUID          `json:"id_from"`
+	IDTo           pgtype.UUID          `json:"id_to"`
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
