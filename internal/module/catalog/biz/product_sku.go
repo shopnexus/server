@@ -76,8 +76,8 @@ type CreateProductSkuParams struct {
 	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (db.CatalogProductSku, error) {
-	var zero db.CatalogProductSku
+func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+	var zero catalogmodel.ProductSku
 	txStorage, err := b.storage.BeginTx(ctx)
 	if err != nil {
 		return zero, err
@@ -112,7 +112,15 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 		return zero, err
 	}
 
-	return sku, nil
+	return catalogmodel.ProductSku{
+		ID:          sku.ID,
+		SpuID:       sku.SpuID,
+		Price:       sku.Price,
+		CanCombine:  sku.CanCombine,
+		DateCreated: sku.DateCreated.Time,
+		Stock:       0,
+		Attributes:  params.Attributes,
+	}, nil
 }
 
 type UpdateProductSkuParams struct {
@@ -123,8 +131,8 @@ type UpdateProductSkuParams struct {
 	Attributes []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
 }
 
-func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (db.CatalogProductSku, error) {
-	var zero db.CatalogProductSku
+func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -152,6 +160,14 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
+	stock, err := txStorage.GetInventoryStock(ctx, db.GetInventoryStockParams{
+		RefType: db.NullInventoryStockRefType{InventoryStockRefType: db.InventoryStockRefTypeProductSku, Valid: true},
+		RefID:   pgutil.Int64ToPgInt8(sku.ID),
+	})
+	if err != nil {
+		return zero, err
+	}
+
 	// Invalidate search index for the parent product (spu)
 	if err := txStorage.UpdateStaleSearchSync(ctx, db.UpdateStaleSearchSyncParams{
 		RefType:         searchmodel.RefTypeProduct,
@@ -165,7 +181,15 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	return sku, nil
+	return catalogmodel.ProductSku{
+		ID:          sku.ID,
+		SpuID:       sku.SpuID,
+		Price:       sku.Price,
+		CanCombine:  sku.CanCombine,
+		DateCreated: sku.DateCreated.Time,
+		Stock:       stock.CurrentStock,
+		Attributes:  params.Attributes,
+	}, nil
 }
 
 type DeleteProductSkuParams struct {
