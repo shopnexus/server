@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ListRefundsParams struct {
@@ -125,31 +124,15 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 	}
 
 	// Associate resources
-	var createResourceArgs []db.CreateCopyDefaultSharedResourceReferenceParams
-
-	resources, err := txStorage.ListSharedResource(ctx, db.ListSharedResourceParams{
-		ID:         slice.Map(params.ResourceIDs, func(id uuid.UUID) pgtype.UUID { return pgutil.UUIDToPgUUID(id) }),
-		UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		Account:         params.Account,
+		RefType:         db.SharedResourceRefTypeRefund,
+		RefID:           refund.ID,
+		ResourceIDs:     params.ResourceIDs,
+		EmptyResources:  false,
+		DeleteResources: false,
 	})
 	if err != nil {
-		return zero, err
-	}
-	if len(resources) != len(params.ResourceIDs) {
-		// Some resources not found or not belong to the user
-		return zero, sharedmodel.ErrResourceNotFound
-	}
-
-	for order, rsID := range params.ResourceIDs {
-		createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultSharedResourceReferenceParams{
-			RsID:      pgutil.UUIDToPgUUID(rsID),
-			RefType:   db.SharedResourceRefTypeRefund,
-			RefID:     refund.ID,
-			Order:     int32(order),
-			IsPrimary: false,
-		})
-	}
-
-	if _, err := txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
 		return zero, err
 	}
 
@@ -168,14 +151,7 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 		ReviewedByID: pgutil.PgInt8ToNullInt64(refund.ReviewedByID),
 		ShipmentID:   pgutil.PgInt8ToNullInt64(refund.ShipmentID),
 		DateCreated:  refund.DateCreated.Time,
-		Resources: slice.Map(resources, func(resource db.SharedResource) sharedmodel.Resource {
-			return sharedmodel.Resource{
-				ID:   resource.ID.Bytes,
-				Mime: resource.Mime,
-				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
-				Size: resource.Size,
-			}
-		}),
+		Resources:    resources,
 	}, nil
 }
 
@@ -237,23 +213,19 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 	}
 
 	// Update resources
-	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:         params.Account,
 		RefType:         db.SharedResourceRefTypeRefund,
 		RefID:           refund.ID,
 		ResourceIDs:     params.ResourceIDs,
 		EmptyResources:  params.EmptyResources,
 		DeleteResources: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
 	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
-	}
-
-	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeRefund, []int64{refund.ID})
-	if err != nil {
 		return zero, err
 	}
 
@@ -268,7 +240,7 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		ReviewedByID: pgutil.PgInt8ToNullInt64(refund.ReviewedByID),
 		ShipmentID:   pgutil.PgInt8ToNullInt64(refund.ShipmentID),
 		DateCreated:  refund.DateCreated.Time,
-		Resources:    resourcesMap[refund.ID],
+		Resources:    resources,
 	}, nil
 }
 
@@ -313,6 +285,8 @@ func (b *OrderBiz) ConfirmRefund(ctx context.Context, params ConfirmRefundParams
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
+
+	// TODO: tell the shipment to take the refund package if method is pick-up, skip if drop-off
 
 	return b.UpdateRefund(ctx, UpdateRefundParams{
 		Account:      params.Account,

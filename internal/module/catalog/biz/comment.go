@@ -160,8 +160,8 @@ type CreateCommentParams struct {
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentParams) (db.CatalogComment, error) {
-	var zero db.CatalogComment
+func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
+	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -185,13 +185,14 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 	}
 
 	// Attach resources
-	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:        params.Account,
 		RefType:        db.SharedResourceRefTypeComment,
 		RefID:          comment.ID,
 		ResourceIDs:    params.ResourceIDs,
 		EmptyResources: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
@@ -199,7 +200,17 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		return zero, err
 	}
 
-	return comment, nil
+	return catalogmodel.Comment{
+		ID:          comment.ID,
+		Account:     catalogmodel.CommentAccount{ID: params.Account.ID},
+		Body:        comment.Body,
+		Upvote:      comment.Upvote,
+		Downvote:    comment.Downvote,
+		Score:       comment.Score,
+		DateCreated: comment.DateCreated,
+		DateUpdated: comment.DateUpdated,
+		Resources:   resources,
+	}, nil
 }
 
 type UpdateCommentParams struct {
@@ -215,8 +226,8 @@ type UpdateCommentParams struct {
 	EmptyResources bool
 }
 
-func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentParams) (db.CatalogComment, error) {
-	var zero db.CatalogComment
+func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
+	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -250,14 +261,15 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	}
 
 	// Update resources
-	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:         params.Account,
 		RefType:         db.SharedResourceRefTypeComment,
 		RefID:           params.CommentID,
 		ResourceIDs:     params.ResourceIDs,
 		EmptyResources:  params.EmptyResources,
 		DeleteResources: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
@@ -265,7 +277,17 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		return zero, err
 	}
 
-	return comment, nil
+	return catalogmodel.Comment{
+		ID:          comment.ID,
+		Account:     catalogmodel.CommentAccount{ID: params.Account.ID},
+		Body:        comment.Body,
+		Upvote:      comment.Upvote,
+		Downvote:    comment.Downvote,
+		Score:       comment.Score,
+		DateCreated: comment.DateCreated,
+		DateUpdated: comment.DateUpdated,
+		Resources:   resources,
+	}, nil
 }
 
 type DeleteCommentParams struct {

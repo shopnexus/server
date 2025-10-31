@@ -40,9 +40,9 @@ type UpdateResourcesParams struct {
 	DeleteResources bool                     `validate:"omitempty"`
 }
 
-func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxStorage, params UpdateResourcesParams) error {
+func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxStorage, params UpdateResourcesParams) ([]sharedmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Update resources (delete all and re-attach)
@@ -54,7 +54,7 @@ func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxSto
 			DeleteResources:     params.DeleteResources,
 			SkipDeleteResources: params.ResourceIDs,
 		}); err != nil {
-			return err
+			return nil, err
 		}
 
 		// Next step: Attach resources
@@ -65,11 +65,11 @@ func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxSto
 			UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
-			return sharedmodel.ErrResourceNotFound
+			return nil, sharedmodel.ErrResourceNotFound
 		}
 
 		for order, rsID := range params.ResourceIDs {
@@ -83,11 +83,16 @@ func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxSto
 		}
 
 		if _, err = txStorage.CreateCopyDefaultSharedResourceReference(ctx, createResourceArgs); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	resourcesMap, err := b.GetResources(ctx, params.RefType, []int64{params.RefID})
+	if err != nil {
+		return nil, err
+	}
+
+	return resourcesMap[params.RefID], nil
 }
 
 type DeleteResourcesParams struct {
@@ -147,7 +152,7 @@ func (b *SharedBiz) GetResources(ctx context.Context, refType db.SharedResourceR
 	return slice.GroupBySlice(resources, func(rs db.ListSortedResourcesRow) (int64, sharedmodel.Resource) {
 		return rs.RefID, sharedmodel.Resource{
 			ID:       rs.ID.Bytes,
-			Url:      b.MustGetFileURL(ctx, rs.Provider, rs.ObjectKey),
+			Url:      b.MustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
 			Mime:     rs.Mime,
 			Size:     rs.Size,
 			Checksum: pgutil.PgTextToNullString(rs.Checksum),
