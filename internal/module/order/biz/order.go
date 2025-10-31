@@ -65,8 +65,8 @@ type ListOrdersParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[db.OrderBase], error) {
-	var zero sharedmodel.PaginateResult[db.OrderBase]
+func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	total, err := s.storage.CountOrderBase(ctx, db.CountOrderBaseParams{})
 	if err != nil {
@@ -81,10 +81,29 @@ func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sha
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.OrderBase]{
+	orderItems, err := s.storage.ListOrderItem(ctx, db.ListOrderItemParams{
+		OrderID: slice.Map(orders, func(o db.OrderBase) int64 { return o.ID }),
+	})
+	if err != nil {
+		return zero, err
+	}
+	orderItemsMap := slice.GroupBySlice(orderItems, func(oi db.OrderItem) (int64, db.OrderItem) { return oi.OrderID, oi })
+
+	return sharedmodel.PaginateResult[ordermodel.Order]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
-		Data:       orders,
+		Data: slice.Map(orders, func(o db.OrderBase) ordermodel.Order {
+			return ordermodel.Order{
+				ID:            o.ID,
+				AccountID:     o.AccountID,
+				PaymentOption: o.PaymentOption,
+				PaymentStatus: o.PaymentStatus,
+				Address:       o.Address,
+				DateCreated:   o.DateCreated.Time,
+				DateUpdated:   o.DateUpdated.Time,
+				Items:         orderItemsMap[o.ID],
+			}
+		}),
 	}, nil
 }
 

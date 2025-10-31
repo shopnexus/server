@@ -14,6 +14,17 @@ const (
 	TopicOrderConfirmed = "order.confirmed"
 )
 
+type Order struct {
+	ID            int64           `json:"id"`
+	AccountID     int64           `json:"account_id"`
+	PaymentOption string          `json:"payment_option"`
+	PaymentStatus db.SharedStatus `json:"payment_status"`
+	Address       string          `json:"address"`
+	DateCreated   time.Time       `json:"date_created"`
+	DateUpdated   time.Time       `json:"date_updated"`
+	Items         []db.OrderItem  `json:"items"`
+}
+
 type Refund struct {
 	ID           int64                  `json:"id"`
 	AccountID    int64                  `json:"account_id"`
