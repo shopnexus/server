@@ -20,8 +20,8 @@ type ListVendorOrderParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[db.OrderItem], error) {
-	var zero sharedmodel.PaginateResult[db.OrderItem]
+func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[db.ListVendorOrderItemRow], error) {
+	var zero sharedmodel.PaginateResult[db.ListVendorOrderItemRow]
 
 	total, err := s.storage.CountOrderItem(ctx, db.CountOrderItemParams{
 		VendorID: []int64{params.Account.ID},
@@ -30,7 +30,7 @@ func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderPa
 		return zero, err
 	}
 
-	orders, err := s.storage.ListOrderItem(ctx, db.ListOrderItemParams{
+	orders, err := s.storage.ListVendorOrderItem(ctx, db.ListVendorOrderItemParams{
 		Limit:    pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset:   pgutil.Int32ToPgInt4(params.Offset()),
 		VendorID: []int64{params.Account.ID},
@@ -39,7 +39,7 @@ func (s *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderPa
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.OrderItem]{
+	return sharedmodel.PaginateResult[db.ListVendorOrderItemRow]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       orders,
