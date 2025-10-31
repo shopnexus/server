@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"time"
+
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"shopnexus-remastered/config"
@@ -21,7 +23,7 @@ func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (*pgutil.Storage, error) {
 		Password:        cfg.Postgres.Password,
 		Database:        cfg.Postgres.Database,
 		MaxConnections:  cfg.Postgres.MaxConnections,
-		MaxConnIdleTime: cfg.Postgres.MaxConnIdleTime,
+		MaxConnIdleTime: cfg.Postgres.MaxConnIdleTime * time.Second,
 	})
 	if err != nil {
 		return nil, err
@@ -47,6 +49,6 @@ func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (*pgutil.Storage, error) {
 			return nil
 		},
 	})
-	
+
 	return pgutil.NewStorage(pool), nil
 }

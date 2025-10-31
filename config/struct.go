@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 type Config struct {
 	// General configuration
 	Env string `yaml:"env" mapstructure:"env" validate:"required,oneof=dev staging production"`
@@ -44,16 +46,16 @@ type Log struct {
 }
 
 type Postgres struct {
-	Url                string `yaml:"url" mapstructure:"url"`
-	Host               string `yaml:"host" mapstructure:"host" validate:"required_without=Url"`
-	Port               int    `yaml:"port" mapstructure:"port" validate:"required_without=Url"`
-	Username           string `yaml:"username" mapstructure:"username" validate:"required_without=Url"`
-	Password           string `yaml:"password" mapstructure:"password" validate:"required_without=Url"`
-	Database           string `yaml:"database" mapstructure:"database" validate:"required_without=Url"`
-	MaxConnections     int32  `yaml:"maxConnections" mapstructure:"maxConnections" validate:"gte=1"`
-	MaxIdleConnections int32  `yaml:"maxIdleConnections" mapstructure:"maxIdleConnections" validate:"gte=0"`
-	MaxConnIdleTime    int32  `yaml:"maxConnIdleTime" mapstructure:"maxConnIdleTime" validate:"gte=0"`
-	LogQuery           bool   `yaml:"logQuery" mapstructure:"logQuery"`
+	Url                string        `yaml:"url" mapstructure:"url"`
+	Host               string        `yaml:"host" mapstructure:"host" validate:"required_without=Url"`
+	Port               int           `yaml:"port" mapstructure:"port" validate:"required_without=Url"`
+	Username           string        `yaml:"username" mapstructure:"username" validate:"required_without=Url"`
+	Password           string        `yaml:"password" mapstructure:"password" validate:"required_without=Url"`
+	Database           string        `yaml:"database" mapstructure:"database" validate:"required_without=Url"`
+	MaxConnections     int32         `yaml:"maxConnections" mapstructure:"maxConnections" validate:"gte=1"`
+	MaxIdleConnections int32         `yaml:"maxIdleConnections" mapstructure:"maxIdleConnections" validate:"gte=0"`
+	MaxConnIdleTime    time.Duration `yaml:"maxConnIdleTime" mapstructure:"maxConnIdleTime" validate:"gte=0"`
+	LogQuery           bool          `yaml:"logQuery" mapstructure:"logQuery"`
 }
 
 type Redis struct {
