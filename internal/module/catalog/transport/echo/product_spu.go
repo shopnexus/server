@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ListProductSpuParams struct {
+type ListProductSpuRequest struct {
 	sharedmodel.PaginationParams
 	Code       []string `query:"code" comma_separated:"true" validate:"omitempty"`
 	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"omitempty"`
@@ -21,7 +21,7 @@ type ListProductSpuParams struct {
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
-	var req ListProductSpuParams
+	var req ListProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -61,6 +61,7 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
+
 	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
@@ -81,17 +82,18 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
 
-type CreateProductSpuParams struct {
+type CreateProductSpuRequest struct {
 	CategoryID  int64       `json:"category_id" validate:"required,gt=0"`
 	BrandID     int64       `json:"brand_id" validate:"required,gt=0"`
 	Name        string      `json:"name" validate:"required,min=1,max=200"`
 	Description string      `json:"description" validate:"required,max=1000"`
 	IsActive    bool        `json:"is_active" validate:"omitempty"`
-	ResourceIDs []uuid.UUID `json:"resources" validate:"omitempty,dive"`
+	Tags        []string    `json:"tags" validate:"required,dive,min=1,max=100"`
+	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"omitempty,dive"`
 }
 
 func (h *Handler) CreateProductSpu(c echo.Context) error {
-	var req CreateProductSpuParams
+	var req CreateProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -111,6 +113,7 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 		Name:        req.Name,
 		Description: req.Description,
 		IsActive:    req.IsActive,
+		Tags:        req.Tags,
 		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
@@ -120,18 +123,20 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 
-type UpdateProductSpuParams struct {
-	ID            int64       `validate:"required,gt=0"`
-	CategoryID    null.Int64  `validate:"omitnil,gt=0"`
-	FeaturedSkuID null.Int64  `validate:"omitnil,gt=0"`
-	BrandID       null.Int64  `validate:"omitnil,gt=0"`
-	Name          null.String `validate:"omitnil,min=1,max=200"`
-	Description   null.String `validate:"omitnil,max=1000"`
-	IsActive      null.Bool   `validate:"omitnil"`
+type UpdateProductSpuRequest struct {
+	ID            int64       `json:"id" validate:"required,gt=0"`
+	CategoryID    null.Int64  `json:"category_id" validate:"omitnil,gt=0"`
+	FeaturedSkuID null.Int64  `json:"featured_sku_id" validate:"omitnil,gt=0"`
+	BrandID       null.Int64  `json:"brand_id" validate:"omitnil,gt=0"`
+	Name          null.String `json:"name" validate:"omitnil,min=1,max=200"`
+	Description   null.String `json:"description" validate:"omitnil,max=1000"`
+	IsActive      null.Bool   `json:"is_active" validate:"omitnil"`
+	Tags          []string    `json:"tags" validate:"required,dive,min=1,max=100"`
+	ResourceIDs   []uuid.UUID `json:"resource_ids" validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateProductSpu(c echo.Context) error {
-	var req UpdateProductSpuParams
+	var req UpdateProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -153,6 +158,8 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 		Name:          req.Name,
 		Description:   req.Description,
 		IsActive:      req.IsActive,
+		Tags:          req.Tags,
+		ResourceIDs:   req.ResourceIDs,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -161,12 +168,12 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 
-type DeleteProductSpuParams struct {
-	ID int64 `validate:"required,gt=0"`
+type DeleteProductSpuRequest struct {
+	ID int64 `param:"id" validate:"required,gt=0"`
 }
 
 func (h *Handler) DeleteProductSpu(c echo.Context) error {
-	var req DeleteProductSpuParams
+	var req DeleteProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}

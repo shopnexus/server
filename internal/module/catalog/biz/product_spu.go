@@ -21,34 +21,34 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-func (b *CatalogBiz) getTagsMap(ctx context.Context, spuID []int64) (map[int64][]string, error) { // map[spuID][]tag
+func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []int64) map[int64][]string { // map[spuID][]tag
 	tags, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
 		SpuID: spuID,
 	})
 	if err != nil {
-		return nil, err
+		zero := map[int64][]string{}
+		for _, id := range spuID {
+			zero[id] = []string{}
+		}
+		return zero
 	}
-	return slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag }), nil
+	return slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag })
 }
 
-func (b *CatalogBiz) getCategoryMap(ctx context.Context, categoryID []int64) (map[int64]db.CatalogCategory, error) {
-	categories, err := b.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
-		ID: categoryID,
+// TODO: use join instead of spamming N+1 queries
+func (b *CatalogBiz) mustGetCategory(ctx context.Context, categoryID int64) db.CatalogCategory {
+	category, _ := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
+		ID: pgutil.Int64ToPgInt8(categoryID),
 	})
-	if err != nil {
-		return nil, err
-	}
-	return slice.GroupBy(categories, func(category db.CatalogCategory) (int64, db.CatalogCategory) { return category.ID, category }), nil
+	return category
 }
 
-func (b *CatalogBiz) getBrandMap(ctx context.Context, brandID []int64) (map[int64]db.CatalogBrand, error) {
-	brands, err := b.storage.ListCatalogBrand(ctx, db.ListCatalogBrandParams{
-		ID: brandID,
+// TODO: use join instead of spamming N+1 queries
+func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID int64) db.CatalogBrand {
+	brand, _ := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
+		ID: pgutil.Int64ToPgInt8(brandID),
 	})
-	if err != nil {
-		return nil, err
-	}
-	return slice.GroupBy(brands, func(brand db.CatalogBrand) (int64, db.CatalogBrand) { return brand.ID, brand }), nil
+	return brand
 }
 
 type ListProductSpuParams struct {
@@ -106,20 +106,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 	}
 	ratingMap := slice.GroupBy(ratings, func(r db.ListRatingRow) (int64, db.ListRatingRow) { return r.RefID, r })
 
-	categoryMap, err := b.getCategoryMap(ctx, slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.CategoryID }))
-	if err != nil {
-		return zero, err
-	}
-
-	brandMap, err := b.getBrandMap(ctx, slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.BrandID }))
-	if err != nil {
-		return zero, err
-	}
-
-	tagsMap, err := b.getTagsMap(ctx, spuIDs)
-	if err != nil {
-		return zero, err
-	}
+	tagsMap := b.mustGetTagsMap(ctx, spuIDs)
 
 	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
@@ -131,8 +118,8 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		spus = append(spus, catalogmodel.ProductSpu{
 			ID:            spu.ID,
 			Code:          spu.Code,
-			Category:      categoryMap[spu.CategoryID],
-			Brand:         brandMap[spu.BrandID],
+			Category:      b.mustGetCategory(ctx, spu.CategoryID),
+			Brand:         b.mustGetBrand(ctx, spu.BrandID),
 			FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
 			Name:          spu.Name,
 			Description:   spu.Description,
@@ -162,6 +149,7 @@ type CreateProductSpuParams struct {
 	Name        string      `validate:"required,min=1,max=200"`
 	Description string      `validate:"required,max=1000"`
 	IsActive    bool        `validate:"omitempty"`
+	Tags        []string    `validate:"required,dive,min=1,max=100"`
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
@@ -191,14 +179,20 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		return zero, err
 	}
 
+	// Create tags
+	if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+		return zero, err
+	}
+
 	// Create resources
-	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:        params.Account,
 		RefType:        db.SharedResourceRefTypeProductSpu,
 		RefID:          spu.ID,
 		ResourceIDs:    params.ResourceIDs,
 		EmptyResources: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
@@ -206,31 +200,13 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		return zero, err
 	}
 
-	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeProductSpu, []int64{spu.ID})
-	if err != nil {
-		return zero, err
-	}
-
-	brandMap, err := b.getBrandMap(ctx, []int64{spu.BrandID})
-	if err != nil {
-		return zero, err
-	}
-
-	categoryMap, err := b.getCategoryMap(ctx, []int64{spu.CategoryID})
-	if err != nil {
-		return zero, err
-	}
-
-	tagsMap, err := b.getTagsMap(ctx, []int64{spu.ID})
-	if err != nil {
-		return zero, err
-	}
+	tagsMap := b.mustGetTagsMap(ctx, []int64{spu.ID})
 
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
 		Code:          spu.Code,
-		Category:      categoryMap[spu.CategoryID],
-		Brand:         brandMap[spu.BrandID],
+		Category:      b.mustGetCategory(ctx, spu.CategoryID),
+		Brand:         b.mustGetBrand(ctx, spu.BrandID),
 		FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
 		Name:          spu.Name,
 		Description:   spu.Description,
@@ -239,7 +215,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		DateUpdated:   spu.DateUpdated.Time,
 		Rating:        catalogmodel.ProductRating{},
 		Tags:          slice.NonNil(tagsMap[spu.ID]),
-		Resources:     resourcesMap[spu.ID],
+		Resources:     resources,
 	}, nil
 }
 
@@ -252,11 +228,12 @@ type UpdateProductSpuParams struct {
 	Name          null.String `validate:"omitnil,min=1,max=200"`
 	Description   null.String `validate:"omitnil,max=1000"`
 	IsActive      null.Bool   `validate:"omitnil"`
+	Tags          []string    `validate:"required,dive,min=1,max=100"`
 	ResourceIDs   []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (db.CatalogProductSpu, error) {
-	var zero db.CatalogProductSpu
+func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
+	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -291,15 +268,21 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	// Create resources
-	if err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+	// Update tags
+	if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+		return zero, err
+	}
+
+	// Update resources
+	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:         params.Account,
 		RefType:         db.SharedResourceRefTypeProductSpu,
 		RefID:           spu.ID,
 		ResourceIDs:     params.ResourceIDs,
 		EmptyResources:  true,
 		DeleteResources: true,
-	}); err != nil {
+	})
+	if err != nil {
 		return zero, err
 	}
 
@@ -324,7 +307,21 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	return spu, nil
+	return catalogmodel.ProductSpu{
+		ID:            spu.ID,
+		Code:          spu.Code,
+		Category:      b.mustGetCategory(ctx, spu.CategoryID),
+		Brand:         b.mustGetBrand(ctx, spu.BrandID),
+		FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
+		Name:          spu.Name,
+		Description:   spu.Description,
+		IsActive:      spu.IsActive,
+		DateCreated:   spu.DateCreated.Time,
+		DateUpdated:   spu.DateUpdated.Time,
+		Rating:        catalogmodel.ProductRating{},
+		Tags:          params.Tags,
+		Resources:     resources,
+	}, nil
 }
 
 type DeleteProductSpuParams struct {
@@ -353,6 +350,26 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 		return err
 	}
 
+	return nil
+}
+
+func (b *CatalogBiz) updateTags(ctx context.Context, txStorage *pgutil.TxStorage, spuID int64, tags []string) error {
+	if err := txStorage.DeleteCatalogProductSpuTag(ctx, db.DeleteCatalogProductSpuTagParams{
+		SpuID: []int64{spuID},
+	}); err != nil {
+		return err
+	}
+
+	var args []db.CreateCopyDefaultCatalogProductSpuTagParams
+	for _, tag := range tags {
+		args = append(args, db.CreateCopyDefaultCatalogProductSpuTagParams{
+			SpuID: spuID,
+			Tag:   tag,
+		})
+	}
+	if _, err := txStorage.CreateCopyDefaultCatalogProductSpuTag(ctx, args); err != nil {
+		return err
+	}
 	return nil
 }
 
