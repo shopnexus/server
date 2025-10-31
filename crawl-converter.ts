@@ -178,6 +178,7 @@ async function main(inputs: InputProduct1[] = []) {
           resource: {
             connectOrCreate: {
               create: {
+                id: uuidv4(),
                 provider: 'remote',
                 metadata: Prisma.JsonNull,
                 object_key: url,
