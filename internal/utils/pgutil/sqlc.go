@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"shopnexus-remastered/internal/db"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/logger"
 )
 
 type DBTX interface {
@@ -53,6 +54,7 @@ func (s *TxStorage) Commit(ctx context.Context) error {
 func (s *TxStorage) Rollback(ctx context.Context) {
 	if err := s.tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) && err != nil {
 		// TODO: push to error tracking system
-		panic(err)
+		//panic(err)
+		logger.Log.Sugar().Errorf("failed to rollback transaction: %v", err)
 	}
 }
