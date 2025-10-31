@@ -72,7 +72,7 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 	q.Add("vnp_Version", "2.1.0")
 	q.Add("vnp_Command", "pay")
 	q.Add("vnp_TmnCode", c.tmnCode)
-	q.Add("vnp_Amount", fmt.Sprintf("%d", params.Amount*100))
+	q.Add("vnp_Amount", fmt.Sprintf("%s", params.Amount.Mul(100).String()))
 	// q.Add("vnp_BankCode", string(BankCodeVNPAYQR))
 	q.Add("vnp_CreateDate", formatTime(time.Now()))
 	q.Add("vnp_CurrCode", "VND")
