@@ -17,6 +17,7 @@ func NewHandler(e *echo.Echo, biz *sharedbiz.SharedBiz) (*Handler, error) {
 	api := e.Group("/api/v1/shared")
 
 	api.POST("/files", h.UploadFile)
+	api.GET("/option", h.ListServiceOption)
 	// api.GET("/files/:object_key", h.GetFile)
 
 	return h, nil

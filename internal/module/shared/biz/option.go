@@ -6,6 +6,7 @@ import (
 	"errors"
 	"shopnexus-remastered/internal/db"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 )
 
@@ -16,7 +17,7 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 	}
 	defer txStorage.Rollback(ctx)
 
-	for _, cfg := range configs {
+	for index, cfg := range configs {
 		_, err := txStorage.GetSharedServiceOption(ctx, pgutil.StringToPgText(cfg.ID))
 		if err != nil {
 			// if not found, create it
@@ -28,6 +29,7 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 					Description: cfg.Description,
 					Provider:    cfg.Provider,
 					Method:      string(cfg.Method),
+					Order:       int32(index),
 				})
 				if err != nil {
 					return err
@@ -47,6 +49,7 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 				Method:      pgutil.StringToPgText(string(cfg.Method)),
 				IsActive:    pgutil.BoolToPgBool(true),
 				Category:    pgutil.StringToPgText(category),
+				Order:       pgutil.Int32ToPgInt4(int32(index)),
 			})
 			if err != nil {
 				return err
@@ -59,4 +62,37 @@ func (b *SharedBiz) UpdateServiceOptions(ctx context.Context, category string, c
 	}
 
 	return nil
+}
+
+type ListServiceOptionParams struct {
+	Category []string `validate:"required"`
+	IsActive []bool   `validate:"omitempty,dive"`
+}
+
+func (b *SharedBiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+	if validator.Validate(params) != nil {
+		return nil, validator.Validate(params)
+	}
+
+	dbOptions, err := b.storage.SearchSharedServiceOption(ctx, db.SearchSharedServiceOptionParams{
+		Category: params.Category,
+		IsActive: params.IsActive,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var result []sharedmodel.OptionConfig
+	for _, dbOpt := range dbOptions {
+		opt := sharedmodel.OptionConfig{
+			ID:          dbOpt.ID,
+			Name:        dbOpt.Name,
+			Description: dbOpt.Description,
+			Provider:    dbOpt.Provider,
+			Method:      sharedmodel.OptionMethod(dbOpt.Method),
+		}
+		result = append(result, opt)
+	}
+
+	return result, nil
 }
