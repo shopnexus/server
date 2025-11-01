@@ -3,6 +3,7 @@ package catalogbiz
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -186,13 +187,20 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 
 	// Create resources
 	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
-		Account:        params.Account,
-		RefType:        db.SharedResourceRefTypeProductSpu,
-		RefID:          spu.ID,
-		ResourceIDs:    params.ResourceIDs,
-		EmptyResources: true,
+		Account:     params.Account,
+		RefType:     db.SharedResourceRefTypeProductSpu,
+		RefID:       spu.ID,
+		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
+		return zero, err
+	}
+
+	// Create system search sync (TODO: should move to event)
+	if _, err := txStorage.CreateDefaultSystemSearchSync(ctx, db.CreateDefaultSystemSearchSyncParams{
+		RefType: searchmodel.RefTypeProduct,
+		RefID:   spu.ID,
+	}); err != nil {
 		return zero, err
 	}
 
@@ -358,6 +366,32 @@ func (b *CatalogBiz) updateTags(ctx context.Context, txStorage *pgutil.TxStorage
 		SpuID: []int64{spuID},
 	}); err != nil {
 		return err
+	}
+
+	dbTags, err := txStorage.ListCatalogTag(ctx, db.ListCatalogTagParams{
+		ID: tags,
+	})
+	if err != nil {
+		return err
+	}
+	var nonExistingTags []string
+	for _, tag := range tags {
+		if !slices.Contains(slice.Map(dbTags, func(t db.CatalogTag) string { return t.ID }), tag) {
+			nonExistingTags = append(nonExistingTags, tag)
+		}
+	}
+
+	if len(nonExistingTags) > 0 {
+		var args []db.CreateCopyDefaultCatalogTagParams
+		for _, tag := range nonExistingTags {
+			args = append(args, db.CreateCopyDefaultCatalogTagParams{
+				ID:          tag,
+				Description: "",
+			})
+		}
+		if _, err := txStorage.CreateCopyDefaultCatalogTag(ctx, args); err != nil {
+			return err
+		}
 	}
 
 	var args []db.CreateCopyDefaultCatalogProductSpuTagParams
