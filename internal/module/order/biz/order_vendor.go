@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"shopnexus-remastered/internal/client/shipment"
@@ -51,11 +52,8 @@ type ConfirmOrderParams struct {
 	Account     authmodel.AuthenticatedAccount
 	OrderItemID int64 `validate:"required,min=1"` // Confirmed SKU
 
-	FromAddress null.String `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
-	WeightGrams int32       `validate:"required,min=1"`        // Revalidated weight, dimensions
-	LengthCM    int32       `validate:"required,min=1"`
-	WidthCM     int32       `validate:"required,min=1"`
-	HeightCM    int32       `validate:"required,min=1"`
+	FromAddress null.String     `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
+	Specs       json.RawMessage `validate:"required"`              // JSON object with weight and dimensions
 }
 
 func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) error {
@@ -125,10 +123,7 @@ func (s *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		NewCost:      pgutil.Int64ToPgInt8(ship.Costs.Int64()),
 		DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
 		FromAddress:  pgutil.StringToPgText(fromAddress),
-		WeightGrams:  pgutil.Int32ToPgInt4(params.WeightGrams),
-		LengthCm:     pgutil.Int32ToPgInt4(params.LengthCM),
-		WidthCm:      pgutil.Int32ToPgInt4(params.WidthCM),
-		HeightCm:     pgutil.Int32ToPgInt4(params.HeightCM),
+		// TODO: use Specs
 	})
 	if err != nil {
 		return err

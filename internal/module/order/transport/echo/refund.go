@@ -78,7 +78,7 @@ type UpdateRefundRequest struct {
 	Method      db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
 	Address     null.String          `json:"address" validate:"omitnil,max=500"`
 	Reason      null.String          `json:"reason" validate:"omitnil,max=500"`
-	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"omitempty,dive"`
+	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"required,dive"`
 }
 
 func (h *Handler) UpdateRefund(c echo.Context) error {

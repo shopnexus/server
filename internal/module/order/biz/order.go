@@ -54,21 +54,44 @@ func NewOrderBiz(
 
 type GetOrderParams = struct {
 	Account authmodel.AuthenticatedAccount
-	OrderID int64
+	OrderID int64 `validate:"required,min=1"`
 }
 
-func (s *OrderBiz) GetOrder(ctx context.Context, params GetOrderParams) (db.OrderBase, error) {
-	return s.storage.GetOrderBase(ctx, pgutil.Int64ToPgInt8(params.OrderID))
+func (s *OrderBiz) GetOrder(ctx context.Context, params GetOrderParams) (ordermodel.Order, error) {
+	var zero ordermodel.Order
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	orders, err := s.ListOrders(ctx, ListOrdersParams{
+		ID: []int64{params.OrderID},
+	})
+	if err != nil {
+		return zero, err
+	}
+	if len(orders.Data) == 0 {
+		return zero, fmt.Errorf("order not found")
+	}
+
+	return orders.Data[0], nil
 }
 
 type ListOrdersParams struct {
 	sharedmodel.PaginationParams
+	ID []int64 `validate:"dive,min=1"`
 }
 
 func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
-	total, err := s.storage.CountOrderBase(ctx, db.CountOrderBaseParams{})
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	total, err := s.storage.CountOrderBase(ctx, db.CountOrderBaseParams{
+		ID: params.ID,
+	})
 	if err != nil {
 		return zero, err
 	}
@@ -76,6 +99,7 @@ func (s *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (sha
 	orders, err := s.storage.ListOrderBase(ctx, db.ListOrderBaseParams{
 		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
 		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+		ID:     params.ID,
 	})
 	if err != nil {
 		return zero, err
@@ -111,6 +135,7 @@ type CreateOrderParams struct {
 	Account       authmodel.AuthenticatedAccount
 	Address       string     `validate:"required"`
 	PaymentOption string     `validate:"required,min=1,max=50"`
+	BuyNow        bool       `validate:"omitempty"`
 	Skus          []OrderSku `validate:"required,min=1,dive"`
 }
 
@@ -123,8 +148,8 @@ type OrderSku struct {
 }
 
 type CreateOrderResult struct {
-	Order       db.OrderBase `json:"order"`
-	RedirectUrl null.String  `json:"url"`
+	Order       ordermodel.Order `json:"order"`
+	RedirectUrl null.String      `json:"url"`
 }
 
 func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (CreateOrderResult, error) {
@@ -132,6 +157,9 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
+	}
+	if params.BuyNow && len(params.Skus) != 1 {
+		return zero, fmt.Errorf("buy now only support single sku")
 	}
 
 	// Start transaction
@@ -141,24 +169,27 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	}
 	defer txStorage.Rollback(ctx)
 
-	// Remove the checkout items from cart
 	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
 	orderSkuMap := slice.GroupBy(params.Skus, func(s OrderSku) (int64, OrderSku) { return s.SkuID, s })
-	cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
-		CartID: params.Account.ID,
-		SkuID:  skuIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
-	if len(cartItems) != len(skuIDs) {
-		// Prevent duplicate skuIDs in params or some sku not found in cart
-		return zero, fmt.Errorf("some sku not found in cart")
+
+	// If not buy now, remove items from cart
+	if !params.BuyNow {
+		cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
+			CartID: params.Account.ID,
+			SkuID:  skuIDs,
+		})
+		if err != nil {
+			return zero, err
+		}
+		if len(cartItems) != len(skuIDs) {
+			// Prevent duplicate skuIDs in params or some sku not found in cart
+			return zero, fmt.Errorf("some sku not found in cart")
+		}
 	}
 
 	// Reserve stock for the skus in cart
 	var reserveStockErr error
-	txStorage.ReserveInventory(ctx, slice.Map(cartItems, func(item db.AccountCartItem) db.ReserveInventoryParams {
+	txStorage.ReserveInventory(ctx, slice.Map(params.Skus, func(item OrderSku) db.ReserveInventoryParams {
 		return db.ReserveInventoryParams{
 			RefType: db.InventoryStockRefTypeProductSku,
 			RefID:   item.SkuID,
@@ -383,7 +414,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		result, err := gateway.CreateOrder(ctx, payment.CreateOrderParams{
 			RefID:  order.ID,
 			Amount: totalPrice,
-			Info:   fmt.Sprintf("ShippingOrder for order %d", order.ID),
+			Info:   fmt.Sprintf("Order #%d", order.ID),
 		})
 		if err != nil {
 			return zero, err
@@ -406,7 +437,11 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, err
 	}
 
-	return CreateOrderResult{Order: order, RedirectUrl: redirectUrl}, nil
+	newOrder, _ := s.GetOrder(ctx, GetOrderParams{
+		OrderID: order.ID,
+	})
+
+	return CreateOrderResult{Order: newOrder, RedirectUrl: redirectUrl}, nil
 }
 
 type CancelOrderParams = struct {

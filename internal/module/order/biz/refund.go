@@ -163,10 +163,9 @@ type UpdateRefundParams struct {
 	Reason   null.String          `validate:"omitnil,max=500"`
 
 	// Fields below are only updated after vendor confirms
-	Status         db.SharedStatus `validate:"omitempty,validateFn=Valid"`
-	ReviewedByID   null.Int64      `validate:"omitnil,gt=0"`
-	ResourceIDs    []uuid.UUID     `validate:"omitempty,dive"`
-	EmptyResources bool            `validate:"omitempty"`
+	Status       db.SharedStatus `validate:"omitempty,validateFn=Valid"`
+	ReviewedByID null.Int64      `validate:"omitnil,gt=0"`
+	ResourceIDs  []uuid.UUID     `validate:"required,dive"`
 }
 
 func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
@@ -218,7 +217,6 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 		RefType:         db.SharedResourceRefTypeRefund,
 		RefID:           refund.ID,
 		ResourceIDs:     params.ResourceIDs,
-		EmptyResources:  params.EmptyResources,
 		DeleteResources: true,
 	})
 	if err != nil {

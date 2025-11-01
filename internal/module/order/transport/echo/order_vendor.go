@@ -1,6 +1,7 @@
 package orderecho
 
 import (
+	"encoding/json"
 	"net/http"
 
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
@@ -44,11 +45,8 @@ func (h *Handler) ListVendorOrder(c echo.Context) error {
 type ConfirmOrderRequest struct {
 	OrderItemID int64 `json:"order_item_id" validate:"required,min=1"` // Confirmed SKU
 
-	FromAddress null.String `json:"from_address" validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
-	WeightGrams int32       `json:"weight_grams" validate:"required,min=1"`        // Revalidated weight, dimensions
-	LengthCM    int32       `json:"length_cm" validate:"required,min=1"`
-	WidthCM     int32       `json:"width_cm" validate:"required,min=1"`
-	HeightCM    int32       `json:"height_cm" validate:"required,min=1"`
+	FromAddress null.String     `json:"from_address" validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
+	Specs       json.RawMessage `json:"specs" validate:"required"`                     // JSON object with weight and dimensions
 }
 
 func (h *Handler) ConfirmOrder(c echo.Context) error {
@@ -69,10 +67,7 @@ func (h *Handler) ConfirmOrder(c echo.Context) error {
 		Account:     claims.Account,
 		OrderItemID: req.OrderItemID,
 		FromAddress: req.FromAddress,
-		WeightGrams: req.WeightGrams,
-		LengthCM:    req.LengthCM,
-		WidthCM:     req.WidthCM,
-		HeightCM:    req.HeightCM,
+		Specs:       req.Specs,
 	}); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

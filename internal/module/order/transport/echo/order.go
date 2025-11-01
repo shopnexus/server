@@ -97,6 +97,7 @@ func (h *Handler) ListOrders(c echo.Context) error {
 type CheckoutRequest struct {
 	Address       string     `json:"address" validate:"required"`
 	PaymentOption string     `json:"payment_option" validate:"required,min=1,max=100"`
+	BuyNow        bool       `json:"buy_now" validate:"omitempty"`
 	Skus          []OrderSku `json:"skus" validate:"required,dive"`
 }
 
@@ -126,6 +127,7 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Account:       claims.Account,
 		Address:       req.Address,
 		PaymentOption: req.PaymentOption,
+		BuyNow:        req.BuyNow,
 		Skus: slice.Map(req.Skus, func(s OrderSku) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,
