@@ -216,7 +216,7 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 type UpdateCommentParams struct {
 	Account authmodel.AuthenticatedAccount
 
-	CommentID     int64       `validate:"required,gt=0"`
+	ID            int64       `validate:"required,gt=0"`
 	Body          null.String `validate:"omitempty,min=1,max=1000"`
 	Score         null.Int32  `validate:"omitempty,gte=1,lte=10"`
 	UpvoteDelta   null.Int64  `validate:"omitempty,ne=0"`
@@ -241,7 +241,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 
 	// Update base comment info
 	comment, err := txStorage.UpdateCatalogComment(ctx, db.UpdateCatalogCommentParams{
-		ID:    params.CommentID,
+		ID:    params.ID,
 		Body:  pgutil.NullStringToPgText(params.Body),
 		Score: pgutil.NullInt32ToPgInt4(params.Score),
 	})
@@ -252,7 +252,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	// Update upvote/downvote count
 	if params.UpvoteDelta.Valid || params.DownvoteDelta.Valid {
 		if err := txStorage.UpdateCatalogCommentUpvoteDownvote(ctx, db.UpdateCatalogCommentUpvoteDownvoteParams{
-			ID:            params.CommentID,
+			ID:            params.ID,
 			UpvoteDelta:   pgutil.NullInt64ToPgInt8(params.UpvoteDelta),
 			DownvoteDelta: pgutil.NullInt64ToPgInt8(params.DownvoteDelta),
 		}); err != nil {
@@ -264,7 +264,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
 		Account:         params.Account,
 		RefType:         db.SharedResourceRefTypeComment,
-		RefID:           params.CommentID,
+		RefID:           params.ID,
 		ResourceIDs:     params.ResourceIDs,
 		EmptyResources:  params.EmptyResources,
 		DeleteResources: true,

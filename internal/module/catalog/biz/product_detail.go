@@ -9,24 +9,15 @@ import (
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
 
-type GetProductDetailParams struct {
-	ID int64 `validate:"required,gt=0"`
-}
-
-func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
-	if err := validator.Validate(params); err != nil {
-		return zero, err
-	}
-
 	spu, err := b.storage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
-		ID: pgutil.Int64ToPgInt8(params.ID),
+		ID: pgutil.Int64ToPgInt8(id),
 	})
 	if err != nil {
 		return zero, err
@@ -103,13 +94,6 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	ratingBreakdown[2] = int(rating.TwoCount)
 	ratingBreakdown[1] = int(rating.OneCount)
 
-	category, err := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
-		ID: pgutil.Int64ToPgInt8(spu.CategoryID),
-	})
-	if err != nil {
-		return zero, err
-	}
-
 	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, map[int64]db.CatalogProductSpu{
 		spu.ID: spu,
 	})
@@ -132,21 +116,15 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		}
 	}
 
-	brand, err := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
-		ID: pgutil.Int64ToPgInt8(spu.BrandID),
-	})
-	if err != nil {
-		return zero, err
-	}
-
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
 		Code:        spu.Code,
+		VendorID:    spu.AccountID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Brand:       brand.Name,
+		Brand:       b.mustGetBrand(ctx, spu.BrandID),
 		IsActive:    spu.IsActive,
-		Category:    category.Name,
+		Category:    b.mustGetCategory(ctx, spu.CategoryID),
 		Rating: catalogmodel.ProductRating{
 			Score:     rating.Score / 2, // convert 10 scale to 5 scale
 			Total:     rating.Count,

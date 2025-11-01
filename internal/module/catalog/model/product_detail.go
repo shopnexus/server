@@ -1,17 +1,19 @@
 package catalogmodel
 
 import (
+	"shopnexus-remastered/internal/db"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 )
 
 type ProductDetail struct {
 	ID             int64                  `json:"id"`
 	Code           string                 `json:"code"`
+	VendorID       int64                  `json:"vendor_id"`
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description"`
-	Brand          string                 `json:"brand"`
+	Brand          db.CatalogBrand        `json:"brand"`
 	IsActive       bool                   `json:"is_active"`
-	Category       string                 `json:"category"`
+	Category       db.CatalogCategory     `json:"category"`
 	Rating         ProductRating          `json:"rating"`
 	Resources      []sharedmodel.Resource `json:"resources"`
 	Promotions     []ProductCardPromo     `json:"promotions"`

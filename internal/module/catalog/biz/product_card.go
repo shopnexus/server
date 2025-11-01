@@ -143,7 +143,8 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 
 type ListProductCardParams struct {
 	sharedmodel.PaginationParams
-	Search null.String `validate:"omitnil,min=1,max=100"`
+	VendorID null.Int64  `validate:"omitnil,min=1"`
+	Search   null.String `validate:"omitnil,min=1,max=100"`
 }
 
 func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
@@ -159,8 +160,9 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	var total int64
 	var spuIDs []int64 // To respect order of search result
 	var searchArg = db.SearchCatalogProductSpuParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+		Limit:     pgutil.Int32ToPgInt4(params.GetLimit()),
+		Offset:    pgutil.Int32ToPgInt4(params.Offset()),
+		AccountID: pgutil.NullInt64ToSlice(params.VendorID),
 	}
 
 	// If search is provided, use search service to get product IDs
