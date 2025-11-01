@@ -18,3 +18,11 @@ func NullBoolToSlice(b null.Bool) []bool {
 	}
 	return nil
 }
+
+// NullInt64ToSlice converts a null.Int64 to a slice of int64
+func NullInt64ToSlice(n null.Int64) []int64 {
+	if n.Valid {
+		return []int64{n.Int64}
+	}
+	return nil
+}
