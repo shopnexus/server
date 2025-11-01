@@ -3,7 +3,6 @@ package catalogecho
 import (
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	"shopnexus-remastered/internal/module/shared/transport/echo/response"
 
 	"github.com/labstack/echo/v4"
@@ -22,9 +21,7 @@ func (h *Handler) GetProductDetail(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.GetProductDetail(c.Request().Context(), catalogbiz.GetProductDetailParams{
-		ID: req.ID,
-	})
+	result, err := h.biz.GetProductDetail(c.Request().Context(), req.ID)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

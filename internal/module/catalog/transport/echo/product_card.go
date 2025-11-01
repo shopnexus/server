@@ -14,7 +14,8 @@ import (
 
 type ListProductCardRequest struct {
 	sharedmodel.PaginationParams
-	Search null.String `query:"search" validate:"omitnil"`
+	VendorID null.Int64  `query:"vendor_id" validate:"omitnil,min=1"`
+	Search   null.String `query:"search" validate:"omitnil"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {
@@ -30,6 +31,7 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 
 	result, err := h.biz.ListProductCard(c.Request().Context(), catalogbiz.ListProductCardParams{
 		PaginationParams: req.PaginationParams,
+		VendorID:         req.VendorID,
 		Search:           req.Search,
 	})
 	if err != nil {

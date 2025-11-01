@@ -17,9 +17,9 @@ import (
 type ListCommentRequest struct {
 	sharedmodel.PaginationParams
 	RefType   db.CatalogCommentRefType `query:"ref_type" validate:"required"`
+	RefID     int64                    `query:"ref_id" validate:"required"`
 	ID        []int64                  `query:"id" validate:"omitempty"`
 	AccountID []int64                  `query:"account_id" validate:"omitempty"`
-	RefID     []int64                  `query:"ref_id" validate:"omitempty"`
 	ScoreFrom null.Int32               `query:"score_from" validate:"omitnil"`
 	ScoreTo   null.Int32               `query:"score_to" validate:"omitnil"`
 }
@@ -38,7 +38,7 @@ func (h *Handler) ListComment(c echo.Context) error {
 		RefType:          req.RefType,
 		ID:               req.ID,
 		AccountID:        req.AccountID,
-		RefID:            req.RefID,
+		RefID:            []int64{req.RefID},
 		ScoreFrom:        req.ScoreFrom,
 		ScoreTo:          req.ScoreTo,
 	})
@@ -89,7 +89,7 @@ func (h *Handler) CreateComment(c echo.Context) error {
 }
 
 type UpdateCommentRequest struct {
-	CommentID      int64       `json:"comment_id" validate:"required"`
+	ID             int64       `json:"id" validate:"required"`
 	Body           null.String `json:"body" validate:"required"`
 	Score          null.Int32  `json:"score" validate:"required"`
 	ResourceIDs    []uuid.UUID `json:"resource_ids" validate:"required"`
@@ -112,7 +112,7 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 
 	comment, err := h.biz.UpdateComment(c.Request().Context(), catalogbiz.UpdateCommentParams{
 		Account:     claims.Account,
-		CommentID:   req.CommentID,
+		ID:          req.ID,
 		Body:        req.Body,
 		Score:       req.Score,
 		ResourceIDs: req.ResourceIDs,
@@ -125,7 +125,7 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 }
 
 type DeleteCommentRequest struct {
-	CommentIDs []int64 `json:"comment_ids" validate:"required"`
+	IDs []int64 `json:"ids" validate:"required"`
 }
 
 func (h *Handler) DeleteComment(c echo.Context) error {
@@ -144,7 +144,7 @@ func (h *Handler) DeleteComment(c echo.Context) error {
 
 	if err := h.biz.DeleteComment(c.Request().Context(), catalogbiz.DeleteCommentParams{
 		Account:    claims.Account,
-		CommentIDs: req.CommentIDs,
+		CommentIDs: req.IDs,
 	}); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
