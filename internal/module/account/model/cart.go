@@ -2,7 +2,8 @@ package accountmodel
 
 import sharedmodel "shopnexus-remastered/internal/module/shared/model"
 
-type CartItem struct {
+// TODO: move to catalog logic
+type CheckoutSku struct {
 	SkuID         int64                   `json:"sku_id"`
 	SpuID         int64                   `json:"spu_id"`
 	Name          string                  `json:"name"`

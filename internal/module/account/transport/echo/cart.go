@@ -97,3 +97,32 @@ func (h *Handler) ClearCart(c echo.Context) error {
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Clear cart successfully")
 }
+
+type GetCheckoutSkuRequest struct {
+	SkuID    int64 `query:"sku_id"`
+	Quantity int64 `query:"quantity"`
+}
+
+func (h *Handler) GetCheckoutSku(c echo.Context) error {
+	var req GetCheckoutSkuRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.ListCheckoutSku(c.Request().Context(), accountbiz.ListCheckoutSkuParams{
+		Skus: []accountbiz.OrderSku{
+			{
+				SkuID:    req.SkuID,
+				Quantity: req.Quantity,
+			},
+		},
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}

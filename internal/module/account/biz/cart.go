@@ -23,18 +23,36 @@ type GetCartParams struct {
 	AccountID int64
 }
 
-func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accountmodel.CartItem, error) {
+func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accountmodel.CheckoutSku, error) {
 	cartItems, err := s.storage.ListAccountCartItem(ctx, db.ListAccountCartItemParams{
 		CartID: []int64{params.AccountID},
 	})
 	if err != nil {
 		return nil, nil
 	}
-	skuIDs := make([]int64, 0, len(cartItems))
+	var orderSkus []OrderSku
 	for _, item := range cartItems {
-		skuIDs = append(skuIDs, item.SkuID)
+		orderSkus = append(orderSkus, OrderSku{
+			SkuID:    item.SkuID,
+			Quantity: item.Quantity,
+		})
 	}
 
+	return s.ListCheckoutSku(ctx, ListCheckoutSkuParams{Skus: orderSkus})
+}
+
+type OrderSku struct {
+	SkuID    int64 `json:"sku_id"`
+	Quantity int64 `json:"quantity"`
+}
+
+type ListCheckoutSkuParams struct {
+	Skus []OrderSku
+}
+
+// TODO: should move to catalog biz
+func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSkuParams) ([]accountmodel.CheckoutSku, error) {
+	skuIDs := slice.Map(params.Skus, func(c OrderSku) int64 { return c.SkuID })
 	skus, err := s.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{ID: skuIDs})
 	if err != nil {
 		return nil, nil
@@ -86,8 +104,8 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 	}
 
 	// Build result
-	result := make([]accountmodel.CartItem, 0, len(cartItems))
-	for _, item := range cartItems {
+	result := make([]accountmodel.CheckoutSku, 0, len(params.Skus))
+	for _, item := range params.Skus {
 		sku := skuMap[item.SkuID]
 		spu := spuMap[sku.SpuID]
 		promos := []int64{}
@@ -100,7 +118,7 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 			return nil, err
 		}
 
-		result = append(result, accountmodel.CartItem{
+		result = append(result, accountmodel.CheckoutSku{
 			SkuID:         sku.ID,
 			SpuID:         spu.ID,
 			Name:          spu.Name,

@@ -31,6 +31,7 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	cartApi.GET("", h.GetCart)
 	cartApi.POST("", h.UpdateCart)
 	cartApi.DELETE("", h.ClearCart)
+	cartApi.GET("/buynow", h.GetCheckoutSku)
 
 	// Contact endpoints
 	contactApi := api.Group("/contact")
