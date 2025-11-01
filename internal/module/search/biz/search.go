@@ -3,25 +3,29 @@ package searchbiz
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 
 	"shopnexus-remastered/internal/client/cachestruct"
 	"shopnexus-remastered/internal/client/pubsub"
+	"shopnexus-remastered/internal/db"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/utils/errutil"
 	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/slice"
 )
 
 const InteractionBatchSize = 10
 
 // const SearchServer = "https://b0373f0064cb.ngrok-free.app"
-const SearchServer = "http://localhost:8000"
+const SearchServer = "http://192.168.1.150:8000"
 
 type SearchBiz struct {
 	httpClient *http.Client
@@ -156,4 +160,112 @@ func (b *SearchBiz) UpdateProducts(ctx context.Context, products []catalogmodel.
 	}
 
 	return nil
+}
+
+func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmodel.ProductDetail, error) {
+	var zero catalogmodel.ProductDetail
+
+	spu, err := b.storage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
+		ID: pgutil.Int64ToPgInt8(id),
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	var skuIDs []int64
+	var skusDetail []catalogmodel.ProductDetailSku
+	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+		SpuID: []int64{spu.ID},
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	for _, sku := range skus {
+		skuIDs = append(skuIDs, sku.ID)
+	}
+
+	// Get sold count from inventory
+	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
+		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
+		RefID:   skuIDs,
+	})
+	if err != nil {
+		return zero, err
+	}
+	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
+
+	for _, sku := range skus {
+		var attributes []catalogmodel.ProductAttribute
+		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+			return zero, err
+		}
+
+		skusDetail = append(skusDetail, catalogmodel.ProductDetailSku{
+			ID:            sku.ID,
+			Price:         sku.Price,
+			OriginalPrice: sku.Price,
+			Attributes:    attributes,
+			Sold:          stockMap[sku.ID].Sold,
+		})
+	}
+
+	// Get images
+	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
+		RefType: db.SharedResourceRefTypeProductSpu,
+		RefID:   []int64{spu.ID},
+	})
+	if err != nil {
+		return zero, err
+	}
+	resourceMap := make(map[int64][]sharedmodel.Resource) // map[spuID][]Resource
+	for _, res := range resources {
+		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
+			ID:   res.ID.Bytes,
+			Mime: res.Mime,
+			Size: res.Size,
+		})
+	}
+
+	// get rating
+	rating, err := b.storage.DetailRating(ctx, db.DetailRatingParams{
+		RefType: db.CatalogCommentRefTypeProductSpu,
+		RefID:   spu.ID,
+	})
+	ratingBreakdown := make(map[int]int)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return zero, err
+	}
+	ratingBreakdown[5] = int(rating.FiveCount)
+	ratingBreakdown[4] = int(rating.FourCount)
+	ratingBreakdown[3] = int(rating.ThreeCount)
+	ratingBreakdown[2] = int(rating.TwoCount)
+	ratingBreakdown[1] = int(rating.OneCount)
+
+	brand, _ := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
+		ID: pgutil.Int64ToPgInt8(spu.BrandID),
+	})
+
+	category, _ := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
+		ID: pgutil.Int64ToPgInt8(spu.CategoryID),
+	})
+
+	return catalogmodel.ProductDetail{
+		ID:          spu.ID,
+		Code:        spu.Code,
+		VendorID:    spu.AccountID,
+		Name:        spu.Name,
+		Description: spu.Description,
+		Brand:       brand,
+		IsActive:    spu.IsActive,
+		Category:    category,
+		Rating: catalogmodel.ProductRating{
+			Score:     rating.Score / 2, // convert 10 scale to 5 scale
+			Total:     rating.Count,
+			Breakdown: ratingBreakdown,
+		},
+		Resources:      slice.NonNil(resourceMap[spu.ID]),
+		Skus:           skusDetail,
+		Specifications: nil,
+	}, nil
 }

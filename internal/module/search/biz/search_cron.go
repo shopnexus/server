@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,8 +20,8 @@ const (
 )
 
 func (b *SearchBiz) InitCron() error {
-	go b.StartProductSyncCron(context.Background(), time.Minute, true) // TODO: Make config for duration
-	go b.StartProductSyncCron(context.Background(), time.Hour, false)  // TODO: Make config for duration
+	go b.StartProductSyncCron(context.Background(), 10*time.Second, true) // TODO: Make config for duration
+	go b.StartProductSyncCron(context.Background(), time.Minute, false)   // TODO: Make config for duration
 	return nil
 }
 
@@ -79,54 +78,41 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
 
 	// Fetch product details
-	products, err := b.storage.ListProductDetail(ctx, slice.Map(stales, func(s db.ListStaleSearchSyncRow) int64 { return s.RefID }))
-	if err != nil {
-		return fmt.Errorf("failed to list product details: %w", err)
-	}
-
-	productDetails := make([]catalogmodel.ProductDetail, len(products))
-	for i, p := range products {
-		productDetails[i] = catalogmodel.ProductDetail{
-			ID:          p.ID,
-			Code:        p.Code,
-			Name:        p.Name,
-			Description: p.Description,
-			Brand:       p.BrandName,
-			IsActive:    p.IsActive,
-			Category:    p.CategoryName,
-			Rating: catalogmodel.ProductRating{
-				Score: p.RatingScore,
-				Total: p.RatingTotal,
-			},
-			Resources:      make([]sharedmodel.Resource, 0),
-			Promotions:     make([]catalogmodel.ProductCardPromo, 0),
-			Skus:           make([]catalogmodel.ProductDetailSku, 0),
-			Specifications: make(map[string]string),
+	var productDetails []catalogmodel.ProductDetail
+	for _, stale := range stales {
+		detail, err := b.getProductDetail(ctx, stale.RefID)
+		if err != nil {
+			log.Printf("❌ Failed to get product detail for product ID %d: %v", stale.RefID, err)
+			continue
 		}
+
+		productDetails = append(productDetails, detail)
 	}
 
-	if err := b.UpdateProducts(ctx, productDetails, metadataOnly); err != nil {
-		return fmt.Errorf("failed to update products: %w", err)
-	}
-
+	staleMap := slice.GroupBy(stales, func(s db.ListStaleSearchSyncRow) (int64, db.ListStaleSearchSyncRow) { return s.RefID, s })
 	var updateArgs []db.UpdateBatchSystemSearchSyncParams
-	for _, s := range stales {
+	for _, detail := range productDetails {
 		updateArgs = append(updateArgs, db.UpdateBatchSystemSearchSyncParams{
-			ID:               s.ID,
-			RefType:          pgtype.Text{String: s.RefType, Valid: true},
-			RefID:            pgtype.Int8{Int64: s.RefID, Valid: true},
+			ID:               staleMap[detail.ID].ID,
+			RefType:          pgtype.Text{String: staleMap[detail.ID].RefType, Valid: true},
+			RefID:            pgtype.Int8{Int64: detail.ID, Valid: true},
 			IsStaleEmbedding: pgtype.Bool{Bool: metadataOnly, Valid: true},
 			IsStaleMetadata:  pgtype.Bool{Bool: false, Valid: true},
 		})
 	}
 
-	// No need to check error, as we cannot do anything if update fails
+	// Update product stale status
 	var updateErr error
 	txStorage.UpdateBatchSystemSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
 		updateErr = err
 	})
 	if updateErr != nil {
-		log.Printf("❌ Failed to update search sync status: %v", updateErr)
+		return fmt.Errorf("failed to update batch system search sync: %w", updateErr)
+	}
+
+	// Last step: send to search server (cannot be in the transaction)
+	if err := b.UpdateProducts(ctx, productDetails, metadataOnly); err != nil {
+		return fmt.Errorf("failed to update products: %w", err)
 	}
 
 	return nil
