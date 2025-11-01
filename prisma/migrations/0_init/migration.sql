@@ -502,6 +502,7 @@ CREATE TABLE "shared"."service_option" (
     "provider" TEXT NOT NULL,
     "method" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "order" INTEGER NOT NULL,
 
     CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
 );
@@ -701,6 +702,9 @@ CREATE INDEX "search_sync_is_stale_metadata_idx" ON "system"."search_sync"("is_s
 
 -- CreateIndex
 CREATE INDEX "search_sync_date_created_idx" ON "system"."search_sync"("date_created");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "search_sync_ref_type_ref_id_key" ON "system"."search_sync"("ref_type", "ref_id");
 
 -- AddForeignKey
 ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_default_contact_id_fkey" FOREIGN KEY ("default_contact_id") REFERENCES "account"."contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;

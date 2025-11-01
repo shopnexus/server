@@ -361,6 +361,7 @@ Table ServiceOption {
   provider String [not null]
   method String [not null]
   is_active Boolean [not null, default: true]
+  order Int [not null, default: 0]
 }
 
 Table SearchSync {
@@ -371,6 +372,10 @@ Table SearchSync {
   is_stale_metadata Boolean [not null, default: true]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
+
+  indexes {
+    (ref_type, ref_id) [unique]
+  }
 }
 
 Enum AccountType {

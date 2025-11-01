@@ -2017,17 +2017,29 @@ SELECT COUNT(*)
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL)
+    ("is_active" = ANY($2) OR $2 IS NULL) AND
+    ("order" = ANY($3) OR $3 IS NULL) AND
+    ("order" > $4 OR $4 IS NULL) AND
+    ("order" < $5 OR $5 IS NULL)
 )
 `
 
 type CountSharedServiceOptionParams struct {
-	ID       []string `json:"id"`
-	IsActive []bool   `json:"is_active"`
+	ID        []string    `json:"id"`
+	IsActive  []bool      `json:"is_active"`
+	Order     []int32     `json:"order"`
+	OrderFrom pgtype.Int4 `json:"order_from"`
+	OrderTo   pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) CountSharedServiceOption(ctx context.Context, arg CountSharedServiceOptionParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSharedServiceOption, arg.ID, arg.IsActive)
+	row := q.db.QueryRow(ctx, countSharedServiceOption,
+		arg.ID,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -3052,6 +3064,7 @@ type CreateCopyDefaultSharedServiceOptionParams struct {
 	Description string `json:"description"`
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
+	Order       int32  `json:"order"`
 }
 
 type CreateCopyDefaultSystemSearchSyncParams struct {
@@ -3222,6 +3235,7 @@ type CreateCopySharedServiceOptionParams struct {
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 type CreateCopySystemSearchSyncParams struct {
@@ -4281,9 +4295,9 @@ func (q *Queries) CreateDefaultSharedResourceReference(ctx context.Context, arg 
 }
 
 const createDefaultSharedServiceOption = `-- name: CreateDefaultSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, category, name, description, provider, method, is_active
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, category, name, description, provider, method, is_active, "order"
 `
 
 type CreateDefaultSharedServiceOptionParams struct {
@@ -4293,6 +4307,7 @@ type CreateDefaultSharedServiceOptionParams struct {
 	Description string `json:"description"`
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
+	Order       int32  `json:"order"`
 }
 
 func (q *Queries) CreateDefaultSharedServiceOption(ctx context.Context, arg CreateDefaultSharedServiceOptionParams) (SharedServiceOption, error) {
@@ -4303,6 +4318,7 @@ func (q *Queries) CreateDefaultSharedServiceOption(ctx context.Context, arg Crea
 		arg.Description,
 		arg.Provider,
 		arg.Method,
+		arg.Order,
 	)
 	var i SharedServiceOption
 	err := row.Scan(
@@ -4313,6 +4329,7 @@ func (q *Queries) CreateDefaultSharedServiceOption(ctx context.Context, arg Crea
 		&i.Provider,
 		&i.Method,
 		&i.IsActive,
+		&i.Order,
 	)
 	return i, err
 }
@@ -4952,9 +4969,9 @@ func (q *Queries) CreateSharedResourceReference(ctx context.Context, arg CreateS
 }
 
 const createSharedServiceOption = `-- name: CreateSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, category, name, description, provider, method, is_active
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, category, name, description, provider, method, is_active, "order"
 `
 
 type CreateSharedServiceOptionParams struct {
@@ -4965,6 +4982,7 @@ type CreateSharedServiceOptionParams struct {
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 func (q *Queries) CreateSharedServiceOption(ctx context.Context, arg CreateSharedServiceOptionParams) (SharedServiceOption, error) {
@@ -4976,6 +4994,7 @@ func (q *Queries) CreateSharedServiceOption(ctx context.Context, arg CreateShare
 		arg.Provider,
 		arg.Method,
 		arg.IsActive,
+		arg.Order,
 	)
 	var i SharedServiceOption
 	err := row.Scan(
@@ -4986,6 +5005,7 @@ func (q *Queries) CreateSharedServiceOption(ctx context.Context, arg CreateShare
 		&i.Provider,
 		&i.Method,
 		&i.IsActive,
+		&i.Order,
 	)
 	return i, err
 }
@@ -6936,17 +6956,29 @@ const deleteSharedServiceOption = `-- name: DeleteSharedServiceOption :exec
 DELETE FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL)
+    ("is_active" = ANY($2) OR $2 IS NULL) AND
+    ("order" = ANY($3) OR $3 IS NULL) AND
+    ("order" > $4 OR $4 IS NULL) AND
+    ("order" < $5 OR $5 IS NULL)
 )
 `
 
 type DeleteSharedServiceOptionParams struct {
-	ID       []string `json:"id"`
-	IsActive []bool   `json:"is_active"`
+	ID        []string    `json:"id"`
+	IsActive  []bool      `json:"is_active"`
+	Order     []int32     `json:"order"`
+	OrderFrom pgtype.Int4 `json:"order_from"`
+	OrderTo   pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) DeleteSharedServiceOption(ctx context.Context, arg DeleteSharedServiceOptionParams) error {
-	_, err := q.db.Exec(ctx, deleteSharedServiceOption, arg.ID, arg.IsActive)
+	_, err := q.db.Exec(ctx, deleteSharedServiceOption,
+		arg.ID,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	return err
 }
 
@@ -9081,18 +9113,30 @@ SELECT 1
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL)
+    ("is_active" = ANY($2) OR $2 IS NULL) AND
+    ("order" = ANY($3) OR $3 IS NULL) AND
+    ("order" > $4 OR $4 IS NULL) AND
+    ("order" < $5 OR $5 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedServiceOptionParams struct {
-	ID       []string `json:"id"`
-	IsActive []bool   `json:"is_active"`
+	ID        []string    `json:"id"`
+	IsActive  []bool      `json:"is_active"`
+	Order     []int32     `json:"order"`
+	OrderFrom pgtype.Int4 `json:"order_from"`
+	OrderTo   pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) ExistsSharedServiceOption(ctx context.Context, arg ExistsSharedServiceOptionParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsSharedServiceOption, arg.ID, arg.IsActive)
+	row := q.db.QueryRow(ctx, existsSharedServiceOption,
+		arg.ID,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -10120,7 +10164,7 @@ const getSharedServiceOption = `-- name: GetSharedServiceOption :one
 
 
 
-SELECT id, category, name, description, provider, method, is_active
+SELECT id, category, name, description, provider, method, is_active, "order"
 FROM "shared"."service_option"
 WHERE ("id" = $1)
 `
@@ -10139,6 +10183,7 @@ func (q *Queries) GetSharedServiceOption(ctx context.Context, id pgtype.Text) (S
 		&i.Provider,
 		&i.Method,
 		&i.IsActive,
+		&i.Order,
 	)
 	return i, err
 }
@@ -10149,14 +10194,20 @@ const getSystemSearchSync = `-- name: GetSystemSearchSync :one
 
 SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 FROM "system"."search_sync"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("ref_type" = $2 AND "ref_id" = $3)
 `
+
+type GetSystemSearchSyncParams struct {
+	ID      pgtype.Int8 `json:"id"`
+	RefType pgtype.Text `json:"ref_type"`
+	RefID   pgtype.Int8 `json:"ref_id"`
+}
 
 // ========================================
 // Queries for table: system.search_sync
 // ========================================
-func (q *Queries) GetSystemSearchSync(ctx context.Context, id pgtype.Int8) (SystemSearchSync, error) {
-	row := q.db.QueryRow(ctx, getSystemSearchSync, id)
+func (q *Queries) GetSystemSearchSync(ctx context.Context, arg GetSystemSearchSyncParams) (SystemSearchSync, error) {
+	row := q.db.QueryRow(ctx, getSystemSearchSync, arg.ID, arg.RefType, arg.RefID)
 	var i SystemSearchSync
 	err := row.Scan(
 		&i.ID,
@@ -13059,28 +13110,37 @@ func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListShare
 }
 
 const listSharedServiceOption = `-- name: ListSharedServiceOption :many
-SELECT id, category, name, description, provider, method, is_active
+SELECT id, category, name, description, provider, method, is_active, "order"
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL)
+    ("is_active" = ANY($2) OR $2 IS NULL) AND
+    ("order" = ANY($3) OR $3 IS NULL) AND
+    ("order" > $4 OR $4 IS NULL) AND
+    ("order" < $5 OR $5 IS NULL)
 )
 ORDER BY "id"
-LIMIT $4
-OFFSET $3
+LIMIT $7
+OFFSET $6
 `
 
 type ListSharedServiceOptionParams struct {
-	ID       []string    `json:"id"`
-	IsActive []bool      `json:"is_active"`
-	Offset   pgtype.Int4 `json:"offset"`
-	Limit    pgtype.Int4 `json:"limit"`
+	ID        []string    `json:"id"`
+	IsActive  []bool      `json:"is_active"`
+	Order     []int32     `json:"order"`
+	OrderFrom pgtype.Int4 `json:"order_from"`
+	OrderTo   pgtype.Int4 `json:"order_to"`
+	Offset    pgtype.Int4 `json:"offset"`
+	Limit     pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListSharedServiceOption(ctx context.Context, arg ListSharedServiceOptionParams) ([]SharedServiceOption, error) {
 	rows, err := q.db.Query(ctx, listSharedServiceOption,
 		arg.ID,
 		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -13099,6 +13159,7 @@ func (q *Queries) ListSharedServiceOption(ctx context.Context, arg ListSharedSer
 			&i.Provider,
 			&i.Method,
 			&i.IsActive,
+			&i.Order,
 		); err != nil {
 			return nil, err
 		}
@@ -14712,9 +14773,10 @@ SET "category" = COALESCE($1, "category"),
     "description" = COALESCE($3, "description"),
     "provider" = COALESCE($4, "provider"),
     "method" = COALESCE($5, "method"),
-    "is_active" = COALESCE($6, "is_active")
-WHERE id = $7
-RETURNING id, category, name, description, provider, method, is_active
+    "is_active" = COALESCE($6, "is_active"),
+    "order" = COALESCE($7, "order")
+WHERE id = $8
+RETURNING id, category, name, description, provider, method, is_active, "order"
 `
 
 type UpdateSharedServiceOptionParams struct {
@@ -14724,6 +14786,7 @@ type UpdateSharedServiceOptionParams struct {
 	Provider    pgtype.Text `json:"provider"`
 	Method      pgtype.Text `json:"method"`
 	IsActive    pgtype.Bool `json:"is_active"`
+	Order       pgtype.Int4 `json:"order"`
 	ID          string      `json:"id"`
 }
 
@@ -14735,6 +14798,7 @@ func (q *Queries) UpdateSharedServiceOption(ctx context.Context, arg UpdateShare
 		arg.Provider,
 		arg.Method,
 		arg.IsActive,
+		arg.Order,
 		arg.ID,
 	)
 	var i SharedServiceOption
@@ -14746,6 +14810,7 @@ func (q *Queries) UpdateSharedServiceOption(ctx context.Context, arg UpdateShare
 		&i.Provider,
 		&i.Method,
 		&i.IsActive,
+		&i.Order,
 	)
 	return i, err
 }

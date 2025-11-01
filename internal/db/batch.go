@@ -2241,9 +2241,9 @@ func (b *CreateBatchSharedResourceReferenceBatchResults) Close() error {
 }
 
 const createBatchSharedServiceOption = `-- name: CreateBatchSharedServiceOption :batchone
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, category, name, description, provider, method, is_active
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, category, name, description, provider, method, is_active, "order"
 `
 
 type CreateBatchSharedServiceOptionBatchResults struct {
@@ -2260,6 +2260,7 @@ type CreateBatchSharedServiceOptionParams struct {
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 func (q *Queries) CreateBatchSharedServiceOption(ctx context.Context, arg []CreateBatchSharedServiceOptionParams) *CreateBatchSharedServiceOptionBatchResults {
@@ -2273,6 +2274,7 @@ func (q *Queries) CreateBatchSharedServiceOption(ctx context.Context, arg []Crea
 			a.Provider,
 			a.Method,
 			a.IsActive,
+			a.Order,
 		}
 		batch.Queue(createBatchSharedServiceOption, vals...)
 	}
@@ -2299,6 +2301,7 @@ func (b *CreateBatchSharedServiceOptionBatchResults) QueryRow(f func(int, Shared
 			&i.Provider,
 			&i.Method,
 			&i.IsActive,
+			&i.Order,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -3946,7 +3949,7 @@ func (b *DeleteBatchSharedServiceOptionBatchResults) Close() error {
 
 const deleteBatchSystemSearchSync = `-- name: DeleteBatchSystemSearchSync :batchexec
 DELETE FROM "system"."search_sync"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("ref_type" = $2 AND "ref_id" = $3)
 `
 
 type DeleteBatchSystemSearchSyncBatchResults struct {
@@ -3955,16 +3958,24 @@ type DeleteBatchSystemSearchSyncBatchResults struct {
 	closed bool
 }
 
-func (q *Queries) DeleteBatchSystemSearchSync(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemSearchSyncBatchResults {
+type DeleteBatchSystemSearchSyncParams struct {
+	ID      pgtype.Int8 `json:"id"`
+	RefType pgtype.Text `json:"ref_type"`
+	RefID   pgtype.Int8 `json:"ref_id"`
+}
+
+func (q *Queries) DeleteBatchSystemSearchSync(ctx context.Context, arg []DeleteBatchSystemSearchSyncParams) *DeleteBatchSystemSearchSyncBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range id {
+	for _, a := range arg {
 		vals := []interface{}{
-			a,
+			a.ID,
+			a.RefType,
+			a.RefID,
 		}
 		batch.Queue(deleteBatchSystemSearchSync, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSystemSearchSyncBatchResults{br, len(id), false}
+	return &DeleteBatchSystemSearchSyncBatchResults{br, len(arg), false}
 }
 
 func (b *DeleteBatchSystemSearchSyncBatchResults) Exec(f func(int, error)) {
@@ -6331,8 +6342,9 @@ SET "category" = COALESCE($1, "category"),
     "description" = COALESCE($3, "description"),
     "provider" = COALESCE($4, "provider"),
     "method" = COALESCE($5, "method"),
-    "is_active" = COALESCE($6, "is_active")
-WHERE id = $7
+    "is_active" = COALESCE($6, "is_active"),
+    "order" = COALESCE($7, "order")
+WHERE id = $8
 `
 
 type UpdateBatchSharedServiceOptionBatchResults struct {
@@ -6348,6 +6360,7 @@ type UpdateBatchSharedServiceOptionParams struct {
 	Provider    pgtype.Text `json:"provider"`
 	Method      pgtype.Text `json:"method"`
 	IsActive    pgtype.Bool `json:"is_active"`
+	Order       pgtype.Int4 `json:"order"`
 	ID          string      `json:"id"`
 }
 
@@ -6361,6 +6374,7 @@ func (q *Queries) UpdateBatchSharedServiceOption(ctx context.Context, arg []Upda
 			a.Provider,
 			a.Method,
 			a.IsActive,
+			a.Order,
 			a.ID,
 		}
 		batch.Queue(updateBatchSharedServiceOption, vals...)

@@ -1777,6 +1777,7 @@ func (r iteratorForCreateCopyDefaultSharedServiceOption) Values() ([]interface{}
 		r.rows[0].Description,
 		r.rows[0].Provider,
 		r.rows[0].Method,
+		r.rows[0].Order,
 	}, nil
 }
 
@@ -1785,7 +1786,7 @@ func (r iteratorForCreateCopyDefaultSharedServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultSharedServiceOption(ctx context.Context, arg []CreateCopyDefaultSharedServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method"}, &iteratorForCreateCopyDefaultSharedServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "order"}, &iteratorForCreateCopyDefaultSharedServiceOption{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSystemSearchSync implements pgx.CopyFromSource.
@@ -2451,6 +2452,7 @@ func (r iteratorForCreateCopySharedServiceOption) Values() ([]interface{}, error
 		r.rows[0].Provider,
 		r.rows[0].Method,
 		r.rows[0].IsActive,
+		r.rows[0].Order,
 	}, nil
 }
 
@@ -2459,7 +2461,7 @@ func (r iteratorForCreateCopySharedServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopySharedServiceOption(ctx context.Context, arg []CreateCopySharedServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "is_active"}, &iteratorForCreateCopySharedServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "is_active", "order"}, &iteratorForCreateCopySharedServiceOption{rows: arg})
 }
 
 // iteratorForCreateCopySystemSearchSync implements pgx.CopyFromSource.

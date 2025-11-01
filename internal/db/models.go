@@ -1346,6 +1346,7 @@ type SharedServiceOption struct {
 	Provider    string `json:"provider"`
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 type SystemSearchSync struct {

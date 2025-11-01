@@ -4757,7 +4757,10 @@ SELECT 1
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 )
 ) as exists;
 
@@ -4766,7 +4769,10 @@ SELECT COUNT(*)
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 );
 
 -- name: ListSharedServiceOption :many
@@ -4774,7 +4780,10 @@ SELECT *
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -4782,27 +4791,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateBatchSharedServiceOption :batchone
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopySharedServiceOption :copyfrom
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: CreateDefaultSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultSharedServiceOption :copyfrom
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateSharedServiceOption :one
 UPDATE "shared"."service_option"
@@ -4811,7 +4820,8 @@ SET "category" = COALESCE(sqlc.narg('category'), "category"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "method" = COALESCE(sqlc.narg('method'), "method"),
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "order" = COALESCE(sqlc.narg('order'), "order")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -4822,14 +4832,18 @@ SET "category" = COALESCE(sqlc.narg('category'), "category"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "method" = COALESCE(sqlc.narg('method'), "method"),
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active")
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "order" = COALESCE(sqlc.narg('order'), "order")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteSharedServiceOption :exec
 DELETE FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL)
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 );
 
 -- name: DeleteBatchSharedServiceOption :batchexec
@@ -4845,7 +4859,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetSystemSearchSync :one
 SELECT *
 FROM "system"."search_sync"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("ref_type" = sqlc.narg('ref_type') AND "ref_id" = sqlc.narg('ref_id'));
 
 -- name: ExistsSystemSearchSync :one
 SELECT EXISTS (
@@ -4982,4 +4996,4 @@ WHERE (
 
 -- name: DeleteBatchSystemSearchSync :batchexec
 DELETE FROM "system"."search_sync"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("ref_type" = sqlc.narg('ref_type') AND "ref_id" = sqlc.narg('ref_id'));

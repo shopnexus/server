@@ -257,7 +257,7 @@ type Querier interface {
 	DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults
 	DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults
 	DeleteBatchSharedServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchSharedServiceOptionBatchResults
-	DeleteBatchSystemSearchSync(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemSearchSyncBatchResults
+	DeleteBatchSystemSearchSync(ctx context.Context, arg []DeleteBatchSystemSearchSyncParams) *DeleteBatchSystemSearchSyncBatchResults
 	DeleteCatalogBrand(ctx context.Context, arg DeleteCatalogBrandParams) error
 	DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error
 	DeleteCatalogComment(ctx context.Context, arg DeleteCatalogCommentParams) error
@@ -457,7 +457,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: system.search_sync
 	// ========================================
-	GetSystemSearchSync(ctx context.Context, id pgtype.Int8) (SystemSearchSync, error)
+	GetSystemSearchSync(ctx context.Context, arg GetSystemSearchSyncParams) (SystemSearchSync, error)
 	GetVendorAddressBySkuIDs(ctx context.Context, skuIds []int64) ([]GetVendorAddressBySkuIDsRow, error)
 	ListAccountBase(ctx context.Context, arg ListAccountBaseParams) ([]AccountBase, error)
 	ListAccountCartItem(ctx context.Context, arg ListAccountCartItemParams) ([]AccountCartItem, error)
@@ -504,6 +504,7 @@ type Querier interface {
 	ReserveInventory(ctx context.Context, arg []ReserveInventoryParams) *ReserveInventoryBatchResults
 	SearchCatalogProductSpu(ctx context.Context, arg SearchCatalogProductSpuParams) ([]CatalogProductSpu, error)
 	SearchSharedResource(ctx context.Context, arg SearchSharedResourceParams) ([]SharedResource, error)
+	SearchSharedServiceOption(ctx context.Context, arg SearchSharedServiceOptionParams) ([]SharedServiceOption, error)
 	UpdateAccountBase(ctx context.Context, arg UpdateAccountBaseParams) (AccountBase, error)
 	UpdateAccountCartItem(ctx context.Context, arg UpdateAccountCartItemParams) (AccountCartItem, error)
 	UpdateAccountContact(ctx context.Context, arg UpdateAccountContactParams) (AccountContact, error)

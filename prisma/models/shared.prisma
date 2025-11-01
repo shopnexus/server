@@ -57,6 +57,7 @@ model ServiceOption {
   provider    String // "ghn", "vnpay", "momo"
   method      String // "standard", "qr", "bank"
   is_active   Boolean @default(true)
+  order       Int
 
   shipments Shipment[]
   orders    Order[]
