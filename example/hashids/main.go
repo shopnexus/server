@@ -1,7 +1,10 @@
 package main
 
-import "fmt"
-import "github.com/speps/go-hashids/v2"
+import (
+	"fmt"
+
+	"github.com/speps/go-hashids/v2"
+)
 
 func main() {
 	hd := hashids.NewData()

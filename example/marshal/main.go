@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 type CommonResponse struct {
 	Data  any               `json:"data,omitempty"`
-	Error sharedmodel.Error `json:"error,omitempty"`
+	Error commonmodel.Error `json:"error,omitempty"`
 }
 
 type MyInt int
@@ -19,7 +19,7 @@ func (m MyInt) MarshalJSON() ([]byte, error) {
 }
 
 func main() {
-	var x sharedmodel.Concurrency = 4212312312123123
+	var x commonmodel.Concurrency = 4212312312123123
 	data, _ := json.Marshal(x)
 	fmt.Println(string(data)) // "custom:42"
 

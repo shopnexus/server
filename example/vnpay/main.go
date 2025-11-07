@@ -10,11 +10,11 @@ import (
 )
 
 func main() {
-	client := vnpay.NewClient(vnpay.ClientOptions{
+	client := vnpay.NewClients(vnpay.ClientOptions{
 		TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
 		HashSecret: config.GetConfig().App.Vnpay.HashSecret,
 		ReturnURL:  "localhost",
-	})
+	})[0]
 
 	url, err := client.CreateOrder(context.TODO(), payment.CreateOrderParams{
 		RefID:  13,
