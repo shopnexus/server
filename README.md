@@ -285,3 +285,17 @@ CREATE TABLE "shared"."service_option" (
 ```
 
 ### 30-10-2025 After a long time of lazying around 🐧
+
+### 7-11-2025 Refactor database wrapper (storage)
+
+Add transaction callback to storage interface to reduce boilerplate code when using transaction. Back then I always forget to commit/rollback the transaction 😂
+
+```go
+// WithTx executes the given function within a transaction, prefer using the provided Storage if not nil, automatically commit/rollback
+ WithTx(ctx context.Context, preferStorage Storage, fn func(txStorage Storage) error) error
+```
+
+- With this approach, you can pass the preferStorage from outer biz layer to inner biz layer when both layers need to use transaction. Eg: CreateComment which calls UpdateResources atomically.
+- You can choose to have a nested transaction by setting allowNestedTx (default: false) to true in NewTxQueries.
+
+![img.png](images/img7.png)
