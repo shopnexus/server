@@ -38,7 +38,6 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.0
-	lukechampine.com/blake3 v1.4.1
 )
 
 require (
