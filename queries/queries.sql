@@ -19,8 +19,6 @@ SELECT 1
 FROM "account"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
@@ -41,8 +39,6 @@ SELECT COUNT(*)
 FROM "account"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
@@ -62,8 +58,6 @@ SELECT *
 FROM "account"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
@@ -134,8 +128,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
@@ -171,8 +163,6 @@ SELECT 1
 FROM "account"."profile"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
@@ -182,8 +172,6 @@ WHERE (
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
-    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -198,8 +186,6 @@ SELECT COUNT(*)
 FROM "account"."profile"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
@@ -209,8 +195,6 @@ WHERE (
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
-    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -224,8 +208,6 @@ SELECT *
 FROM "account"."profile"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
@@ -235,8 +217,6 @@ WHERE (
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
-    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -303,8 +283,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."profile"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
@@ -314,8 +292,6 @@ WHERE (
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_contact_id" > sqlc.narg('default_contact_id_from') OR sqlc.narg('default_contact_id_from') IS NULL) AND
-    ("default_contact_id" < sqlc.narg('default_contact_id_to') OR sqlc.narg('default_contact_id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -345,8 +321,6 @@ SELECT 1
 FROM "account"."customer"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -361,8 +335,6 @@ SELECT COUNT(*)
 FROM "account"."customer"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -376,8 +348,6 @@ SELECT *
 FROM "account"."customer"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -430,8 +400,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."customer"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -461,8 +429,6 @@ SELECT 1
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ) as exists;
@@ -472,8 +438,6 @@ SELECT COUNT(*)
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
@@ -482,8 +446,6 @@ SELECT *
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ORDER BY "id"
@@ -529,8 +491,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."vendor"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
@@ -555,11 +515,7 @@ SELECT 1
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("income" = ANY(sqlc.slice('income')) OR sqlc.slice('income') IS NULL) AND
     ("income" > sqlc.narg('income_from') OR sqlc.narg('income_from') IS NULL) AND
@@ -581,11 +537,7 @@ SELECT COUNT(*)
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("income" = ANY(sqlc.slice('income')) OR sqlc.slice('income') IS NULL) AND
     ("income" > sqlc.narg('income_from') OR sqlc.narg('income_from') IS NULL) AND
@@ -606,11 +558,7 @@ SELECT *
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("income" = ANY(sqlc.slice('income')) OR sqlc.slice('income') IS NULL) AND
     ("income" > sqlc.narg('income_from') OR sqlc.narg('income_from') IS NULL) AND
@@ -682,11 +630,7 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."income_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("income" = ANY(sqlc.slice('income')) OR sqlc.slice('income') IS NULL) AND
     ("income" > sqlc.narg('income_from') OR sqlc.narg('income_from') IS NULL) AND
@@ -723,14 +667,11 @@ SELECT 1
 FROM "account"."notification"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("channel" = ANY(sqlc.slice('channel')) OR sqlc.slice('channel') IS NULL) AND
     ("is_read" = ANY(sqlc.slice('is_read')) OR sqlc.slice('is_read') IS NULL) AND
+    ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -751,14 +692,11 @@ SELECT COUNT(*)
 FROM "account"."notification"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("channel" = ANY(sqlc.slice('channel')) OR sqlc.slice('channel') IS NULL) AND
     ("is_read" = ANY(sqlc.slice('is_read')) OR sqlc.slice('is_read') IS NULL) AND
+    ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -778,14 +716,11 @@ SELECT *
 FROM "account"."notification"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("channel" = ANY(sqlc.slice('channel')) OR sqlc.slice('channel') IS NULL) AND
     ("is_read" = ANY(sqlc.slice('is_read')) OR sqlc.slice('is_read') IS NULL) AND
+    ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -858,14 +793,11 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."notification"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("channel" = ANY(sqlc.slice('channel')) OR sqlc.slice('channel') IS NULL) AND
     ("is_read" = ANY(sqlc.slice('is_read')) OR sqlc.slice('is_read') IS NULL) AND
+    ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -901,14 +833,8 @@ SELECT 1
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("cart_id" > sqlc.narg('cart_id_from') OR sqlc.narg('cart_id_from') IS NULL) AND
-    ("cart_id" < sqlc.narg('cart_id_to') OR sqlc.narg('cart_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
@@ -926,14 +852,8 @@ SELECT COUNT(*)
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("cart_id" > sqlc.narg('cart_id_from') OR sqlc.narg('cart_id_from') IS NULL) AND
-    ("cart_id" < sqlc.narg('cart_id_to') OR sqlc.narg('cart_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
@@ -950,14 +870,8 @@ SELECT *
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("cart_id" > sqlc.narg('cart_id_from') OR sqlc.narg('cart_id_from') IS NULL) AND
-    ("cart_id" < sqlc.narg('cart_id_to') OR sqlc.narg('cart_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
@@ -1019,14 +933,8 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."cart_item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("cart_id" > sqlc.narg('cart_id_from') OR sqlc.narg('cart_id_from') IS NULL) AND
-    ("cart_id" < sqlc.narg('cart_id_to') OR sqlc.narg('cart_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
     ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
@@ -1059,11 +967,7 @@ SELECT 1
 FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
@@ -1083,11 +987,7 @@ SELECT COUNT(*)
 FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
@@ -1106,11 +1006,7 @@ SELECT *
 FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
@@ -1180,11 +1076,7 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "account"."contact"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
@@ -1219,18 +1111,16 @@ SELECT 1
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
+    ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
     ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
+    ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -1242,18 +1132,16 @@ SELECT COUNT(*)
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
+    ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
     ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
+    ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -1264,18 +1152,16 @@ SELECT *
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
+    ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
     ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
+    ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -1339,18 +1225,16 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
+    ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
     ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
+    ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -1377,9 +1261,9 @@ SELECT 1
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ) as exists;
 
@@ -1388,9 +1272,9 @@ SELECT COUNT(*)
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
 -- name: ListCatalogBrand :many
@@ -1398,9 +1282,9 @@ SELECT *
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -1449,9 +1333,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."brand"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
-    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL)
+    ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
 -- name: DeleteBatchCatalogBrand :batchexec
@@ -1475,12 +1359,9 @@ SELECT 1
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL) AND
-    ("parent_id" > sqlc.narg('parent_id_from') OR sqlc.narg('parent_id_from') IS NULL) AND
-    ("parent_id" < sqlc.narg('parent_id_to') OR sqlc.narg('parent_id_to') IS NULL)
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL)
 )
 ) as exists;
 
@@ -1489,12 +1370,9 @@ SELECT COUNT(*)
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL) AND
-    ("parent_id" > sqlc.narg('parent_id_from') OR sqlc.narg('parent_id_from') IS NULL) AND
-    ("parent_id" < sqlc.narg('parent_id_to') OR sqlc.narg('parent_id_to') IS NULL)
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL)
 );
 
 -- name: ListCatalogCategory :many
@@ -1502,12 +1380,9 @@ SELECT *
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL) AND
-    ("parent_id" > sqlc.narg('parent_id_from') OR sqlc.narg('parent_id_from') IS NULL) AND
-    ("parent_id" < sqlc.narg('parent_id_to') OR sqlc.narg('parent_id_to') IS NULL)
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -1556,12 +1431,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."category"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL) AND
-    ("parent_id" > sqlc.narg('parent_id_from') OR sqlc.narg('parent_id_from') IS NULL) AND
-    ("parent_id" < sqlc.narg('parent_id_to') OR sqlc.narg('parent_id_to') IS NULL)
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("parent_id" = ANY(sqlc.slice('parent_id')) OR sqlc.slice('parent_id') IS NULL)
 );
 
 -- name: DeleteBatchCatalogCategory :batchexec
@@ -1585,21 +1457,13 @@ SELECT 1
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
-    ("category_id" > sqlc.narg('category_id_from') OR sqlc.narg('category_id_from') IS NULL) AND
-    ("category_id" < sqlc.narg('category_id_to') OR sqlc.narg('category_id_to') IS NULL) AND
     ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
-    ("brand_id" > sqlc.narg('brand_id_from') OR sqlc.narg('brand_id_from') IS NULL) AND
-    ("brand_id" < sqlc.narg('brand_id_to') OR sqlc.narg('brand_id_to') IS NULL) AND
     ("featured_sku_id" = ANY(sqlc.slice('featured_sku_id')) OR sqlc.slice('featured_sku_id') IS NULL) AND
-    ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
-    ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -1618,21 +1482,13 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
-    ("category_id" > sqlc.narg('category_id_from') OR sqlc.narg('category_id_from') IS NULL) AND
-    ("category_id" < sqlc.narg('category_id_to') OR sqlc.narg('category_id_to') IS NULL) AND
     ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
-    ("brand_id" > sqlc.narg('brand_id_from') OR sqlc.narg('brand_id_from') IS NULL) AND
-    ("brand_id" < sqlc.narg('brand_id_to') OR sqlc.narg('brand_id_to') IS NULL) AND
     ("featured_sku_id" = ANY(sqlc.slice('featured_sku_id')) OR sqlc.slice('featured_sku_id') IS NULL) AND
-    ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
-    ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -1650,21 +1506,13 @@ SELECT *
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
-    ("category_id" > sqlc.narg('category_id_from') OR sqlc.narg('category_id_from') IS NULL) AND
-    ("category_id" < sqlc.narg('category_id_to') OR sqlc.narg('category_id_to') IS NULL) AND
     ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
-    ("brand_id" > sqlc.narg('brand_id_from') OR sqlc.narg('brand_id_from') IS NULL) AND
-    ("brand_id" < sqlc.narg('brand_id_to') OR sqlc.narg('brand_id_to') IS NULL) AND
     ("featured_sku_id" = ANY(sqlc.slice('featured_sku_id')) OR sqlc.slice('featured_sku_id') IS NULL) AND
-    ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
-    ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -1739,21 +1587,13 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("category_id" = ANY(sqlc.slice('category_id')) OR sqlc.slice('category_id') IS NULL) AND
-    ("category_id" > sqlc.narg('category_id_from') OR sqlc.narg('category_id_from') IS NULL) AND
-    ("category_id" < sqlc.narg('category_id_to') OR sqlc.narg('category_id_to') IS NULL) AND
     ("brand_id" = ANY(sqlc.slice('brand_id')) OR sqlc.slice('brand_id') IS NULL) AND
-    ("brand_id" > sqlc.narg('brand_id_from') OR sqlc.narg('brand_id_from') IS NULL) AND
-    ("brand_id" < sqlc.narg('brand_id_to') OR sqlc.narg('brand_id_to') IS NULL) AND
     ("featured_sku_id" = ANY(sqlc.slice('featured_sku_id')) OR sqlc.slice('featured_sku_id') IS NULL) AND
-    ("featured_sku_id" > sqlc.narg('featured_sku_id_from') OR sqlc.narg('featured_sku_id_from') IS NULL) AND
-    ("featured_sku_id" < sqlc.narg('featured_sku_id_to') OR sqlc.narg('featured_sku_id_to') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -1787,11 +1627,7 @@ SELECT 1
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1811,11 +1647,7 @@ SELECT COUNT(*)
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1834,11 +1666,7 @@ SELECT *
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1904,11 +1732,7 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
     ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
@@ -1942,7 +1766,8 @@ SELECT EXISTS (
 SELECT 1
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ) as exists;
 
@@ -1950,14 +1775,16 @@ WHERE (
 SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
 -- name: ListCatalogTag :many
 SELECT *
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -2001,7 +1828,8 @@ WHERE id = sqlc.arg('id');
 -- name: DeleteCatalogTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL)
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
 );
 
 -- name: DeleteBatchCatalogTag :batchexec
@@ -2025,11 +1853,7 @@ SELECT 1
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 )
 ) as exists;
@@ -2039,11 +1863,7 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 );
 
@@ -2052,11 +1872,7 @@ SELECT *
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 )
 ORDER BY "id"
@@ -2104,11 +1920,7 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("spu_id" > sqlc.narg('spu_id_from') OR sqlc.narg('spu_id_from') IS NULL) AND
-    ("spu_id" < sqlc.narg('spu_id_to') OR sqlc.narg('spu_id_to') IS NULL) AND
     ("tag" = ANY(sqlc.slice('tag')) OR sqlc.slice('tag') IS NULL)
 );
 
@@ -2133,15 +1945,10 @@ SELECT 1
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
     ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
     ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
@@ -2165,15 +1972,10 @@ SELECT COUNT(*)
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
     ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
     ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
@@ -2196,15 +1998,10 @@ SELECT *
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
     ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
     ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
@@ -2280,15 +2077,10 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "catalog"."comment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
+    ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
     ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
     ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
@@ -2327,12 +2119,8 @@ SELECT 1
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -2345,12 +2133,8 @@ SELECT COUNT(*)
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -2362,12 +2146,8 @@ SELECT *
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -2422,12 +2202,8 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("serial_id" = ANY(sqlc.slice('serial_id')) OR sqlc.slice('serial_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -2455,12 +2231,8 @@ SELECT 1
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("current_stock" = ANY(sqlc.slice('current_stock')) OR sqlc.slice('current_stock') IS NULL) AND
     ("current_stock" > sqlc.narg('current_stock_from') OR sqlc.narg('current_stock_from') IS NULL) AND
     ("current_stock" < sqlc.narg('current_stock_to') OR sqlc.narg('current_stock_to') IS NULL) AND
@@ -2478,12 +2250,8 @@ SELECT COUNT(*)
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("current_stock" = ANY(sqlc.slice('current_stock')) OR sqlc.slice('current_stock') IS NULL) AND
     ("current_stock" > sqlc.narg('current_stock_from') OR sqlc.narg('current_stock_from') IS NULL) AND
     ("current_stock" < sqlc.narg('current_stock_to') OR sqlc.narg('current_stock_to') IS NULL) AND
@@ -2500,12 +2268,8 @@ SELECT *
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("current_stock" = ANY(sqlc.slice('current_stock')) OR sqlc.slice('current_stock') IS NULL) AND
     ("current_stock" > sqlc.narg('current_stock_from') OR sqlc.narg('current_stock_from') IS NULL) AND
     ("current_stock" < sqlc.narg('current_stock_to') OR sqlc.narg('current_stock_to') IS NULL) AND
@@ -2567,12 +2331,8 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "inventory"."stock"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("current_stock" = ANY(sqlc.slice('current_stock')) OR sqlc.slice('current_stock') IS NULL) AND
     ("current_stock" > sqlc.narg('current_stock_from') OR sqlc.narg('current_stock_from') IS NULL) AND
     ("current_stock" < sqlc.narg('current_stock_to') OR sqlc.narg('current_stock_to') IS NULL) AND
@@ -2605,11 +2365,7 @@ SELECT 1
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
-    ("stock_id" > sqlc.narg('stock_id_from') OR sqlc.narg('stock_id_from') IS NULL) AND
-    ("stock_id" < sqlc.narg('stock_id_to') OR sqlc.narg('stock_id_to') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
     ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
     ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
@@ -2624,11 +2380,7 @@ SELECT COUNT(*)
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
-    ("stock_id" > sqlc.narg('stock_id_from') OR sqlc.narg('stock_id_from') IS NULL) AND
-    ("stock_id" < sqlc.narg('stock_id_to') OR sqlc.narg('stock_id_to') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
     ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
     ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
@@ -2642,11 +2394,7 @@ SELECT *
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
-    ("stock_id" > sqlc.narg('stock_id_from') OR sqlc.narg('stock_id_from') IS NULL) AND
-    ("stock_id" < sqlc.narg('stock_id_to') OR sqlc.narg('stock_id_to') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
     ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
     ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
@@ -2701,11 +2449,7 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
-    ("stock_id" > sqlc.narg('stock_id_from') OR sqlc.narg('stock_id_from') IS NULL) AND
-    ("stock_id" < sqlc.narg('stock_id_to') OR sqlc.narg('stock_id_to') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
     ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
     ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
@@ -2735,12 +2479,10 @@ SELECT 1
 FROM "order"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
     ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2755,12 +2497,10 @@ SELECT COUNT(*)
 FROM "order"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
     ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2774,12 +2514,10 @@ SELECT *
 FROM "order"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
     ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2840,12 +2578,10 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
+    ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
     ("payment_status" = ANY(sqlc.slice('payment_status')) OR sqlc.slice('payment_status') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2875,23 +2611,12 @@ SELECT 1
 FROM "order"."item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
-    ("order_id" > sqlc.narg('order_id_from') OR sqlc.narg('order_id_from') IS NULL) AND
-    ("order_id" < sqlc.narg('order_id_to') OR sqlc.narg('order_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
-    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
-    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
@@ -2904,23 +2629,12 @@ SELECT COUNT(*)
 FROM "order"."item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
-    ("order_id" > sqlc.narg('order_id_from') OR sqlc.narg('order_id_from') IS NULL) AND
-    ("order_id" < sqlc.narg('order_id_to') OR sqlc.narg('order_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
-    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
-    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
@@ -2932,23 +2646,12 @@ SELECT *
 FROM "order"."item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
-    ("order_id" > sqlc.narg('order_id_from') OR sqlc.narg('order_id_from') IS NULL) AND
-    ("order_id" < sqlc.narg('order_id_to') OR sqlc.narg('order_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
-    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
-    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
@@ -3011,23 +2714,12 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."item"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
-    ("order_id" > sqlc.narg('order_id_from') OR sqlc.narg('order_id_from') IS NULL) AND
-    ("order_id" < sqlc.narg('order_id_to') OR sqlc.narg('order_id_to') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("sku_id" > sqlc.narg('sku_id_from') OR sqlc.narg('sku_id_from') IS NULL) AND
-    ("sku_id" < sqlc.narg('sku_id_to') OR sqlc.narg('sku_id_to') IS NULL) AND
     ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
-    ("vendor_id" > sqlc.narg('vendor_id_from') OR sqlc.narg('vendor_id_from') IS NULL) AND
-    ("vendor_id" < sqlc.narg('vendor_id_to') OR sqlc.narg('vendor_id_to') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("confirmed_by_id" > sqlc.narg('confirmed_by_id_from') OR sqlc.narg('confirmed_by_id_from') IS NULL) AND
-    ("confirmed_by_id" < sqlc.narg('confirmed_by_id_to') OR sqlc.narg('confirmed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
     ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
@@ -3055,14 +2747,8 @@ SELECT 1
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
-    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL) AND
-    ("product_serial_id" > sqlc.narg('product_serial_id_from') OR sqlc.narg('product_serial_id_from') IS NULL) AND
-    ("product_serial_id" < sqlc.narg('product_serial_id_to') OR sqlc.narg('product_serial_id_to') IS NULL)
+    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL)
 )
 ) as exists;
 
@@ -3071,14 +2757,8 @@ SELECT COUNT(*)
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
-    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL) AND
-    ("product_serial_id" > sqlc.narg('product_serial_id_from') OR sqlc.narg('product_serial_id_from') IS NULL) AND
-    ("product_serial_id" < sqlc.narg('product_serial_id_to') OR sqlc.narg('product_serial_id_to') IS NULL)
+    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL)
 );
 
 -- name: ListOrderItemSerial :many
@@ -3086,14 +2766,8 @@ SELECT *
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
-    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL) AND
-    ("product_serial_id" > sqlc.narg('product_serial_id_from') OR sqlc.narg('product_serial_id_from') IS NULL) AND
-    ("product_serial_id" < sqlc.narg('product_serial_id_to') OR sqlc.narg('product_serial_id_to') IS NULL)
+    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -3140,14 +2814,8 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."item_serial"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
-    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL) AND
-    ("product_serial_id" > sqlc.narg('product_serial_id_from') OR sqlc.narg('product_serial_id_from') IS NULL) AND
-    ("product_serial_id" < sqlc.narg('product_serial_id_to') OR sqlc.narg('product_serial_id_to') IS NULL)
+    ("product_serial_id" = ANY(sqlc.slice('product_serial_id')) OR sqlc.slice('product_serial_id') IS NULL)
 );
 
 -- name: DeleteBatchOrderItemSerial :batchexec
@@ -3171,22 +2839,14 @@ SELECT 1
 FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
     ("reviewed_by_id" = ANY(sqlc.slice('reviewed_by_id')) OR sqlc.slice('reviewed_by_id') IS NULL) AND
-    ("reviewed_by_id" > sqlc.narg('reviewed_by_id_from') OR sqlc.narg('reviewed_by_id_from') IS NULL) AND
-    ("reviewed_by_id" < sqlc.narg('reviewed_by_id_to') OR sqlc.narg('reviewed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -3198,22 +2858,14 @@ SELECT COUNT(*)
 FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
     ("reviewed_by_id" = ANY(sqlc.slice('reviewed_by_id')) OR sqlc.slice('reviewed_by_id') IS NULL) AND
-    ("reviewed_by_id" > sqlc.narg('reviewed_by_id_from') OR sqlc.narg('reviewed_by_id_from') IS NULL) AND
-    ("reviewed_by_id" < sqlc.narg('reviewed_by_id_to') OR sqlc.narg('reviewed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -3224,22 +2876,14 @@ SELECT *
 FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
     ("reviewed_by_id" = ANY(sqlc.slice('reviewed_by_id')) OR sqlc.slice('reviewed_by_id') IS NULL) AND
-    ("reviewed_by_id" > sqlc.narg('reviewed_by_id_from') OR sqlc.narg('reviewed_by_id_from') IS NULL) AND
-    ("reviewed_by_id" < sqlc.narg('reviewed_by_id_to') OR sqlc.narg('reviewed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -3303,22 +2947,14 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("account_id" > sqlc.narg('account_id_from') OR sqlc.narg('account_id_from') IS NULL) AND
-    ("account_id" < sqlc.narg('account_id_to') OR sqlc.narg('account_id_to') IS NULL) AND
     ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
-    ("order_item_id" > sqlc.narg('order_item_id_from') OR sqlc.narg('order_item_id_from') IS NULL) AND
-    ("order_item_id" < sqlc.narg('order_item_id_to') OR sqlc.narg('order_item_id_to') IS NULL) AND
     ("reviewed_by_id" = ANY(sqlc.slice('reviewed_by_id')) OR sqlc.slice('reviewed_by_id') IS NULL) AND
-    ("reviewed_by_id" > sqlc.narg('reviewed_by_id_from') OR sqlc.narg('reviewed_by_id_from') IS NULL) AND
-    ("reviewed_by_id" < sqlc.narg('reviewed_by_id_to') OR sqlc.narg('reviewed_by_id_to') IS NULL) AND
     ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
-    ("shipment_id" > sqlc.narg('shipment_id_from') OR sqlc.narg('shipment_id_from') IS NULL) AND
-    ("shipment_id" < sqlc.narg('shipment_id_to') OR sqlc.narg('shipment_id_to') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -3345,14 +2981,9 @@ SELECT 1
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("refund_id" = ANY(sqlc.slice('refund_id')) OR sqlc.slice('refund_id') IS NULL) AND
-    ("refund_id" > sqlc.narg('refund_id_from') OR sqlc.narg('refund_id_from') IS NULL) AND
-    ("refund_id" < sqlc.narg('refund_id_to') OR sqlc.narg('refund_id_to') IS NULL) AND
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
-    ("issued_by_id" > sqlc.narg('issued_by_id_from') OR sqlc.narg('issued_by_id_from') IS NULL) AND
-    ("issued_by_id" < sqlc.narg('issued_by_id_to') OR sqlc.narg('issued_by_id_to') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -3368,14 +2999,9 @@ SELECT COUNT(*)
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("refund_id" = ANY(sqlc.slice('refund_id')) OR sqlc.slice('refund_id') IS NULL) AND
-    ("refund_id" > sqlc.narg('refund_id_from') OR sqlc.narg('refund_id_from') IS NULL) AND
-    ("refund_id" < sqlc.narg('refund_id_to') OR sqlc.narg('refund_id_to') IS NULL) AND
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
-    ("issued_by_id" > sqlc.narg('issued_by_id_from') OR sqlc.narg('issued_by_id_from') IS NULL) AND
-    ("issued_by_id" < sqlc.narg('issued_by_id_to') OR sqlc.narg('issued_by_id_to') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -3390,14 +3016,9 @@ SELECT *
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("refund_id" = ANY(sqlc.slice('refund_id')) OR sqlc.slice('refund_id') IS NULL) AND
-    ("refund_id" > sqlc.narg('refund_id_from') OR sqlc.narg('refund_id_from') IS NULL) AND
-    ("refund_id" < sqlc.narg('refund_id_to') OR sqlc.narg('refund_id_to') IS NULL) AND
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
-    ("issued_by_id" > sqlc.narg('issued_by_id_from') OR sqlc.narg('issued_by_id_from') IS NULL) AND
-    ("issued_by_id" < sqlc.narg('issued_by_id_to') OR sqlc.narg('issued_by_id_to') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -3459,14 +3080,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("refund_id" = ANY(sqlc.slice('refund_id')) OR sqlc.slice('refund_id') IS NULL) AND
-    ("refund_id" > sqlc.narg('refund_id_from') OR sqlc.narg('refund_id_from') IS NULL) AND
-    ("refund_id" < sqlc.narg('refund_id_to') OR sqlc.narg('refund_id_to') IS NULL) AND
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
-    ("issued_by_id" > sqlc.narg('issued_by_id_from') OR sqlc.narg('issued_by_id_from') IS NULL) AND
-    ("issued_by_id" < sqlc.narg('issued_by_id_to') OR sqlc.narg('issued_by_id_to') IS NULL) AND
+    ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -3489,7 +3105,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetOrderInvoice :one
 SELECT *
 FROM "order"."invoice"
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: ExistsOrderInvoice :one
 SELECT EXISTS (
@@ -3497,22 +3113,15 @@ SELECT 1
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
-    ("receiver_id" > sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
-    ("receiver_id" < sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ) as exists;
 
@@ -3521,22 +3130,15 @@ SELECT COUNT(*)
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
-    ("receiver_id" > sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
-    ("receiver_id" < sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListOrderInvoice :many
@@ -3544,22 +3146,15 @@ SELECT *
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
-    ("receiver_id" > sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
-    ("receiver_id" < sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -3567,27 +3162,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateOrderInvoice :one
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchOrderInvoice :batchone
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyOrderInvoice :copyfrom
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultOrderInvoice :one
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrderInvoice :copyfrom
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateOrderInvoice :one
 UPDATE "order"."invoice"
@@ -3597,10 +3192,7 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "receiver_id" = COALESCE(sqlc.narg('receiver_id'), "receiver_id"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
     "data" = COALESCE(sqlc.narg('data'), "data"),
-    "file_rs_id" = COALESCE(sqlc.narg('file_rs_id'), "file_rs_id"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "hash" = COALESCE(sqlc.narg('hash'), "hash"),
-    "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -3612,37 +3204,27 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "receiver_id" = COALESCE(sqlc.narg('receiver_id'), "receiver_id"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
     "data" = COALESCE(sqlc.narg('data'), "data"),
-    "file_rs_id" = COALESCE(sqlc.narg('file_rs_id'), "file_rs_id"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "hash" = COALESCE(sqlc.narg('hash'), "hash"),
-    "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteOrderInvoice :exec
 DELETE FROM "order"."invoice"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("receiver_id" = ANY(sqlc.slice('receiver_id')) OR sqlc.slice('receiver_id') IS NULL) AND
-    ("receiver_id" > sqlc.narg('receiver_id_from') OR sqlc.narg('receiver_id_from') IS NULL) AND
-    ("receiver_id" < sqlc.narg('receiver_id_to') OR sqlc.narg('receiver_id_to') IS NULL) AND
+    ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: DeleteBatchOrderInvoice :batchexec
 DELETE FROM "order"."invoice"
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
@@ -3661,9 +3243,10 @@ SELECT 1
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
+    ("tracking_code" = ANY(sqlc.slice('tracking_code')) OR sqlc.slice('tracking_code') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("label_url" = ANY(sqlc.slice('label_url')) OR sqlc.slice('label_url') IS NULL) AND
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
@@ -3673,6 +3256,8 @@ WHERE (
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("from_address" = ANY(sqlc.slice('from_address')) OR sqlc.slice('from_address') IS NULL) AND
+    ("to_address" = ANY(sqlc.slice('to_address')) OR sqlc.slice('to_address') IS NULL) AND
     ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
     ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
     ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
@@ -3680,8 +3265,6 @@ WHERE (
     ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
     ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
     ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
-    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
-    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
     ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
     ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
     ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
@@ -3696,9 +3279,10 @@ SELECT COUNT(*)
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
+    ("tracking_code" = ANY(sqlc.slice('tracking_code')) OR sqlc.slice('tracking_code') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("label_url" = ANY(sqlc.slice('label_url')) OR sqlc.slice('label_url') IS NULL) AND
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
@@ -3708,6 +3292,8 @@ WHERE (
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("from_address" = ANY(sqlc.slice('from_address')) OR sqlc.slice('from_address') IS NULL) AND
+    ("to_address" = ANY(sqlc.slice('to_address')) OR sqlc.slice('to_address') IS NULL) AND
     ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
     ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
     ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
@@ -3715,8 +3301,6 @@ WHERE (
     ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
     ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
     ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
-    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
-    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
     ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
     ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
     ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
@@ -3730,9 +3314,10 @@ SELECT *
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
+    ("tracking_code" = ANY(sqlc.slice('tracking_code')) OR sqlc.slice('tracking_code') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("label_url" = ANY(sqlc.slice('label_url')) OR sqlc.slice('label_url') IS NULL) AND
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
@@ -3742,6 +3327,8 @@ WHERE (
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("from_address" = ANY(sqlc.slice('from_address')) OR sqlc.slice('from_address') IS NULL) AND
+    ("to_address" = ANY(sqlc.slice('to_address')) OR sqlc.slice('to_address') IS NULL) AND
     ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
     ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
     ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
@@ -3749,8 +3336,6 @@ WHERE (
     ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
     ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
     ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
-    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
-    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
     ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
     ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
     ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
@@ -3827,9 +3412,10 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "order"."shipment"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
+    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
+    ("tracking_code" = ANY(sqlc.slice('tracking_code')) OR sqlc.slice('tracking_code') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("label_url" = ANY(sqlc.slice('label_url')) OR sqlc.slice('label_url') IS NULL) AND
     ("cost" = ANY(sqlc.slice('cost')) OR sqlc.slice('cost') IS NULL) AND
     ("cost" > sqlc.narg('cost_from') OR sqlc.narg('cost_from') IS NULL) AND
     ("cost" < sqlc.narg('cost_to') OR sqlc.narg('cost_to') IS NULL) AND
@@ -3839,6 +3425,8 @@ WHERE (
     ("date_eta" = ANY(sqlc.slice('date_eta')) OR sqlc.slice('date_eta') IS NULL) AND
     ("date_eta" > sqlc.narg('date_eta_from') OR sqlc.narg('date_eta_from') IS NULL) AND
     ("date_eta" < sqlc.narg('date_eta_to') OR sqlc.narg('date_eta_to') IS NULL) AND
+    ("from_address" = ANY(sqlc.slice('from_address')) OR sqlc.slice('from_address') IS NULL) AND
+    ("to_address" = ANY(sqlc.slice('to_address')) OR sqlc.slice('to_address') IS NULL) AND
     ("weight_grams" = ANY(sqlc.slice('weight_grams')) OR sqlc.slice('weight_grams') IS NULL) AND
     ("weight_grams" > sqlc.narg('weight_grams_from') OR sqlc.narg('weight_grams_from') IS NULL) AND
     ("weight_grams" < sqlc.narg('weight_grams_to') OR sqlc.narg('weight_grams_to') IS NULL) AND
@@ -3846,8 +3434,6 @@ WHERE (
     ("length_cm" > sqlc.narg('length_cm_from') OR sqlc.narg('length_cm_from') IS NULL) AND
     ("length_cm" < sqlc.narg('length_cm_to') OR sqlc.narg('length_cm_to') IS NULL) AND
     ("width_cm" = ANY(sqlc.slice('width_cm')) OR sqlc.slice('width_cm') IS NULL) AND
-    ("width_cm" > sqlc.narg('width_cm_from') OR sqlc.narg('width_cm_from') IS NULL) AND
-    ("width_cm" < sqlc.narg('width_cm_to') OR sqlc.narg('width_cm_to') IS NULL) AND
     ("height_cm" = ANY(sqlc.slice('height_cm')) OR sqlc.slice('height_cm') IS NULL) AND
     ("height_cm" > sqlc.narg('height_cm_from') OR sqlc.narg('height_cm_from') IS NULL) AND
     ("height_cm" < sqlc.narg('height_cm_to') OR sqlc.narg('height_cm_to') IS NULL) AND
@@ -3877,13 +3463,11 @@ SELECT 1
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("title" = ANY(sqlc.slice('title')) OR sqlc.slice('title') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
@@ -3906,13 +3490,11 @@ SELECT COUNT(*)
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("title" = ANY(sqlc.slice('title')) OR sqlc.slice('title') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
@@ -3934,13 +3516,11 @@ SELECT *
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("title" = ANY(sqlc.slice('title')) OR sqlc.slice('title') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
@@ -4019,13 +3599,11 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "promotion"."base"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("code" = ANY(sqlc.slice('code')) OR sqlc.slice('code') IS NULL) AND
     ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
-    ("owner_id" > sqlc.narg('owner_id_from') OR sqlc.narg('owner_id_from') IS NULL) AND
-    ("owner_id" < sqlc.narg('owner_id_to') OR sqlc.narg('owner_id_to') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("title" = ANY(sqlc.slice('title')) OR sqlc.slice('title') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
@@ -4063,15 +3641,9 @@ SELECT 1
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL)
 )
 ) as exists;
 
@@ -4080,15 +3652,9 @@ SELECT COUNT(*)
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL)
 );
 
 -- name: ListPromotionRef :many
@@ -4096,15 +3662,9 @@ SELECT *
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -4153,15 +3713,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "promotion"."ref"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL)
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL)
 );
 
 -- name: DeleteBatchPromotionRef :batchexec
@@ -4185,11 +3739,9 @@ SELECT 1
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
@@ -4207,11 +3759,9 @@ SELECT COUNT(*)
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
@@ -4228,11 +3778,9 @@ SELECT *
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
@@ -4296,11 +3844,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
-    ("promotion_id" > sqlc.narg('promotion_id_from') OR sqlc.narg('promotion_id_from') IS NULL) AND
-    ("promotion_id" < sqlc.narg('promotion_id_to') OR sqlc.narg('promotion_id_to') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
     ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
     ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
@@ -4333,8 +3879,6 @@ SELECT 1
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4355,8 +3899,6 @@ SELECT COUNT(*)
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4376,8 +3918,6 @@ SELECT *
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4440,8 +3980,6 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "promotion"."discount"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("min_spend" = ANY(sqlc.slice('min_spend')) OR sqlc.slice('min_spend') IS NULL) AND
     ("min_spend" > sqlc.narg('min_spend_from') OR sqlc.narg('min_spend_from') IS NULL) AND
     ("min_spend" < sqlc.narg('min_spend_to') OR sqlc.narg('min_spend_to') IS NULL) AND
@@ -4480,11 +4018,14 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
     ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4500,11 +4041,14 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
     ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4519,11 +4063,14 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
     ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4591,11 +4138,14 @@ WHERE (
     ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
     ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
     ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
     ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
@@ -4623,13 +4173,9 @@ SELECT 1
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
     ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
@@ -4642,13 +4188,9 @@ SELECT COUNT(*)
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
     ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
@@ -4660,13 +4202,9 @@ SELECT *
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
     ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
@@ -4723,13 +4261,9 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
     ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
@@ -4757,6 +4291,11 @@ SELECT 1
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
@@ -4769,6 +4308,11 @@ SELECT COUNT(*)
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
@@ -4780,6 +4324,11 @@ SELECT *
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
@@ -4840,6 +4389,11 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "shared"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
     ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
@@ -4848,6 +4402,132 @@ WHERE (
 
 -- name: DeleteBatchSharedServiceOption :batchexec
 DELETE FROM "shared"."service_option"
+WHERE ("id" = sqlc.narg('id'));
+
+-- ========================================
+
+-- Queries for table: system.outbox_event
+
+-- ========================================
+
+-- name: GetSystemOutboxEvent :one
+SELECT *
+FROM "system"."outbox_event"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsSystemOutboxEvent :one
+SELECT EXISTS (
+SELECT 1
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+)
+) as exists;
+
+-- name: CountSystemOutboxEvent :one
+SELECT COUNT(*)
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
+-- name: ListSystemOutboxEvent :many
+SELECT *
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateSystemOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateBatchSystemOutboxEvent :batchone
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopySystemOutboxEvent :copyfrom
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CreateDefaultSystemOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyDefaultSystemOutboxEvent :copyfrom
+INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
+VALUES ($1, $2, $3);
+
+-- name: UpdateSystemOutboxEvent :one
+UPDATE "system"."outbox_event"
+SET "topic" = COALESCE(sqlc.narg('topic'), "topic"),
+    "data" = COALESCE(sqlc.narg('data'), "data"),
+    "processed" = COALESCE(sqlc.narg('processed'), "processed"),
+    "date_processed" = CASE WHEN sqlc.arg('null_date_processed')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_processed'), "date_processed") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchSystemOutboxEvent :batchexec
+UPDATE "system"."outbox_event"
+SET "topic" = COALESCE(sqlc.narg('topic'), "topic"),
+    "data" = COALESCE(sqlc.narg('data'), "data"),
+    "processed" = COALESCE(sqlc.narg('processed'), "processed"),
+    "date_processed" = CASE WHEN sqlc.arg('null_date_processed')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_processed'), "date_processed") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteSystemOutboxEvent :exec
+DELETE FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
+-- name: DeleteBatchSystemOutboxEvent :batchexec
+DELETE FROM "system"."outbox_event"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
@@ -4867,12 +4547,8 @@ SELECT 1
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("is_stale_embedding" = ANY(sqlc.slice('is_stale_embedding')) OR sqlc.slice('is_stale_embedding') IS NULL) AND
     ("is_stale_metadata" = ANY(sqlc.slice('is_stale_metadata')) OR sqlc.slice('is_stale_metadata') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -4889,12 +4565,8 @@ SELECT COUNT(*)
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("is_stale_embedding" = ANY(sqlc.slice('is_stale_embedding')) OR sqlc.slice('is_stale_embedding') IS NULL) AND
     ("is_stale_metadata" = ANY(sqlc.slice('is_stale_metadata')) OR sqlc.slice('is_stale_metadata') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -4910,12 +4582,8 @@ SELECT *
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("is_stale_embedding" = ANY(sqlc.slice('is_stale_embedding')) OR sqlc.slice('is_stale_embedding') IS NULL) AND
     ("is_stale_metadata" = ANY(sqlc.slice('is_stale_metadata')) OR sqlc.slice('is_stale_metadata') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -4978,12 +4646,8 @@ WHERE id = sqlc.arg('id');
 DELETE FROM "system"."search_sync"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND
-    ("id" < sqlc.narg('id_to') OR sqlc.narg('id_to') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("ref_id" > sqlc.narg('ref_id_from') OR sqlc.narg('ref_id_from') IS NULL) AND
-    ("ref_id" < sqlc.narg('ref_id_to') OR sqlc.narg('ref_id_to') IS NULL) AND
     ("is_stale_embedding" = ANY(sqlc.slice('is_stale_embedding')) OR sqlc.slice('is_stale_embedding') IS NULL) AND
     ("is_stale_metadata" = ANY(sqlc.slice('is_stale_metadata')) OR sqlc.slice('is_stale_metadata') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
