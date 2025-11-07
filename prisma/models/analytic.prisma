@@ -10,7 +10,7 @@ enum InteractionRefType {
 
 model Interaction {
   id           BigInt             @id @default(autoincrement())
-  account_id   BigInt // nullable for anonymous users
+  account_id   BigInt? // nullable for anonymous users
   session_id   String? // for anonymous tracking (cookie/session-based)
   event_type   String // e.g. view, add_to_cart, purchase
   ref_type     InteractionRefType
@@ -20,7 +20,7 @@ model Interaction {
   ip_address   String? // optional
   date_created DateTime           @default(now()) @db.Timestamptz(3)
 
-  customer Customer @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  customer Customer? @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@index([account_id])
   @@index([session_id])

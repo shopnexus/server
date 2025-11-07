@@ -16,27 +16,23 @@ SELECT COUNT(*)
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("type" = ANY($4) OR $4 IS NULL) AND
-    ("status" = ANY($5) OR $5 IS NULL) AND
-    ("phone" = ANY($6) OR $6 IS NULL) AND
-    ("email" = ANY($7) OR $7 IS NULL) AND
-    ("username" = ANY($8) OR $8 IS NULL) AND
-    ("password" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("type" = ANY($2) OR $2 IS NULL) AND
+    ("status" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("email" = ANY($5) OR $5 IS NULL) AND
+    ("username" = ANY($6) OR $6 IS NULL) AND
+    ("password" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type CountAccountBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Type            []AccountType        `json:"type"`
 	Status          []AccountStatus      `json:"status"`
 	Phone           []pgtype.Text        `json:"phone"`
@@ -54,8 +50,6 @@ type CountAccountBaseParams struct {
 func (q *Queries) CountAccountBase(ctx context.Context, arg CountAccountBaseParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Type,
 		arg.Status,
 		arg.Phone,
@@ -79,36 +73,24 @@ SELECT COUNT(*)
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" > $5 OR $5 IS NULL) AND
-    ("cart_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" > $11 OR $11 IS NULL) AND
-    ("quantity" < $12 OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" > $17 OR $17 IS NULL) AND
-    ("date_updated" < $18 OR $18 IS NULL)
+    ("cart_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("quantity" = ANY($4) OR $4 IS NULL) AND
+    ("quantity" > $5 OR $5 IS NULL) AND
+    ("quantity" < $6 OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 `
 
 type CountAccountCartItemParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	CartID          []int64              `json:"cart_id"`
-	CartIDFrom      pgtype.Int8          `json:"cart_id_from"`
-	CartIDTo        pgtype.Int8          `json:"cart_id_to"`
 	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
 	Quantity        []int64              `json:"quantity"`
 	QuantityFrom    pgtype.Int8          `json:"quantity_from"`
 	QuantityTo      pgtype.Int8          `json:"quantity_to"`
@@ -123,14 +105,8 @@ type CountAccountCartItemParams struct {
 func (q *Queries) CountAccountCartItem(ctx context.Context, arg CountAccountCartItemParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountCartItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.CartID,
-		arg.CartIDFrom,
-		arg.CartIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -151,32 +127,24 @@ SELECT COUNT(*)
 FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("full_name" = ANY($7) OR $7 IS NULL) AND
-    ("phone" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("address" = ANY($10) OR $10 IS NULL) AND
-    ("address_type" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_updated" = ANY($15) OR $15 IS NULL) AND
-    ("date_updated" > $16 OR $16 IS NULL) AND
-    ("date_updated" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("full_name" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("phone_verified" = ANY($5) OR $5 IS NULL) AND
+    ("address" = ANY($6) OR $6 IS NULL) AND
+    ("address_type" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type CountAccountContactParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
 	FullName        []string             `json:"full_name"`
 	Phone           []string             `json:"phone"`
 	PhoneVerified   []bool               `json:"phone_verified"`
@@ -193,11 +161,7 @@ type CountAccountContactParams struct {
 func (q *Queries) CountAccountContact(ctx context.Context, arg CountAccountContactParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountContact,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.FullName,
 		arg.Phone,
 		arg.PhoneVerified,
@@ -220,21 +184,17 @@ SELECT COUNT(*)
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL) AND
-    ("date_updated" = ANY($7) OR $7 IS NULL) AND
-    ("date_updated" > $8 OR $8 IS NULL) AND
-    ("date_updated" < $9 OR $9 IS NULL)
+    ("date_created" = ANY($2) OR $2 IS NULL) AND
+    ("date_created" > $3 OR $3 IS NULL) AND
+    ("date_created" < $4 OR $4 IS NULL) AND
+    ("date_updated" = ANY($5) OR $5 IS NULL) AND
+    ("date_updated" > $6 OR $6 IS NULL) AND
+    ("date_updated" < $7 OR $7 IS NULL)
 )
 `
 
 type CountAccountCustomerParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -246,8 +206,6 @@ type CountAccountCustomerParams struct {
 func (q *Queries) CountAccountCustomer(ctx context.Context, arg CountAccountCustomerParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountCustomer,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -265,34 +223,26 @@ SELECT COUNT(*)
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" > $9 OR $9 IS NULL) AND
-    ("income" < $10 OR $10 IS NULL) AND
-    ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" > $12 OR $12 IS NULL) AND
-    ("current_balance" < $13 OR $13 IS NULL) AND
-    ("note" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("hash" = ANY($18) OR $18 IS NULL) AND
-    ("prev_hash" = ANY($19) OR $19 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("income" = ANY($4) OR $4 IS NULL) AND
+    ("income" > $5 OR $5 IS NULL) AND
+    ("income" < $6 OR $6 IS NULL) AND
+    ("current_balance" = ANY($7) OR $7 IS NULL) AND
+    ("current_balance" > $8 OR $8 IS NULL) AND
+    ("current_balance" < $9 OR $9 IS NULL) AND
+    ("note" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("hash" = ANY($14) OR $14 IS NULL) AND
+    ("prev_hash" = ANY($15) OR $15 IS NULL)
 )
 `
 
 type CountAccountIncomeHistoryParams struct {
 	ID                 []int64              `json:"id"`
-	IDFrom             pgtype.Int8          `json:"id_from"`
-	IDTo               pgtype.Int8          `json:"id_to"`
 	AccountID          []int64              `json:"account_id"`
-	AccountIDFrom      pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo        pgtype.Int8          `json:"account_id_to"`
 	Type               []string             `json:"type"`
 	Income             []int64              `json:"income"`
 	IncomeFrom         pgtype.Int8          `json:"income_from"`
@@ -311,11 +261,7 @@ type CountAccountIncomeHistoryParams struct {
 func (q *Queries) CountAccountIncomeHistory(ctx context.Context, arg CountAccountIncomeHistoryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountIncomeHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Income,
 		arg.IncomeFrom,
@@ -340,39 +286,33 @@ SELECT COUNT(*)
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("channel" = ANY($8) OR $8 IS NULL) AND
-    ("is_read" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL) AND
-    ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" > $17 OR $17 IS NULL) AND
-    ("date_sent" < $18 OR $18 IS NULL) AND
-    ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" > $20 OR $20 IS NULL) AND
-    ("date_scheduled" < $21 OR $21 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("channel" = ANY($4) OR $4 IS NULL) AND
+    ("is_read" = ANY($5) OR $5 IS NULL) AND
+    ("content" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("date_sent" = ANY($13) OR $13 IS NULL) AND
+    ("date_sent" > $14 OR $14 IS NULL) AND
+    ("date_sent" < $15 OR $15 IS NULL) AND
+    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
+    ("date_scheduled" > $17 OR $17 IS NULL) AND
+    ("date_scheduled" < $18 OR $18 IS NULL)
 )
 `
 
 type CountAccountNotificationParams struct {
 	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
 	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
 	Type              []string             `json:"type"`
 	Channel           []string             `json:"channel"`
 	IsRead            []bool               `json:"is_read"`
+	Content           []string             `json:"content"`
 	DateCreated       []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
@@ -390,14 +330,11 @@ type CountAccountNotificationParams struct {
 func (q *Queries) CountAccountNotification(ctx context.Context, arg CountAccountNotificationParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountNotification,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Channel,
 		arg.IsRead,
+		arg.Content,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -421,56 +358,46 @@ SELECT COUNT(*)
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("gender" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" > $7 OR $7 IS NULL) AND
-    ("date_of_birth" < $8 OR $8 IS NULL) AND
-    ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("email_verified" = ANY($10) OR $10 IS NULL) AND
-    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
-    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
-    ("default_contact_id" > $13 OR $13 IS NULL) AND
-    ("default_contact_id" < $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("gender" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" > $5 OR $5 IS NULL) AND
+    ("date_of_birth" < $6 OR $6 IS NULL) AND
+    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
+    ("email_verified" = ANY($8) OR $8 IS NULL) AND
+    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
+    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("date_updated" = ANY($14) OR $14 IS NULL) AND
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 `
 
 type CountAccountProfileParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Gender               []NullAccountGender  `json:"gender"`
-	Name                 []pgtype.Text        `json:"name"`
-	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
-	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
-	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
-	EmailVerified        []bool               `json:"email_verified"`
-	PhoneVerified        []bool               `json:"phone_verified"`
-	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
-	DefaultContactIDFrom pgtype.Int8          `json:"default_contact_id_from"`
-	DefaultContactIDTo   pgtype.Int8          `json:"default_contact_id_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID               []int64              `json:"id"`
+	Gender           []NullAccountGender  `json:"gender"`
+	Name             []pgtype.Text        `json:"name"`
+	DateOfBirth      []pgtype.Date        `json:"date_of_birth"`
+	DateOfBirthFrom  pgtype.Date          `json:"date_of_birth_from"`
+	DateOfBirthTo    pgtype.Date          `json:"date_of_birth_to"`
+	AvatarRsID       []pgtype.UUID        `json:"avatar_rs_id"`
+	EmailVerified    []bool               `json:"email_verified"`
+	PhoneVerified    []bool               `json:"phone_verified"`
+	DefaultContactID []pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) CountAccountProfile(ctx context.Context, arg CountAccountProfileParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAccountProfile,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Gender,
 		arg.Name,
 		arg.DateOfBirth,
@@ -480,8 +407,6 @@ func (q *Queries) CountAccountProfile(ctx context.Context, arg CountAccountProfi
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
-		arg.DefaultContactIDFrom,
-		arg.DefaultContactIDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -499,26 +424,17 @@ SELECT COUNT(*)
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL)
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 `
 
 type CountAccountVendorParams struct {
-	ID          []int64     `json:"id"`
-	IDFrom      pgtype.Int8 `json:"id_from"`
-	IDTo        pgtype.Int8 `json:"id_to"`
-	Description []string    `json:"description"`
+	ID          []int64  `json:"id"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) CountAccountVendor(ctx context.Context, arg CountAccountVendorParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccountVendor,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Description,
-	)
+	row := q.db.QueryRow(ctx, countAccountVendor, arg.ID, arg.Description)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -529,38 +445,34 @@ SELECT COUNT(*)
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" > $8 OR $8 IS NULL) AND
-    ("ref_type" < $9 OR $9 IS NULL) AND
-    ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" > $11 OR $11 IS NULL) AND
-    ("ref_id" < $12 OR $12 IS NULL) AND
-    ("metadata" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("session_id" = ANY($3) OR $3 IS NULL) AND
+    ("event_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_type" > $6 OR $6 IS NULL) AND
+    ("ref_type" < $7 OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("user_agent" = ANY($10) OR $10 IS NULL) AND
+    ("ip_address" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL)
 )
 `
 
 type CountAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	IDFrom          pgtype.Int8                    `json:"id_from"`
-	IDTo            pgtype.Int8                    `json:"id_to"`
 	AccountID       []int64                        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	SessionID       []pgtype.Text                  `json:"session_id"`
+	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
 	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
 	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
 	RefID           []int64                        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
 	Metadata        [][]byte                       `json:"metadata"`
+	UserAgent       []pgtype.Text                  `json:"user_agent"`
+	IpAddress       []pgtype.Text                  `json:"ip_address"`
 	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
@@ -569,18 +481,16 @@ type CountAnalyticInteractionParams struct {
 func (q *Queries) CountAnalyticInteraction(ctx context.Context, arg CountAnalyticInteractionParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAnalyticInteraction,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.SessionID,
+		arg.EventType,
 		arg.RefType,
 		arg.RefTypeFrom,
 		arg.RefTypeTo,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -595,25 +505,25 @@ SELECT COUNT(*)
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type CountCatalogBrandParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Code   []string    `json:"code"`
+	ID          []int64  `json:"id"`
+	Code        []string `json:"code"`
+	Name        []string `json:"name"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) CountCatalogBrand(ctx context.Context, arg CountCatalogBrandParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogBrand,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
+		arg.Name,
+		arg.Description,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -625,34 +535,25 @@ SELECT COUNT(*)
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" > $6 OR $6 IS NULL) AND
-    ("parent_id" < $7 OR $7 IS NULL)
+    ("name" = ANY($2) OR $2 IS NULL) AND
+    ("description" = ANY($3) OR $3 IS NULL) AND
+    ("parent_id" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type CountCatalogCategoryParams struct {
-	ID           []int64       `json:"id"`
-	IDFrom       pgtype.Int8   `json:"id_from"`
-	IDTo         pgtype.Int8   `json:"id_to"`
-	Name         []string      `json:"name"`
-	ParentID     []pgtype.Int8 `json:"parent_id"`
-	ParentIDFrom pgtype.Int8   `json:"parent_id_from"`
-	ParentIDTo   pgtype.Int8   `json:"parent_id_to"`
+	ID          []int64       `json:"id"`
+	Name        []string      `json:"name"`
+	Description []string      `json:"description"`
+	ParentID    []pgtype.Int8 `json:"parent_id"`
 }
 
 func (q *Queries) CountCatalogCategory(ctx context.Context, arg CountCatalogCategoryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogCategory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Name,
+		arg.Description,
 		arg.ParentID,
-		arg.ParentIDFrom,
-		arg.ParentIDTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -664,44 +565,34 @@ SELECT COUNT(*)
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" > $12 OR $12 IS NULL) AND
-    ("upvote" < $13 OR $13 IS NULL) AND
-    ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" > $15 OR $15 IS NULL) AND
-    ("downvote" < $16 OR $16 IS NULL) AND
-    ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" > $18 OR $18 IS NULL) AND
-    ("score" < $19 OR $19 IS NULL) AND
-    ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
-    ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("body" = ANY($5) OR $5 IS NULL) AND
+    ("upvote" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" > $7 OR $7 IS NULL) AND
+    ("upvote" < $8 OR $8 IS NULL) AND
+    ("downvote" = ANY($9) OR $9 IS NULL) AND
+    ("downvote" > $10 OR $10 IS NULL) AND
+    ("downvote" < $11 OR $11 IS NULL) AND
+    ("score" = ANY($12) OR $12 IS NULL) AND
+    ("score" > $13 OR $13 IS NULL) AND
+    ("score" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
 type CountCatalogCommentParams struct {
 	ID              []int64                 `json:"id"`
-	IDFrom          pgtype.Int8             `json:"id_from"`
-	IDTo            pgtype.Int8             `json:"id_to"`
 	AccountID       []int64                 `json:"account_id"`
-	AccountIDFrom   pgtype.Int8             `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8             `json:"account_id_to"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []int64                 `json:"ref_id"`
-	RefIDFrom       pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8             `json:"ref_id_to"`
+	Body            []string                `json:"body"`
 	Upvote          []int64                 `json:"upvote"`
 	UpvoteFrom      pgtype.Int8             `json:"upvote_from"`
 	UpvoteTo        pgtype.Int8             `json:"upvote_to"`
@@ -722,15 +613,10 @@ type CountCatalogCommentParams struct {
 func (q *Queries) CountCatalogComment(ctx context.Context, arg CountCatalogCommentParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogComment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
+		arg.Body,
 		arg.Upvote,
 		arg.UpvoteFrom,
 		arg.UpvoteTo,
@@ -757,32 +643,24 @@ SELECT COUNT(*)
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("attributes" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
-    ("date_deleted" > $16 OR $16 IS NULL) AND
-    ("date_deleted" < $17 OR $17 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("price" = ANY($3) OR $3 IS NULL) AND
+    ("price" > $4 OR $4 IS NULL) AND
+    ("price" < $5 OR $5 IS NULL) AND
+    ("can_combine" = ANY($6) OR $6 IS NULL) AND
+    ("attributes" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
+    ("date_deleted" > $12 OR $12 IS NULL) AND
+    ("date_deleted" < $13 OR $13 IS NULL)
 )
 `
 
 type CountCatalogProductSkuParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	SpuID           []int64              `json:"spu_id"`
-	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
-	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -799,11 +677,7 @@ type CountCatalogProductSkuParams struct {
 func (q *Queries) CountCatalogProductSku(ctx context.Context, arg CountCatalogProductSkuParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogProductSku,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -826,81 +700,57 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" > $6 OR $6 IS NULL) AND
-    ("account_id" < $7 OR $7 IS NULL) AND
-    ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" > $9 OR $9 IS NULL) AND
-    ("category_id" < $10 OR $10 IS NULL) AND
-    ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" > $12 OR $12 IS NULL) AND
-    ("brand_id" < $13 OR $13 IS NULL) AND
-    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
-    ("featured_sku_id" > $15 OR $15 IS NULL) AND
-    ("featured_sku_id" < $16 OR $16 IS NULL) AND
-    ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("category_id" = ANY($4) OR $4 IS NULL) AND
+    ("brand_id" = ANY($5) OR $5 IS NULL) AND
+    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
+    ("name" = ANY($7) OR $7 IS NULL) AND
+    ("description" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
+    ("date_deleted" = ANY($16) OR $16 IS NULL) AND
+    ("date_deleted" > $17 OR $17 IS NULL) AND
+    ("date_deleted" < $18 OR $18 IS NULL)
 )
 `
 
 type CountCatalogProductSpuParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	Code              []string             `json:"code"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	CategoryID        []int64              `json:"category_id"`
-	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
-	BrandID           []int64              `json:"brand_id"`
-	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive          []bool               `json:"is_active"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID              []int64              `json:"id"`
+	Code            []string             `json:"code"`
+	AccountID       []int64              `json:"account_id"`
+	CategoryID      []int64              `json:"category_id"`
+	BrandID         []int64              `json:"brand_id"`
+	FeaturedSkuID   []pgtype.Int8        `json:"featured_sku_id"`
+	Name            []string             `json:"name"`
+	Description     []string             `json:"description"`
+	IsActive        []bool               `json:"is_active"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted     []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo   pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) CountCatalogProductSpu(ctx context.Context, arg CountCatalogProductSpuParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogProductSpu,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.CategoryID,
-		arg.CategoryIDFrom,
-		arg.CategoryIDTo,
 		arg.BrandID,
-		arg.BrandIDFrom,
-		arg.BrandIDTo,
 		arg.FeaturedSkuID,
-		arg.FeaturedSkuIDFrom,
-		arg.FeaturedSkuIDTo,
+		arg.Name,
+		arg.Description,
 		arg.IsActive,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -922,35 +772,19 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag" = ANY($7) OR $7 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("tag" = ANY($3) OR $3 IS NULL)
 )
 `
 
 type CountCatalogProductSpuTagParams struct {
-	ID        []int64     `json:"id"`
-	IDFrom    pgtype.Int8 `json:"id_from"`
-	IDTo      pgtype.Int8 `json:"id_to"`
-	SpuID     []int64     `json:"spu_id"`
-	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
-	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	Tag       []string    `json:"tag"`
+	ID    []int64  `json:"id"`
+	SpuID []int64  `json:"spu_id"`
+	Tag   []string `json:"tag"`
 }
 
 func (q *Queries) CountCatalogProductSpuTag(ctx context.Context, arg CountCatalogProductSpuTagParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogProductSpuTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
-		arg.Tag,
-	)
+	row := q.db.QueryRow(ctx, countCatalogProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -960,12 +794,18 @@ const countCatalogTag = `-- name: CountCatalogTag :one
 SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 `
 
-func (q *Queries) CountCatalogTag(ctx context.Context, id []string) (int64, error) {
-	row := q.db.QueryRow(ctx, countCatalogTag, id)
+type CountCatalogTagParams struct {
+	ID          []string `json:"id"`
+	Description []string `json:"description"`
+}
+
+func (q *Queries) CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCatalogTag, arg.ID, arg.Description)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -976,27 +816,19 @@ SELECT COUNT(*)
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("serial_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" > $6 OR $6 IS NULL) AND
-    ("sku_id" < $7 OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL)
+    ("serial_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("date_created" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" > $6 OR $6 IS NULL) AND
+    ("date_created" < $7 OR $7 IS NULL)
 )
 `
 
 type CountInventorySkuSerialParams struct {
 	ID              []int64                  `json:"id"`
-	IDFrom          pgtype.Int8              `json:"id_from"`
-	IDTo            pgtype.Int8              `json:"id_to"`
 	SerialID        []string                 `json:"serial_id"`
 	SkuID           []int64                  `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8              `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8              `json:"sku_id_to"`
 	Status          []InventoryProductStatus `json:"status"`
 	DateCreated     []pgtype.Timestamptz     `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz       `json:"date_created_from"`
@@ -1006,12 +838,8 @@ type CountInventorySkuSerialParams struct {
 func (q *Queries) CountInventorySkuSerial(ctx context.Context, arg CountInventorySkuSerialParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countInventorySkuSerial,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SerialID,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -1027,32 +855,24 @@ SELECT COUNT(*)
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" > $9 OR $9 IS NULL) AND
-    ("current_stock" < $10 OR $10 IS NULL) AND
-    ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" > $12 OR $12 IS NULL) AND
-    ("sold" < $13 OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("current_stock" = ANY($4) OR $4 IS NULL) AND
+    ("current_stock" > $5 OR $5 IS NULL) AND
+    ("current_stock" < $6 OR $6 IS NULL) AND
+    ("sold" = ANY($7) OR $7 IS NULL) AND
+    ("sold" > $8 OR $8 IS NULL) AND
+    ("sold" < $9 OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
 type CountInventoryStockParams struct {
 	ID               []int64                 `json:"id"`
-	IDFrom           pgtype.Int8             `json:"id_from"`
-	IDTo             pgtype.Int8             `json:"id_to"`
 	RefType          []InventoryStockRefType `json:"ref_type"`
 	RefID            []int64                 `json:"ref_id"`
-	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
 	CurrentStock     []int64                 `json:"current_stock"`
 	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
 	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
@@ -1067,12 +887,8 @@ type CountInventoryStockParams struct {
 func (q *Queries) CountInventoryStock(ctx context.Context, arg CountInventoryStockParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countInventoryStock,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.CurrentStock,
 		arg.CurrentStockFrom,
 		arg.CurrentStockTo,
@@ -1093,27 +909,19 @@ SELECT COUNT(*)
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" > $5 OR $5 IS NULL) AND
-    ("stock_id" < $6 OR $6 IS NULL) AND
-    ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" > $8 OR $8 IS NULL) AND
-    ("change" < $9 OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("stock_id" = ANY($2) OR $2 IS NULL) AND
+    ("change" = ANY($3) OR $3 IS NULL) AND
+    ("change" > $4 OR $4 IS NULL) AND
+    ("change" < $5 OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL)
 )
 `
 
 type CountInventoryStockHistoryParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	StockID         []int64              `json:"stock_id"`
-	StockIDFrom     pgtype.Int8          `json:"stock_id_from"`
-	StockIDTo       pgtype.Int8          `json:"stock_id_to"`
 	Change          []int64              `json:"change"`
 	ChangeFrom      pgtype.Int8          `json:"change_from"`
 	ChangeTo        pgtype.Int8          `json:"change_to"`
@@ -1125,11 +933,7 @@ type CountInventoryStockHistoryParams struct {
 func (q *Queries) CountInventoryStockHistory(ctx context.Context, arg CountInventoryStockHistoryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countInventoryStockHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.StockID,
-		arg.StockIDFrom,
-		arg.StockIDTo,
 		arg.Change,
 		arg.ChangeFrom,
 		arg.ChangeTo,
@@ -1147,29 +951,25 @@ SELECT COUNT(*)
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("payment_status" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("payment_option" = ANY($3) OR $3 IS NULL) AND
+    ("payment_status" = ANY($4) OR $4 IS NULL) AND
+    ("address" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type CountOrderBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentOption   []string             `json:"payment_option"`
 	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -1181,12 +981,10 @@ type CountOrderBaseParams struct {
 func (q *Queries) CountOrderBase(ctx context.Context, arg CountOrderBaseParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.PaymentOption,
 		arg.PaymentStatus,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1204,64 +1002,43 @@ SELECT COUNT(*)
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" > $10 OR $10 IS NULL) AND
-    ("receiver_id" < $11 OR $11 IS NULL) AND
-    ("data" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("hash" = ANY($16) OR $16 IS NULL) AND
-    ("prev_hash" = ANY($17) OR $17 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("receiver_id" = ANY($5) OR $5 IS NULL) AND
+    ("note" = ANY($6) OR $6 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
 )
 `
 
 type CountOrderInvoiceParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
 	RefType         []OrderInvoiceRefType `json:"ref_type"`
 	RefID           []int64               `json:"ref_id"`
-	RefIDFrom       pgtype.Int8           `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8           `json:"ref_id_to"`
 	Type            []OrderInvoiceType    `json:"type"`
 	ReceiverID      []int64               `json:"receiver_id"`
-	ReceiverIDFrom  pgtype.Int8           `json:"receiver_id_from"`
-	ReceiverIDTo    pgtype.Int8           `json:"receiver_id_to"`
+	Note            []pgtype.Text         `json:"note"`
 	Data            [][]byte              `json:"data"`
 	DateCreated     []pgtype.Timestamptz  `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz    `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz    `json:"date_created_to"`
-	Hash            [][]byte              `json:"hash"`
-	PrevHash        [][]byte              `json:"prev_hash"`
 }
 
 func (q *Queries) CountOrderInvoice(ctx context.Context, arg CountOrderInvoiceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderInvoice,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.ReceiverID,
-		arg.ReceiverIDFrom,
-		arg.ReceiverIDTo,
+		arg.Note,
 		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -1273,75 +1050,42 @@ SELECT COUNT(*)
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" > $5 OR $5 IS NULL) AND
-    ("order_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
-    ("vendor_id" > $11 OR $11 IS NULL) AND
-    ("vendor_id" < $12 OR $12 IS NULL) AND
-    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
-    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
-    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
-    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
-    ("shipment_id" > $17 OR $17 IS NULL) AND
-    ("shipment_id" < $18 OR $18 IS NULL) AND
-    ("status" = ANY($19) OR $19 IS NULL) AND
-    ("quantity" = ANY($20) OR $20 IS NULL) AND
-    ("quantity" > $21 OR $21 IS NULL) AND
-    ("quantity" < $22 OR $22 IS NULL)
+    ("order_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("vendor_id" = ANY($4) OR $4 IS NULL) AND
+    ("confirmed_by_id" = ANY($5) OR $5 IS NULL) AND
+    ("shipment_id" = ANY($6) OR $6 IS NULL) AND
+    ("note" = ANY($7) OR $7 IS NULL) AND
+    ("status" = ANY($8) OR $8 IS NULL) AND
+    ("quantity" = ANY($9) OR $9 IS NULL) AND
+    ("quantity" > $10 OR $10 IS NULL) AND
+    ("quantity" < $11 OR $11 IS NULL)
 )
 `
 
 type CountOrderItemParams struct {
-	ID                []int64        `json:"id"`
-	IDFrom            pgtype.Int8    `json:"id_from"`
-	IDTo              pgtype.Int8    `json:"id_to"`
-	OrderID           []int64        `json:"order_id"`
-	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
-	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
-	SkuID             []int64        `json:"sku_id"`
-	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
-	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
-	VendorID          []int64        `json:"vendor_id"`
-	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
-	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
-	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
-	ShipmentID        []int64        `json:"shipment_id"`
-	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
-	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
-	Status            []SharedStatus `json:"status"`
-	Quantity          []int64        `json:"quantity"`
-	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
-	QuantityTo        pgtype.Int8    `json:"quantity_to"`
+	ID            []int64        `json:"id"`
+	OrderID       []int64        `json:"order_id"`
+	SkuID         []int64        `json:"sku_id"`
+	VendorID      []int64        `json:"vendor_id"`
+	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    []int64        `json:"shipment_id"`
+	Note          []string       `json:"note"`
+	Status        []SharedStatus `json:"status"`
+	Quantity      []int64        `json:"quantity"`
+	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
+	QuantityTo    pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) CountOrderItem(ctx context.Context, arg CountOrderItemParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.OrderID,
-		arg.OrderIDFrom,
-		arg.OrderIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.VendorID,
-		arg.VendorIDFrom,
-		arg.VendorIDTo,
 		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
+		arg.Note,
 		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
@@ -1357,41 +1101,19 @@ SELECT COUNT(*)
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" > $8 OR $8 IS NULL) AND
-    ("product_serial_id" < $9 OR $9 IS NULL)
+    ("order_item_id" = ANY($2) OR $2 IS NULL) AND
+    ("product_serial_id" = ANY($3) OR $3 IS NULL)
 )
 `
 
 type CountOrderItemSerialParams struct {
-	ID                  []int64     `json:"id"`
-	IDFrom              pgtype.Int8 `json:"id_from"`
-	IDTo                pgtype.Int8 `json:"id_to"`
-	OrderItemID         []int64     `json:"order_item_id"`
-	OrderItemIDFrom     pgtype.Int8 `json:"order_item_id_from"`
-	OrderItemIDTo       pgtype.Int8 `json:"order_item_id_to"`
-	ProductSerialID     []int64     `json:"product_serial_id"`
-	ProductSerialIDFrom pgtype.Int8 `json:"product_serial_id_from"`
-	ProductSerialIDTo   pgtype.Int8 `json:"product_serial_id_to"`
+	ID              []int64 `json:"id"`
+	OrderItemID     []int64 `json:"order_item_id"`
+	ProductSerialID []int64 `json:"product_serial_id"`
 }
 
 func (q *Queries) CountOrderItemSerial(ctx context.Context, arg CountOrderItemSerialParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countOrderItemSerial,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
-		arg.ProductSerialID,
-		arg.ProductSerialIDFrom,
-		arg.ProductSerialIDTo,
-	)
+	row := q.db.QueryRow(ctx, countOrderItemSerial, arg.ID, arg.OrderItemID, arg.ProductSerialID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1402,70 +1124,46 @@ SELECT COUNT(*)
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
-    ("order_item_id" > $8 OR $8 IS NULL) AND
-    ("order_item_id" < $9 OR $9 IS NULL) AND
-    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
-    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("method" = ANY($16) OR $16 IS NULL) AND
-    ("status" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("reviewed_by_id" = ANY($4) OR $4 IS NULL) AND
+    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("reason" = ANY($8) OR $8 IS NULL) AND
+    ("address" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
 type CountOrderRefundParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	AccountID        []int64              `json:"account_id"`
-	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
-	OrderItemID      []int64              `json:"order_item_id"`
-	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
-	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
-	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
-	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
-	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
-	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
-	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
-	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
-	Method           []OrderRefundMethod  `json:"method"`
-	Status           []SharedStatus       `json:"status"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID              []int64              `json:"id"`
+	AccountID       []int64              `json:"account_id"`
+	OrderItemID     []int64              `json:"order_item_id"`
+	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
+	Method          []OrderRefundMethod  `json:"method"`
+	Status          []SharedStatus       `json:"status"`
+	Reason          []string             `json:"reason"`
+	Address         []pgtype.Text        `json:"address"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) CountOrderRefund(ctx context.Context, arg CountOrderRefundParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderRefund,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
 		arg.ReviewedByID,
-		arg.ReviewedByIDFrom,
-		arg.ReviewedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
+		arg.Reason,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1480,34 +1178,24 @@ SELECT COUNT(*)
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" > $5 OR $5 IS NULL) AND
-    ("refund_id" < $6 OR $6 IS NULL) AND
-    ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" > $8 OR $8 IS NULL) AND
-    ("issued_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("refund_id" = ANY($2) OR $2 IS NULL) AND
+    ("issued_by_id" = ANY($3) OR $3 IS NULL) AND
+    ("reason" = ANY($4) OR $4 IS NULL) AND
+    ("status" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type CountOrderRefundDisputeParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	RefundID        []int64              `json:"refund_id"`
-	RefundIDFrom    pgtype.Int8          `json:"refund_id_from"`
-	RefundIDTo      pgtype.Int8          `json:"refund_id_to"`
 	IssuedByID      []int64              `json:"issued_by_id"`
-	IssuedByIDFrom  pgtype.Int8          `json:"issued_by_id_from"`
-	IssuedByIDTo    pgtype.Int8          `json:"issued_by_id_to"`
+	Reason          []string             `json:"reason"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -1520,14 +1208,9 @@ type CountOrderRefundDisputeParams struct {
 func (q *Queries) CountOrderRefundDispute(ctx context.Context, arg CountOrderRefundDisputeParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderRefundDispute,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefundID,
-		arg.RefundIDFrom,
-		arg.RefundIDTo,
 		arg.IssuedByID,
-		arg.IssuedByIDFrom,
-		arg.IssuedByIDTo,
+		arg.Reason,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -1546,41 +1229,43 @@ SELECT COUNT(*)
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
+    ("option" = ANY($2) OR $2 IS NULL) AND
+    ("tracking_code" = ANY($3) OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
-    ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" > $6 OR $6 IS NULL) AND
-    ("cost" < $7 OR $7 IS NULL) AND
-    ("new_cost" = ANY($8) OR $8 IS NULL) AND
-    ("new_cost" > $9 OR $9 IS NULL) AND
-    ("new_cost" < $10 OR $10 IS NULL) AND
-    ("date_eta" = ANY($11) OR $11 IS NULL) AND
-    ("date_eta" > $12 OR $12 IS NULL) AND
-    ("date_eta" < $13 OR $13 IS NULL) AND
-    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
-    ("weight_grams" > $15 OR $15 IS NULL) AND
-    ("weight_grams" < $16 OR $16 IS NULL) AND
-    ("length_cm" = ANY($17) OR $17 IS NULL) AND
-    ("length_cm" > $18 OR $18 IS NULL) AND
-    ("length_cm" < $19 OR $19 IS NULL) AND
-    ("width_cm" = ANY($20) OR $20 IS NULL) AND
-    ("width_cm" > $21 OR $21 IS NULL) AND
-    ("width_cm" < $22 OR $22 IS NULL) AND
-    ("height_cm" = ANY($23) OR $23 IS NULL) AND
-    ("height_cm" > $24 OR $24 IS NULL) AND
-    ("height_cm" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("label_url" = ANY($5) OR $5 IS NULL) AND
+    ("cost" = ANY($6) OR $6 IS NULL) AND
+    ("cost" > $7 OR $7 IS NULL) AND
+    ("cost" < $8 OR $8 IS NULL) AND
+    ("new_cost" = ANY($9) OR $9 IS NULL) AND
+    ("new_cost" > $10 OR $10 IS NULL) AND
+    ("new_cost" < $11 OR $11 IS NULL) AND
+    ("date_eta" = ANY($12) OR $12 IS NULL) AND
+    ("date_eta" > $13 OR $13 IS NULL) AND
+    ("date_eta" < $14 OR $14 IS NULL) AND
+    ("from_address" = ANY($15) OR $15 IS NULL) AND
+    ("to_address" = ANY($16) OR $16 IS NULL) AND
+    ("weight_grams" = ANY($17) OR $17 IS NULL) AND
+    ("weight_grams" > $18 OR $18 IS NULL) AND
+    ("weight_grams" < $19 OR $19 IS NULL) AND
+    ("length_cm" = ANY($20) OR $20 IS NULL) AND
+    ("length_cm" > $21 OR $21 IS NULL) AND
+    ("length_cm" < $22 OR $22 IS NULL) AND
+    ("width_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" = ANY($24) OR $24 IS NULL) AND
+    ("height_cm" > $25 OR $25 IS NULL) AND
+    ("height_cm" < $26 OR $26 IS NULL) AND
+    ("date_created" = ANY($27) OR $27 IS NULL) AND
+    ("date_created" > $28 OR $28 IS NULL) AND
+    ("date_created" < $29 OR $29 IS NULL)
 )
 `
 
 type CountOrderShipmentParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
+	Option          []string              `json:"option"`
+	TrackingCode    []pgtype.Text         `json:"tracking_code"`
 	Status          []OrderShipmentStatus `json:"status"`
+	LabelUrl        []pgtype.Text         `json:"label_url"`
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
@@ -1590,6 +1275,8 @@ type CountOrderShipmentParams struct {
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
+	FromAddress     []string              `json:"from_address"`
+	ToAddress       []string              `json:"to_address"`
 	WeightGrams     []int32               `json:"weight_grams"`
 	WeightGramsFrom pgtype.Int4           `json:"weight_grams_from"`
 	WeightGramsTo   pgtype.Int4           `json:"weight_grams_to"`
@@ -1597,8 +1284,6 @@ type CountOrderShipmentParams struct {
 	LengthCmFrom    pgtype.Int4           `json:"length_cm_from"`
 	LengthCmTo      pgtype.Int4           `json:"length_cm_to"`
 	WidthCm         []int32               `json:"width_cm"`
-	WidthCmFrom     pgtype.Int4           `json:"width_cm_from"`
-	WidthCmTo       pgtype.Int4           `json:"width_cm_to"`
 	HeightCm        []int32               `json:"height_cm"`
 	HeightCmFrom    pgtype.Int4           `json:"height_cm_from"`
 	HeightCmTo      pgtype.Int4           `json:"height_cm_to"`
@@ -1610,9 +1295,10 @@ type CountOrderShipmentParams struct {
 func (q *Queries) CountOrderShipment(ctx context.Context, arg CountOrderShipmentParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrderShipment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
+		arg.Option,
+		arg.TrackingCode,
 		arg.Status,
+		arg.LabelUrl,
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
@@ -1622,6 +1308,8 @@ func (q *Queries) CountOrderShipment(ctx context.Context, arg CountOrderShipment
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
+		arg.FromAddress,
+		arg.ToAddress,
 		arg.WeightGrams,
 		arg.WeightGramsFrom,
 		arg.WeightGramsTo,
@@ -1629,8 +1317,6 @@ func (q *Queries) CountOrderShipment(ctx context.Context, arg CountOrderShipment
 		arg.LengthCmFrom,
 		arg.LengthCmTo,
 		arg.WidthCm,
-		arg.WidthCmFrom,
-		arg.WidthCmTo,
 		arg.HeightCm,
 		arg.HeightCmFrom,
 		arg.HeightCmTo,
@@ -1648,39 +1334,35 @@ SELECT COUNT(*)
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" > $6 OR $6 IS NULL) AND
-    ("owner_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" = ANY($11) OR $11 IS NULL) AND
-    ("date_started" > $12 OR $12 IS NULL) AND
-    ("date_started" < $13 OR $13 IS NULL) AND
-    ("date_ended" = ANY($14) OR $14 IS NULL) AND
-    ("date_ended" > $15 OR $15 IS NULL) AND
-    ("date_ended" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("owner_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("description" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
+    ("date_started" = ANY($9) OR $9 IS NULL) AND
+    ("date_started" > $10 OR $10 IS NULL) AND
+    ("date_started" < $11 OR $11 IS NULL) AND
+    ("date_ended" = ANY($12) OR $12 IS NULL) AND
+    ("date_ended" > $13 OR $13 IS NULL) AND
+    ("date_ended" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
 type CountPromotionBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Code            []string             `json:"code"`
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
 	Type            []PromotionType      `json:"type"`
+	Title           []string             `json:"title"`
+	Description     []pgtype.Text        `json:"description"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
 	DateStarted     []pgtype.Timestamptz `json:"date_started"`
@@ -1700,13 +1382,11 @@ type CountPromotionBaseParams struct {
 func (q *Queries) CountPromotionBase(ctx context.Context, arg CountPromotionBaseParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPromotionBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.OwnerID,
-		arg.OwnerIDFrom,
-		arg.OwnerIDTo,
 		arg.Type,
+		arg.Title,
+		arg.Description,
 		arg.IsActive,
 		arg.AutoApply,
 		arg.DateStarted,
@@ -1732,27 +1412,23 @@ SELECT COUNT(*)
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("min_spend" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" > $5 OR $5 IS NULL) AND
-    ("min_spend" < $6 OR $6 IS NULL) AND
-    ("max_discount" = ANY($7) OR $7 IS NULL) AND
-    ("max_discount" > $8 OR $8 IS NULL) AND
-    ("max_discount" < $9 OR $9 IS NULL) AND
-    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
-    ("discount_percent" > $11 OR $11 IS NULL) AND
-    ("discount_percent" < $12 OR $12 IS NULL) AND
-    ("discount_price" = ANY($13) OR $13 IS NULL) AND
-    ("discount_price" > $14 OR $14 IS NULL) AND
-    ("discount_price" < $15 OR $15 IS NULL)
+    ("min_spend" = ANY($2) OR $2 IS NULL) AND
+    ("min_spend" > $3 OR $3 IS NULL) AND
+    ("min_spend" < $4 OR $4 IS NULL) AND
+    ("max_discount" = ANY($5) OR $5 IS NULL) AND
+    ("max_discount" > $6 OR $6 IS NULL) AND
+    ("max_discount" < $7 OR $7 IS NULL) AND
+    ("discount_percent" = ANY($8) OR $8 IS NULL) AND
+    ("discount_percent" > $9 OR $9 IS NULL) AND
+    ("discount_percent" < $10 OR $10 IS NULL) AND
+    ("discount_price" = ANY($11) OR $11 IS NULL) AND
+    ("discount_price" > $12 OR $12 IS NULL) AND
+    ("discount_price" < $13 OR $13 IS NULL)
 )
 `
 
 type CountPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
-	IDFrom              pgtype.Int8   `json:"id_from"`
-	IDTo                pgtype.Int8   `json:"id_to"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -1770,8 +1446,6 @@ type CountPromotionDiscountParams struct {
 func (q *Queries) CountPromotionDiscount(ctx context.Context, arg CountPromotionDiscountParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPromotionDiscount,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -1795,43 +1469,25 @@ SELECT COUNT(*)
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type CountPromotionRefParams struct {
-	ID              []int64            `json:"id"`
-	IDFrom          pgtype.Int8        `json:"id_from"`
-	IDTo            pgtype.Int8        `json:"id_to"`
-	PromotionID     []int64            `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
-	RefType         []PromotionRefType `json:"ref_type"`
-	RefID           []int64            `json:"ref_id"`
-	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+	ID          []int64            `json:"id"`
+	PromotionID []int64            `json:"promotion_id"`
+	RefType     []PromotionRefType `json:"ref_type"`
+	RefID       []int64            `json:"ref_id"`
 }
 
 func (q *Queries) CountPromotionRef(ctx context.Context, arg CountPromotionRefParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPromotionRef,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -1843,49 +1499,43 @@ SELECT COUNT(*)
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("duration" = ANY($7) OR $7 IS NULL) AND
-    ("duration" > $8 OR $8 IS NULL) AND
-    ("duration" < $9 OR $9 IS NULL) AND
-    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
-    ("next_run_at" > $11 OR $11 IS NULL) AND
-    ("next_run_at" < $12 OR $12 IS NULL) AND
-    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
-    ("last_run_at" > $14 OR $14 IS NULL) AND
-    ("last_run_at" < $15 OR $15 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("timezone" = ANY($3) OR $3 IS NULL) AND
+    ("cron_rule" = ANY($4) OR $4 IS NULL) AND
+    ("duration" = ANY($5) OR $5 IS NULL) AND
+    ("duration" > $6 OR $6 IS NULL) AND
+    ("duration" < $7 OR $7 IS NULL) AND
+    ("next_run_at" = ANY($8) OR $8 IS NULL) AND
+    ("next_run_at" > $9 OR $9 IS NULL) AND
+    ("next_run_at" < $10 OR $10 IS NULL) AND
+    ("last_run_at" = ANY($11) OR $11 IS NULL) AND
+    ("last_run_at" > $12 OR $12 IS NULL) AND
+    ("last_run_at" < $13 OR $13 IS NULL)
 )
 `
 
 type CountPromotionScheduleParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	PromotionID     []int64              `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
-	Duration        []int32              `json:"duration"`
-	DurationFrom    pgtype.Int4          `json:"duration_from"`
-	DurationTo      pgtype.Int4          `json:"duration_to"`
-	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
-	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
-	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
-	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
-	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
-	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+	ID            []int64              `json:"id"`
+	PromotionID   []int64              `json:"promotion_id"`
+	Timezone      []string             `json:"timezone"`
+	CronRule      []string             `json:"cron_rule"`
+	Duration      []int32              `json:"duration"`
+	DurationFrom  pgtype.Int4          `json:"duration_from"`
+	DurationTo    pgtype.Int4          `json:"duration_to"`
+	NextRunAt     []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo   pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt     []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo   pgtype.Timestamptz   `json:"last_run_at_to"`
 }
 
 func (q *Queries) CountPromotionSchedule(ctx context.Context, arg CountPromotionScheduleParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPromotionSchedule,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
+		arg.Timezone,
+		arg.CronRule,
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
@@ -1909,15 +1559,18 @@ WHERE (
     ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
     ("uploaded_by" > $3 OR $3 IS NULL) AND
     ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("object_key" = ANY($5) OR $5 IS NULL) AND
-    ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
-    ("metadata" = ANY($9) OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
 )
 `
 
@@ -1926,11 +1579,14 @@ type CountSharedResourceParams struct {
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
 	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
 	Size           []int64              `json:"size"`
 	SizeFrom       pgtype.Int8          `json:"size_from"`
 	SizeTo         pgtype.Int8          `json:"size_to"`
 	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
 	Status         []SharedStatus       `json:"status"`
 	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
 	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
@@ -1943,11 +1599,14 @@ func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResour
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
+		arg.Provider,
 		arg.ObjectKey,
+		arg.Mime,
 		arg.Size,
 		arg.SizeFrom,
 		arg.SizeTo,
 		arg.Metadata,
+		arg.Checksum,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -1963,29 +1622,21 @@ SELECT COUNT(*)
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("ref_type" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" = ANY($6) OR $6 IS NULL) AND
-    ("ref_id" > $7 OR $7 IS NULL) AND
-    ("ref_id" < $8 OR $8 IS NULL) AND
-    ("order" = ANY($9) OR $9 IS NULL) AND
-    ("order" > $10 OR $10 IS NULL) AND
-    ("order" < $11 OR $11 IS NULL) AND
-    ("is_primary" = ANY($12) OR $12 IS NULL)
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
 )
 `
 
 type CountSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
-	IDFrom    pgtype.Int8             `json:"id_from"`
-	IDTo      pgtype.Int8             `json:"id_to"`
 	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
-	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo   pgtype.Int8             `json:"ref_id_to"`
 	Order     []int32                 `json:"order"`
 	OrderFrom pgtype.Int4             `json:"order_from"`
 	OrderTo   pgtype.Int4             `json:"order_to"`
@@ -1995,13 +1646,9 @@ type CountSharedResourceReferenceParams struct {
 func (q *Queries) CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSharedResourceReference,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RsID,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
@@ -2017,28 +1664,91 @@ SELECT COUNT(*)
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL) AND
-    ("order" = ANY($3) OR $3 IS NULL) AND
-    ("order" > $4 OR $4 IS NULL) AND
-    ("order" < $5 OR $5 IS NULL)
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
 )
 `
 
 type CountSharedServiceOptionParams struct {
-	ID        []string    `json:"id"`
-	IsActive  []bool      `json:"is_active"`
-	Order     []int32     `json:"order"`
-	OrderFrom pgtype.Int4 `json:"order_from"`
-	OrderTo   pgtype.Int4 `json:"order_to"`
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) CountSharedServiceOption(ctx context.Context, arg CountSharedServiceOptionParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSharedServiceOption,
 		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
 		arg.IsActive,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSystemOutboxEvent = `-- name: CountSystemOutboxEvent :one
+SELECT COUNT(*)
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("topic" = ANY($2) OR $2 IS NULL) AND
+    ("data" = ANY($3) OR $3 IS NULL) AND
+    ("processed" = ANY($4) OR $4 IS NULL) AND
+    ("date_processed" = ANY($5) OR $5 IS NULL) AND
+    ("date_processed" > $6 OR $6 IS NULL) AND
+    ("date_processed" < $7 OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
+)
+`
+
+type CountSystemOutboxEventParams struct {
+	ID                []int64              `json:"id"`
+	Topic             []string             `json:"topic"`
+	Data              [][]byte             `json:"data"`
+	Processed         []bool               `json:"processed"`
+	DateProcessed     []pgtype.Timestamptz `json:"date_processed"`
+	DateProcessedFrom pgtype.Timestamptz   `json:"date_processed_from"`
+	DateProcessedTo   pgtype.Timestamptz   `json:"date_processed_to"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+}
+
+func (q *Queries) CountSystemOutboxEvent(ctx context.Context, arg CountSystemOutboxEventParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSystemOutboxEvent,
+		arg.ID,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.DateProcessed,
+		arg.DateProcessedFrom,
+		arg.DateProcessedTo,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -2050,31 +1760,23 @@ SELECT COUNT(*)
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
-    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
+    ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type CountSystemSearchSyncParams struct {
 	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
 	RefType          []string             `json:"ref_type"`
 	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
 	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -2088,12 +1790,8 @@ type CountSystemSearchSyncParams struct {
 func (q *Queries) CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSystemSearchSync,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
@@ -2952,9 +2650,6 @@ type CreateCopyDefaultOrderInvoiceParams struct {
 	ReceiverID int64               `json:"receiver_id"`
 	Note       pgtype.Text         `json:"note"`
 	Data       []byte              `json:"data"`
-	FileRsID   string              `json:"file_rs_id"`
-	Hash       []byte              `json:"hash"`
-	PrevHash   []byte              `json:"prev_hash"`
 }
 
 type CreateCopyDefaultOrderItemParams struct {
@@ -3067,6 +2762,12 @@ type CreateCopyDefaultSharedServiceOptionParams struct {
 	Order       int32  `json:"order"`
 }
 
+type CreateCopyDefaultSystemOutboxEventParams struct {
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+}
+
 type CreateCopyDefaultSystemSearchSyncParams struct {
 	RefType string `json:"ref_type"`
 	RefID   int64  `json:"ref_id"`
@@ -3109,10 +2810,7 @@ type CreateCopyOrderInvoiceParams struct {
 	ReceiverID  int64               `json:"receiver_id"`
 	Note        pgtype.Text         `json:"note"`
 	Data        []byte              `json:"data"`
-	FileRsID    string              `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz  `json:"date_created"`
-	Hash        []byte              `json:"hash"`
-	PrevHash    []byte              `json:"prev_hash"`
 }
 
 type CreateCopyOrderItemParams struct {
@@ -3236,6 +2934,14 @@ type CreateCopySharedServiceOptionParams struct {
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
 	Order       int32  `json:"order"`
+}
+
+type CreateCopySystemOutboxEventParams struct {
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	Processed     bool               `json:"processed"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
 }
 
 type CreateCopySystemSearchSyncParams struct {
@@ -3843,9 +3549,9 @@ func (q *Queries) CreateDefaultOrderBase(ctx context.Context, arg CreateDefaultO
 }
 
 const createDefaultOrderInvoice = `-- name: CreateDefaultOrderInvoice :one
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, ref_type, ref_id, type, receiver_id, note, data, date_created
 `
 
 type CreateDefaultOrderInvoiceParams struct {
@@ -3855,9 +3561,6 @@ type CreateDefaultOrderInvoiceParams struct {
 	ReceiverID int64               `json:"receiver_id"`
 	Note       pgtype.Text         `json:"note"`
 	Data       []byte              `json:"data"`
-	FileRsID   string              `json:"file_rs_id"`
-	Hash       []byte              `json:"hash"`
-	PrevHash   []byte              `json:"prev_hash"`
 }
 
 func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefaultOrderInvoiceParams) (OrderInvoice, error) {
@@ -3868,9 +3571,6 @@ func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefau
 		arg.ReceiverID,
 		arg.Note,
 		arg.Data,
-		arg.FileRsID,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var i OrderInvoice
 	err := row.Scan(
@@ -3881,10 +3581,7 @@ func (q *Queries) CreateDefaultOrderInvoice(ctx context.Context, arg CreateDefau
 		&i.ReceiverID,
 		&i.Note,
 		&i.Data,
-		&i.FileRsID,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -4334,6 +4031,32 @@ func (q *Queries) CreateDefaultSharedServiceOption(ctx context.Context, arg Crea
 	return i, err
 }
 
+const createDefaultSystemOutboxEvent = `-- name: CreateDefaultSystemOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
+VALUES ($1, $2, $3)
+RETURNING id, topic, data, processed, date_processed, date_created
+`
+
+type CreateDefaultSystemOutboxEventParams struct {
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+}
+
+func (q *Queries) CreateDefaultSystemOutboxEvent(ctx context.Context, arg CreateDefaultSystemOutboxEventParams) (SystemOutboxEvent, error) {
+	row := q.db.QueryRow(ctx, createDefaultSystemOutboxEvent, arg.Topic, arg.Data, arg.DateProcessed)
+	var i SystemOutboxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.Topic,
+		&i.Data,
+		&i.Processed,
+		&i.DateProcessed,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
 const createDefaultSystemSearchSync = `-- name: CreateDefaultSystemSearchSync :one
 INSERT INTO "system"."search_sync" ("ref_type", "ref_id")
 VALUES ($1, $2)
@@ -4487,9 +4210,9 @@ func (q *Queries) CreateOrderBase(ctx context.Context, arg CreateOrderBaseParams
 }
 
 const createOrderInvoice = `-- name: CreateOrderInvoice :one
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, ref_type, ref_id, type, receiver_id, note, data, date_created
 `
 
 type CreateOrderInvoiceParams struct {
@@ -4499,10 +4222,7 @@ type CreateOrderInvoiceParams struct {
 	ReceiverID  int64               `json:"receiver_id"`
 	Note        pgtype.Text         `json:"note"`
 	Data        []byte              `json:"data"`
-	FileRsID    string              `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz  `json:"date_created"`
-	Hash        []byte              `json:"hash"`
-	PrevHash    []byte              `json:"prev_hash"`
 }
 
 func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoiceParams) (OrderInvoice, error) {
@@ -4513,10 +4233,7 @@ func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoice
 		arg.ReceiverID,
 		arg.Note,
 		arg.Data,
-		arg.FileRsID,
 		arg.DateCreated,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var i OrderInvoice
 	err := row.Scan(
@@ -4527,10 +4244,7 @@ func (q *Queries) CreateOrderInvoice(ctx context.Context, arg CreateOrderInvoice
 		&i.ReceiverID,
 		&i.Note,
 		&i.Data,
-		&i.FileRsID,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -5010,6 +4724,40 @@ func (q *Queries) CreateSharedServiceOption(ctx context.Context, arg CreateShare
 	return i, err
 }
 
+const createSystemOutboxEvent = `-- name: CreateSystemOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, topic, data, processed, date_processed, date_created
+`
+
+type CreateSystemOutboxEventParams struct {
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	Processed     bool               `json:"processed"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+}
+
+func (q *Queries) CreateSystemOutboxEvent(ctx context.Context, arg CreateSystemOutboxEventParams) (SystemOutboxEvent, error) {
+	row := q.db.QueryRow(ctx, createSystemOutboxEvent,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.DateProcessed,
+		arg.DateCreated,
+	)
+	var i SystemOutboxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.Topic,
+		&i.Data,
+		&i.Processed,
+		&i.DateProcessed,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
 const createSystemSearchSync = `-- name: CreateSystemSearchSync :one
 INSERT INTO "system"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -5051,27 +4799,23 @@ const deleteAccountBase = `-- name: DeleteAccountBase :exec
 DELETE FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("type" = ANY($4) OR $4 IS NULL) AND
-    ("status" = ANY($5) OR $5 IS NULL) AND
-    ("phone" = ANY($6) OR $6 IS NULL) AND
-    ("email" = ANY($7) OR $7 IS NULL) AND
-    ("username" = ANY($8) OR $8 IS NULL) AND
-    ("password" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("type" = ANY($2) OR $2 IS NULL) AND
+    ("status" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("email" = ANY($5) OR $5 IS NULL) AND
+    ("username" = ANY($6) OR $6 IS NULL) AND
+    ("password" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type DeleteAccountBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Type            []AccountType        `json:"type"`
 	Status          []AccountStatus      `json:"status"`
 	Phone           []pgtype.Text        `json:"phone"`
@@ -5089,8 +4833,6 @@ type DeleteAccountBaseParams struct {
 func (q *Queries) DeleteAccountBase(ctx context.Context, arg DeleteAccountBaseParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Type,
 		arg.Status,
 		arg.Phone,
@@ -5111,36 +4853,24 @@ const deleteAccountCartItem = `-- name: DeleteAccountCartItem :exec
 DELETE FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" > $5 OR $5 IS NULL) AND
-    ("cart_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" > $11 OR $11 IS NULL) AND
-    ("quantity" < $12 OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" > $17 OR $17 IS NULL) AND
-    ("date_updated" < $18 OR $18 IS NULL)
+    ("cart_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("quantity" = ANY($4) OR $4 IS NULL) AND
+    ("quantity" > $5 OR $5 IS NULL) AND
+    ("quantity" < $6 OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 `
 
 type DeleteAccountCartItemParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	CartID          []int64              `json:"cart_id"`
-	CartIDFrom      pgtype.Int8          `json:"cart_id_from"`
-	CartIDTo        pgtype.Int8          `json:"cart_id_to"`
 	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
 	Quantity        []int64              `json:"quantity"`
 	QuantityFrom    pgtype.Int8          `json:"quantity_from"`
 	QuantityTo      pgtype.Int8          `json:"quantity_to"`
@@ -5155,14 +4885,8 @@ type DeleteAccountCartItemParams struct {
 func (q *Queries) DeleteAccountCartItem(ctx context.Context, arg DeleteAccountCartItemParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountCartItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.CartID,
-		arg.CartIDFrom,
-		arg.CartIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -5180,32 +4904,24 @@ const deleteAccountContact = `-- name: DeleteAccountContact :exec
 DELETE FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("full_name" = ANY($7) OR $7 IS NULL) AND
-    ("phone" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("address" = ANY($10) OR $10 IS NULL) AND
-    ("address_type" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_updated" = ANY($15) OR $15 IS NULL) AND
-    ("date_updated" > $16 OR $16 IS NULL) AND
-    ("date_updated" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("full_name" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("phone_verified" = ANY($5) OR $5 IS NULL) AND
+    ("address" = ANY($6) OR $6 IS NULL) AND
+    ("address_type" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 `
 
 type DeleteAccountContactParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
 	FullName        []string             `json:"full_name"`
 	Phone           []string             `json:"phone"`
 	PhoneVerified   []bool               `json:"phone_verified"`
@@ -5222,11 +4938,7 @@ type DeleteAccountContactParams struct {
 func (q *Queries) DeleteAccountContact(ctx context.Context, arg DeleteAccountContactParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountContact,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.FullName,
 		arg.Phone,
 		arg.PhoneVerified,
@@ -5246,21 +4958,17 @@ const deleteAccountCustomer = `-- name: DeleteAccountCustomer :exec
 DELETE FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL) AND
-    ("date_updated" = ANY($7) OR $7 IS NULL) AND
-    ("date_updated" > $8 OR $8 IS NULL) AND
-    ("date_updated" < $9 OR $9 IS NULL)
+    ("date_created" = ANY($2) OR $2 IS NULL) AND
+    ("date_created" > $3 OR $3 IS NULL) AND
+    ("date_created" < $4 OR $4 IS NULL) AND
+    ("date_updated" = ANY($5) OR $5 IS NULL) AND
+    ("date_updated" > $6 OR $6 IS NULL) AND
+    ("date_updated" < $7 OR $7 IS NULL)
 )
 `
 
 type DeleteAccountCustomerParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -5272,8 +4980,6 @@ type DeleteAccountCustomerParams struct {
 func (q *Queries) DeleteAccountCustomer(ctx context.Context, arg DeleteAccountCustomerParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountCustomer,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -5288,34 +4994,26 @@ const deleteAccountIncomeHistory = `-- name: DeleteAccountIncomeHistory :exec
 DELETE FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" > $9 OR $9 IS NULL) AND
-    ("income" < $10 OR $10 IS NULL) AND
-    ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" > $12 OR $12 IS NULL) AND
-    ("current_balance" < $13 OR $13 IS NULL) AND
-    ("note" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("hash" = ANY($18) OR $18 IS NULL) AND
-    ("prev_hash" = ANY($19) OR $19 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("income" = ANY($4) OR $4 IS NULL) AND
+    ("income" > $5 OR $5 IS NULL) AND
+    ("income" < $6 OR $6 IS NULL) AND
+    ("current_balance" = ANY($7) OR $7 IS NULL) AND
+    ("current_balance" > $8 OR $8 IS NULL) AND
+    ("current_balance" < $9 OR $9 IS NULL) AND
+    ("note" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("hash" = ANY($14) OR $14 IS NULL) AND
+    ("prev_hash" = ANY($15) OR $15 IS NULL)
 )
 `
 
 type DeleteAccountIncomeHistoryParams struct {
 	ID                 []int64              `json:"id"`
-	IDFrom             pgtype.Int8          `json:"id_from"`
-	IDTo               pgtype.Int8          `json:"id_to"`
 	AccountID          []int64              `json:"account_id"`
-	AccountIDFrom      pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo        pgtype.Int8          `json:"account_id_to"`
 	Type               []string             `json:"type"`
 	Income             []int64              `json:"income"`
 	IncomeFrom         pgtype.Int8          `json:"income_from"`
@@ -5334,11 +5032,7 @@ type DeleteAccountIncomeHistoryParams struct {
 func (q *Queries) DeleteAccountIncomeHistory(ctx context.Context, arg DeleteAccountIncomeHistoryParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountIncomeHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Income,
 		arg.IncomeFrom,
@@ -5360,39 +5054,33 @@ const deleteAccountNotification = `-- name: DeleteAccountNotification :exec
 DELETE FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("channel" = ANY($8) OR $8 IS NULL) AND
-    ("is_read" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL) AND
-    ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" > $17 OR $17 IS NULL) AND
-    ("date_sent" < $18 OR $18 IS NULL) AND
-    ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" > $20 OR $20 IS NULL) AND
-    ("date_scheduled" < $21 OR $21 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("channel" = ANY($4) OR $4 IS NULL) AND
+    ("is_read" = ANY($5) OR $5 IS NULL) AND
+    ("content" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("date_sent" = ANY($13) OR $13 IS NULL) AND
+    ("date_sent" > $14 OR $14 IS NULL) AND
+    ("date_sent" < $15 OR $15 IS NULL) AND
+    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
+    ("date_scheduled" > $17 OR $17 IS NULL) AND
+    ("date_scheduled" < $18 OR $18 IS NULL)
 )
 `
 
 type DeleteAccountNotificationParams struct {
 	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
 	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
 	Type              []string             `json:"type"`
 	Channel           []string             `json:"channel"`
 	IsRead            []bool               `json:"is_read"`
+	Content           []string             `json:"content"`
 	DateCreated       []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
@@ -5410,14 +5098,11 @@ type DeleteAccountNotificationParams struct {
 func (q *Queries) DeleteAccountNotification(ctx context.Context, arg DeleteAccountNotificationParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountNotification,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Channel,
 		arg.IsRead,
+		arg.Content,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -5438,56 +5123,46 @@ const deleteAccountProfile = `-- name: DeleteAccountProfile :exec
 DELETE FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("gender" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" > $7 OR $7 IS NULL) AND
-    ("date_of_birth" < $8 OR $8 IS NULL) AND
-    ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("email_verified" = ANY($10) OR $10 IS NULL) AND
-    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
-    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
-    ("default_contact_id" > $13 OR $13 IS NULL) AND
-    ("default_contact_id" < $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("gender" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" > $5 OR $5 IS NULL) AND
+    ("date_of_birth" < $6 OR $6 IS NULL) AND
+    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
+    ("email_verified" = ANY($8) OR $8 IS NULL) AND
+    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
+    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("date_updated" = ANY($14) OR $14 IS NULL) AND
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 `
 
 type DeleteAccountProfileParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Gender               []NullAccountGender  `json:"gender"`
-	Name                 []pgtype.Text        `json:"name"`
-	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
-	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
-	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
-	EmailVerified        []bool               `json:"email_verified"`
-	PhoneVerified        []bool               `json:"phone_verified"`
-	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
-	DefaultContactIDFrom pgtype.Int8          `json:"default_contact_id_from"`
-	DefaultContactIDTo   pgtype.Int8          `json:"default_contact_id_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID               []int64              `json:"id"`
+	Gender           []NullAccountGender  `json:"gender"`
+	Name             []pgtype.Text        `json:"name"`
+	DateOfBirth      []pgtype.Date        `json:"date_of_birth"`
+	DateOfBirthFrom  pgtype.Date          `json:"date_of_birth_from"`
+	DateOfBirthTo    pgtype.Date          `json:"date_of_birth_to"`
+	AvatarRsID       []pgtype.UUID        `json:"avatar_rs_id"`
+	EmailVerified    []bool               `json:"email_verified"`
+	PhoneVerified    []bool               `json:"phone_verified"`
+	DefaultContactID []pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error {
 	_, err := q.db.Exec(ctx, deleteAccountProfile,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Gender,
 		arg.Name,
 		arg.DateOfBirth,
@@ -5497,8 +5172,6 @@ func (q *Queries) DeleteAccountProfile(ctx context.Context, arg DeleteAccountPro
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
-		arg.DefaultContactIDFrom,
-		arg.DefaultContactIDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -5513,26 +5186,17 @@ const deleteAccountVendor = `-- name: DeleteAccountVendor :exec
 DELETE FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL)
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 `
 
 type DeleteAccountVendorParams struct {
-	ID          []int64     `json:"id"`
-	IDFrom      pgtype.Int8 `json:"id_from"`
-	IDTo        pgtype.Int8 `json:"id_to"`
-	Description []string    `json:"description"`
+	ID          []int64  `json:"id"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) DeleteAccountVendor(ctx context.Context, arg DeleteAccountVendorParams) error {
-	_, err := q.db.Exec(ctx, deleteAccountVendor,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Description,
-	)
+	_, err := q.db.Exec(ctx, deleteAccountVendor, arg.ID, arg.Description)
 	return err
 }
 
@@ -5540,38 +5204,34 @@ const deleteAnalyticInteraction = `-- name: DeleteAnalyticInteraction :exec
 DELETE FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" > $8 OR $8 IS NULL) AND
-    ("ref_type" < $9 OR $9 IS NULL) AND
-    ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" > $11 OR $11 IS NULL) AND
-    ("ref_id" < $12 OR $12 IS NULL) AND
-    ("metadata" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("session_id" = ANY($3) OR $3 IS NULL) AND
+    ("event_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_type" > $6 OR $6 IS NULL) AND
+    ("ref_type" < $7 OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("user_agent" = ANY($10) OR $10 IS NULL) AND
+    ("ip_address" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL)
 )
 `
 
 type DeleteAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	IDFrom          pgtype.Int8                    `json:"id_from"`
-	IDTo            pgtype.Int8                    `json:"id_to"`
 	AccountID       []int64                        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	SessionID       []pgtype.Text                  `json:"session_id"`
+	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
 	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
 	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
 	RefID           []int64                        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
 	Metadata        [][]byte                       `json:"metadata"`
+	UserAgent       []pgtype.Text                  `json:"user_agent"`
+	IpAddress       []pgtype.Text                  `json:"ip_address"`
 	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
@@ -5580,18 +5240,16 @@ type DeleteAnalyticInteractionParams struct {
 func (q *Queries) DeleteAnalyticInteraction(ctx context.Context, arg DeleteAnalyticInteractionParams) error {
 	_, err := q.db.Exec(ctx, deleteAnalyticInteraction,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.SessionID,
+		arg.EventType,
 		arg.RefType,
 		arg.RefTypeFrom,
 		arg.RefTypeTo,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -5603,25 +5261,25 @@ const deleteCatalogBrand = `-- name: DeleteCatalogBrand :exec
 DELETE FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type DeleteCatalogBrandParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Code   []string    `json:"code"`
+	ID          []int64  `json:"id"`
+	Code        []string `json:"code"`
+	Name        []string `json:"name"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) DeleteCatalogBrand(ctx context.Context, arg DeleteCatalogBrandParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogBrand,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
+		arg.Name,
+		arg.Description,
 	)
 	return err
 }
@@ -5630,34 +5288,25 @@ const deleteCatalogCategory = `-- name: DeleteCatalogCategory :exec
 DELETE FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" > $6 OR $6 IS NULL) AND
-    ("parent_id" < $7 OR $7 IS NULL)
+    ("name" = ANY($2) OR $2 IS NULL) AND
+    ("description" = ANY($3) OR $3 IS NULL) AND
+    ("parent_id" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type DeleteCatalogCategoryParams struct {
-	ID           []int64       `json:"id"`
-	IDFrom       pgtype.Int8   `json:"id_from"`
-	IDTo         pgtype.Int8   `json:"id_to"`
-	Name         []string      `json:"name"`
-	ParentID     []pgtype.Int8 `json:"parent_id"`
-	ParentIDFrom pgtype.Int8   `json:"parent_id_from"`
-	ParentIDTo   pgtype.Int8   `json:"parent_id_to"`
+	ID          []int64       `json:"id"`
+	Name        []string      `json:"name"`
+	Description []string      `json:"description"`
+	ParentID    []pgtype.Int8 `json:"parent_id"`
 }
 
 func (q *Queries) DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogCategory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Name,
+		arg.Description,
 		arg.ParentID,
-		arg.ParentIDFrom,
-		arg.ParentIDTo,
 	)
 	return err
 }
@@ -5666,44 +5315,34 @@ const deleteCatalogComment = `-- name: DeleteCatalogComment :exec
 DELETE FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" > $12 OR $12 IS NULL) AND
-    ("upvote" < $13 OR $13 IS NULL) AND
-    ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" > $15 OR $15 IS NULL) AND
-    ("downvote" < $16 OR $16 IS NULL) AND
-    ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" > $18 OR $18 IS NULL) AND
-    ("score" < $19 OR $19 IS NULL) AND
-    ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
-    ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("body" = ANY($5) OR $5 IS NULL) AND
+    ("upvote" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" > $7 OR $7 IS NULL) AND
+    ("upvote" < $8 OR $8 IS NULL) AND
+    ("downvote" = ANY($9) OR $9 IS NULL) AND
+    ("downvote" > $10 OR $10 IS NULL) AND
+    ("downvote" < $11 OR $11 IS NULL) AND
+    ("score" = ANY($12) OR $12 IS NULL) AND
+    ("score" > $13 OR $13 IS NULL) AND
+    ("score" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
 type DeleteCatalogCommentParams struct {
 	ID              []int64                 `json:"id"`
-	IDFrom          pgtype.Int8             `json:"id_from"`
-	IDTo            pgtype.Int8             `json:"id_to"`
 	AccountID       []int64                 `json:"account_id"`
-	AccountIDFrom   pgtype.Int8             `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8             `json:"account_id_to"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []int64                 `json:"ref_id"`
-	RefIDFrom       pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8             `json:"ref_id_to"`
+	Body            []string                `json:"body"`
 	Upvote          []int64                 `json:"upvote"`
 	UpvoteFrom      pgtype.Int8             `json:"upvote_from"`
 	UpvoteTo        pgtype.Int8             `json:"upvote_to"`
@@ -5724,15 +5363,10 @@ type DeleteCatalogCommentParams struct {
 func (q *Queries) DeleteCatalogComment(ctx context.Context, arg DeleteCatalogCommentParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogComment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
+		arg.Body,
 		arg.Upvote,
 		arg.UpvoteFrom,
 		arg.UpvoteTo,
@@ -5756,32 +5390,24 @@ const deleteCatalogProductSku = `-- name: DeleteCatalogProductSku :exec
 DELETE FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("attributes" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
-    ("date_deleted" > $16 OR $16 IS NULL) AND
-    ("date_deleted" < $17 OR $17 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("price" = ANY($3) OR $3 IS NULL) AND
+    ("price" > $4 OR $4 IS NULL) AND
+    ("price" < $5 OR $5 IS NULL) AND
+    ("can_combine" = ANY($6) OR $6 IS NULL) AND
+    ("attributes" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
+    ("date_deleted" > $12 OR $12 IS NULL) AND
+    ("date_deleted" < $13 OR $13 IS NULL)
 )
 `
 
 type DeleteCatalogProductSkuParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	SpuID           []int64              `json:"spu_id"`
-	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
-	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -5798,11 +5424,7 @@ type DeleteCatalogProductSkuParams struct {
 func (q *Queries) DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalogProductSkuParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogProductSku,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -5822,81 +5444,57 @@ const deleteCatalogProductSpu = `-- name: DeleteCatalogProductSpu :exec
 DELETE FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" > $6 OR $6 IS NULL) AND
-    ("account_id" < $7 OR $7 IS NULL) AND
-    ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" > $9 OR $9 IS NULL) AND
-    ("category_id" < $10 OR $10 IS NULL) AND
-    ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" > $12 OR $12 IS NULL) AND
-    ("brand_id" < $13 OR $13 IS NULL) AND
-    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
-    ("featured_sku_id" > $15 OR $15 IS NULL) AND
-    ("featured_sku_id" < $16 OR $16 IS NULL) AND
-    ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("category_id" = ANY($4) OR $4 IS NULL) AND
+    ("brand_id" = ANY($5) OR $5 IS NULL) AND
+    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
+    ("name" = ANY($7) OR $7 IS NULL) AND
+    ("description" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
+    ("date_deleted" = ANY($16) OR $16 IS NULL) AND
+    ("date_deleted" > $17 OR $17 IS NULL) AND
+    ("date_deleted" < $18 OR $18 IS NULL)
 )
 `
 
 type DeleteCatalogProductSpuParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	Code              []string             `json:"code"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	CategoryID        []int64              `json:"category_id"`
-	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
-	BrandID           []int64              `json:"brand_id"`
-	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive          []bool               `json:"is_active"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID              []int64              `json:"id"`
+	Code            []string             `json:"code"`
+	AccountID       []int64              `json:"account_id"`
+	CategoryID      []int64              `json:"category_id"`
+	BrandID         []int64              `json:"brand_id"`
+	FeaturedSkuID   []pgtype.Int8        `json:"featured_sku_id"`
+	Name            []string             `json:"name"`
+	Description     []string             `json:"description"`
+	IsActive        []bool               `json:"is_active"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted     []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo   pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogProductSpu,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.CategoryID,
-		arg.CategoryIDFrom,
-		arg.CategoryIDTo,
 		arg.BrandID,
-		arg.BrandIDFrom,
-		arg.BrandIDTo,
 		arg.FeaturedSkuID,
-		arg.FeaturedSkuIDFrom,
-		arg.FeaturedSkuIDTo,
+		arg.Name,
+		arg.Description,
 		arg.IsActive,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -5915,47 +5513,37 @@ const deleteCatalogProductSpuTag = `-- name: DeleteCatalogProductSpuTag :exec
 DELETE FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag" = ANY($7) OR $7 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("tag" = ANY($3) OR $3 IS NULL)
 )
 `
 
 type DeleteCatalogProductSpuTagParams struct {
-	ID        []int64     `json:"id"`
-	IDFrom    pgtype.Int8 `json:"id_from"`
-	IDTo      pgtype.Int8 `json:"id_to"`
-	SpuID     []int64     `json:"spu_id"`
-	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
-	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	Tag       []string    `json:"tag"`
+	ID    []int64  `json:"id"`
+	SpuID []int64  `json:"spu_id"`
+	Tag   []string `json:"tag"`
 }
 
 func (q *Queries) DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error {
-	_, err := q.db.Exec(ctx, deleteCatalogProductSpuTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
-		arg.Tag,
-	)
+	_, err := q.db.Exec(ctx, deleteCatalogProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
 	return err
 }
 
 const deleteCatalogTag = `-- name: DeleteCatalogTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 `
 
-func (q *Queries) DeleteCatalogTag(ctx context.Context, id []string) error {
-	_, err := q.db.Exec(ctx, deleteCatalogTag, id)
+type DeleteCatalogTagParams struct {
+	ID          []string `json:"id"`
+	Description []string `json:"description"`
+}
+
+func (q *Queries) DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error {
+	_, err := q.db.Exec(ctx, deleteCatalogTag, arg.ID, arg.Description)
 	return err
 }
 
@@ -5963,27 +5551,19 @@ const deleteInventorySkuSerial = `-- name: DeleteInventorySkuSerial :exec
 DELETE FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("serial_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" > $6 OR $6 IS NULL) AND
-    ("sku_id" < $7 OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL)
+    ("serial_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("date_created" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" > $6 OR $6 IS NULL) AND
+    ("date_created" < $7 OR $7 IS NULL)
 )
 `
 
 type DeleteInventorySkuSerialParams struct {
 	ID              []int64                  `json:"id"`
-	IDFrom          pgtype.Int8              `json:"id_from"`
-	IDTo            pgtype.Int8              `json:"id_to"`
 	SerialID        []string                 `json:"serial_id"`
 	SkuID           []int64                  `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8              `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8              `json:"sku_id_to"`
 	Status          []InventoryProductStatus `json:"status"`
 	DateCreated     []pgtype.Timestamptz     `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz       `json:"date_created_from"`
@@ -5993,12 +5573,8 @@ type DeleteInventorySkuSerialParams struct {
 func (q *Queries) DeleteInventorySkuSerial(ctx context.Context, arg DeleteInventorySkuSerialParams) error {
 	_, err := q.db.Exec(ctx, deleteInventorySkuSerial,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SerialID,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -6011,32 +5587,24 @@ const deleteInventoryStock = `-- name: DeleteInventoryStock :exec
 DELETE FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" > $9 OR $9 IS NULL) AND
-    ("current_stock" < $10 OR $10 IS NULL) AND
-    ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" > $12 OR $12 IS NULL) AND
-    ("sold" < $13 OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("current_stock" = ANY($4) OR $4 IS NULL) AND
+    ("current_stock" > $5 OR $5 IS NULL) AND
+    ("current_stock" < $6 OR $6 IS NULL) AND
+    ("sold" = ANY($7) OR $7 IS NULL) AND
+    ("sold" > $8 OR $8 IS NULL) AND
+    ("sold" < $9 OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
 type DeleteInventoryStockParams struct {
 	ID               []int64                 `json:"id"`
-	IDFrom           pgtype.Int8             `json:"id_from"`
-	IDTo             pgtype.Int8             `json:"id_to"`
 	RefType          []InventoryStockRefType `json:"ref_type"`
 	RefID            []int64                 `json:"ref_id"`
-	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
 	CurrentStock     []int64                 `json:"current_stock"`
 	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
 	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
@@ -6051,12 +5619,8 @@ type DeleteInventoryStockParams struct {
 func (q *Queries) DeleteInventoryStock(ctx context.Context, arg DeleteInventoryStockParams) error {
 	_, err := q.db.Exec(ctx, deleteInventoryStock,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.CurrentStock,
 		arg.CurrentStockFrom,
 		arg.CurrentStockTo,
@@ -6074,27 +5638,19 @@ const deleteInventoryStockHistory = `-- name: DeleteInventoryStockHistory :exec
 DELETE FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" > $5 OR $5 IS NULL) AND
-    ("stock_id" < $6 OR $6 IS NULL) AND
-    ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" > $8 OR $8 IS NULL) AND
-    ("change" < $9 OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("stock_id" = ANY($2) OR $2 IS NULL) AND
+    ("change" = ANY($3) OR $3 IS NULL) AND
+    ("change" > $4 OR $4 IS NULL) AND
+    ("change" < $5 OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL)
 )
 `
 
 type DeleteInventoryStockHistoryParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	StockID         []int64              `json:"stock_id"`
-	StockIDFrom     pgtype.Int8          `json:"stock_id_from"`
-	StockIDTo       pgtype.Int8          `json:"stock_id_to"`
 	Change          []int64              `json:"change"`
 	ChangeFrom      pgtype.Int8          `json:"change_from"`
 	ChangeTo        pgtype.Int8          `json:"change_to"`
@@ -6106,11 +5662,7 @@ type DeleteInventoryStockHistoryParams struct {
 func (q *Queries) DeleteInventoryStockHistory(ctx context.Context, arg DeleteInventoryStockHistoryParams) error {
 	_, err := q.db.Exec(ctx, deleteInventoryStockHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.StockID,
-		arg.StockIDFrom,
-		arg.StockIDTo,
 		arg.Change,
 		arg.ChangeFrom,
 		arg.ChangeTo,
@@ -6125,29 +5677,25 @@ const deleteOrderBase = `-- name: DeleteOrderBase :exec
 DELETE FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("payment_status" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("payment_option" = ANY($3) OR $3 IS NULL) AND
+    ("payment_status" = ANY($4) OR $4 IS NULL) AND
+    ("address" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type DeleteOrderBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentOption   []string             `json:"payment_option"`
 	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -6159,12 +5707,10 @@ type DeleteOrderBaseParams struct {
 func (q *Queries) DeleteOrderBase(ctx context.Context, arg DeleteOrderBaseParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.PaymentOption,
 		arg.PaymentStatus,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -6179,64 +5725,43 @@ const deleteOrderInvoice = `-- name: DeleteOrderInvoice :exec
 DELETE FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" > $10 OR $10 IS NULL) AND
-    ("receiver_id" < $11 OR $11 IS NULL) AND
-    ("data" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("hash" = ANY($16) OR $16 IS NULL) AND
-    ("prev_hash" = ANY($17) OR $17 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("receiver_id" = ANY($5) OR $5 IS NULL) AND
+    ("note" = ANY($6) OR $6 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
 )
 `
 
 type DeleteOrderInvoiceParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
 	RefType         []OrderInvoiceRefType `json:"ref_type"`
 	RefID           []int64               `json:"ref_id"`
-	RefIDFrom       pgtype.Int8           `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8           `json:"ref_id_to"`
 	Type            []OrderInvoiceType    `json:"type"`
 	ReceiverID      []int64               `json:"receiver_id"`
-	ReceiverIDFrom  pgtype.Int8           `json:"receiver_id_from"`
-	ReceiverIDTo    pgtype.Int8           `json:"receiver_id_to"`
+	Note            []pgtype.Text         `json:"note"`
 	Data            [][]byte              `json:"data"`
 	DateCreated     []pgtype.Timestamptz  `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz    `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz    `json:"date_created_to"`
-	Hash            [][]byte              `json:"hash"`
-	PrevHash        [][]byte              `json:"prev_hash"`
 }
 
 func (q *Queries) DeleteOrderInvoice(ctx context.Context, arg DeleteOrderInvoiceParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderInvoice,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.ReceiverID,
-		arg.ReceiverIDFrom,
-		arg.ReceiverIDTo,
+		arg.Note,
 		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	return err
 }
@@ -6245,75 +5770,42 @@ const deleteOrderItem = `-- name: DeleteOrderItem :exec
 DELETE FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" > $5 OR $5 IS NULL) AND
-    ("order_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
-    ("vendor_id" > $11 OR $11 IS NULL) AND
-    ("vendor_id" < $12 OR $12 IS NULL) AND
-    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
-    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
-    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
-    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
-    ("shipment_id" > $17 OR $17 IS NULL) AND
-    ("shipment_id" < $18 OR $18 IS NULL) AND
-    ("status" = ANY($19) OR $19 IS NULL) AND
-    ("quantity" = ANY($20) OR $20 IS NULL) AND
-    ("quantity" > $21 OR $21 IS NULL) AND
-    ("quantity" < $22 OR $22 IS NULL)
+    ("order_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("vendor_id" = ANY($4) OR $4 IS NULL) AND
+    ("confirmed_by_id" = ANY($5) OR $5 IS NULL) AND
+    ("shipment_id" = ANY($6) OR $6 IS NULL) AND
+    ("note" = ANY($7) OR $7 IS NULL) AND
+    ("status" = ANY($8) OR $8 IS NULL) AND
+    ("quantity" = ANY($9) OR $9 IS NULL) AND
+    ("quantity" > $10 OR $10 IS NULL) AND
+    ("quantity" < $11 OR $11 IS NULL)
 )
 `
 
 type DeleteOrderItemParams struct {
-	ID                []int64        `json:"id"`
-	IDFrom            pgtype.Int8    `json:"id_from"`
-	IDTo              pgtype.Int8    `json:"id_to"`
-	OrderID           []int64        `json:"order_id"`
-	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
-	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
-	SkuID             []int64        `json:"sku_id"`
-	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
-	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
-	VendorID          []int64        `json:"vendor_id"`
-	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
-	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
-	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
-	ShipmentID        []int64        `json:"shipment_id"`
-	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
-	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
-	Status            []SharedStatus `json:"status"`
-	Quantity          []int64        `json:"quantity"`
-	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
-	QuantityTo        pgtype.Int8    `json:"quantity_to"`
+	ID            []int64        `json:"id"`
+	OrderID       []int64        `json:"order_id"`
+	SkuID         []int64        `json:"sku_id"`
+	VendorID      []int64        `json:"vendor_id"`
+	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    []int64        `json:"shipment_id"`
+	Note          []string       `json:"note"`
+	Status        []SharedStatus `json:"status"`
+	Quantity      []int64        `json:"quantity"`
+	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
+	QuantityTo    pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.OrderID,
-		arg.OrderIDFrom,
-		arg.OrderIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.VendorID,
-		arg.VendorIDFrom,
-		arg.VendorIDTo,
 		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
+		arg.Note,
 		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
@@ -6326,41 +5818,19 @@ const deleteOrderItemSerial = `-- name: DeleteOrderItemSerial :exec
 DELETE FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" > $8 OR $8 IS NULL) AND
-    ("product_serial_id" < $9 OR $9 IS NULL)
+    ("order_item_id" = ANY($2) OR $2 IS NULL) AND
+    ("product_serial_id" = ANY($3) OR $3 IS NULL)
 )
 `
 
 type DeleteOrderItemSerialParams struct {
-	ID                  []int64     `json:"id"`
-	IDFrom              pgtype.Int8 `json:"id_from"`
-	IDTo                pgtype.Int8 `json:"id_to"`
-	OrderItemID         []int64     `json:"order_item_id"`
-	OrderItemIDFrom     pgtype.Int8 `json:"order_item_id_from"`
-	OrderItemIDTo       pgtype.Int8 `json:"order_item_id_to"`
-	ProductSerialID     []int64     `json:"product_serial_id"`
-	ProductSerialIDFrom pgtype.Int8 `json:"product_serial_id_from"`
-	ProductSerialIDTo   pgtype.Int8 `json:"product_serial_id_to"`
+	ID              []int64 `json:"id"`
+	OrderItemID     []int64 `json:"order_item_id"`
+	ProductSerialID []int64 `json:"product_serial_id"`
 }
 
 func (q *Queries) DeleteOrderItemSerial(ctx context.Context, arg DeleteOrderItemSerialParams) error {
-	_, err := q.db.Exec(ctx, deleteOrderItemSerial,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
-		arg.ProductSerialID,
-		arg.ProductSerialIDFrom,
-		arg.ProductSerialIDTo,
-	)
+	_, err := q.db.Exec(ctx, deleteOrderItemSerial, arg.ID, arg.OrderItemID, arg.ProductSerialID)
 	return err
 }
 
@@ -6368,70 +5838,46 @@ const deleteOrderRefund = `-- name: DeleteOrderRefund :exec
 DELETE FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
-    ("order_item_id" > $8 OR $8 IS NULL) AND
-    ("order_item_id" < $9 OR $9 IS NULL) AND
-    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
-    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("method" = ANY($16) OR $16 IS NULL) AND
-    ("status" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("reviewed_by_id" = ANY($4) OR $4 IS NULL) AND
+    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("reason" = ANY($8) OR $8 IS NULL) AND
+    ("address" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 `
 
 type DeleteOrderRefundParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	AccountID        []int64              `json:"account_id"`
-	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
-	OrderItemID      []int64              `json:"order_item_id"`
-	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
-	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
-	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
-	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
-	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
-	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
-	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
-	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
-	Method           []OrderRefundMethod  `json:"method"`
-	Status           []SharedStatus       `json:"status"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID              []int64              `json:"id"`
+	AccountID       []int64              `json:"account_id"`
+	OrderItemID     []int64              `json:"order_item_id"`
+	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
+	Method          []OrderRefundMethod  `json:"method"`
+	Status          []SharedStatus       `json:"status"`
+	Reason          []string             `json:"reason"`
+	Address         []pgtype.Text        `json:"address"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) DeleteOrderRefund(ctx context.Context, arg DeleteOrderRefundParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderRefund,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
 		arg.ReviewedByID,
-		arg.ReviewedByIDFrom,
-		arg.ReviewedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
+		arg.Reason,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -6443,34 +5889,24 @@ const deleteOrderRefundDispute = `-- name: DeleteOrderRefundDispute :exec
 DELETE FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" > $5 OR $5 IS NULL) AND
-    ("refund_id" < $6 OR $6 IS NULL) AND
-    ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" > $8 OR $8 IS NULL) AND
-    ("issued_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("refund_id" = ANY($2) OR $2 IS NULL) AND
+    ("issued_by_id" = ANY($3) OR $3 IS NULL) AND
+    ("reason" = ANY($4) OR $4 IS NULL) AND
+    ("status" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type DeleteOrderRefundDisputeParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	RefundID        []int64              `json:"refund_id"`
-	RefundIDFrom    pgtype.Int8          `json:"refund_id_from"`
-	RefundIDTo      pgtype.Int8          `json:"refund_id_to"`
 	IssuedByID      []int64              `json:"issued_by_id"`
-	IssuedByIDFrom  pgtype.Int8          `json:"issued_by_id_from"`
-	IssuedByIDTo    pgtype.Int8          `json:"issued_by_id_to"`
+	Reason          []string             `json:"reason"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -6483,14 +5919,9 @@ type DeleteOrderRefundDisputeParams struct {
 func (q *Queries) DeleteOrderRefundDispute(ctx context.Context, arg DeleteOrderRefundDisputeParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderRefundDispute,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefundID,
-		arg.RefundIDFrom,
-		arg.RefundIDTo,
 		arg.IssuedByID,
-		arg.IssuedByIDFrom,
-		arg.IssuedByIDTo,
+		arg.Reason,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -6506,41 +5937,43 @@ const deleteOrderShipment = `-- name: DeleteOrderShipment :exec
 DELETE FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
+    ("option" = ANY($2) OR $2 IS NULL) AND
+    ("tracking_code" = ANY($3) OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
-    ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" > $6 OR $6 IS NULL) AND
-    ("cost" < $7 OR $7 IS NULL) AND
-    ("new_cost" = ANY($8) OR $8 IS NULL) AND
-    ("new_cost" > $9 OR $9 IS NULL) AND
-    ("new_cost" < $10 OR $10 IS NULL) AND
-    ("date_eta" = ANY($11) OR $11 IS NULL) AND
-    ("date_eta" > $12 OR $12 IS NULL) AND
-    ("date_eta" < $13 OR $13 IS NULL) AND
-    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
-    ("weight_grams" > $15 OR $15 IS NULL) AND
-    ("weight_grams" < $16 OR $16 IS NULL) AND
-    ("length_cm" = ANY($17) OR $17 IS NULL) AND
-    ("length_cm" > $18 OR $18 IS NULL) AND
-    ("length_cm" < $19 OR $19 IS NULL) AND
-    ("width_cm" = ANY($20) OR $20 IS NULL) AND
-    ("width_cm" > $21 OR $21 IS NULL) AND
-    ("width_cm" < $22 OR $22 IS NULL) AND
-    ("height_cm" = ANY($23) OR $23 IS NULL) AND
-    ("height_cm" > $24 OR $24 IS NULL) AND
-    ("height_cm" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("label_url" = ANY($5) OR $5 IS NULL) AND
+    ("cost" = ANY($6) OR $6 IS NULL) AND
+    ("cost" > $7 OR $7 IS NULL) AND
+    ("cost" < $8 OR $8 IS NULL) AND
+    ("new_cost" = ANY($9) OR $9 IS NULL) AND
+    ("new_cost" > $10 OR $10 IS NULL) AND
+    ("new_cost" < $11 OR $11 IS NULL) AND
+    ("date_eta" = ANY($12) OR $12 IS NULL) AND
+    ("date_eta" > $13 OR $13 IS NULL) AND
+    ("date_eta" < $14 OR $14 IS NULL) AND
+    ("from_address" = ANY($15) OR $15 IS NULL) AND
+    ("to_address" = ANY($16) OR $16 IS NULL) AND
+    ("weight_grams" = ANY($17) OR $17 IS NULL) AND
+    ("weight_grams" > $18 OR $18 IS NULL) AND
+    ("weight_grams" < $19 OR $19 IS NULL) AND
+    ("length_cm" = ANY($20) OR $20 IS NULL) AND
+    ("length_cm" > $21 OR $21 IS NULL) AND
+    ("length_cm" < $22 OR $22 IS NULL) AND
+    ("width_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" = ANY($24) OR $24 IS NULL) AND
+    ("height_cm" > $25 OR $25 IS NULL) AND
+    ("height_cm" < $26 OR $26 IS NULL) AND
+    ("date_created" = ANY($27) OR $27 IS NULL) AND
+    ("date_created" > $28 OR $28 IS NULL) AND
+    ("date_created" < $29 OR $29 IS NULL)
 )
 `
 
 type DeleteOrderShipmentParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
+	Option          []string              `json:"option"`
+	TrackingCode    []pgtype.Text         `json:"tracking_code"`
 	Status          []OrderShipmentStatus `json:"status"`
+	LabelUrl        []pgtype.Text         `json:"label_url"`
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
@@ -6550,6 +5983,8 @@ type DeleteOrderShipmentParams struct {
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
+	FromAddress     []string              `json:"from_address"`
+	ToAddress       []string              `json:"to_address"`
 	WeightGrams     []int32               `json:"weight_grams"`
 	WeightGramsFrom pgtype.Int4           `json:"weight_grams_from"`
 	WeightGramsTo   pgtype.Int4           `json:"weight_grams_to"`
@@ -6557,8 +5992,6 @@ type DeleteOrderShipmentParams struct {
 	LengthCmFrom    pgtype.Int4           `json:"length_cm_from"`
 	LengthCmTo      pgtype.Int4           `json:"length_cm_to"`
 	WidthCm         []int32               `json:"width_cm"`
-	WidthCmFrom     pgtype.Int4           `json:"width_cm_from"`
-	WidthCmTo       pgtype.Int4           `json:"width_cm_to"`
 	HeightCm        []int32               `json:"height_cm"`
 	HeightCmFrom    pgtype.Int4           `json:"height_cm_from"`
 	HeightCmTo      pgtype.Int4           `json:"height_cm_to"`
@@ -6570,9 +6003,10 @@ type DeleteOrderShipmentParams struct {
 func (q *Queries) DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipmentParams) error {
 	_, err := q.db.Exec(ctx, deleteOrderShipment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
+		arg.Option,
+		arg.TrackingCode,
 		arg.Status,
+		arg.LabelUrl,
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
@@ -6582,6 +6016,8 @@ func (q *Queries) DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipme
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
+		arg.FromAddress,
+		arg.ToAddress,
 		arg.WeightGrams,
 		arg.WeightGramsFrom,
 		arg.WeightGramsTo,
@@ -6589,8 +6025,6 @@ func (q *Queries) DeleteOrderShipment(ctx context.Context, arg DeleteOrderShipme
 		arg.LengthCmFrom,
 		arg.LengthCmTo,
 		arg.WidthCm,
-		arg.WidthCmFrom,
-		arg.WidthCmTo,
 		arg.HeightCm,
 		arg.HeightCmFrom,
 		arg.HeightCmTo,
@@ -6605,39 +6039,35 @@ const deletePromotionBase = `-- name: DeletePromotionBase :exec
 DELETE FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" > $6 OR $6 IS NULL) AND
-    ("owner_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" = ANY($11) OR $11 IS NULL) AND
-    ("date_started" > $12 OR $12 IS NULL) AND
-    ("date_started" < $13 OR $13 IS NULL) AND
-    ("date_ended" = ANY($14) OR $14 IS NULL) AND
-    ("date_ended" > $15 OR $15 IS NULL) AND
-    ("date_ended" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("owner_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("description" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
+    ("date_started" = ANY($9) OR $9 IS NULL) AND
+    ("date_started" > $10 OR $10 IS NULL) AND
+    ("date_started" < $11 OR $11 IS NULL) AND
+    ("date_ended" = ANY($12) OR $12 IS NULL) AND
+    ("date_ended" > $13 OR $13 IS NULL) AND
+    ("date_ended" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 `
 
 type DeletePromotionBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Code            []string             `json:"code"`
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
 	Type            []PromotionType      `json:"type"`
+	Title           []string             `json:"title"`
+	Description     []pgtype.Text        `json:"description"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
 	DateStarted     []pgtype.Timestamptz `json:"date_started"`
@@ -6657,13 +6087,11 @@ type DeletePromotionBaseParams struct {
 func (q *Queries) DeletePromotionBase(ctx context.Context, arg DeletePromotionBaseParams) error {
 	_, err := q.db.Exec(ctx, deletePromotionBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.OwnerID,
-		arg.OwnerIDFrom,
-		arg.OwnerIDTo,
 		arg.Type,
+		arg.Title,
+		arg.Description,
 		arg.IsActive,
 		arg.AutoApply,
 		arg.DateStarted,
@@ -6686,27 +6114,23 @@ const deletePromotionDiscount = `-- name: DeletePromotionDiscount :exec
 DELETE FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("min_spend" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" > $5 OR $5 IS NULL) AND
-    ("min_spend" < $6 OR $6 IS NULL) AND
-    ("max_discount" = ANY($7) OR $7 IS NULL) AND
-    ("max_discount" > $8 OR $8 IS NULL) AND
-    ("max_discount" < $9 OR $9 IS NULL) AND
-    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
-    ("discount_percent" > $11 OR $11 IS NULL) AND
-    ("discount_percent" < $12 OR $12 IS NULL) AND
-    ("discount_price" = ANY($13) OR $13 IS NULL) AND
-    ("discount_price" > $14 OR $14 IS NULL) AND
-    ("discount_price" < $15 OR $15 IS NULL)
+    ("min_spend" = ANY($2) OR $2 IS NULL) AND
+    ("min_spend" > $3 OR $3 IS NULL) AND
+    ("min_spend" < $4 OR $4 IS NULL) AND
+    ("max_discount" = ANY($5) OR $5 IS NULL) AND
+    ("max_discount" > $6 OR $6 IS NULL) AND
+    ("max_discount" < $7 OR $7 IS NULL) AND
+    ("discount_percent" = ANY($8) OR $8 IS NULL) AND
+    ("discount_percent" > $9 OR $9 IS NULL) AND
+    ("discount_percent" < $10 OR $10 IS NULL) AND
+    ("discount_price" = ANY($11) OR $11 IS NULL) AND
+    ("discount_price" > $12 OR $12 IS NULL) AND
+    ("discount_price" < $13 OR $13 IS NULL)
 )
 `
 
 type DeletePromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
-	IDFrom              pgtype.Int8   `json:"id_from"`
-	IDTo                pgtype.Int8   `json:"id_to"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -6724,8 +6148,6 @@ type DeletePromotionDiscountParams struct {
 func (q *Queries) DeletePromotionDiscount(ctx context.Context, arg DeletePromotionDiscountParams) error {
 	_, err := q.db.Exec(ctx, deletePromotionDiscount,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -6746,43 +6168,25 @@ const deletePromotionRef = `-- name: DeletePromotionRef :exec
 DELETE FROM "promotion"."ref"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type DeletePromotionRefParams struct {
-	ID              []int64            `json:"id"`
-	IDFrom          pgtype.Int8        `json:"id_from"`
-	IDTo            pgtype.Int8        `json:"id_to"`
-	PromotionID     []int64            `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
-	RefType         []PromotionRefType `json:"ref_type"`
-	RefID           []int64            `json:"ref_id"`
-	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+	ID          []int64            `json:"id"`
+	PromotionID []int64            `json:"promotion_id"`
+	RefType     []PromotionRefType `json:"ref_type"`
+	RefID       []int64            `json:"ref_id"`
 }
 
 func (q *Queries) DeletePromotionRef(ctx context.Context, arg DeletePromotionRefParams) error {
 	_, err := q.db.Exec(ctx, deletePromotionRef,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 	)
 	return err
 }
@@ -6791,49 +6195,43 @@ const deletePromotionSchedule = `-- name: DeletePromotionSchedule :exec
 DELETE FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("duration" = ANY($7) OR $7 IS NULL) AND
-    ("duration" > $8 OR $8 IS NULL) AND
-    ("duration" < $9 OR $9 IS NULL) AND
-    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
-    ("next_run_at" > $11 OR $11 IS NULL) AND
-    ("next_run_at" < $12 OR $12 IS NULL) AND
-    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
-    ("last_run_at" > $14 OR $14 IS NULL) AND
-    ("last_run_at" < $15 OR $15 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("timezone" = ANY($3) OR $3 IS NULL) AND
+    ("cron_rule" = ANY($4) OR $4 IS NULL) AND
+    ("duration" = ANY($5) OR $5 IS NULL) AND
+    ("duration" > $6 OR $6 IS NULL) AND
+    ("duration" < $7 OR $7 IS NULL) AND
+    ("next_run_at" = ANY($8) OR $8 IS NULL) AND
+    ("next_run_at" > $9 OR $9 IS NULL) AND
+    ("next_run_at" < $10 OR $10 IS NULL) AND
+    ("last_run_at" = ANY($11) OR $11 IS NULL) AND
+    ("last_run_at" > $12 OR $12 IS NULL) AND
+    ("last_run_at" < $13 OR $13 IS NULL)
 )
 `
 
 type DeletePromotionScheduleParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	PromotionID     []int64              `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
-	Duration        []int32              `json:"duration"`
-	DurationFrom    pgtype.Int4          `json:"duration_from"`
-	DurationTo      pgtype.Int4          `json:"duration_to"`
-	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
-	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
-	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
-	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
-	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
-	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+	ID            []int64              `json:"id"`
+	PromotionID   []int64              `json:"promotion_id"`
+	Timezone      []string             `json:"timezone"`
+	CronRule      []string             `json:"cron_rule"`
+	Duration      []int32              `json:"duration"`
+	DurationFrom  pgtype.Int4          `json:"duration_from"`
+	DurationTo    pgtype.Int4          `json:"duration_to"`
+	NextRunAt     []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo   pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt     []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo   pgtype.Timestamptz   `json:"last_run_at_to"`
 }
 
 func (q *Queries) DeletePromotionSchedule(ctx context.Context, arg DeletePromotionScheduleParams) error {
 	_, err := q.db.Exec(ctx, deletePromotionSchedule,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
+		arg.Timezone,
+		arg.CronRule,
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
@@ -6854,15 +6252,18 @@ WHERE (
     ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
     ("uploaded_by" > $3 OR $3 IS NULL) AND
     ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("object_key" = ANY($5) OR $5 IS NULL) AND
-    ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
-    ("metadata" = ANY($9) OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
 )
 `
 
@@ -6871,11 +6272,14 @@ type DeleteSharedResourceParams struct {
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
 	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
 	Size           []int64              `json:"size"`
 	SizeFrom       pgtype.Int8          `json:"size_from"`
 	SizeTo         pgtype.Int8          `json:"size_to"`
 	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
 	Status         []SharedStatus       `json:"status"`
 	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
 	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
@@ -6888,11 +6292,14 @@ func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedReso
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
+		arg.Provider,
 		arg.ObjectKey,
+		arg.Mime,
 		arg.Size,
 		arg.SizeFrom,
 		arg.SizeTo,
 		arg.Metadata,
+		arg.Checksum,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -6905,29 +6312,21 @@ const deleteSharedResourceReference = `-- name: DeleteSharedResourceReference :e
 DELETE FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("ref_type" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" = ANY($6) OR $6 IS NULL) AND
-    ("ref_id" > $7 OR $7 IS NULL) AND
-    ("ref_id" < $8 OR $8 IS NULL) AND
-    ("order" = ANY($9) OR $9 IS NULL) AND
-    ("order" > $10 OR $10 IS NULL) AND
-    ("order" < $11 OR $11 IS NULL) AND
-    ("is_primary" = ANY($12) OR $12 IS NULL)
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
 )
 `
 
 type DeleteSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
-	IDFrom    pgtype.Int8             `json:"id_from"`
-	IDTo      pgtype.Int8             `json:"id_to"`
 	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
-	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo   pgtype.Int8             `json:"ref_id_to"`
 	Order     []int32                 `json:"order"`
 	OrderFrom pgtype.Int4             `json:"order_from"`
 	OrderTo   pgtype.Int4             `json:"order_to"`
@@ -6937,13 +6336,9 @@ type DeleteSharedResourceReferenceParams struct {
 func (q *Queries) DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error {
 	_, err := q.db.Exec(ctx, deleteSharedResourceReference,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RsID,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
@@ -6956,24 +6351,39 @@ const deleteSharedServiceOption = `-- name: DeleteSharedServiceOption :exec
 DELETE FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL) AND
-    ("order" = ANY($3) OR $3 IS NULL) AND
-    ("order" > $4 OR $4 IS NULL) AND
-    ("order" < $5 OR $5 IS NULL)
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
 )
 `
 
 type DeleteSharedServiceOptionParams struct {
-	ID        []string    `json:"id"`
-	IsActive  []bool      `json:"is_active"`
-	Order     []int32     `json:"order"`
-	OrderFrom pgtype.Int4 `json:"order_from"`
-	OrderTo   pgtype.Int4 `json:"order_to"`
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) DeleteSharedServiceOption(ctx context.Context, arg DeleteSharedServiceOptionParams) error {
 	_, err := q.db.Exec(ctx, deleteSharedServiceOption,
 		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
 		arg.IsActive,
 		arg.Order,
 		arg.OrderFrom,
@@ -6982,35 +6392,72 @@ func (q *Queries) DeleteSharedServiceOption(ctx context.Context, arg DeleteShare
 	return err
 }
 
+const deleteSystemOutboxEvent = `-- name: DeleteSystemOutboxEvent :exec
+DELETE FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("topic" = ANY($2) OR $2 IS NULL) AND
+    ("data" = ANY($3) OR $3 IS NULL) AND
+    ("processed" = ANY($4) OR $4 IS NULL) AND
+    ("date_processed" = ANY($5) OR $5 IS NULL) AND
+    ("date_processed" > $6 OR $6 IS NULL) AND
+    ("date_processed" < $7 OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
+)
+`
+
+type DeleteSystemOutboxEventParams struct {
+	ID                []int64              `json:"id"`
+	Topic             []string             `json:"topic"`
+	Data              [][]byte             `json:"data"`
+	Processed         []bool               `json:"processed"`
+	DateProcessed     []pgtype.Timestamptz `json:"date_processed"`
+	DateProcessedFrom pgtype.Timestamptz   `json:"date_processed_from"`
+	DateProcessedTo   pgtype.Timestamptz   `json:"date_processed_to"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+}
+
+func (q *Queries) DeleteSystemOutboxEvent(ctx context.Context, arg DeleteSystemOutboxEventParams) error {
+	_, err := q.db.Exec(ctx, deleteSystemOutboxEvent,
+		arg.ID,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.DateProcessed,
+		arg.DateProcessedFrom,
+		arg.DateProcessedTo,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	return err
+}
+
 const deleteSystemSearchSync = `-- name: DeleteSystemSearchSync :exec
 DELETE FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
-    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
+    ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 `
 
 type DeleteSystemSearchSyncParams struct {
 	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
 	RefType          []string             `json:"ref_type"`
 	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
 	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -7024,12 +6471,8 @@ type DeleteSystemSearchSyncParams struct {
 func (q *Queries) DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error {
 	_, err := q.db.Exec(ctx, deleteSystemSearchSync,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
@@ -7048,28 +6491,24 @@ SELECT 1
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("type" = ANY($4) OR $4 IS NULL) AND
-    ("status" = ANY($5) OR $5 IS NULL) AND
-    ("phone" = ANY($6) OR $6 IS NULL) AND
-    ("email" = ANY($7) OR $7 IS NULL) AND
-    ("username" = ANY($8) OR $8 IS NULL) AND
-    ("password" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("type" = ANY($2) OR $2 IS NULL) AND
+    ("status" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("email" = ANY($5) OR $5 IS NULL) AND
+    ("username" = ANY($6) OR $6 IS NULL) AND
+    ("password" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Type            []AccountType        `json:"type"`
 	Status          []AccountStatus      `json:"status"`
 	Phone           []pgtype.Text        `json:"phone"`
@@ -7087,8 +6526,6 @@ type ExistsAccountBaseParams struct {
 func (q *Queries) ExistsAccountBase(ctx context.Context, arg ExistsAccountBaseParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Type,
 		arg.Status,
 		arg.Phone,
@@ -7113,37 +6550,25 @@ SELECT 1
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" > $5 OR $5 IS NULL) AND
-    ("cart_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" > $11 OR $11 IS NULL) AND
-    ("quantity" < $12 OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" > $17 OR $17 IS NULL) AND
-    ("date_updated" < $18 OR $18 IS NULL)
+    ("cart_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("quantity" = ANY($4) OR $4 IS NULL) AND
+    ("quantity" > $5 OR $5 IS NULL) AND
+    ("quantity" < $6 OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountCartItemParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	CartID          []int64              `json:"cart_id"`
-	CartIDFrom      pgtype.Int8          `json:"cart_id_from"`
-	CartIDTo        pgtype.Int8          `json:"cart_id_to"`
 	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
 	Quantity        []int64              `json:"quantity"`
 	QuantityFrom    pgtype.Int8          `json:"quantity_from"`
 	QuantityTo      pgtype.Int8          `json:"quantity_to"`
@@ -7158,14 +6583,8 @@ type ExistsAccountCartItemParams struct {
 func (q *Queries) ExistsAccountCartItem(ctx context.Context, arg ExistsAccountCartItemParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountCartItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.CartID,
-		arg.CartIDFrom,
-		arg.CartIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -7187,33 +6606,25 @@ SELECT 1
 FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("full_name" = ANY($7) OR $7 IS NULL) AND
-    ("phone" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("address" = ANY($10) OR $10 IS NULL) AND
-    ("address_type" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_updated" = ANY($15) OR $15 IS NULL) AND
-    ("date_updated" > $16 OR $16 IS NULL) AND
-    ("date_updated" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("full_name" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("phone_verified" = ANY($5) OR $5 IS NULL) AND
+    ("address" = ANY($6) OR $6 IS NULL) AND
+    ("address_type" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountContactParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
 	FullName        []string             `json:"full_name"`
 	Phone           []string             `json:"phone"`
 	PhoneVerified   []bool               `json:"phone_verified"`
@@ -7230,11 +6641,7 @@ type ExistsAccountContactParams struct {
 func (q *Queries) ExistsAccountContact(ctx context.Context, arg ExistsAccountContactParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountContact,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.FullName,
 		arg.Phone,
 		arg.PhoneVerified,
@@ -7258,22 +6665,18 @@ SELECT 1
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL) AND
-    ("date_updated" = ANY($7) OR $7 IS NULL) AND
-    ("date_updated" > $8 OR $8 IS NULL) AND
-    ("date_updated" < $9 OR $9 IS NULL)
+    ("date_created" = ANY($2) OR $2 IS NULL) AND
+    ("date_created" > $3 OR $3 IS NULL) AND
+    ("date_created" < $4 OR $4 IS NULL) AND
+    ("date_updated" = ANY($5) OR $5 IS NULL) AND
+    ("date_updated" > $6 OR $6 IS NULL) AND
+    ("date_updated" < $7 OR $7 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountCustomerParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -7285,8 +6688,6 @@ type ExistsAccountCustomerParams struct {
 func (q *Queries) ExistsAccountCustomer(ctx context.Context, arg ExistsAccountCustomerParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountCustomer,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -7305,35 +6706,27 @@ SELECT 1
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" > $9 OR $9 IS NULL) AND
-    ("income" < $10 OR $10 IS NULL) AND
-    ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" > $12 OR $12 IS NULL) AND
-    ("current_balance" < $13 OR $13 IS NULL) AND
-    ("note" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("hash" = ANY($18) OR $18 IS NULL) AND
-    ("prev_hash" = ANY($19) OR $19 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("income" = ANY($4) OR $4 IS NULL) AND
+    ("income" > $5 OR $5 IS NULL) AND
+    ("income" < $6 OR $6 IS NULL) AND
+    ("current_balance" = ANY($7) OR $7 IS NULL) AND
+    ("current_balance" > $8 OR $8 IS NULL) AND
+    ("current_balance" < $9 OR $9 IS NULL) AND
+    ("note" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("hash" = ANY($14) OR $14 IS NULL) AND
+    ("prev_hash" = ANY($15) OR $15 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountIncomeHistoryParams struct {
 	ID                 []int64              `json:"id"`
-	IDFrom             pgtype.Int8          `json:"id_from"`
-	IDTo               pgtype.Int8          `json:"id_to"`
 	AccountID          []int64              `json:"account_id"`
-	AccountIDFrom      pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo        pgtype.Int8          `json:"account_id_to"`
 	Type               []string             `json:"type"`
 	Income             []int64              `json:"income"`
 	IncomeFrom         pgtype.Int8          `json:"income_from"`
@@ -7352,11 +6745,7 @@ type ExistsAccountIncomeHistoryParams struct {
 func (q *Queries) ExistsAccountIncomeHistory(ctx context.Context, arg ExistsAccountIncomeHistoryParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountIncomeHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Income,
 		arg.IncomeFrom,
@@ -7382,40 +6771,34 @@ SELECT 1
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("channel" = ANY($8) OR $8 IS NULL) AND
-    ("is_read" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL) AND
-    ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" > $17 OR $17 IS NULL) AND
-    ("date_sent" < $18 OR $18 IS NULL) AND
-    ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" > $20 OR $20 IS NULL) AND
-    ("date_scheduled" < $21 OR $21 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("channel" = ANY($4) OR $4 IS NULL) AND
+    ("is_read" = ANY($5) OR $5 IS NULL) AND
+    ("content" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("date_sent" = ANY($13) OR $13 IS NULL) AND
+    ("date_sent" > $14 OR $14 IS NULL) AND
+    ("date_sent" < $15 OR $15 IS NULL) AND
+    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
+    ("date_scheduled" > $17 OR $17 IS NULL) AND
+    ("date_scheduled" < $18 OR $18 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountNotificationParams struct {
 	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
 	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
 	Type              []string             `json:"type"`
 	Channel           []string             `json:"channel"`
 	IsRead            []bool               `json:"is_read"`
+	Content           []string             `json:"content"`
 	DateCreated       []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
@@ -7433,14 +6816,11 @@ type ExistsAccountNotificationParams struct {
 func (q *Queries) ExistsAccountNotification(ctx context.Context, arg ExistsAccountNotificationParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountNotification,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Channel,
 		arg.IsRead,
+		arg.Content,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -7465,57 +6845,47 @@ SELECT 1
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("gender" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" > $7 OR $7 IS NULL) AND
-    ("date_of_birth" < $8 OR $8 IS NULL) AND
-    ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("email_verified" = ANY($10) OR $10 IS NULL) AND
-    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
-    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
-    ("default_contact_id" > $13 OR $13 IS NULL) AND
-    ("default_contact_id" < $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("gender" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" > $5 OR $5 IS NULL) AND
+    ("date_of_birth" < $6 OR $6 IS NULL) AND
+    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
+    ("email_verified" = ANY($8) OR $8 IS NULL) AND
+    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
+    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("date_updated" = ANY($14) OR $14 IS NULL) AND
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountProfileParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Gender               []NullAccountGender  `json:"gender"`
-	Name                 []pgtype.Text        `json:"name"`
-	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
-	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
-	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
-	EmailVerified        []bool               `json:"email_verified"`
-	PhoneVerified        []bool               `json:"phone_verified"`
-	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
-	DefaultContactIDFrom pgtype.Int8          `json:"default_contact_id_from"`
-	DefaultContactIDTo   pgtype.Int8          `json:"default_contact_id_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
+	ID               []int64              `json:"id"`
+	Gender           []NullAccountGender  `json:"gender"`
+	Name             []pgtype.Text        `json:"name"`
+	DateOfBirth      []pgtype.Date        `json:"date_of_birth"`
+	DateOfBirthFrom  pgtype.Date          `json:"date_of_birth_from"`
+	DateOfBirthTo    pgtype.Date          `json:"date_of_birth_to"`
+	AvatarRsID       []pgtype.UUID        `json:"avatar_rs_id"`
+	EmailVerified    []bool               `json:"email_verified"`
+	PhoneVerified    []bool               `json:"phone_verified"`
+	DefaultContactID []pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
 }
 
 func (q *Queries) ExistsAccountProfile(ctx context.Context, arg ExistsAccountProfileParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAccountProfile,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Gender,
 		arg.Name,
 		arg.DateOfBirth,
@@ -7525,8 +6895,6 @@ func (q *Queries) ExistsAccountProfile(ctx context.Context, arg ExistsAccountPro
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
-		arg.DefaultContactIDFrom,
-		arg.DefaultContactIDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -7545,27 +6913,18 @@ SELECT 1
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL)
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAccountVendorParams struct {
-	ID          []int64     `json:"id"`
-	IDFrom      pgtype.Int8 `json:"id_from"`
-	IDTo        pgtype.Int8 `json:"id_to"`
-	Description []string    `json:"description"`
+	ID          []int64  `json:"id"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) ExistsAccountVendor(ctx context.Context, arg ExistsAccountVendorParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsAccountVendor,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.Description,
-	)
+	row := q.db.QueryRow(ctx, existsAccountVendor, arg.ID, arg.Description)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -7577,39 +6936,35 @@ SELECT 1
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" > $8 OR $8 IS NULL) AND
-    ("ref_type" < $9 OR $9 IS NULL) AND
-    ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" > $11 OR $11 IS NULL) AND
-    ("ref_id" < $12 OR $12 IS NULL) AND
-    ("metadata" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("session_id" = ANY($3) OR $3 IS NULL) AND
+    ("event_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_type" > $6 OR $6 IS NULL) AND
+    ("ref_type" < $7 OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("user_agent" = ANY($10) OR $10 IS NULL) AND
+    ("ip_address" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL)
 )
 ) as exists
 `
 
 type ExistsAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	IDFrom          pgtype.Int8                    `json:"id_from"`
-	IDTo            pgtype.Int8                    `json:"id_to"`
 	AccountID       []int64                        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	SessionID       []pgtype.Text                  `json:"session_id"`
+	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
 	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
 	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
 	RefID           []int64                        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
 	Metadata        [][]byte                       `json:"metadata"`
+	UserAgent       []pgtype.Text                  `json:"user_agent"`
+	IpAddress       []pgtype.Text                  `json:"ip_address"`
 	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
@@ -7618,18 +6973,16 @@ type ExistsAnalyticInteractionParams struct {
 func (q *Queries) ExistsAnalyticInteraction(ctx context.Context, arg ExistsAnalyticInteractionParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsAnalyticInteraction,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.SessionID,
+		arg.EventType,
 		arg.RefType,
 		arg.RefTypeFrom,
 		arg.RefTypeTo,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -7645,26 +6998,26 @@ SELECT 1
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogBrandParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Code   []string    `json:"code"`
+	ID          []int64  `json:"id"`
+	Code        []string `json:"code"`
+	Name        []string `json:"name"`
+	Description []string `json:"description"`
 }
 
 func (q *Queries) ExistsCatalogBrand(ctx context.Context, arg ExistsCatalogBrandParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogBrand,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
+		arg.Name,
+		arg.Description,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -7677,35 +7030,26 @@ SELECT 1
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" > $6 OR $6 IS NULL) AND
-    ("parent_id" < $7 OR $7 IS NULL)
+    ("name" = ANY($2) OR $2 IS NULL) AND
+    ("description" = ANY($3) OR $3 IS NULL) AND
+    ("parent_id" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogCategoryParams struct {
-	ID           []int64       `json:"id"`
-	IDFrom       pgtype.Int8   `json:"id_from"`
-	IDTo         pgtype.Int8   `json:"id_to"`
-	Name         []string      `json:"name"`
-	ParentID     []pgtype.Int8 `json:"parent_id"`
-	ParentIDFrom pgtype.Int8   `json:"parent_id_from"`
-	ParentIDTo   pgtype.Int8   `json:"parent_id_to"`
+	ID          []int64       `json:"id"`
+	Name        []string      `json:"name"`
+	Description []string      `json:"description"`
+	ParentID    []pgtype.Int8 `json:"parent_id"`
 }
 
 func (q *Queries) ExistsCatalogCategory(ctx context.Context, arg ExistsCatalogCategoryParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogCategory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Name,
+		arg.Description,
 		arg.ParentID,
-		arg.ParentIDFrom,
-		arg.ParentIDTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -7718,45 +7062,35 @@ SELECT 1
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" > $12 OR $12 IS NULL) AND
-    ("upvote" < $13 OR $13 IS NULL) AND
-    ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" > $15 OR $15 IS NULL) AND
-    ("downvote" < $16 OR $16 IS NULL) AND
-    ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" > $18 OR $18 IS NULL) AND
-    ("score" < $19 OR $19 IS NULL) AND
-    ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
-    ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("body" = ANY($5) OR $5 IS NULL) AND
+    ("upvote" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" > $7 OR $7 IS NULL) AND
+    ("upvote" < $8 OR $8 IS NULL) AND
+    ("downvote" = ANY($9) OR $9 IS NULL) AND
+    ("downvote" > $10 OR $10 IS NULL) AND
+    ("downvote" < $11 OR $11 IS NULL) AND
+    ("score" = ANY($12) OR $12 IS NULL) AND
+    ("score" > $13 OR $13 IS NULL) AND
+    ("score" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogCommentParams struct {
 	ID              []int64                 `json:"id"`
-	IDFrom          pgtype.Int8             `json:"id_from"`
-	IDTo            pgtype.Int8             `json:"id_to"`
 	AccountID       []int64                 `json:"account_id"`
-	AccountIDFrom   pgtype.Int8             `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8             `json:"account_id_to"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []int64                 `json:"ref_id"`
-	RefIDFrom       pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8             `json:"ref_id_to"`
+	Body            []string                `json:"body"`
 	Upvote          []int64                 `json:"upvote"`
 	UpvoteFrom      pgtype.Int8             `json:"upvote_from"`
 	UpvoteTo        pgtype.Int8             `json:"upvote_to"`
@@ -7777,15 +7111,10 @@ type ExistsCatalogCommentParams struct {
 func (q *Queries) ExistsCatalogComment(ctx context.Context, arg ExistsCatalogCommentParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogComment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
+		arg.Body,
 		arg.Upvote,
 		arg.UpvoteFrom,
 		arg.UpvoteTo,
@@ -7813,33 +7142,25 @@ SELECT 1
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("attributes" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
-    ("date_deleted" > $16 OR $16 IS NULL) AND
-    ("date_deleted" < $17 OR $17 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("price" = ANY($3) OR $3 IS NULL) AND
+    ("price" > $4 OR $4 IS NULL) AND
+    ("price" < $5 OR $5 IS NULL) AND
+    ("can_combine" = ANY($6) OR $6 IS NULL) AND
+    ("attributes" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
+    ("date_deleted" > $12 OR $12 IS NULL) AND
+    ("date_deleted" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogProductSkuParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	SpuID           []int64              `json:"spu_id"`
-	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
-	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -7856,11 +7177,7 @@ type ExistsCatalogProductSkuParams struct {
 func (q *Queries) ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalogProductSkuParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogProductSku,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -7884,82 +7201,58 @@ SELECT 1
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" > $6 OR $6 IS NULL) AND
-    ("account_id" < $7 OR $7 IS NULL) AND
-    ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" > $9 OR $9 IS NULL) AND
-    ("category_id" < $10 OR $10 IS NULL) AND
-    ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" > $12 OR $12 IS NULL) AND
-    ("brand_id" < $13 OR $13 IS NULL) AND
-    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
-    ("featured_sku_id" > $15 OR $15 IS NULL) AND
-    ("featured_sku_id" < $16 OR $16 IS NULL) AND
-    ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("category_id" = ANY($4) OR $4 IS NULL) AND
+    ("brand_id" = ANY($5) OR $5 IS NULL) AND
+    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
+    ("name" = ANY($7) OR $7 IS NULL) AND
+    ("description" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
+    ("date_deleted" = ANY($16) OR $16 IS NULL) AND
+    ("date_deleted" > $17 OR $17 IS NULL) AND
+    ("date_deleted" < $18 OR $18 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogProductSpuParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	Code              []string             `json:"code"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	CategoryID        []int64              `json:"category_id"`
-	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
-	BrandID           []int64              `json:"brand_id"`
-	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive          []bool               `json:"is_active"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
+	ID              []int64              `json:"id"`
+	Code            []string             `json:"code"`
+	AccountID       []int64              `json:"account_id"`
+	CategoryID      []int64              `json:"category_id"`
+	BrandID         []int64              `json:"brand_id"`
+	FeaturedSkuID   []pgtype.Int8        `json:"featured_sku_id"`
+	Name            []string             `json:"name"`
+	Description     []string             `json:"description"`
+	IsActive        []bool               `json:"is_active"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted     []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo   pgtype.Timestamptz   `json:"date_deleted_to"`
 }
 
 func (q *Queries) ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalogProductSpuParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogProductSpu,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.CategoryID,
-		arg.CategoryIDFrom,
-		arg.CategoryIDTo,
 		arg.BrandID,
-		arg.BrandIDFrom,
-		arg.BrandIDTo,
 		arg.FeaturedSkuID,
-		arg.FeaturedSkuIDFrom,
-		arg.FeaturedSkuIDTo,
+		arg.Name,
+		arg.Description,
 		arg.IsActive,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -7982,36 +7275,20 @@ SELECT 1
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag" = ANY($7) OR $7 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("tag" = ANY($3) OR $3 IS NULL)
 )
 ) as exists
 `
 
 type ExistsCatalogProductSpuTagParams struct {
-	ID        []int64     `json:"id"`
-	IDFrom    pgtype.Int8 `json:"id_from"`
-	IDTo      pgtype.Int8 `json:"id_to"`
-	SpuID     []int64     `json:"spu_id"`
-	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
-	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	Tag       []string    `json:"tag"`
+	ID    []int64  `json:"id"`
+	SpuID []int64  `json:"spu_id"`
+	Tag   []string `json:"tag"`
 }
 
 func (q *Queries) ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCatalogProductSpuTagParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsCatalogProductSpuTag,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
-		arg.Tag,
-	)
+	row := q.db.QueryRow(ctx, existsCatalogProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -8022,13 +7299,19 @@ SELECT EXISTS (
 SELECT 1
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 ) as exists
 `
 
-func (q *Queries) ExistsCatalogTag(ctx context.Context, id []string) (bool, error) {
-	row := q.db.QueryRow(ctx, existsCatalogTag, id)
+type ExistsCatalogTagParams struct {
+	ID          []string `json:"id"`
+	Description []string `json:"description"`
+}
+
+func (q *Queries) ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsCatalogTag, arg.ID, arg.Description)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -8040,28 +7323,20 @@ SELECT 1
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("serial_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" > $6 OR $6 IS NULL) AND
-    ("sku_id" < $7 OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL)
+    ("serial_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("date_created" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" > $6 OR $6 IS NULL) AND
+    ("date_created" < $7 OR $7 IS NULL)
 )
 ) as exists
 `
 
 type ExistsInventorySkuSerialParams struct {
 	ID              []int64                  `json:"id"`
-	IDFrom          pgtype.Int8              `json:"id_from"`
-	IDTo            pgtype.Int8              `json:"id_to"`
 	SerialID        []string                 `json:"serial_id"`
 	SkuID           []int64                  `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8              `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8              `json:"sku_id_to"`
 	Status          []InventoryProductStatus `json:"status"`
 	DateCreated     []pgtype.Timestamptz     `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz       `json:"date_created_from"`
@@ -8071,12 +7346,8 @@ type ExistsInventorySkuSerialParams struct {
 func (q *Queries) ExistsInventorySkuSerial(ctx context.Context, arg ExistsInventorySkuSerialParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsInventorySkuSerial,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SerialID,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -8093,33 +7364,25 @@ SELECT 1
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" > $9 OR $9 IS NULL) AND
-    ("current_stock" < $10 OR $10 IS NULL) AND
-    ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" > $12 OR $12 IS NULL) AND
-    ("sold" < $13 OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("current_stock" = ANY($4) OR $4 IS NULL) AND
+    ("current_stock" > $5 OR $5 IS NULL) AND
+    ("current_stock" < $6 OR $6 IS NULL) AND
+    ("sold" = ANY($7) OR $7 IS NULL) AND
+    ("sold" > $8 OR $8 IS NULL) AND
+    ("sold" < $9 OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
 
 type ExistsInventoryStockParams struct {
 	ID               []int64                 `json:"id"`
-	IDFrom           pgtype.Int8             `json:"id_from"`
-	IDTo             pgtype.Int8             `json:"id_to"`
 	RefType          []InventoryStockRefType `json:"ref_type"`
 	RefID            []int64                 `json:"ref_id"`
-	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
 	CurrentStock     []int64                 `json:"current_stock"`
 	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
 	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
@@ -8134,12 +7397,8 @@ type ExistsInventoryStockParams struct {
 func (q *Queries) ExistsInventoryStock(ctx context.Context, arg ExistsInventoryStockParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsInventoryStock,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.CurrentStock,
 		arg.CurrentStockFrom,
 		arg.CurrentStockTo,
@@ -8161,28 +7420,20 @@ SELECT 1
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" > $5 OR $5 IS NULL) AND
-    ("stock_id" < $6 OR $6 IS NULL) AND
-    ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" > $8 OR $8 IS NULL) AND
-    ("change" < $9 OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("stock_id" = ANY($2) OR $2 IS NULL) AND
+    ("change" = ANY($3) OR $3 IS NULL) AND
+    ("change" > $4 OR $4 IS NULL) AND
+    ("change" < $5 OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL)
 )
 ) as exists
 `
 
 type ExistsInventoryStockHistoryParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	StockID         []int64              `json:"stock_id"`
-	StockIDFrom     pgtype.Int8          `json:"stock_id_from"`
-	StockIDTo       pgtype.Int8          `json:"stock_id_to"`
 	Change          []int64              `json:"change"`
 	ChangeFrom      pgtype.Int8          `json:"change_from"`
 	ChangeTo        pgtype.Int8          `json:"change_to"`
@@ -8194,11 +7445,7 @@ type ExistsInventoryStockHistoryParams struct {
 func (q *Queries) ExistsInventoryStockHistory(ctx context.Context, arg ExistsInventoryStockHistoryParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsInventoryStockHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.StockID,
-		arg.StockIDFrom,
-		arg.StockIDTo,
 		arg.Change,
 		arg.ChangeFrom,
 		arg.ChangeTo,
@@ -8217,30 +7464,26 @@ SELECT 1
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("payment_status" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("payment_option" = ANY($3) OR $3 IS NULL) AND
+    ("payment_status" = ANY($4) OR $4 IS NULL) AND
+    ("address" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentOption   []string             `json:"payment_option"`
 	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -8252,12 +7495,10 @@ type ExistsOrderBaseParams struct {
 func (q *Queries) ExistsOrderBase(ctx context.Context, arg ExistsOrderBaseParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.PaymentOption,
 		arg.PaymentStatus,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -8276,65 +7517,44 @@ SELECT 1
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" > $10 OR $10 IS NULL) AND
-    ("receiver_id" < $11 OR $11 IS NULL) AND
-    ("data" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("hash" = ANY($16) OR $16 IS NULL) AND
-    ("prev_hash" = ANY($17) OR $17 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("receiver_id" = ANY($5) OR $5 IS NULL) AND
+    ("note" = ANY($6) OR $6 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderInvoiceParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
 	RefType         []OrderInvoiceRefType `json:"ref_type"`
 	RefID           []int64               `json:"ref_id"`
-	RefIDFrom       pgtype.Int8           `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8           `json:"ref_id_to"`
 	Type            []OrderInvoiceType    `json:"type"`
 	ReceiverID      []int64               `json:"receiver_id"`
-	ReceiverIDFrom  pgtype.Int8           `json:"receiver_id_from"`
-	ReceiverIDTo    pgtype.Int8           `json:"receiver_id_to"`
+	Note            []pgtype.Text         `json:"note"`
 	Data            [][]byte              `json:"data"`
 	DateCreated     []pgtype.Timestamptz  `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz    `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz    `json:"date_created_to"`
-	Hash            [][]byte              `json:"hash"`
-	PrevHash        [][]byte              `json:"prev_hash"`
 }
 
 func (q *Queries) ExistsOrderInvoice(ctx context.Context, arg ExistsOrderInvoiceParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderInvoice,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.ReceiverID,
-		arg.ReceiverIDFrom,
-		arg.ReceiverIDTo,
+		arg.Note,
 		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -8347,76 +7567,43 @@ SELECT 1
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" > $5 OR $5 IS NULL) AND
-    ("order_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
-    ("vendor_id" > $11 OR $11 IS NULL) AND
-    ("vendor_id" < $12 OR $12 IS NULL) AND
-    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
-    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
-    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
-    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
-    ("shipment_id" > $17 OR $17 IS NULL) AND
-    ("shipment_id" < $18 OR $18 IS NULL) AND
-    ("status" = ANY($19) OR $19 IS NULL) AND
-    ("quantity" = ANY($20) OR $20 IS NULL) AND
-    ("quantity" > $21 OR $21 IS NULL) AND
-    ("quantity" < $22 OR $22 IS NULL)
+    ("order_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("vendor_id" = ANY($4) OR $4 IS NULL) AND
+    ("confirmed_by_id" = ANY($5) OR $5 IS NULL) AND
+    ("shipment_id" = ANY($6) OR $6 IS NULL) AND
+    ("note" = ANY($7) OR $7 IS NULL) AND
+    ("status" = ANY($8) OR $8 IS NULL) AND
+    ("quantity" = ANY($9) OR $9 IS NULL) AND
+    ("quantity" > $10 OR $10 IS NULL) AND
+    ("quantity" < $11 OR $11 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderItemParams struct {
-	ID                []int64        `json:"id"`
-	IDFrom            pgtype.Int8    `json:"id_from"`
-	IDTo              pgtype.Int8    `json:"id_to"`
-	OrderID           []int64        `json:"order_id"`
-	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
-	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
-	SkuID             []int64        `json:"sku_id"`
-	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
-	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
-	VendorID          []int64        `json:"vendor_id"`
-	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
-	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
-	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
-	ShipmentID        []int64        `json:"shipment_id"`
-	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
-	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
-	Status            []SharedStatus `json:"status"`
-	Quantity          []int64        `json:"quantity"`
-	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
-	QuantityTo        pgtype.Int8    `json:"quantity_to"`
+	ID            []int64        `json:"id"`
+	OrderID       []int64        `json:"order_id"`
+	SkuID         []int64        `json:"sku_id"`
+	VendorID      []int64        `json:"vendor_id"`
+	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    []int64        `json:"shipment_id"`
+	Note          []string       `json:"note"`
+	Status        []SharedStatus `json:"status"`
+	Quantity      []int64        `json:"quantity"`
+	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
+	QuantityTo    pgtype.Int8    `json:"quantity_to"`
 }
 
 func (q *Queries) ExistsOrderItem(ctx context.Context, arg ExistsOrderItemParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.OrderID,
-		arg.OrderIDFrom,
-		arg.OrderIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.VendorID,
-		arg.VendorIDFrom,
-		arg.VendorIDTo,
 		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
+		arg.Note,
 		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
@@ -8433,42 +7620,20 @@ SELECT 1
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" > $8 OR $8 IS NULL) AND
-    ("product_serial_id" < $9 OR $9 IS NULL)
+    ("order_item_id" = ANY($2) OR $2 IS NULL) AND
+    ("product_serial_id" = ANY($3) OR $3 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderItemSerialParams struct {
-	ID                  []int64     `json:"id"`
-	IDFrom              pgtype.Int8 `json:"id_from"`
-	IDTo                pgtype.Int8 `json:"id_to"`
-	OrderItemID         []int64     `json:"order_item_id"`
-	OrderItemIDFrom     pgtype.Int8 `json:"order_item_id_from"`
-	OrderItemIDTo       pgtype.Int8 `json:"order_item_id_to"`
-	ProductSerialID     []int64     `json:"product_serial_id"`
-	ProductSerialIDFrom pgtype.Int8 `json:"product_serial_id_from"`
-	ProductSerialIDTo   pgtype.Int8 `json:"product_serial_id_to"`
+	ID              []int64 `json:"id"`
+	OrderItemID     []int64 `json:"order_item_id"`
+	ProductSerialID []int64 `json:"product_serial_id"`
 }
 
 func (q *Queries) ExistsOrderItemSerial(ctx context.Context, arg ExistsOrderItemSerialParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsOrderItemSerial,
-		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
-		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
-		arg.ProductSerialID,
-		arg.ProductSerialIDFrom,
-		arg.ProductSerialIDTo,
-	)
+	row := q.db.QueryRow(ctx, existsOrderItemSerial, arg.ID, arg.OrderItemID, arg.ProductSerialID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -8480,71 +7645,47 @@ SELECT 1
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
-    ("order_item_id" > $8 OR $8 IS NULL) AND
-    ("order_item_id" < $9 OR $9 IS NULL) AND
-    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
-    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("method" = ANY($16) OR $16 IS NULL) AND
-    ("status" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("reviewed_by_id" = ANY($4) OR $4 IS NULL) AND
+    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("reason" = ANY($8) OR $8 IS NULL) AND
+    ("address" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderRefundParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	AccountID        []int64              `json:"account_id"`
-	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
-	OrderItemID      []int64              `json:"order_item_id"`
-	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
-	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
-	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
-	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
-	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
-	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
-	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
-	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
-	Method           []OrderRefundMethod  `json:"method"`
-	Status           []SharedStatus       `json:"status"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	ID              []int64              `json:"id"`
+	AccountID       []int64              `json:"account_id"`
+	OrderItemID     []int64              `json:"order_item_id"`
+	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
+	Method          []OrderRefundMethod  `json:"method"`
+	Status          []SharedStatus       `json:"status"`
+	Reason          []string             `json:"reason"`
+	Address         []pgtype.Text        `json:"address"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
 }
 
 func (q *Queries) ExistsOrderRefund(ctx context.Context, arg ExistsOrderRefundParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderRefund,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
 		arg.ReviewedByID,
-		arg.ReviewedByIDFrom,
-		arg.ReviewedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
+		arg.Reason,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -8560,35 +7701,25 @@ SELECT 1
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" > $5 OR $5 IS NULL) AND
-    ("refund_id" < $6 OR $6 IS NULL) AND
-    ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" > $8 OR $8 IS NULL) AND
-    ("issued_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("refund_id" = ANY($2) OR $2 IS NULL) AND
+    ("issued_by_id" = ANY($3) OR $3 IS NULL) AND
+    ("reason" = ANY($4) OR $4 IS NULL) AND
+    ("status" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderRefundDisputeParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	RefundID        []int64              `json:"refund_id"`
-	RefundIDFrom    pgtype.Int8          `json:"refund_id_from"`
-	RefundIDTo      pgtype.Int8          `json:"refund_id_to"`
 	IssuedByID      []int64              `json:"issued_by_id"`
-	IssuedByIDFrom  pgtype.Int8          `json:"issued_by_id_from"`
-	IssuedByIDTo    pgtype.Int8          `json:"issued_by_id_to"`
+	Reason          []string             `json:"reason"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -8601,14 +7732,9 @@ type ExistsOrderRefundDisputeParams struct {
 func (q *Queries) ExistsOrderRefundDispute(ctx context.Context, arg ExistsOrderRefundDisputeParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderRefundDispute,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefundID,
-		arg.RefundIDFrom,
-		arg.RefundIDTo,
 		arg.IssuedByID,
-		arg.IssuedByIDFrom,
-		arg.IssuedByIDTo,
+		arg.Reason,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -8628,42 +7754,44 @@ SELECT 1
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
+    ("option" = ANY($2) OR $2 IS NULL) AND
+    ("tracking_code" = ANY($3) OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
-    ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" > $6 OR $6 IS NULL) AND
-    ("cost" < $7 OR $7 IS NULL) AND
-    ("new_cost" = ANY($8) OR $8 IS NULL) AND
-    ("new_cost" > $9 OR $9 IS NULL) AND
-    ("new_cost" < $10 OR $10 IS NULL) AND
-    ("date_eta" = ANY($11) OR $11 IS NULL) AND
-    ("date_eta" > $12 OR $12 IS NULL) AND
-    ("date_eta" < $13 OR $13 IS NULL) AND
-    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
-    ("weight_grams" > $15 OR $15 IS NULL) AND
-    ("weight_grams" < $16 OR $16 IS NULL) AND
-    ("length_cm" = ANY($17) OR $17 IS NULL) AND
-    ("length_cm" > $18 OR $18 IS NULL) AND
-    ("length_cm" < $19 OR $19 IS NULL) AND
-    ("width_cm" = ANY($20) OR $20 IS NULL) AND
-    ("width_cm" > $21 OR $21 IS NULL) AND
-    ("width_cm" < $22 OR $22 IS NULL) AND
-    ("height_cm" = ANY($23) OR $23 IS NULL) AND
-    ("height_cm" > $24 OR $24 IS NULL) AND
-    ("height_cm" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("label_url" = ANY($5) OR $5 IS NULL) AND
+    ("cost" = ANY($6) OR $6 IS NULL) AND
+    ("cost" > $7 OR $7 IS NULL) AND
+    ("cost" < $8 OR $8 IS NULL) AND
+    ("new_cost" = ANY($9) OR $9 IS NULL) AND
+    ("new_cost" > $10 OR $10 IS NULL) AND
+    ("new_cost" < $11 OR $11 IS NULL) AND
+    ("date_eta" = ANY($12) OR $12 IS NULL) AND
+    ("date_eta" > $13 OR $13 IS NULL) AND
+    ("date_eta" < $14 OR $14 IS NULL) AND
+    ("from_address" = ANY($15) OR $15 IS NULL) AND
+    ("to_address" = ANY($16) OR $16 IS NULL) AND
+    ("weight_grams" = ANY($17) OR $17 IS NULL) AND
+    ("weight_grams" > $18 OR $18 IS NULL) AND
+    ("weight_grams" < $19 OR $19 IS NULL) AND
+    ("length_cm" = ANY($20) OR $20 IS NULL) AND
+    ("length_cm" > $21 OR $21 IS NULL) AND
+    ("length_cm" < $22 OR $22 IS NULL) AND
+    ("width_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" = ANY($24) OR $24 IS NULL) AND
+    ("height_cm" > $25 OR $25 IS NULL) AND
+    ("height_cm" < $26 OR $26 IS NULL) AND
+    ("date_created" = ANY($27) OR $27 IS NULL) AND
+    ("date_created" > $28 OR $28 IS NULL) AND
+    ("date_created" < $29 OR $29 IS NULL)
 )
 ) as exists
 `
 
 type ExistsOrderShipmentParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
+	Option          []string              `json:"option"`
+	TrackingCode    []pgtype.Text         `json:"tracking_code"`
 	Status          []OrderShipmentStatus `json:"status"`
+	LabelUrl        []pgtype.Text         `json:"label_url"`
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
@@ -8673,6 +7801,8 @@ type ExistsOrderShipmentParams struct {
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
+	FromAddress     []string              `json:"from_address"`
+	ToAddress       []string              `json:"to_address"`
 	WeightGrams     []int32               `json:"weight_grams"`
 	WeightGramsFrom pgtype.Int4           `json:"weight_grams_from"`
 	WeightGramsTo   pgtype.Int4           `json:"weight_grams_to"`
@@ -8680,8 +7810,6 @@ type ExistsOrderShipmentParams struct {
 	LengthCmFrom    pgtype.Int4           `json:"length_cm_from"`
 	LengthCmTo      pgtype.Int4           `json:"length_cm_to"`
 	WidthCm         []int32               `json:"width_cm"`
-	WidthCmFrom     pgtype.Int4           `json:"width_cm_from"`
-	WidthCmTo       pgtype.Int4           `json:"width_cm_to"`
 	HeightCm        []int32               `json:"height_cm"`
 	HeightCmFrom    pgtype.Int4           `json:"height_cm_from"`
 	HeightCmTo      pgtype.Int4           `json:"height_cm_to"`
@@ -8693,9 +7821,10 @@ type ExistsOrderShipmentParams struct {
 func (q *Queries) ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipmentParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsOrderShipment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
+		arg.Option,
+		arg.TrackingCode,
 		arg.Status,
+		arg.LabelUrl,
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
@@ -8705,6 +7834,8 @@ func (q *Queries) ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipme
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
+		arg.FromAddress,
+		arg.ToAddress,
 		arg.WeightGrams,
 		arg.WeightGramsFrom,
 		arg.WeightGramsTo,
@@ -8712,8 +7843,6 @@ func (q *Queries) ExistsOrderShipment(ctx context.Context, arg ExistsOrderShipme
 		arg.LengthCmFrom,
 		arg.LengthCmTo,
 		arg.WidthCm,
-		arg.WidthCmFrom,
-		arg.WidthCmTo,
 		arg.HeightCm,
 		arg.HeightCmFrom,
 		arg.HeightCmTo,
@@ -8732,40 +7861,36 @@ SELECT 1
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" > $6 OR $6 IS NULL) AND
-    ("owner_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" = ANY($11) OR $11 IS NULL) AND
-    ("date_started" > $12 OR $12 IS NULL) AND
-    ("date_started" < $13 OR $13 IS NULL) AND
-    ("date_ended" = ANY($14) OR $14 IS NULL) AND
-    ("date_ended" > $15 OR $15 IS NULL) AND
-    ("date_ended" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("owner_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("description" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
+    ("date_started" = ANY($9) OR $9 IS NULL) AND
+    ("date_started" > $10 OR $10 IS NULL) AND
+    ("date_started" < $11 OR $11 IS NULL) AND
+    ("date_ended" = ANY($12) OR $12 IS NULL) AND
+    ("date_ended" > $13 OR $13 IS NULL) AND
+    ("date_ended" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ) as exists
 `
 
 type ExistsPromotionBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Code            []string             `json:"code"`
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
 	Type            []PromotionType      `json:"type"`
+	Title           []string             `json:"title"`
+	Description     []pgtype.Text        `json:"description"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
 	DateStarted     []pgtype.Timestamptz `json:"date_started"`
@@ -8785,13 +7910,11 @@ type ExistsPromotionBaseParams struct {
 func (q *Queries) ExistsPromotionBase(ctx context.Context, arg ExistsPromotionBaseParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsPromotionBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.OwnerID,
-		arg.OwnerIDFrom,
-		arg.OwnerIDTo,
 		arg.Type,
+		arg.Title,
+		arg.Description,
 		arg.IsActive,
 		arg.AutoApply,
 		arg.DateStarted,
@@ -8818,28 +7941,24 @@ SELECT 1
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("min_spend" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" > $5 OR $5 IS NULL) AND
-    ("min_spend" < $6 OR $6 IS NULL) AND
-    ("max_discount" = ANY($7) OR $7 IS NULL) AND
-    ("max_discount" > $8 OR $8 IS NULL) AND
-    ("max_discount" < $9 OR $9 IS NULL) AND
-    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
-    ("discount_percent" > $11 OR $11 IS NULL) AND
-    ("discount_percent" < $12 OR $12 IS NULL) AND
-    ("discount_price" = ANY($13) OR $13 IS NULL) AND
-    ("discount_price" > $14 OR $14 IS NULL) AND
-    ("discount_price" < $15 OR $15 IS NULL)
+    ("min_spend" = ANY($2) OR $2 IS NULL) AND
+    ("min_spend" > $3 OR $3 IS NULL) AND
+    ("min_spend" < $4 OR $4 IS NULL) AND
+    ("max_discount" = ANY($5) OR $5 IS NULL) AND
+    ("max_discount" > $6 OR $6 IS NULL) AND
+    ("max_discount" < $7 OR $7 IS NULL) AND
+    ("discount_percent" = ANY($8) OR $8 IS NULL) AND
+    ("discount_percent" > $9 OR $9 IS NULL) AND
+    ("discount_percent" < $10 OR $10 IS NULL) AND
+    ("discount_price" = ANY($11) OR $11 IS NULL) AND
+    ("discount_price" > $12 OR $12 IS NULL) AND
+    ("discount_price" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
-	IDFrom              pgtype.Int8   `json:"id_from"`
-	IDTo                pgtype.Int8   `json:"id_to"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -8857,8 +7976,6 @@ type ExistsPromotionDiscountParams struct {
 func (q *Queries) ExistsPromotionDiscount(ctx context.Context, arg ExistsPromotionDiscountParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsPromotionDiscount,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -8883,44 +8000,26 @@ SELECT 1
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL)
 )
 ) as exists
 `
 
 type ExistsPromotionRefParams struct {
-	ID              []int64            `json:"id"`
-	IDFrom          pgtype.Int8        `json:"id_from"`
-	IDTo            pgtype.Int8        `json:"id_to"`
-	PromotionID     []int64            `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
-	RefType         []PromotionRefType `json:"ref_type"`
-	RefID           []int64            `json:"ref_id"`
-	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
+	ID          []int64            `json:"id"`
+	PromotionID []int64            `json:"promotion_id"`
+	RefType     []PromotionRefType `json:"ref_type"`
+	RefID       []int64            `json:"ref_id"`
 }
 
 func (q *Queries) ExistsPromotionRef(ctx context.Context, arg ExistsPromotionRefParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsPromotionRef,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -8933,50 +8032,44 @@ SELECT 1
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("duration" = ANY($7) OR $7 IS NULL) AND
-    ("duration" > $8 OR $8 IS NULL) AND
-    ("duration" < $9 OR $9 IS NULL) AND
-    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
-    ("next_run_at" > $11 OR $11 IS NULL) AND
-    ("next_run_at" < $12 OR $12 IS NULL) AND
-    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
-    ("last_run_at" > $14 OR $14 IS NULL) AND
-    ("last_run_at" < $15 OR $15 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("timezone" = ANY($3) OR $3 IS NULL) AND
+    ("cron_rule" = ANY($4) OR $4 IS NULL) AND
+    ("duration" = ANY($5) OR $5 IS NULL) AND
+    ("duration" > $6 OR $6 IS NULL) AND
+    ("duration" < $7 OR $7 IS NULL) AND
+    ("next_run_at" = ANY($8) OR $8 IS NULL) AND
+    ("next_run_at" > $9 OR $9 IS NULL) AND
+    ("next_run_at" < $10 OR $10 IS NULL) AND
+    ("last_run_at" = ANY($11) OR $11 IS NULL) AND
+    ("last_run_at" > $12 OR $12 IS NULL) AND
+    ("last_run_at" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
 
 type ExistsPromotionScheduleParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	PromotionID     []int64              `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
-	Duration        []int32              `json:"duration"`
-	DurationFrom    pgtype.Int4          `json:"duration_from"`
-	DurationTo      pgtype.Int4          `json:"duration_to"`
-	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
-	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
-	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
-	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
-	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
-	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
+	ID            []int64              `json:"id"`
+	PromotionID   []int64              `json:"promotion_id"`
+	Timezone      []string             `json:"timezone"`
+	CronRule      []string             `json:"cron_rule"`
+	Duration      []int32              `json:"duration"`
+	DurationFrom  pgtype.Int4          `json:"duration_from"`
+	DurationTo    pgtype.Int4          `json:"duration_to"`
+	NextRunAt     []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo   pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt     []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo   pgtype.Timestamptz   `json:"last_run_at_to"`
 }
 
 func (q *Queries) ExistsPromotionSchedule(ctx context.Context, arg ExistsPromotionScheduleParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsPromotionSchedule,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
+		arg.Timezone,
+		arg.CronRule,
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
@@ -9001,15 +8094,18 @@ WHERE (
     ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
     ("uploaded_by" > $3 OR $3 IS NULL) AND
     ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("object_key" = ANY($5) OR $5 IS NULL) AND
-    ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
-    ("metadata" = ANY($9) OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
 )
 ) as exists
 `
@@ -9019,11 +8115,14 @@ type ExistsSharedResourceParams struct {
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
 	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
 	Size           []int64              `json:"size"`
 	SizeFrom       pgtype.Int8          `json:"size_from"`
 	SizeTo         pgtype.Int8          `json:"size_to"`
 	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
 	Status         []SharedStatus       `json:"status"`
 	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
 	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
@@ -9036,11 +8135,14 @@ func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedReso
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
+		arg.Provider,
 		arg.ObjectKey,
+		arg.Mime,
 		arg.Size,
 		arg.SizeFrom,
 		arg.SizeTo,
 		arg.Metadata,
+		arg.Checksum,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -9057,30 +8159,22 @@ SELECT 1
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("ref_type" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" = ANY($6) OR $6 IS NULL) AND
-    ("ref_id" > $7 OR $7 IS NULL) AND
-    ("ref_id" < $8 OR $8 IS NULL) AND
-    ("order" = ANY($9) OR $9 IS NULL) AND
-    ("order" > $10 OR $10 IS NULL) AND
-    ("order" < $11 OR $11 IS NULL) AND
-    ("is_primary" = ANY($12) OR $12 IS NULL)
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
-	IDFrom    pgtype.Int8             `json:"id_from"`
-	IDTo      pgtype.Int8             `json:"id_to"`
 	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
-	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo   pgtype.Int8             `json:"ref_id_to"`
 	Order     []int32                 `json:"order"`
 	OrderFrom pgtype.Int4             `json:"order_from"`
 	OrderTo   pgtype.Int4             `json:"order_to"`
@@ -9090,13 +8184,9 @@ type ExistsSharedResourceReferenceParams struct {
 func (q *Queries) ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsSharedResourceReference,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RsID,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
@@ -9113,29 +8203,94 @@ SELECT 1
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL) AND
-    ("order" = ANY($3) OR $3 IS NULL) AND
-    ("order" > $4 OR $4 IS NULL) AND
-    ("order" < $5 OR $5 IS NULL)
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSharedServiceOptionParams struct {
-	ID        []string    `json:"id"`
-	IsActive  []bool      `json:"is_active"`
-	Order     []int32     `json:"order"`
-	OrderFrom pgtype.Int4 `json:"order_from"`
-	OrderTo   pgtype.Int4 `json:"order_to"`
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
 }
 
 func (q *Queries) ExistsSharedServiceOption(ctx context.Context, arg ExistsSharedServiceOptionParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsSharedServiceOption,
 		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
 		arg.IsActive,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsSystemOutboxEvent = `-- name: ExistsSystemOutboxEvent :one
+SELECT EXISTS (
+SELECT 1
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("topic" = ANY($2) OR $2 IS NULL) AND
+    ("data" = ANY($3) OR $3 IS NULL) AND
+    ("processed" = ANY($4) OR $4 IS NULL) AND
+    ("date_processed" = ANY($5) OR $5 IS NULL) AND
+    ("date_processed" > $6 OR $6 IS NULL) AND
+    ("date_processed" < $7 OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
+)
+) as exists
+`
+
+type ExistsSystemOutboxEventParams struct {
+	ID                []int64              `json:"id"`
+	Topic             []string             `json:"topic"`
+	Data              [][]byte             `json:"data"`
+	Processed         []bool               `json:"processed"`
+	DateProcessed     []pgtype.Timestamptz `json:"date_processed"`
+	DateProcessedFrom pgtype.Timestamptz   `json:"date_processed_from"`
+	DateProcessedTo   pgtype.Timestamptz   `json:"date_processed_to"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+}
+
+func (q *Queries) ExistsSystemOutboxEvent(ctx context.Context, arg ExistsSystemOutboxEventParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsSystemOutboxEvent,
+		arg.ID,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.DateProcessed,
+		arg.DateProcessedFrom,
+		arg.DateProcessedTo,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -9148,32 +8303,24 @@ SELECT 1
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
-    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
+    ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ) as exists
 `
 
 type ExistsSystemSearchSyncParams struct {
 	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
 	RefType          []string             `json:"ref_type"`
 	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
 	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -9187,12 +8334,8 @@ type ExistsSystemSearchSyncParams struct {
 func (q *Queries) ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsSystemSearchSync,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
@@ -9795,21 +8938,16 @@ const getOrderInvoice = `-- name: GetOrderInvoice :one
 
 
 
-SELECT id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+SELECT id, ref_type, ref_id, type, receiver_id, note, data, date_created
 FROM "order"."invoice"
-WHERE ("id" = $1) OR ("hash" = $2)
+WHERE ("id" = $1)
 `
-
-type GetOrderInvoiceParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Hash []byte      `json:"hash"`
-}
 
 // ========================================
 // Queries for table: order.invoice
 // ========================================
-func (q *Queries) GetOrderInvoice(ctx context.Context, arg GetOrderInvoiceParams) (OrderInvoice, error) {
-	row := q.db.QueryRow(ctx, getOrderInvoice, arg.ID, arg.Hash)
+func (q *Queries) GetOrderInvoice(ctx context.Context, id pgtype.Int8) (OrderInvoice, error) {
+	row := q.db.QueryRow(ctx, getOrderInvoice, id)
 	var i OrderInvoice
 	err := row.Scan(
 		&i.ID,
@@ -9819,10 +8957,7 @@ func (q *Queries) GetOrderInvoice(ctx context.Context, arg GetOrderInvoiceParams
 		&i.ReceiverID,
 		&i.Note,
 		&i.Data,
-		&i.FileRsID,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -10188,6 +9323,32 @@ func (q *Queries) GetSharedServiceOption(ctx context.Context, id pgtype.Text) (S
 	return i, err
 }
 
+const getSystemOutboxEvent = `-- name: GetSystemOutboxEvent :one
+
+
+
+SELECT id, topic, data, processed, date_processed, date_created
+FROM "system"."outbox_event"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: system.outbox_event
+// ========================================
+func (q *Queries) GetSystemOutboxEvent(ctx context.Context, id pgtype.Int8) (SystemOutboxEvent, error) {
+	row := q.db.QueryRow(ctx, getSystemOutboxEvent, id)
+	var i SystemOutboxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.Topic,
+		&i.Data,
+		&i.Processed,
+		&i.DateProcessed,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
 const getSystemSearchSync = `-- name: GetSystemSearchSync :one
 
 
@@ -10226,30 +9387,26 @@ SELECT id, type, status, phone, email, username, password, date_created, date_up
 FROM "account"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("type" = ANY($4) OR $4 IS NULL) AND
-    ("status" = ANY($5) OR $5 IS NULL) AND
-    ("phone" = ANY($6) OR $6 IS NULL) AND
-    ("email" = ANY($7) OR $7 IS NULL) AND
-    ("username" = ANY($8) OR $8 IS NULL) AND
-    ("password" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("type" = ANY($2) OR $2 IS NULL) AND
+    ("status" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("email" = ANY($5) OR $5 IS NULL) AND
+    ("username" = ANY($6) OR $6 IS NULL) AND
+    ("password" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $15
+OFFSET $14
 `
 
 type ListAccountBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Type            []AccountType        `json:"type"`
 	Status          []AccountStatus      `json:"status"`
 	Phone           []pgtype.Text        `json:"phone"`
@@ -10269,8 +9426,6 @@ type ListAccountBaseParams struct {
 func (q *Queries) ListAccountBase(ctx context.Context, arg ListAccountBaseParams) ([]AccountBase, error) {
 	rows, err := q.db.Query(ctx, listAccountBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Type,
 		arg.Status,
 		arg.Phone,
@@ -10319,39 +9474,27 @@ SELECT id, cart_id, sku_id, quantity, date_created, date_updated
 FROM "account"."cart_item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("cart_id" = ANY($4) OR $4 IS NULL) AND
-    ("cart_id" > $5 OR $5 IS NULL) AND
-    ("cart_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" > $11 OR $11 IS NULL) AND
-    ("quantity" < $12 OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" > $17 OR $17 IS NULL) AND
-    ("date_updated" < $18 OR $18 IS NULL)
+    ("cart_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("quantity" = ANY($4) OR $4 IS NULL) AND
+    ("quantity" > $5 OR $5 IS NULL) AND
+    ("quantity" < $6 OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $20
-OFFSET $19
+LIMIT $14
+OFFSET $13
 `
 
 type ListAccountCartItemParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	CartID          []int64              `json:"cart_id"`
-	CartIDFrom      pgtype.Int8          `json:"cart_id_from"`
-	CartIDTo        pgtype.Int8          `json:"cart_id_to"`
 	SkuID           []int64              `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8          `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8          `json:"sku_id_to"`
 	Quantity        []int64              `json:"quantity"`
 	QuantityFrom    pgtype.Int8          `json:"quantity_from"`
 	QuantityTo      pgtype.Int8          `json:"quantity_to"`
@@ -10368,14 +9511,8 @@ type ListAccountCartItemParams struct {
 func (q *Queries) ListAccountCartItem(ctx context.Context, arg ListAccountCartItemParams) ([]AccountCartItem, error) {
 	rows, err := q.db.Query(ctx, listAccountCartItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.CartID,
-		arg.CartIDFrom,
-		arg.CartIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
@@ -10418,35 +9555,27 @@ SELECT id, account_id, full_name, phone, phone_verified, address, address_type, 
 FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("full_name" = ANY($7) OR $7 IS NULL) AND
-    ("phone" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("address" = ANY($10) OR $10 IS NULL) AND
-    ("address_type" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_updated" = ANY($15) OR $15 IS NULL) AND
-    ("date_updated" > $16 OR $16 IS NULL) AND
-    ("date_updated" < $17 OR $17 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("full_name" = ANY($3) OR $3 IS NULL) AND
+    ("phone" = ANY($4) OR $4 IS NULL) AND
+    ("phone_verified" = ANY($5) OR $5 IS NULL) AND
+    ("address" = ANY($6) OR $6 IS NULL) AND
+    ("address_type" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" > $12 OR $12 IS NULL) AND
+    ("date_updated" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19
-OFFSET $18
+LIMIT $15
+OFFSET $14
 `
 
 type ListAccountContactParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
 	FullName        []string             `json:"full_name"`
 	Phone           []string             `json:"phone"`
 	PhoneVerified   []bool               `json:"phone_verified"`
@@ -10465,11 +9594,7 @@ type ListAccountContactParams struct {
 func (q *Queries) ListAccountContact(ctx context.Context, arg ListAccountContactParams) ([]AccountContact, error) {
 	rows, err := q.db.Query(ctx, listAccountContact,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.FullName,
 		arg.Phone,
 		arg.PhoneVerified,
@@ -10517,24 +9642,20 @@ SELECT id, date_created, date_updated
 FROM "account"."customer"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL) AND
-    ("date_updated" = ANY($7) OR $7 IS NULL) AND
-    ("date_updated" > $8 OR $8 IS NULL) AND
-    ("date_updated" < $9 OR $9 IS NULL)
+    ("date_created" = ANY($2) OR $2 IS NULL) AND
+    ("date_created" > $3 OR $3 IS NULL) AND
+    ("date_created" < $4 OR $4 IS NULL) AND
+    ("date_updated" = ANY($5) OR $5 IS NULL) AND
+    ("date_updated" > $6 OR $6 IS NULL) AND
+    ("date_updated" < $7 OR $7 IS NULL)
 )
 ORDER BY "id"
-LIMIT $11
-OFFSET $10
+LIMIT $9
+OFFSET $8
 `
 
 type ListAccountCustomerParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -10548,8 +9669,6 @@ type ListAccountCustomerParams struct {
 func (q *Queries) ListAccountCustomer(ctx context.Context, arg ListAccountCustomerParams) ([]AccountCustomer, error) {
 	rows, err := q.db.Query(ctx, listAccountCustomer,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -10582,37 +9701,29 @@ SELECT id, account_id, type, income, current_balance, note, date_created, hash, 
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("income" = ANY($8) OR $8 IS NULL) AND
-    ("income" > $9 OR $9 IS NULL) AND
-    ("income" < $10 OR $10 IS NULL) AND
-    ("current_balance" = ANY($11) OR $11 IS NULL) AND
-    ("current_balance" > $12 OR $12 IS NULL) AND
-    ("current_balance" < $13 OR $13 IS NULL) AND
-    ("note" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("hash" = ANY($18) OR $18 IS NULL) AND
-    ("prev_hash" = ANY($19) OR $19 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("income" = ANY($4) OR $4 IS NULL) AND
+    ("income" > $5 OR $5 IS NULL) AND
+    ("income" < $6 OR $6 IS NULL) AND
+    ("current_balance" = ANY($7) OR $7 IS NULL) AND
+    ("current_balance" > $8 OR $8 IS NULL) AND
+    ("current_balance" < $9 OR $9 IS NULL) AND
+    ("note" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("hash" = ANY($14) OR $14 IS NULL) AND
+    ("prev_hash" = ANY($15) OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $21
-OFFSET $20
+LIMIT $17
+OFFSET $16
 `
 
 type ListAccountIncomeHistoryParams struct {
 	ID                 []int64              `json:"id"`
-	IDFrom             pgtype.Int8          `json:"id_from"`
-	IDTo               pgtype.Int8          `json:"id_to"`
 	AccountID          []int64              `json:"account_id"`
-	AccountIDFrom      pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo        pgtype.Int8          `json:"account_id_to"`
 	Type               []string             `json:"type"`
 	Income             []int64              `json:"income"`
 	IncomeFrom         pgtype.Int8          `json:"income_from"`
@@ -10633,11 +9744,7 @@ type ListAccountIncomeHistoryParams struct {
 func (q *Queries) ListAccountIncomeHistory(ctx context.Context, arg ListAccountIncomeHistoryParams) ([]AccountIncomeHistory, error) {
 	rows, err := q.db.Query(ctx, listAccountIncomeHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Income,
 		arg.IncomeFrom,
@@ -10687,42 +9794,36 @@ SELECT id, account_id, type, channel, is_read, content, date_created, date_updat
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("type" = ANY($7) OR $7 IS NULL) AND
-    ("channel" = ANY($8) OR $8 IS NULL) AND
-    ("is_read" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL) AND
-    ("date_sent" = ANY($16) OR $16 IS NULL) AND
-    ("date_sent" > $17 OR $17 IS NULL) AND
-    ("date_sent" < $18 OR $18 IS NULL) AND
-    ("date_scheduled" = ANY($19) OR $19 IS NULL) AND
-    ("date_scheduled" > $20 OR $20 IS NULL) AND
-    ("date_scheduled" < $21 OR $21 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("channel" = ANY($4) OR $4 IS NULL) AND
+    ("is_read" = ANY($5) OR $5 IS NULL) AND
+    ("content" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("date_sent" = ANY($13) OR $13 IS NULL) AND
+    ("date_sent" > $14 OR $14 IS NULL) AND
+    ("date_sent" < $15 OR $15 IS NULL) AND
+    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
+    ("date_scheduled" > $17 OR $17 IS NULL) AND
+    ("date_scheduled" < $18 OR $18 IS NULL)
 )
 ORDER BY "id"
-LIMIT $23
-OFFSET $22
+LIMIT $20
+OFFSET $19
 `
 
 type ListAccountNotificationParams struct {
 	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
 	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
 	Type              []string             `json:"type"`
 	Channel           []string             `json:"channel"`
 	IsRead            []bool               `json:"is_read"`
+	Content           []string             `json:"content"`
 	DateCreated       []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
@@ -10742,14 +9843,11 @@ type ListAccountNotificationParams struct {
 func (q *Queries) ListAccountNotification(ctx context.Context, arg ListAccountNotificationParams) ([]AccountNotification, error) {
 	rows, err := q.db.Query(ctx, listAccountNotification,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.Type,
 		arg.Channel,
 		arg.IsRead,
+		arg.Content,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -10799,61 +9897,51 @@ SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_veri
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("gender" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("date_of_birth" = ANY($6) OR $6 IS NULL) AND
-    ("date_of_birth" > $7 OR $7 IS NULL) AND
-    ("date_of_birth" < $8 OR $8 IS NULL) AND
-    ("avatar_rs_id" = ANY($9) OR $9 IS NULL) AND
-    ("email_verified" = ANY($10) OR $10 IS NULL) AND
-    ("phone_verified" = ANY($11) OR $11 IS NULL) AND
-    ("default_contact_id" = ANY($12) OR $12 IS NULL) AND
-    ("default_contact_id" > $13 OR $13 IS NULL) AND
-    ("default_contact_id" < $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("gender" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" > $5 OR $5 IS NULL) AND
+    ("date_of_birth" < $6 OR $6 IS NULL) AND
+    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
+    ("email_verified" = ANY($8) OR $8 IS NULL) AND
+    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
+    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("date_updated" = ANY($14) OR $14 IS NULL) AND
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $22
-OFFSET $21
+LIMIT $18
+OFFSET $17
 `
 
 type ListAccountProfileParams struct {
-	ID                   []int64              `json:"id"`
-	IDFrom               pgtype.Int8          `json:"id_from"`
-	IDTo                 pgtype.Int8          `json:"id_to"`
-	Gender               []NullAccountGender  `json:"gender"`
-	Name                 []pgtype.Text        `json:"name"`
-	DateOfBirth          []pgtype.Date        `json:"date_of_birth"`
-	DateOfBirthFrom      pgtype.Date          `json:"date_of_birth_from"`
-	DateOfBirthTo        pgtype.Date          `json:"date_of_birth_to"`
-	AvatarRsID           []pgtype.UUID        `json:"avatar_rs_id"`
-	EmailVerified        []bool               `json:"email_verified"`
-	PhoneVerified        []bool               `json:"phone_verified"`
-	DefaultContactID     []pgtype.Int8        `json:"default_contact_id"`
-	DefaultContactIDFrom pgtype.Int8          `json:"default_contact_id_from"`
-	DefaultContactIDTo   pgtype.Int8          `json:"default_contact_id_to"`
-	DateCreated          []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom      pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo        pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated          []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom      pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo        pgtype.Timestamptz   `json:"date_updated_to"`
-	Offset               pgtype.Int4          `json:"offset"`
-	Limit                pgtype.Int4          `json:"limit"`
+	ID               []int64              `json:"id"`
+	Gender           []NullAccountGender  `json:"gender"`
+	Name             []pgtype.Text        `json:"name"`
+	DateOfBirth      []pgtype.Date        `json:"date_of_birth"`
+	DateOfBirthFrom  pgtype.Date          `json:"date_of_birth_from"`
+	DateOfBirthTo    pgtype.Date          `json:"date_of_birth_to"`
+	AvatarRsID       []pgtype.UUID        `json:"avatar_rs_id"`
+	EmailVerified    []bool               `json:"email_verified"`
+	PhoneVerified    []bool               `json:"phone_verified"`
+	DefaultContactID []pgtype.Int8        `json:"default_contact_id"`
+	DateCreated      []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated      []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom  pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo    pgtype.Timestamptz   `json:"date_updated_to"`
+	Offset           pgtype.Int4          `json:"offset"`
+	Limit            pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListAccountProfile(ctx context.Context, arg ListAccountProfileParams) ([]AccountProfile, error) {
 	rows, err := q.db.Query(ctx, listAccountProfile,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Gender,
 		arg.Name,
 		arg.DateOfBirth,
@@ -10863,8 +9951,6 @@ func (q *Queries) ListAccountProfile(ctx context.Context, arg ListAccountProfile
 		arg.EmailVerified,
 		arg.PhoneVerified,
 		arg.DefaultContactID,
-		arg.DefaultContactIDFrom,
-		arg.DefaultContactIDTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -10908,19 +9994,15 @@ SELECT id, description
 FROM "account"."vendor"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL)
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 ORDER BY "id"
-LIMIT $6
-OFFSET $5
+LIMIT $4
+OFFSET $3
 `
 
 type ListAccountVendorParams struct {
 	ID          []int64     `json:"id"`
-	IDFrom      pgtype.Int8 `json:"id_from"`
-	IDTo        pgtype.Int8 `json:"id_to"`
 	Description []string    `json:"description"`
 	Offset      pgtype.Int4 `json:"offset"`
 	Limit       pgtype.Int4 `json:"limit"`
@@ -10929,8 +10011,6 @@ type ListAccountVendorParams struct {
 func (q *Queries) ListAccountVendor(ctx context.Context, arg ListAccountVendorParams) ([]AccountVendor, error) {
 	rows, err := q.db.Query(ctx, listAccountVendor,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Description,
 		arg.Offset,
 		arg.Limit,
@@ -10958,41 +10038,37 @@ SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_type" > $8 OR $8 IS NULL) AND
-    ("ref_type" < $9 OR $9 IS NULL) AND
-    ("ref_id" = ANY($10) OR $10 IS NULL) AND
-    ("ref_id" > $11 OR $11 IS NULL) AND
-    ("ref_id" < $12 OR $12 IS NULL) AND
-    ("metadata" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("session_id" = ANY($3) OR $3 IS NULL) AND
+    ("event_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_type" = ANY($5) OR $5 IS NULL) AND
+    ("ref_type" > $6 OR $6 IS NULL) AND
+    ("ref_type" < $7 OR $7 IS NULL) AND
+    ("ref_id" = ANY($8) OR $8 IS NULL) AND
+    ("metadata" = ANY($9) OR $9 IS NULL) AND
+    ("user_agent" = ANY($10) OR $10 IS NULL) AND
+    ("ip_address" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" > $13 OR $13 IS NULL) AND
+    ("date_created" < $14 OR $14 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $16
+OFFSET $15
 `
 
 type ListAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	IDFrom          pgtype.Int8                    `json:"id_from"`
-	IDTo            pgtype.Int8                    `json:"id_to"`
 	AccountID       []int64                        `json:"account_id"`
-	AccountIDFrom   pgtype.Int8                    `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8                    `json:"account_id_to"`
+	SessionID       []pgtype.Text                  `json:"session_id"`
+	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
 	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
 	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
 	RefID           []int64                        `json:"ref_id"`
-	RefIDFrom       pgtype.Int8                    `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8                    `json:"ref_id_to"`
 	Metadata        [][]byte                       `json:"metadata"`
+	UserAgent       []pgtype.Text                  `json:"user_agent"`
+	IpAddress       []pgtype.Text                  `json:"ip_address"`
 	DateCreated     []pgtype.Timestamptz           `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz             `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz             `json:"date_created_to"`
@@ -11003,18 +10079,16 @@ type ListAnalyticInteractionParams struct {
 func (q *Queries) ListAnalyticInteraction(ctx context.Context, arg ListAnalyticInteractionParams) ([]AnalyticInteraction, error) {
 	rows, err := q.db.Query(ctx, listAnalyticInteraction,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.SessionID,
+		arg.EventType,
 		arg.RefType,
 		arg.RefTypeFrom,
 		arg.RefTypeTo,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Metadata,
+		arg.UserAgent,
+		arg.IpAddress,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -11055,9 +10129,9 @@ SELECT id, code, name, description
 FROM "catalog"."brand"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
 LIMIT $6
@@ -11065,20 +10139,20 @@ OFFSET $5
 `
 
 type ListCatalogBrandParams struct {
-	ID     []int64     `json:"id"`
-	IDFrom pgtype.Int8 `json:"id_from"`
-	IDTo   pgtype.Int8 `json:"id_to"`
-	Code   []string    `json:"code"`
-	Offset pgtype.Int4 `json:"offset"`
-	Limit  pgtype.Int4 `json:"limit"`
+	ID          []int64     `json:"id"`
+	Code        []string    `json:"code"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Offset      pgtype.Int4 `json:"offset"`
+	Limit       pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListCatalogBrand(ctx context.Context, arg ListCatalogBrandParams) ([]CatalogBrand, error) {
 	rows, err := q.db.Query(ctx, listCatalogBrand,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
+		arg.Name,
+		arg.Description,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -11110,39 +10184,30 @@ SELECT id, name, description, parent_id
 FROM "catalog"."category"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("name" = ANY($4) OR $4 IS NULL) AND
-    ("parent_id" = ANY($5) OR $5 IS NULL) AND
-    ("parent_id" > $6 OR $6 IS NULL) AND
-    ("parent_id" < $7 OR $7 IS NULL)
+    ("name" = ANY($2) OR $2 IS NULL) AND
+    ("description" = ANY($3) OR $3 IS NULL) AND
+    ("parent_id" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
-LIMIT $9
-OFFSET $8
+LIMIT $6
+OFFSET $5
 `
 
 type ListCatalogCategoryParams struct {
-	ID           []int64       `json:"id"`
-	IDFrom       pgtype.Int8   `json:"id_from"`
-	IDTo         pgtype.Int8   `json:"id_to"`
-	Name         []string      `json:"name"`
-	ParentID     []pgtype.Int8 `json:"parent_id"`
-	ParentIDFrom pgtype.Int8   `json:"parent_id_from"`
-	ParentIDTo   pgtype.Int8   `json:"parent_id_to"`
-	Offset       pgtype.Int4   `json:"offset"`
-	Limit        pgtype.Int4   `json:"limit"`
+	ID          []int64       `json:"id"`
+	Name        []string      `json:"name"`
+	Description []string      `json:"description"`
+	ParentID    []pgtype.Int8 `json:"parent_id"`
+	Offset      pgtype.Int4   `json:"offset"`
+	Limit       pgtype.Int4   `json:"limit"`
 }
 
 func (q *Queries) ListCatalogCategory(ctx context.Context, arg ListCatalogCategoryParams) ([]CatalogCategory, error) {
 	rows, err := q.db.Query(ctx, listCatalogCategory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Name,
+		arg.Description,
 		arg.ParentID,
-		arg.ParentIDFrom,
-		arg.ParentIDTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -11174,47 +10239,37 @@ SELECT id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_cre
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL) AND
-    ("upvote" = ANY($11) OR $11 IS NULL) AND
-    ("upvote" > $12 OR $12 IS NULL) AND
-    ("upvote" < $13 OR $13 IS NULL) AND
-    ("downvote" = ANY($14) OR $14 IS NULL) AND
-    ("downvote" > $15 OR $15 IS NULL) AND
-    ("downvote" < $16 OR $16 IS NULL) AND
-    ("score" = ANY($17) OR $17 IS NULL) AND
-    ("score" > $18 OR $18 IS NULL) AND
-    ("score" < $19 OR $19 IS NULL) AND
-    ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
-    ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("body" = ANY($5) OR $5 IS NULL) AND
+    ("upvote" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" > $7 OR $7 IS NULL) AND
+    ("upvote" < $8 OR $8 IS NULL) AND
+    ("downvote" = ANY($9) OR $9 IS NULL) AND
+    ("downvote" > $10 OR $10 IS NULL) AND
+    ("downvote" < $11 OR $11 IS NULL) AND
+    ("score" = ANY($12) OR $12 IS NULL) AND
+    ("score" > $13 OR $13 IS NULL) AND
+    ("score" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ORDER BY "id"
-LIMIT $27
-OFFSET $26
+LIMIT $22
+OFFSET $21
 `
 
 type ListCatalogCommentParams struct {
 	ID              []int64                 `json:"id"`
-	IDFrom          pgtype.Int8             `json:"id_from"`
-	IDTo            pgtype.Int8             `json:"id_to"`
 	AccountID       []int64                 `json:"account_id"`
-	AccountIDFrom   pgtype.Int8             `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8             `json:"account_id_to"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []int64                 `json:"ref_id"`
-	RefIDFrom       pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8             `json:"ref_id_to"`
+	Body            []string                `json:"body"`
 	Upvote          []int64                 `json:"upvote"`
 	UpvoteFrom      pgtype.Int8             `json:"upvote_from"`
 	UpvoteTo        pgtype.Int8             `json:"upvote_to"`
@@ -11237,15 +10292,10 @@ type ListCatalogCommentParams struct {
 func (q *Queries) ListCatalogComment(ctx context.Context, arg ListCatalogCommentParams) ([]CatalogComment, error) {
 	rows, err := q.db.Query(ctx, listCatalogComment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
+		arg.Body,
 		arg.Upvote,
 		arg.UpvoteFrom,
 		arg.UpvoteTo,
@@ -11298,35 +10348,27 @@ SELECT id, spu_id, price, can_combine, attributes, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("price" = ANY($7) OR $7 IS NULL) AND
-    ("price" > $8 OR $8 IS NULL) AND
-    ("price" < $9 OR $9 IS NULL) AND
-    ("can_combine" = ANY($10) OR $10 IS NULL) AND
-    ("attributes" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL) AND
-    ("date_deleted" = ANY($15) OR $15 IS NULL) AND
-    ("date_deleted" > $16 OR $16 IS NULL) AND
-    ("date_deleted" < $17 OR $17 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("price" = ANY($3) OR $3 IS NULL) AND
+    ("price" > $4 OR $4 IS NULL) AND
+    ("price" < $5 OR $5 IS NULL) AND
+    ("can_combine" = ANY($6) OR $6 IS NULL) AND
+    ("attributes" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL) AND
+    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
+    ("date_deleted" > $12 OR $12 IS NULL) AND
+    ("date_deleted" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19
-OFFSET $18
+LIMIT $15
+OFFSET $14
 `
 
 type ListCatalogProductSkuParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	SpuID           []int64              `json:"spu_id"`
-	SpuIDFrom       pgtype.Int8          `json:"spu_id_from"`
-	SpuIDTo         pgtype.Int8          `json:"spu_id_to"`
 	Price           []int64              `json:"price"`
 	PriceFrom       pgtype.Int8          `json:"price_from"`
 	PriceTo         pgtype.Int8          `json:"price_to"`
@@ -11345,11 +10387,7 @@ type ListCatalogProductSkuParams struct {
 func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProductSkuParams) ([]CatalogProductSku, error) {
 	rows, err := q.db.Query(ctx, listCatalogProductSku,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
@@ -11395,86 +10433,62 @@ SELECT id, code, account_id, category_id, brand_id, featured_sku_id, name, descr
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" = ANY($5) OR $5 IS NULL) AND
-    ("account_id" > $6 OR $6 IS NULL) AND
-    ("account_id" < $7 OR $7 IS NULL) AND
-    ("category_id" = ANY($8) OR $8 IS NULL) AND
-    ("category_id" > $9 OR $9 IS NULL) AND
-    ("category_id" < $10 OR $10 IS NULL) AND
-    ("brand_id" = ANY($11) OR $11 IS NULL) AND
-    ("brand_id" > $12 OR $12 IS NULL) AND
-    ("brand_id" < $13 OR $13 IS NULL) AND
-    ("featured_sku_id" = ANY($14) OR $14 IS NULL) AND
-    ("featured_sku_id" > $15 OR $15 IS NULL) AND
-    ("featured_sku_id" < $16 OR $16 IS NULL) AND
-    ("is_active" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
-    ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL) AND
-    ("date_deleted" = ANY($24) OR $24 IS NULL) AND
-    ("date_deleted" > $25 OR $25 IS NULL) AND
-    ("date_deleted" < $26 OR $26 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("category_id" = ANY($4) OR $4 IS NULL) AND
+    ("brand_id" = ANY($5) OR $5 IS NULL) AND
+    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
+    ("name" = ANY($7) OR $7 IS NULL) AND
+    ("description" = ANY($8) OR $8 IS NULL) AND
+    ("is_active" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL) AND
+    ("date_updated" = ANY($13) OR $13 IS NULL) AND
+    ("date_updated" > $14 OR $14 IS NULL) AND
+    ("date_updated" < $15 OR $15 IS NULL) AND
+    ("date_deleted" = ANY($16) OR $16 IS NULL) AND
+    ("date_deleted" > $17 OR $17 IS NULL) AND
+    ("date_deleted" < $18 OR $18 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28
-OFFSET $27
+LIMIT $20
+OFFSET $19
 `
 
 type ListCatalogProductSpuParams struct {
-	ID                []int64              `json:"id"`
-	IDFrom            pgtype.Int8          `json:"id_from"`
-	IDTo              pgtype.Int8          `json:"id_to"`
-	Code              []string             `json:"code"`
-	AccountID         []int64              `json:"account_id"`
-	AccountIDFrom     pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo       pgtype.Int8          `json:"account_id_to"`
-	CategoryID        []int64              `json:"category_id"`
-	CategoryIDFrom    pgtype.Int8          `json:"category_id_from"`
-	CategoryIDTo      pgtype.Int8          `json:"category_id_to"`
-	BrandID           []int64              `json:"brand_id"`
-	BrandIDFrom       pgtype.Int8          `json:"brand_id_from"`
-	BrandIDTo         pgtype.Int8          `json:"brand_id_to"`
-	FeaturedSkuID     []pgtype.Int8        `json:"featured_sku_id"`
-	FeaturedSkuIDFrom pgtype.Int8          `json:"featured_sku_id_from"`
-	FeaturedSkuIDTo   pgtype.Int8          `json:"featured_sku_id_to"`
-	IsActive          []bool               `json:"is_active"`
-	DateCreated       []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
-	DateUpdated       []pgtype.Timestamptz `json:"date_updated"`
-	DateUpdatedFrom   pgtype.Timestamptz   `json:"date_updated_from"`
-	DateUpdatedTo     pgtype.Timestamptz   `json:"date_updated_to"`
-	DateDeleted       []pgtype.Timestamptz `json:"date_deleted"`
-	DateDeletedFrom   pgtype.Timestamptz   `json:"date_deleted_from"`
-	DateDeletedTo     pgtype.Timestamptz   `json:"date_deleted_to"`
-	Offset            pgtype.Int4          `json:"offset"`
-	Limit             pgtype.Int4          `json:"limit"`
+	ID              []int64              `json:"id"`
+	Code            []string             `json:"code"`
+	AccountID       []int64              `json:"account_id"`
+	CategoryID      []int64              `json:"category_id"`
+	BrandID         []int64              `json:"brand_id"`
+	FeaturedSkuID   []pgtype.Int8        `json:"featured_sku_id"`
+	Name            []string             `json:"name"`
+	Description     []string             `json:"description"`
+	IsActive        []bool               `json:"is_active"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	DateUpdated     []pgtype.Timestamptz `json:"date_updated"`
+	DateUpdatedFrom pgtype.Timestamptz   `json:"date_updated_from"`
+	DateUpdatedTo   pgtype.Timestamptz   `json:"date_updated_to"`
+	DateDeleted     []pgtype.Timestamptz `json:"date_deleted"`
+	DateDeletedFrom pgtype.Timestamptz   `json:"date_deleted_from"`
+	DateDeletedTo   pgtype.Timestamptz   `json:"date_deleted_to"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListCatalogProductSpu(ctx context.Context, arg ListCatalogProductSpuParams) ([]CatalogProductSpu, error) {
 	rows, err := q.db.Query(ctx, listCatalogProductSpu,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.CategoryID,
-		arg.CategoryIDFrom,
-		arg.CategoryIDTo,
 		arg.BrandID,
-		arg.BrandIDFrom,
-		arg.BrandIDTo,
 		arg.FeaturedSkuID,
-		arg.FeaturedSkuIDFrom,
-		arg.FeaturedSkuIDTo,
+		arg.Name,
+		arg.Description,
 		arg.IsActive,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -11524,38 +10538,26 @@ SELECT id, spu_id, tag
 FROM "catalog"."product_spu_tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("spu_id" = ANY($4) OR $4 IS NULL) AND
-    ("spu_id" > $5 OR $5 IS NULL) AND
-    ("spu_id" < $6 OR $6 IS NULL) AND
-    ("tag" = ANY($7) OR $7 IS NULL)
+    ("spu_id" = ANY($2) OR $2 IS NULL) AND
+    ("tag" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "id"
-LIMIT $9
-OFFSET $8
+LIMIT $5
+OFFSET $4
 `
 
 type ListCatalogProductSpuTagParams struct {
-	ID        []int64     `json:"id"`
-	IDFrom    pgtype.Int8 `json:"id_from"`
-	IDTo      pgtype.Int8 `json:"id_to"`
-	SpuID     []int64     `json:"spu_id"`
-	SpuIDFrom pgtype.Int8 `json:"spu_id_from"`
-	SpuIDTo   pgtype.Int8 `json:"spu_id_to"`
-	Tag       []string    `json:"tag"`
-	Offset    pgtype.Int4 `json:"offset"`
-	Limit     pgtype.Int4 `json:"limit"`
+	ID     []int64     `json:"id"`
+	SpuID  []int64     `json:"spu_id"`
+	Tag    []string    `json:"tag"`
+	Offset pgtype.Int4 `json:"offset"`
+	Limit  pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListCatalogProductSpuTag(ctx context.Context, arg ListCatalogProductSpuTagParams) ([]CatalogProductSpuTag, error) {
 	rows, err := q.db.Query(ctx, listCatalogProductSpuTag,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SpuID,
-		arg.SpuIDFrom,
-		arg.SpuIDTo,
 		arg.Tag,
 		arg.Offset,
 		arg.Limit,
@@ -11582,21 +10584,28 @@ const listCatalogTag = `-- name: ListCatalogTag :many
 SELECT id, description
 FROM "catalog"."tag"
 WHERE (
-    ("id" = ANY($1) OR $1 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("description" = ANY($2) OR $2 IS NULL)
 )
 ORDER BY "id"
-LIMIT $3
-OFFSET $2
+LIMIT $4
+OFFSET $3
 `
 
 type ListCatalogTagParams struct {
-	ID     []string    `json:"id"`
-	Offset pgtype.Int4 `json:"offset"`
-	Limit  pgtype.Int4 `json:"limit"`
+	ID          []string    `json:"id"`
+	Description []string    `json:"description"`
+	Offset      pgtype.Int4 `json:"offset"`
+	Limit       pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListCatalogTag(ctx context.Context, arg ListCatalogTagParams) ([]CatalogTag, error) {
-	rows, err := q.db.Query(ctx, listCatalogTag, arg.ID, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, listCatalogTag,
+		arg.ID,
+		arg.Description,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -11620,30 +10629,22 @@ SELECT id, serial_id, sku_id, status, date_created
 FROM "inventory"."sku_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("serial_id" = ANY($4) OR $4 IS NULL) AND
-    ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_id" > $6 OR $6 IS NULL) AND
-    ("sku_id" < $7 OR $7 IS NULL) AND
-    ("status" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL)
+    ("serial_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("status" = ANY($4) OR $4 IS NULL) AND
+    ("date_created" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" > $6 OR $6 IS NULL) AND
+    ("date_created" < $7 OR $7 IS NULL)
 )
 ORDER BY "id"
-LIMIT $13
-OFFSET $12
+LIMIT $9
+OFFSET $8
 `
 
 type ListInventorySkuSerialParams struct {
 	ID              []int64                  `json:"id"`
-	IDFrom          pgtype.Int8              `json:"id_from"`
-	IDTo            pgtype.Int8              `json:"id_to"`
 	SerialID        []string                 `json:"serial_id"`
 	SkuID           []int64                  `json:"sku_id"`
-	SkuIDFrom       pgtype.Int8              `json:"sku_id_from"`
-	SkuIDTo         pgtype.Int8              `json:"sku_id_to"`
 	Status          []InventoryProductStatus `json:"status"`
 	DateCreated     []pgtype.Timestamptz     `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz       `json:"date_created_from"`
@@ -11655,12 +10656,8 @@ type ListInventorySkuSerialParams struct {
 func (q *Queries) ListInventorySkuSerial(ctx context.Context, arg ListInventorySkuSerialParams) ([]InventorySkuSerial, error) {
 	rows, err := q.db.Query(ctx, listInventorySkuSerial,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.SerialID,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -11697,35 +10694,27 @@ SELECT id, ref_type, ref_id, current_stock, sold, date_created
 FROM "inventory"."stock"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("current_stock" = ANY($8) OR $8 IS NULL) AND
-    ("current_stock" > $9 OR $9 IS NULL) AND
-    ("current_stock" < $10 OR $10 IS NULL) AND
-    ("sold" = ANY($11) OR $11 IS NULL) AND
-    ("sold" > $12 OR $12 IS NULL) AND
-    ("sold" < $13 OR $13 IS NULL) AND
-    ("date_created" = ANY($14) OR $14 IS NULL) AND
-    ("date_created" > $15 OR $15 IS NULL) AND
-    ("date_created" < $16 OR $16 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("current_stock" = ANY($4) OR $4 IS NULL) AND
+    ("current_stock" > $5 OR $5 IS NULL) AND
+    ("current_stock" < $6 OR $6 IS NULL) AND
+    ("sold" = ANY($7) OR $7 IS NULL) AND
+    ("sold" > $8 OR $8 IS NULL) AND
+    ("sold" < $9 OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $14
+OFFSET $13
 `
 
 type ListInventoryStockParams struct {
 	ID               []int64                 `json:"id"`
-	IDFrom           pgtype.Int8             `json:"id_from"`
-	IDTo             pgtype.Int8             `json:"id_to"`
 	RefType          []InventoryStockRefType `json:"ref_type"`
 	RefID            []int64                 `json:"ref_id"`
-	RefIDFrom        pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8             `json:"ref_id_to"`
 	CurrentStock     []int64                 `json:"current_stock"`
 	CurrentStockFrom pgtype.Int8             `json:"current_stock_from"`
 	CurrentStockTo   pgtype.Int8             `json:"current_stock_to"`
@@ -11742,12 +10731,8 @@ type ListInventoryStockParams struct {
 func (q *Queries) ListInventoryStock(ctx context.Context, arg ListInventoryStockParams) ([]InventoryStock, error) {
 	rows, err := q.db.Query(ctx, listInventoryStock,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.CurrentStock,
 		arg.CurrentStockFrom,
 		arg.CurrentStockTo,
@@ -11790,30 +10775,22 @@ SELECT id, stock_id, change, date_created
 FROM "inventory"."stock_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("stock_id" = ANY($4) OR $4 IS NULL) AND
-    ("stock_id" > $5 OR $5 IS NULL) AND
-    ("stock_id" < $6 OR $6 IS NULL) AND
-    ("change" = ANY($7) OR $7 IS NULL) AND
-    ("change" > $8 OR $8 IS NULL) AND
-    ("change" < $9 OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("stock_id" = ANY($2) OR $2 IS NULL) AND
+    ("change" = ANY($3) OR $3 IS NULL) AND
+    ("change" > $4 OR $4 IS NULL) AND
+    ("change" < $5 OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14
-OFFSET $13
+LIMIT $10
+OFFSET $9
 `
 
 type ListInventoryStockHistoryParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	StockID         []int64              `json:"stock_id"`
-	StockIDFrom     pgtype.Int8          `json:"stock_id_from"`
-	StockIDTo       pgtype.Int8          `json:"stock_id_to"`
 	Change          []int64              `json:"change"`
 	ChangeFrom      pgtype.Int8          `json:"change_from"`
 	ChangeTo        pgtype.Int8          `json:"change_to"`
@@ -11827,11 +10804,7 @@ type ListInventoryStockHistoryParams struct {
 func (q *Queries) ListInventoryStockHistory(ctx context.Context, arg ListInventoryStockHistoryParams) ([]InventoryStockHistory, error) {
 	rows, err := q.db.Query(ctx, listInventoryStockHistory,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.StockID,
-		arg.StockIDFrom,
-		arg.StockIDTo,
 		arg.Change,
 		arg.ChangeFrom,
 		arg.ChangeTo,
@@ -11869,32 +10842,28 @@ SELECT id, account_id, payment_option, payment_status, address, date_created, da
 FROM "order"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("payment_status" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("payment_option" = ANY($3) OR $3 IS NULL) AND
+    ("payment_status" = ANY($4) OR $4 IS NULL) AND
+    ("address" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15
-OFFSET $14
+LIMIT $13
+OFFSET $12
 `
 
 type ListOrderBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	AccountID       []int64              `json:"account_id"`
-	AccountIDFrom   pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo     pgtype.Int8          `json:"account_id_to"`
+	PaymentOption   []string             `json:"payment_option"`
 	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -11908,12 +10877,10 @@ type ListOrderBaseParams struct {
 func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([]OrderBase, error) {
 	rows, err := q.db.Query(ctx, listOrderBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
+		arg.PaymentOption,
 		arg.PaymentStatus,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -11950,50 +10917,36 @@ func (q *Queries) ListOrderBase(ctx context.Context, arg ListOrderBaseParams) ([
 }
 
 const listOrderInvoice = `-- name: ListOrderInvoice :many
-SELECT id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+SELECT id, ref_type, ref_id, type, receiver_id, note, data, date_created
 FROM "order"."invoice"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("receiver_id" = ANY($9) OR $9 IS NULL) AND
-    ("receiver_id" > $10 OR $10 IS NULL) AND
-    ("receiver_id" < $11 OR $11 IS NULL) AND
-    ("data" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" > $14 OR $14 IS NULL) AND
-    ("date_created" < $15 OR $15 IS NULL) AND
-    ("hash" = ANY($16) OR $16 IS NULL) AND
-    ("prev_hash" = ANY($17) OR $17 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("receiver_id" = ANY($5) OR $5 IS NULL) AND
+    ("note" = ANY($6) OR $6 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19
-OFFSET $18
+LIMIT $12
+OFFSET $11
 `
 
 type ListOrderInvoiceParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
 	RefType         []OrderInvoiceRefType `json:"ref_type"`
 	RefID           []int64               `json:"ref_id"`
-	RefIDFrom       pgtype.Int8           `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8           `json:"ref_id_to"`
 	Type            []OrderInvoiceType    `json:"type"`
 	ReceiverID      []int64               `json:"receiver_id"`
-	ReceiverIDFrom  pgtype.Int8           `json:"receiver_id_from"`
-	ReceiverIDTo    pgtype.Int8           `json:"receiver_id_to"`
+	Note            []pgtype.Text         `json:"note"`
 	Data            [][]byte              `json:"data"`
 	DateCreated     []pgtype.Timestamptz  `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz    `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz    `json:"date_created_to"`
-	Hash            [][]byte              `json:"hash"`
-	PrevHash        [][]byte              `json:"prev_hash"`
 	Offset          pgtype.Int4           `json:"offset"`
 	Limit           pgtype.Int4           `json:"limit"`
 }
@@ -12001,22 +10954,15 @@ type ListOrderInvoiceParams struct {
 func (q *Queries) ListOrderInvoice(ctx context.Context, arg ListOrderInvoiceParams) ([]OrderInvoice, error) {
 	rows, err := q.db.Query(ctx, listOrderInvoice,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Type,
 		arg.ReceiverID,
-		arg.ReceiverIDFrom,
-		arg.ReceiverIDTo,
+		arg.Note,
 		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -12035,10 +10981,7 @@ func (q *Queries) ListOrderInvoice(ctx context.Context, arg ListOrderInvoicePara
 			&i.ReceiverID,
 			&i.Note,
 			&i.Data,
-			&i.FileRsID,
 			&i.DateCreated,
-			&i.Hash,
-			&i.PrevHash,
 		); err != nil {
 			return nil, err
 		}
@@ -12055,80 +10998,47 @@ SELECT id, order_id, sku_id, vendor_id, confirmed_by_id, shipment_id, note, stat
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_id" > $5 OR $5 IS NULL) AND
-    ("order_id" < $6 OR $6 IS NULL) AND
-    ("sku_id" = ANY($7) OR $7 IS NULL) AND
-    ("sku_id" > $8 OR $8 IS NULL) AND
-    ("sku_id" < $9 OR $9 IS NULL) AND
-    ("vendor_id" = ANY($10) OR $10 IS NULL) AND
-    ("vendor_id" > $11 OR $11 IS NULL) AND
-    ("vendor_id" < $12 OR $12 IS NULL) AND
-    ("confirmed_by_id" = ANY($13) OR $13 IS NULL) AND
-    ("confirmed_by_id" > $14 OR $14 IS NULL) AND
-    ("confirmed_by_id" < $15 OR $15 IS NULL) AND
-    ("shipment_id" = ANY($16) OR $16 IS NULL) AND
-    ("shipment_id" > $17 OR $17 IS NULL) AND
-    ("shipment_id" < $18 OR $18 IS NULL) AND
-    ("status" = ANY($19) OR $19 IS NULL) AND
-    ("quantity" = ANY($20) OR $20 IS NULL) AND
-    ("quantity" > $21 OR $21 IS NULL) AND
-    ("quantity" < $22 OR $22 IS NULL)
+    ("order_id" = ANY($2) OR $2 IS NULL) AND
+    ("sku_id" = ANY($3) OR $3 IS NULL) AND
+    ("vendor_id" = ANY($4) OR $4 IS NULL) AND
+    ("confirmed_by_id" = ANY($5) OR $5 IS NULL) AND
+    ("shipment_id" = ANY($6) OR $6 IS NULL) AND
+    ("note" = ANY($7) OR $7 IS NULL) AND
+    ("status" = ANY($8) OR $8 IS NULL) AND
+    ("quantity" = ANY($9) OR $9 IS NULL) AND
+    ("quantity" > $10 OR $10 IS NULL) AND
+    ("quantity" < $11 OR $11 IS NULL)
 )
 ORDER BY "id"
-LIMIT $24
-OFFSET $23
+LIMIT $13
+OFFSET $12
 `
 
 type ListOrderItemParams struct {
-	ID                []int64        `json:"id"`
-	IDFrom            pgtype.Int8    `json:"id_from"`
-	IDTo              pgtype.Int8    `json:"id_to"`
-	OrderID           []int64        `json:"order_id"`
-	OrderIDFrom       pgtype.Int8    `json:"order_id_from"`
-	OrderIDTo         pgtype.Int8    `json:"order_id_to"`
-	SkuID             []int64        `json:"sku_id"`
-	SkuIDFrom         pgtype.Int8    `json:"sku_id_from"`
-	SkuIDTo           pgtype.Int8    `json:"sku_id_to"`
-	VendorID          []int64        `json:"vendor_id"`
-	VendorIDFrom      pgtype.Int8    `json:"vendor_id_from"`
-	VendorIDTo        pgtype.Int8    `json:"vendor_id_to"`
-	ConfirmedByID     []pgtype.Int8  `json:"confirmed_by_id"`
-	ConfirmedByIDFrom pgtype.Int8    `json:"confirmed_by_id_from"`
-	ConfirmedByIDTo   pgtype.Int8    `json:"confirmed_by_id_to"`
-	ShipmentID        []int64        `json:"shipment_id"`
-	ShipmentIDFrom    pgtype.Int8    `json:"shipment_id_from"`
-	ShipmentIDTo      pgtype.Int8    `json:"shipment_id_to"`
-	Status            []SharedStatus `json:"status"`
-	Quantity          []int64        `json:"quantity"`
-	QuantityFrom      pgtype.Int8    `json:"quantity_from"`
-	QuantityTo        pgtype.Int8    `json:"quantity_to"`
-	Offset            pgtype.Int4    `json:"offset"`
-	Limit             pgtype.Int4    `json:"limit"`
+	ID            []int64        `json:"id"`
+	OrderID       []int64        `json:"order_id"`
+	SkuID         []int64        `json:"sku_id"`
+	VendorID      []int64        `json:"vendor_id"`
+	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
+	ShipmentID    []int64        `json:"shipment_id"`
+	Note          []string       `json:"note"`
+	Status        []SharedStatus `json:"status"`
+	Quantity      []int64        `json:"quantity"`
+	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
+	QuantityTo    pgtype.Int8    `json:"quantity_to"`
+	Offset        pgtype.Int4    `json:"offset"`
+	Limit         pgtype.Int4    `json:"limit"`
 }
 
 func (q *Queries) ListOrderItem(ctx context.Context, arg ListOrderItemParams) ([]OrderItem, error) {
 	rows, err := q.db.Query(ctx, listOrderItem,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.OrderID,
-		arg.OrderIDFrom,
-		arg.OrderIDTo,
 		arg.SkuID,
-		arg.SkuIDFrom,
-		arg.SkuIDTo,
 		arg.VendorID,
-		arg.VendorIDFrom,
-		arg.VendorIDTo,
 		arg.ConfirmedByID,
-		arg.ConfirmedByIDFrom,
-		arg.ConfirmedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
+		arg.Note,
 		arg.Status,
 		arg.Quantity,
 		arg.QuantityFrom,
@@ -12169,45 +11079,27 @@ SELECT id, order_item_id, product_serial_id
 FROM "order"."item_serial"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("order_item_id" = ANY($4) OR $4 IS NULL) AND
-    ("order_item_id" > $5 OR $5 IS NULL) AND
-    ("order_item_id" < $6 OR $6 IS NULL) AND
-    ("product_serial_id" = ANY($7) OR $7 IS NULL) AND
-    ("product_serial_id" > $8 OR $8 IS NULL) AND
-    ("product_serial_id" < $9 OR $9 IS NULL)
+    ("order_item_id" = ANY($2) OR $2 IS NULL) AND
+    ("product_serial_id" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "id"
-LIMIT $11
-OFFSET $10
+LIMIT $5
+OFFSET $4
 `
 
 type ListOrderItemSerialParams struct {
-	ID                  []int64     `json:"id"`
-	IDFrom              pgtype.Int8 `json:"id_from"`
-	IDTo                pgtype.Int8 `json:"id_to"`
-	OrderItemID         []int64     `json:"order_item_id"`
-	OrderItemIDFrom     pgtype.Int8 `json:"order_item_id_from"`
-	OrderItemIDTo       pgtype.Int8 `json:"order_item_id_to"`
-	ProductSerialID     []int64     `json:"product_serial_id"`
-	ProductSerialIDFrom pgtype.Int8 `json:"product_serial_id_from"`
-	ProductSerialIDTo   pgtype.Int8 `json:"product_serial_id_to"`
-	Offset              pgtype.Int4 `json:"offset"`
-	Limit               pgtype.Int4 `json:"limit"`
+	ID              []int64     `json:"id"`
+	OrderItemID     []int64     `json:"order_item_id"`
+	ProductSerialID []int64     `json:"product_serial_id"`
+	Offset          pgtype.Int4 `json:"offset"`
+	Limit           pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListOrderItemSerial(ctx context.Context, arg ListOrderItemSerialParams) ([]OrderItemSerial, error) {
 	rows, err := q.db.Query(ctx, listOrderItemSerial,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
 		arg.ProductSerialID,
-		arg.ProductSerialIDFrom,
-		arg.ProductSerialIDTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -12234,75 +11126,51 @@ SELECT id, account_id, order_item_id, reviewed_by_id, shipment_id, method, statu
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("account_id" = ANY($4) OR $4 IS NULL) AND
-    ("account_id" > $5 OR $5 IS NULL) AND
-    ("account_id" < $6 OR $6 IS NULL) AND
-    ("order_item_id" = ANY($7) OR $7 IS NULL) AND
-    ("order_item_id" > $8 OR $8 IS NULL) AND
-    ("order_item_id" < $9 OR $9 IS NULL) AND
-    ("reviewed_by_id" = ANY($10) OR $10 IS NULL) AND
-    ("reviewed_by_id" > $11 OR $11 IS NULL) AND
-    ("reviewed_by_id" < $12 OR $12 IS NULL) AND
-    ("shipment_id" = ANY($13) OR $13 IS NULL) AND
-    ("shipment_id" > $14 OR $14 IS NULL) AND
-    ("shipment_id" < $15 OR $15 IS NULL) AND
-    ("method" = ANY($16) OR $16 IS NULL) AND
-    ("status" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("reviewed_by_id" = ANY($4) OR $4 IS NULL) AND
+    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("status" = ANY($7) OR $7 IS NULL) AND
+    ("reason" = ANY($8) OR $8 IS NULL) AND
+    ("address" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" > $11 OR $11 IS NULL) AND
+    ("date_created" < $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $22
-OFFSET $21
+LIMIT $14
+OFFSET $13
 `
 
 type ListOrderRefundParams struct {
-	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
-	AccountID        []int64              `json:"account_id"`
-	AccountIDFrom    pgtype.Int8          `json:"account_id_from"`
-	AccountIDTo      pgtype.Int8          `json:"account_id_to"`
-	OrderItemID      []int64              `json:"order_item_id"`
-	OrderItemIDFrom  pgtype.Int8          `json:"order_item_id_from"`
-	OrderItemIDTo    pgtype.Int8          `json:"order_item_id_to"`
-	ReviewedByID     []pgtype.Int8        `json:"reviewed_by_id"`
-	ReviewedByIDFrom pgtype.Int8          `json:"reviewed_by_id_from"`
-	ReviewedByIDTo   pgtype.Int8          `json:"reviewed_by_id_to"`
-	ShipmentID       []pgtype.Int8        `json:"shipment_id"`
-	ShipmentIDFrom   pgtype.Int8          `json:"shipment_id_from"`
-	ShipmentIDTo     pgtype.Int8          `json:"shipment_id_to"`
-	Method           []OrderRefundMethod  `json:"method"`
-	Status           []SharedStatus       `json:"status"`
-	DateCreated      []pgtype.Timestamptz `json:"date_created"`
-	DateCreatedFrom  pgtype.Timestamptz   `json:"date_created_from"`
-	DateCreatedTo    pgtype.Timestamptz   `json:"date_created_to"`
-	Offset           pgtype.Int4          `json:"offset"`
-	Limit            pgtype.Int4          `json:"limit"`
+	ID              []int64              `json:"id"`
+	AccountID       []int64              `json:"account_id"`
+	OrderItemID     []int64              `json:"order_item_id"`
+	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
+	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
+	Method          []OrderRefundMethod  `json:"method"`
+	Status          []SharedStatus       `json:"status"`
+	Reason          []string             `json:"reason"`
+	Address         []pgtype.Text        `json:"address"`
+	DateCreated     []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
+	Offset          pgtype.Int4          `json:"offset"`
+	Limit           pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListOrderRefund(ctx context.Context, arg ListOrderRefundParams) ([]OrderRefund, error) {
 	rows, err := q.db.Query(ctx, listOrderRefund,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.AccountID,
-		arg.AccountIDFrom,
-		arg.AccountIDTo,
 		arg.OrderItemID,
-		arg.OrderItemIDFrom,
-		arg.OrderItemIDTo,
 		arg.ReviewedByID,
-		arg.ReviewedByIDFrom,
-		arg.ReviewedByIDTo,
 		arg.ShipmentID,
-		arg.ShipmentIDFrom,
-		arg.ShipmentIDTo,
 		arg.Method,
 		arg.Status,
+		arg.Reason,
+		arg.Address,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -12343,37 +11211,27 @@ SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("refund_id" = ANY($4) OR $4 IS NULL) AND
-    ("refund_id" > $5 OR $5 IS NULL) AND
-    ("refund_id" < $6 OR $6 IS NULL) AND
-    ("issued_by_id" = ANY($7) OR $7 IS NULL) AND
-    ("issued_by_id" > $8 OR $8 IS NULL) AND
-    ("issued_by_id" < $9 OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL)
+    ("refund_id" = ANY($2) OR $2 IS NULL) AND
+    ("issued_by_id" = ANY($3) OR $3 IS NULL) AND
+    ("reason" = ANY($4) OR $4 IS NULL) AND
+    ("status" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18
-OFFSET $17
+LIMIT $13
+OFFSET $12
 `
 
 type ListOrderRefundDisputeParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	RefundID        []int64              `json:"refund_id"`
-	RefundIDFrom    pgtype.Int8          `json:"refund_id_from"`
-	RefundIDTo      pgtype.Int8          `json:"refund_id_to"`
 	IssuedByID      []int64              `json:"issued_by_id"`
-	IssuedByIDFrom  pgtype.Int8          `json:"issued_by_id_from"`
-	IssuedByIDTo    pgtype.Int8          `json:"issued_by_id_to"`
+	Reason          []string             `json:"reason"`
 	Status          []SharedStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -12388,14 +11246,9 @@ type ListOrderRefundDisputeParams struct {
 func (q *Queries) ListOrderRefundDispute(ctx context.Context, arg ListOrderRefundDisputeParams) ([]OrderRefundDispute, error) {
 	rows, err := q.db.Query(ctx, listOrderRefundDispute,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefundID,
-		arg.RefundIDFrom,
-		arg.RefundIDTo,
 		arg.IssuedByID,
-		arg.IssuedByIDFrom,
-		arg.IssuedByIDTo,
+		arg.Reason,
 		arg.Status,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -12437,44 +11290,46 @@ SELECT id, option, tracking_code, status, label_url, cost, new_cost, date_eta, f
 FROM "order"."shipment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
+    ("option" = ANY($2) OR $2 IS NULL) AND
+    ("tracking_code" = ANY($3) OR $3 IS NULL) AND
     ("status" = ANY($4) OR $4 IS NULL) AND
-    ("cost" = ANY($5) OR $5 IS NULL) AND
-    ("cost" > $6 OR $6 IS NULL) AND
-    ("cost" < $7 OR $7 IS NULL) AND
-    ("new_cost" = ANY($8) OR $8 IS NULL) AND
-    ("new_cost" > $9 OR $9 IS NULL) AND
-    ("new_cost" < $10 OR $10 IS NULL) AND
-    ("date_eta" = ANY($11) OR $11 IS NULL) AND
-    ("date_eta" > $12 OR $12 IS NULL) AND
-    ("date_eta" < $13 OR $13 IS NULL) AND
-    ("weight_grams" = ANY($14) OR $14 IS NULL) AND
-    ("weight_grams" > $15 OR $15 IS NULL) AND
-    ("weight_grams" < $16 OR $16 IS NULL) AND
-    ("length_cm" = ANY($17) OR $17 IS NULL) AND
-    ("length_cm" > $18 OR $18 IS NULL) AND
-    ("length_cm" < $19 OR $19 IS NULL) AND
-    ("width_cm" = ANY($20) OR $20 IS NULL) AND
-    ("width_cm" > $21 OR $21 IS NULL) AND
-    ("width_cm" < $22 OR $22 IS NULL) AND
-    ("height_cm" = ANY($23) OR $23 IS NULL) AND
-    ("height_cm" > $24 OR $24 IS NULL) AND
-    ("height_cm" < $25 OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("label_url" = ANY($5) OR $5 IS NULL) AND
+    ("cost" = ANY($6) OR $6 IS NULL) AND
+    ("cost" > $7 OR $7 IS NULL) AND
+    ("cost" < $8 OR $8 IS NULL) AND
+    ("new_cost" = ANY($9) OR $9 IS NULL) AND
+    ("new_cost" > $10 OR $10 IS NULL) AND
+    ("new_cost" < $11 OR $11 IS NULL) AND
+    ("date_eta" = ANY($12) OR $12 IS NULL) AND
+    ("date_eta" > $13 OR $13 IS NULL) AND
+    ("date_eta" < $14 OR $14 IS NULL) AND
+    ("from_address" = ANY($15) OR $15 IS NULL) AND
+    ("to_address" = ANY($16) OR $16 IS NULL) AND
+    ("weight_grams" = ANY($17) OR $17 IS NULL) AND
+    ("weight_grams" > $18 OR $18 IS NULL) AND
+    ("weight_grams" < $19 OR $19 IS NULL) AND
+    ("length_cm" = ANY($20) OR $20 IS NULL) AND
+    ("length_cm" > $21 OR $21 IS NULL) AND
+    ("length_cm" < $22 OR $22 IS NULL) AND
+    ("width_cm" = ANY($23) OR $23 IS NULL) AND
+    ("height_cm" = ANY($24) OR $24 IS NULL) AND
+    ("height_cm" > $25 OR $25 IS NULL) AND
+    ("height_cm" < $26 OR $26 IS NULL) AND
+    ("date_created" = ANY($27) OR $27 IS NULL) AND
+    ("date_created" > $28 OR $28 IS NULL) AND
+    ("date_created" < $29 OR $29 IS NULL)
 )
 ORDER BY "id"
-LIMIT $30
-OFFSET $29
+LIMIT $31
+OFFSET $30
 `
 
 type ListOrderShipmentParams struct {
 	ID              []int64               `json:"id"`
-	IDFrom          pgtype.Int8           `json:"id_from"`
-	IDTo            pgtype.Int8           `json:"id_to"`
+	Option          []string              `json:"option"`
+	TrackingCode    []pgtype.Text         `json:"tracking_code"`
 	Status          []OrderShipmentStatus `json:"status"`
+	LabelUrl        []pgtype.Text         `json:"label_url"`
 	Cost            []int64               `json:"cost"`
 	CostFrom        pgtype.Int8           `json:"cost_from"`
 	CostTo          pgtype.Int8           `json:"cost_to"`
@@ -12484,6 +11339,8 @@ type ListOrderShipmentParams struct {
 	DateEta         []pgtype.Timestamptz  `json:"date_eta"`
 	DateEtaFrom     pgtype.Timestamptz    `json:"date_eta_from"`
 	DateEtaTo       pgtype.Timestamptz    `json:"date_eta_to"`
+	FromAddress     []string              `json:"from_address"`
+	ToAddress       []string              `json:"to_address"`
 	WeightGrams     []int32               `json:"weight_grams"`
 	WeightGramsFrom pgtype.Int4           `json:"weight_grams_from"`
 	WeightGramsTo   pgtype.Int4           `json:"weight_grams_to"`
@@ -12491,8 +11348,6 @@ type ListOrderShipmentParams struct {
 	LengthCmFrom    pgtype.Int4           `json:"length_cm_from"`
 	LengthCmTo      pgtype.Int4           `json:"length_cm_to"`
 	WidthCm         []int32               `json:"width_cm"`
-	WidthCmFrom     pgtype.Int4           `json:"width_cm_from"`
-	WidthCmTo       pgtype.Int4           `json:"width_cm_to"`
 	HeightCm        []int32               `json:"height_cm"`
 	HeightCmFrom    pgtype.Int4           `json:"height_cm_from"`
 	HeightCmTo      pgtype.Int4           `json:"height_cm_to"`
@@ -12506,9 +11361,10 @@ type ListOrderShipmentParams struct {
 func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentParams) ([]OrderShipment, error) {
 	rows, err := q.db.Query(ctx, listOrderShipment,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
+		arg.Option,
+		arg.TrackingCode,
 		arg.Status,
+		arg.LabelUrl,
 		arg.Cost,
 		arg.CostFrom,
 		arg.CostTo,
@@ -12518,6 +11374,8 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 		arg.DateEta,
 		arg.DateEtaFrom,
 		arg.DateEtaTo,
+		arg.FromAddress,
+		arg.ToAddress,
 		arg.WeightGrams,
 		arg.WeightGramsFrom,
 		arg.WeightGramsTo,
@@ -12525,8 +11383,6 @@ func (q *Queries) ListOrderShipment(ctx context.Context, arg ListOrderShipmentPa
 		arg.LengthCmFrom,
 		arg.LengthCmTo,
 		arg.WidthCm,
-		arg.WidthCmFrom,
-		arg.WidthCmTo,
 		arg.HeightCm,
 		arg.HeightCmFrom,
 		arg.HeightCmTo,
@@ -12575,42 +11431,38 @@ SELECT id, code, owner_id, type, title, description, is_active, auto_apply, date
 FROM "promotion"."base"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("code" = ANY($4) OR $4 IS NULL) AND
-    ("owner_id" = ANY($5) OR $5 IS NULL) AND
-    ("owner_id" > $6 OR $6 IS NULL) AND
-    ("owner_id" < $7 OR $7 IS NULL) AND
-    ("type" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("auto_apply" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" = ANY($11) OR $11 IS NULL) AND
-    ("date_started" > $12 OR $12 IS NULL) AND
-    ("date_started" < $13 OR $13 IS NULL) AND
-    ("date_ended" = ANY($14) OR $14 IS NULL) AND
-    ("date_ended" > $15 OR $15 IS NULL) AND
-    ("date_ended" < $16 OR $16 IS NULL) AND
-    ("date_created" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" > $18 OR $18 IS NULL) AND
-    ("date_created" < $19 OR $19 IS NULL) AND
-    ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("code" = ANY($2) OR $2 IS NULL) AND
+    ("owner_id" = ANY($3) OR $3 IS NULL) AND
+    ("type" = ANY($4) OR $4 IS NULL) AND
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("description" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
+    ("date_started" = ANY($9) OR $9 IS NULL) AND
+    ("date_started" > $10 OR $10 IS NULL) AND
+    ("date_started" < $11 OR $11 IS NULL) AND
+    ("date_ended" = ANY($12) OR $12 IS NULL) AND
+    ("date_ended" > $13 OR $13 IS NULL) AND
+    ("date_ended" < $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" > $16 OR $16 IS NULL) AND
+    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_updated" = ANY($18) OR $18 IS NULL) AND
+    ("date_updated" > $19 OR $19 IS NULL) AND
+    ("date_updated" < $20 OR $20 IS NULL)
 )
 ORDER BY "id"
-LIMIT $24
-OFFSET $23
+LIMIT $22
+OFFSET $21
 `
 
 type ListPromotionBaseParams struct {
 	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
 	Code            []string             `json:"code"`
 	OwnerID         []pgtype.Int8        `json:"owner_id"`
-	OwnerIDFrom     pgtype.Int8          `json:"owner_id_from"`
-	OwnerIDTo       pgtype.Int8          `json:"owner_id_to"`
 	Type            []PromotionType      `json:"type"`
+	Title           []string             `json:"title"`
+	Description     []pgtype.Text        `json:"description"`
 	IsActive        []bool               `json:"is_active"`
 	AutoApply       []bool               `json:"auto_apply"`
 	DateStarted     []pgtype.Timestamptz `json:"date_started"`
@@ -12632,13 +11484,11 @@ type ListPromotionBaseParams struct {
 func (q *Queries) ListPromotionBase(ctx context.Context, arg ListPromotionBaseParams) ([]PromotionBase, error) {
 	rows, err := q.db.Query(ctx, listPromotionBase,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.Code,
 		arg.OwnerID,
-		arg.OwnerIDFrom,
-		arg.OwnerIDTo,
 		arg.Type,
+		arg.Title,
+		arg.Description,
 		arg.IsActive,
 		arg.AutoApply,
 		arg.DateStarted,
@@ -12692,30 +11542,26 @@ SELECT id, min_spend, max_discount, discount_percent, discount_price
 FROM "promotion"."discount"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("min_spend" = ANY($4) OR $4 IS NULL) AND
-    ("min_spend" > $5 OR $5 IS NULL) AND
-    ("min_spend" < $6 OR $6 IS NULL) AND
-    ("max_discount" = ANY($7) OR $7 IS NULL) AND
-    ("max_discount" > $8 OR $8 IS NULL) AND
-    ("max_discount" < $9 OR $9 IS NULL) AND
-    ("discount_percent" = ANY($10) OR $10 IS NULL) AND
-    ("discount_percent" > $11 OR $11 IS NULL) AND
-    ("discount_percent" < $12 OR $12 IS NULL) AND
-    ("discount_price" = ANY($13) OR $13 IS NULL) AND
-    ("discount_price" > $14 OR $14 IS NULL) AND
-    ("discount_price" < $15 OR $15 IS NULL)
+    ("min_spend" = ANY($2) OR $2 IS NULL) AND
+    ("min_spend" > $3 OR $3 IS NULL) AND
+    ("min_spend" < $4 OR $4 IS NULL) AND
+    ("max_discount" = ANY($5) OR $5 IS NULL) AND
+    ("max_discount" > $6 OR $6 IS NULL) AND
+    ("max_discount" < $7 OR $7 IS NULL) AND
+    ("discount_percent" = ANY($8) OR $8 IS NULL) AND
+    ("discount_percent" > $9 OR $9 IS NULL) AND
+    ("discount_percent" < $10 OR $10 IS NULL) AND
+    ("discount_price" = ANY($11) OR $11 IS NULL) AND
+    ("discount_price" > $12 OR $12 IS NULL) AND
+    ("discount_price" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $15
+OFFSET $14
 `
 
 type ListPromotionDiscountParams struct {
 	ID                  []int64       `json:"id"`
-	IDFrom              pgtype.Int8   `json:"id_from"`
-	IDTo                pgtype.Int8   `json:"id_to"`
 	MinSpend            []int64       `json:"min_spend"`
 	MinSpendFrom        pgtype.Int8   `json:"min_spend_from"`
 	MinSpendTo          pgtype.Int8   `json:"min_spend_to"`
@@ -12735,8 +11581,6 @@ type ListPromotionDiscountParams struct {
 func (q *Queries) ListPromotionDiscount(ctx context.Context, arg ListPromotionDiscountParams) ([]PromotionDiscount, error) {
 	rows, err := q.db.Query(ctx, listPromotionDiscount,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.MinSpend,
 		arg.MinSpendFrom,
 		arg.MinSpendTo,
@@ -12781,48 +11625,30 @@ SELECT id, promotion_id, ref_type, ref_id
 FROM "promotion"."ref"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("ref_type" = ANY($7) OR $7 IS NULL) AND
-    ("ref_id" = ANY($8) OR $8 IS NULL) AND
-    ("ref_id" > $9 OR $9 IS NULL) AND
-    ("ref_id" < $10 OR $10 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
-LIMIT $12
-OFFSET $11
+LIMIT $6
+OFFSET $5
 `
 
 type ListPromotionRefParams struct {
-	ID              []int64            `json:"id"`
-	IDFrom          pgtype.Int8        `json:"id_from"`
-	IDTo            pgtype.Int8        `json:"id_to"`
-	PromotionID     []int64            `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8        `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8        `json:"promotion_id_to"`
-	RefType         []PromotionRefType `json:"ref_type"`
-	RefID           []int64            `json:"ref_id"`
-	RefIDFrom       pgtype.Int8        `json:"ref_id_from"`
-	RefIDTo         pgtype.Int8        `json:"ref_id_to"`
-	Offset          pgtype.Int4        `json:"offset"`
-	Limit           pgtype.Int4        `json:"limit"`
+	ID          []int64            `json:"id"`
+	PromotionID []int64            `json:"promotion_id"`
+	RefType     []PromotionRefType `json:"ref_type"`
+	RefID       []int64            `json:"ref_id"`
+	Offset      pgtype.Int4        `json:"offset"`
+	Limit       pgtype.Int4        `json:"limit"`
 }
 
 func (q *Queries) ListPromotionRef(ctx context.Context, arg ListPromotionRefParams) ([]PromotionRef, error) {
 	rows, err := q.db.Query(ctx, listPromotionRef,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -12854,54 +11680,48 @@ SELECT id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
 FROM "promotion"."schedule"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("promotion_id" = ANY($4) OR $4 IS NULL) AND
-    ("promotion_id" > $5 OR $5 IS NULL) AND
-    ("promotion_id" < $6 OR $6 IS NULL) AND
-    ("duration" = ANY($7) OR $7 IS NULL) AND
-    ("duration" > $8 OR $8 IS NULL) AND
-    ("duration" < $9 OR $9 IS NULL) AND
-    ("next_run_at" = ANY($10) OR $10 IS NULL) AND
-    ("next_run_at" > $11 OR $11 IS NULL) AND
-    ("next_run_at" < $12 OR $12 IS NULL) AND
-    ("last_run_at" = ANY($13) OR $13 IS NULL) AND
-    ("last_run_at" > $14 OR $14 IS NULL) AND
-    ("last_run_at" < $15 OR $15 IS NULL)
+    ("promotion_id" = ANY($2) OR $2 IS NULL) AND
+    ("timezone" = ANY($3) OR $3 IS NULL) AND
+    ("cron_rule" = ANY($4) OR $4 IS NULL) AND
+    ("duration" = ANY($5) OR $5 IS NULL) AND
+    ("duration" > $6 OR $6 IS NULL) AND
+    ("duration" < $7 OR $7 IS NULL) AND
+    ("next_run_at" = ANY($8) OR $8 IS NULL) AND
+    ("next_run_at" > $9 OR $9 IS NULL) AND
+    ("next_run_at" < $10 OR $10 IS NULL) AND
+    ("last_run_at" = ANY($11) OR $11 IS NULL) AND
+    ("last_run_at" > $12 OR $12 IS NULL) AND
+    ("last_run_at" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $15
+OFFSET $14
 `
 
 type ListPromotionScheduleParams struct {
-	ID              []int64              `json:"id"`
-	IDFrom          pgtype.Int8          `json:"id_from"`
-	IDTo            pgtype.Int8          `json:"id_to"`
-	PromotionID     []int64              `json:"promotion_id"`
-	PromotionIDFrom pgtype.Int8          `json:"promotion_id_from"`
-	PromotionIDTo   pgtype.Int8          `json:"promotion_id_to"`
-	Duration        []int32              `json:"duration"`
-	DurationFrom    pgtype.Int4          `json:"duration_from"`
-	DurationTo      pgtype.Int4          `json:"duration_to"`
-	NextRunAt       []pgtype.Timestamptz `json:"next_run_at"`
-	NextRunAtFrom   pgtype.Timestamptz   `json:"next_run_at_from"`
-	NextRunAtTo     pgtype.Timestamptz   `json:"next_run_at_to"`
-	LastRunAt       []pgtype.Timestamptz `json:"last_run_at"`
-	LastRunAtFrom   pgtype.Timestamptz   `json:"last_run_at_from"`
-	LastRunAtTo     pgtype.Timestamptz   `json:"last_run_at_to"`
-	Offset          pgtype.Int4          `json:"offset"`
-	Limit           pgtype.Int4          `json:"limit"`
+	ID            []int64              `json:"id"`
+	PromotionID   []int64              `json:"promotion_id"`
+	Timezone      []string             `json:"timezone"`
+	CronRule      []string             `json:"cron_rule"`
+	Duration      []int32              `json:"duration"`
+	DurationFrom  pgtype.Int4          `json:"duration_from"`
+	DurationTo    pgtype.Int4          `json:"duration_to"`
+	NextRunAt     []pgtype.Timestamptz `json:"next_run_at"`
+	NextRunAtFrom pgtype.Timestamptz   `json:"next_run_at_from"`
+	NextRunAtTo   pgtype.Timestamptz   `json:"next_run_at_to"`
+	LastRunAt     []pgtype.Timestamptz `json:"last_run_at"`
+	LastRunAtFrom pgtype.Timestamptz   `json:"last_run_at_from"`
+	LastRunAtTo   pgtype.Timestamptz   `json:"last_run_at_to"`
+	Offset        pgtype.Int4          `json:"offset"`
+	Limit         pgtype.Int4          `json:"limit"`
 }
 
 func (q *Queries) ListPromotionSchedule(ctx context.Context, arg ListPromotionScheduleParams) ([]PromotionSchedule, error) {
 	rows, err := q.db.Query(ctx, listPromotionSchedule,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.PromotionID,
-		arg.PromotionIDFrom,
-		arg.PromotionIDTo,
+		arg.Timezone,
+		arg.CronRule,
 		arg.Duration,
 		arg.DurationFrom,
 		arg.DurationTo,
@@ -12948,19 +11768,22 @@ WHERE (
     ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
     ("uploaded_by" > $3 OR $3 IS NULL) AND
     ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("object_key" = ANY($5) OR $5 IS NULL) AND
-    ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
-    ("metadata" = ANY($9) OR $9 IS NULL) AND
-    ("status" = ANY($10) OR $10 IS NULL) AND
-    ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15
-OFFSET $14
+LIMIT $18
+OFFSET $17
 `
 
 type ListSharedResourceParams struct {
@@ -12968,11 +11791,14 @@ type ListSharedResourceParams struct {
 	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
 	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
 	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
 	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
 	Size           []int64              `json:"size"`
 	SizeFrom       pgtype.Int8          `json:"size_from"`
 	SizeTo         pgtype.Int8          `json:"size_to"`
 	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
 	Status         []SharedStatus       `json:"status"`
 	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
 	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
@@ -12987,11 +11813,14 @@ func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResource
 		arg.UploadedBy,
 		arg.UploadedByFrom,
 		arg.UploadedByTo,
+		arg.Provider,
 		arg.ObjectKey,
+		arg.Mime,
 		arg.Size,
 		arg.SizeFrom,
 		arg.SizeTo,
 		arg.Metadata,
+		arg.Checksum,
 		arg.Status,
 		arg.CreatedAt,
 		arg.CreatedAtFrom,
@@ -13033,32 +11862,24 @@ SELECT id, rs_id, ref_type, ref_id, "order", is_primary
 FROM "shared"."resource_reference"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("rs_id" = ANY($4) OR $4 IS NULL) AND
-    ("ref_type" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" = ANY($6) OR $6 IS NULL) AND
-    ("ref_id" > $7 OR $7 IS NULL) AND
-    ("ref_id" < $8 OR $8 IS NULL) AND
-    ("order" = ANY($9) OR $9 IS NULL) AND
-    ("order" > $10 OR $10 IS NULL) AND
-    ("order" < $11 OR $11 IS NULL) AND
-    ("is_primary" = ANY($12) OR $12 IS NULL)
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14
-OFFSET $13
+LIMIT $10
+OFFSET $9
 `
 
 type ListSharedResourceReferenceParams struct {
 	ID        []int64                 `json:"id"`
-	IDFrom    pgtype.Int8             `json:"id_from"`
-	IDTo      pgtype.Int8             `json:"id_to"`
 	RsID      []pgtype.UUID           `json:"rs_id"`
 	RefType   []SharedResourceRefType `json:"ref_type"`
 	RefID     []int64                 `json:"ref_id"`
-	RefIDFrom pgtype.Int8             `json:"ref_id_from"`
-	RefIDTo   pgtype.Int8             `json:"ref_id_to"`
 	Order     []int32                 `json:"order"`
 	OrderFrom pgtype.Int4             `json:"order_from"`
 	OrderTo   pgtype.Int4             `json:"order_to"`
@@ -13070,13 +11891,9 @@ type ListSharedResourceReferenceParams struct {
 func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error) {
 	rows, err := q.db.Query(ctx, listSharedResourceReference,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RsID,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.Order,
 		arg.OrderFrom,
 		arg.OrderTo,
@@ -13114,29 +11931,44 @@ SELECT id, category, name, description, provider, method, is_active, "order"
 FROM "shared"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL) AND
-    ("order" = ANY($3) OR $3 IS NULL) AND
-    ("order" > $4 OR $4 IS NULL) AND
-    ("order" < $5 OR $5 IS NULL)
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
 )
 ORDER BY "id"
-LIMIT $7
-OFFSET $6
+LIMIT $12
+OFFSET $11
 `
 
 type ListSharedServiceOptionParams struct {
-	ID        []string    `json:"id"`
-	IsActive  []bool      `json:"is_active"`
-	Order     []int32     `json:"order"`
-	OrderFrom pgtype.Int4 `json:"order_from"`
-	OrderTo   pgtype.Int4 `json:"order_to"`
-	Offset    pgtype.Int4 `json:"offset"`
-	Limit     pgtype.Int4 `json:"limit"`
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
+	Offset      pgtype.Int4 `json:"offset"`
+	Limit       pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListSharedServiceOption(ctx context.Context, arg ListSharedServiceOptionParams) ([]SharedServiceOption, error) {
 	rows, err := q.db.Query(ctx, listSharedServiceOption,
 		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
 		arg.IsActive,
 		arg.Order,
 		arg.OrderFrom,
@@ -13171,39 +12003,106 @@ func (q *Queries) ListSharedServiceOption(ctx context.Context, arg ListSharedSer
 	return items, nil
 }
 
+const listSystemOutboxEvent = `-- name: ListSystemOutboxEvent :many
+SELECT id, topic, data, processed, date_processed, date_created
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("topic" = ANY($2) OR $2 IS NULL) AND
+    ("data" = ANY($3) OR $3 IS NULL) AND
+    ("processed" = ANY($4) OR $4 IS NULL) AND
+    ("date_processed" = ANY($5) OR $5 IS NULL) AND
+    ("date_processed" > $6 OR $6 IS NULL) AND
+    ("date_processed" < $7 OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" > $9 OR $9 IS NULL) AND
+    ("date_created" < $10 OR $10 IS NULL)
+)
+ORDER BY "id"
+LIMIT $12
+OFFSET $11
+`
+
+type ListSystemOutboxEventParams struct {
+	ID                []int64              `json:"id"`
+	Topic             []string             `json:"topic"`
+	Data              [][]byte             `json:"data"`
+	Processed         []bool               `json:"processed"`
+	DateProcessed     []pgtype.Timestamptz `json:"date_processed"`
+	DateProcessedFrom pgtype.Timestamptz   `json:"date_processed_from"`
+	DateProcessedTo   pgtype.Timestamptz   `json:"date_processed_to"`
+	DateCreated       []pgtype.Timestamptz `json:"date_created"`
+	DateCreatedFrom   pgtype.Timestamptz   `json:"date_created_from"`
+	DateCreatedTo     pgtype.Timestamptz   `json:"date_created_to"`
+	Offset            pgtype.Int4          `json:"offset"`
+	Limit             pgtype.Int4          `json:"limit"`
+}
+
+func (q *Queries) ListSystemOutboxEvent(ctx context.Context, arg ListSystemOutboxEventParams) ([]SystemOutboxEvent, error) {
+	rows, err := q.db.Query(ctx, listSystemOutboxEvent,
+		arg.ID,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.DateProcessed,
+		arg.DateProcessedFrom,
+		arg.DateProcessedTo,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SystemOutboxEvent{}
+	for rows.Next() {
+		var i SystemOutboxEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Topic,
+			&i.Data,
+			&i.Processed,
+			&i.DateProcessed,
+			&i.DateCreated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSystemSearchSync = `-- name: ListSystemSearchSync :many
 SELECT id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 FROM "system"."search_sync"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("id" > $2 OR $2 IS NULL) AND
-    ("id" < $3 OR $3 IS NULL) AND
-    ("ref_type" = ANY($4) OR $4 IS NULL) AND
-    ("ref_id" = ANY($5) OR $5 IS NULL) AND
-    ("ref_id" > $6 OR $6 IS NULL) AND
-    ("ref_id" < $7 OR $7 IS NULL) AND
-    ("is_stale_embedding" = ANY($8) OR $8 IS NULL) AND
-    ("is_stale_metadata" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL) AND
-    ("date_updated" = ANY($13) OR $13 IS NULL) AND
-    ("date_updated" > $14 OR $14 IS NULL) AND
-    ("date_updated" < $15 OR $15 IS NULL)
+    ("ref_type" = ANY($2) OR $2 IS NULL) AND
+    ("ref_id" = ANY($3) OR $3 IS NULL) AND
+    ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
+    ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
+    ("date_created" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" > $7 OR $7 IS NULL) AND
+    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_updated" = ANY($9) OR $9 IS NULL) AND
+    ("date_updated" > $10 OR $10 IS NULL) AND
+    ("date_updated" < $11 OR $11 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $13
+OFFSET $12
 `
 
 type ListSystemSearchSyncParams struct {
 	ID               []int64              `json:"id"`
-	IDFrom           pgtype.Int8          `json:"id_from"`
-	IDTo             pgtype.Int8          `json:"id_to"`
 	RefType          []string             `json:"ref_type"`
 	RefID            []int64              `json:"ref_id"`
-	RefIDFrom        pgtype.Int8          `json:"ref_id_from"`
-	RefIDTo          pgtype.Int8          `json:"ref_id_to"`
 	IsStaleEmbedding []bool               `json:"is_stale_embedding"`
 	IsStaleMetadata  []bool               `json:"is_stale_metadata"`
 	DateCreated      []pgtype.Timestamptz `json:"date_created"`
@@ -13219,12 +12118,8 @@ type ListSystemSearchSyncParams struct {
 func (q *Queries) ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error) {
 	rows, err := q.db.Query(ctx, listSystemSearchSync,
 		arg.ID,
-		arg.IDFrom,
-		arg.IDTo,
 		arg.RefType,
 		arg.RefID,
-		arg.RefIDFrom,
-		arg.RefIDTo,
 		arg.IsStaleEmbedding,
 		arg.IsStaleMetadata,
 		arg.DateCreated,
@@ -14150,12 +13045,9 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "receiver_id" = COALESCE($4, "receiver_id"),
     "note" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "note") END,
     "data" = COALESCE($7, "data"),
-    "file_rs_id" = COALESCE($8, "file_rs_id"),
-    "date_created" = COALESCE($9, "date_created"),
-    "hash" = COALESCE($10, "hash"),
-    "prev_hash" = COALESCE($11, "prev_hash")
-WHERE id = $12
-RETURNING id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+    "date_created" = COALESCE($8, "date_created")
+WHERE id = $9
+RETURNING id, ref_type, ref_id, type, receiver_id, note, data, date_created
 `
 
 type UpdateOrderInvoiceParams struct {
@@ -14166,10 +13058,7 @@ type UpdateOrderInvoiceParams struct {
 	NullNote    bool                    `json:"null_note"`
 	Note        pgtype.Text             `json:"note"`
 	Data        []byte                  `json:"data"`
-	FileRsID    pgtype.Text             `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz      `json:"date_created"`
-	Hash        []byte                  `json:"hash"`
-	PrevHash    []byte                  `json:"prev_hash"`
 	ID          int64                   `json:"id"`
 }
 
@@ -14182,10 +13071,7 @@ func (q *Queries) UpdateOrderInvoice(ctx context.Context, arg UpdateOrderInvoice
 		arg.NullNote,
 		arg.Note,
 		arg.Data,
-		arg.FileRsID,
 		arg.DateCreated,
-		arg.Hash,
-		arg.PrevHash,
 		arg.ID,
 	)
 	var i OrderInvoice
@@ -14197,10 +13083,7 @@ func (q *Queries) UpdateOrderInvoice(ctx context.Context, arg UpdateOrderInvoice
 		&i.ReceiverID,
 		&i.Note,
 		&i.Data,
-		&i.FileRsID,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -14811,6 +13694,49 @@ func (q *Queries) UpdateSharedServiceOption(ctx context.Context, arg UpdateShare
 		&i.Method,
 		&i.IsActive,
 		&i.Order,
+	)
+	return i, err
+}
+
+const updateSystemOutboxEvent = `-- name: UpdateSystemOutboxEvent :one
+UPDATE "system"."outbox_event"
+SET "topic" = COALESCE($1, "topic"),
+    "data" = COALESCE($2, "data"),
+    "processed" = COALESCE($3, "processed"),
+    "date_processed" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "date_processed") END,
+    "date_created" = COALESCE($6, "date_created")
+WHERE id = $7
+RETURNING id, topic, data, processed, date_processed, date_created
+`
+
+type UpdateSystemOutboxEventParams struct {
+	Topic             pgtype.Text        `json:"topic"`
+	Data              []byte             `json:"data"`
+	Processed         pgtype.Bool        `json:"processed"`
+	NullDateProcessed bool               `json:"null_date_processed"`
+	DateProcessed     pgtype.Timestamptz `json:"date_processed"`
+	DateCreated       pgtype.Timestamptz `json:"date_created"`
+	ID                int64              `json:"id"`
+}
+
+func (q *Queries) UpdateSystemOutboxEvent(ctx context.Context, arg UpdateSystemOutboxEventParams) (SystemOutboxEvent, error) {
+	row := q.db.QueryRow(ctx, updateSystemOutboxEvent,
+		arg.Topic,
+		arg.Data,
+		arg.Processed,
+		arg.NullDateProcessed,
+		arg.DateProcessed,
+		arg.DateCreated,
+		arg.ID,
+	)
+	var i SystemOutboxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.Topic,
+		&i.Data,
+		&i.Processed,
+		&i.DateProcessed,
+		&i.DateCreated,
 	)
 	return i, err
 }

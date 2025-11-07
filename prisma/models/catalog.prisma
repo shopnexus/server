@@ -23,30 +23,6 @@ model ProductCategory {
   @@schema("catalog")
 }
 
-// model ProductSpec {
-//   id   BigInt @id @default(autoincrement())
-//   name String @unique @db.VarChar(100) // Name of the specification, e.g. weight, dimension, etc.
-//   unit String @db.VarChar(50) // Unit of the specification, e.g. kg, cm, etc.
-// }
-
-// TODO: add product specifications, e.g. weight, dimension, color, size, material, etc.
-// model ProductSpuSpec {
-//   id     BigInt @id @default(autoincrement())
-//   spu_id BigInt
-//
-//   name         String   @db.VarChar(100) // Name of the specification, e.g. weight, dimension, etc.
-//   value        String   @db.VarChar(255) // Value of the specification, can be JSON string if needed
-//   date_created DateTime @default(now()) @db.Timestamptz(3)
-//   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-//
-//   spu ProductSpu @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-//
-//   @@index([spu_id])
-//   @@index([name])
-//   @@map("product_spu_spec")
-//   @@schema("catalog")
-// }
-
 // Important data, only allow update name/description
 model ProductSpu {
   id              BigInt  @id @default(autoincrement())
@@ -81,11 +57,12 @@ model ProductSku {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
 
-  price        BigInt // Price of the item at this time
-  can_combine  Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
-  attributes   Json      @db.JsonB // Key-value pairs of attributes, e.g. color: red, size: M, etc.
-  date_created DateTime  @default(now()) @db.Timestamptz(3)
-  date_deleted DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
+  price          BigInt // Price of the item at this time
+  can_combine    Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
+  attributes     Json      @db.JsonB // Key-value pairs of attributes, e.g. color: red, size: M, etc.
+  specifications Json      @db.JsonB // Key-value pairs of specifications, e.g. weight: 1kg, dimensions: 10x10x10cm, etc.
+  date_created   DateTime  @default(now()) @db.Timestamptz(3)
+  date_deleted   DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
   spu         ProductSpu      @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   serials     ProductSerial[]

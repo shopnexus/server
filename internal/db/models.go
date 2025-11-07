@@ -1211,10 +1211,7 @@ type OrderInvoice struct {
 	ReceiverID  int64               `json:"receiver_id"`
 	Note        pgtype.Text         `json:"note"`
 	Data        []byte              `json:"data"`
-	FileRsID    string              `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz  `json:"date_created"`
-	Hash        []byte              `json:"hash"`
-	PrevHash    []byte              `json:"prev_hash"`
 }
 
 type OrderItem struct {
@@ -1347,6 +1344,15 @@ type SharedServiceOption struct {
 	Method      string `json:"method"`
 	IsActive    bool   `json:"is_active"`
 	Order       int32  `json:"order"`
+}
+
+type SystemOutboxEvent struct {
+	ID            int64              `json:"id"`
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	Processed     bool               `json:"processed"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
 }
 
 type SystemSearchSync struct {

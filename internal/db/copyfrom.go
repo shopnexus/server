@@ -1329,9 +1329,6 @@ func (r iteratorForCreateCopyDefaultOrderInvoice) Values() ([]interface{}, error
 		r.rows[0].ReceiverID,
 		r.rows[0].Note,
 		r.rows[0].Data,
-		r.rows[0].FileRsID,
-		r.rows[0].Hash,
-		r.rows[0].PrevHash,
 	}, nil
 }
 
@@ -1340,7 +1337,7 @@ func (r iteratorForCreateCopyDefaultOrderInvoice) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultOrderInvoice(ctx context.Context, arg []CreateCopyDefaultOrderInvoiceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "invoice"}, []string{"ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "hash", "prev_hash"}, &iteratorForCreateCopyDefaultOrderInvoice{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "invoice"}, []string{"ref_type", "ref_id", "type", "receiver_id", "note", "data"}, &iteratorForCreateCopyDefaultOrderInvoice{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrderItem implements pgx.CopyFromSource.
@@ -1789,6 +1786,40 @@ func (q *Queries) CreateCopyDefaultSharedServiceOption(ctx context.Context, arg 
 	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "order"}, &iteratorForCreateCopyDefaultSharedServiceOption{rows: arg})
 }
 
+// iteratorForCreateCopyDefaultSystemOutboxEvent implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultSystemOutboxEvent struct {
+	rows                 []CreateCopyDefaultSystemOutboxEventParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultSystemOutboxEvent) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultSystemOutboxEvent) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].Topic,
+		r.rows[0].Data,
+		r.rows[0].DateProcessed,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultSystemOutboxEvent) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultSystemOutboxEvent(ctx context.Context, arg []CreateCopyDefaultSystemOutboxEventParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"system", "outbox_event"}, []string{"topic", "data", "date_processed"}, &iteratorForCreateCopyDefaultSystemOutboxEvent{rows: arg})
+}
+
 // iteratorForCreateCopyDefaultSystemSearchSync implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultSystemSearchSync struct {
 	rows                 []CreateCopyDefaultSystemSearchSyncParams
@@ -1990,10 +2021,7 @@ func (r iteratorForCreateCopyOrderInvoice) Values() ([]interface{}, error) {
 		r.rows[0].ReceiverID,
 		r.rows[0].Note,
 		r.rows[0].Data,
-		r.rows[0].FileRsID,
 		r.rows[0].DateCreated,
-		r.rows[0].Hash,
-		r.rows[0].PrevHash,
 	}, nil
 }
 
@@ -2002,7 +2030,7 @@ func (r iteratorForCreateCopyOrderInvoice) Err() error {
 }
 
 func (q *Queries) CreateCopyOrderInvoice(ctx context.Context, arg []CreateCopyOrderInvoiceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "invoice"}, []string{"ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash"}, &iteratorForCreateCopyOrderInvoice{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "invoice"}, []string{"ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created"}, &iteratorForCreateCopyOrderInvoice{rows: arg})
 }
 
 // iteratorForCreateCopyOrderItem implements pgx.CopyFromSource.
@@ -2462,6 +2490,42 @@ func (r iteratorForCreateCopySharedServiceOption) Err() error {
 
 func (q *Queries) CreateCopySharedServiceOption(ctx context.Context, arg []CreateCopySharedServiceOptionParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"shared", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "is_active", "order"}, &iteratorForCreateCopySharedServiceOption{rows: arg})
+}
+
+// iteratorForCreateCopySystemOutboxEvent implements pgx.CopyFromSource.
+type iteratorForCreateCopySystemOutboxEvent struct {
+	rows                 []CreateCopySystemOutboxEventParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopySystemOutboxEvent) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopySystemOutboxEvent) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].Topic,
+		r.rows[0].Data,
+		r.rows[0].Processed,
+		r.rows[0].DateProcessed,
+		r.rows[0].DateCreated,
+	}, nil
+}
+
+func (r iteratorForCreateCopySystemOutboxEvent) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopySystemOutboxEvent(ctx context.Context, arg []CreateCopySystemOutboxEventParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"system", "outbox_event"}, []string{"topic", "data", "processed", "date_processed", "date_created"}, &iteratorForCreateCopySystemOutboxEvent{rows: arg})
 }
 
 // iteratorForCreateCopySystemSearchSync implements pgx.CopyFromSource.

@@ -1368,9 +1368,9 @@ func (b *CreateBatchOrderBaseBatchResults) Close() error {
 }
 
 const createBatchOrderInvoice = `-- name: CreateBatchOrderInvoice :batchone
-INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "file_rs_id", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, ref_type, ref_id, type, receiver_id, note, data, file_rs_id, date_created, hash, prev_hash
+INSERT INTO "order"."invoice" ("ref_type", "ref_id", "type", "receiver_id", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, ref_type, ref_id, type, receiver_id, note, data, date_created
 `
 
 type CreateBatchOrderInvoiceBatchResults struct {
@@ -1386,10 +1386,7 @@ type CreateBatchOrderInvoiceParams struct {
 	ReceiverID  int64               `json:"receiver_id"`
 	Note        pgtype.Text         `json:"note"`
 	Data        []byte              `json:"data"`
-	FileRsID    string              `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz  `json:"date_created"`
-	Hash        []byte              `json:"hash"`
-	PrevHash    []byte              `json:"prev_hash"`
 }
 
 func (q *Queries) CreateBatchOrderInvoice(ctx context.Context, arg []CreateBatchOrderInvoiceParams) *CreateBatchOrderInvoiceBatchResults {
@@ -1402,10 +1399,7 @@ func (q *Queries) CreateBatchOrderInvoice(ctx context.Context, arg []CreateBatch
 			a.ReceiverID,
 			a.Note,
 			a.Data,
-			a.FileRsID,
 			a.DateCreated,
-			a.Hash,
-			a.PrevHash,
 		}
 		batch.Queue(createBatchOrderInvoice, vals...)
 	}
@@ -1432,10 +1426,7 @@ func (b *CreateBatchOrderInvoiceBatchResults) QueryRow(f func(int, OrderInvoice,
 			&i.ReceiverID,
 			&i.Note,
 			&i.Data,
-			&i.FileRsID,
 			&i.DateCreated,
-			&i.Hash,
-			&i.PrevHash,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -2310,6 +2301,72 @@ func (b *CreateBatchSharedServiceOptionBatchResults) QueryRow(f func(int, Shared
 }
 
 func (b *CreateBatchSharedServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchSystemOutboxEvent = `-- name: CreateBatchSystemOutboxEvent :batchone
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, topic, data, processed, date_processed, date_created
+`
+
+type CreateBatchSystemOutboxEventBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchSystemOutboxEventParams struct {
+	Topic         string             `json:"topic"`
+	Data          []byte             `json:"data"`
+	Processed     bool               `json:"processed"`
+	DateProcessed pgtype.Timestamptz `json:"date_processed"`
+	DateCreated   pgtype.Timestamptz `json:"date_created"`
+}
+
+func (q *Queries) CreateBatchSystemOutboxEvent(ctx context.Context, arg []CreateBatchSystemOutboxEventParams) *CreateBatchSystemOutboxEventBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Topic,
+			a.Data,
+			a.Processed,
+			a.DateProcessed,
+			a.DateCreated,
+		}
+		batch.Queue(createBatchSystemOutboxEvent, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchSystemOutboxEventBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchSystemOutboxEventBatchResults) QueryRow(f func(int, SystemOutboxEvent, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i SystemOutboxEvent
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Topic,
+			&i.Data,
+			&i.Processed,
+			&i.DateProcessed,
+			&i.DateCreated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchSystemOutboxEventBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -3339,7 +3396,7 @@ func (b *DeleteBatchOrderBaseBatchResults) Close() error {
 
 const deleteBatchOrderInvoice = `-- name: DeleteBatchOrderInvoice :batchexec
 DELETE FROM "order"."invoice"
-WHERE ("id" = $1) OR ("hash" = $2)
+WHERE ("id" = $1)
 `
 
 type DeleteBatchOrderInvoiceBatchResults struct {
@@ -3348,22 +3405,16 @@ type DeleteBatchOrderInvoiceBatchResults struct {
 	closed bool
 }
 
-type DeleteBatchOrderInvoiceParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Hash []byte      `json:"hash"`
-}
-
-func (q *Queries) DeleteBatchOrderInvoice(ctx context.Context, arg []DeleteBatchOrderInvoiceParams) *DeleteBatchOrderInvoiceBatchResults {
+func (q *Queries) DeleteBatchOrderInvoice(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderInvoiceBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range arg {
+	for _, a := range id {
 		vals := []interface{}{
-			a.ID,
-			a.Hash,
+			a,
 		}
 		batch.Queue(deleteBatchOrderInvoice, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchOrderInvoiceBatchResults{br, len(arg), false}
+	return &DeleteBatchOrderInvoiceBatchResults{br, len(id), false}
 }
 
 func (b *DeleteBatchOrderInvoiceBatchResults) Exec(f func(int, error)) {
@@ -3943,6 +3994,50 @@ func (b *DeleteBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *DeleteBatchSharedServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const deleteBatchSystemOutboxEvent = `-- name: DeleteBatchSystemOutboxEvent :batchexec
+DELETE FROM "system"."outbox_event"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchSystemOutboxEventBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchSystemOutboxEvent(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemOutboxEventBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchSystemOutboxEvent, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchSystemOutboxEventBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchSystemOutboxEventBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchSystemOutboxEventBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -5474,11 +5569,8 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "receiver_id" = COALESCE($4, "receiver_id"),
     "note" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "note") END,
     "data" = COALESCE($7, "data"),
-    "file_rs_id" = COALESCE($8, "file_rs_id"),
-    "date_created" = COALESCE($9, "date_created"),
-    "hash" = COALESCE($10, "hash"),
-    "prev_hash" = COALESCE($11, "prev_hash")
-WHERE id = $12
+    "date_created" = COALESCE($8, "date_created")
+WHERE id = $9
 `
 
 type UpdateBatchOrderInvoiceBatchResults struct {
@@ -5495,10 +5587,7 @@ type UpdateBatchOrderInvoiceParams struct {
 	NullNote    bool                    `json:"null_note"`
 	Note        pgtype.Text             `json:"note"`
 	Data        []byte                  `json:"data"`
-	FileRsID    pgtype.Text             `json:"file_rs_id"`
 	DateCreated pgtype.Timestamptz      `json:"date_created"`
-	Hash        []byte                  `json:"hash"`
-	PrevHash    []byte                  `json:"prev_hash"`
 	ID          int64                   `json:"id"`
 }
 
@@ -5513,10 +5602,7 @@ func (q *Queries) UpdateBatchOrderInvoice(ctx context.Context, arg []UpdateBatch
 			a.NullNote,
 			a.Note,
 			a.Data,
-			a.FileRsID,
 			a.DateCreated,
-			a.Hash,
-			a.PrevHash,
 			a.ID,
 		}
 		batch.Queue(updateBatchOrderInvoice, vals...)
@@ -6400,6 +6486,71 @@ func (b *UpdateBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchSharedServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchSystemOutboxEvent = `-- name: UpdateBatchSystemOutboxEvent :batchexec
+UPDATE "system"."outbox_event"
+SET "topic" = COALESCE($1, "topic"),
+    "data" = COALESCE($2, "data"),
+    "processed" = COALESCE($3, "processed"),
+    "date_processed" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "date_processed") END,
+    "date_created" = COALESCE($6, "date_created")
+WHERE id = $7
+`
+
+type UpdateBatchSystemOutboxEventBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchSystemOutboxEventParams struct {
+	Topic             pgtype.Text        `json:"topic"`
+	Data              []byte             `json:"data"`
+	Processed         pgtype.Bool        `json:"processed"`
+	NullDateProcessed bool               `json:"null_date_processed"`
+	DateProcessed     pgtype.Timestamptz `json:"date_processed"`
+	DateCreated       pgtype.Timestamptz `json:"date_created"`
+	ID                int64              `json:"id"`
+}
+
+func (q *Queries) UpdateBatchSystemOutboxEvent(ctx context.Context, arg []UpdateBatchSystemOutboxEventParams) *UpdateBatchSystemOutboxEventBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Topic,
+			a.Data,
+			a.Processed,
+			a.NullDateProcessed,
+			a.DateProcessed,
+			a.DateCreated,
+			a.ID,
+		}
+		batch.Queue(updateBatchSystemOutboxEvent, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchSystemOutboxEventBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchSystemOutboxEventBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchSystemOutboxEventBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

@@ -384,10 +384,7 @@ CREATE TABLE "order"."invoice" (
     "receiver_id" BIGINT NOT NULL,
     "note" TEXT,
     "data" JSONB NOT NULL,
-    "file_rs_id" TEXT NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "hash" BYTEA NOT NULL,
-    "prev_hash" BYTEA NOT NULL,
 
     CONSTRAINT "invoice_pkey" PRIMARY KEY ("id")
 );
@@ -505,6 +502,18 @@ CREATE TABLE "shared"."service_option" (
     "order" INTEGER NOT NULL,
 
     CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "system"."outbox_event" (
+    "id" BIGSERIAL NOT NULL,
+    "topic" VARCHAR(100) NOT NULL,
+    "data" JSONB NOT NULL,
+    "processed" BOOLEAN NOT NULL DEFAULT false,
+    "date_processed" TIMESTAMPTZ(3),
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "outbox_event_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -671,9 +680,6 @@ CREATE INDEX "refund_dispute_refund_id_idx" ON "order"."refund_dispute"("refund_
 CREATE INDEX "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute"("issued_by_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "invoice_hash_key" ON "order"."invoice"("hash");
-
--- CreateIndex
 CREATE INDEX "invoice_receiver_id_idx" ON "order"."invoice"("receiver_id");
 
 -- CreateIndex
@@ -690,6 +696,9 @@ CREATE UNIQUE INDEX "resource_provider_object_key_key" ON "shared"."resource"("p
 
 -- CreateIndex
 CREATE INDEX "service_option_category_provider_idx" ON "shared"."service_option"("category", "provider");
+
+-- CreateIndex
+CREATE INDEX "outbox_event_date_created_idx" ON "system"."outbox_event"("date_created");
 
 -- CreateIndex
 CREATE INDEX "search_sync_ref_type_ref_id_idx" ON "system"."search_sync"("ref_type", "ref_id");

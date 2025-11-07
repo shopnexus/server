@@ -26,7 +26,7 @@ type Querier interface {
 	CountCatalogProductSku(ctx context.Context, arg CountCatalogProductSkuParams) (int64, error)
 	CountCatalogProductSpu(ctx context.Context, arg CountCatalogProductSpuParams) (int64, error)
 	CountCatalogProductSpuTag(ctx context.Context, arg CountCatalogProductSpuTagParams) (int64, error)
-	CountCatalogTag(ctx context.Context, id []string) (int64, error)
+	CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error)
 	CountInventorySkuSerial(ctx context.Context, arg CountInventorySkuSerialParams) (int64, error)
 	CountInventoryStock(ctx context.Context, arg CountInventoryStockParams) (int64, error)
 	CountInventoryStockHistory(ctx context.Context, arg CountInventoryStockHistoryParams) (int64, error)
@@ -44,6 +44,7 @@ type Querier interface {
 	CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error)
 	CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error)
 	CountSharedServiceOption(ctx context.Context, arg CountSharedServiceOptionParams) (int64, error)
+	CountSystemOutboxEvent(ctx context.Context, arg CountSystemOutboxEventParams) (int64, error)
 	CountSystemSearchSync(ctx context.Context, arg CountSystemSearchSyncParams) (int64, error)
 	CreateAccountBase(ctx context.Context, arg CreateAccountBaseParams) (AccountBase, error)
 	CreateAccountCartItem(ctx context.Context, arg CreateAccountCartItemParams) (AccountCartItem, error)
@@ -87,6 +88,7 @@ type Querier interface {
 	CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults
 	CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults
 	CreateBatchSharedServiceOption(ctx context.Context, arg []CreateBatchSharedServiceOptionParams) *CreateBatchSharedServiceOptionBatchResults
+	CreateBatchSystemOutboxEvent(ctx context.Context, arg []CreateBatchSystemOutboxEventParams) *CreateBatchSystemOutboxEventBatchResults
 	CreateBatchSystemSearchSync(ctx context.Context, arg []CreateBatchSystemSearchSyncParams) *CreateBatchSystemSearchSyncBatchResults
 	CreateCatalogBrand(ctx context.Context, arg CreateCatalogBrandParams) (CatalogBrand, error)
 	CreateCatalogCategory(ctx context.Context, arg CreateCatalogCategoryParams) (CatalogCategory, error)
@@ -144,6 +146,7 @@ type Querier interface {
 	CreateCopyDefaultSharedResource(ctx context.Context, arg []CreateCopyDefaultSharedResourceParams) (int64, error)
 	CreateCopyDefaultSharedResourceReference(ctx context.Context, arg []CreateCopyDefaultSharedResourceReferenceParams) (int64, error)
 	CreateCopyDefaultSharedServiceOption(ctx context.Context, arg []CreateCopyDefaultSharedServiceOptionParams) (int64, error)
+	CreateCopyDefaultSystemOutboxEvent(ctx context.Context, arg []CreateCopyDefaultSystemOutboxEventParams) (int64, error)
 	CreateCopyDefaultSystemSearchSync(ctx context.Context, arg []CreateCopyDefaultSystemSearchSyncParams) (int64, error)
 	CreateCopyInventorySkuSerial(ctx context.Context, arg []CreateCopyInventorySkuSerialParams) (int64, error)
 	CreateCopyInventoryStock(ctx context.Context, arg []CreateCopyInventoryStockParams) (int64, error)
@@ -162,6 +165,7 @@ type Querier interface {
 	CreateCopySharedResource(ctx context.Context, arg []CreateCopySharedResourceParams) (int64, error)
 	CreateCopySharedResourceReference(ctx context.Context, arg []CreateCopySharedResourceReferenceParams) (int64, error)
 	CreateCopySharedServiceOption(ctx context.Context, arg []CreateCopySharedServiceOptionParams) (int64, error)
+	CreateCopySystemOutboxEvent(ctx context.Context, arg []CreateCopySystemOutboxEventParams) (int64, error)
 	CreateCopySystemSearchSync(ctx context.Context, arg []CreateCopySystemSearchSyncParams) (int64, error)
 	CreateDefaultAccountBase(ctx context.Context, arg CreateDefaultAccountBaseParams) (AccountBase, error)
 	CreateDefaultAccountCartItem(ctx context.Context, arg CreateDefaultAccountCartItemParams) (AccountCartItem, error)
@@ -196,6 +200,7 @@ type Querier interface {
 	CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error)
 	CreateDefaultSharedResourceReference(ctx context.Context, arg CreateDefaultSharedResourceReferenceParams) (SharedResourceReference, error)
 	CreateDefaultSharedServiceOption(ctx context.Context, arg CreateDefaultSharedServiceOptionParams) (SharedServiceOption, error)
+	CreateDefaultSystemOutboxEvent(ctx context.Context, arg CreateDefaultSystemOutboxEventParams) (SystemOutboxEvent, error)
 	CreateDefaultSystemSearchSync(ctx context.Context, arg CreateDefaultSystemSearchSyncParams) (SystemSearchSync, error)
 	CreateInventorySkuSerial(ctx context.Context, arg CreateInventorySkuSerialParams) (InventorySkuSerial, error)
 	CreateInventoryStock(ctx context.Context, arg CreateInventoryStockParams) (InventoryStock, error)
@@ -214,6 +219,7 @@ type Querier interface {
 	CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error)
 	CreateSharedResourceReference(ctx context.Context, arg CreateSharedResourceReferenceParams) (SharedResourceReference, error)
 	CreateSharedServiceOption(ctx context.Context, arg CreateSharedServiceOptionParams) (SharedServiceOption, error)
+	CreateSystemOutboxEvent(ctx context.Context, arg CreateSystemOutboxEventParams) (SystemOutboxEvent, error)
 	CreateSystemSearchSync(ctx context.Context, arg CreateSystemSearchSyncParams) (SystemSearchSync, error)
 	DeleteAccountBase(ctx context.Context, arg DeleteAccountBaseParams) error
 	DeleteAccountCartItem(ctx context.Context, arg DeleteAccountCartItemParams) error
@@ -244,7 +250,7 @@ type Querier interface {
 	DeleteBatchInventoryStock(ctx context.Context, arg []DeleteBatchInventoryStockParams) *DeleteBatchInventoryStockBatchResults
 	DeleteBatchInventoryStockHistory(ctx context.Context, id []pgtype.Int8) *DeleteBatchInventoryStockHistoryBatchResults
 	DeleteBatchOrderBase(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderBaseBatchResults
-	DeleteBatchOrderInvoice(ctx context.Context, arg []DeleteBatchOrderInvoiceParams) *DeleteBatchOrderInvoiceBatchResults
+	DeleteBatchOrderInvoice(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderInvoiceBatchResults
 	DeleteBatchOrderItem(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderItemBatchResults
 	DeleteBatchOrderItemSerial(ctx context.Context, arg []DeleteBatchOrderItemSerialParams) *DeleteBatchOrderItemSerialBatchResults
 	DeleteBatchOrderRefund(ctx context.Context, id []pgtype.Int8) *DeleteBatchOrderRefundBatchResults
@@ -257,6 +263,7 @@ type Querier interface {
 	DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults
 	DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults
 	DeleteBatchSharedServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchSharedServiceOptionBatchResults
+	DeleteBatchSystemOutboxEvent(ctx context.Context, id []pgtype.Int8) *DeleteBatchSystemOutboxEventBatchResults
 	DeleteBatchSystemSearchSync(ctx context.Context, arg []DeleteBatchSystemSearchSyncParams) *DeleteBatchSystemSearchSyncBatchResults
 	DeleteCatalogBrand(ctx context.Context, arg DeleteCatalogBrandParams) error
 	DeleteCatalogCategory(ctx context.Context, arg DeleteCatalogCategoryParams) error
@@ -264,7 +271,7 @@ type Querier interface {
 	DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalogProductSkuParams) error
 	DeleteCatalogProductSpu(ctx context.Context, arg DeleteCatalogProductSpuParams) error
 	DeleteCatalogProductSpuTag(ctx context.Context, arg DeleteCatalogProductSpuTagParams) error
-	DeleteCatalogTag(ctx context.Context, id []string) error
+	DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error
 	DeleteInventorySkuSerial(ctx context.Context, arg DeleteInventorySkuSerialParams) error
 	DeleteInventoryStock(ctx context.Context, arg DeleteInventoryStockParams) error
 	DeleteInventoryStockHistory(ctx context.Context, arg DeleteInventoryStockHistoryParams) error
@@ -282,6 +289,7 @@ type Querier interface {
 	DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error
 	DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error
 	DeleteSharedServiceOption(ctx context.Context, arg DeleteSharedServiceOptionParams) error
+	DeleteSystemOutboxEvent(ctx context.Context, arg DeleteSystemOutboxEventParams) error
 	DeleteSystemSearchSync(ctx context.Context, arg DeleteSystemSearchSyncParams) error
 	DetailRating(ctx context.Context, arg DetailRatingParams) (DetailRatingRow, error)
 	ExistsAccountBase(ctx context.Context, arg ExistsAccountBaseParams) (bool, error)
@@ -300,7 +308,7 @@ type Querier interface {
 	ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalogProductSkuParams) (bool, error)
 	ExistsCatalogProductSpu(ctx context.Context, arg ExistsCatalogProductSpuParams) (bool, error)
 	ExistsCatalogProductSpuTag(ctx context.Context, arg ExistsCatalogProductSpuTagParams) (bool, error)
-	ExistsCatalogTag(ctx context.Context, id []string) (bool, error)
+	ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error)
 	ExistsInventorySkuSerial(ctx context.Context, arg ExistsInventorySkuSerialParams) (bool, error)
 	ExistsInventoryStock(ctx context.Context, arg ExistsInventoryStockParams) (bool, error)
 	ExistsInventoryStockHistory(ctx context.Context, arg ExistsInventoryStockHistoryParams) (bool, error)
@@ -318,6 +326,7 @@ type Querier interface {
 	ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error)
 	ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error)
 	ExistsSharedServiceOption(ctx context.Context, arg ExistsSharedServiceOptionParams) (bool, error)
+	ExistsSystemOutboxEvent(ctx context.Context, arg ExistsSystemOutboxEventParams) (bool, error)
 	ExistsSystemSearchSync(ctx context.Context, arg ExistsSystemSearchSyncParams) (bool, error)
 	// Code generated by tool/main.go. DO NOT EDIT.
 	// This file contains all queries for the database schema.
@@ -405,7 +414,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: order.invoice
 	// ========================================
-	GetOrderInvoice(ctx context.Context, arg GetOrderInvoiceParams) (OrderInvoice, error)
+	GetOrderInvoice(ctx context.Context, id pgtype.Int8) (OrderInvoice, error)
 	// ========================================
 	// Queries for table: order.item
 	// ========================================
@@ -455,6 +464,10 @@ type Querier interface {
 	// ========================================
 	GetSharedServiceOption(ctx context.Context, id pgtype.Text) (SharedServiceOption, error)
 	// ========================================
+	// Queries for table: system.outbox_event
+	// ========================================
+	GetSystemOutboxEvent(ctx context.Context, id pgtype.Int8) (SystemOutboxEvent, error)
+	// ========================================
 	// Queries for table: system.search_sync
 	// ========================================
 	GetSystemSearchSync(ctx context.Context, arg GetSystemSearchSyncParams) (SystemSearchSync, error)
@@ -498,6 +511,7 @@ type Querier interface {
 	ListSharedServiceOption(ctx context.Context, arg ListSharedServiceOptionParams) ([]SharedServiceOption, error)
 	ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error)
 	ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error)
+	ListSystemOutboxEvent(ctx context.Context, arg ListSystemOutboxEventParams) ([]SystemOutboxEvent, error)
 	ListSystemSearchSync(ctx context.Context, arg ListSystemSearchSyncParams) ([]SystemSearchSync, error)
 	ListVendorOrderItem(ctx context.Context, arg ListVendorOrderItemParams) ([]ListVendorOrderItemRow, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]AccountCartItem, error)
@@ -547,6 +561,7 @@ type Querier interface {
 	UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults
 	UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults
 	UpdateBatchSharedServiceOption(ctx context.Context, arg []UpdateBatchSharedServiceOptionParams) *UpdateBatchSharedServiceOptionBatchResults
+	UpdateBatchSystemOutboxEvent(ctx context.Context, arg []UpdateBatchSystemOutboxEventParams) *UpdateBatchSystemOutboxEventBatchResults
 	UpdateBatchSystemSearchSync(ctx context.Context, arg []UpdateBatchSystemSearchSyncParams) *UpdateBatchSystemSearchSyncBatchResults
 	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCatalogBrand(ctx context.Context, arg UpdateCatalogBrandParams) (CatalogBrand, error)
@@ -577,6 +592,7 @@ type Querier interface {
 	UpdateSharedResourceReference(ctx context.Context, arg UpdateSharedResourceReferenceParams) (SharedResourceReference, error)
 	UpdateSharedServiceOption(ctx context.Context, arg UpdateSharedServiceOptionParams) (SharedServiceOption, error)
 	UpdateStaleSearchSync(ctx context.Context, arg UpdateStaleSearchSyncParams) error
+	UpdateSystemOutboxEvent(ctx context.Context, arg UpdateSystemOutboxEventParams) (SystemOutboxEvent, error)
 	UpdateSystemSearchSync(ctx context.Context, arg UpdateSystemSearchSyncParams) (SystemSearchSync, error)
 }
 

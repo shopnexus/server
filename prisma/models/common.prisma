@@ -8,7 +8,7 @@ enum ResourceRefType {
   Comment
 
   @@map("resource_ref_type")
-  @@schema("shared")
+  @@schema("common")
 }
 
 // TODO: should catch "remove" event and remove them in s3;
@@ -32,7 +32,7 @@ model Resource {
 
   @@unique([provider, object_key])
   @@map("resource")
-  @@schema("shared")
+  @@schema("common")
 }
 
 model ResourceReference {
@@ -46,7 +46,7 @@ model ResourceReference {
   resource Resource @relation(fields: [rs_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@map("resource_reference")
-  @@schema("shared")
+  @@schema("common")
 }
 
 model ServiceOption {
@@ -64,7 +64,7 @@ model ServiceOption {
 
   @@index([category, provider])
   @@map("service_option")
-  @@schema("shared")
+  @@schema("common")
 }
 
 enum Status {
@@ -75,5 +75,5 @@ enum Status {
   Failed
 
   @@map("status")
-  @@schema("shared")
+  @@schema("common")
 }

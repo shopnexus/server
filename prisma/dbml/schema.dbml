@@ -38,6 +38,19 @@ Table Vendor {
   description String [not null, default: '']
 }
 
+Table CartItem {
+  id BigInt [pk, increment]
+  cart_id BigInt [not null]
+  sku_id BigInt [not null]
+  quantity BigInt [not null]
+  date_created DateTime [default: `now()`, not null]
+  date_updated DateTime [default: `now()`, not null]
+
+  indexes {
+    (cart_id, sku_id) [unique]
+  }
+}
+
 Table IncomeHistory {
   id BigInt [pk, increment]
   account_id BigInt [not null]
@@ -46,8 +59,6 @@ Table IncomeHistory {
   current_balance BigInt [not null]
   note String
   date_created DateTime [default: `now()`, not null]
-  hash Bytes [unique, not null]
-  prev_hash Bytes [not null]
 }
 
 Table Notification {
@@ -61,19 +72,6 @@ Table Notification {
   date_updated DateTime [default: `now()`, not null]
   date_sent DateTime
   date_scheduled DateTime
-}
-
-Table CartItem {
-  id BigInt [pk, increment]
-  cart_id BigInt [not null]
-  sku_id BigInt [not null]
-  quantity BigInt [not null]
-  date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [default: `now()`, not null]
-
-  indexes {
-    (cart_id, sku_id) [unique]
-  }
 }
 
 Table Contact {
@@ -90,7 +88,7 @@ Table Contact {
 
 Table Interaction {
   id BigInt [pk, increment]
-  account_id BigInt [not null]
+  account_id BigInt
   session_id String
   event_type String [not null]
   ref_type InteractionRefType [not null]
@@ -136,6 +134,7 @@ Table ProductSku {
   price BigInt [not null]
   can_combine Boolean [not null]
   attributes Json [not null]
+  specifications Json [not null]
   date_created DateTime [default: `now()`, not null]
   date_deleted DateTime
 }
@@ -166,6 +165,43 @@ Table Comment {
   score Int [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
+}
+
+Table Resource {
+  id String [pk]
+  uploaded_by BigInt
+  provider String [not null]
+  object_key String [not null]
+  mime String [not null]
+  size BigInt [not null]
+  metadata Json [not null]
+  checksum String
+  status Status [not null, default: 'Pending']
+  created_at DateTime [default: `now()`, not null]
+
+  indexes {
+    (provider, object_key) [unique]
+  }
+}
+
+Table ResourceReference {
+  id BigInt [pk, increment]
+  rs_id String [not null]
+  ref_type ResourceRefType [not null]
+  ref_id BigInt [not null]
+  order Int [not null]
+  is_primary Boolean [not null]
+}
+
+Table ServiceOption {
+  id String [pk]
+  category String [not null]
+  name String [not null]
+  description String [not null]
+  provider String [not null]
+  method String [not null]
+  is_active Boolean [not null, default: true]
+  order Int [not null]
 }
 
 Table ProductSerial {
@@ -259,10 +295,7 @@ Table Invoice {
   receiver_id BigInt [not null]
   note String
   data Json [not null]
-  file_rs_id String [not null]
   date_created DateTime [default: `now()`, not null]
-  hash Bytes [unique, not null]
-  prev_hash Bytes [not null]
 }
 
 Table Shipment {
@@ -327,41 +360,13 @@ Table PromotionDiscount {
   discount_price BigInt
 }
 
-Table Resource {
-  id String [pk]
-  uploaded_by BigInt
-  provider String [not null]
-  object_key String [not null]
-  mime String [not null]
-  size BigInt [not null]
-  metadata Json [not null]
-  checksum String
-  status Status [not null, default: 'Pending']
-  created_at DateTime [default: `now()`, not null]
-
-  indexes {
-    (provider, object_key) [unique]
-  }
-}
-
-Table ResourceReference {
+Table OutboxEvent {
   id BigInt [pk, increment]
-  rs_id String [not null]
-  ref_type ResourceRefType [not null]
-  ref_id BigInt [not null]
-  order Int [not null]
-  is_primary Boolean [not null]
-}
-
-Table ServiceOption {
-  id String [pk]
-  category String [not null]
-  name String [not null]
-  description String [not null]
-  provider String [not null]
-  method String [not null]
-  is_active Boolean [not null, default: true]
-  order Int [not null, default: 0]
+  topic String [not null]
+  data Json [not null]
+  processed Boolean [not null, default: false]
+  date_processed DateTime
+  date_created DateTime [default: `now()`, not null]
 }
 
 Table SearchSync {
@@ -409,6 +414,24 @@ Enum InteractionRefType {
 Enum CommentRefType {
   ProductSpu
   Comment
+}
+
+Enum ResourceRefType {
+  Account
+  ProductSpu
+  ProductSku
+  Brand
+  Refund
+  ReturnDispute
+  Comment
+}
+
+Enum Status {
+  Pending
+  Processing
+  Success
+  Canceled
+  Failed
 }
 
 Enum StockRefType {
@@ -464,24 +487,6 @@ Enum PromotionRefType {
   Brand
 }
 
-Enum ResourceRefType {
-  Account
-  ProductSpu
-  ProductSku
-  Brand
-  Refund
-  ReturnDispute
-  Comment
-}
-
-Enum Status {
-  Pending
-  Processing
-  Success
-  Canceled
-  Failed
-}
-
 Ref: Profile.default_contact_id - Contact.id [delete: Set Null]
 
 Ref: Profile.id - Account.id [delete: Cascade]
@@ -492,13 +497,13 @@ Ref: Customer.id - Account.id [delete: Cascade]
 
 Ref: Vendor.id - Account.id [delete: Cascade]
 
-Ref: IncomeHistory.account_id > Vendor.id [delete: Cascade]
-
-Ref: Notification.account_id > Account.id [delete: Cascade]
-
 Ref: CartItem.cart_id > Customer.id [delete: Cascade]
 
 Ref: CartItem.sku_id > ProductSku.id [delete: No Action]
+
+Ref: IncomeHistory.account_id > Vendor.id [delete: Cascade]
+
+Ref: Notification.account_id > Account.id [delete: Cascade]
 
 Ref: Contact.account_id > Account.id [delete: Cascade]
 
@@ -517,6 +522,10 @@ Ref: ProductTag.spu_id > ProductSpu.id [delete: Cascade]
 Ref: ProductTag.tag > Tag.id [delete: Cascade]
 
 Ref: Comment.account_id > Account.id [delete: Cascade]
+
+Ref: Resource.uploaded_by > Account.id [delete: Set Null]
+
+Ref: ResourceReference.rs_id > Resource.id [delete: Cascade]
 
 Ref: ProductSerial.sku_id > ProductSku.id [delete: Cascade]
 
@@ -563,7 +572,3 @@ Ref: PromotionRef.promotion_id > Promotion.id [delete: Cascade]
 Ref: PromotionSchedule.promotion_id > Promotion.id [delete: Cascade]
 
 Ref: PromotionDiscount.id > Promotion.id [delete: Cascade]
-
-Ref: Resource.uploaded_by > Account.id [delete: Set Null]
-
-Ref: ResourceReference.rs_id > Resource.id [delete: Cascade]

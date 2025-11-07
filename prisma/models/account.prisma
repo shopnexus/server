@@ -112,7 +112,28 @@ model Vendor {
   @@schema("account")
 }
 
+// TODO: hold the item quantity in the product stock (stock -= quantity), after 1h of inactivity, free the item stock in the product stock (stock += quantity)
+model CartItem {
+  id      BigInt @id @default(autoincrement())
+  cart_id BigInt // is account_id (CustomerProfile.id)
+  sku_id  BigInt
+
+  quantity     BigInt
+  date_created DateTime @default(now()) @db.Timestamptz(3)
+  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+
+  customer Customer   @relation(fields: [cart_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  sku      ProductSku @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+
+  @@unique([cart_id, sku_id])
+  @@index([cart_id])
+  @@index([sku_id])
+  @@map("cart_item")
+  @@schema("account")
+}
+
 model IncomeHistory {
+  // * Should select for update or any other locking mechanism when creating new income history
   id         BigInt @id @default(autoincrement())
   account_id BigInt // Only vendor
 
@@ -121,9 +142,6 @@ model IncomeHistory {
   current_balance BigInt // in USD after this transaction
   note            String?  @db.VarChar(100)
   date_created    DateTime @default(now()) @db.Timestamptz(3)
-
-  hash      Bytes @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
-  prev_hash Bytes @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
 
   account Vendor @relation(fields: [account_id], references: [id], onDelete: Cascade)
 
@@ -155,26 +173,6 @@ model Notification {
   @@index([channel])
   @@index([date_created])
   @@map("notification")
-  @@schema("account")
-}
-
-// TODO: hold the item quantity in the product stock (stock -= quantity), after 1h of inactivity, free the item stock in the product stock (stock += quantity)
-model CartItem {
-  id      BigInt @id @default(autoincrement())
-  cart_id BigInt // is account_id (CustomerProfile.id)
-  sku_id  BigInt
-
-  quantity     BigInt
-  date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  customer Customer   @relation(fields: [cart_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  sku      ProductSku @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-
-  @@unique([cart_id, sku_id])
-  @@index([cart_id])
-  @@index([sku_id])
-  @@map("cart_item")
   @@schema("account")
 }
 

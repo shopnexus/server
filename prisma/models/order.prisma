@@ -150,11 +150,7 @@ model Invoice {
   receiver_id  BigInt // Customer, or Vendor id who receive this invoice
   note         String? // Optional note for the invoice
   data         Json        @db.JsonB // All fundamental informations for the invoice (e.g. customer data, items, promotions, applied promotions, etc.)
-  file_rs_id   String // invoice file (PDF, etc.)
   date_created DateTime    @default(now()) @db.Timestamptz(3)
-
-  hash      Bytes @unique @db.ByteA // Hash of the change log, used to prevent duplicate change logs
-  prev_hash Bytes @db.ByteA // Hash of the previous change log, used to link change logs together. Can be empty for initial chain item
 
   account Account @relation(fields: [receiver_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
