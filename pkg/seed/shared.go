@@ -18,8 +18,8 @@ import (
 
 // SharedSeedData holds seeded shared data for other seeders to reference
 type SharedSeedData struct {
-	Resources          []db.SharedResource
-	ResourceReferences []db.SharedResourceReference
+	Resources          []db.CommonResource
+	ResourceReferences []db.CommonResourceReference
 }
 
 // SeedSharedSchema seeds the shared schema with fake data
@@ -30,8 +30,8 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	// tracker := NewUniqueTracker()
 
 	data := &SharedSeedData{
-		Resources:          make([]db.SharedResource, 0),
-		ResourceReferences: make([]db.SharedResourceReference, 0),
+		Resources:          make([]db.CommonResource, 0),
+		ResourceReferences: make([]db.CommonResourceReference, 0),
 	}
 
 	mimeTypes := []string{
@@ -41,7 +41,7 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 
 	// Create resources
 	resourceCount := cfg.AccountCount + cfg.ProductCount // Resources for avatars and product images
-	resourceParams := make([]db.CreateCopySharedResourceParams, resourceCount)
+	resourceParams := make([]db.CreateCopyCommonResourceParams, resourceCount)
 
 	imagesUrls, err := GetRandomImageURLs2(400, 400, resourceCount)
 	if err != nil {
@@ -66,8 +66,8 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		checksum := fake.Hash().SHA256()
 		uploadedBy := int64(fake.RandomDigit()%1000 + 1) // Random uploader ID
 
-		resourceParams[i] = db.CreateCopySharedResourceParams{
-			Status:     db.SharedStatusSuccess,
+		resourceParams[i] = db.CreateCopyCommonResourceParams{
+			Status:     db.CommonStatusSuccess,
 			CreatedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
 			Duration:   pgutil.Float64ToPgFloat8(0),
 			Code:       code,
@@ -82,13 +82,13 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	}
 
 	// Bulk insert resources
-	_, err = storage.CreateCopySharedResource(ctx, resourceParams)
+	_, err = storage.CreateCopyCommonResource(ctx, resourceParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk create resources: %w", err)
 	}
 
 	// Query back created resources
-	resources, err := storage.ListSharedResource(ctx, db.ListSharedResourceParams{
+	resources, err := storage.ListCommonResource(ctx, db.ListCommonResourceParams{
 		Limit:  pgutil.Int32ToPgInt4(int32(len(resourceParams) * 2)),
 		Offset: pgutil.Int32ToPgInt4(0),
 	})
@@ -100,12 +100,12 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	data.Resources = resources
 
 	// Create resource references to link resources with other entities
-	var resourceRefParams []db.CreateCopySharedResourceReferenceParams
+	var resourceRefParams []db.CreateCopyCommonResourceReferenceParams
 
 	// Create references for accounts (avatars)
 	for i := 0; i < cfg.AccountCount && i < len(data.Resources); i++ {
 		resource := data.Resources[i]
-		resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+		resourceRefParams = append(resourceRefParams, db.CreateCopyCommonResourceReferenceParams{
 			RsID:      resource.ID,
 			RefType:   "Account",
 			RefID:     int64(i + 1), // Account ID
@@ -122,7 +122,7 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 		// Create multiple references per product (main image + additional images)
 		refCount := fake.RandomDigit()%3 + 1 // 1-3 images per product
 		for j := 0; j < refCount; j++ {
-			resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+			resourceRefParams = append(resourceRefParams, db.CreateCopyCommonResourceReferenceParams{
 				RsID:      resource.ID,
 				RefType:   "ProductSpu",
 				RefID:     productID,
@@ -133,12 +133,12 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 	}
 
 	// Create some additional references for other entity types
-	refTypes := db.AllSharedResourceRefTypeValues()
+	refTypes := db.AllCommonResourceRefTypeValues()
 	for i := 0; i < 50 && i < len(data.Resources); i++ { // Create 50 additional references
 		resource := data.Resources[i%len(data.Resources)]
 		refType := refTypes[fake.RandomDigit()%len(refTypes)]
 
-		resourceRefParams = append(resourceRefParams, db.CreateCopySharedResourceReferenceParams{
+		resourceRefParams = append(resourceRefParams, db.CreateCopyCommonResourceReferenceParams{
 			RsID:      resource.ID,
 			RefType:   refType,
 			RefID:     int64(fake.RandomDigit()%1000 + 1), // Random ref ID
@@ -149,13 +149,13 @@ func SeedSharedSchema(ctx context.Context, storage db.Querier, fake *faker.Faker
 
 	// Bulk insert resource references
 	if len(resourceRefParams) > 0 {
-		_, err = storage.CreateCopySharedResourceReference(ctx, resourceRefParams)
+		_, err = storage.CreateCopyCommonResourceReference(ctx, resourceRefParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to bulk create resource references: %w", err)
 		}
 
 		// Query back created resource references
-		resourceRefs, err := storage.ListSharedResourceReference(ctx, db.ListSharedResourceReferenceParams{
+		resourceRefs, err := storage.ListCommonResourceReference(ctx, db.ListCommonResourceReferenceParams{
 			Limit:  pgutil.Int32ToPgInt4(int32(len(resourceRefParams) * 2)),
 			Offset: pgutil.Int32ToPgInt4(0),
 		})

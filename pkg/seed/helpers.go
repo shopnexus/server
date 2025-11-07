@@ -28,7 +28,7 @@ func NewUniqueTracker() *UniqueTracker {
 func (ut *UniqueTracker) IsUnique(valueType, value string) bool {
 	ut.mu.RLock()
 	defer ut.mu.RUnlock()
-	
+
 	if typeMap, exists := ut.values[valueType]; exists {
 		return !typeMap[value]
 	}
@@ -39,7 +39,7 @@ func (ut *UniqueTracker) IsUnique(valueType, value string) bool {
 func (ut *UniqueTracker) Add(valueType, value string) {
 	ut.mu.Lock()
 	defer ut.mu.Unlock()
-	
+
 	if ut.values[valueType] == nil {
 		ut.values[valueType] = make(map[string]bool)
 	}
@@ -84,7 +84,7 @@ func generateUniqueCode(fake *faker.Faker, prefix string) string {
 func generateUniqueCodeWithTracker(fake *faker.Faker, prefix string, tracker *UniqueTracker) string {
 	maxRetries := 100
 	valueType := prefix + "_CODE"
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		code := generateUniqueCode(fake, prefix)
 		if tracker.IsUnique(valueType, code) {
@@ -94,7 +94,7 @@ func generateUniqueCodeWithTracker(fake *faker.Faker, prefix string, tracker *Un
 		// Thêm thời gian chờ ngắn để tránh collision
 		time.Sleep(time.Microsecond * time.Duration(attempt+1))
 	}
-	
+
 	// Fallback với timestamp chi tiết hơn nếu vẫn không unique
 	timestamp := time.Now().UnixNano()
 	randomPart := fake.UUID().V4()
@@ -105,39 +105,39 @@ func generateUniqueCodeWithTracker(fake *faker.Faker, prefix string, tracker *Un
 
 // generateSlug tạo slug SEO-friendly từ chuỗi đầu vào
 func generateSlug(input string) string {
-    // Chuyển về lowercase
-    s := strings.ToLower(strings.TrimSpace(input))
-    // Thay thế các ký tự không phải chữ/số bằng dấu gạch ngang
-    nonAlnum := regexp.MustCompile(`[^a-z0-9]+`)
-    s = nonAlnum.ReplaceAllString(s, "-")
-    // Loại bỏ gạch ngang thừa ở đầu/cuối
-    s = strings.Trim(s, "-")
-    // Gom các gạch ngang liên tiếp về một
-    multiDash := regexp.MustCompile(`-+`)
-    s = multiDash.ReplaceAllString(s, "-")
-    if s == "" {
-        s = "item"
-    }
-    return s
+	// Chuyển về lowercase
+	s := strings.ToLower(strings.TrimSpace(input))
+	// Thay thế các ký tự không phải chữ/số bằng dấu gạch ngang
+	nonAlnum := regexp.MustCompile(`[^a-z0-9]+`)
+	s = nonAlnum.ReplaceAllString(s, "-")
+	// Loại bỏ gạch ngang thừa ở đầu/cuối
+	s = strings.Trim(s, "-")
+	// Gom các gạch ngang liên tiếp về một
+	multiDash := regexp.MustCompile(`-+`)
+	s = multiDash.ReplaceAllString(s, "-")
+	if s == "" {
+		s = "item"
+	}
+	return s
 }
 
 // generateSlugWithTracker tạo slug unique với tracker (thêm hậu tố ngắn nếu trùng)
 func generateSlugWithTracker(base string, tracker *UniqueTracker, valueType string) string {
-    slug := generateSlug(base)
-    if tracker == nil {
-        return slug
-    }
-    // đảm bảo unique
-    attempt := 0
-    current := slug
-    for {
-        if tracker.IsUnique(valueType, current) {
-            tracker.Add(valueType, current)
-            return current
-        }
-        attempt++
-        current = fmt.Sprintf("%s-%d", slug, attempt)
-    }
+	slug := generateSlug(base)
+	if tracker == nil {
+		return slug
+	}
+	// đảm bảo unique
+	attempt := 0
+	current := slug
+	for {
+		if tracker.IsUnique(valueType, current) {
+			tracker.Add(valueType, current)
+			return current
+		}
+		attempt++
+		current = fmt.Sprintf("%s-%d", slug, attempt)
+	}
 }
 
 // generateUniqueEmail generates a unique email with timestamp
@@ -152,7 +152,7 @@ func generateUniqueEmail(fake *faker.Faker) string {
 func generateUniqueEmailWithTracker(fake *faker.Faker, tracker *UniqueTracker) string {
 	maxRetries := 100
 	valueType := "EMAIL"
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		email := generateUniqueEmail(fake)
 		if tracker.IsUnique(valueType, email) {
@@ -161,7 +161,7 @@ func generateUniqueEmailWithTracker(fake *faker.Faker, tracker *UniqueTracker) s
 		}
 		time.Sleep(time.Microsecond * time.Duration(attempt+1))
 	}
-	
+
 	// Fallback
 	timestamp := time.Now().UnixNano()
 	username := fake.Internet().User()
@@ -183,7 +183,7 @@ func generateUniqueUsername(fake *faker.Faker) string {
 func generateUniqueUsernameWithTracker(fake *faker.Faker, tracker *UniqueTracker) string {
 	maxRetries := 100
 	valueType := "USERNAME"
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		username := generateUniqueUsername(fake)
 		if tracker.IsUnique(valueType, username) {
@@ -192,7 +192,7 @@ func generateUniqueUsernameWithTracker(fake *faker.Faker, tracker *UniqueTracker
 		}
 		time.Sleep(time.Microsecond * time.Duration(attempt+1))
 	}
-	
+
 	// Fallback
 	timestamp := time.Now().UnixNano()
 	username := fake.Internet().User()
@@ -223,7 +223,7 @@ func generateUniquePhone(fake *faker.Faker) string {
 func generateUniquePhoneWithTracker(fake *faker.Faker, tracker *UniqueTracker) string {
 	maxRetries := 100
 	valueType := "PHONE"
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		phone := generateUniquePhone(fake)
 		if tracker.IsUnique(valueType, phone) {
@@ -232,7 +232,7 @@ func generateUniquePhoneWithTracker(fake *faker.Faker, tracker *UniqueTracker) s
 		}
 		time.Sleep(time.Microsecond * time.Duration(attempt+1))
 	}
-	
+
 	// Fallback
 	timestamp := time.Now().UnixNano()
 	phone := fmt.Sprintf("555%013d", timestamp%10000000000000)
@@ -251,7 +251,7 @@ func generateUniqueSerialNumber(fake *faker.Faker) string {
 func generateUniqueSerialNumberWithTracker(fake *faker.Faker, tracker *UniqueTracker) string {
 	maxRetries := 100
 	valueType := "SERIAL_NUMBER"
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		serial := generateUniqueSerialNumber(fake)
 		if tracker.IsUnique(valueType, serial) {
@@ -260,7 +260,7 @@ func generateUniqueSerialNumberWithTracker(fake *faker.Faker, tracker *UniqueTra
 		}
 		time.Sleep(time.Microsecond * time.Duration(attempt+1))
 	}
-	
+
 	// Fallback
 	timestamp := time.Now().UnixNano()
 	prefix := fake.Lorem().Text(3)

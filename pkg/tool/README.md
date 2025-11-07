@@ -1,23 +1,24 @@
 # SQLC Query Generator
 
-A Go CLI tool that automatically generates SQLC queries from SQL schema files. This tool parses your database migration files and creates standardized CRUD operations following the patterns used in your existing codebase.
+A Go CLI tool that automatically generates SQLC queries from SQL schema files. This tool parses your database migration
+files and creates standardized CRUD operations following the patterns used in your existing codebase.
 
 ## Features
 
 - **Schema Parsing**: Automatically parses PostgreSQL schema files with support for:
-  - Multiple schemas
-  - Enum types
-  - Primary keys
-  - Nullable columns
-  - Default values
-  - Serial columns
+    - Multiple schemas
+    - Enum types
+    - Primary keys
+    - Nullable columns
+    - Default values
+    - Serial columns
 
 - **Template-Based Generation**: Uses customizable templates for:
-  - `Get{Table}` - Single record retrieval
-  - `List{Table}s` - Paginated listing with filters
-  - `Create{Table}` - Record insertion
-  - `Update{Table}` - Record updates with nullable fields
-  - `Delete{Table}` - Record deletion
+    - `Get{Table}` - Single record retrieval
+    - `List{Table}s` - Paginated listing with filters
+    - `Create{Table}` - Record insertion
+    - `Update{Table}` - Record updates with nullable fields
+    - `Delete{Table}` - Record deletion
 
 - **Flexible Output**: Generate queries for all tables or specific tables
 
@@ -61,7 +62,8 @@ go run tool/main.go -schema prisma/migrations/0_init/migration.sql -single-file
 
 ## Template Customization
 
-The tool creates default templates in `tool/templates/` directory. You can customize these templates to match your specific requirements:
+The tool creates default templates in `tool/templates/` directory. You can customize these templates to match your
+specific requirements:
 
 - `get.sql.tmpl` - Single record queries
 - `list.sql.tmpl` - List/search queries with filters
@@ -155,14 +157,19 @@ After generating the queries, run SQLC to generate the Go code:
 sqlc generate
 ```
 
-The tool is designed to work with your existing SQLC configuration and follows the same patterns as your current queries.
+The tool is designed to work with your existing SQLC configuration and follows the same patterns as your current
+queries.
 
 ## Troubleshooting
 
-**Template not found errors**: The tool creates default templates automatically. If you see template errors, check that the `tool/templates/` directory exists and contains `.sql.tmpl` files.
+**Template not found errors**: The tool creates default templates automatically. If you see template errors, check that
+the `tool/templates/` directory exists and contains `.sql.tmpl` files.
 
-**Schema parsing errors**: Ensure your migration file follows standard PostgreSQL syntax. The parser handles most common CREATE TABLE patterns.
+**Schema parsing errors**: Ensure your migration file follows standard PostgreSQL syntax. The parser handles most common
+CREATE TABLE patterns.
 
-**Generated query syntax errors**: Check the templates for any syntax issues. You can customize templates to match your specific SQL requirements.
+**Generated query syntax errors**: Check the templates for any syntax issues. You can customize templates to match your
+specific SQL requirements.
 
-**Multi-schema support**: The tool generates files with `schema_table.sql` naming to avoid conflicts. For example, `account.account` table generates `account_account.sql`.
+**Multi-schema support**: The tool generates files with `schema_table.sql` naming to avoid conflicts. For example,
+`account.account` table generates `account_account.sql`.
