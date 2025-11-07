@@ -1,4 +1,4 @@
-package sharedmodel
+package commonmodel
 
 type OptionMethod string
 

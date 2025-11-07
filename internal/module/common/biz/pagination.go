@@ -1,4 +1,4 @@
-package sharedbiz
+package commonbiz
 
 import (
 	"encoding/base64"

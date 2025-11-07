@@ -1,9 +1,10 @@
-package sharedecho
+package commonecho
 
 import (
 	"net/http"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -21,7 +22,7 @@ func (h *Handler) ListServiceOption(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.ListServiceOption(c.Request().Context(), sharedbiz.ListServiceOptionParams{
+	result, err := h.biz.ListServiceOption(c.Request().Context(), commonbiz.ListServiceOptionParams{
 		Category: []string{req.Category},
 		IsActive: []bool{true},
 	})

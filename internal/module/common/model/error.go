@@ -1,4 +1,4 @@
-package sharedmodel
+package commonmodel
 
 import "fmt"
 

@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const searchSharedServiceOption = `-- name: SearchSharedServiceOption :many
+const searchServiceOption = `-- name: SearchServiceOption :many
 SELECT id, category, name, description, provider, method, is_active, "order"
-FROM "shared"."service_option"
+FROM "common"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("is_active" = ANY($2) OR $2 IS NULL) AND
@@ -24,7 +24,7 @@ LIMIT $5
 OFFSET $4
 `
 
-type SearchSharedServiceOptionParams struct {
+type SearchServiceOptionParams struct {
 	ID       []string    `json:"id"`
 	IsActive []bool      `json:"is_active"`
 	Category []string    `json:"category"`
@@ -32,8 +32,8 @@ type SearchSharedServiceOptionParams struct {
 	Limit    pgtype.Int4 `json:"limit"`
 }
 
-func (q *Queries) SearchSharedServiceOption(ctx context.Context, arg SearchSharedServiceOptionParams) ([]SharedServiceOption, error) {
-	rows, err := q.db.Query(ctx, searchSharedServiceOption,
+func (q *Queries) SearchServiceOption(ctx context.Context, arg SearchServiceOptionParams) ([]CommonServiceOption, error) {
+	rows, err := q.db.Query(ctx, searchServiceOption,
 		arg.ID,
 		arg.IsActive,
 		arg.Category,
@@ -44,9 +44,9 @@ func (q *Queries) SearchSharedServiceOption(ctx context.Context, arg SearchShare
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SharedServiceOption{}
+	items := []CommonServiceOption{}
 	for rows.Next() {
-		var i SharedServiceOption
+		var i CommonServiceOption
 		if err := rows.Scan(
 			&i.ID,
 			&i.Category,

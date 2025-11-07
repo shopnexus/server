@@ -1,11 +1,12 @@
-package sharedecho
+package commonecho
 
 import (
 	"fmt"
 	"net/http"
+
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -29,7 +30,7 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.UploadFile(c.Request().Context(), sharedbiz.UploadFileParams{
+	result, err := h.biz.UploadFile(c.Request().Context(), commonbiz.UploadFileParams{
 		Account:     claims.Account,
 		File:        src,
 		Filename:    fileHeader.Filename,

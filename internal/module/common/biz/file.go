@@ -1,4 +1,4 @@
-package sharedbiz
+package commonbiz
 
 import (
 	"context"
@@ -13,16 +13,16 @@ import (
 	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/logger"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/google/uuid"
 )
 
-func (b *SharedBiz) SetupObjectStore() error {
+func (b *Commonbiz) SetupObjectStore() error {
 	var err error
-	var configs []sharedmodel.OptionConfig
+	var configs []commonmodel.OptionConfig
 	b.objectstoreMap = make(map[string]objectstore.Client)
 
 	// setup local
@@ -52,15 +52,18 @@ func (b *SharedBiz) SetupObjectStore() error {
 	b.objectstoreMap[remote.Config().ID] = remote
 	configs = append(configs, remote.Config())
 
-	if err := b.UpdateServiceOptions(context.Background(), "objectstore", configs); err != nil {
+	if err := b.UpdateServiceOptions(context.Background(), UpdateServiceOptionsParams{
+		Storage:  b.storage,
+		Category: "objectstore",
+		Configs:  configs,
+	}); err != nil {
 		return err
 	}
 
-	// logger.Log.Sugar().Infof("Initialized object stores: %+v", configs)
 	return nil
 }
 
-func (b *SharedBiz) mustGetObjectStore(provider string) objectstore.Client {
+func (b *Commonbiz) mustGetObjectStore(provider string) objectstore.Client {
 	client, ok := b.objectstoreMap[provider]
 	if !ok {
 		return b.objectstoreMap["local"]
@@ -85,8 +88,8 @@ type UploadFileResult struct {
 }
 
 // UploadFile stores a single uploaded file to the configured object store
-// and creates a corresponding shared resource record.
-func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
+// and creates a corresponding resource record.
+func (b *Commonbiz) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
 	var zero UploadFileResult
 
 	if err := validator.Validate(params); err != nil {
@@ -103,7 +106,7 @@ func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (Up
 		return zero, fmt.Errorf("upload local: %w", err)
 	}
 
-	resource, err := b.storage.CreateDefaultSharedResource(ctx, db.CreateDefaultSharedResourceParams{
+	resource, err := b.storage.CreateDefaultCommonResource(ctx, db.CreateDefaultCommonResourceParams{
 		ID:         pgutil.UUIDToPgUUID(uuid.New()),
 		Provider:   config.GetConfig().Filestore.Type,
 		ObjectKey:  objectKey,
@@ -129,7 +132,7 @@ func (b *SharedBiz) UploadFile(ctx context.Context, params UploadFileParams) (Up
 	}, nil
 }
 
-func (b *SharedBiz) GetFileURL(ctx context.Context, provider string, objectKey string) (string, error) {
+func (b *Commonbiz) GetFileURL(ctx context.Context, provider string, objectKey string) (string, error) {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
 		return "", err
@@ -138,7 +141,7 @@ func (b *SharedBiz) GetFileURL(ctx context.Context, provider string, objectKey s
 	return url, nil
 }
 
-func (b *SharedBiz) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
+func (b *Commonbiz) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
 		// TODO: should return 404 placeholder image url

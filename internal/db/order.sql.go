@@ -97,7 +97,7 @@ type ListVendorOrderItemParams struct {
 	VendorID      []int64        `json:"vendor_id"`
 	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    []int64        `json:"shipment_id"`
-	Status        []SharedStatus `json:"status"`
+	Status        []CommonStatus `json:"status"`
 	Quantity      []int64        `json:"quantity"`
 	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
 	QuantityTo    pgtype.Int8    `json:"quantity_to"`
@@ -111,7 +111,7 @@ type ListVendorOrderItemRow struct {
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
-	Status        SharedStatus `json:"status"`
+	Status        CommonStatus `json:"status"`
 	Quantity      int64        `json:"quantity"`
 }
 

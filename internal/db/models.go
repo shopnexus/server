@@ -368,6 +368,146 @@ func AllCatalogCommentRefTypeValues() []CatalogCommentRefType {
 	}
 }
 
+type CommonResourceRefType string
+
+const (
+	CommonResourceRefTypeAccount       CommonResourceRefType = "Account"
+	CommonResourceRefTypeProductSpu    CommonResourceRefType = "ProductSpu"
+	CommonResourceRefTypeProductSku    CommonResourceRefType = "ProductSku"
+	CommonResourceRefTypeBrand         CommonResourceRefType = "Brand"
+	CommonResourceRefTypeRefund        CommonResourceRefType = "Refund"
+	CommonResourceRefTypeReturnDispute CommonResourceRefType = "ReturnDispute"
+	CommonResourceRefTypeComment       CommonResourceRefType = "Comment"
+)
+
+func (e *CommonResourceRefType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CommonResourceRefType(s)
+	case string:
+		*e = CommonResourceRefType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CommonResourceRefType: %T", src)
+	}
+	return nil
+}
+
+type NullCommonResourceRefType struct {
+	CommonResourceRefType CommonResourceRefType `json:"common_resource_ref_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if CommonResourceRefType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCommonResourceRefType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CommonResourceRefType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CommonResourceRefType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCommonResourceRefType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CommonResourceRefType), nil
+}
+
+func (e CommonResourceRefType) Valid() bool {
+	switch e {
+	case CommonResourceRefTypeAccount,
+		CommonResourceRefTypeProductSpu,
+		CommonResourceRefTypeProductSku,
+		CommonResourceRefTypeBrand,
+		CommonResourceRefTypeRefund,
+		CommonResourceRefTypeReturnDispute,
+		CommonResourceRefTypeComment:
+		return true
+	}
+	return false
+}
+
+func AllCommonResourceRefTypeValues() []CommonResourceRefType {
+	return []CommonResourceRefType{
+		CommonResourceRefTypeAccount,
+		CommonResourceRefTypeProductSpu,
+		CommonResourceRefTypeProductSku,
+		CommonResourceRefTypeBrand,
+		CommonResourceRefTypeRefund,
+		CommonResourceRefTypeReturnDispute,
+		CommonResourceRefTypeComment,
+	}
+}
+
+type CommonStatus string
+
+const (
+	CommonStatusPending    CommonStatus = "Pending"
+	CommonStatusProcessing CommonStatus = "Processing"
+	CommonStatusSuccess    CommonStatus = "Success"
+	CommonStatusCanceled   CommonStatus = "Canceled"
+	CommonStatusFailed     CommonStatus = "Failed"
+)
+
+func (e *CommonStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CommonStatus(s)
+	case string:
+		*e = CommonStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CommonStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCommonStatus struct {
+	CommonStatus CommonStatus `json:"common_status"`
+	Valid        bool         `json:"valid"` // Valid is true if CommonStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCommonStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CommonStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CommonStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCommonStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CommonStatus), nil
+}
+
+func (e CommonStatus) Valid() bool {
+	switch e {
+	case CommonStatusPending,
+		CommonStatusProcessing,
+		CommonStatusSuccess,
+		CommonStatusCanceled,
+		CommonStatusFailed:
+		return true
+	}
+	return false
+}
+
+func AllCommonStatusValues() []CommonStatus {
+	return []CommonStatus{
+		CommonStatusPending,
+		CommonStatusProcessing,
+		CommonStatusSuccess,
+		CommonStatusCanceled,
+		CommonStatusFailed,
+	}
+}
+
 type InventoryProductStatus string
 
 const (
@@ -871,146 +1011,6 @@ func AllPromotionTypeValues() []PromotionType {
 	}
 }
 
-type SharedResourceRefType string
-
-const (
-	SharedResourceRefTypeAccount       SharedResourceRefType = "Account"
-	SharedResourceRefTypeProductSpu    SharedResourceRefType = "ProductSpu"
-	SharedResourceRefTypeProductSku    SharedResourceRefType = "ProductSku"
-	SharedResourceRefTypeBrand         SharedResourceRefType = "Brand"
-	SharedResourceRefTypeRefund        SharedResourceRefType = "Refund"
-	SharedResourceRefTypeReturnDispute SharedResourceRefType = "ReturnDispute"
-	SharedResourceRefTypeComment       SharedResourceRefType = "Comment"
-)
-
-func (e *SharedResourceRefType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = SharedResourceRefType(s)
-	case string:
-		*e = SharedResourceRefType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for SharedResourceRefType: %T", src)
-	}
-	return nil
-}
-
-type NullSharedResourceRefType struct {
-	SharedResourceRefType SharedResourceRefType `json:"shared_resource_ref_type"`
-	Valid                 bool                  `json:"valid"` // Valid is true if SharedResourceRefType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullSharedResourceRefType) Scan(value interface{}) error {
-	if value == nil {
-		ns.SharedResourceRefType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.SharedResourceRefType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullSharedResourceRefType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.SharedResourceRefType), nil
-}
-
-func (e SharedResourceRefType) Valid() bool {
-	switch e {
-	case SharedResourceRefTypeAccount,
-		SharedResourceRefTypeProductSpu,
-		SharedResourceRefTypeProductSku,
-		SharedResourceRefTypeBrand,
-		SharedResourceRefTypeRefund,
-		SharedResourceRefTypeReturnDispute,
-		SharedResourceRefTypeComment:
-		return true
-	}
-	return false
-}
-
-func AllSharedResourceRefTypeValues() []SharedResourceRefType {
-	return []SharedResourceRefType{
-		SharedResourceRefTypeAccount,
-		SharedResourceRefTypeProductSpu,
-		SharedResourceRefTypeProductSku,
-		SharedResourceRefTypeBrand,
-		SharedResourceRefTypeRefund,
-		SharedResourceRefTypeReturnDispute,
-		SharedResourceRefTypeComment,
-	}
-}
-
-type SharedStatus string
-
-const (
-	SharedStatusPending    SharedStatus = "Pending"
-	SharedStatusProcessing SharedStatus = "Processing"
-	SharedStatusSuccess    SharedStatus = "Success"
-	SharedStatusCanceled   SharedStatus = "Canceled"
-	SharedStatusFailed     SharedStatus = "Failed"
-)
-
-func (e *SharedStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = SharedStatus(s)
-	case string:
-		*e = SharedStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for SharedStatus: %T", src)
-	}
-	return nil
-}
-
-type NullSharedStatus struct {
-	SharedStatus SharedStatus `json:"shared_status"`
-	Valid        bool         `json:"valid"` // Valid is true if SharedStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullSharedStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.SharedStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.SharedStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullSharedStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.SharedStatus), nil
-}
-
-func (e SharedStatus) Valid() bool {
-	switch e {
-	case SharedStatusPending,
-		SharedStatusProcessing,
-		SharedStatusSuccess,
-		SharedStatusCanceled,
-		SharedStatusFailed:
-		return true
-	}
-	return false
-}
-
-func AllSharedStatusValues() []SharedStatus {
-	return []SharedStatus{
-		SharedStatusPending,
-		SharedStatusProcessing,
-		SharedStatusSuccess,
-		SharedStatusCanceled,
-		SharedStatusFailed,
-	}
-}
-
 type AccountBase struct {
 	ID          int64              `json:"id"`
 	Type        AccountType        `json:"type"`
@@ -1058,8 +1058,6 @@ type AccountIncomeHistory struct {
 	CurrentBalance int64              `json:"current_balance"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 }
 
 type AccountNotification struct {
@@ -1095,7 +1093,7 @@ type AccountVendor struct {
 
 type AnalyticInteraction struct {
 	ID          int64                      `json:"id"`
-	AccountID   int64                      `json:"account_id"`
+	AccountID   pgtype.Int8                `json:"account_id"`
 	SessionID   pgtype.Text                `json:"session_id"`
 	EventType   string                     `json:"event_type"`
 	RefType     AnalyticInteractionRefType `json:"ref_type"`
@@ -1134,13 +1132,14 @@ type CatalogComment struct {
 }
 
 type CatalogProductSku struct {
-	ID          int64              `json:"id"`
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	ID             int64              `json:"id"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CatalogProductSpu struct {
@@ -1167,6 +1166,39 @@ type CatalogProductSpuTag struct {
 type CatalogTag struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
+}
+
+type CommonResource struct {
+	ID         pgtype.UUID        `json:"id"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     CommonStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CommonResourceReference struct {
+	ID        int64                 `json:"id"`
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+type CommonServiceOption struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 type InventorySkuSerial struct {
@@ -1197,7 +1229,7 @@ type OrderBase struct {
 	ID            int64              `json:"id"`
 	AccountID     int64              `json:"account_id"`
 	PaymentOption string             `json:"payment_option"`
-	PaymentStatus SharedStatus       `json:"payment_status"`
+	PaymentStatus CommonStatus       `json:"payment_status"`
 	Address       string             `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -1222,7 +1254,7 @@ type OrderItem struct {
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
-	Status        SharedStatus `json:"status"`
+	Status        CommonStatus `json:"status"`
 	Quantity      int64        `json:"quantity"`
 }
 
@@ -1239,7 +1271,7 @@ type OrderRefund struct {
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
-	Status       SharedStatus       `json:"status"`
+	Status       CommonStatus       `json:"status"`
 	Reason       string             `json:"reason"`
 	Address      pgtype.Text        `json:"address"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
@@ -1250,7 +1282,7 @@ type OrderRefundDispute struct {
 	RefundID    int64              `json:"refund_id"`
 	IssuedByID  int64              `json:"issued_by_id"`
 	Reason      string             `json:"reason"`
-	Status      SharedStatus       `json:"status"`
+	Status      CommonStatus       `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
@@ -1311,39 +1343,6 @@ type PromotionSchedule struct {
 	Duration    int32              `json:"duration"`
 	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
 	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
-}
-
-type SharedResource struct {
-	ID         pgtype.UUID        `json:"id"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Provider   string             `json:"provider"`
-	ObjectKey  string             `json:"object_key"`
-	Mime       string             `json:"mime"`
-	Size       int64              `json:"size"`
-	Metadata   []byte             `json:"metadata"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type SharedResourceReference struct {
-	ID        int64                 `json:"id"`
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-type SharedServiceOption struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
 }
 
 type SystemOutboxEvent struct {

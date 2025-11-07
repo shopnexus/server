@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"sync"
 
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -71,7 +71,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 			return valErr
 		}
 
-		return sharedmodel.ErrValidation.Fmt(string(text))
+		return commonmodel.ErrValidation.Fmt(string(text))
 	}
 
 	return err

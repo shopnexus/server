@@ -289,9 +289,9 @@ func (b *CreateBatchAccountCustomerBatchResults) Close() error {
 }
 
 const createBatchAccountIncomeHistory = `-- name: CreateBatchAccountIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type CreateBatchAccountIncomeHistoryBatchResults struct {
@@ -307,8 +307,6 @@ type CreateBatchAccountIncomeHistoryParams struct {
 	CurrentBalance int64              `json:"current_balance"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 }
 
 func (q *Queries) CreateBatchAccountIncomeHistory(ctx context.Context, arg []CreateBatchAccountIncomeHistoryParams) *CreateBatchAccountIncomeHistoryBatchResults {
@@ -321,8 +319,6 @@ func (q *Queries) CreateBatchAccountIncomeHistory(ctx context.Context, arg []Cre
 			a.CurrentBalance,
 			a.Note,
 			a.DateCreated,
-			a.Hash,
-			a.PrevHash,
 		}
 		batch.Queue(createBatchAccountIncomeHistory, vals...)
 	}
@@ -349,8 +345,6 @@ func (b *CreateBatchAccountIncomeHistoryBatchResults) QueryRow(f func(int, Accou
 			&i.CurrentBalance,
 			&i.Note,
 			&i.DateCreated,
-			&i.Hash,
-			&i.PrevHash,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -587,7 +581,7 @@ type CreateBatchAnalyticInteractionBatchResults struct {
 }
 
 type CreateBatchAnalyticInteractionParams struct {
-	AccountID   int64                      `json:"account_id"`
+	AccountID   pgtype.Int8                `json:"account_id"`
 	SessionID   pgtype.Text                `json:"session_id"`
 	EventType   string                     `json:"event_type"`
 	RefType     AnalyticInteractionRefType `json:"ref_type"`
@@ -851,9 +845,9 @@ func (b *CreateBatchCatalogCommentBatchResults) Close() error {
 }
 
 const createBatchCatalogProductSku = `-- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 `
 
 type CreateBatchCatalogProductSkuBatchResults struct {
@@ -863,12 +857,13 @@ type CreateBatchCatalogProductSkuBatchResults struct {
 }
 
 type CreateBatchCatalogProductSkuParams struct {
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateBatchCatalogProductSku(ctx context.Context, arg []CreateBatchCatalogProductSkuParams) *CreateBatchCatalogProductSkuBatchResults {
@@ -879,6 +874,7 @@ func (q *Queries) CreateBatchCatalogProductSku(ctx context.Context, arg []Create
 			a.Price,
 			a.CanCombine,
 			a.Attributes,
+			a.Specifications,
 			a.DateCreated,
 			a.DateDeleted,
 		}
@@ -905,6 +901,7 @@ func (b *CreateBatchCatalogProductSkuBatchResults) QueryRow(f func(int, CatalogP
 			&i.Price,
 			&i.CanCombine,
 			&i.Attributes,
+			&i.Specifications,
 			&i.DateCreated,
 			&i.DateDeleted,
 		)
@@ -1105,6 +1102,226 @@ func (b *CreateBatchCatalogTagBatchResults) QueryRow(f func(int, CatalogTag, err
 }
 
 func (b *CreateBatchCatalogTagBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchCommonResource = `-- name: CreateBatchCommonResource :batchone
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+`
+
+type CreateBatchCommonResourceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchCommonResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     CommonStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateBatchCommonResource(ctx context.Context, arg []CreateBatchCommonResourceParams) *CreateBatchCommonResourceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.UploadedBy,
+			a.Provider,
+			a.ObjectKey,
+			a.Mime,
+			a.Size,
+			a.Metadata,
+			a.Checksum,
+			a.Status,
+			a.CreatedAt,
+		}
+		batch.Queue(createBatchCommonResource, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchCommonResourceBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchCommonResourceBatchResults) QueryRow(f func(int, CommonResource, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i CommonResource
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.UploadedBy,
+			&i.Provider,
+			&i.ObjectKey,
+			&i.Mime,
+			&i.Size,
+			&i.Metadata,
+			&i.Checksum,
+			&i.Status,
+			&i.CreatedAt,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchCommonResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchCommonResourceReference = `-- name: CreateBatchCommonResourceReference :batchone
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
+`
+
+type CreateBatchCommonResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+func (q *Queries) CreateBatchCommonResourceReference(ctx context.Context, arg []CreateBatchCommonResourceReferenceParams) *CreateBatchCommonResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.RsID,
+			a.RefType,
+			a.RefID,
+			a.Order,
+			a.IsPrimary,
+		}
+		batch.Queue(createBatchCommonResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchCommonResourceReferenceBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchCommonResourceReferenceBatchResults) QueryRow(f func(int, CommonResourceReference, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i CommonResourceReference
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.RsID,
+			&i.RefType,
+			&i.RefID,
+			&i.Order,
+			&i.IsPrimary,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchCommonResourceReferenceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchCommonServiceOption = `-- name: CreateBatchCommonServiceOption :batchone
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, category, name, description, provider, method, is_active, "order"
+`
+
+type CreateBatchCommonServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchCommonServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
+}
+
+func (q *Queries) CreateBatchCommonServiceOption(ctx context.Context, arg []CreateBatchCommonServiceOptionParams) *CreateBatchCommonServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.Category,
+			a.Name,
+			a.Description,
+			a.Provider,
+			a.Method,
+			a.IsActive,
+			a.Order,
+		}
+		batch.Queue(createBatchCommonServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchCommonServiceOptionBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchCommonServiceOptionBatchResults) QueryRow(f func(int, CommonServiceOption, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i CommonServiceOption
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Category,
+			&i.Name,
+			&i.Description,
+			&i.Provider,
+			&i.Method,
+			&i.IsActive,
+			&i.Order,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchCommonServiceOptionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -1313,7 +1530,7 @@ type CreateBatchOrderBaseBatchResults struct {
 type CreateBatchOrderBaseParams struct {
 	AccountID     int64              `json:"account_id"`
 	PaymentOption string             `json:"payment_option"`
-	PaymentStatus SharedStatus       `json:"payment_status"`
+	PaymentStatus CommonStatus       `json:"payment_status"`
 	Address       string             `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -1458,7 +1675,7 @@ type CreateBatchOrderItemParams struct {
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
-	Status        SharedStatus `json:"status"`
+	Status        CommonStatus `json:"status"`
 	Quantity      int64        `json:"quantity"`
 }
 
@@ -1585,7 +1802,7 @@ type CreateBatchOrderRefundParams struct {
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
-	Status       SharedStatus       `json:"status"`
+	Status       CommonStatus       `json:"status"`
 	Reason       string             `json:"reason"`
 	Address      pgtype.Text        `json:"address"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
@@ -1661,7 +1878,7 @@ type CreateBatchOrderRefundDisputeParams struct {
 	RefundID    int64              `json:"refund_id"`
 	IssuedByID  int64              `json:"issued_by_id"`
 	Reason      string             `json:"reason"`
-	Status      SharedStatus       `json:"status"`
+	Status      CommonStatus       `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
@@ -2085,226 +2302,6 @@ func (b *CreateBatchPromotionScheduleBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchSharedResource = `-- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-`
-
-type CreateBatchSharedResourceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchSharedResourceParams struct {
-	ID         pgtype.UUID        `json:"id"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Provider   string             `json:"provider"`
-	ObjectKey  string             `json:"object_key"`
-	Mime       string             `json:"mime"`
-	Size       int64              `json:"size"`
-	Metadata   []byte             `json:"metadata"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) CreateBatchSharedResource(ctx context.Context, arg []CreateBatchSharedResourceParams) *CreateBatchSharedResourceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.UploadedBy,
-			a.Provider,
-			a.ObjectKey,
-			a.Mime,
-			a.Size,
-			a.Metadata,
-			a.Checksum,
-			a.Status,
-			a.CreatedAt,
-		}
-		batch.Queue(createBatchSharedResource, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchSharedResourceBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchSharedResourceBatchResults) QueryRow(f func(int, SharedResource, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i SharedResource
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.UploadedBy,
-			&i.Provider,
-			&i.ObjectKey,
-			&i.Mime,
-			&i.Size,
-			&i.Metadata,
-			&i.Checksum,
-			&i.Status,
-			&i.CreatedAt,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchSharedResourceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchSharedResourceReference = `-- name: CreateBatchSharedResourceReference :batchone
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
-`
-
-type CreateBatchSharedResourceReferenceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-func (q *Queries) CreateBatchSharedResourceReference(ctx context.Context, arg []CreateBatchSharedResourceReferenceParams) *CreateBatchSharedResourceReferenceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.RsID,
-			a.RefType,
-			a.RefID,
-			a.Order,
-			a.IsPrimary,
-		}
-		batch.Queue(createBatchSharedResourceReference, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchSharedResourceReferenceBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchSharedResourceReferenceBatchResults) QueryRow(f func(int, SharedResourceReference, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i SharedResourceReference
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.RsID,
-			&i.RefType,
-			&i.RefID,
-			&i.Order,
-			&i.IsPrimary,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchSharedResourceReferenceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchSharedServiceOption = `-- name: CreateBatchSharedServiceOption :batchone
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category, name, description, provider, method, is_active, "order"
-`
-
-type CreateBatchSharedServiceOptionBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchSharedServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
-}
-
-func (q *Queries) CreateBatchSharedServiceOption(ctx context.Context, arg []CreateBatchSharedServiceOptionParams) *CreateBatchSharedServiceOptionBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Category,
-			a.Name,
-			a.Description,
-			a.Provider,
-			a.Method,
-			a.IsActive,
-			a.Order,
-		}
-		batch.Queue(createBatchSharedServiceOption, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchSharedServiceOptionBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchSharedServiceOptionBatchResults) QueryRow(f func(int, SharedServiceOption, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i SharedServiceOption
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.Category,
-			&i.Name,
-			&i.Description,
-			&i.Provider,
-			&i.Method,
-			&i.IsActive,
-			&i.Order,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchSharedServiceOptionBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchSystemOutboxEvent = `-- name: CreateBatchSystemOutboxEvent :batchone
 INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
 VALUES ($1, $2, $3, $4, $5)
@@ -2636,7 +2633,7 @@ func (b *DeleteBatchAccountCustomerBatchResults) Close() error {
 
 const deleteBatchAccountIncomeHistory = `-- name: DeleteBatchAccountIncomeHistory :batchexec
 DELETE FROM "account"."income_history"
-WHERE ("id" = $1) OR ("hash" = $2)
+WHERE ("id" = $1)
 `
 
 type DeleteBatchAccountIncomeHistoryBatchResults struct {
@@ -2645,22 +2642,16 @@ type DeleteBatchAccountIncomeHistoryBatchResults struct {
 	closed bool
 }
 
-type DeleteBatchAccountIncomeHistoryParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Hash []byte      `json:"hash"`
-}
-
-func (q *Queries) DeleteBatchAccountIncomeHistory(ctx context.Context, arg []DeleteBatchAccountIncomeHistoryParams) *DeleteBatchAccountIncomeHistoryBatchResults {
+func (q *Queries) DeleteBatchAccountIncomeHistory(ctx context.Context, id []pgtype.Int8) *DeleteBatchAccountIncomeHistoryBatchResults {
 	batch := &pgx.Batch{}
-	for _, a := range arg {
+	for _, a := range id {
 		vals := []interface{}{
-			a.ID,
-			a.Hash,
+			a,
 		}
 		batch.Queue(deleteBatchAccountIncomeHistory, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchAccountIncomeHistoryBatchResults{br, len(arg), false}
+	return &DeleteBatchAccountIncomeHistoryBatchResults{br, len(id), false}
 }
 
 func (b *DeleteBatchAccountIncomeHistoryBatchResults) Exec(f func(int, error)) {
@@ -3200,6 +3191,146 @@ func (b *DeleteBatchCatalogTagBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *DeleteBatchCatalogTagBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const deleteBatchCommonResource = `-- name: DeleteBatchCommonResource :batchexec
+DELETE FROM "common"."resource"
+WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
+`
+
+type DeleteBatchCommonResourceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type DeleteBatchCommonResourceParams struct {
+	ID        pgtype.UUID `json:"id"`
+	Provider  pgtype.Text `json:"provider"`
+	ObjectKey pgtype.Text `json:"object_key"`
+}
+
+func (q *Queries) DeleteBatchCommonResource(ctx context.Context, arg []DeleteBatchCommonResourceParams) *DeleteBatchCommonResourceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.Provider,
+			a.ObjectKey,
+		}
+		batch.Queue(deleteBatchCommonResource, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchCommonResourceBatchResults{br, len(arg), false}
+}
+
+func (b *DeleteBatchCommonResourceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchCommonResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const deleteBatchCommonResourceReference = `-- name: DeleteBatchCommonResourceReference :batchexec
+DELETE FROM "common"."resource_reference"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchCommonResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchCommonResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchCommonResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchCommonResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchCommonResourceReferenceBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchCommonResourceReferenceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchCommonResourceReferenceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const deleteBatchCommonServiceOption = `-- name: DeleteBatchCommonServiceOption :batchexec
+DELETE FROM "common"."service_option"
+WHERE ("id" = $1)
+`
+
+type DeleteBatchCommonServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+func (q *Queries) DeleteBatchCommonServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchCommonServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range id {
+		vals := []interface{}{
+			a,
+		}
+		batch.Queue(deleteBatchCommonServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &DeleteBatchCommonServiceOptionBatchResults{br, len(id), false}
+}
+
+func (b *DeleteBatchCommonServiceOptionBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *DeleteBatchCommonServiceOptionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -3858,146 +3989,6 @@ func (b *DeleteBatchPromotionScheduleBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const deleteBatchSharedResource = `-- name: DeleteBatchSharedResource :batchexec
-DELETE FROM "shared"."resource"
-WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
-`
-
-type DeleteBatchSharedResourceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type DeleteBatchSharedResourceParams struct {
-	ID        pgtype.UUID `json:"id"`
-	Provider  pgtype.Text `json:"provider"`
-	ObjectKey pgtype.Text `json:"object_key"`
-}
-
-func (q *Queries) DeleteBatchSharedResource(ctx context.Context, arg []DeleteBatchSharedResourceParams) *DeleteBatchSharedResourceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Provider,
-			a.ObjectKey,
-		}
-		batch.Queue(deleteBatchSharedResource, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSharedResourceBatchResults{br, len(arg), false}
-}
-
-func (b *DeleteBatchSharedResourceBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchSharedResourceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const deleteBatchSharedResourceReference = `-- name: DeleteBatchSharedResourceReference :batchexec
-DELETE FROM "shared"."resource_reference"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchSharedResourceReferenceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchSharedResourceReference(ctx context.Context, id []pgtype.Int8) *DeleteBatchSharedResourceReferenceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchSharedResourceReference, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSharedResourceReferenceBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchSharedResourceReferenceBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchSharedResourceReferenceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const deleteBatchSharedServiceOption = `-- name: DeleteBatchSharedServiceOption :batchexec
-DELETE FROM "shared"."service_option"
-WHERE ("id" = $1)
-`
-
-type DeleteBatchSharedServiceOptionBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-func (q *Queries) DeleteBatchSharedServiceOption(ctx context.Context, id []pgtype.Text) *DeleteBatchSharedServiceOptionBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range id {
-		vals := []interface{}{
-			a,
-		}
-		batch.Queue(deleteBatchSharedServiceOption, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &DeleteBatchSharedServiceOptionBatchResults{br, len(id), false}
-}
-
-func (b *DeleteBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *DeleteBatchSharedServiceOptionBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const deleteBatchSystemOutboxEvent = `-- name: DeleteBatchSystemOutboxEvent :batchexec
 DELETE FROM "system"."outbox_event"
 WHERE ("id" = $1)
@@ -4501,10 +4492,8 @@ SET "account_id" = COALESCE($1, "account_id"),
     "income" = COALESCE($3, "income"),
     "current_balance" = COALESCE($4, "current_balance"),
     "note" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "note") END,
-    "date_created" = COALESCE($7, "date_created"),
-    "hash" = COALESCE($8, "hash"),
-    "prev_hash" = COALESCE($9, "prev_hash")
-WHERE id = $10
+    "date_created" = COALESCE($7, "date_created")
+WHERE id = $8
 `
 
 type UpdateBatchAccountIncomeHistoryBatchResults struct {
@@ -4521,8 +4510,6 @@ type UpdateBatchAccountIncomeHistoryParams struct {
 	NullNote       bool               `json:"null_note"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 	ID             int64              `json:"id"`
 }
 
@@ -4537,8 +4524,6 @@ func (q *Queries) UpdateBatchAccountIncomeHistory(ctx context.Context, arg []Upd
 			a.NullNote,
 			a.Note,
 			a.DateCreated,
-			a.Hash,
-			a.PrevHash,
 			a.ID,
 		}
 		batch.Queue(updateBatchAccountIncomeHistory, vals...)
@@ -4785,16 +4770,16 @@ func (b *UpdateBatchAccountVendorBatchResults) Close() error {
 
 const updateBatchAnalyticInteraction = `-- name: UpdateBatchAnalyticInteraction :batchexec
 UPDATE "analytic"."interaction"
-SET "account_id" = COALESCE($1, "account_id"),
-    "session_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "session_id") END,
-    "event_type" = COALESCE($4, "event_type"),
-    "ref_type" = COALESCE($5, "ref_type"),
-    "ref_id" = COALESCE($6, "ref_id"),
-    "metadata" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "metadata") END,
-    "user_agent" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "user_agent") END,
-    "ip_address" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "ip_address") END,
-    "date_created" = COALESCE($13, "date_created")
-WHERE id = $14
+SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "account_id") END,
+    "session_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "session_id") END,
+    "event_type" = COALESCE($5, "event_type"),
+    "ref_type" = COALESCE($6, "ref_type"),
+    "ref_id" = COALESCE($7, "ref_id"),
+    "metadata" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "metadata") END,
+    "user_agent" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "user_agent") END,
+    "ip_address" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "ip_address") END,
+    "date_created" = COALESCE($14, "date_created")
+WHERE id = $15
 `
 
 type UpdateBatchAnalyticInteractionBatchResults struct {
@@ -4804,6 +4789,7 @@ type UpdateBatchAnalyticInteractionBatchResults struct {
 }
 
 type UpdateBatchAnalyticInteractionParams struct {
+	NullAccountID bool                           `json:"null_account_id"`
 	AccountID     pgtype.Int8                    `json:"account_id"`
 	NullSessionID bool                           `json:"null_session_id"`
 	SessionID     pgtype.Text                    `json:"session_id"`
@@ -4824,6 +4810,7 @@ func (q *Queries) UpdateBatchAnalyticInteraction(ctx context.Context, arg []Upda
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.NullAccountID,
 			a.AccountID,
 			a.NullSessionID,
 			a.SessionID,
@@ -5063,9 +5050,10 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "price" = COALESCE($2, "price"),
     "can_combine" = COALESCE($3, "can_combine"),
     "attributes" = COALESCE($4, "attributes"),
-    "date_created" = COALESCE($5, "date_created"),
-    "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
-WHERE id = $8
+    "specifications" = COALESCE($5, "specifications"),
+    "date_created" = COALESCE($6, "date_created"),
+    "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END
+WHERE id = $9
 `
 
 type UpdateBatchCatalogProductSkuBatchResults struct {
@@ -5079,6 +5067,7 @@ type UpdateBatchCatalogProductSkuParams struct {
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
 	Attributes      []byte             `json:"attributes"`
+	Specifications  []byte             `json:"specifications"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
@@ -5093,6 +5082,7 @@ func (q *Queries) UpdateBatchCatalogProductSku(ctx context.Context, arg []Update
 			a.Price,
 			a.CanCombine,
 			a.Attributes,
+			a.Specifications,
 			a.DateCreated,
 			a.NullDateDeleted,
 			a.DateDeleted,
@@ -5315,6 +5305,217 @@ func (b *UpdateBatchCatalogTagBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const updateBatchCommonResource = `-- name: UpdateBatchCommonResource :batchexec
+UPDATE "common"."resource"
+SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by") END,
+    "provider" = COALESCE($3, "provider"),
+    "object_key" = COALESCE($4, "object_key"),
+    "mime" = COALESCE($5, "mime"),
+    "size" = COALESCE($6, "size"),
+    "metadata" = COALESCE($7, "metadata"),
+    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
+    "status" = COALESCE($10, "status"),
+    "created_at" = COALESCE($11, "created_at")
+WHERE id = $12
+`
+
+type UpdateBatchCommonResourceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchCommonResourceParams struct {
+	NullUploadedBy bool               `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
+	Provider       pgtype.Text        `json:"provider"`
+	ObjectKey      pgtype.Text        `json:"object_key"`
+	Mime           pgtype.Text        `json:"mime"`
+	Size           pgtype.Int8        `json:"size"`
+	Metadata       []byte             `json:"metadata"`
+	NullChecksum   bool               `json:"null_checksum"`
+	Checksum       pgtype.Text        `json:"checksum"`
+	Status         NullCommonStatus   `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID             pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) UpdateBatchCommonResource(ctx context.Context, arg []UpdateBatchCommonResourceParams) *UpdateBatchCommonResourceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.NullUploadedBy,
+			a.UploadedBy,
+			a.Provider,
+			a.ObjectKey,
+			a.Mime,
+			a.Size,
+			a.Metadata,
+			a.NullChecksum,
+			a.Checksum,
+			a.Status,
+			a.CreatedAt,
+			a.ID,
+		}
+		batch.Queue(updateBatchCommonResource, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchCommonResourceBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchCommonResourceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchCommonResourceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchCommonResourceReference = `-- name: UpdateBatchCommonResourceReference :batchexec
+UPDATE "common"."resource_reference"
+SET "rs_id" = COALESCE($1, "rs_id"),
+    "ref_type" = COALESCE($2, "ref_type"),
+    "ref_id" = COALESCE($3, "ref_id"),
+    "order" = COALESCE($4, "order"),
+    "is_primary" = COALESCE($5, "is_primary")
+WHERE id = $6
+`
+
+type UpdateBatchCommonResourceReferenceBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID               `json:"rs_id"`
+	RefType   NullCommonResourceRefType `json:"ref_type"`
+	RefID     pgtype.Int8               `json:"ref_id"`
+	Order     pgtype.Int4               `json:"order"`
+	IsPrimary pgtype.Bool               `json:"is_primary"`
+	ID        int64                     `json:"id"`
+}
+
+func (q *Queries) UpdateBatchCommonResourceReference(ctx context.Context, arg []UpdateBatchCommonResourceReferenceParams) *UpdateBatchCommonResourceReferenceBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.RsID,
+			a.RefType,
+			a.RefID,
+			a.Order,
+			a.IsPrimary,
+			a.ID,
+		}
+		batch.Queue(updateBatchCommonResourceReference, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchCommonResourceReferenceBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchCommonResourceReferenceBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchCommonResourceReferenceBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const updateBatchCommonServiceOption = `-- name: UpdateBatchCommonServiceOption :batchexec
+UPDATE "common"."service_option"
+SET "category" = COALESCE($1, "category"),
+    "name" = COALESCE($2, "name"),
+    "description" = COALESCE($3, "description"),
+    "provider" = COALESCE($4, "provider"),
+    "method" = COALESCE($5, "method"),
+    "is_active" = COALESCE($6, "is_active"),
+    "order" = COALESCE($7, "order")
+WHERE id = $8
+`
+
+type UpdateBatchCommonServiceOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type UpdateBatchCommonServiceOptionParams struct {
+	Category    pgtype.Text `json:"category"`
+	Name        pgtype.Text `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Provider    pgtype.Text `json:"provider"`
+	Method      pgtype.Text `json:"method"`
+	IsActive    pgtype.Bool `json:"is_active"`
+	Order       pgtype.Int4 `json:"order"`
+	ID          string      `json:"id"`
+}
+
+func (q *Queries) UpdateBatchCommonServiceOption(ctx context.Context, arg []UpdateBatchCommonServiceOptionParams) *UpdateBatchCommonServiceOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Category,
+			a.Name,
+			a.Description,
+			a.Provider,
+			a.Method,
+			a.IsActive,
+			a.Order,
+			a.ID,
+		}
+		batch.Queue(updateBatchCommonServiceOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &UpdateBatchCommonServiceOptionBatchResults{br, len(arg), false}
+}
+
+func (b *UpdateBatchCommonServiceOptionBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *UpdateBatchCommonServiceOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const updateBatchInventorySkuSerial = `-- name: UpdateBatchInventorySkuSerial :batchexec
 UPDATE "inventory"."sku_serial"
 SET "serial_id" = COALESCE($1, "serial_id"),
@@ -5515,7 +5716,7 @@ type UpdateBatchOrderBaseBatchResults struct {
 type UpdateBatchOrderBaseParams struct {
 	AccountID     pgtype.Int8        `json:"account_id"`
 	PaymentOption pgtype.Text        `json:"payment_option"`
-	PaymentStatus NullSharedStatus   `json:"payment_status"`
+	PaymentStatus NullCommonStatus   `json:"payment_status"`
 	Address       pgtype.Text        `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -5659,7 +5860,7 @@ type UpdateBatchOrderItemParams struct {
 	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
 	ShipmentID        pgtype.Int8      `json:"shipment_id"`
 	Note              pgtype.Text      `json:"note"`
-	Status            NullSharedStatus `json:"status"`
+	Status            NullCommonStatus `json:"status"`
 	Quantity          pgtype.Int8      `json:"quantity"`
 	ID                int64            `json:"id"`
 }
@@ -5788,7 +5989,7 @@ type UpdateBatchOrderRefundParams struct {
 	NullShipmentID   bool                  `json:"null_shipment_id"`
 	ShipmentID       pgtype.Int8           `json:"shipment_id"`
 	Method           NullOrderRefundMethod `json:"method"`
-	Status           NullSharedStatus      `json:"status"`
+	Status           NullCommonStatus      `json:"status"`
 	Reason           pgtype.Text           `json:"reason"`
 	NullAddress      bool                  `json:"null_address"`
 	Address          pgtype.Text           `json:"address"`
@@ -5862,7 +6063,7 @@ type UpdateBatchOrderRefundDisputeParams struct {
 	RefundID    pgtype.Int8        `json:"refund_id"`
 	IssuedByID  pgtype.Int8        `json:"issued_by_id"`
 	Reason      pgtype.Text        `json:"reason"`
-	Status      NullSharedStatus   `json:"status"`
+	Status      NullCommonStatus   `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 	ID          int64              `json:"id"`
@@ -6275,217 +6476,6 @@ func (b *UpdateBatchPromotionScheduleBatchResults) Exec(f func(int, error)) {
 }
 
 func (b *UpdateBatchPromotionScheduleBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const updateBatchSharedResource = `-- name: UpdateBatchSharedResource :batchexec
-UPDATE "shared"."resource"
-SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by") END,
-    "provider" = COALESCE($3, "provider"),
-    "object_key" = COALESCE($4, "object_key"),
-    "mime" = COALESCE($5, "mime"),
-    "size" = COALESCE($6, "size"),
-    "metadata" = COALESCE($7, "metadata"),
-    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
-    "status" = COALESCE($10, "status"),
-    "created_at" = COALESCE($11, "created_at")
-WHERE id = $12
-`
-
-type UpdateBatchSharedResourceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchSharedResourceParams struct {
-	NullUploadedBy bool               `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
-	Provider       pgtype.Text        `json:"provider"`
-	ObjectKey      pgtype.Text        `json:"object_key"`
-	Mime           pgtype.Text        `json:"mime"`
-	Size           pgtype.Int8        `json:"size"`
-	Metadata       []byte             `json:"metadata"`
-	NullChecksum   bool               `json:"null_checksum"`
-	Checksum       pgtype.Text        `json:"checksum"`
-	Status         NullSharedStatus   `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             pgtype.UUID        `json:"id"`
-}
-
-func (q *Queries) UpdateBatchSharedResource(ctx context.Context, arg []UpdateBatchSharedResourceParams) *UpdateBatchSharedResourceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.NullUploadedBy,
-			a.UploadedBy,
-			a.Provider,
-			a.ObjectKey,
-			a.Mime,
-			a.Size,
-			a.Metadata,
-			a.NullChecksum,
-			a.Checksum,
-			a.Status,
-			a.CreatedAt,
-			a.ID,
-		}
-		batch.Queue(updateBatchSharedResource, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchSharedResourceBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchSharedResourceBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchSharedResourceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const updateBatchSharedResourceReference = `-- name: UpdateBatchSharedResourceReference :batchexec
-UPDATE "shared"."resource_reference"
-SET "rs_id" = COALESCE($1, "rs_id"),
-    "ref_type" = COALESCE($2, "ref_type"),
-    "ref_id" = COALESCE($3, "ref_id"),
-    "order" = COALESCE($4, "order"),
-    "is_primary" = COALESCE($5, "is_primary")
-WHERE id = $6
-`
-
-type UpdateBatchSharedResourceReferenceBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID               `json:"rs_id"`
-	RefType   NullSharedResourceRefType `json:"ref_type"`
-	RefID     pgtype.Int8               `json:"ref_id"`
-	Order     pgtype.Int4               `json:"order"`
-	IsPrimary pgtype.Bool               `json:"is_primary"`
-	ID        int64                     `json:"id"`
-}
-
-func (q *Queries) UpdateBatchSharedResourceReference(ctx context.Context, arg []UpdateBatchSharedResourceReferenceParams) *UpdateBatchSharedResourceReferenceBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.RsID,
-			a.RefType,
-			a.RefID,
-			a.Order,
-			a.IsPrimary,
-			a.ID,
-		}
-		batch.Queue(updateBatchSharedResourceReference, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchSharedResourceReferenceBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchSharedResourceReferenceBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchSharedResourceReferenceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const updateBatchSharedServiceOption = `-- name: UpdateBatchSharedServiceOption :batchexec
-UPDATE "shared"."service_option"
-SET "category" = COALESCE($1, "category"),
-    "name" = COALESCE($2, "name"),
-    "description" = COALESCE($3, "description"),
-    "provider" = COALESCE($4, "provider"),
-    "method" = COALESCE($5, "method"),
-    "is_active" = COALESCE($6, "is_active"),
-    "order" = COALESCE($7, "order")
-WHERE id = $8
-`
-
-type UpdateBatchSharedServiceOptionBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type UpdateBatchSharedServiceOptionParams struct {
-	Category    pgtype.Text `json:"category"`
-	Name        pgtype.Text `json:"name"`
-	Description pgtype.Text `json:"description"`
-	Provider    pgtype.Text `json:"provider"`
-	Method      pgtype.Text `json:"method"`
-	IsActive    pgtype.Bool `json:"is_active"`
-	Order       pgtype.Int4 `json:"order"`
-	ID          string      `json:"id"`
-}
-
-func (q *Queries) UpdateBatchSharedServiceOption(ctx context.Context, arg []UpdateBatchSharedServiceOptionParams) *UpdateBatchSharedServiceOptionBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.Category,
-			a.Name,
-			a.Description,
-			a.Provider,
-			a.Method,
-			a.IsActive,
-			a.Order,
-			a.ID,
-		}
-		batch.Queue(updateBatchSharedServiceOption, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &UpdateBatchSharedServiceOptionBatchResults{br, len(arg), false}
-}
-
-func (b *UpdateBatchSharedServiceOptionBatchResults) Exec(f func(int, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		if b.closed {
-			if f != nil {
-				f(t, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		_, err := b.br.Exec()
-		if f != nil {
-			f(t, err)
-		}
-	}
-}
-
-func (b *UpdateBatchSharedServiceOptionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/guregu/null/v6"
 
 	"shopnexus-remastered/internal/logger"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 
 	"github.com/bytedance/sonic"
 )
@@ -24,14 +24,14 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	message := http.StatusText(httpCode)
 
 	// Use the error's message if it implements ErrorWithCode (domain errors)
-	if errWithCode, ok := err.(sharedmodel.ErrorWithCode); ok {
+	if errWithCode, ok := err.(commonmodel.ErrorWithCode); ok {
 		errCode = errWithCode.Code()
 		message = errWithCode.Error()
 	}
 
 	data, err := sonic.Marshal(CommonResponse{
 		Data: nil,
-		Error: &sharedmodel.Error{
+		Error: &commonmodel.Error{
 			ErrCode: errCode,
 			Message: message,
 		},
@@ -101,14 +101,14 @@ func FromHTTPCode(w http.ResponseWriter, httpCode int) error {
 
 	response := CommonResponse{
 		Data:  nil,
-		Error: &sharedmodel.Error{ErrCode: statusCode, Message: statusText},
+		Error: &commonmodel.Error{ErrCode: statusCode, Message: statusText},
 	}
 
 	return writeResponse(w, httpCode, response)
 }
 
 // FromPaginate writes a paginated response with proper structure
-func FromPaginate[T any](w http.ResponseWriter, paginate sharedmodel.PaginateResult[T]) error {
+func FromPaginate[T any](w http.ResponseWriter, paginate commonmodel.PaginateResult[T]) error {
 	data := paginate.Data
 	if data == nil {
 		// Make sure the paginate object is not nil

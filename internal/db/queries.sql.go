@@ -234,9 +234,7 @@ WHERE (
     ("note" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
     ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("hash" = ANY($14) OR $14 IS NULL) AND
-    ("prev_hash" = ANY($15) OR $15 IS NULL)
+    ("date_created" < $13 OR $13 IS NULL)
 )
 `
 
@@ -254,8 +252,6 @@ type CountAccountIncomeHistoryParams struct {
 	DateCreated        []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom    pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo      pgtype.Timestamptz   `json:"date_created_to"`
-	Hash               [][]byte             `json:"hash"`
-	PrevHash           [][]byte             `json:"prev_hash"`
 }
 
 func (q *Queries) CountAccountIncomeHistory(ctx context.Context, arg CountAccountIncomeHistoryParams) (int64, error) {
@@ -273,8 +269,6 @@ func (q *Queries) CountAccountIncomeHistory(ctx context.Context, arg CountAccoun
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -463,7 +457,7 @@ WHERE (
 
 type CountAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	AccountID       []int64                        `json:"account_id"`
+	AccountID       []pgtype.Int8                  `json:"account_id"`
 	SessionID       []pgtype.Text                  `json:"session_id"`
 	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
@@ -649,12 +643,13 @@ WHERE (
     ("price" < $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
-    ("date_deleted" > $12 OR $12 IS NULL) AND
-    ("date_deleted" < $13 OR $13 IS NULL)
+    ("specifications" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_deleted" = ANY($12) OR $12 IS NULL) AND
+    ("date_deleted" > $13 OR $13 IS NULL) AND
+    ("date_deleted" < $14 OR $14 IS NULL)
 )
 `
 
@@ -666,6 +661,7 @@ type CountCatalogProductSkuParams struct {
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
 	Attributes      [][]byte             `json:"attributes"`
+	Specifications  [][]byte             `json:"specifications"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -683,6 +679,7 @@ func (q *Queries) CountCatalogProductSku(ctx context.Context, arg CountCatalogPr
 		arg.PriceTo,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -806,6 +803,162 @@ type CountCatalogTagParams struct {
 
 func (q *Queries) CountCatalogTag(ctx context.Context, arg CountCatalogTagParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countCatalogTag, arg.ID, arg.Description)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCommonResource = `-- name: CountCommonResource :one
+SELECT COUNT(*)
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
+)
+`
+
+type CountCommonResourceParams struct {
+	ID             []pgtype.UUID        `json:"id"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
+	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
+	Status         []CommonStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+}
+
+func (q *Queries) CountCommonResource(ctx context.Context, arg CountCommonResourceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+		arg.CreatedAtFrom,
+		arg.CreatedAtTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCommonResourceReference = `-- name: CountCommonResourceReference :one
+SELECT COUNT(*)
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
+)
+`
+
+type CountCommonResourceReferenceParams struct {
+	ID        []int64                 `json:"id"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
+	RefType   []CommonResourceRefType `json:"ref_type"`
+	RefID     []int64                 `json:"ref_id"`
+	Order     []int32                 `json:"order"`
+	OrderFrom pgtype.Int4             `json:"order_from"`
+	OrderTo   pgtype.Int4             `json:"order_to"`
+	IsPrimary []bool                  `json:"is_primary"`
+}
+
+func (q *Queries) CountCommonResourceReference(ctx context.Context, arg CountCommonResourceReferenceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCommonResourceReference,
+		arg.ID,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+		arg.IsPrimary,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCommonServiceOption = `-- name: CountCommonServiceOption :one
+SELECT COUNT(*)
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
+)
+`
+
+type CountCommonServiceOptionParams struct {
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
+}
+
+func (q *Queries) CountCommonServiceOption(ctx context.Context, arg CountCommonServiceOptionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -968,7 +1121,7 @@ type CountOrderBaseParams struct {
 	ID              []int64              `json:"id"`
 	AccountID       []int64              `json:"account_id"`
 	PaymentOption   []string             `json:"payment_option"`
-	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	PaymentStatus   []CommonStatus       `json:"payment_status"`
 	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -1071,7 +1224,7 @@ type CountOrderItemParams struct {
 	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    []int64        `json:"shipment_id"`
 	Note          []string       `json:"note"`
-	Status        []SharedStatus `json:"status"`
+	Status        []CommonStatus `json:"status"`
 	Quantity      []int64        `json:"quantity"`
 	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
 	QuantityTo    pgtype.Int8    `json:"quantity_to"`
@@ -1145,7 +1298,7 @@ type CountOrderRefundParams struct {
 	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
 	Method          []OrderRefundMethod  `json:"method"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	Reason          []string             `json:"reason"`
 	Address         []pgtype.Text        `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
@@ -1196,7 +1349,7 @@ type CountOrderRefundDisputeParams struct {
 	RefundID        []int64              `json:"refund_id"`
 	IssuedByID      []int64              `json:"issued_by_id"`
 	Reason          []string             `json:"reason"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -1551,162 +1704,6 @@ func (q *Queries) CountPromotionSchedule(ctx context.Context, arg CountPromotion
 	return count, err
 }
 
-const countSharedResource = `-- name: CountSharedResource :one
-SELECT COUNT(*)
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
-    ("uploaded_by" > $3 OR $3 IS NULL) AND
-    ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("object_key" = ANY($6) OR $6 IS NULL) AND
-    ("mime" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("checksum" = ANY($12) OR $12 IS NULL) AND
-    ("status" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" = ANY($14) OR $14 IS NULL) AND
-    ("created_at" > $15 OR $15 IS NULL) AND
-    ("created_at" < $16 OR $16 IS NULL)
-)
-`
-
-type CountSharedResourceParams struct {
-	ID             []pgtype.UUID        `json:"id"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Provider       []string             `json:"provider"`
-	ObjectKey      []string             `json:"object_key"`
-	Mime           []string             `json:"mime"`
-	Size           []int64              `json:"size"`
-	SizeFrom       pgtype.Int8          `json:"size_from"`
-	SizeTo         pgtype.Int8          `json:"size_to"`
-	Metadata       [][]byte             `json:"metadata"`
-	Checksum       []pgtype.Text        `json:"checksum"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
-}
-
-func (q *Queries) CountSharedResource(ctx context.Context, arg CountSharedResourceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.SizeFrom,
-		arg.SizeTo,
-		arg.Metadata,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-		arg.CreatedAtFrom,
-		arg.CreatedAtTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countSharedResourceReference = `-- name: CountSharedResourceReference :one
-SELECT COUNT(*)
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("rs_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("order" = ANY($5) OR $5 IS NULL) AND
-    ("order" > $6 OR $6 IS NULL) AND
-    ("order" < $7 OR $7 IS NULL) AND
-    ("is_primary" = ANY($8) OR $8 IS NULL)
-)
-`
-
-type CountSharedResourceReferenceParams struct {
-	ID        []int64                 `json:"id"`
-	RsID      []pgtype.UUID           `json:"rs_id"`
-	RefType   []SharedResourceRefType `json:"ref_type"`
-	RefID     []int64                 `json:"ref_id"`
-	Order     []int32                 `json:"order"`
-	OrderFrom pgtype.Int4             `json:"order_from"`
-	OrderTo   pgtype.Int4             `json:"order_to"`
-	IsPrimary []bool                  `json:"is_primary"`
-}
-
-func (q *Queries) CountSharedResourceReference(ctx context.Context, arg CountSharedResourceReferenceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSharedResourceReference,
-		arg.ID,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-		arg.IsPrimary,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countSharedServiceOption = `-- name: CountSharedServiceOption :one
-SELECT COUNT(*)
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("name" = ANY($3) OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("method" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
-)
-`
-
-type CountSharedServiceOptionParams struct {
-	ID          []string    `json:"id"`
-	Category    []string    `json:"category"`
-	Name        []string    `json:"name"`
-	Description []string    `json:"description"`
-	Provider    []string    `json:"provider"`
-	Method      []string    `json:"method"`
-	IsActive    []bool      `json:"is_active"`
-	Order       []int32     `json:"order"`
-	OrderFrom   pgtype.Int4 `json:"order_from"`
-	OrderTo     pgtype.Int4 `json:"order_to"`
-}
-
-func (q *Queries) CountSharedServiceOption(ctx context.Context, arg CountSharedServiceOptionParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countSystemOutboxEvent = `-- name: CountSystemOutboxEvent :one
 SELECT COUNT(*)
 FROM "system"."outbox_event"
@@ -1946,9 +1943,9 @@ func (q *Queries) CreateAccountCustomer(ctx context.Context, arg CreateAccountCu
 }
 
 const createAccountIncomeHistory = `-- name: CreateAccountIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type CreateAccountIncomeHistoryParams struct {
@@ -1958,8 +1955,6 @@ type CreateAccountIncomeHistoryParams struct {
 	CurrentBalance int64              `json:"current_balance"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 }
 
 func (q *Queries) CreateAccountIncomeHistory(ctx context.Context, arg CreateAccountIncomeHistoryParams) (AccountIncomeHistory, error) {
@@ -1970,8 +1965,6 @@ func (q *Queries) CreateAccountIncomeHistory(ctx context.Context, arg CreateAcco
 		arg.CurrentBalance,
 		arg.Note,
 		arg.DateCreated,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var i AccountIncomeHistory
 	err := row.Scan(
@@ -1982,8 +1975,6 @@ func (q *Queries) CreateAccountIncomeHistory(ctx context.Context, arg CreateAcco
 		&i.CurrentBalance,
 		&i.Note,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -2107,7 +2098,7 @@ RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, us
 `
 
 type CreateAnalyticInteractionParams struct {
-	AccountID   int64                      `json:"account_id"`
+	AccountID   pgtype.Int8                `json:"account_id"`
 	SessionID   pgtype.Text                `json:"session_id"`
 	EventType   string                     `json:"event_type"`
 	RefType     AnalyticInteractionRefType `json:"ref_type"`
@@ -2241,18 +2232,19 @@ func (q *Queries) CreateCatalogComment(ctx context.Context, arg CreateCatalogCom
 }
 
 const createCatalogProductSku = `-- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 `
 
 type CreateCatalogProductSkuParams struct {
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalogProductSkuParams) (CatalogProductSku, error) {
@@ -2261,6 +2253,7 @@ func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalog
 		arg.Price,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.DateDeleted,
 	)
@@ -2271,6 +2264,7 @@ func (q *Queries) CreateCatalogProductSku(ctx context.Context, arg CreateCatalog
 		&i.Price,
 		&i.CanCombine,
 		&i.Attributes,
+		&i.Specifications,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
@@ -2365,6 +2359,130 @@ func (q *Queries) CreateCatalogTag(ctx context.Context, arg CreateCatalogTagPara
 	return i, err
 }
 
+const createCommonResource = `-- name: CreateCommonResource :one
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+`
+
+type CreateCommonResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     CommonStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateCommonResource(ctx context.Context, arg CreateCommonResourceParams) (CommonResource, error) {
+	row := q.db.QueryRow(ctx, createCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.Metadata,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+	)
+	var i CommonResource
+	err := row.Scan(
+		&i.ID,
+		&i.UploadedBy,
+		&i.Provider,
+		&i.ObjectKey,
+		&i.Mime,
+		&i.Size,
+		&i.Metadata,
+		&i.Checksum,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createCommonResourceReference = `-- name: CreateCommonResourceReference :one
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
+`
+
+type CreateCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+func (q *Queries) CreateCommonResourceReference(ctx context.Context, arg CreateCommonResourceReferenceParams) (CommonResourceReference, error) {
+	row := q.db.QueryRow(ctx, createCommonResourceReference,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.IsPrimary,
+	)
+	var i CommonResourceReference
+	err := row.Scan(
+		&i.ID,
+		&i.RsID,
+		&i.RefType,
+		&i.RefID,
+		&i.Order,
+		&i.IsPrimary,
+	)
+	return i, err
+}
+
+const createCommonServiceOption = `-- name: CreateCommonServiceOption :one
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, category, name, description, provider, method, is_active, "order"
+`
+
+type CreateCommonServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
+}
+
+func (q *Queries) CreateCommonServiceOption(ctx context.Context, arg CreateCommonServiceOptionParams) (CommonServiceOption, error) {
+	row := q.db.QueryRow(ctx, createCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+	)
+	var i CommonServiceOption
+	err := row.Scan(
+		&i.ID,
+		&i.Category,
+		&i.Name,
+		&i.Description,
+		&i.Provider,
+		&i.Method,
+		&i.IsActive,
+		&i.Order,
+	)
+	return i, err
+}
+
 type CreateCopyAccountBaseParams struct {
 	Type        AccountType        `json:"type"`
 	Status      AccountStatus      `json:"status"`
@@ -2408,8 +2526,6 @@ type CreateCopyAccountIncomeHistoryParams struct {
 	CurrentBalance int64              `json:"current_balance"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 }
 
 type CreateCopyAccountNotificationParams struct {
@@ -2443,7 +2559,7 @@ type CreateCopyAccountVendorParams struct {
 }
 
 type CreateCopyAnalyticInteractionParams struct {
-	AccountID   int64                      `json:"account_id"`
+	AccountID   pgtype.Int8                `json:"account_id"`
 	SessionID   pgtype.Text                `json:"session_id"`
 	EventType   string                     `json:"event_type"`
 	RefType     AnalyticInteractionRefType `json:"ref_type"`
@@ -2479,12 +2595,13 @@ type CreateCopyCatalogCommentParams struct {
 }
 
 type CreateCopyCatalogProductSkuParams struct {
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateCreated pgtype.Timestamptz `json:"date_created"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CreateCopyCatalogProductSpuParams struct {
@@ -2509,6 +2626,38 @@ type CreateCopyCatalogProductSpuTagParams struct {
 type CreateCopyCatalogTagParams struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
+}
+
+type CreateCopyCommonResourceParams struct {
+	ID         pgtype.UUID        `json:"id"`
+	UploadedBy pgtype.Int8        `json:"uploaded_by"`
+	Provider   string             `json:"provider"`
+	ObjectKey  string             `json:"object_key"`
+	Mime       string             `json:"mime"`
+	Size       int64              `json:"size"`
+	Metadata   []byte             `json:"metadata"`
+	Checksum   pgtype.Text        `json:"checksum"`
+	Status     CommonStatus       `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CreateCopyCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+type CreateCopyCommonServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	IsActive    bool   `json:"is_active"`
+	Order       int32  `json:"order"`
 }
 
 type CreateCopyDefaultAccountBaseParams struct {
@@ -2539,8 +2688,6 @@ type CreateCopyDefaultAccountIncomeHistoryParams struct {
 	Income         int64       `json:"income"`
 	CurrentBalance int64       `json:"current_balance"`
 	Note           pgtype.Text `json:"note"`
-	Hash           []byte      `json:"hash"`
-	PrevHash       []byte      `json:"prev_hash"`
 }
 
 type CreateCopyDefaultAccountNotificationParams struct {
@@ -2562,7 +2709,7 @@ type CreateCopyDefaultAccountProfileParams struct {
 }
 
 type CreateCopyDefaultAnalyticInteractionParams struct {
-	AccountID int64                      `json:"account_id"`
+	AccountID pgtype.Int8                `json:"account_id"`
 	SessionID pgtype.Text                `json:"session_id"`
 	EventType string                     `json:"event_type"`
 	RefType   AnalyticInteractionRefType `json:"ref_type"`
@@ -2593,11 +2740,12 @@ type CreateCopyDefaultCatalogCommentParams struct {
 }
 
 type CreateCopyDefaultCatalogProductSkuParams struct {
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CreateCopyDefaultCatalogProductSpuParams struct {
@@ -2620,6 +2768,35 @@ type CreateCopyDefaultCatalogProductSpuTagParams struct {
 type CreateCopyDefaultCatalogTagParams struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
+}
+
+type CreateCopyDefaultCommonResourceParams struct {
+	ID         pgtype.UUID `json:"id"`
+	UploadedBy pgtype.Int8 `json:"uploaded_by"`
+	Provider   string      `json:"provider"`
+	ObjectKey  string      `json:"object_key"`
+	Mime       string      `json:"mime"`
+	Size       int64       `json:"size"`
+	Metadata   []byte      `json:"metadata"`
+	Checksum   pgtype.Text `json:"checksum"`
+}
+
+type CreateCopyDefaultCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+type CreateCopyDefaultCommonServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	Order       int32  `json:"order"`
 }
 
 type CreateCopyDefaultInventorySkuSerialParams struct {
@@ -2733,35 +2910,6 @@ type CreateCopyDefaultPromotionScheduleParams struct {
 	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
 }
 
-type CreateCopyDefaultSharedResourceParams struct {
-	ID         pgtype.UUID `json:"id"`
-	UploadedBy pgtype.Int8 `json:"uploaded_by"`
-	Provider   string      `json:"provider"`
-	ObjectKey  string      `json:"object_key"`
-	Mime       string      `json:"mime"`
-	Size       int64       `json:"size"`
-	Metadata   []byte      `json:"metadata"`
-	Checksum   pgtype.Text `json:"checksum"`
-}
-
-type CreateCopyDefaultSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-type CreateCopyDefaultSharedServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	Order       int32  `json:"order"`
-}
-
 type CreateCopyDefaultSystemOutboxEventParams struct {
 	Topic         string             `json:"topic"`
 	Data          []byte             `json:"data"`
@@ -2797,7 +2945,7 @@ type CreateCopyInventoryStockHistoryParams struct {
 type CreateCopyOrderBaseParams struct {
 	AccountID     int64              `json:"account_id"`
 	PaymentOption string             `json:"payment_option"`
-	PaymentStatus SharedStatus       `json:"payment_status"`
+	PaymentStatus CommonStatus       `json:"payment_status"`
 	Address       string             `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -2820,7 +2968,7 @@ type CreateCopyOrderItemParams struct {
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
-	Status        SharedStatus `json:"status"`
+	Status        CommonStatus `json:"status"`
 	Quantity      int64        `json:"quantity"`
 }
 
@@ -2835,7 +2983,7 @@ type CreateCopyOrderRefundParams struct {
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
-	Status       SharedStatus       `json:"status"`
+	Status       CommonStatus       `json:"status"`
 	Reason       string             `json:"reason"`
 	Address      pgtype.Text        `json:"address"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
@@ -2845,7 +2993,7 @@ type CreateCopyOrderRefundDisputeParams struct {
 	RefundID    int64              `json:"refund_id"`
 	IssuedByID  int64              `json:"issued_by_id"`
 	Reason      string             `json:"reason"`
-	Status      SharedStatus       `json:"status"`
+	Status      CommonStatus       `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
@@ -2902,38 +3050,6 @@ type CreateCopyPromotionScheduleParams struct {
 	Duration    int32              `json:"duration"`
 	NextRunAt   pgtype.Timestamptz `json:"next_run_at"`
 	LastRunAt   pgtype.Timestamptz `json:"last_run_at"`
-}
-
-type CreateCopySharedResourceParams struct {
-	ID         pgtype.UUID        `json:"id"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Provider   string             `json:"provider"`
-	ObjectKey  string             `json:"object_key"`
-	Mime       string             `json:"mime"`
-	Size       int64              `json:"size"`
-	Metadata   []byte             `json:"metadata"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type CreateCopySharedResourceReferenceParams struct {
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-type CreateCopySharedServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
 }
 
 type CreateCopySystemOutboxEventParams struct {
@@ -3067,9 +3183,9 @@ func (q *Queries) CreateDefaultAccountCustomer(ctx context.Context, id int64) (A
 }
 
 const createDefaultAccountIncomeHistory = `-- name: CreateDefaultAccountIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type CreateDefaultAccountIncomeHistoryParams struct {
@@ -3078,8 +3194,6 @@ type CreateDefaultAccountIncomeHistoryParams struct {
 	Income         int64       `json:"income"`
 	CurrentBalance int64       `json:"current_balance"`
 	Note           pgtype.Text `json:"note"`
-	Hash           []byte      `json:"hash"`
-	PrevHash       []byte      `json:"prev_hash"`
 }
 
 func (q *Queries) CreateDefaultAccountIncomeHistory(ctx context.Context, arg CreateDefaultAccountIncomeHistoryParams) (AccountIncomeHistory, error) {
@@ -3089,8 +3203,6 @@ func (q *Queries) CreateDefaultAccountIncomeHistory(ctx context.Context, arg Cre
 		arg.Income,
 		arg.CurrentBalance,
 		arg.Note,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var i AccountIncomeHistory
 	err := row.Scan(
@@ -3101,8 +3213,6 @@ func (q *Queries) CreateDefaultAccountIncomeHistory(ctx context.Context, arg Cre
 		&i.CurrentBalance,
 		&i.Note,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -3207,7 +3317,7 @@ RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, us
 `
 
 type CreateDefaultAnalyticInteractionParams struct {
-	AccountID int64                      `json:"account_id"`
+	AccountID pgtype.Int8                `json:"account_id"`
 	SessionID pgtype.Text                `json:"session_id"`
 	EventType string                     `json:"event_type"`
 	RefType   AnalyticInteractionRefType `json:"ref_type"`
@@ -3331,17 +3441,18 @@ func (q *Queries) CreateDefaultCatalogComment(ctx context.Context, arg CreateDef
 }
 
 const createDefaultCatalogProductSku = `-- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 `
 
 type CreateDefaultCatalogProductSkuParams struct {
-	SpuID       int64              `json:"spu_id"`
-	Price       int64              `json:"price"`
-	CanCombine  bool               `json:"can_combine"`
-	Attributes  []byte             `json:"attributes"`
-	DateDeleted pgtype.Timestamptz `json:"date_deleted"`
+	SpuID          int64              `json:"spu_id"`
+	Price          int64              `json:"price"`
+	CanCombine     bool               `json:"can_combine"`
+	Attributes     []byte             `json:"attributes"`
+	Specifications []byte             `json:"specifications"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg CreateDefaultCatalogProductSkuParams) (CatalogProductSku, error) {
@@ -3350,6 +3461,7 @@ func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg Create
 		arg.Price,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateDeleted,
 	)
 	var i CatalogProductSku
@@ -3359,6 +3471,7 @@ func (q *Queries) CreateDefaultCatalogProductSku(ctx context.Context, arg Create
 		&i.Price,
 		&i.CanCombine,
 		&i.Attributes,
+		&i.Specifications,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
@@ -3446,6 +3559,124 @@ func (q *Queries) CreateDefaultCatalogTag(ctx context.Context, arg CreateDefault
 	row := q.db.QueryRow(ctx, createDefaultCatalogTag, arg.ID, arg.Description)
 	var i CatalogTag
 	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const createDefaultCommonResource = `-- name: CreateDefaultCommonResource :one
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+`
+
+type CreateDefaultCommonResourceParams struct {
+	ID         pgtype.UUID `json:"id"`
+	UploadedBy pgtype.Int8 `json:"uploaded_by"`
+	Provider   string      `json:"provider"`
+	ObjectKey  string      `json:"object_key"`
+	Mime       string      `json:"mime"`
+	Size       int64       `json:"size"`
+	Metadata   []byte      `json:"metadata"`
+	Checksum   pgtype.Text `json:"checksum"`
+}
+
+func (q *Queries) CreateDefaultCommonResource(ctx context.Context, arg CreateDefaultCommonResourceParams) (CommonResource, error) {
+	row := q.db.QueryRow(ctx, createDefaultCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.Metadata,
+		arg.Checksum,
+	)
+	var i CommonResource
+	err := row.Scan(
+		&i.ID,
+		&i.UploadedBy,
+		&i.Provider,
+		&i.ObjectKey,
+		&i.Mime,
+		&i.Size,
+		&i.Metadata,
+		&i.Checksum,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createDefaultCommonResourceReference = `-- name: CreateDefaultCommonResourceReference :one
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
+`
+
+type CreateDefaultCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID           `json:"rs_id"`
+	RefType   CommonResourceRefType `json:"ref_type"`
+	RefID     int64                 `json:"ref_id"`
+	Order     int32                 `json:"order"`
+	IsPrimary bool                  `json:"is_primary"`
+}
+
+func (q *Queries) CreateDefaultCommonResourceReference(ctx context.Context, arg CreateDefaultCommonResourceReferenceParams) (CommonResourceReference, error) {
+	row := q.db.QueryRow(ctx, createDefaultCommonResourceReference,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.IsPrimary,
+	)
+	var i CommonResourceReference
+	err := row.Scan(
+		&i.ID,
+		&i.RsID,
+		&i.RefType,
+		&i.RefID,
+		&i.Order,
+		&i.IsPrimary,
+	)
+	return i, err
+}
+
+const createDefaultCommonServiceOption = `-- name: CreateDefaultCommonServiceOption :one
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, category, name, description, provider, method, is_active, "order"
+`
+
+type CreateDefaultCommonServiceOptionParams struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Provider    string `json:"provider"`
+	Method      string `json:"method"`
+	Order       int32  `json:"order"`
+}
+
+func (q *Queries) CreateDefaultCommonServiceOption(ctx context.Context, arg CreateDefaultCommonServiceOptionParams) (CommonServiceOption, error) {
+	row := q.db.QueryRow(ctx, createDefaultCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.Order,
+	)
+	var i CommonServiceOption
+	err := row.Scan(
+		&i.ID,
+		&i.Category,
+		&i.Name,
+		&i.Description,
+		&i.Provider,
+		&i.Method,
+		&i.IsActive,
+		&i.Order,
+	)
 	return i, err
 }
 
@@ -3913,124 +4144,6 @@ func (q *Queries) CreateDefaultPromotionSchedule(ctx context.Context, arg Create
 	return i, err
 }
 
-const createDefaultSharedResource = `-- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-`
-
-type CreateDefaultSharedResourceParams struct {
-	ID         pgtype.UUID `json:"id"`
-	UploadedBy pgtype.Int8 `json:"uploaded_by"`
-	Provider   string      `json:"provider"`
-	ObjectKey  string      `json:"object_key"`
-	Mime       string      `json:"mime"`
-	Size       int64       `json:"size"`
-	Metadata   []byte      `json:"metadata"`
-	Checksum   pgtype.Text `json:"checksum"`
-}
-
-func (q *Queries) CreateDefaultSharedResource(ctx context.Context, arg CreateDefaultSharedResourceParams) (SharedResource, error) {
-	row := q.db.QueryRow(ctx, createDefaultSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.Metadata,
-		arg.Checksum,
-	)
-	var i SharedResource
-	err := row.Scan(
-		&i.ID,
-		&i.UploadedBy,
-		&i.Provider,
-		&i.ObjectKey,
-		&i.Mime,
-		&i.Size,
-		&i.Metadata,
-		&i.Checksum,
-		&i.Status,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const createDefaultSharedResourceReference = `-- name: CreateDefaultSharedResourceReference :one
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
-`
-
-type CreateDefaultSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-func (q *Queries) CreateDefaultSharedResourceReference(ctx context.Context, arg CreateDefaultSharedResourceReferenceParams) (SharedResourceReference, error) {
-	row := q.db.QueryRow(ctx, createDefaultSharedResourceReference,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.IsPrimary,
-	)
-	var i SharedResourceReference
-	err := row.Scan(
-		&i.ID,
-		&i.RsID,
-		&i.RefType,
-		&i.RefID,
-		&i.Order,
-		&i.IsPrimary,
-	)
-	return i, err
-}
-
-const createDefaultSharedServiceOption = `-- name: CreateDefaultSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, category, name, description, provider, method, is_active, "order"
-`
-
-type CreateDefaultSharedServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	Order       int32  `json:"order"`
-}
-
-func (q *Queries) CreateDefaultSharedServiceOption(ctx context.Context, arg CreateDefaultSharedServiceOptionParams) (SharedServiceOption, error) {
-	row := q.db.QueryRow(ctx, createDefaultSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.Order,
-	)
-	var i SharedServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Name,
-		&i.Description,
-		&i.Provider,
-		&i.Method,
-		&i.IsActive,
-		&i.Order,
-	)
-	return i, err
-}
-
 const createDefaultSystemOutboxEvent = `-- name: CreateDefaultSystemOutboxEvent :one
 INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
 VALUES ($1, $2, $3)
@@ -4181,7 +4294,7 @@ RETURNING id, account_id, payment_option, payment_status, address, date_created,
 type CreateOrderBaseParams struct {
 	AccountID     int64              `json:"account_id"`
 	PaymentOption string             `json:"payment_option"`
-	PaymentStatus SharedStatus       `json:"payment_status"`
+	PaymentStatus CommonStatus       `json:"payment_status"`
 	Address       string             `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -4262,7 +4375,7 @@ type CreateOrderItemParams struct {
 	ConfirmedByID pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    int64        `json:"shipment_id"`
 	Note          string       `json:"note"`
-	Status        SharedStatus `json:"status"`
+	Status        CommonStatus `json:"status"`
 	Quantity      int64        `json:"quantity"`
 }
 
@@ -4322,7 +4435,7 @@ type CreateOrderRefundParams struct {
 	ReviewedByID pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID   pgtype.Int8        `json:"shipment_id"`
 	Method       OrderRefundMethod  `json:"method"`
-	Status       SharedStatus       `json:"status"`
+	Status       CommonStatus       `json:"status"`
 	Reason       string             `json:"reason"`
 	Address      pgtype.Text        `json:"address"`
 	DateCreated  pgtype.Timestamptz `json:"date_created"`
@@ -4366,7 +4479,7 @@ type CreateOrderRefundDisputeParams struct {
 	RefundID    int64              `json:"refund_id"`
 	IssuedByID  int64              `json:"issued_by_id"`
 	Reason      string             `json:"reason"`
-	Status      SharedStatus       `json:"status"`
+	Status      CommonStatus       `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
@@ -4596,130 +4709,6 @@ func (q *Queries) CreatePromotionSchedule(ctx context.Context, arg CreatePromoti
 		&i.Duration,
 		&i.NextRunAt,
 		&i.LastRunAt,
-	)
-	return i, err
-}
-
-const createSharedResource = `-- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-`
-
-type CreateSharedResourceParams struct {
-	ID         pgtype.UUID        `json:"id"`
-	UploadedBy pgtype.Int8        `json:"uploaded_by"`
-	Provider   string             `json:"provider"`
-	ObjectKey  string             `json:"object_key"`
-	Mime       string             `json:"mime"`
-	Size       int64              `json:"size"`
-	Metadata   []byte             `json:"metadata"`
-	Checksum   pgtype.Text        `json:"checksum"`
-	Status     SharedStatus       `json:"status"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) CreateSharedResource(ctx context.Context, arg CreateSharedResourceParams) (SharedResource, error) {
-	row := q.db.QueryRow(ctx, createSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.Metadata,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-	)
-	var i SharedResource
-	err := row.Scan(
-		&i.ID,
-		&i.UploadedBy,
-		&i.Provider,
-		&i.ObjectKey,
-		&i.Mime,
-		&i.Size,
-		&i.Metadata,
-		&i.Checksum,
-		&i.Status,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const createSharedResourceReference = `-- name: CreateSharedResourceReference :one
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
-`
-
-type CreateSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID           `json:"rs_id"`
-	RefType   SharedResourceRefType `json:"ref_type"`
-	RefID     int64                 `json:"ref_id"`
-	Order     int32                 `json:"order"`
-	IsPrimary bool                  `json:"is_primary"`
-}
-
-func (q *Queries) CreateSharedResourceReference(ctx context.Context, arg CreateSharedResourceReferenceParams) (SharedResourceReference, error) {
-	row := q.db.QueryRow(ctx, createSharedResourceReference,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.IsPrimary,
-	)
-	var i SharedResourceReference
-	err := row.Scan(
-		&i.ID,
-		&i.RsID,
-		&i.RefType,
-		&i.RefID,
-		&i.Order,
-		&i.IsPrimary,
-	)
-	return i, err
-}
-
-const createSharedServiceOption = `-- name: CreateSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category, name, description, provider, method, is_active, "order"
-`
-
-type CreateSharedServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
-}
-
-func (q *Queries) CreateSharedServiceOption(ctx context.Context, arg CreateSharedServiceOptionParams) (SharedServiceOption, error) {
-	row := q.db.QueryRow(ctx, createSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-	)
-	var i SharedServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Name,
-		&i.Description,
-		&i.Provider,
-		&i.Method,
-		&i.IsActive,
-		&i.Order,
 	)
 	return i, err
 }
@@ -5005,9 +4994,7 @@ WHERE (
     ("note" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
     ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("hash" = ANY($14) OR $14 IS NULL) AND
-    ("prev_hash" = ANY($15) OR $15 IS NULL)
+    ("date_created" < $13 OR $13 IS NULL)
 )
 `
 
@@ -5025,8 +5012,6 @@ type DeleteAccountIncomeHistoryParams struct {
 	DateCreated        []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom    pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo      pgtype.Timestamptz   `json:"date_created_to"`
-	Hash               [][]byte             `json:"hash"`
-	PrevHash           [][]byte             `json:"prev_hash"`
 }
 
 func (q *Queries) DeleteAccountIncomeHistory(ctx context.Context, arg DeleteAccountIncomeHistoryParams) error {
@@ -5044,8 +5029,6 @@ func (q *Queries) DeleteAccountIncomeHistory(ctx context.Context, arg DeleteAcco
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	return err
 }
@@ -5222,7 +5205,7 @@ WHERE (
 
 type DeleteAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	AccountID       []int64                        `json:"account_id"`
+	AccountID       []pgtype.Int8                  `json:"account_id"`
 	SessionID       []pgtype.Text                  `json:"session_id"`
 	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
@@ -5396,12 +5379,13 @@ WHERE (
     ("price" < $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
-    ("date_deleted" > $12 OR $12 IS NULL) AND
-    ("date_deleted" < $13 OR $13 IS NULL)
+    ("specifications" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_deleted" = ANY($12) OR $12 IS NULL) AND
+    ("date_deleted" > $13 OR $13 IS NULL) AND
+    ("date_deleted" < $14 OR $14 IS NULL)
 )
 `
 
@@ -5413,6 +5397,7 @@ type DeleteCatalogProductSkuParams struct {
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
 	Attributes      [][]byte             `json:"attributes"`
+	Specifications  [][]byte             `json:"specifications"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -5430,6 +5415,7 @@ func (q *Queries) DeleteCatalogProductSku(ctx context.Context, arg DeleteCatalog
 		arg.PriceTo,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -5544,6 +5530,153 @@ type DeleteCatalogTagParams struct {
 
 func (q *Queries) DeleteCatalogTag(ctx context.Context, arg DeleteCatalogTagParams) error {
 	_, err := q.db.Exec(ctx, deleteCatalogTag, arg.ID, arg.Description)
+	return err
+}
+
+const deleteCommonResource = `-- name: DeleteCommonResource :exec
+DELETE FROM "common"."resource"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
+)
+`
+
+type DeleteCommonResourceParams struct {
+	ID             []pgtype.UUID        `json:"id"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
+	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
+	Status         []CommonStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+}
+
+func (q *Queries) DeleteCommonResource(ctx context.Context, arg DeleteCommonResourceParams) error {
+	_, err := q.db.Exec(ctx, deleteCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+		arg.CreatedAtFrom,
+		arg.CreatedAtTo,
+	)
+	return err
+}
+
+const deleteCommonResourceReference = `-- name: DeleteCommonResourceReference :exec
+DELETE FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
+)
+`
+
+type DeleteCommonResourceReferenceParams struct {
+	ID        []int64                 `json:"id"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
+	RefType   []CommonResourceRefType `json:"ref_type"`
+	RefID     []int64                 `json:"ref_id"`
+	Order     []int32                 `json:"order"`
+	OrderFrom pgtype.Int4             `json:"order_from"`
+	OrderTo   pgtype.Int4             `json:"order_to"`
+	IsPrimary []bool                  `json:"is_primary"`
+}
+
+func (q *Queries) DeleteCommonResourceReference(ctx context.Context, arg DeleteCommonResourceReferenceParams) error {
+	_, err := q.db.Exec(ctx, deleteCommonResourceReference,
+		arg.ID,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+		arg.IsPrimary,
+	)
+	return err
+}
+
+const deleteCommonServiceOption = `-- name: DeleteCommonServiceOption :exec
+DELETE FROM "common"."service_option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
+)
+`
+
+type DeleteCommonServiceOptionParams struct {
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
+}
+
+func (q *Queries) DeleteCommonServiceOption(ctx context.Context, arg DeleteCommonServiceOptionParams) error {
+	_, err := q.db.Exec(ctx, deleteCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	return err
 }
 
@@ -5694,7 +5827,7 @@ type DeleteOrderBaseParams struct {
 	ID              []int64              `json:"id"`
 	AccountID       []int64              `json:"account_id"`
 	PaymentOption   []string             `json:"payment_option"`
-	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	PaymentStatus   []CommonStatus       `json:"payment_status"`
 	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -5791,7 +5924,7 @@ type DeleteOrderItemParams struct {
 	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    []int64        `json:"shipment_id"`
 	Note          []string       `json:"note"`
-	Status        []SharedStatus `json:"status"`
+	Status        []CommonStatus `json:"status"`
 	Quantity      []int64        `json:"quantity"`
 	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
 	QuantityTo    pgtype.Int8    `json:"quantity_to"`
@@ -5859,7 +5992,7 @@ type DeleteOrderRefundParams struct {
 	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
 	Method          []OrderRefundMethod  `json:"method"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	Reason          []string             `json:"reason"`
 	Address         []pgtype.Text        `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
@@ -5907,7 +6040,7 @@ type DeleteOrderRefundDisputeParams struct {
 	RefundID        []int64              `json:"refund_id"`
 	IssuedByID      []int64              `json:"issued_by_id"`
 	Reason          []string             `json:"reason"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -6245,153 +6378,6 @@ func (q *Queries) DeletePromotionSchedule(ctx context.Context, arg DeletePromoti
 	return err
 }
 
-const deleteSharedResource = `-- name: DeleteSharedResource :exec
-DELETE FROM "shared"."resource"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
-    ("uploaded_by" > $3 OR $3 IS NULL) AND
-    ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("object_key" = ANY($6) OR $6 IS NULL) AND
-    ("mime" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("checksum" = ANY($12) OR $12 IS NULL) AND
-    ("status" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" = ANY($14) OR $14 IS NULL) AND
-    ("created_at" > $15 OR $15 IS NULL) AND
-    ("created_at" < $16 OR $16 IS NULL)
-)
-`
-
-type DeleteSharedResourceParams struct {
-	ID             []pgtype.UUID        `json:"id"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Provider       []string             `json:"provider"`
-	ObjectKey      []string             `json:"object_key"`
-	Mime           []string             `json:"mime"`
-	Size           []int64              `json:"size"`
-	SizeFrom       pgtype.Int8          `json:"size_from"`
-	SizeTo         pgtype.Int8          `json:"size_to"`
-	Metadata       [][]byte             `json:"metadata"`
-	Checksum       []pgtype.Text        `json:"checksum"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
-}
-
-func (q *Queries) DeleteSharedResource(ctx context.Context, arg DeleteSharedResourceParams) error {
-	_, err := q.db.Exec(ctx, deleteSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.SizeFrom,
-		arg.SizeTo,
-		arg.Metadata,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-		arg.CreatedAtFrom,
-		arg.CreatedAtTo,
-	)
-	return err
-}
-
-const deleteSharedResourceReference = `-- name: DeleteSharedResourceReference :exec
-DELETE FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("rs_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("order" = ANY($5) OR $5 IS NULL) AND
-    ("order" > $6 OR $6 IS NULL) AND
-    ("order" < $7 OR $7 IS NULL) AND
-    ("is_primary" = ANY($8) OR $8 IS NULL)
-)
-`
-
-type DeleteSharedResourceReferenceParams struct {
-	ID        []int64                 `json:"id"`
-	RsID      []pgtype.UUID           `json:"rs_id"`
-	RefType   []SharedResourceRefType `json:"ref_type"`
-	RefID     []int64                 `json:"ref_id"`
-	Order     []int32                 `json:"order"`
-	OrderFrom pgtype.Int4             `json:"order_from"`
-	OrderTo   pgtype.Int4             `json:"order_to"`
-	IsPrimary []bool                  `json:"is_primary"`
-}
-
-func (q *Queries) DeleteSharedResourceReference(ctx context.Context, arg DeleteSharedResourceReferenceParams) error {
-	_, err := q.db.Exec(ctx, deleteSharedResourceReference,
-		arg.ID,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-		arg.IsPrimary,
-	)
-	return err
-}
-
-const deleteSharedServiceOption = `-- name: DeleteSharedServiceOption :exec
-DELETE FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("name" = ANY($3) OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("method" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
-)
-`
-
-type DeleteSharedServiceOptionParams struct {
-	ID          []string    `json:"id"`
-	Category    []string    `json:"category"`
-	Name        []string    `json:"name"`
-	Description []string    `json:"description"`
-	Provider    []string    `json:"provider"`
-	Method      []string    `json:"method"`
-	IsActive    []bool      `json:"is_active"`
-	Order       []int32     `json:"order"`
-	OrderFrom   pgtype.Int4 `json:"order_from"`
-	OrderTo     pgtype.Int4 `json:"order_to"`
-}
-
-func (q *Queries) DeleteSharedServiceOption(ctx context.Context, arg DeleteSharedServiceOptionParams) error {
-	_, err := q.db.Exec(ctx, deleteSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-	)
-	return err
-}
-
 const deleteSystemOutboxEvent = `-- name: DeleteSystemOutboxEvent :exec
 DELETE FROM "system"."outbox_event"
 WHERE (
@@ -6717,9 +6703,7 @@ WHERE (
     ("note" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
     ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("hash" = ANY($14) OR $14 IS NULL) AND
-    ("prev_hash" = ANY($15) OR $15 IS NULL)
+    ("date_created" < $13 OR $13 IS NULL)
 )
 ) as exists
 `
@@ -6738,8 +6722,6 @@ type ExistsAccountIncomeHistoryParams struct {
 	DateCreated        []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom    pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo      pgtype.Timestamptz   `json:"date_created_to"`
-	Hash               [][]byte             `json:"hash"`
-	PrevHash           [][]byte             `json:"prev_hash"`
 }
 
 func (q *Queries) ExistsAccountIncomeHistory(ctx context.Context, arg ExistsAccountIncomeHistoryParams) (bool, error) {
@@ -6757,8 +6739,6 @@ func (q *Queries) ExistsAccountIncomeHistory(ctx context.Context, arg ExistsAcco
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 	)
 	var exists bool
 	err := row.Scan(&exists)
@@ -6955,7 +6935,7 @@ WHERE (
 
 type ExistsAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	AccountID       []int64                        `json:"account_id"`
+	AccountID       []pgtype.Int8                  `json:"account_id"`
 	SessionID       []pgtype.Text                  `json:"session_id"`
 	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
@@ -7148,12 +7128,13 @@ WHERE (
     ("price" < $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
-    ("date_deleted" > $12 OR $12 IS NULL) AND
-    ("date_deleted" < $13 OR $13 IS NULL)
+    ("specifications" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_deleted" = ANY($12) OR $12 IS NULL) AND
+    ("date_deleted" > $13 OR $13 IS NULL) AND
+    ("date_deleted" < $14 OR $14 IS NULL)
 )
 ) as exists
 `
@@ -7166,6 +7147,7 @@ type ExistsCatalogProductSkuParams struct {
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
 	Attributes      [][]byte             `json:"attributes"`
+	Specifications  [][]byte             `json:"specifications"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -7183,6 +7165,7 @@ func (q *Queries) ExistsCatalogProductSku(ctx context.Context, arg ExistsCatalog
 		arg.PriceTo,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -7312,6 +7295,168 @@ type ExistsCatalogTagParams struct {
 
 func (q *Queries) ExistsCatalogTag(ctx context.Context, arg ExistsCatalogTagParams) (bool, error) {
 	row := q.db.QueryRow(ctx, existsCatalogTag, arg.ID, arg.Description)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsCommonResource = `-- name: ExistsCommonResource :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
+)
+) as exists
+`
+
+type ExistsCommonResourceParams struct {
+	ID             []pgtype.UUID        `json:"id"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
+	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
+	Status         []CommonStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+}
+
+func (q *Queries) ExistsCommonResource(ctx context.Context, arg ExistsCommonResourceParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+		arg.CreatedAtFrom,
+		arg.CreatedAtTo,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsCommonResourceReference = `-- name: ExistsCommonResourceReference :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
+)
+) as exists
+`
+
+type ExistsCommonResourceReferenceParams struct {
+	ID        []int64                 `json:"id"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
+	RefType   []CommonResourceRefType `json:"ref_type"`
+	RefID     []int64                 `json:"ref_id"`
+	Order     []int32                 `json:"order"`
+	OrderFrom pgtype.Int4             `json:"order_from"`
+	OrderTo   pgtype.Int4             `json:"order_to"`
+	IsPrimary []bool                  `json:"is_primary"`
+}
+
+func (q *Queries) ExistsCommonResourceReference(ctx context.Context, arg ExistsCommonResourceReferenceParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsCommonResourceReference,
+		arg.ID,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+		arg.IsPrimary,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const existsCommonServiceOption = `-- name: ExistsCommonServiceOption :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
+)
+) as exists
+`
+
+type ExistsCommonServiceOptionParams struct {
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
+}
+
+func (q *Queries) ExistsCommonServiceOption(ctx context.Context, arg ExistsCommonServiceOptionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+	)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -7482,7 +7627,7 @@ type ExistsOrderBaseParams struct {
 	ID              []int64              `json:"id"`
 	AccountID       []int64              `json:"account_id"`
 	PaymentOption   []string             `json:"payment_option"`
-	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	PaymentStatus   []CommonStatus       `json:"payment_status"`
 	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -7589,7 +7734,7 @@ type ExistsOrderItemParams struct {
 	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    []int64        `json:"shipment_id"`
 	Note          []string       `json:"note"`
-	Status        []SharedStatus `json:"status"`
+	Status        []CommonStatus `json:"status"`
 	Quantity      []int64        `json:"quantity"`
 	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
 	QuantityTo    pgtype.Int8    `json:"quantity_to"`
@@ -7667,7 +7812,7 @@ type ExistsOrderRefundParams struct {
 	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
 	Method          []OrderRefundMethod  `json:"method"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	Reason          []string             `json:"reason"`
 	Address         []pgtype.Text        `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
@@ -7720,7 +7865,7 @@ type ExistsOrderRefundDisputeParams struct {
 	RefundID        []int64              `json:"refund_id"`
 	IssuedByID      []int64              `json:"issued_by_id"`
 	Reason          []string             `json:"reason"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -8085,168 +8230,6 @@ func (q *Queries) ExistsPromotionSchedule(ctx context.Context, arg ExistsPromoti
 	return exists, err
 }
 
-const existsSharedResource = `-- name: ExistsSharedResource :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
-    ("uploaded_by" > $3 OR $3 IS NULL) AND
-    ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("object_key" = ANY($6) OR $6 IS NULL) AND
-    ("mime" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("checksum" = ANY($12) OR $12 IS NULL) AND
-    ("status" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" = ANY($14) OR $14 IS NULL) AND
-    ("created_at" > $15 OR $15 IS NULL) AND
-    ("created_at" < $16 OR $16 IS NULL)
-)
-) as exists
-`
-
-type ExistsSharedResourceParams struct {
-	ID             []pgtype.UUID        `json:"id"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Provider       []string             `json:"provider"`
-	ObjectKey      []string             `json:"object_key"`
-	Mime           []string             `json:"mime"`
-	Size           []int64              `json:"size"`
-	SizeFrom       pgtype.Int8          `json:"size_from"`
-	SizeTo         pgtype.Int8          `json:"size_to"`
-	Metadata       [][]byte             `json:"metadata"`
-	Checksum       []pgtype.Text        `json:"checksum"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
-}
-
-func (q *Queries) ExistsSharedResource(ctx context.Context, arg ExistsSharedResourceParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.SizeFrom,
-		arg.SizeTo,
-		arg.Metadata,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-		arg.CreatedAtFrom,
-		arg.CreatedAtTo,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const existsSharedResourceReference = `-- name: ExistsSharedResourceReference :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("rs_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("order" = ANY($5) OR $5 IS NULL) AND
-    ("order" > $6 OR $6 IS NULL) AND
-    ("order" < $7 OR $7 IS NULL) AND
-    ("is_primary" = ANY($8) OR $8 IS NULL)
-)
-) as exists
-`
-
-type ExistsSharedResourceReferenceParams struct {
-	ID        []int64                 `json:"id"`
-	RsID      []pgtype.UUID           `json:"rs_id"`
-	RefType   []SharedResourceRefType `json:"ref_type"`
-	RefID     []int64                 `json:"ref_id"`
-	Order     []int32                 `json:"order"`
-	OrderFrom pgtype.Int4             `json:"order_from"`
-	OrderTo   pgtype.Int4             `json:"order_to"`
-	IsPrimary []bool                  `json:"is_primary"`
-}
-
-func (q *Queries) ExistsSharedResourceReference(ctx context.Context, arg ExistsSharedResourceReferenceParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsSharedResourceReference,
-		arg.ID,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-		arg.IsPrimary,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const existsSharedServiceOption = `-- name: ExistsSharedServiceOption :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("name" = ANY($3) OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("method" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
-)
-) as exists
-`
-
-type ExistsSharedServiceOptionParams struct {
-	ID          []string    `json:"id"`
-	Category    []string    `json:"category"`
-	Name        []string    `json:"name"`
-	Description []string    `json:"description"`
-	Provider    []string    `json:"provider"`
-	Method      []string    `json:"method"`
-	IsActive    []bool      `json:"is_active"`
-	Order       []int32     `json:"order"`
-	OrderFrom   pgtype.Int4 `json:"order_from"`
-	OrderTo     pgtype.Int4 `json:"order_to"`
-}
-
-func (q *Queries) ExistsSharedServiceOption(ctx context.Context, arg ExistsSharedServiceOptionParams) (bool, error) {
-	row := q.db.QueryRow(ctx, existsSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const existsSystemOutboxEvent = `-- name: ExistsSystemOutboxEvent :one
 SELECT EXISTS (
 SELECT 1
@@ -8479,21 +8462,16 @@ const getAccountIncomeHistory = `-- name: GetAccountIncomeHistory :one
 
 
 
-SELECT id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+SELECT id, account_id, type, income, current_balance, note, date_created
 FROM "account"."income_history"
-WHERE ("id" = $1) OR ("hash" = $2)
+WHERE ("id" = $1)
 `
-
-type GetAccountIncomeHistoryParams struct {
-	ID   pgtype.Int8 `json:"id"`
-	Hash []byte      `json:"hash"`
-}
 
 // ========================================
 // Queries for table: account.income_history
 // ========================================
-func (q *Queries) GetAccountIncomeHistory(ctx context.Context, arg GetAccountIncomeHistoryParams) (AccountIncomeHistory, error) {
-	row := q.db.QueryRow(ctx, getAccountIncomeHistory, arg.ID, arg.Hash)
+func (q *Queries) GetAccountIncomeHistory(ctx context.Context, id pgtype.Int8) (AccountIncomeHistory, error) {
+	row := q.db.QueryRow(ctx, getAccountIncomeHistory, id)
 	var i AccountIncomeHistory
 	err := row.Scan(
 		&i.ID,
@@ -8503,8 +8481,6 @@ func (q *Queries) GetAccountIncomeHistory(ctx context.Context, arg GetAccountInc
 		&i.CurrentBalance,
 		&i.Note,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -8716,7 +8692,7 @@ const getCatalogProductSku = `-- name: GetCatalogProductSku :one
 
 
 
-SELECT id, spu_id, price, can_combine, attributes, date_created, date_deleted
+SELECT id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE ("id" = $1)
 `
@@ -8733,6 +8709,7 @@ func (q *Queries) GetCatalogProductSku(ctx context.Context, id pgtype.Int8) (Cat
 		&i.Price,
 		&i.CanCombine,
 		&i.Attributes,
+		&i.Specifications,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
@@ -8818,6 +8795,96 @@ func (q *Queries) GetCatalogTag(ctx context.Context, id pgtype.Text) (CatalogTag
 	row := q.db.QueryRow(ctx, getCatalogTag, id)
 	var i CatalogTag
 	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const getCommonResource = `-- name: GetCommonResource :one
+
+
+
+SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+FROM "common"."resource"
+WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
+`
+
+type GetCommonResourceParams struct {
+	ID        pgtype.UUID `json:"id"`
+	Provider  pgtype.Text `json:"provider"`
+	ObjectKey pgtype.Text `json:"object_key"`
+}
+
+// ========================================
+// Queries for table: common.resource
+// ========================================
+func (q *Queries) GetCommonResource(ctx context.Context, arg GetCommonResourceParams) (CommonResource, error) {
+	row := q.db.QueryRow(ctx, getCommonResource, arg.ID, arg.Provider, arg.ObjectKey)
+	var i CommonResource
+	err := row.Scan(
+		&i.ID,
+		&i.UploadedBy,
+		&i.Provider,
+		&i.ObjectKey,
+		&i.Mime,
+		&i.Size,
+		&i.Metadata,
+		&i.Checksum,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getCommonResourceReference = `-- name: GetCommonResourceReference :one
+
+
+
+SELECT id, rs_id, ref_type, ref_id, "order", is_primary
+FROM "common"."resource_reference"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: common.resource_reference
+// ========================================
+func (q *Queries) GetCommonResourceReference(ctx context.Context, id pgtype.Int8) (CommonResourceReference, error) {
+	row := q.db.QueryRow(ctx, getCommonResourceReference, id)
+	var i CommonResourceReference
+	err := row.Scan(
+		&i.ID,
+		&i.RsID,
+		&i.RefType,
+		&i.RefID,
+		&i.Order,
+		&i.IsPrimary,
+	)
+	return i, err
+}
+
+const getCommonServiceOption = `-- name: GetCommonServiceOption :one
+
+
+
+SELECT id, category, name, description, provider, method, is_active, "order"
+FROM "common"."service_option"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: common.service_option
+// ========================================
+func (q *Queries) GetCommonServiceOption(ctx context.Context, id pgtype.Text) (CommonServiceOption, error) {
+	row := q.db.QueryRow(ctx, getCommonServiceOption, id)
+	var i CommonServiceOption
+	err := row.Scan(
+		&i.ID,
+		&i.Category,
+		&i.Name,
+		&i.Description,
+		&i.Provider,
+		&i.Method,
+		&i.IsActive,
+		&i.Order,
+	)
 	return i, err
 }
 
@@ -9233,96 +9300,6 @@ func (q *Queries) GetPromotionSchedule(ctx context.Context, id pgtype.Int8) (Pro
 	return i, err
 }
 
-const getSharedResource = `-- name: GetSharedResource :one
-
-
-
-SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-FROM "shared"."resource"
-WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
-`
-
-type GetSharedResourceParams struct {
-	ID        pgtype.UUID `json:"id"`
-	Provider  pgtype.Text `json:"provider"`
-	ObjectKey pgtype.Text `json:"object_key"`
-}
-
-// ========================================
-// Queries for table: shared.resource
-// ========================================
-func (q *Queries) GetSharedResource(ctx context.Context, arg GetSharedResourceParams) (SharedResource, error) {
-	row := q.db.QueryRow(ctx, getSharedResource, arg.ID, arg.Provider, arg.ObjectKey)
-	var i SharedResource
-	err := row.Scan(
-		&i.ID,
-		&i.UploadedBy,
-		&i.Provider,
-		&i.ObjectKey,
-		&i.Mime,
-		&i.Size,
-		&i.Metadata,
-		&i.Checksum,
-		&i.Status,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getSharedResourceReference = `-- name: GetSharedResourceReference :one
-
-
-
-SELECT id, rs_id, ref_type, ref_id, "order", is_primary
-FROM "shared"."resource_reference"
-WHERE ("id" = $1)
-`
-
-// ========================================
-// Queries for table: shared.resource_reference
-// ========================================
-func (q *Queries) GetSharedResourceReference(ctx context.Context, id pgtype.Int8) (SharedResourceReference, error) {
-	row := q.db.QueryRow(ctx, getSharedResourceReference, id)
-	var i SharedResourceReference
-	err := row.Scan(
-		&i.ID,
-		&i.RsID,
-		&i.RefType,
-		&i.RefID,
-		&i.Order,
-		&i.IsPrimary,
-	)
-	return i, err
-}
-
-const getSharedServiceOption = `-- name: GetSharedServiceOption :one
-
-
-
-SELECT id, category, name, description, provider, method, is_active, "order"
-FROM "shared"."service_option"
-WHERE ("id" = $1)
-`
-
-// ========================================
-// Queries for table: shared.service_option
-// ========================================
-func (q *Queries) GetSharedServiceOption(ctx context.Context, id pgtype.Text) (SharedServiceOption, error) {
-	row := q.db.QueryRow(ctx, getSharedServiceOption, id)
-	var i SharedServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Name,
-		&i.Description,
-		&i.Provider,
-		&i.Method,
-		&i.IsActive,
-		&i.Order,
-	)
-	return i, err
-}
-
 const getSystemOutboxEvent = `-- name: GetSystemOutboxEvent :one
 
 
@@ -9697,7 +9674,7 @@ func (q *Queries) ListAccountCustomer(ctx context.Context, arg ListAccountCustom
 }
 
 const listAccountIncomeHistory = `-- name: ListAccountIncomeHistory :many
-SELECT id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+SELECT id, account_id, type, income, current_balance, note, date_created
 FROM "account"."income_history"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -9712,13 +9689,11 @@ WHERE (
     ("note" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
     ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("hash" = ANY($14) OR $14 IS NULL) AND
-    ("prev_hash" = ANY($15) OR $15 IS NULL)
+    ("date_created" < $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17
-OFFSET $16
+LIMIT $15
+OFFSET $14
 `
 
 type ListAccountIncomeHistoryParams struct {
@@ -9735,8 +9710,6 @@ type ListAccountIncomeHistoryParams struct {
 	DateCreated        []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom    pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo      pgtype.Timestamptz   `json:"date_created_to"`
-	Hash               [][]byte             `json:"hash"`
-	PrevHash           [][]byte             `json:"prev_hash"`
 	Offset             pgtype.Int4          `json:"offset"`
 	Limit              pgtype.Int4          `json:"limit"`
 }
@@ -9756,8 +9729,6 @@ func (q *Queries) ListAccountIncomeHistory(ctx context.Context, arg ListAccountI
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.Hash,
-		arg.PrevHash,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -9776,8 +9747,6 @@ func (q *Queries) ListAccountIncomeHistory(ctx context.Context, arg ListAccountI
 			&i.CurrentBalance,
 			&i.Note,
 			&i.DateCreated,
-			&i.Hash,
-			&i.PrevHash,
 		); err != nil {
 			return nil, err
 		}
@@ -10059,7 +10028,7 @@ OFFSET $15
 
 type ListAnalyticInteractionParams struct {
 	ID              []int64                        `json:"id"`
-	AccountID       []int64                        `json:"account_id"`
+	AccountID       []pgtype.Int8                  `json:"account_id"`
 	SessionID       []pgtype.Text                  `json:"session_id"`
 	EventType       []string                       `json:"event_type"`
 	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
@@ -10344,7 +10313,7 @@ func (q *Queries) ListCatalogComment(ctx context.Context, arg ListCatalogComment
 }
 
 const listCatalogProductSku = `-- name: ListCatalogProductSku :many
-SELECT id, spu_id, price, can_combine, attributes, date_created, date_deleted
+SELECT id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -10354,16 +10323,17 @@ WHERE (
     ("price" < $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_deleted" = ANY($11) OR $11 IS NULL) AND
-    ("date_deleted" > $12 OR $12 IS NULL) AND
-    ("date_deleted" < $13 OR $13 IS NULL)
+    ("specifications" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" > $10 OR $10 IS NULL) AND
+    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_deleted" = ANY($12) OR $12 IS NULL) AND
+    ("date_deleted" > $13 OR $13 IS NULL) AND
+    ("date_deleted" < $14 OR $14 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15
-OFFSET $14
+LIMIT $16
+OFFSET $15
 `
 
 type ListCatalogProductSkuParams struct {
@@ -10374,6 +10344,7 @@ type ListCatalogProductSkuParams struct {
 	PriceTo         pgtype.Int8          `json:"price_to"`
 	CanCombine      []bool               `json:"can_combine"`
 	Attributes      [][]byte             `json:"attributes"`
+	Specifications  [][]byte             `json:"specifications"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -10393,6 +10364,7 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 		arg.PriceTo,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -10415,6 +10387,7 @@ func (q *Queries) ListCatalogProductSku(ctx context.Context, arg ListCatalogProd
 			&i.Price,
 			&i.CanCombine,
 			&i.Attributes,
+			&i.Specifications,
 			&i.DateCreated,
 			&i.DateDeleted,
 		); err != nil {
@@ -10614,6 +10587,249 @@ func (q *Queries) ListCatalogTag(ctx context.Context, arg ListCatalogTagParams) 
 	for rows.Next() {
 		var i CatalogTag
 		if err := rows.Scan(&i.ID, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommonResource = `-- name: ListCommonResource :many
+SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by" > $3 OR $3 IS NULL) AND
+    ("uploaded_by" < $4 OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("object_key" = ANY($6) OR $6 IS NULL) AND
+    ("mime" = ANY($7) OR $7 IS NULL) AND
+    ("size" = ANY($8) OR $8 IS NULL) AND
+    ("size" > $9 OR $9 IS NULL) AND
+    ("size" < $10 OR $10 IS NULL) AND
+    ("metadata" = ANY($11) OR $11 IS NULL) AND
+    ("checksum" = ANY($12) OR $12 IS NULL) AND
+    ("status" = ANY($13) OR $13 IS NULL) AND
+    ("created_at" = ANY($14) OR $14 IS NULL) AND
+    ("created_at" > $15 OR $15 IS NULL) AND
+    ("created_at" < $16 OR $16 IS NULL)
+)
+ORDER BY "id"
+LIMIT $18
+OFFSET $17
+`
+
+type ListCommonResourceParams struct {
+	ID             []pgtype.UUID        `json:"id"`
+	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
+	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
+	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
+	Provider       []string             `json:"provider"`
+	ObjectKey      []string             `json:"object_key"`
+	Mime           []string             `json:"mime"`
+	Size           []int64              `json:"size"`
+	SizeFrom       pgtype.Int8          `json:"size_from"`
+	SizeTo         pgtype.Int8          `json:"size_to"`
+	Metadata       [][]byte             `json:"metadata"`
+	Checksum       []pgtype.Text        `json:"checksum"`
+	Status         []CommonStatus       `json:"status"`
+	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
+	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
+	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
+	Offset         pgtype.Int4          `json:"offset"`
+	Limit          pgtype.Int4          `json:"limit"`
+}
+
+func (q *Queries) ListCommonResource(ctx context.Context, arg ListCommonResourceParams) ([]CommonResource, error) {
+	rows, err := q.db.Query(ctx, listCommonResource,
+		arg.ID,
+		arg.UploadedBy,
+		arg.UploadedByFrom,
+		arg.UploadedByTo,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.SizeFrom,
+		arg.SizeTo,
+		arg.Metadata,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+		arg.CreatedAtFrom,
+		arg.CreatedAtTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CommonResource{}
+	for rows.Next() {
+		var i CommonResource
+		if err := rows.Scan(
+			&i.ID,
+			&i.UploadedBy,
+			&i.Provider,
+			&i.ObjectKey,
+			&i.Mime,
+			&i.Size,
+			&i.Metadata,
+			&i.Checksum,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommonResourceReference = `-- name: ListCommonResourceReference :many
+SELECT id, rs_id, ref_type, ref_id, "order", is_primary
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("rs_id" = ANY($2) OR $2 IS NULL) AND
+    ("ref_type" = ANY($3) OR $3 IS NULL) AND
+    ("ref_id" = ANY($4) OR $4 IS NULL) AND
+    ("order" = ANY($5) OR $5 IS NULL) AND
+    ("order" > $6 OR $6 IS NULL) AND
+    ("order" < $7 OR $7 IS NULL) AND
+    ("is_primary" = ANY($8) OR $8 IS NULL)
+)
+ORDER BY "id"
+LIMIT $10
+OFFSET $9
+`
+
+type ListCommonResourceReferenceParams struct {
+	ID        []int64                 `json:"id"`
+	RsID      []pgtype.UUID           `json:"rs_id"`
+	RefType   []CommonResourceRefType `json:"ref_type"`
+	RefID     []int64                 `json:"ref_id"`
+	Order     []int32                 `json:"order"`
+	OrderFrom pgtype.Int4             `json:"order_from"`
+	OrderTo   pgtype.Int4             `json:"order_to"`
+	IsPrimary []bool                  `json:"is_primary"`
+	Offset    pgtype.Int4             `json:"offset"`
+	Limit     pgtype.Int4             `json:"limit"`
+}
+
+func (q *Queries) ListCommonResourceReference(ctx context.Context, arg ListCommonResourceReferenceParams) ([]CommonResourceReference, error) {
+	rows, err := q.db.Query(ctx, listCommonResourceReference,
+		arg.ID,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+		arg.IsPrimary,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CommonResourceReference{}
+	for rows.Next() {
+		var i CommonResourceReference
+		if err := rows.Scan(
+			&i.ID,
+			&i.RsID,
+			&i.RefType,
+			&i.RefID,
+			&i.Order,
+			&i.IsPrimary,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommonServiceOption = `-- name: ListCommonServiceOption :many
+SELECT id, category, name, description, provider, method, is_active, "order"
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("category" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("provider" = ANY($5) OR $5 IS NULL) AND
+    ("method" = ANY($6) OR $6 IS NULL) AND
+    ("is_active" = ANY($7) OR $7 IS NULL) AND
+    ("order" = ANY($8) OR $8 IS NULL) AND
+    ("order" > $9 OR $9 IS NULL) AND
+    ("order" < $10 OR $10 IS NULL)
+)
+ORDER BY "id"
+LIMIT $12
+OFFSET $11
+`
+
+type ListCommonServiceOptionParams struct {
+	ID          []string    `json:"id"`
+	Category    []string    `json:"category"`
+	Name        []string    `json:"name"`
+	Description []string    `json:"description"`
+	Provider    []string    `json:"provider"`
+	Method      []string    `json:"method"`
+	IsActive    []bool      `json:"is_active"`
+	Order       []int32     `json:"order"`
+	OrderFrom   pgtype.Int4 `json:"order_from"`
+	OrderTo     pgtype.Int4 `json:"order_to"`
+	Offset      pgtype.Int4 `json:"offset"`
+	Limit       pgtype.Int4 `json:"limit"`
+}
+
+func (q *Queries) ListCommonServiceOption(ctx context.Context, arg ListCommonServiceOptionParams) ([]CommonServiceOption, error) {
+	rows, err := q.db.Query(ctx, listCommonServiceOption,
+		arg.ID,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+		arg.OrderFrom,
+		arg.OrderTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CommonServiceOption{}
+	for rows.Next() {
+		var i CommonServiceOption
+		if err := rows.Scan(
+			&i.ID,
+			&i.Category,
+			&i.Name,
+			&i.Description,
+			&i.Provider,
+			&i.Method,
+			&i.IsActive,
+			&i.Order,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -10862,7 +11078,7 @@ type ListOrderBaseParams struct {
 	ID              []int64              `json:"id"`
 	AccountID       []int64              `json:"account_id"`
 	PaymentOption   []string             `json:"payment_option"`
-	PaymentStatus   []SharedStatus       `json:"payment_status"`
+	PaymentStatus   []CommonStatus       `json:"payment_status"`
 	Address         []string             `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
@@ -11022,7 +11238,7 @@ type ListOrderItemParams struct {
 	ConfirmedByID []pgtype.Int8  `json:"confirmed_by_id"`
 	ShipmentID    []int64        `json:"shipment_id"`
 	Note          []string       `json:"note"`
-	Status        []SharedStatus `json:"status"`
+	Status        []CommonStatus `json:"status"`
 	Quantity      []int64        `json:"quantity"`
 	QuantityFrom  pgtype.Int8    `json:"quantity_from"`
 	QuantityTo    pgtype.Int8    `json:"quantity_to"`
@@ -11150,7 +11366,7 @@ type ListOrderRefundParams struct {
 	ReviewedByID    []pgtype.Int8        `json:"reviewed_by_id"`
 	ShipmentID      []pgtype.Int8        `json:"shipment_id"`
 	Method          []OrderRefundMethod  `json:"method"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	Reason          []string             `json:"reason"`
 	Address         []pgtype.Text        `json:"address"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
@@ -11232,7 +11448,7 @@ type ListOrderRefundDisputeParams struct {
 	RefundID        []int64              `json:"refund_id"`
 	IssuedByID      []int64              `json:"issued_by_id"`
 	Reason          []string             `json:"reason"`
-	Status          []SharedStatus       `json:"status"`
+	Status          []CommonStatus       `json:"status"`
 	DateCreated     []pgtype.Timestamptz `json:"date_created"`
 	DateCreatedFrom pgtype.Timestamptz   `json:"date_created_from"`
 	DateCreatedTo   pgtype.Timestamptz   `json:"date_created_to"`
@@ -11760,249 +11976,6 @@ func (q *Queries) ListPromotionSchedule(ctx context.Context, arg ListPromotionSc
 	return items, nil
 }
 
-const listSharedResource = `-- name: ListSharedResource :many
-SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
-    ("uploaded_by" > $3 OR $3 IS NULL) AND
-    ("uploaded_by" < $4 OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("object_key" = ANY($6) OR $6 IS NULL) AND
-    ("mime" = ANY($7) OR $7 IS NULL) AND
-    ("size" = ANY($8) OR $8 IS NULL) AND
-    ("size" > $9 OR $9 IS NULL) AND
-    ("size" < $10 OR $10 IS NULL) AND
-    ("metadata" = ANY($11) OR $11 IS NULL) AND
-    ("checksum" = ANY($12) OR $12 IS NULL) AND
-    ("status" = ANY($13) OR $13 IS NULL) AND
-    ("created_at" = ANY($14) OR $14 IS NULL) AND
-    ("created_at" > $15 OR $15 IS NULL) AND
-    ("created_at" < $16 OR $16 IS NULL)
-)
-ORDER BY "id"
-LIMIT $18
-OFFSET $17
-`
-
-type ListSharedResourceParams struct {
-	ID             []pgtype.UUID        `json:"id"`
-	UploadedBy     []pgtype.Int8        `json:"uploaded_by"`
-	UploadedByFrom pgtype.Int8          `json:"uploaded_by_from"`
-	UploadedByTo   pgtype.Int8          `json:"uploaded_by_to"`
-	Provider       []string             `json:"provider"`
-	ObjectKey      []string             `json:"object_key"`
-	Mime           []string             `json:"mime"`
-	Size           []int64              `json:"size"`
-	SizeFrom       pgtype.Int8          `json:"size_from"`
-	SizeTo         pgtype.Int8          `json:"size_to"`
-	Metadata       [][]byte             `json:"metadata"`
-	Checksum       []pgtype.Text        `json:"checksum"`
-	Status         []SharedStatus       `json:"status"`
-	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
-	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
-	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
-	Offset         pgtype.Int4          `json:"offset"`
-	Limit          pgtype.Int4          `json:"limit"`
-}
-
-func (q *Queries) ListSharedResource(ctx context.Context, arg ListSharedResourceParams) ([]SharedResource, error) {
-	rows, err := q.db.Query(ctx, listSharedResource,
-		arg.ID,
-		arg.UploadedBy,
-		arg.UploadedByFrom,
-		arg.UploadedByTo,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.SizeFrom,
-		arg.SizeTo,
-		arg.Metadata,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-		arg.CreatedAtFrom,
-		arg.CreatedAtTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SharedResource{}
-	for rows.Next() {
-		var i SharedResource
-		if err := rows.Scan(
-			&i.ID,
-			&i.UploadedBy,
-			&i.Provider,
-			&i.ObjectKey,
-			&i.Mime,
-			&i.Size,
-			&i.Metadata,
-			&i.Checksum,
-			&i.Status,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSharedResourceReference = `-- name: ListSharedResourceReference :many
-SELECT id, rs_id, ref_type, ref_id, "order", is_primary
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("rs_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("order" = ANY($5) OR $5 IS NULL) AND
-    ("order" > $6 OR $6 IS NULL) AND
-    ("order" < $7 OR $7 IS NULL) AND
-    ("is_primary" = ANY($8) OR $8 IS NULL)
-)
-ORDER BY "id"
-LIMIT $10
-OFFSET $9
-`
-
-type ListSharedResourceReferenceParams struct {
-	ID        []int64                 `json:"id"`
-	RsID      []pgtype.UUID           `json:"rs_id"`
-	RefType   []SharedResourceRefType `json:"ref_type"`
-	RefID     []int64                 `json:"ref_id"`
-	Order     []int32                 `json:"order"`
-	OrderFrom pgtype.Int4             `json:"order_from"`
-	OrderTo   pgtype.Int4             `json:"order_to"`
-	IsPrimary []bool                  `json:"is_primary"`
-	Offset    pgtype.Int4             `json:"offset"`
-	Limit     pgtype.Int4             `json:"limit"`
-}
-
-func (q *Queries) ListSharedResourceReference(ctx context.Context, arg ListSharedResourceReferenceParams) ([]SharedResourceReference, error) {
-	rows, err := q.db.Query(ctx, listSharedResourceReference,
-		arg.ID,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-		arg.IsPrimary,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SharedResourceReference{}
-	for rows.Next() {
-		var i SharedResourceReference
-		if err := rows.Scan(
-			&i.ID,
-			&i.RsID,
-			&i.RefType,
-			&i.RefID,
-			&i.Order,
-			&i.IsPrimary,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSharedServiceOption = `-- name: ListSharedServiceOption :many
-SELECT id, category, name, description, provider, method, is_active, "order"
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("name" = ANY($3) OR $3 IS NULL) AND
-    ("description" = ANY($4) OR $4 IS NULL) AND
-    ("provider" = ANY($5) OR $5 IS NULL) AND
-    ("method" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
-)
-ORDER BY "id"
-LIMIT $12
-OFFSET $11
-`
-
-type ListSharedServiceOptionParams struct {
-	ID          []string    `json:"id"`
-	Category    []string    `json:"category"`
-	Name        []string    `json:"name"`
-	Description []string    `json:"description"`
-	Provider    []string    `json:"provider"`
-	Method      []string    `json:"method"`
-	IsActive    []bool      `json:"is_active"`
-	Order       []int32     `json:"order"`
-	OrderFrom   pgtype.Int4 `json:"order_from"`
-	OrderTo     pgtype.Int4 `json:"order_to"`
-	Offset      pgtype.Int4 `json:"offset"`
-	Limit       pgtype.Int4 `json:"limit"`
-}
-
-func (q *Queries) ListSharedServiceOption(ctx context.Context, arg ListSharedServiceOptionParams) ([]SharedServiceOption, error) {
-	rows, err := q.db.Query(ctx, listSharedServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-		arg.OrderFrom,
-		arg.OrderTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SharedServiceOption{}
-	for rows.Next() {
-		var i SharedServiceOption
-		if err := rows.Scan(
-			&i.ID,
-			&i.Category,
-			&i.Name,
-			&i.Description,
-			&i.Provider,
-			&i.Method,
-			&i.IsActive,
-			&i.Order,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSystemOutboxEvent = `-- name: ListSystemOutboxEvent :many
 SELECT id, topic, data, processed, date_processed, date_created
 FROM "system"."outbox_event"
@@ -12340,11 +12313,9 @@ SET "account_id" = COALESCE($1, "account_id"),
     "income" = COALESCE($3, "income"),
     "current_balance" = COALESCE($4, "current_balance"),
     "note" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "note") END,
-    "date_created" = COALESCE($7, "date_created"),
-    "hash" = COALESCE($8, "hash"),
-    "prev_hash" = COALESCE($9, "prev_hash")
-WHERE id = $10
-RETURNING id, account_id, type, income, current_balance, note, date_created, hash, prev_hash
+    "date_created" = COALESCE($7, "date_created")
+WHERE id = $8
+RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type UpdateAccountIncomeHistoryParams struct {
@@ -12355,8 +12326,6 @@ type UpdateAccountIncomeHistoryParams struct {
 	NullNote       bool               `json:"null_note"`
 	Note           pgtype.Text        `json:"note"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
-	Hash           []byte             `json:"hash"`
-	PrevHash       []byte             `json:"prev_hash"`
 	ID             int64              `json:"id"`
 }
 
@@ -12369,8 +12338,6 @@ func (q *Queries) UpdateAccountIncomeHistory(ctx context.Context, arg UpdateAcco
 		arg.NullNote,
 		arg.Note,
 		arg.DateCreated,
-		arg.Hash,
-		arg.PrevHash,
 		arg.ID,
 	)
 	var i AccountIncomeHistory
@@ -12382,8 +12349,6 @@ func (q *Queries) UpdateAccountIncomeHistory(ctx context.Context, arg UpdateAcco
 		&i.CurrentBalance,
 		&i.Note,
 		&i.DateCreated,
-		&i.Hash,
-		&i.PrevHash,
 	)
 	return i, err
 }
@@ -12537,20 +12502,21 @@ func (q *Queries) UpdateAccountVendor(ctx context.Context, arg UpdateAccountVend
 
 const updateAnalyticInteraction = `-- name: UpdateAnalyticInteraction :one
 UPDATE "analytic"."interaction"
-SET "account_id" = COALESCE($1, "account_id"),
-    "session_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "session_id") END,
-    "event_type" = COALESCE($4, "event_type"),
-    "ref_type" = COALESCE($5, "ref_type"),
-    "ref_id" = COALESCE($6, "ref_id"),
-    "metadata" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "metadata") END,
-    "user_agent" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "user_agent") END,
-    "ip_address" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "ip_address") END,
-    "date_created" = COALESCE($13, "date_created")
-WHERE id = $14
+SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "account_id") END,
+    "session_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "session_id") END,
+    "event_type" = COALESCE($5, "event_type"),
+    "ref_type" = COALESCE($6, "ref_type"),
+    "ref_id" = COALESCE($7, "ref_id"),
+    "metadata" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "metadata") END,
+    "user_agent" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "user_agent") END,
+    "ip_address" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "ip_address") END,
+    "date_created" = COALESCE($14, "date_created")
+WHERE id = $15
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
 `
 
 type UpdateAnalyticInteractionParams struct {
+	NullAccountID bool                           `json:"null_account_id"`
 	AccountID     pgtype.Int8                    `json:"account_id"`
 	NullSessionID bool                           `json:"null_session_id"`
 	SessionID     pgtype.Text                    `json:"session_id"`
@@ -12569,6 +12535,7 @@ type UpdateAnalyticInteractionParams struct {
 
 func (q *Queries) UpdateAnalyticInteraction(ctx context.Context, arg UpdateAnalyticInteractionParams) (AnalyticInteraction, error) {
 	row := q.db.QueryRow(ctx, updateAnalyticInteraction,
+		arg.NullAccountID,
 		arg.AccountID,
 		arg.NullSessionID,
 		arg.SessionID,
@@ -12731,10 +12698,11 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "price" = COALESCE($2, "price"),
     "can_combine" = COALESCE($3, "can_combine"),
     "attributes" = COALESCE($4, "attributes"),
-    "date_created" = COALESCE($5, "date_created"),
-    "date_deleted" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_deleted") END
-WHERE id = $8
-RETURNING id, spu_id, price, can_combine, attributes, date_created, date_deleted
+    "specifications" = COALESCE($5, "specifications"),
+    "date_created" = COALESCE($6, "date_created"),
+    "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END
+WHERE id = $9
+RETURNING id, spu_id, price, can_combine, attributes, specifications, date_created, date_deleted
 `
 
 type UpdateCatalogProductSkuParams struct {
@@ -12742,6 +12710,7 @@ type UpdateCatalogProductSkuParams struct {
 	Price           pgtype.Int8        `json:"price"`
 	CanCombine      pgtype.Bool        `json:"can_combine"`
 	Attributes      []byte             `json:"attributes"`
+	Specifications  []byte             `json:"specifications"`
 	DateCreated     pgtype.Timestamptz `json:"date_created"`
 	NullDateDeleted bool               `json:"null_date_deleted"`
 	DateDeleted     pgtype.Timestamptz `json:"date_deleted"`
@@ -12754,6 +12723,7 @@ func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalog
 		arg.Price,
 		arg.CanCombine,
 		arg.Attributes,
+		arg.Specifications,
 		arg.DateCreated,
 		arg.NullDateDeleted,
 		arg.DateDeleted,
@@ -12766,6 +12736,7 @@ func (q *Queries) UpdateCatalogProductSku(ctx context.Context, arg UpdateCatalog
 		&i.Price,
 		&i.CanCombine,
 		&i.Attributes,
+		&i.Specifications,
 		&i.DateCreated,
 		&i.DateDeleted,
 	)
@@ -12878,6 +12849,157 @@ func (q *Queries) UpdateCatalogTag(ctx context.Context, arg UpdateCatalogTagPara
 	row := q.db.QueryRow(ctx, updateCatalogTag, arg.Description, arg.ID)
 	var i CatalogTag
 	err := row.Scan(&i.ID, &i.Description)
+	return i, err
+}
+
+const updateCommonResource = `-- name: UpdateCommonResource :one
+UPDATE "common"."resource"
+SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by") END,
+    "provider" = COALESCE($3, "provider"),
+    "object_key" = COALESCE($4, "object_key"),
+    "mime" = COALESCE($5, "mime"),
+    "size" = COALESCE($6, "size"),
+    "metadata" = COALESCE($7, "metadata"),
+    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
+    "status" = COALESCE($10, "status"),
+    "created_at" = COALESCE($11, "created_at")
+WHERE id = $12
+RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
+`
+
+type UpdateCommonResourceParams struct {
+	NullUploadedBy bool               `json:"null_uploaded_by"`
+	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
+	Provider       pgtype.Text        `json:"provider"`
+	ObjectKey      pgtype.Text        `json:"object_key"`
+	Mime           pgtype.Text        `json:"mime"`
+	Size           pgtype.Int8        `json:"size"`
+	Metadata       []byte             `json:"metadata"`
+	NullChecksum   bool               `json:"null_checksum"`
+	Checksum       pgtype.Text        `json:"checksum"`
+	Status         NullCommonStatus   `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID             pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) UpdateCommonResource(ctx context.Context, arg UpdateCommonResourceParams) (CommonResource, error) {
+	row := q.db.QueryRow(ctx, updateCommonResource,
+		arg.NullUploadedBy,
+		arg.UploadedBy,
+		arg.Provider,
+		arg.ObjectKey,
+		arg.Mime,
+		arg.Size,
+		arg.Metadata,
+		arg.NullChecksum,
+		arg.Checksum,
+		arg.Status,
+		arg.CreatedAt,
+		arg.ID,
+	)
+	var i CommonResource
+	err := row.Scan(
+		&i.ID,
+		&i.UploadedBy,
+		&i.Provider,
+		&i.ObjectKey,
+		&i.Mime,
+		&i.Size,
+		&i.Metadata,
+		&i.Checksum,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateCommonResourceReference = `-- name: UpdateCommonResourceReference :one
+UPDATE "common"."resource_reference"
+SET "rs_id" = COALESCE($1, "rs_id"),
+    "ref_type" = COALESCE($2, "ref_type"),
+    "ref_id" = COALESCE($3, "ref_id"),
+    "order" = COALESCE($4, "order"),
+    "is_primary" = COALESCE($5, "is_primary")
+WHERE id = $6
+RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
+`
+
+type UpdateCommonResourceReferenceParams struct {
+	RsID      pgtype.UUID               `json:"rs_id"`
+	RefType   NullCommonResourceRefType `json:"ref_type"`
+	RefID     pgtype.Int8               `json:"ref_id"`
+	Order     pgtype.Int4               `json:"order"`
+	IsPrimary pgtype.Bool               `json:"is_primary"`
+	ID        int64                     `json:"id"`
+}
+
+func (q *Queries) UpdateCommonResourceReference(ctx context.Context, arg UpdateCommonResourceReferenceParams) (CommonResourceReference, error) {
+	row := q.db.QueryRow(ctx, updateCommonResourceReference,
+		arg.RsID,
+		arg.RefType,
+		arg.RefID,
+		arg.Order,
+		arg.IsPrimary,
+		arg.ID,
+	)
+	var i CommonResourceReference
+	err := row.Scan(
+		&i.ID,
+		&i.RsID,
+		&i.RefType,
+		&i.RefID,
+		&i.Order,
+		&i.IsPrimary,
+	)
+	return i, err
+}
+
+const updateCommonServiceOption = `-- name: UpdateCommonServiceOption :one
+UPDATE "common"."service_option"
+SET "category" = COALESCE($1, "category"),
+    "name" = COALESCE($2, "name"),
+    "description" = COALESCE($3, "description"),
+    "provider" = COALESCE($4, "provider"),
+    "method" = COALESCE($5, "method"),
+    "is_active" = COALESCE($6, "is_active"),
+    "order" = COALESCE($7, "order")
+WHERE id = $8
+RETURNING id, category, name, description, provider, method, is_active, "order"
+`
+
+type UpdateCommonServiceOptionParams struct {
+	Category    pgtype.Text `json:"category"`
+	Name        pgtype.Text `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Provider    pgtype.Text `json:"provider"`
+	Method      pgtype.Text `json:"method"`
+	IsActive    pgtype.Bool `json:"is_active"`
+	Order       pgtype.Int4 `json:"order"`
+	ID          string      `json:"id"`
+}
+
+func (q *Queries) UpdateCommonServiceOption(ctx context.Context, arg UpdateCommonServiceOptionParams) (CommonServiceOption, error) {
+	row := q.db.QueryRow(ctx, updateCommonServiceOption,
+		arg.Category,
+		arg.Name,
+		arg.Description,
+		arg.Provider,
+		arg.Method,
+		arg.IsActive,
+		arg.Order,
+		arg.ID,
+	)
+	var i CommonServiceOption
+	err := row.Scan(
+		&i.ID,
+		&i.Category,
+		&i.Name,
+		&i.Description,
+		&i.Provider,
+		&i.Method,
+		&i.IsActive,
+		&i.Order,
+	)
 	return i, err
 }
 
@@ -13007,7 +13129,7 @@ RETURNING id, account_id, payment_option, payment_status, address, date_created,
 type UpdateOrderBaseParams struct {
 	AccountID     pgtype.Int8        `json:"account_id"`
 	PaymentOption pgtype.Text        `json:"payment_option"`
-	PaymentStatus NullSharedStatus   `json:"payment_status"`
+	PaymentStatus NullCommonStatus   `json:"payment_status"`
 	Address       pgtype.Text        `json:"address"`
 	DateCreated   pgtype.Timestamptz `json:"date_created"`
 	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
@@ -13110,7 +13232,7 @@ type UpdateOrderItemParams struct {
 	ConfirmedByID     pgtype.Int8      `json:"confirmed_by_id"`
 	ShipmentID        pgtype.Int8      `json:"shipment_id"`
 	Note              pgtype.Text      `json:"note"`
-	Status            NullSharedStatus `json:"status"`
+	Status            NullCommonStatus `json:"status"`
 	Quantity          pgtype.Int8      `json:"quantity"`
 	ID                int64            `json:"id"`
 }
@@ -13187,7 +13309,7 @@ type UpdateOrderRefundParams struct {
 	NullShipmentID   bool                  `json:"null_shipment_id"`
 	ShipmentID       pgtype.Int8           `json:"shipment_id"`
 	Method           NullOrderRefundMethod `json:"method"`
-	Status           NullSharedStatus      `json:"status"`
+	Status           NullCommonStatus      `json:"status"`
 	Reason           pgtype.Text           `json:"reason"`
 	NullAddress      bool                  `json:"null_address"`
 	Address          pgtype.Text           `json:"address"`
@@ -13243,7 +13365,7 @@ type UpdateOrderRefundDisputeParams struct {
 	RefundID    pgtype.Int8        `json:"refund_id"`
 	IssuedByID  pgtype.Int8        `json:"issued_by_id"`
 	Reason      pgtype.Text        `json:"reason"`
-	Status      NullSharedStatus   `json:"status"`
+	Status      NullCommonStatus   `json:"status"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 	ID          int64              `json:"id"`
@@ -13543,157 +13665,6 @@ func (q *Queries) UpdatePromotionSchedule(ctx context.Context, arg UpdatePromoti
 		&i.Duration,
 		&i.NextRunAt,
 		&i.LastRunAt,
-	)
-	return i, err
-}
-
-const updateSharedResource = `-- name: UpdateSharedResource :one
-UPDATE "shared"."resource"
-SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by") END,
-    "provider" = COALESCE($3, "provider"),
-    "object_key" = COALESCE($4, "object_key"),
-    "mime" = COALESCE($5, "mime"),
-    "size" = COALESCE($6, "size"),
-    "metadata" = COALESCE($7, "metadata"),
-    "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
-    "status" = COALESCE($10, "status"),
-    "created_at" = COALESCE($11, "created_at")
-WHERE id = $12
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-`
-
-type UpdateSharedResourceParams struct {
-	NullUploadedBy bool               `json:"null_uploaded_by"`
-	UploadedBy     pgtype.Int8        `json:"uploaded_by"`
-	Provider       pgtype.Text        `json:"provider"`
-	ObjectKey      pgtype.Text        `json:"object_key"`
-	Mime           pgtype.Text        `json:"mime"`
-	Size           pgtype.Int8        `json:"size"`
-	Metadata       []byte             `json:"metadata"`
-	NullChecksum   bool               `json:"null_checksum"`
-	Checksum       pgtype.Text        `json:"checksum"`
-	Status         NullSharedStatus   `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ID             pgtype.UUID        `json:"id"`
-}
-
-func (q *Queries) UpdateSharedResource(ctx context.Context, arg UpdateSharedResourceParams) (SharedResource, error) {
-	row := q.db.QueryRow(ctx, updateSharedResource,
-		arg.NullUploadedBy,
-		arg.UploadedBy,
-		arg.Provider,
-		arg.ObjectKey,
-		arg.Mime,
-		arg.Size,
-		arg.Metadata,
-		arg.NullChecksum,
-		arg.Checksum,
-		arg.Status,
-		arg.CreatedAt,
-		arg.ID,
-	)
-	var i SharedResource
-	err := row.Scan(
-		&i.ID,
-		&i.UploadedBy,
-		&i.Provider,
-		&i.ObjectKey,
-		&i.Mime,
-		&i.Size,
-		&i.Metadata,
-		&i.Checksum,
-		&i.Status,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const updateSharedResourceReference = `-- name: UpdateSharedResourceReference :one
-UPDATE "shared"."resource_reference"
-SET "rs_id" = COALESCE($1, "rs_id"),
-    "ref_type" = COALESCE($2, "ref_type"),
-    "ref_id" = COALESCE($3, "ref_id"),
-    "order" = COALESCE($4, "order"),
-    "is_primary" = COALESCE($5, "is_primary")
-WHERE id = $6
-RETURNING id, rs_id, ref_type, ref_id, "order", is_primary
-`
-
-type UpdateSharedResourceReferenceParams struct {
-	RsID      pgtype.UUID               `json:"rs_id"`
-	RefType   NullSharedResourceRefType `json:"ref_type"`
-	RefID     pgtype.Int8               `json:"ref_id"`
-	Order     pgtype.Int4               `json:"order"`
-	IsPrimary pgtype.Bool               `json:"is_primary"`
-	ID        int64                     `json:"id"`
-}
-
-func (q *Queries) UpdateSharedResourceReference(ctx context.Context, arg UpdateSharedResourceReferenceParams) (SharedResourceReference, error) {
-	row := q.db.QueryRow(ctx, updateSharedResourceReference,
-		arg.RsID,
-		arg.RefType,
-		arg.RefID,
-		arg.Order,
-		arg.IsPrimary,
-		arg.ID,
-	)
-	var i SharedResourceReference
-	err := row.Scan(
-		&i.ID,
-		&i.RsID,
-		&i.RefType,
-		&i.RefID,
-		&i.Order,
-		&i.IsPrimary,
-	)
-	return i, err
-}
-
-const updateSharedServiceOption = `-- name: UpdateSharedServiceOption :one
-UPDATE "shared"."service_option"
-SET "category" = COALESCE($1, "category"),
-    "name" = COALESCE($2, "name"),
-    "description" = COALESCE($3, "description"),
-    "provider" = COALESCE($4, "provider"),
-    "method" = COALESCE($5, "method"),
-    "is_active" = COALESCE($6, "is_active"),
-    "order" = COALESCE($7, "order")
-WHERE id = $8
-RETURNING id, category, name, description, provider, method, is_active, "order"
-`
-
-type UpdateSharedServiceOptionParams struct {
-	Category    pgtype.Text `json:"category"`
-	Name        pgtype.Text `json:"name"`
-	Description pgtype.Text `json:"description"`
-	Provider    pgtype.Text `json:"provider"`
-	Method      pgtype.Text `json:"method"`
-	IsActive    pgtype.Bool `json:"is_active"`
-	Order       pgtype.Int4 `json:"order"`
-	ID          string      `json:"id"`
-}
-
-func (q *Queries) UpdateSharedServiceOption(ctx context.Context, arg UpdateSharedServiceOptionParams) (SharedServiceOption, error) {
-	row := q.db.QueryRow(ctx, updateSharedServiceOption,
-		arg.Category,
-		arg.Name,
-		arg.Description,
-		arg.Provider,
-		arg.Method,
-		arg.IsActive,
-		arg.Order,
-		arg.ID,
-	)
-	var i SharedServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Name,
-		&i.Description,
-		&i.Provider,
-		&i.Method,
-		&i.IsActive,
-		&i.Order,
 	)
 	return i, err
 }

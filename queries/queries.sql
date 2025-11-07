@@ -500,6 +500,140 @@ WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
+-- Queries for table: account.cart_item
+
+-- ========================================
+
+-- name: GetAccountCartItem :one
+SELECT *
+FROM "account"."cart_item"
+WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
+
+-- name: ExistsAccountCartItem :one
+SELECT EXISTS (
+SELECT 1
+FROM "account"."cart_item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+)
+) as exists;
+
+-- name: CountAccountCartItem :one
+SELECT COUNT(*)
+FROM "account"."cart_item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
+-- name: ListAccountCartItem :many
+SELECT *
+FROM "account"."cart_item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateAccountCartItem :one
+INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateBatchAccountCartItem :batchone
+INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyAccountCartItem :copyfrom
+INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CreateDefaultAccountCartItem :one
+INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyDefaultAccountCartItem :copyfrom
+INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity")
+VALUES ($1, $2, $3);
+
+-- name: UpdateAccountCartItem :one
+UPDATE "account"."cart_item"
+SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
+    "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchAccountCartItem :batchexec
+UPDATE "account"."cart_item"
+SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
+    "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteAccountCartItem :exec
+DELETE FROM "account"."cart_item"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
+    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
+    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
+-- name: DeleteBatchAccountCartItem :batchexec
+DELETE FROM "account"."cart_item"
+WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
+
+-- ========================================
+
 -- Queries for table: account.income_history
 
 -- ========================================
@@ -507,7 +641,7 @@ WHERE ("id" = sqlc.narg('id'));
 -- name: GetAccountIncomeHistory :one
 SELECT *
 FROM "account"."income_history"
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: ExistsAccountIncomeHistory :one
 SELECT EXISTS (
@@ -526,9 +660,7 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ) as exists;
 
@@ -548,9 +680,7 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListAccountIncomeHistory :many
@@ -569,9 +699,7 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')
@@ -579,27 +707,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateAccountIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateBatchAccountIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyAccountIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultAccountIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultAccountIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "hash", "prev_hash")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateAccountIncomeHistory :one
 UPDATE "account"."income_history"
@@ -608,9 +736,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "income" = COALESCE(sqlc.narg('income'), "income"),
     "current_balance" = COALESCE(sqlc.narg('current_balance'), "current_balance"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "hash" = COALESCE(sqlc.narg('hash'), "hash"),
-    "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -621,9 +747,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "income" = COALESCE(sqlc.narg('income'), "income"),
     "current_balance" = COALESCE(sqlc.narg('current_balance'), "current_balance"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "hash" = COALESCE(sqlc.narg('hash'), "hash"),
-    "prev_hash" = COALESCE(sqlc.narg('prev_hash'), "prev_hash")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteAccountIncomeHistory :exec
@@ -641,14 +765,12 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("hash" = ANY(sqlc.slice('hash')) OR sqlc.slice('hash') IS NULL) AND
-    ("prev_hash" = ANY(sqlc.slice('prev_hash')) OR sqlc.slice('prev_hash') IS NULL)
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: DeleteBatchAccountIncomeHistory :batchexec
 DELETE FROM "account"."income_history"
-WHERE ("id" = sqlc.narg('id')) OR ("hash" = sqlc.narg('hash'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
 
@@ -815,140 +937,6 @@ WHERE (
 -- name: DeleteBatchAccountNotification :batchexec
 DELETE FROM "account"."notification"
 WHERE ("id" = sqlc.narg('id'));
-
--- ========================================
-
--- Queries for table: account.cart_item
-
--- ========================================
-
--- name: GetAccountCartItem :one
-SELECT *
-FROM "account"."cart_item"
-WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
-
--- name: ExistsAccountCartItem :one
-SELECT EXISTS (
-SELECT 1
-FROM "account"."cart_item"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-)
-) as exists;
-
--- name: CountAccountCartItem :one
-SELECT COUNT(*)
-FROM "account"."cart_item"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-);
-
--- name: ListAccountCartItem :many
-SELECT *
-FROM "account"."cart_item"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')
-OFFSET sqlc.narg('offset');
-
-
--- name: CreateAccountCartItem :one
-INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
-
--- name: CreateBatchAccountCartItem :batchone
-INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
-
--- name: CreateCopyAccountCartItem :copyfrom
-INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5);
-
--- name: CreateDefaultAccountCartItem :one
-INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateCopyDefaultAccountCartItem :copyfrom
-INSERT INTO "account"."cart_item" ("cart_id", "sku_id", "quantity")
-VALUES ($1, $2, $3);
-
--- name: UpdateAccountCartItem :one
-UPDATE "account"."cart_item"
-SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
-    "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
-    "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: UpdateBatchAccountCartItem :batchexec
-UPDATE "account"."cart_item"
-SET "cart_id" = COALESCE(sqlc.narg('cart_id'), "cart_id"),
-    "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
-    "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id');
-
--- name: DeleteAccountCartItem :exec
-DELETE FROM "account"."cart_item"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("cart_id" = ANY(sqlc.slice('cart_id')) OR sqlc.slice('cart_id') IS NULL) AND
-    ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
-    ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-);
-
--- name: DeleteBatchAccountCartItem :batchexec
-DELETE FROM "account"."cart_item"
-WHERE ("id" = sqlc.narg('id')) OR ("cart_id" = sqlc.narg('cart_id') AND "sku_id" = sqlc.narg('sku_id'));
 
 -- ========================================
 
@@ -1196,7 +1184,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateAnalyticInteraction :one
 UPDATE "analytic"."interaction"
-SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('account_id'), "account_id") END,
     "session_id" = CASE WHEN sqlc.arg('null_session_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('session_id'), "session_id") END,
     "event_type" = COALESCE(sqlc.narg('event_type'), "event_type"),
     "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
@@ -1210,7 +1198,7 @@ RETURNING *;
 
 -- name: UpdateBatchAnalyticInteraction :batchexec
 UPDATE "analytic"."interaction"
-SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('account_id'), "account_id") END,
     "session_id" = CASE WHEN sqlc.arg('null_session_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('session_id'), "session_id") END,
     "event_type" = COALESCE(sqlc.narg('event_type'), "event_type"),
     "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
@@ -1633,6 +1621,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1653,6 +1642,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1672,6 +1662,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1685,27 +1676,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_deleted")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "date_deleted")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateCatalogProductSku :one
 UPDATE "catalog"."product_sku"
@@ -1713,6 +1704,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "attributes" = COALESCE(sqlc.narg('attributes'), "attributes"),
+    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id')
@@ -1724,6 +1716,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "attributes" = COALESCE(sqlc.narg('attributes'), "attributes"),
+    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id');
@@ -1738,6 +1731,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -2100,6 +2094,412 @@ WHERE (
 
 -- name: DeleteBatchCatalogComment :batchexec
 DELETE FROM "catalog"."comment"
+WHERE ("id" = sqlc.narg('id'));
+
+-- ========================================
+
+-- Queries for table: common.resource
+
+-- ========================================
+
+-- name: GetCommonResource :one
+SELECT *
+FROM "common"."resource"
+WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
+
+-- name: ExistsCommonResource :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+)
+) as exists;
+
+-- name: CountCommonResource :one
+SELECT COUNT(*)
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+);
+
+-- name: ListCommonResource :many
+SELECT *
+FROM "common"."resource"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateCommonResource :one
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING *;
+
+-- name: CreateBatchCommonResource :batchone
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING *;
+
+-- name: CreateCopyCommonResource :copyfrom
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+
+-- name: CreateDefaultCommonResource :one
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: CreateCopyDefaultCommonResource :copyfrom
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: UpdateCommonResource :one
+UPDATE "common"."resource"
+SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
+    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
+    "size" = COALESCE(sqlc.narg('size'), "size"),
+    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
+    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
+    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchCommonResource :batchexec
+UPDATE "common"."resource"
+SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
+    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
+    "size" = COALESCE(sqlc.narg('size'), "size"),
+    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
+    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
+    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteCommonResource :exec
+DELETE FROM "common"."resource"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
+    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
+    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
+    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
+    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
+    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+);
+
+-- name: DeleteBatchCommonResource :batchexec
+DELETE FROM "common"."resource"
+WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
+
+-- ========================================
+
+-- Queries for table: common.resource_reference
+
+-- ========================================
+
+-- name: GetCommonResourceReference :one
+SELECT *
+FROM "common"."resource_reference"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsCommonResourceReference :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+)
+) as exists;
+
+-- name: CountCommonResourceReference :one
+SELECT COUNT(*)
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+);
+
+-- name: ListCommonResourceReference :many
+SELECT *
+FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateCommonResourceReference :one
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateBatchCommonResourceReference :batchone
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyCommonResourceReference :copyfrom
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CreateDefaultCommonResourceReference :one
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyDefaultCommonResourceReference :copyfrom
+INSERT INTO "common"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: UpdateCommonResourceReference :one
+UPDATE "common"."resource_reference"
+SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
+    "order" = COALESCE(sqlc.narg('order'), "order"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchCommonResourceReference :batchexec
+UPDATE "common"."resource_reference"
+SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
+    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
+    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
+    "order" = COALESCE(sqlc.narg('order'), "order"),
+    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteCommonResourceReference :exec
+DELETE FROM "common"."resource_reference"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
+    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
+    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
+    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
+);
+
+-- name: DeleteBatchCommonResourceReference :batchexec
+DELETE FROM "common"."resource_reference"
+WHERE ("id" = sqlc.narg('id'));
+
+-- ========================================
+
+-- Queries for table: common.service_option
+
+-- ========================================
+
+-- name: GetCommonServiceOption :one
+SELECT *
+FROM "common"."service_option"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: ExistsCommonServiceOption :one
+SELECT EXISTS (
+SELECT 1
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+)
+) as exists;
+
+-- name: CountCommonServiceOption :one
+SELECT COUNT(*)
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+);
+
+-- name: ListCommonServiceOption :many
+SELECT *
+FROM "common"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')
+OFFSET sqlc.narg('offset');
+
+
+-- name: CreateCommonServiceOption :one
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: CreateBatchCommonServiceOption :batchone
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: CreateCopyCommonServiceOption :copyfrom
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: CreateDefaultCommonServiceOption :one
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateCopyDefaultCommonServiceOption :copyfrom
+INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: UpdateCommonServiceOption :one
+UPDATE "common"."service_option"
+SET "category" = COALESCE(sqlc.narg('category'), "category"),
+    "name" = COALESCE(sqlc.narg('name'), "name"),
+    "description" = COALESCE(sqlc.narg('description'), "description"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "method" = COALESCE(sqlc.narg('method'), "method"),
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "order" = COALESCE(sqlc.narg('order'), "order")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateBatchCommonServiceOption :batchexec
+UPDATE "common"."service_option"
+SET "category" = COALESCE(sqlc.narg('category'), "category"),
+    "name" = COALESCE(sqlc.narg('name'), "name"),
+    "description" = COALESCE(sqlc.narg('description'), "description"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+    "method" = COALESCE(sqlc.narg('method'), "method"),
+    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "order" = COALESCE(sqlc.narg('order'), "order")
+WHERE id = sqlc.arg('id');
+
+-- name: DeleteCommonServiceOption :exec
+DELETE FROM "common"."service_option"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
+    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
+    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+);
+
+-- name: DeleteBatchCommonServiceOption :batchexec
+DELETE FROM "common"."service_option"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================
@@ -3996,412 +4396,6 @@ WHERE (
 
 -- name: DeleteBatchPromotionDiscount :batchexec
 DELETE FROM "promotion"."discount"
-WHERE ("id" = sqlc.narg('id'));
-
--- ========================================
-
--- Queries for table: shared.resource
-
--- ========================================
-
--- name: GetSharedResource :one
-SELECT *
-FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
-
--- name: ExistsSharedResource :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
-    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
-)
-) as exists;
-
--- name: CountSharedResource :one
-SELECT COUNT(*)
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
-    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
-);
-
--- name: ListSharedResource :many
-SELECT *
-FROM "shared"."resource"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
-    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')
-OFFSET sqlc.narg('offset');
-
-
--- name: CreateSharedResource :one
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING *;
-
--- name: CreateBatchSharedResource :batchone
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING *;
-
--- name: CreateCopySharedResource :copyfrom
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
-
--- name: CreateDefaultSharedResource :one
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: CreateCopyDefaultSharedResource :copyfrom
-INSERT INTO "shared"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-
--- name: UpdateSharedResource :one
-UPDATE "shared"."resource"
-SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
-    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
-    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
-    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "size" = COALESCE(sqlc.narg('size'), "size"),
-    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
-    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
-    "status" = COALESCE(sqlc.narg('status'), "status"),
-    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: UpdateBatchSharedResource :batchexec
-UPDATE "shared"."resource"
-SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
-    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
-    "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
-    "mime" = COALESCE(sqlc.narg('mime'), "mime"),
-    "size" = COALESCE(sqlc.narg('size'), "size"),
-    "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
-    "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
-    "status" = COALESCE(sqlc.narg('status'), "status"),
-    "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
-WHERE id = sqlc.arg('id');
-
--- name: DeleteSharedResource :exec
-DELETE FROM "shared"."resource"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
-    ("uploaded_by" > sqlc.narg('uploaded_by_from') OR sqlc.narg('uploaded_by_from') IS NULL) AND
-    ("uploaded_by" < sqlc.narg('uploaded_by_to') OR sqlc.narg('uploaded_by_to') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
-    ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
-    ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
-    ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
-);
-
--- name: DeleteBatchSharedResource :batchexec
-DELETE FROM "shared"."resource"
-WHERE ("id" = sqlc.narg('id')) OR ("provider" = sqlc.narg('provider') AND "object_key" = sqlc.narg('object_key'));
-
--- ========================================
-
--- Queries for table: shared.resource_reference
-
--- ========================================
-
--- name: GetSharedResourceReference :one
-SELECT *
-FROM "shared"."resource_reference"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: ExistsSharedResourceReference :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
-    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
-)
-) as exists;
-
--- name: CountSharedResourceReference :one
-SELECT COUNT(*)
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
-    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
-);
-
--- name: ListSharedResourceReference :many
-SELECT *
-FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
-    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')
-OFFSET sqlc.narg('offset');
-
-
--- name: CreateSharedResourceReference :one
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
-
--- name: CreateBatchSharedResourceReference :batchone
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
-
--- name: CreateCopySharedResourceReference :copyfrom
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5);
-
--- name: CreateDefaultSharedResourceReference :one
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING *;
-
--- name: CreateCopyDefaultSharedResourceReference :copyfrom
-INSERT INTO "shared"."resource_reference" ("rs_id", "ref_type", "ref_id", "order", "is_primary")
-VALUES ($1, $2, $3, $4, $5);
-
--- name: UpdateSharedResourceReference :one
-UPDATE "shared"."resource_reference"
-SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
-    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
-    "order" = COALESCE(sqlc.narg('order'), "order"),
-    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: UpdateBatchSharedResourceReference :batchexec
-UPDATE "shared"."resource_reference"
-SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
-    "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
-    "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
-    "order" = COALESCE(sqlc.narg('order'), "order"),
-    "is_primary" = COALESCE(sqlc.narg('is_primary'), "is_primary")
-WHERE id = sqlc.arg('id');
-
--- name: DeleteSharedResourceReference :exec
-DELETE FROM "shared"."resource_reference"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("rs_id" = ANY(sqlc.slice('rs_id')) OR sqlc.slice('rs_id') IS NULL) AND
-    ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL) AND
-    ("is_primary" = ANY(sqlc.slice('is_primary')) OR sqlc.slice('is_primary') IS NULL)
-);
-
--- name: DeleteBatchSharedResourceReference :batchexec
-DELETE FROM "shared"."resource_reference"
-WHERE ("id" = sqlc.narg('id'));
-
--- ========================================
-
--- Queries for table: shared.service_option
-
--- ========================================
-
--- name: GetSharedServiceOption :one
-SELECT *
-FROM "shared"."service_option"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: ExistsSharedServiceOption :one
-SELECT EXISTS (
-SELECT 1
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
-)
-) as exists;
-
--- name: CountSharedServiceOption :one
-SELECT COUNT(*)
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
-);
-
--- name: ListSharedServiceOption :many
-SELECT *
-FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')
-OFFSET sqlc.narg('offset');
-
-
--- name: CreateSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: CreateBatchSharedServiceOption :batchone
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING *;
-
--- name: CreateCopySharedServiceOption :copyfrom
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-
--- name: CreateDefaultSharedServiceOption :one
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateCopyDefaultSharedServiceOption :copyfrom
-INSERT INTO "shared"."service_option" ("id", "category", "name", "description", "provider", "method", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
-
--- name: UpdateSharedServiceOption :one
-UPDATE "shared"."service_option"
-SET "category" = COALESCE(sqlc.narg('category'), "category"),
-    "name" = COALESCE(sqlc.narg('name'), "name"),
-    "description" = COALESCE(sqlc.narg('description'), "description"),
-    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
-    "method" = COALESCE(sqlc.narg('method'), "method"),
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
-    "order" = COALESCE(sqlc.narg('order'), "order")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: UpdateBatchSharedServiceOption :batchexec
-UPDATE "shared"."service_option"
-SET "category" = COALESCE(sqlc.narg('category'), "category"),
-    "name" = COALESCE(sqlc.narg('name'), "name"),
-    "description" = COALESCE(sqlc.narg('description'), "description"),
-    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
-    "method" = COALESCE(sqlc.narg('method'), "method"),
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
-    "order" = COALESCE(sqlc.narg('order'), "order")
-WHERE id = sqlc.arg('id');
-
--- name: DeleteSharedServiceOption :exec
-DELETE FROM "shared"."service_option"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
-    ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
-);
-
--- name: DeleteBatchSharedServiceOption :batchexec
-DELETE FROM "shared"."service_option"
 WHERE ("id" = sqlc.narg('id'));
 
 -- ========================================

@@ -1,15 +1,15 @@
 -- name: ListSortedResources :many
 SELECT r.*, rr.ref_id
-FROM "shared"."resource_reference" AS rr
-INNER JOIN "shared"."resource" AS r ON rr.rs_id = r.id
+FROM "common"."resource_reference" AS rr
+INNER JOIN "common"."resource" AS r ON rr.rs_id = r.id
 WHERE
     rr.ref_type = sqlc.arg('ref_type') AND
     rr.ref_id = ANY(sqlc.slice('ref_id'))
 ORDER BY rr.is_primary DESC, rr."order", rr.id ASC;
 
--- name: SearchSharedResource :many
+-- name: SearchcommonResource :many
 SELECT *
-FROM "shared"."resource"
+FROM "common"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("id" > sqlc.narg('id_from') OR sqlc.narg('id_from') IS NULL) AND

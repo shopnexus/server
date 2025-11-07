@@ -13,8 +13,8 @@ import (
 
 const listSortedResources = `-- name: ListSortedResources :many
 SELECT r.id, r.uploaded_by, r.provider, r.object_key, r.mime, r.size, r.metadata, r.checksum, r.status, r.created_at, rr.ref_id
-FROM "shared"."resource_reference" AS rr
-INNER JOIN "shared"."resource" AS r ON rr.rs_id = r.id
+FROM "common"."resource_reference" AS rr
+INNER JOIN "common"."resource" AS r ON rr.rs_id = r.id
 WHERE
     rr.ref_type = $1 AND
     rr.ref_id = ANY($2)
@@ -22,7 +22,7 @@ ORDER BY rr.is_primary DESC, rr."order", rr.id ASC
 `
 
 type ListSortedResourcesParams struct {
-	RefType SharedResourceRefType `json:"ref_type"`
+	RefType CommonResourceRefType `json:"ref_type"`
 	RefID   []int64               `json:"ref_id"`
 }
 
@@ -35,7 +35,7 @@ type ListSortedResourcesRow struct {
 	Size       int64              `json:"size"`
 	Metadata   []byte             `json:"metadata"`
 	Checksum   pgtype.Text        `json:"checksum"`
-	Status     SharedStatus       `json:"status"`
+	Status     CommonStatus       `json:"status"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	RefID      int64              `json:"ref_id"`
 }
@@ -72,9 +72,9 @@ func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourc
 	return items, nil
 }
 
-const searchSharedResource = `-- name: SearchSharedResource :many
+const searchcommonResource = `-- name: SearchcommonResource :many
 SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, status, created_at
-FROM "shared"."resource"
+FROM "common"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("id" > $2 OR $2 IS NULL) AND
@@ -98,7 +98,7 @@ LIMIT $18
 OFFSET $17
 `
 
-type SearchSharedResourceParams struct {
+type SearchcommonResourceParams struct {
 	ID             []pgtype.UUID        `json:"id"`
 	IDFrom         pgtype.UUID          `json:"id_from"`
 	IDTo           pgtype.UUID          `json:"id_to"`
@@ -110,7 +110,7 @@ type SearchSharedResourceParams struct {
 	SizeFrom       pgtype.Int8          `json:"size_from"`
 	SizeTo         pgtype.Int8          `json:"size_to"`
 	Metadata       [][]byte             `json:"metadata"`
-	Status         []SharedStatus       `json:"status"`
+	Status         []CommonStatus       `json:"status"`
 	CreatedAt      []pgtype.Timestamptz `json:"created_at"`
 	CreatedAtFrom  pgtype.Timestamptz   `json:"created_at_from"`
 	CreatedAtTo    pgtype.Timestamptz   `json:"created_at_to"`
@@ -119,8 +119,8 @@ type SearchSharedResourceParams struct {
 	Limit          pgtype.Int4          `json:"limit"`
 }
 
-func (q *Queries) SearchSharedResource(ctx context.Context, arg SearchSharedResourceParams) ([]SharedResource, error) {
-	rows, err := q.db.Query(ctx, searchSharedResource,
+func (q *Queries) SearchcommonResource(ctx context.Context, arg SearchcommonResourceParams) ([]CommonResource, error) {
+	rows, err := q.db.Query(ctx, searchcommonResource,
 		arg.ID,
 		arg.IDFrom,
 		arg.IDTo,
@@ -144,9 +144,9 @@ func (q *Queries) SearchSharedResource(ctx context.Context, arg SearchSharedReso
 		return nil, err
 	}
 	defer rows.Close()
-	items := []SharedResource{}
+	items := []CommonResource{}
 	for rows.Next() {
-		var i SharedResource
+		var i CommonResource
 		if err := rows.Scan(
 			&i.ID,
 			&i.UploadedBy,

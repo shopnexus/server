@@ -1,6 +1,6 @@
--- name: SearchSharedServiceOption :many
+-- name: SearchServiceOption :many
 SELECT *
-FROM "shared"."service_option"
+FROM "common"."service_option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
