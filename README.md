@@ -18,9 +18,9 @@
 
 ## My code, my rules
 
-### Every day, 8 hours per day, 6 days per week
+### 🐧 Every day, 8 hours per day, 6 days per week 🐧
 
-🐧
+### No using AI-generated code for backend development (including database design, queries, etc.), except when using tab completion
 
 ### Database
 
@@ -67,7 +67,7 @@ IMO it is better than sql.NullXXX or pgtype.XXX because:
 - Add permission checking
 - #1: Hide the internal id (the incremental primary key) in the DTO to avoid data leak, use "code" (the unique public identifier) instead for external reference
 - add <https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/>
-- Outbox Pattern for reliable event publishing (kafka)
+- Outbox Pattern for reliable event publishing (kafka) <https://microservices.io/patterns/data/transactional-outbox.html>
 
 ### Biz
 
@@ -283,3 +283,5 @@ CREATE TABLE "shared"."service_option" (
     CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
 );
 ```
+
+### 30-10-2025 After a long time of lazying around 🐧
