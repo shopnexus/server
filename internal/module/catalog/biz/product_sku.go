@@ -3,12 +3,14 @@ package catalogbiz
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
@@ -69,6 +71,7 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 }
 
 type CreateProductSkuParams struct {
+	Storage    pgsqlc.Storage
 	Account    authmodel.AuthenticatedAccount
 	SpuID      int64                           `validate:"required,gt=0"`
 	Price      int64                           `validate:"required,gt=0"`
@@ -78,38 +81,36 @@ type CreateProductSkuParams struct {
 
 func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var sku db.CatalogProductSku
 
-	attributesBytes, err := json.Marshal(params.Attributes)
-	if err != nil {
-		return zero, err
-	}
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		attributesBytes, err := json.Marshal(params.Attributes)
+		if err != nil {
+			return err
+		}
 
-	// Create sku
-	sku, err := txStorage.CreateDefaultCatalogProductSku(ctx, db.CreateDefaultCatalogProductSkuParams{
-		SpuID:      params.SpuID,
-		Price:      params.Price,
-		CanCombine: params.CanCombine,
-		Attributes: attributesBytes,
-	})
-	if err != nil {
-		return zero, err
-	}
+		// Create sku
+		sku, err = txStorage.CreateDefaultCatalogProductSku(ctx, db.CreateDefaultCatalogProductSkuParams{
+			SpuID:      params.SpuID,
+			Price:      params.Price,
+			CanCombine: params.CanCombine,
+			Attributes: attributesBytes,
+		})
+		if err != nil {
+			return err
+		}
 
-	// Create sku stock
-	if _, err := txStorage.CreateDefaultInventoryStock(ctx, db.CreateDefaultInventoryStockParams{
-		RefType: db.InventoryStockRefTypeProductSku,
-		RefID:   sku.ID,
+		// Create sku stock
+		if _, err := txStorage.CreateDefaultInventoryStock(ctx, db.CreateDefaultInventoryStockParams{
+			RefType: db.InventoryStockRefTypeProductSku,
+			RefID:   sku.ID,
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	}); err != nil {
-		return zero, err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		return zero, fmt.Errorf("failed to create product sku: %w", err)
 	}
 
 	return catalogmodel.ProductSku{
@@ -124,6 +125,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 }
 
 type UpdateProductSkuParams struct {
+	Storage    pgsqlc.Storage
 	Account    authmodel.AuthenticatedAccount
 	ID         int64                           `validate:"required,gt=0"`
 	Price      null.Int64                      `validate:"omitnil,gt=0"`
@@ -138,47 +140,48 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var (
+		sku   db.CatalogProductSku
+		stock db.InventoryStock
+	)
 
-	attributesBytes, err := json.Marshal(params.Attributes)
-	if err != nil {
-		return zero, err
-	}
-	// TODO: check biz logic of attribute update
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		attributesBytes, err := json.Marshal(params.Attributes)
+		if err != nil {
+			return err
+		}
+		// TODO: check biz logic of attribute update
 
-	sku, err := txStorage.UpdateCatalogProductSku(ctx, db.UpdateCatalogProductSkuParams{
-		ID:         params.ID,
-		Price:      pgutil.NullInt64ToPgInt8(params.Price),
-		CanCombine: pgutil.NullBoolToPgBool(params.CanCombine),
-		Attributes: attributesBytes,
-	})
-	if err != nil {
-		return zero, err
-	}
+		sku, err = txStorage.UpdateCatalogProductSku(ctx, db.UpdateCatalogProductSkuParams{
+			ID:         params.ID,
+			Price:      pgutil.NullInt64ToPgInt8(params.Price),
+			CanCombine: pgutil.NullBoolToPgBool(params.CanCombine),
+			Attributes: attributesBytes,
+		})
+		if err != nil {
+			return err
+		}
 
-	stock, err := txStorage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-		RefType: db.NullInventoryStockRefType{InventoryStockRefType: db.InventoryStockRefTypeProductSku, Valid: true},
-		RefID:   pgutil.Int64ToPgInt8(sku.ID),
-	})
-	if err != nil {
-		return zero, err
-	}
+		stock, err = txStorage.GetInventoryStock(ctx, db.GetInventoryStockParams{
+			RefType: db.NullInventoryStockRefType{InventoryStockRefType: db.InventoryStockRefTypeProductSku, Valid: true},
+			RefID:   pgutil.Int64ToPgInt8(sku.ID),
+		})
+		if err != nil {
+			return err
+		}
 
-	// Invalidate search index for the parent product (spu)
-	if err := txStorage.UpdateStaleSearchSync(ctx, db.UpdateStaleSearchSyncParams{
-		RefType:         searchmodel.RefTypeProduct,
-		RefID:           sku.SpuID,
-		IsStaleMetadata: pgutil.BoolToPgBool(true),
+		// Invalidate search index for the parent product (spu)
+		if err := txStorage.UpdateStaleSearchSync(ctx, db.UpdateStaleSearchSyncParams{
+			RefType:         searchmodel.RefTypeProduct,
+			RefID:           sku.SpuID,
+			IsStaleMetadata: pgutil.BoolToPgBool(true),
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	}); err != nil {
-		return zero, err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		return zero, fmt.Errorf("failed to update product sku: %w", err)
 	}
 
 	return catalogmodel.ProductSku{
@@ -193,6 +196,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 }
 
 type DeleteProductSkuParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 	ID      int64 `validate:"required,gt=0"`
 }
@@ -202,29 +206,25 @@ func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-	defer txStorage.Rollback(ctx)
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		// Delete sku
+		if err := txStorage.DeleteCatalogProductSku(ctx, db.DeleteCatalogProductSkuParams{
+			ID: []int64{params.ID},
+		}); err != nil {
+			return err
+		}
 
-	// Delete sku
-	if err := txStorage.DeleteCatalogProductSku(ctx, db.DeleteCatalogProductSkuParams{
-		ID: []int64{params.ID},
+		// Delete the associated stock record
+		if err := txStorage.DeleteInventoryStock(ctx, db.DeleteInventoryStockParams{
+			RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
+			RefID:   []int64{params.ID},
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	}); err != nil {
-		return err
-	}
-
-	// Delete the associated stock record
-	if err := txStorage.DeleteInventoryStock(ctx, db.DeleteInventoryStockParams{
-		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-		RefID:   []int64{params.ID},
-	}); err != nil {
-		return err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to delete product sku: %w", err)
 	}
 
 	return nil

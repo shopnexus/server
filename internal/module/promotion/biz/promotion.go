@@ -11,6 +11,7 @@ import (
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -100,7 +101,7 @@ type PromotionRef struct {
 	RefID   int64               `validate:"required"`
 }
 
-func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgutil.TxStorage, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
+func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgsqlc.Storage, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
 	var zero promotionmodel.PromotionBase
 
 	if err := validator.Validate(params); err != nil {
@@ -150,7 +151,7 @@ type UpdatePromotionParams struct {
 	Refs          []PromotionRef `validate:"dive"`
 }
 
-func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgutil.TxStorage, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
+func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgsqlc.Storage, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
 	var zero promotionmodel.PromotionBase
 
 	if err := validator.Validate(params); err != nil {

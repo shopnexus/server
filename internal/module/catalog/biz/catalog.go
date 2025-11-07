@@ -6,13 +6,13 @@ import (
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
 	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 )
 
 type CatalogBiz struct {
 	cache     cachestruct.Client
 	pubsub    pubsub.Client
-	storage   *pgutil.Storage
+	storage   pgsqlc.Storage
 	shared    *sharedbiz.SharedBiz
 	promotion *promotionbiz.PromotionBiz
 	search    *searchbiz.SearchBiz
@@ -21,7 +21,7 @@ type CatalogBiz struct {
 func NewCatalogBiz(
 	cache cachestruct.Client,
 	pubsub pubsub.Client,
-	storage *pgutil.Storage,
+	storage pgsqlc.Storage,
 	shared *sharedbiz.SharedBiz,
 	promotion *promotionbiz.PromotionBiz,
 	search *searchbiz.SearchBiz,

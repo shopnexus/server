@@ -2,14 +2,11 @@ package analyticbiz
 
 import (
 	"context"
-	"time"
-
-	"github.com/google/uuid"
 
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 
+	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	"shopnexus-remastered/internal/utils/pgutil"
@@ -39,12 +36,24 @@ type CreateInteractionParams struct {
 }
 
 func (s *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
+	interaction, err := s.storage.CreateDefaultAnalyticInteraction(ctx, db.CreateDefaultAnalyticInteractionParams{
+		AccountID: params.Account.ID,
+		EventType: params.EventType,
+		RefType:   params.RefType,
+		RefID:     params.RefID,
+		Metadata:  []byte("{}"),
+	})
+	if err != nil {
+		return err
+	}
+
 	return s.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
-		ID:          uuid.NewString(),
+		ID:          interaction.ID,
 		AccountID:   params.Account.ID,
 		EventType:   params.EventType,
 		RefType:     params.RefType,
 		RefID:       params.RefID,
-		DateCreated: time.Now(),
+		DateCreated: interaction.DateCreated.Time,
+		Metadata:    interaction.Metadata,
 	})
 }

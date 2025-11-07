@@ -8,6 +8,7 @@ import (
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
 	"shopnexus-remastered/internal/utils/errutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 	"slices"
@@ -40,7 +41,7 @@ type UpdateResourcesParams struct {
 	DeleteResources bool                     `validate:"omitempty"`
 }
 
-func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgutil.TxStorage, params UpdateResourcesParams) ([]sharedmodel.Resource, error) {
+func (b *SharedBiz) UpdateResources(ctx context.Context, txStorage *pgsqlc.Storage, params UpdateResourcesParams) ([]sharedmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ type DeleteResourcesParams struct {
 	SkipDeleteResources []uuid.UUID              `validate:"omitempty,dive"` // Skip delete resource entities with these IDs (but still remove the references)
 }
 
-func (b *SharedBiz) DeleteResources(ctx context.Context, txStorage *pgutil.TxStorage, params DeleteResourcesParams) error {
+func (b *SharedBiz) DeleteResources(ctx context.Context, txStorage *pgsqlc.Storage, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}

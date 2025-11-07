@@ -23,7 +23,7 @@ func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (sharedm
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogTag(ctx, nil)
+	total, err := b.storage.CountCatalogTag(ctx, db.CountCatalogTagParams{})
 	if err != nil {
 		return zero, err
 	}

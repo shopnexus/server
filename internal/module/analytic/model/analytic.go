@@ -1,6 +1,7 @@
 package analyticmodel
 
 import (
+	"encoding/json"
 	"time"
 
 	"shopnexus-remastered/internal/db"
@@ -11,11 +12,11 @@ const (
 )
 
 type Interaction struct {
-	ID          string                        `json:"id"`
+	ID          int64                         `json:"id"`
 	AccountID   int64                         `json:"account_id"`
 	EventType   string                        `json:"event_type"`
 	RefType     db.AnalyticInteractionRefType `json:"ref_type"`
 	RefID       int64                         `json:"ref_id"`
-	Metadata    map[string]any                `json:"metadata,omitempty"`
+	Metadata    json.RawMessage               `json:"metadata"`
 	DateCreated time.Time                     `json:"date_created"`
 }

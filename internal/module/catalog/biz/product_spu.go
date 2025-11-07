@@ -16,6 +16,7 @@ import (
 	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
@@ -144,6 +145,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 }
 
 type CreateProductSpuParams struct {
+	Storage     pgsqlc.Storage
 	Account     authmodel.AuthenticatedAccount
 	CategoryID  int64       `validate:"required,gt=0"`
 	BrandID     int64       `validate:"required,gt=0"`
@@ -161,51 +163,53 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var (
+		spu       db.CatalogProductSpu
+		resources []sharedmodel.Resource
+	)
 
-	spu, err := txStorage.CreateDefaultCatalogProductSpu(ctx, db.CreateDefaultCatalogProductSpuParams{
-		Code:        GenerateSlug(params.Name),
-		AccountID:   params.Account.ID,
-		CategoryID:  params.CategoryID,
-		BrandID:     params.BrandID,
-		Name:        params.Name,
-		Description: params.Description,
-		IsActive:    params.IsActive,
-	})
-	if err != nil {
-		return zero, err
-	}
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		var err error
+		spu, err = txStorage.CreateDefaultCatalogProductSpu(ctx, db.CreateDefaultCatalogProductSpuParams{
+			Code:        GenerateSlug(params.Name),
+			AccountID:   params.Account.ID,
+			CategoryID:  params.CategoryID,
+			BrandID:     params.BrandID,
+			Name:        params.Name,
+			Description: params.Description,
+			IsActive:    params.IsActive,
+		})
+		if err != nil {
+			return err
+		}
 
-	// Create tags
-	if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
-		return zero, err
-	}
+		// Create tags
+		if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+			return err
+		}
 
-	// Create resources
-	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
-		Account:     params.Account,
-		RefType:     db.SharedResourceRefTypeProductSpu,
-		RefID:       spu.ID,
-		ResourceIDs: params.ResourceIDs,
-	})
-	if err != nil {
-		return zero, err
-	}
+		// Create resources
+		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+			Account:     params.Account,
+			RefType:     db.SharedResourceRefTypeProductSpu,
+			RefID:       spu.ID,
+			ResourceIDs: params.ResourceIDs,
+		})
+		if err != nil {
+			return err
+		}
 
-	// Create system search sync (TODO: should move to event)
-	if _, err := txStorage.CreateDefaultSystemSearchSync(ctx, db.CreateDefaultSystemSearchSyncParams{
-		RefType: searchmodel.RefTypeProduct,
-		RefID:   spu.ID,
+		// Create system search sync (TODO: should move to event)
+		if _, err := txStorage.CreateDefaultSystemSearchSync(ctx, db.CreateDefaultSystemSearchSyncParams{
+			RefType: searchmodel.RefTypeProduct,
+			RefID:   spu.ID,
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	}); err != nil {
-		return zero, err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		return zero, fmt.Errorf("failed to create product spu: %w", err)
 	}
 
 	tagsMap := b.mustGetTagsMap(ctx, []int64{spu.ID})
@@ -228,6 +232,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 }
 
 type UpdateProductSpuParams struct {
+	Storage       pgsqlc.Storage
 	Account       authmodel.AuthenticatedAccount
 	ID            int64       `validate:"required,gt=0"`
 	FeaturedSkuID null.Int64  `validate:"omitnil,gt=0"`
@@ -247,12 +252,6 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
-
 	// TODO: check if the featured sku id belongs to the spu id
 
 	var code null.String
@@ -260,59 +259,68 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		code.SetValid(GenerateSlug(params.Name.String))
 	}
 
-	// Update the product spu
-	spu, err := txStorage.UpdateCatalogProductSpu(ctx, db.UpdateCatalogProductSpuParams{
-		ID:            params.ID,
-		Code:          pgutil.NullStringToPgText(code),
-		FeaturedSkuID: pgutil.NullInt64ToPgInt8(params.FeaturedSkuID),
-		CategoryID:    pgutil.NullInt64ToPgInt8(params.CategoryID),
-		BrandID:       pgutil.NullInt64ToPgInt8(params.BrandID),
-		Name:          pgutil.NullStringToPgText(params.Name),
-		Description:   pgutil.NullStringToPgText(params.Description),
-		IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
-		DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
-	})
-	if err != nil {
-		return zero, err
-	}
+	var (
+		spu       db.CatalogProductSpu
+		resources []sharedmodel.Resource
+	)
 
-	// Update tags
-	if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
-		return zero, err
-	}
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		var err error
 
-	// Update resources
-	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
-		Account:         params.Account,
-		RefType:         db.SharedResourceRefTypeProductSpu,
-		RefID:           spu.ID,
-		ResourceIDs:     params.ResourceIDs,
-		EmptyResources:  true,
-		DeleteResources: true,
-	})
-	if err != nil {
-		return zero, err
-	}
+		// Update the product spu
+		spu, err = txStorage.UpdateCatalogProductSpu(ctx, db.UpdateCatalogProductSpuParams{
+			ID:            params.ID,
+			Code:          pgutil.NullStringToPgText(code),
+			FeaturedSkuID: pgutil.NullInt64ToPgInt8(params.FeaturedSkuID),
+			CategoryID:    pgutil.NullInt64ToPgInt8(params.CategoryID),
+			BrandID:       pgutil.NullInt64ToPgInt8(params.BrandID),
+			Name:          pgutil.NullStringToPgText(params.Name),
+			Description:   pgutil.NullStringToPgText(params.Description),
+			IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
+			DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
+		})
+		if err != nil {
+			return err
+		}
 
-	// Prepare the search sync update
-	updateSearchSyncArg := db.UpdateStaleSearchSyncParams{
-		RefType:         searchmodel.RefTypeProduct,
-		RefID:           params.ID,
-		IsStaleMetadata: pgutil.BoolToPgBool(true),
-	}
+		// Update tags
+		if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+			return err
+		}
 
-	// If the description is updated, we also need to update the embedding
-	if params.Description.Valid {
-		updateSearchSyncArg.IsStaleEmbedding = pgutil.BoolToPgBool(true)
-	}
+		// Update resources
+		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+			Account:         params.Account,
+			RefType:         db.SharedResourceRefTypeProductSpu,
+			RefID:           spu.ID,
+			ResourceIDs:     params.ResourceIDs,
+			EmptyResources:  true,
+			DeleteResources: true,
+		})
+		if err != nil {
+			return err
+		}
 
-	// Mark the search sync as stale
-	if err := txStorage.UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
-		return zero, err
-	}
+		// Prepare the search sync update
+		updateSearchSyncArg := db.UpdateStaleSearchSyncParams{
+			RefType:         searchmodel.RefTypeProduct,
+			RefID:           params.ID,
+			IsStaleMetadata: pgutil.BoolToPgBool(true),
+		}
 
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		// If the description is updated, we also need to update the embedding
+		if params.Description.Valid {
+			updateSearchSyncArg.IsStaleEmbedding = pgutil.BoolToPgBool(true)
+		}
+
+		// Mark the search sync as stale
+		if err := txStorage.UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to update product spu: %w", err)
 	}
 
 	return catalogmodel.ProductSpu{
@@ -333,6 +341,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 }
 
 type DeleteProductSpuParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 	ID      int64 `validate:"required,gt=0"`
 }
@@ -342,26 +351,22 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-	defer txStorage.Rollback(ctx)
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		if err := txStorage.DeleteCatalogProductSpu(ctx, db.DeleteCatalogProductSpuParams{
+			ID: []int64{params.ID},
+		}); err != nil {
+			return err
+		}
 
-	if err := txStorage.DeleteCatalogProductSpu(ctx, db.DeleteCatalogProductSpuParams{
-		ID: []int64{params.ID},
+		return nil
 	}); err != nil {
-		return err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to delete product spu: %w", err)
 	}
 
 	return nil
 }
 
-func (b *CatalogBiz) updateTags(ctx context.Context, txStorage *pgutil.TxStorage, spuID int64, tags []string) error {
+func (b *CatalogBiz) updateTags(ctx context.Context, txStorage *pgsqlc.TxStorage, spuID int64, tags []string) error {
 	if err := txStorage.DeleteCatalogProductSpuTag(ctx, db.DeleteCatalogProductSpuTagParams{
 		SpuID: []int64{spuID},
 	}); err != nil {

@@ -2,6 +2,7 @@ package catalogbiz
 
 import (
 	"context"
+	"fmt"
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -9,6 +10,7 @@ import (
 	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
 	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
@@ -150,6 +152,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 }
 
 type CreateCommentParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 
 	RefType db.CatalogCommentRefType `validate:"required"`
@@ -167,37 +170,39 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var (
+		comment   db.CatalogComment
+		resources []sharedmodel.Resource
+	)
 
-	comment, err := txStorage.CreateDefaultCatalogComment(ctx, db.CreateDefaultCatalogCommentParams{
-		AccountID: params.Account.ID,
-		RefType:   params.RefType,
-		RefID:     params.RefID,
-		Body:      params.Body,
-		Score:     params.Score,
-	})
-	if err != nil {
-		return zero, err
-	}
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		var err error
+		comment, err = txStorage.CreateDefaultCatalogComment(ctx, db.CreateDefaultCatalogCommentParams{
+			AccountID: params.Account.ID,
+			RefType:   params.RefType,
+			RefID:     params.RefID,
+			Body:      params.Body,
+			Score:     params.Score,
+		})
+		if err != nil {
+			return err
+		}
 
-	// Attach resources
-	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
-		Account:        params.Account,
-		RefType:        db.SharedResourceRefTypeComment,
-		RefID:          comment.ID,
-		ResourceIDs:    params.ResourceIDs,
-		EmptyResources: true,
-	})
-	if err != nil {
-		return zero, err
-	}
+		// Attach resources
+		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+			Account:        params.Account,
+			RefType:        db.SharedResourceRefTypeComment,
+			RefID:          comment.ID,
+			ResourceIDs:    params.ResourceIDs,
+			EmptyResources: true,
+		})
+		if err != nil {
+			return err
+		}
 
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to create comment: %w", err)
 	}
 
 	return catalogmodel.Comment{
@@ -214,6 +219,7 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 }
 
 type UpdateCommentParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 
 	ID            int64       `validate:"required,gt=0"`
@@ -233,48 +239,51 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var (
+		comment   db.CatalogComment
+		resources []sharedmodel.Resource
+	)
 
-	// Update base comment info
-	comment, err := txStorage.UpdateCatalogComment(ctx, db.UpdateCatalogCommentParams{
-		ID:    params.ID,
-		Body:  pgutil.NullStringToPgText(params.Body),
-		Score: pgutil.NullInt32ToPgInt4(params.Score),
-	})
-	if err != nil {
-		return zero, err
-	}
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		var err error
 
-	// Update upvote/downvote count
-	if params.UpvoteDelta.Valid || params.DownvoteDelta.Valid {
-		if err := txStorage.UpdateCatalogCommentUpvoteDownvote(ctx, db.UpdateCatalogCommentUpvoteDownvoteParams{
-			ID:            params.ID,
-			UpvoteDelta:   pgutil.NullInt64ToPgInt8(params.UpvoteDelta),
-			DownvoteDelta: pgutil.NullInt64ToPgInt8(params.DownvoteDelta),
-		}); err != nil {
-			return zero, err
+		// Update base comment info
+		comment, err = txStorage.UpdateCatalogComment(ctx, db.UpdateCatalogCommentParams{
+			ID:    params.ID,
+			Body:  pgutil.NullStringToPgText(params.Body),
+			Score: pgutil.NullInt32ToPgInt4(params.Score),
+		})
+		if err != nil {
+			return err
 		}
-	}
 
-	// Update resources
-	resources, err := b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
-		Account:         params.Account,
-		RefType:         db.SharedResourceRefTypeComment,
-		RefID:           params.ID,
-		ResourceIDs:     params.ResourceIDs,
-		EmptyResources:  params.EmptyResources,
-		DeleteResources: true,
-	})
-	if err != nil {
-		return zero, err
-	}
+		// Update upvote/downvote count
+		if params.UpvoteDelta.Valid || params.DownvoteDelta.Valid {
+			if err := txStorage.UpdateCatalogCommentUpvoteDownvote(ctx, db.UpdateCatalogCommentUpvoteDownvoteParams{
+				ID:            params.ID,
+				UpvoteDelta:   pgutil.NullInt64ToPgInt8(params.UpvoteDelta),
+				DownvoteDelta: pgutil.NullInt64ToPgInt8(params.DownvoteDelta),
+			}); err != nil {
+				return err
+			}
+		}
 
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		// Update resources
+		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+			Account:         params.Account,
+			RefType:         db.SharedResourceRefTypeComment,
+			RefID:           params.ID,
+			ResourceIDs:     params.ResourceIDs,
+			EmptyResources:  params.EmptyResources,
+			DeleteResources: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to update comment: %w", err)
 	}
 
 	return catalogmodel.Comment{
@@ -291,6 +300,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 }
 
 type DeleteCommentParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 
 	CommentIDs []int64 `validate:"required,dive,gt=0"`
@@ -301,29 +311,29 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 		return err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-	defer txStorage.Rollback(ctx)
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+		// Delete base comments
+		if err := txStorage.DeleteCatalogComment(ctx, db.DeleteCatalogCommentParams{
+			ID: params.CommentIDs,
+		}); err != nil {
+			return err
+		}
 
-	// Delete base comments
-	if err := txStorage.DeleteCatalogComment(ctx, db.DeleteCatalogCommentParams{
-		ID: params.CommentIDs,
+		// Remove associated resources
+		if err := b.shared.DeleteResources(ctx, txStorage, sharedbiz.DeleteResourcesParams{
+			RefType:             db.SharedResourceRefTypeComment,
+			RefID:               params.CommentIDs,
+			DeleteResources:     true,
+			SkipDeleteResources: nil,
+		}); err != nil {
+			return err
+		}
+		// TODO: remove resources that are no longer referenced by any
+
+		return nil
 	}); err != nil {
-		return err
+		return fmt.Errorf("failed to delete comment: %w", err)
 	}
 
-	// Remove associated resources
-	if err := b.shared.DeleteResources(ctx, txStorage, sharedbiz.DeleteResourcesParams{
-		RefType:             db.SharedResourceRefTypeComment,
-		RefID:               params.CommentIDs,
-		DeleteResources:     true,
-		SkipDeleteResources: nil,
-	}); err != nil {
-		return err
-	}
-	// TODO: remove resources that are no longer referenced by any
-
-	return txStorage.Commit(ctx)
+	return nil
 }

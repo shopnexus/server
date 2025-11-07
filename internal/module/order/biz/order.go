@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"shopnexus-remastered/internal/utils/errutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 
 	"shopnexus-remastered/internal/client/payment"
 	"shopnexus-remastered/internal/client/pubsub"
@@ -24,7 +25,7 @@ import (
 )
 
 type OrderBiz struct {
-	storage     *pgutil.Storage
+	storage     *pgsqlc.Storage
 	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
 	shipmentMap map[string]shipment.Client // map[shipmentOption]shipment.Client
 	pubsub      pubsub.Client
@@ -33,7 +34,7 @@ type OrderBiz struct {
 }
 
 func NewOrderBiz(
-	storage *pgutil.Storage,
+	storage *pgsqlc.Storage,
 	pubsub pubsub.Client,
 	promotion *promotionbiz.PromotionBiz,
 	shared *sharedbiz.SharedBiz,
@@ -401,6 +402,7 @@ func (s *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 	}
 
 	// Update serial status to sold
+	// TODO: consider use a redis lock for temporary prevent oversell in high concurrency situation
 	if err = txStorage.UpdateSerialStatus(ctx, db.UpdateSerialStatusParams{
 		Status: db.InventoryProductStatusSold,
 		ID:     serialIDs,
@@ -592,6 +594,7 @@ func (s *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (Quo
 	}, nil
 }
 
+// TODO: should call the account biz instead of using storage directly
 func (s *OrderBiz) getDefaultContact(ctx context.Context, accountID int64) (db.AccountContact, error) {
 	var zero db.AccountContact
 

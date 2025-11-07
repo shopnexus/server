@@ -25,7 +25,7 @@ import (
 const InteractionBatchSize = 10
 
 // const SearchServer = "https://b0373f0064cb.ngrok-free.app"
-const SearchServer = "http://192.168.1.150:8000"
+const SearchServer = "http://192.168.110.137:8000"
 
 type SearchBiz struct {
 	httpClient *http.Client
@@ -36,6 +36,7 @@ type SearchBiz struct {
 	batchSize int
 	mu        sync.Mutex
 	buffer    []analyticmodel.Interaction
+	syncLock  sync.Mutex
 }
 
 // NewSearchBiz creates a new instance of SearchBiz.
@@ -96,7 +97,13 @@ type GetRecommendationsParams struct {
 }
 
 func (b *SearchBiz) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
-	response, err := b.httpClient.Get(fmt.Sprintf(SearchServer+"/user/%d/recommendations?limit=%d", params.Account.ID, params.Limit))
+	request, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf(SearchServer+"/recommend?account_id=%d&limit=%d", params.Account.ID, params.Limit), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := b.httpClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +131,7 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 		return err
 	}
 
-	response, err := b.httpClient.Post(SearchServer+"/analytics/process", "application/json", bytes.NewReader(body))
+	response, err := b.httpClient.Post(SearchServer+"/events", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

@@ -21,8 +21,7 @@ type OrderCreatedParams = struct {
 }
 
 func (s *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
-	// code here
-
+	//
 	return nil
 }
 
@@ -31,24 +30,19 @@ type OrderPaidParams = struct {
 }
 
 func (s *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
-	txStorage, err := s.storage.BeginTx(ctx)
-	if err != nil {
-		return err
-	}
-	defer txStorage.Rollback(ctx)
+	// ! should not use txStorage here
+	// txStorage, err := s.storage.BeginTx(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer txStorage.Rollback(ctx)
 
 	// Update the order status to success
-	order, err := txStorage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
+	_, err := s.storage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
 		ID:            params.OrderID,
 		PaymentStatus: db.NullSharedStatus{SharedStatus: db.SharedStatusSuccess, Valid: true},
 	})
 	if err != nil {
-		return err
-	}
-
-	_ = order // use order if needed
-
-	if err = txStorage.Commit(ctx); err != nil {
 		return err
 	}
 

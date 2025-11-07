@@ -10,7 +10,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/slice"
 )
 
@@ -20,8 +20,8 @@ const (
 )
 
 func (b *SearchBiz) InitCron() error {
-	go b.StartProductSyncCron(context.Background(), 10*time.Second, true) // TODO: Make config for duration
-	go b.StartProductSyncCron(context.Background(), time.Minute, false)   // TODO: Make config for duration
+	go b.StartProductSyncCron(context.Background(), time.Second, true)  // TODO: Make config for duration
+	go b.StartProductSyncCron(context.Background(), time.Second, false) // TODO: Make config for duration
 	return nil
 }
 
@@ -70,7 +70,7 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 	return nil
 }
 
-func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.TxStorage, stales []db.ListStaleSearchSyncRow, metadataOnly bool) error {
+func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgsqlc.Storage, stales []db.ListStaleSearchSyncRow, metadataOnly bool) error {
 	if len(stales) == 0 {
 		return nil
 	}
@@ -120,26 +120,27 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgutil.T
 
 // StartProductSyncCron starts the cron job for product data sync
 func (b *SearchBiz) StartProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
-	log.Println("🚀 Starting product sync cron job (runs every hour)...")
-
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
+	log.Println("🚀 Starting product sync cron job...")
 
 	// Run immediately on startup
 	if err := b.SyncProductData(ctx, metadataOnly); err != nil {
 		log.Printf("❌ Initial product sync failed: %v", err)
 	}
 
-	// Then run every hour
 	for {
+		// Wait for duration or stop early if context is canceled
 		select {
+		case <-time.After(duration):
+			// continue to next sync
 		case <-ctx.Done():
-			log.Println("🛑 Product sync cron job stopped")
+			log.Println("🛑 Stopping product sync cron job...")
 			return
-		case <-ticker.C:
-			if err := b.SyncProductData(ctx, metadataOnly); err != nil {
-				log.Printf("❌ Product sync failed: %v", err)
-			}
 		}
+
+		b.syncLock.Lock()
+		if err := b.SyncProductData(ctx, metadataOnly); err != nil {
+			log.Printf("❌ Product sync failed: %v", err)
+		}
+		b.syncLock.Unlock()
 	}
 }

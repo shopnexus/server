@@ -3,6 +3,7 @@ package catalogbiz
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/guregu/null/v6"
 
@@ -246,13 +247,15 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 	// if current feed offset is exceeding the size or there is no recommendation in cache, refresh the feed
 	if feedOffset >= catalogmodel.CacheRecommendSize || len(rcmProducts) == 0 {
-		recommendations, err := b.search.GetRecommendations(ctx, searchbiz.GetRecommendationsParams{
+		rcmCtx, cancel := context.WithTimeout(ctx, time.Second*2)
+		recommendations, err := b.search.GetRecommendations(rcmCtx, searchbiz.GetRecommendationsParams{
 			Account: params.Account,
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
 		if err != nil {
 			logger.Log.Sugar().Errorf("failed to get recommendations for account %d: %v", params.Account.ID, err)
 		}
+		cancel()
 
 		// Reset feed offset
 		feedOffset = 0
