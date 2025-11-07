@@ -12,10 +12,10 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
@@ -54,7 +54,7 @@ func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID int64) db.Catalog
 }
 
 type ListProductSpuParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	Account    authmodel.AuthenticatedAccount
 	ID         []int64  `validate:"omitempty,dive,gt=0"`
 	Code       []string `validate:"omitempty,dive,min=1,max=100"`
@@ -63,8 +63,8 @@ type ListProductSpuParams struct {
 	IsActive   []bool   `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
-	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
+func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (commonmodel.PaginateResult[catalogmodel.ProductSpu], error) {
+	var zero commonmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -110,7 +110,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 	tagsMap := b.mustGetTagsMap(ctx, spuIDs)
 
-	resourcesMap, err := b.shared.GetResources(ctx, db.SharedResourceRefTypeProductSpu, spuIDs)
+	resourcesMap, err := b.common.GetResources(ctx, db.CommonResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
 		return zero, err
 	}
@@ -137,7 +137,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		})
 	}
 
-	return sharedmodel.PaginateResult[catalogmodel.ProductSpu]{
+	return commonmodel.PaginateResult[catalogmodel.ProductSpu]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       spus,
@@ -165,10 +165,10 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 
 	var (
 		spu       db.CatalogProductSpu
-		resources []sharedmodel.Resource
+		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		var err error
 		spu, err = txStorage.CreateDefaultCatalogProductSpu(ctx, db.CreateDefaultCatalogProductSpuParams{
 			Code:        GenerateSlug(params.Name),
@@ -184,14 +184,19 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		}
 
 		// Create tags
-		if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+		if err := b.updateTags(ctx, updateTagsParams{
+			Storage: txStorage,
+			SpuID:   spu.ID,
+			Tags:    params.Tags,
+		}); err != nil {
 			return err
 		}
 
 		// Create resources
-		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
+			Storage:     txStorage,
 			Account:     params.Account,
-			RefType:     db.SharedResourceRefTypeProductSpu,
+			RefType:     db.CommonResourceRefTypeProductSpu,
 			RefID:       spu.ID,
 			ResourceIDs: params.ResourceIDs,
 		})
@@ -261,10 +266,10 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 
 	var (
 		spu       db.CatalogProductSpu
-		resources []sharedmodel.Resource
+		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		var err error
 
 		// Update the product spu
@@ -284,14 +289,19 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		}
 
 		// Update tags
-		if err := b.updateTags(ctx, txStorage, spu.ID, params.Tags); err != nil {
+		if err := b.updateTags(ctx, updateTagsParams{
+			Storage: txStorage,
+			SpuID:   spu.ID,
+			Tags:    params.Tags,
+		}); err != nil {
 			return err
 		}
 
 		// Update resources
-		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
+			Storage:         txStorage,
 			Account:         params.Account,
-			RefType:         db.SharedResourceRefTypeProductSpu,
+			RefType:         db.CommonResourceRefTypeProductSpu,
 			RefID:           spu.ID,
 			ResourceIDs:     params.ResourceIDs,
 			EmptyResources:  true,
@@ -351,7 +361,7 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		if err := txStorage.DeleteCatalogProductSpu(ctx, db.DeleteCatalogProductSpuParams{
 			ID: []int64{params.ID},
 		}); err != nil {
@@ -366,49 +376,65 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 	return nil
 }
 
-func (b *CatalogBiz) updateTags(ctx context.Context, txStorage *pgsqlc.TxStorage, spuID int64, tags []string) error {
-	if err := txStorage.DeleteCatalogProductSpuTag(ctx, db.DeleteCatalogProductSpuTagParams{
-		SpuID: []int64{spuID},
-	}); err != nil {
+type updateTagsParams struct {
+	Storage pgsqlc.Storage
+	SpuID   int64
+	Tags    []string
+}
+
+func (b *CatalogBiz) updateTags(ctx context.Context, params updateTagsParams) error {
+	if err := validator.Validate(params); err != nil {
 		return err
 	}
 
-	dbTags, err := txStorage.ListCatalogTag(ctx, db.ListCatalogTagParams{
-		ID: tags,
-	})
-	if err != nil {
-		return err
-	}
-	var nonExistingTags []string
-	for _, tag := range tags {
-		if !slices.Contains(slice.Map(dbTags, func(t db.CatalogTag) string { return t.ID }), tag) {
-			nonExistingTags = append(nonExistingTags, tag)
-		}
-	}
-
-	if len(nonExistingTags) > 0 {
-		var args []db.CreateCopyDefaultCatalogTagParams
-		for _, tag := range nonExistingTags {
-			args = append(args, db.CreateCopyDefaultCatalogTagParams{
-				ID:          tag,
-				Description: "",
-			})
-		}
-		if _, err := txStorage.CreateCopyDefaultCatalogTag(ctx, args); err != nil {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		if err := txStorage.DeleteCatalogProductSpuTag(ctx, db.DeleteCatalogProductSpuTagParams{
+			SpuID: []int64{params.SpuID},
+		}); err != nil {
 			return err
 		}
+
+		dbTags, err := txStorage.ListCatalogTag(ctx, db.ListCatalogTagParams{
+			ID: params.Tags,
+		})
+		if err != nil {
+			return err
+		}
+		var nonExistingTags []string
+		for _, tag := range params.Tags {
+			if !slices.Contains(slice.Map(dbTags, func(t db.CatalogTag) string { return t.ID }), tag) {
+				nonExistingTags = append(nonExistingTags, tag)
+			}
+		}
+
+		if len(nonExistingTags) > 0 {
+			var args []db.CreateCopyDefaultCatalogTagParams
+			for _, tag := range nonExistingTags {
+				args = append(args, db.CreateCopyDefaultCatalogTagParams{
+					ID:          tag,
+					Description: "",
+				})
+			}
+			if _, err := txStorage.CreateCopyDefaultCatalogTag(ctx, args); err != nil {
+				return err
+			}
+		}
+
+		var args []db.CreateCopyDefaultCatalogProductSpuTagParams
+		for _, tag := range params.Tags {
+			args = append(args, db.CreateCopyDefaultCatalogProductSpuTagParams{
+				SpuID: params.SpuID,
+				Tag:   tag,
+			})
+		}
+		if _, err := txStorage.CreateCopyDefaultCatalogProductSpuTag(ctx, args); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to update tags for spu %d: %w", params.SpuID, err)
 	}
 
-	var args []db.CreateCopyDefaultCatalogProductSpuTagParams
-	for _, tag := range tags {
-		args = append(args, db.CreateCopyDefaultCatalogProductSpuTagParams{
-			SpuID: spuID,
-			Tag:   tag,
-		})
-	}
-	if _, err := txStorage.CreateCopyDefaultCatalogProductSpuTag(ctx, args); err != nil {
-		return err
-	}
 	return nil
 }
 

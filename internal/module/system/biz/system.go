@@ -3,32 +3,24 @@ package systembiz
 import (
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 )
 
 type SystemBiz struct {
-	storage *pgutil.Storage
+	storage pgsqlc.Storage
 	pubsub  pubsub.Client
 }
 
 func NewSystemBiz(
-	storage *pgutil.Storage,
+	storage pgsqlc.Storage,
 	pubsub pubsub.Client,
 ) (*SystemBiz, error) {
 	b := &SystemBiz{
 		storage: storage,
-		pubsub:  pubsub,
+		pubsub:  pubsub.Group("system"),
 	}
 
-	if err := b.Init(); err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-func (b *SystemBiz) Init() error {
-	return errutil.Some(
-	//b.SetupSyncSearch(),
+	return b, errutil.Some(
+		b.SetupPubsub(),
 	)
 }

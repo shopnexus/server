@@ -2,22 +2,23 @@ package inventorybiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/db"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListProductSerialParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	SkuID int64 `validate:"required,gt=0"`
 }
 
-func (b *InventoryBiz) ListProductSerial(ctx context.Context, params ListProductSerialParams) (sharedmodel.PaginateResult[inventorymodel.ProductSerial], error) {
-	var zero sharedmodel.PaginateResult[inventorymodel.ProductSerial]
+func (b *InventoryBiz) ListProductSerial(ctx context.Context, params ListProductSerialParams) (commonmodel.PaginateResult[inventorymodel.ProductSerial], error) {
+	var zero commonmodel.PaginateResult[inventorymodel.ProductSerial]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
@@ -49,7 +50,7 @@ func (b *InventoryBiz) ListProductSerial(ctx context.Context, params ListProduct
 		})
 	}
 
-	return sharedmodel.PaginateResult[inventorymodel.ProductSerial]{
+	return commonmodel.PaginateResult[inventorymodel.ProductSerial]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       serials,

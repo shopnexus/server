@@ -8,7 +8,7 @@ import (
 	"shopnexus-remastered/internal/db"
 	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 )
 
 type Handler struct {

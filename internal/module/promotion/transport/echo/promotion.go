@@ -7,9 +7,9 @@ import (
 	"github.com/labstack/echo/v4"
 
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 )
 
 type Handler struct {
@@ -55,7 +55,7 @@ func (h *Handler) GetPromotion(c echo.Context) error {
 }
 
 type ListPromotionRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
 func (h *Handler) ListPromotion(c echo.Context) error {

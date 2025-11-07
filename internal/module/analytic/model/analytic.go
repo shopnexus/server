@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"shopnexus-remastered/internal/db"
+
+	"github.com/guregu/null/v6"
 )
 
 const (
@@ -13,7 +15,7 @@ const (
 
 type Interaction struct {
 	ID          int64                         `json:"id"`
-	AccountID   int64                         `json:"account_id"`
+	AccountID   null.Int64                    `json:"account_id"`
 	EventType   string                        `json:"event_type"`
 	RefType     db.AnalyticInteractionRefType `json:"ref_type"`
 	RefID       int64                         `json:"ref_id"`

@@ -5,9 +5,9 @@ import (
 
 	"shopnexus-remastered/internal/logger"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/labstack/echo/v4"
@@ -72,7 +72,7 @@ func (h *Handler) GetOrder(c echo.Context) error {
 }
 
 type ListOrdersRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
 func (h *Handler) ListOrders(c echo.Context) error {

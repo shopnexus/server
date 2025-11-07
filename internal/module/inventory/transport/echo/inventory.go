@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"shopnexus-remastered/internal/db"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -56,7 +56,7 @@ func (h *Handler) GetStock(c echo.Context) error {
 }
 
 type ListStockHistoryRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	RefID   int64                    `query:"ref_id" validate:"required,gt=0"`
 	RefType db.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }

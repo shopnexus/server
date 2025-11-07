@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
+
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/client/cachestruct"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
-	"strings"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )

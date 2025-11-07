@@ -11,6 +11,7 @@ import (
 	"shopnexus-remastered/internal/logger"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	"shopnexus-remastered/internal/utils/errutil"
+	"shopnexus-remastered/internal/utils/pgutil"
 )
 
 func (b *SearchBiz) InitPubsub() error {
@@ -52,7 +53,7 @@ func (b *SearchBiz) flushInteractions(ctx context.Context, interactions []analyt
 		metadata, _ := json.Marshal(i.Metadata)
 
 		params = append(params, db.CreateCopyDefaultAnalyticInteractionParams{
-			AccountID: i.AccountID, // map fields properly here
+			AccountID: pgutil.NullInt64ToPgInt8(i.AccountID),
 			SessionID: pgtype.Text{},
 			EventType: i.EventType,
 			RefType:   i.RefType,

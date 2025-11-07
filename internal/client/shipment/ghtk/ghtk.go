@@ -6,22 +6,23 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"shopnexus-remastered/internal/client/shipment"
-	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"strings"
 	"time"
+
+	"shopnexus-remastered/internal/client/shipment"
+	"shopnexus-remastered/internal/db"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 const (
-	ServiceExpress  sharedmodel.OptionMethod = "express"
-	ServiceStandard sharedmodel.OptionMethod = "standard"
-	ServiceEconomy  sharedmodel.OptionMethod = "economy"
+	ServiceExpress  commonmodel.OptionMethod = "express"
+	ServiceStandard commonmodel.OptionMethod = "standard"
+	ServiceEconomy  commonmodel.OptionMethod = "economy"
 )
 
 // GTKClient implements the shipment.Client interface for GTK (fake implementation)
 type GTKClient struct {
-	config   sharedmodel.OptionConfig
+	config   commonmodel.OptionConfig
 	baseURL  string
 	apiKey   string
 	clientID string
@@ -54,11 +55,11 @@ type fakeShipment struct {
 // NewClients creates a new GTK shipment clients
 func NewClients(baseURL, apiKey, clientID string) []*GTKClient {
 	var clients []*GTKClient
-	methods := []sharedmodel.OptionMethod{ServiceExpress, ServiceStandard, ServiceEconomy}
+	methods := []commonmodel.OptionMethod{ServiceExpress, ServiceStandard, ServiceEconomy}
 
 	for _, method := range methods {
 		clients = append(clients, &GTKClient{
-			config: sharedmodel.OptionConfig{
+			config: commonmodel.OptionConfig{
 				ID:          fmt.Sprintf("ghtk_%s", method),
 				Name:        fmt.Sprintf("Giao hàng tiết kiệm - %s", string(method)),
 				Description: "Dịch vụ giao hàng nhanh của Giao hàng tiết kiệm",
@@ -74,7 +75,7 @@ func NewClients(baseURL, apiKey, clientID string) []*GTKClient {
 	return clients
 }
 
-func (g *GTKClient) Config() sharedmodel.OptionConfig {
+func (g *GTKClient) Config() commonmodel.OptionConfig {
 	return g.config
 }
 
@@ -85,7 +86,7 @@ func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (sh
 
 	return shipment.QuoteResult{
 		ETA:   etd,
-		Costs: sharedmodel.Int64ToConcurrency(cost),
+		Costs: commonmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 
@@ -121,7 +122,7 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		LabelURL: ship.LabelURL,
 		Service:  ship.Service,
 		ETA:      eta,
-		Costs:    sharedmodel.Int64ToConcurrency(cost),
+		Costs:    commonmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 
@@ -144,7 +145,7 @@ func (g *GTKClient) Track(ctx context.Context, trackingID string) (shipment.Trac
 }
 
 // calculateShippingCost calculates shipping cost based on weight and service type
-func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel.OptionMethod) int64 {
+func (g *GTKClient) calculateShippingCost(weightGrams int32, service commonmodel.OptionMethod) int64 {
 	baseCost := int64(15000) // 15,000 VND base cost
 
 	// Weight-based pricing
@@ -171,7 +172,7 @@ func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel
 }
 
 // calculateETA calculates estimated time of arrival
-func (g *GTKClient) calculateETA(service sharedmodel.OptionMethod) time.Time {
+func (g *GTKClient) calculateETA(service commonmodel.OptionMethod) time.Time {
 	now := time.Now()
 
 	switch service {

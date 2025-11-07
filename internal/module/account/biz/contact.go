@@ -2,11 +2,14 @@ package accountbiz
 
 import (
 	"context"
+	"fmt"
+	"time"
+
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
-	"time"
 
 	"github.com/guregu/null/v6"
 )
@@ -51,6 +54,7 @@ func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (d
 }
 
 type CreateContactParams struct {
+	Storage     pgsqlc.Storage
 	Account     authmodel.AuthenticatedAccount
 	FullName    string                `validate:"required"`
 	Phone       string                `validate:"required"`
@@ -65,40 +69,39 @@ func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactPara
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var dbContact db.AccountContact
 
-	dbContact, err := txStorage.CreateDefaultAccountContact(ctx, db.CreateDefaultAccountContactParams{
-		AccountID:   params.Account.ID,
-		FullName:    params.FullName,
-		Phone:       params.Phone,
-		Address:     params.Address,
-		AddressType: params.AddressType,
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	total, err := txStorage.CountAccountContact(ctx, db.CountAccountContactParams{
-		AccountID: []int64{params.Account.ID},
-	})
-	if err != nil {
-		return zero, err
-	}
-	if total == 1 {
-		if _, err := txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
-			ID:               params.Account.ID,
-			DefaultContactID: pgutil.Int64ToPgInt8(dbContact.ID),
-		}); err != nil {
-			return zero, err
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+		dbContact, err = txStorage.CreateDefaultAccountContact(ctx, db.CreateDefaultAccountContactParams{
+			AccountID:   params.Account.ID,
+			FullName:    params.FullName,
+			Phone:       params.Phone,
+			Address:     params.Address,
+			AddressType: params.AddressType,
+		})
+		if err != nil {
+			return err
 		}
-	}
 
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+		total, err := txStorage.CountAccountContact(ctx, db.CountAccountContactParams{
+			AccountID: []int64{params.Account.ID},
+		})
+		if err != nil {
+			return err
+		}
+		if total == 1 {
+			if _, err := txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
+				ID:               params.Account.ID,
+				DefaultContactID: pgutil.Int64ToPgInt8(dbContact.ID),
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to create contact: %w", err)
 	}
 
 	return dbContact, nil

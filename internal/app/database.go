@@ -4,17 +4,16 @@ import (
 	"context"
 	"time"
 
-	"shopnexus-remastered/internal/utils/pgutil"
-
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/client/pgxpool"
 	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 
 	"go.uber.org/fx"
 )
 
 // NewDatabase creates a new database connection
-func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (*pgutil.Storage, error) {
+func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.Storage, error) {
 	pool, err := pgxpool.New(pgxpool.Options{
 		Url:             cfg.Postgres.Url,
 		Host:            cfg.Postgres.Host,
@@ -50,5 +49,6 @@ func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (*pgutil.Storage, error) {
 		},
 	})
 
-	return pgutil.NewStorage(pool), nil
+	// TODO: add allow nested transaction to config
+	return pgsqlc.NewTxQueries(pool, false), nil
 }

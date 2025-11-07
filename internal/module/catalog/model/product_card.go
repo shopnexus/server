@@ -3,7 +3,7 @@ package catalogmodel
 import (
 	"time"
 
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 type ProductCard struct {
@@ -19,10 +19,10 @@ type ProductCard struct {
 	DateUpdated time.Time `json:"date_updated"`
 	DateDeleted time.Time `json:"date_deleted"`
 
-	Price         sharedmodel.Concurrency `json:"price"`
-	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
+	Price         commonmodel.Concurrency `json:"price"`
+	OriginalPrice commonmodel.Concurrency `json:"original_price"`
 	Rating        Rating                  `json:"rating"`
-	Resource      sharedmodel.Resource    `json:"resource"`
+	Resource      commonmodel.Resource    `json:"resource"`
 	Promotions    []ProductCardPromo      `json:"promotions"`
 }
 

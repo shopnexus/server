@@ -14,11 +14,11 @@ import (
 	"shopnexus-remastered/internal/module/analytic"
 	"shopnexus-remastered/internal/module/auth"
 	"shopnexus-remastered/internal/module/catalog"
+	"shopnexus-remastered/internal/module/common"
 	"shopnexus-remastered/internal/module/inventory"
 	"shopnexus-remastered/internal/module/order"
 	"shopnexus-remastered/internal/module/promotion"
 	"shopnexus-remastered/internal/module/search"
-	"shopnexus-remastered/internal/module/shared"
 	"shopnexus-remastered/internal/module/system"
 )
 
@@ -34,7 +34,7 @@ var Module = fx.Module("main",
 	),
 
 	// Business modules
-	shared.Module,
+	common.Module,
 	account.Module,
 	auth.Module,
 	catalog.Module,

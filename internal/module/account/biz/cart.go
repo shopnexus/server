@@ -13,8 +13,8 @@ import (
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -23,8 +23,8 @@ type GetCartParams struct {
 	AccountID int64
 }
 
-func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accountmodel.CheckoutSku, error) {
-	cartItems, err := s.storage.ListAccountCartItem(ctx, db.ListAccountCartItemParams{
+func (b *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accountmodel.CheckoutSku, error) {
+	cartItems, err := b.storage.ListAccountCartItem(ctx, db.ListAccountCartItemParams{
 		CartID: []int64{params.AccountID},
 	})
 	if err != nil {
@@ -38,7 +38,7 @@ func (s *AccountBiz) GetCart(ctx context.Context, params GetCartParams) ([]accou
 		})
 	}
 
-	return s.ListCheckoutSku(ctx, ListCheckoutSkuParams{Skus: orderSkus})
+	return b.ListCheckoutSku(ctx, ListCheckoutSkuParams{Skus: orderSkus})
 }
 
 type OrderSku struct {
@@ -51,9 +51,9 @@ type ListCheckoutSkuParams struct {
 }
 
 // TODO: should move to catalog biz
-func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSkuParams) ([]accountmodel.CheckoutSku, error) {
+func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSkuParams) ([]accountmodel.CheckoutSku, error) {
 	skuIDs := slice.Map(params.Skus, func(c OrderSku) int64 { return c.SkuID })
-	skus, err := s.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{ID: skuIDs})
+	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{ID: skuIDs})
 	if err != nil {
 		return nil, nil
 	}
@@ -64,7 +64,7 @@ func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 	})
 
 	// List all SPUs that user want to see
-	spus, err := s.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{ID: spuIDs})
+	spus, err := b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{ID: spuIDs})
 	if err != nil {
 		return nil, err
 	}
@@ -75,14 +75,14 @@ func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 	})
 
 	// Calculate price using promotion biz map[skuID]*catalogmodel.ProductPrice
-	priceMap, err := s.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get first image of the product
-	resources, err := s.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeProductSpu,
+	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
+		RefType: db.CommonResourceRefTypeProductSpu,
 		RefID:   spuIDs,
 	})
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 	resourceMap := slice.GroupBy(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
 
 	// Get category
-	categories, err := s.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
+	categories, err := b.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
 		ID: categoryIDs,
 	})
 	if err != nil {
@@ -126,9 +126,9 @@ func (s *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 			OriginalPrice: priceMap[sku.ID].OriginalPrice,
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
-			Resource: sharedmodel.Resource{
+			Resource: commonmodel.Resource{
 				ID:   resourceMap[spu.ID].ID.Bytes,
-				Url:  s.shared.MustGetFileURL(ctx, resourceMap[spu.ID].Provider, resourceMap[spu.ID].ObjectKey),
+				Url:  b.common.MustGetFileURL(ctx, resourceMap[spu.ID].Provider, resourceMap[spu.ID].ObjectKey),
 				Mime: resourceMap[spu.ID].Mime,
 				Size: resourceMap[spu.ID].Size,
 			},
@@ -159,7 +159,7 @@ type UpdateCartParams struct {
 	DeltaQuantity null.Int64 `validate:"omitnil,min=1,max=1000"`
 }
 
-func (s *AccountBiz) UpdateCart(ctx context.Context, params UpdateCartParams) error {
+func (b *AccountBiz) UpdateCart(ctx context.Context, params UpdateCartParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (s *AccountBiz) UpdateCart(ctx context.Context, params UpdateCartParams) er
 	var newQuantity int64
 
 	if params.DeltaQuantity.Valid {
-		cartItem, err := s.storage.GetAccountCartItem(ctx, db.GetAccountCartItemParams{
+		cartItem, err := b.storage.GetAccountCartItem(ctx, db.GetAccountCartItemParams{
 			CartID: pgutil.Int64ToPgInt8(params.Account.ID),
 			SkuID:  pgutil.Int64ToPgInt8(params.SkuID),
 		})
@@ -183,13 +183,13 @@ func (s *AccountBiz) UpdateCart(ctx context.Context, params UpdateCartParams) er
 
 	// If quantity = 0, remove cart item and return early
 	if params.Quantity.Valid && params.Quantity.Int64 <= 0 {
-		return s.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
+		return b.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
 			CartID: []int64{params.Account.ID},
 			SkuID:  []int64{params.SkuID},
 		})
 	}
 
-	return s.storage.UpdateCart(ctx, db.UpdateCartParams{
+	return b.storage.UpdateCart(ctx, db.UpdateCartParams{
 		CartID:   params.Account.ID,
 		SkuID:    params.SkuID,
 		Quantity: newQuantity,
@@ -200,8 +200,8 @@ type ClearCartParams struct {
 	Account authmodel.AuthenticatedAccount
 }
 
-func (s *AccountBiz) ClearCart(ctx context.Context, params ClearCartParams) error {
-	return s.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
+func (b *AccountBiz) ClearCart(ctx context.Context, params ClearCartParams) error {
+	return b.storage.DeleteAccountCartItem(ctx, db.DeleteAccountCartItemParams{
 		CartID: []int64{params.Account.ID},
 	})
 }

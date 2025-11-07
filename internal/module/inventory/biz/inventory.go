@@ -5,24 +5,28 @@ import (
 
 	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/errutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type InventoryBiz struct {
-	storage *pgutil.Storage
+	storage pgsqlc.Storage
 	pubsub  pubsub.Client
 }
 
-func NewInventoryBiz(storage *pgutil.Storage, pubsub pubsub.Client) (*InventoryBiz, error) {
+func NewInventoryBiz(
+	storage pgsqlc.Storage,
+	pubsub pubsub.Client,
+) (*InventoryBiz, error) {
 	b := &InventoryBiz{
-		pubsub:  pubsub.Group("inventory"),
 		storage: storage,
+		pubsub:  pubsub.Group("inventory"),
 	}
 
 	return b, errutil.Some(
@@ -78,13 +82,13 @@ func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inv
 }
 
 type ListStockHistoryParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	RefID   int64                    `validate:"required,gt=0"`
 	RefType db.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorymodel.StockHistory], error) {
-	var zero sharedmodel.PaginateResult[inventorymodel.StockHistory]
+func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (commonmodel.PaginateResult[inventorymodel.StockHistory], error) {
+	var zero commonmodel.PaginateResult[inventorymodel.StockHistory]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
@@ -122,7 +126,7 @@ func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHis
 		})
 	}
 
-	return sharedmodel.PaginateResult[inventorymodel.StockHistory]{
+	return commonmodel.PaginateResult[inventorymodel.StockHistory]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       changes,

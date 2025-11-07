@@ -12,10 +12,10 @@ import (
 	"shopnexus-remastered/internal/logger"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -78,7 +78,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeProductSpu,
+		RefType: db.CommonResourceRefTypeProductSpu,
 		RefID:   spuIDs,
 	})
 	if err != nil {
@@ -130,10 +130,10 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 				Score: float32(rating.Score),
 				Total: int(rating.Count),
 			},
-			Resource: sharedmodel.Resource{
+			Resource: commonmodel.Resource{
 				ID:   resource.ID.Bytes,
 				Mime: resource.Mime,
-				Url:  b.shared.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
+				Url:  b.common.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
 				Size: resource.Size,
 			},
 		}
@@ -143,13 +143,13 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 }
 
 type ListProductCardParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	VendorID null.Int64  `validate:"omitnil,min=1"`
 	Search   null.String `validate:"omitnil,min=1,max=100"`
 }
 
-func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
-	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
+func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
+	var zero commonmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
 	var err error
 
@@ -210,7 +210,7 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	}
 
 	// List some attributes for compact data
-	return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
+	return commonmodel.PaginateResult[catalogmodel.ProductCard]{
 		PageParams: params.PaginationParams,
 		Data:       products,
 		Total:      null.IntFrom(total),

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"strings"
 	"time"
+
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -53,8 +54,8 @@ func NewClient(cfg S3Config) (*ClientImpl, error) {
 	}, nil
 }
 
-func (s *ClientImpl) Config() sharedmodel.OptionConfig {
-	return sharedmodel.OptionConfig{
+func (s *ClientImpl) Config() commonmodel.OptionConfig {
+	return commonmodel.OptionConfig{
 		ID:          "s3",
 		Name:        "Amazon S3",
 		Provider:    "AWS",

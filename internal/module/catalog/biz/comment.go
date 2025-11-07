@@ -7,9 +7,9 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedbiz "shopnexus-remastered/internal/module/shared/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
@@ -20,7 +20,7 @@ import (
 )
 
 type ListCommentParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	RefType   db.CatalogCommentRefType `validate:"required"`
 	ID        []int64                  `validate:"omitempty,dive,gt=0"`
 	AccountID []int64                  `validate:"omitempty,dive,gt=0"`
@@ -29,8 +29,8 @@ type ListCommentParams struct {
 	ScoreTo   null.Int32               `validate:"omitnil,gte=1,lte=10"`
 }
 
-func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
-	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
+func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) (commonmodel.PaginateResult[catalogmodel.Comment], error) {
+	var zero commonmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -79,29 +79,29 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 	profileMap := slice.GroupBy(dbProfiles, func(a db.AccountProfile) (int64, db.AccountProfile) { return a.ID, a })
 
 	// Map avatar accounts
-	avatars, err := b.storage.ListSharedResource(ctx, db.ListSharedResourceParams{
+	avatars, err := b.storage.ListCommonResource(ctx, db.ListCommonResourceParams{
 		ID: slice.Map(dbProfiles, func(a db.AccountProfile) pgtype.UUID { return a.AvatarRsID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	avatarMap := slice.GroupBy(avatars, func(r db.SharedResource) (pgtype.UUID, db.SharedResource) { return r.ID, r })
+	avatarMap := slice.GroupBy(avatars, func(r db.CommonResource) (pgtype.UUID, db.CommonResource) { return r.ID, r })
 
 	// Map resources to comments
 	dbResources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeComment,
+		RefType: db.CommonResourceRefTypeComment,
 		RefID:   commentIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := make(map[int64][]sharedmodel.Resource)
+	resourceMap := make(map[int64][]commonmodel.Resource)
 	for _, row := range dbResources {
 		// url, err :=
 
-		resourceMap[row.RefID] = append(resourceMap[row.RefID], sharedmodel.Resource{
+		resourceMap[row.RefID] = append(resourceMap[row.RefID], commonmodel.Resource{
 			ID:       row.ID.Bytes,
-			Url:      b.shared.MustGetFileURL(ctx, row.Provider, row.ObjectKey),
+			Url:      b.common.MustGetFileURL(ctx, row.Provider, row.ObjectKey),
 			Mime:     row.Mime,
 			Size:     row.Size,
 			Checksum: pgutil.PgTextToNullString(row.Checksum),
@@ -115,12 +115,12 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		if profile.Name.Valid {
 			name = profile.Name.String
 		}
-		var avatar *sharedmodel.Resource
+		var avatar *commonmodel.Resource
 		if profile.AvatarRsID.Valid {
 			a := avatarMap[profile.AvatarRsID]
-			avatar = &sharedmodel.Resource{
+			avatar = &commonmodel.Resource{
 				ID:   a.ID.Bytes,
-				Url:  b.shared.MustGetFileURL(ctx, a.Provider, a.ObjectKey),
+				Url:  b.common.MustGetFileURL(ctx, a.Provider, a.ObjectKey),
 				Mime: a.Mime,
 				Size: a.Size,
 			}
@@ -144,7 +144,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		})
 	}
 
-	return sharedmodel.PaginateResult[catalogmodel.Comment]{
+	return commonmodel.PaginateResult[catalogmodel.Comment]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       comments,
@@ -172,10 +172,10 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 
 	var (
 		comment   db.CatalogComment
-		resources []sharedmodel.Resource
+		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		var err error
 		comment, err = txStorage.CreateDefaultCatalogComment(ctx, db.CreateDefaultCatalogCommentParams{
 			AccountID: params.Account.ID,
@@ -189,9 +189,10 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		}
 
 		// Attach resources
-		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
+			Storage:        txStorage,
 			Account:        params.Account,
-			RefType:        db.SharedResourceRefTypeComment,
+			RefType:        db.CommonResourceRefTypeComment,
 			RefID:          comment.ID,
 			ResourceIDs:    params.ResourceIDs,
 			EmptyResources: true,
@@ -241,10 +242,10 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 
 	var (
 		comment   db.CatalogComment
-		resources []sharedmodel.Resource
+		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		var err error
 
 		// Update base comment info
@@ -269,9 +270,10 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		}
 
 		// Update resources
-		resources, err = b.shared.UpdateResources(ctx, txStorage, sharedbiz.UpdateResourcesParams{
+		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
+			Storage:         txStorage,
 			Account:         params.Account,
-			RefType:         db.SharedResourceRefTypeComment,
+			RefType:         db.CommonResourceRefTypeComment,
 			RefID:           params.ID,
 			ResourceIDs:     params.ResourceIDs,
 			EmptyResources:  params.EmptyResources,
@@ -311,7 +313,7 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		// Delete base comments
 		if err := txStorage.DeleteCatalogComment(ctx, db.DeleteCatalogCommentParams{
 			ID: params.CommentIDs,
@@ -320,14 +322,15 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 		}
 
 		// Remove associated resources
-		if err := b.shared.DeleteResources(ctx, txStorage, sharedbiz.DeleteResourcesParams{
-			RefType:             db.SharedResourceRefTypeComment,
-			RefID:               params.CommentIDs,
-			DeleteResources:     true,
-			SkipDeleteResources: nil,
-		}); err != nil {
-			return err
-		}
+		// if err := b.shared.DeleteResources(ctx, txStorage, commonbiz.DeleteResourcesParams{
+		// 	RefType:             db.CommonResourceRefTypeComment,
+		// 	RefID:               params.CommentIDs,
+		// 	DeleteResources:     true,
+		// 	SkipDeleteResources: nil,
+		// }); err != nil {
+		// 	return err
+		// }
+		// TODO: now: use update resources instead
 		// TODO: remove resources that are no longer referenced by any
 
 		return nil

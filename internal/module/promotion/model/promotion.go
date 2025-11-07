@@ -1,8 +1,9 @@
 package promotionmodel
 
 import (
-	"shopnexus-remastered/internal/db"
 	"time"
+
+	"shopnexus-remastered/internal/db"
 
 	"github.com/guregu/null/v6"
 )

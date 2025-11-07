@@ -7,7 +7,7 @@ import (
 
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )

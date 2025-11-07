@@ -3,7 +3,7 @@ package catalogecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )

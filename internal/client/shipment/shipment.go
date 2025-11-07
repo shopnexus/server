@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 // CreateParams represents the data required to create a shipment.
@@ -26,12 +26,12 @@ type ShippingOrder struct {
 	Service  string
 	LabelURL string
 	ETA      time.Time               // e.g. ISO8601 format
-	Costs    sharedmodel.Concurrency // in USDT
+	Costs    commonmodel.Concurrency // in USDT
 }
 
 type QuoteResult struct {
 	ETA   time.Time               // e.g. ISO8601 format
-	Costs sharedmodel.Concurrency // in USDT
+	Costs commonmodel.Concurrency // in USDT
 }
 
 // TrackResult represents the real-time status of a shipment.
@@ -44,7 +44,7 @@ type TrackResult struct {
 
 type Client interface {
 	// Config returns the option config for this shipment client.
-	Config() sharedmodel.OptionConfig
+	Config() commonmodel.OptionConfig
 
 	// Quote calculates estimated cost & ETD without creating a shipment.
 	Quote(ctx context.Context, params CreateParams) (QuoteResult, error)

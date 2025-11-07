@@ -2,10 +2,11 @@ package promotionbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -22,8 +23,8 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	// Initialize prices
 	for _, sku := range skus {
 		priceMap[sku.ID] = &catalogmodel.ProductPrice{
-			OriginalPrice: sharedmodel.Int64ToConcurrency(sku.Price),
-			Price:         sharedmodel.Int64ToConcurrency(sku.Price),
+			OriginalPrice: commonmodel.Int64ToConcurrency(sku.Price),
+			Price:         commonmodel.Int64ToConcurrency(sku.Price),
 			SkuID:         sku.ID,
 		}
 	}
@@ -105,7 +106,7 @@ func IsPromotionApplicable(promo promotionmodel.PromotionBase, spu db.CatalogPro
 	return false
 }
 
-func CalculateDiscountedItemPrice(originalPrice sharedmodel.Concurrency, dbDiscount db.PromotionDiscount) sharedmodel.Concurrency {
+func CalculateDiscountedItemPrice(originalPrice commonmodel.Concurrency, dbDiscount db.PromotionDiscount) commonmodel.Concurrency {
 	// If original price is less than the minimum spend, return the original price
 	if originalPrice.Int64() < dbDiscount.MinSpend {
 		return originalPrice
@@ -119,7 +120,7 @@ func CalculateDiscountedItemPrice(originalPrice sharedmodel.Concurrency, dbDisco
 		discount = min(dbDiscount.DiscountPrice.Int64, dbDiscount.MaxDiscount)
 	}
 
-	discountedPrice := sharedmodel.Int64ToConcurrency(originalPrice.Int64() - discount)
+	discountedPrice := commonmodel.Int64ToConcurrency(originalPrice.Int64() - discount)
 
 	if discountedPrice.Int64() < 0 {
 		return 0

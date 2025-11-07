@@ -2,13 +2,15 @@ package orderbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/client/shipment"
 	"shopnexus-remastered/internal/client/shipment/ghtk"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 func (b *OrderBiz) SetupShipmentMap() error {
-	var options []sharedmodel.OptionConfig
+	var options []commonmodel.OptionConfig
 	b.shipmentMap = make(map[string]shipment.Client)
 
 	// Setup GHTK clients
@@ -19,7 +21,11 @@ func (b *OrderBiz) SetupShipmentMap() error {
 		options = append(options, c.Config())
 	}
 
-	if err := b.shared.UpdateServiceOptions(context.Background(), "shipment", options); err != nil {
+	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
+		Storage:  b.storage,
+		Category: "shipment",
+		Configs:  options,
+	}); err != nil {
 		return err
 	}
 

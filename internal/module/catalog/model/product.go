@@ -1,9 +1,10 @@
 package catalogmodel
 
 import (
-	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
 	"time"
+
+	"shopnexus-remastered/internal/db"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 
 	"github.com/guregu/null/v6"
 )
@@ -22,7 +23,7 @@ type ProductSpu struct {
 
 	Rating    ProductRating          `json:"rating"`
 	Tags      []string               `json:"tags"`
-	Resources []sharedmodel.Resource `json:"resources"`
+	Resources []commonmodel.Resource `json:"resources"`
 }
 
 type ProductSku struct {

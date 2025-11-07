@@ -7,21 +7,21 @@ import (
 	"time"
 
 	"shopnexus-remastered/internal/client/payment"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 // Type guard
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
-	MethodQR   sharedmodel.OptionMethod = "qr"
-	MethodBank sharedmodel.OptionMethod = "bank"
-	MethodATM  sharedmodel.OptionMethod = "atm"
+	MethodQR   commonmodel.OptionMethod = "qr"
+	MethodBank commonmodel.OptionMethod = "bank"
+	MethodATM  commonmodel.OptionMethod = "atm"
 )
 
 // ClientImpl is the implementation of the payment.Client interface for VNPAY.
 type ClientImpl struct {
-	config sharedmodel.OptionConfig
+	config commonmodel.OptionConfig
 
 	tmnCode    string
 	hashSecret string
@@ -37,10 +37,10 @@ type ClientOptions struct {
 func NewClients(cfg ClientOptions) []*ClientImpl {
 	var clients []*ClientImpl
 
-	methods := []sharedmodel.OptionMethod{MethodQR, MethodBank, MethodATM}
+	methods := []commonmodel.OptionMethod{MethodQR, MethodBank, MethodATM}
 	for _, method := range methods {
 		clients = append(clients, &ClientImpl{
-			config: sharedmodel.OptionConfig{
+			config: commonmodel.OptionConfig{
 				ID:       "vnpay_" + string(method),
 				Provider: "vnpay",
 				Method:   method,
@@ -55,7 +55,7 @@ func NewClients(cfg ClientOptions) []*ClientImpl {
 	return clients
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+func (c *ClientImpl) Config() commonmodel.OptionConfig {
 	return c.config
 }
 

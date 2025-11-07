@@ -2,12 +2,13 @@ package payment
 
 import (
 	"context"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 type CreateOrderParams struct {
 	RefID  int64
-	Amount sharedmodel.Concurrency
+	Amount commonmodel.Concurrency
 	Info   string
 }
 

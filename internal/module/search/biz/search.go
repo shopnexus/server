@@ -16,8 +16,10 @@ import (
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/errutil"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -29,7 +31,7 @@ const SearchServer = "http://192.168.110.137:8000"
 
 type SearchBiz struct {
 	httpClient *http.Client
-	storage    *pgutil.Storage
+	storage    pgsqlc.Storage
 	pubsub     pubsub.Client
 	cache      cachestruct.Client
 
@@ -40,7 +42,7 @@ type SearchBiz struct {
 }
 
 // NewSearchBiz creates a new instance of SearchBiz.
-func NewSearchBiz(storage *pgutil.Storage, pubsub pubsub.Client, cache cachestruct.Client) (*SearchBiz, error) {
+func NewSearchBiz(storage pgsqlc.Storage, pubsub pubsub.Client, cache cachestruct.Client) (*SearchBiz, error) {
 	b := &SearchBiz{
 		httpClient: http.DefaultClient,
 		storage:    storage,
@@ -51,12 +53,12 @@ func NewSearchBiz(storage *pgutil.Storage, pubsub pubsub.Client, cache cachestru
 
 	return b, errutil.Some(
 		b.InitPubsub(),
-		b.InitCron(),
+		b.SetupCron(),
 	)
 }
 
 type SearchParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	Collection string
 	Query      string
 }
@@ -144,13 +146,22 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 	return nil
 }
 
-func (b *SearchBiz) UpdateProducts(ctx context.Context, products []catalogmodel.ProductDetail, metadataOnly bool) error {
+type UpdateProductsParams struct {
+	Products     []catalogmodel.ProductDetail `validate:"required"`
+	MetadataOnly bool                         `validate:"required"`
+}
+
+func (b *SearchBiz) UpdateProducts(ctx context.Context, params UpdateProductsParams) error {
+	if err := validator.Validate(params); err != nil {
+		return err
+	}
+
 	body, err := json.Marshal(struct {
 		Products     []catalogmodel.ProductDetail `json:"products"`
 		MetadataOnly bool                         `json:"metadata_only"`
 	}{
-		Products:     products,
-		MetadataOnly: metadataOnly,
+		Products:     params.Products,
+		MetadataOnly: params.MetadataOnly,
 	})
 	if err != nil {
 		return err
@@ -219,15 +230,15 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 
 	// Get images
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeProductSpu,
+		RefType: db.CommonResourceRefTypeProductSpu,
 		RefID:   []int64{spu.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := make(map[int64][]sharedmodel.Resource) // map[spuID][]Resource
+	resourceMap := make(map[int64][]commonmodel.Resource) // map[spuID][]Resource
 	for _, res := range resources {
-		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
+		resourceMap[res.RefID] = append(resourceMap[res.RefID], commonmodel.Resource{
 			ID:   res.ID.Bytes,
 			Mime: res.Mime,
 			Size: res.Size,

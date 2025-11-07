@@ -3,9 +3,11 @@ package promotionbiz
 import (
 	"context"
 	"fmt"
+
 	"shopnexus-remastered/internal/db"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
@@ -26,29 +28,29 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 		return zero, err
 	}
 
-	txStorage, err := s.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var promotion promotionmodel.PromotionBase
+	var discount db.PromotionDiscount
 
-	promotion, err := s.createPromotion(ctx, txStorage, params.CreatePromotionParams)
-	if err != nil {
-		return zero, err
-	}
+	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+		params.CreatePromotionParams.Storage = txStorage
+		promotion, err = s.createPromotion(ctx, params.CreatePromotionParams)
+		if err != nil {
+			return err
+		}
 
-	discount, err := txStorage.CreateDefaultPromotionDiscount(ctx, db.CreateDefaultPromotionDiscountParams{
-		ID:              promotion.ID,
-		MinSpend:        params.MinSpend,
-		MaxDiscount:     params.MaxDiscount,
-		DiscountPercent: pgutil.NullInt32ToPgInt4(params.DiscountPercent),
-		DiscountPrice:   pgutil.NullInt64ToPgInt8(params.DiscountPrice),
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
+		discount, err = txStorage.CreateDefaultPromotionDiscount(ctx, db.CreateDefaultPromotionDiscountParams{
+			ID:              promotion.ID,
+			MinSpend:        params.MinSpend,
+			MaxDiscount:     params.MaxDiscount,
+			DiscountPercent: pgutil.NullInt32ToPgInt4(params.DiscountPercent),
+			DiscountPrice:   pgutil.NullInt64ToPgInt8(params.DiscountPrice),
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return zero, err
 	}
 
@@ -76,44 +78,45 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 		return zero, err
 	}
 
-	txStorage, err := s.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var promotion promotionmodel.PromotionBase
+	var discount db.PromotionDiscount
 
-	// Update base promotion
-	promotion, err := s.updatePromotion(ctx, txStorage, params.UpdatePromotionParams)
-	if err != nil {
-		return zero, err
-	}
+	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+		// Update base promotion
+		params.UpdatePromotionParams.Storage = txStorage
+		promotion, err = s.updatePromotion(ctx, params.UpdatePromotionParams)
+		if err != nil {
+			return err
+		}
 
-	// Both percentage and price discount cannot be set
-	if params.DiscountPercent.Valid && params.DiscountPrice.Valid {
-		return zero, fmt.Errorf("either percentage or price discount can be set, not both")
-	}
-	var nullDiscountPercent, nullDiscountPrice bool
-	if params.DiscountPercent.Valid {
-		nullDiscountPrice = true
-	}
-	if params.DiscountPrice.Valid {
-		nullDiscountPercent = true
-	}
+		// Both percentage and price discount cannot be set
+		if params.DiscountPercent.Valid && params.DiscountPrice.Valid {
+			return fmt.Errorf("either percentage or price discount can be set, not both")
+		}
+		var nullDiscountPercent, nullDiscountPrice bool
+		if params.DiscountPercent.Valid {
+			nullDiscountPrice = true
+		}
+		if params.DiscountPrice.Valid {
+			nullDiscountPercent = true
+		}
 
-	discount, err := txStorage.UpdatePromotionDiscount(ctx, db.UpdatePromotionDiscountParams{
-		ID:                  promotion.ID,
-		MinSpend:            pgutil.NullInt64ToPgInt8(params.MinSpend),
-		MaxDiscount:         pgutil.NullInt64ToPgInt8(params.MaxDiscount),
-		DiscountPercent:     pgutil.NullInt32ToPgInt4(params.DiscountPercent),
-		DiscountPrice:       pgutil.NullInt64ToPgInt8(params.DiscountPrice),
-		NullDiscountPercent: nullDiscountPercent,
-		NullDiscountPrice:   nullDiscountPrice,
-	})
-	if err != nil {
-		return zero, err
-	}
+		discount, err = txStorage.UpdatePromotionDiscount(ctx, db.UpdatePromotionDiscountParams{
+			ID:                  promotion.ID,
+			MinSpend:            pgutil.NullInt64ToPgInt8(params.MinSpend),
+			MaxDiscount:         pgutil.NullInt64ToPgInt8(params.MaxDiscount),
+			DiscountPercent:     pgutil.NullInt32ToPgInt4(params.DiscountPercent),
+			DiscountPrice:       pgutil.NullInt64ToPgInt8(params.DiscountPrice),
+			NullDiscountPercent: nullDiscountPercent,
+			NullDiscountPrice:   nullDiscountPrice,
+		})
+		if err != nil {
+			return err
+		}
 
-	if err := txStorage.Commit(ctx); err != nil {
+		return nil
+	}); err != nil {
 		return zero, err
 	}
 

@@ -5,7 +5,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	authbiz "shopnexus-remastered/internal/module/auth/biz"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"

@@ -2,15 +2,16 @@ package catalogecho
 
 import (
 	"net/http"
+
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ListCategoryRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
 func (h *Handler) ListCategory(c echo.Context) error {

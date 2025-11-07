@@ -8,7 +8,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -63,18 +63,18 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 
 	// Get images
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.SharedResourceRefTypeProductSpu,
+		RefType: db.CommonResourceRefTypeProductSpu,
 		RefID:   []int64{spu.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := make(map[int64][]sharedmodel.Resource) // map[spuID][]Resource
+	resourceMap := make(map[int64][]commonmodel.Resource) // map[spuID][]Resource
 	for _, res := range resources {
-		resourceMap[res.RefID] = append(resourceMap[res.RefID], sharedmodel.Resource{
+		resourceMap[res.RefID] = append(resourceMap[res.RefID], commonmodel.Resource{
 			ID:   res.ID.Bytes,
 			Mime: res.Mime,
-			Url:  b.shared.MustGetFileURL(ctx, res.Provider, res.ObjectKey),
+			Url:  b.common.MustGetFileURL(ctx, res.Provider, res.ObjectKey),
 			Size: res.Size,
 		})
 	}

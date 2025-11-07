@@ -2,21 +2,23 @@ package orderbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/client/payment"
 	"shopnexus-remastered/internal/client/payment/cod"
 	"shopnexus-remastered/internal/client/payment/vnpay"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
-func (s *OrderBiz) SetupPaymentMap() error {
-	var configs []sharedmodel.OptionConfig
+func (b *OrderBiz) SetupPaymentMap() error {
+	var configs []commonmodel.OptionConfig
 
-	s.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
+	b.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
 
 	// setup cod client
 	codClient := cod.NewClient()
-	s.paymentMap[codClient.Config().ID] = codClient
+	b.paymentMap[codClient.Config().ID] = codClient
 	configs = append(configs, codClient.Config())
 
 	// setup vnpay client
@@ -26,11 +28,15 @@ func (s *OrderBiz) SetupPaymentMap() error {
 		ReturnURL:  config.GetConfig().App.Vnpay.ReturnURL,
 	})
 	for _, c := range vnpayClients {
-		s.paymentMap[c.Config().ID] = c
+		b.paymentMap[c.Config().ID] = c
 		configs = append(configs, c.Config())
 	}
 
-	if err := s.shared.UpdateServiceOptions(context.Background(), "payment", configs); err != nil {
+	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
+		Storage:  b.storage,
+		Category: "payment",
+		Configs:  configs,
+	}); err != nil {
 		return err
 	}
 

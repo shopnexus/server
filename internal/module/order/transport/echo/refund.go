@@ -2,11 +2,12 @@ package orderecho
 
 import (
 	"net/http"
+
 	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -51,7 +52,7 @@ func (h *Handler) CreateRefund(c echo.Context) error {
 }
 
 type ListRefundsRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
 func (h *Handler) ListRefunds(c echo.Context) error {

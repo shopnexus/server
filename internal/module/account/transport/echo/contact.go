@@ -2,10 +2,11 @@ package accountecho
 
 import (
 	"net/http"
+
 	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"

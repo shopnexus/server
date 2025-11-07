@@ -2,25 +2,26 @@ package promotionbiz
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/guregu/null/v6"
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 )
 
 type PromotionBiz struct {
-	storage *pgutil.Storage
+	storage pgsqlc.Storage
 }
 
-func NewPromotionBiz(storage *pgutil.Storage) *PromotionBiz {
+func NewPromotionBiz(storage pgsqlc.Storage) *PromotionBiz {
 	return &PromotionBiz{
 		storage,
 	}
@@ -42,11 +43,11 @@ func (s *PromotionBiz) GetPromotion(ctx context.Context, params GetPromotionPara
 }
 
 type ListPromotionParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
-func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.PromotionBase], error) {
-	var zero sharedmodel.PaginateResult[promotionmodel.PromotionBase]
+func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.PromotionBase], error) {
+	var zero commonmodel.PaginateResult[promotionmodel.PromotionBase]
 
 	total, err := s.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{})
 	if err != nil {
@@ -73,7 +74,7 @@ func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionPa
 		return r.PromotionID, r
 	})
 
-	return sharedmodel.PaginateResult[promotionmodel.PromotionBase]{
+	return commonmodel.PaginateResult[promotionmodel.PromotionBase]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data: slice.Map(promos, func(p db.PromotionBase) promotionmodel.PromotionBase {
@@ -83,6 +84,7 @@ func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionPa
 }
 
 type CreatePromotionParams struct {
+	Storage pgsqlc.Storage
 	Account authmodel.AuthenticatedAccount
 
 	Code        string           `validate:"required,alphanum,min=3,max=50"`
@@ -101,43 +103,55 @@ type PromotionRef struct {
 	RefID   int64               `validate:"required"`
 }
 
-func (s *PromotionBiz) createPromotion(ctx context.Context, txStorage *pgsqlc.Storage, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
+func (b *PromotionBiz) createPromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
 	var zero promotionmodel.PromotionBase
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	dbPromo, err := txStorage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
-		Code:        params.Code,
-		OwnerID:     pgutil.Int64ToPgInt8(params.Account.ID),
-		Type:        db.PromotionTypeDiscount,
-		Title:       params.Title,
-		Description: pgutil.NullStringToPgText(params.Description),
-		IsActive:    params.IsActive,
-		AutoApply:   params.AutoApply,
-		DateStarted: pgutil.TimeToPgTimestamptz(params.DateStarted),
-		DateEnded:   pgutil.NullTimeToPgTimestamptz(params.DateEnded),
-	})
-	if err != nil {
-		return zero, err
-	}
+	var dbPromo db.PromotionBase
 
-	_, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
-		return db.CreateCopyDefaultPromotionRefParams{
-			PromotionID: dbPromo.ID,
-			RefType:     r.RefType,
-			RefID:       r.RefID,
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+
+		dbPromo, err := txStorage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
+			Code:        params.Code,
+			OwnerID:     pgutil.Int64ToPgInt8(params.Account.ID),
+			Type:        db.PromotionTypeDiscount,
+			Title:       params.Title,
+			Description: pgutil.NullStringToPgText(params.Description),
+			IsActive:    params.IsActive,
+			AutoApply:   params.AutoApply,
+			DateStarted: pgutil.TimeToPgTimestamptz(params.DateStarted),
+			DateEnded:   pgutil.NullTimeToPgTimestamptz(params.DateEnded),
+		})
+		if err != nil {
+			return err
 		}
-	}))
-	if err != nil {
-		return zero, err
+
+		_, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
+			return db.CreateCopyDefaultPromotionRefParams{
+				PromotionID: dbPromo.ID,
+				RefType:     r.RefType,
+				RefID:       r.RefID,
+			}
+		}))
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to create promotion: %w", err)
 	}
 
 	return DbPromotionToPromotionBase(dbPromo, nil), nil
 }
 
 type UpdatePromotionParams struct {
+	Storage pgsqlc.Storage
+	Account authmodel.AuthenticatedAccount
+
 	ID            int64          `validate:"required"`
 	Code          null.String    `validate:"omitnil"`
 	OwnerID       null.Int64     `validate:"omitnil"`
@@ -151,7 +165,7 @@ type UpdatePromotionParams struct {
 	Refs          []PromotionRef `validate:"dive"`
 }
 
-func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgsqlc.Storage, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
+func (s *PromotionBiz) updatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
 	var zero promotionmodel.PromotionBase
 
 	if err := validator.Validate(params); err != nil {
@@ -161,39 +175,48 @@ func (s *PromotionBiz) updatePromotion(ctx context.Context, txStorage *pgsqlc.St
 	// TODO: check more biz like unique code, valid owner, valid refID for the refType, dateStarted < dateEnded, etc.
 	// dateEnded cannot less than dateStarted and current time
 
-	dbPromo, err := txStorage.UpdatePromotionBase(ctx, db.UpdatePromotionBaseParams{
-		ID:            params.ID,
-		Code:          pgutil.NullStringToPgText(params.Code),
-		Title:         pgutil.NullStringToPgText(params.Title),
-		Description:   pgutil.NullStringToPgText(params.Description),
-		IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
-		AutoApply:     pgutil.NullBoolToPgBool(params.AutoApply),
-		DateStarted:   pgutil.NullTimeToPgTimestamptz(params.DateStarted),
-		NullDateEnded: params.NullDateEnded,
-		DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
-	})
-	if err != nil {
-		return zero, err
-	}
+	var dbPromo db.PromotionBase
 
-	if params.Refs != nil {
-		// Remove all refs
-		if err := txStorage.DeletePromotionRef(ctx, db.DeletePromotionRefParams{
-			PromotionID: []int64{params.ID},
-		}); err != nil {
-			return zero, err
+	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+
+		dbPromo, err = txStorage.UpdatePromotionBase(ctx, db.UpdatePromotionBaseParams{
+			ID:            params.ID,
+			Code:          pgutil.NullStringToPgText(params.Code),
+			Title:         pgutil.NullStringToPgText(params.Title),
+			Description:   pgutil.NullStringToPgText(params.Description),
+			IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
+			AutoApply:     pgutil.NullBoolToPgBool(params.AutoApply),
+			DateStarted:   pgutil.NullTimeToPgTimestamptz(params.DateStarted),
+			NullDateEnded: params.NullDateEnded,
+			DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
+		})
+		if err != nil {
+			return err
 		}
 
-		// Add new refs
-		if _, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
-			return db.CreateCopyDefaultPromotionRefParams{
-				PromotionID: dbPromo.ID,
-				RefType:     r.RefType,
-				RefID:       r.RefID,
+		if params.Refs != nil {
+			// Remove all refs
+			if err := txStorage.DeletePromotionRef(ctx, db.DeletePromotionRefParams{
+				PromotionID: []int64{params.ID},
+			}); err != nil {
+				return err
 			}
-		})); err != nil {
-			return zero, err
+
+			// Add new refs
+			if _, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
+				return db.CreateCopyDefaultPromotionRefParams{
+					PromotionID: dbPromo.ID,
+					RefType:     r.RefType,
+					RefID:       r.RefID,
+				}
+			})); err != nil {
+				return err
+			}
 		}
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to update promotion: %w", err)
 	}
 
 	return DbPromotionToPromotionBase(dbPromo, nil), nil

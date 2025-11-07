@@ -5,16 +5,16 @@ import (
 	"net/http"
 
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type ListVendorOrderRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
 func (h *Handler) ListVendorOrder(c echo.Context) error {

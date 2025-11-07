@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"shopnexus-remastered/internal/client/payment"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 // Type guard
@@ -12,17 +12,17 @@ var _ payment.Client = (*ClientImpl)(nil)
 
 const (
 	// MethodCOD represents the Cash on Delivery method.
-	MethodCOD sharedmodel.OptionMethod = "cod"
+	MethodCOD commonmodel.OptionMethod = "cod"
 )
 
 // ClientImpl default COD (Cash on Delivery) client implementation
 type ClientImpl struct {
-	config sharedmodel.OptionConfig
+	config commonmodel.OptionConfig
 }
 
 func NewClient() *ClientImpl {
 	return &ClientImpl{
-		config: sharedmodel.OptionConfig{
+		config: commonmodel.OptionConfig{
 			ID:       "system-cod",
 			Provider: "system",
 			Method:   MethodCOD,
@@ -31,7 +31,7 @@ func NewClient() *ClientImpl {
 	}
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+func (c *ClientImpl) Config() commonmodel.OptionConfig {
 	return c.config
 }
 

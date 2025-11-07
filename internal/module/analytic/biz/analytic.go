@@ -9,17 +9,22 @@ import (
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 )
 
 type AnalyticBiz struct {
-	storage   *pgutil.Storage
+	storage   pgsqlc.Storage
 	pubsub    pubsub.Client
 	promotion *promotionbiz.PromotionBiz
 }
 
 // NewAnalyticBiz creates a new instance of AnalyticBiz.
-func NewAnalyticBiz(storage *pgutil.Storage, pubsub pubsub.Client, promotionBiz *promotionbiz.PromotionBiz) *AnalyticBiz {
+func NewAnalyticBiz(
+	storage pgsqlc.Storage,
+	pubsub pubsub.Client,
+	promotionBiz *promotionbiz.PromotionBiz,
+) *AnalyticBiz {
 	return &AnalyticBiz{
 		storage:   storage,
 		pubsub:    pubsub,
@@ -37,7 +42,7 @@ type CreateInteractionParams struct {
 
 func (s *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
 	interaction, err := s.storage.CreateDefaultAnalyticInteraction(ctx, db.CreateDefaultAnalyticInteractionParams{
-		AccountID: params.Account.ID,
+		AccountID: pgutil.Int64ToPgInt8(params.Account.ID),
 		EventType: params.EventType,
 		RefType:   params.RefType,
 		RefID:     params.RefID,
@@ -46,10 +51,11 @@ func (s *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateIntera
 	if err != nil {
 		return err
 	}
+	// TODO: add outbox event
 
 	return s.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
 		ID:          interaction.ID,
-		AccountID:   params.Account.ID,
+		AccountID:   pgutil.PgInt8ToNullInt64(interaction.AccountID),
 		EventType:   params.EventType,
 		RefType:     params.RefType,
 		RefID:       params.RefID,

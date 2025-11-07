@@ -6,8 +6,8 @@ import (
 	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -15,7 +15,7 @@ import (
 )
 
 type ListCommentRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	RefType   db.CatalogCommentRefType `query:"ref_type" validate:"required"`
 	RefID     int64                    `query:"ref_id" validate:"required"`
 	ID        []int64                  `query:"id" validate:"omitempty"`

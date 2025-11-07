@@ -2,10 +2,11 @@ package catalogecho
 
 import (
 	"net/http"
+
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -13,7 +14,7 @@ import (
 )
 
 type ListProductSpuRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	Code       []string `query:"code" comma_separated:"true" validate:"omitempty"`
 	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"omitempty"`
 	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"omitempty"`

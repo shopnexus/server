@@ -9,7 +9,7 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
@@ -83,7 +83,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 	var zero catalogmodel.ProductSku
 	var sku db.CatalogProductSku
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		attributesBytes, err := json.Marshal(params.Attributes)
 		if err != nil {
 			return err
@@ -145,7 +145,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		stock db.InventoryStock
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		attributesBytes, err := json.Marshal(params.Attributes)
 		if err != nil {
 			return err
@@ -206,7 +206,7 @@ func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage *pgsqlc.TxStorage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
 		// Delete sku
 		if err := txStorage.DeleteCatalogProductSku(ctx, db.DeleteCatalogProductSkuParams{
 			ID: []int64{params.ID},

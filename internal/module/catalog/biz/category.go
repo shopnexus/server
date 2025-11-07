@@ -2,20 +2,21 @@ package catalogbiz
 
 import (
 	"context"
+
 	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListCategoryParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
-func (b *CatalogBiz) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[db.CatalogCategory], error) {
-	var zero sharedmodel.PaginateResult[db.CatalogCategory]
+func (b *CatalogBiz) ListCategory(ctx context.Context, params ListCategoryParams) (commonmodel.PaginateResult[db.CatalogCategory], error) {
+	var zero commonmodel.PaginateResult[db.CatalogCategory]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -34,7 +35,7 @@ func (b *CatalogBiz) ListCategory(ctx context.Context, params ListCategoryParams
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.CatalogCategory]{
+	return commonmodel.PaginateResult[db.CatalogCategory]{
 
 		PageParams: params.PaginationParams,
 		Data:       dbCategories,

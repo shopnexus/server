@@ -2,7 +2,7 @@ package catalogmodel
 
 import (
 	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 type ProductDetail struct {
@@ -15,7 +15,7 @@ type ProductDetail struct {
 	IsActive       bool                   `json:"is_active"`
 	Category       db.CatalogCategory     `json:"category"`
 	Rating         ProductRating          `json:"rating"`
-	Resources      []sharedmodel.Resource `json:"resources"`
+	Resources      []commonmodel.Resource `json:"resources"`
 	Promotions     []ProductCardPromo     `json:"promotions"`
 	Skus           []ProductDetailSku     `json:"skus"`
 	Specifications map[string]string      `json:"specifications"`

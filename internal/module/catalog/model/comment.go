@@ -3,7 +3,7 @@ package catalogmodel
 import (
 	"github.com/jackc/pgx/v5/pgtype"
 
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 type Comment struct {
@@ -15,12 +15,12 @@ type Comment struct {
 	Score       int32                  `json:"score"`
 	DateCreated pgtype.Timestamptz     `json:"date_created"`
 	DateUpdated pgtype.Timestamptz     `json:"date_updated"`
-	Resources   []sharedmodel.Resource `json:"resources"`
+	Resources   []commonmodel.Resource `json:"resources"`
 }
 
 type CommentAccount struct {
 	ID       int64                 `json:"id"`
 	Name     string                `json:"name"`
 	Verified bool                  `json:"verified"`
-	Avatar   *sharedmodel.Resource `json:"avatar"`
+	Avatar   *commonmodel.Resource `json:"avatar"`
 }

@@ -5,19 +5,19 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListTagParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
-func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[db.CatalogTag], error) {
-	var zero sharedmodel.PaginateResult[db.CatalogTag]
+func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonmodel.PaginateResult[db.CatalogTag], error) {
+	var zero commonmodel.PaginateResult[db.CatalogTag]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -36,7 +36,7 @@ func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (sharedm
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.CatalogTag]{
+	return commonmodel.PaginateResult[db.CatalogTag]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       dbTags,

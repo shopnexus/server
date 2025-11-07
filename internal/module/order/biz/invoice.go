@@ -3,17 +3,19 @@ package orderbiz
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
+	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListInvoiceParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	ID         []int64                  `validate:"dive,min=1"`
 	RefType    []db.OrderInvoiceRefType `validate:"dive,validateFn=Valid"`
 	RefID      []int64                  `validate:"dive,min=1"`
@@ -21,8 +23,8 @@ type ListInvoiceParams struct {
 	ReceiverID []int64                  `validate:"dive,min=1"`
 }
 
-func (b *OrderBiz) ListInvoice(ctx context.Context, params ListInvoiceParams) (sharedmodel.PaginateResult[db.OrderInvoice], error) {
-	var zero sharedmodel.PaginateResult[db.OrderInvoice]
+func (b *OrderBiz) ListInvoice(ctx context.Context, params ListInvoiceParams) (commonmodel.PaginateResult[db.OrderInvoice], error) {
+	var zero commonmodel.PaginateResult[db.OrderInvoice]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -52,7 +54,7 @@ func (b *OrderBiz) ListInvoice(ctx context.Context, params ListInvoiceParams) (s
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.OrderInvoice]{
+	return commonmodel.PaginateResult[db.OrderInvoice]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       invoices,
@@ -60,6 +62,7 @@ func (b *OrderBiz) ListInvoice(ctx context.Context, params ListInvoiceParams) (s
 }
 
 type CreateInvoiceParams struct {
+	Storage    pgsqlc.Storage
 	RefType    db.OrderInvoiceRefType `validate:"required,validateFn=Valid"`
 	RefID      int64                  `validate:"required,min=1"`
 	Type       db.OrderInvoiceType    `validate:"required,validateFn=Valid"`
@@ -74,26 +77,24 @@ func (b *OrderBiz) CreateInvoice(ctx context.Context, params CreateInvoiceParams
 		return zero, err
 	}
 
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return zero, err
-	}
-	defer txStorage.Rollback(ctx)
+	var invoice db.OrderInvoice
 
-	invoice, err := b.storage.CreateDefaultOrderInvoice(ctx, db.CreateDefaultOrderInvoiceParams{
-		RefType:    db.OrderInvoiceRefTypeOrder,
-		RefID:      params.RefID,
-		Type:       db.OrderInvoiceTypeSale,
-		ReceiverID: params.ReceiverID,
-		Note:       pgutil.NullStringToPgText(params.Note),
-		Data:       params.Data,
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	if err := txStorage.Commit(ctx); err != nil {
-		return zero, err
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+		var err error
+		invoice, err = txStorage.CreateDefaultOrderInvoice(ctx, db.CreateDefaultOrderInvoiceParams{
+			RefType:    params.RefType,
+			RefID:      params.RefID,
+			Type:       params.Type,
+			ReceiverID: params.ReceiverID,
+			Note:       pgutil.NullStringToPgText(params.Note),
+			Data:       params.Data,
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to create invoice: %w", err)
 	}
 
 	return invoice, nil

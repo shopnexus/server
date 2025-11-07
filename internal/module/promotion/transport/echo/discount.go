@@ -2,12 +2,13 @@ package catalogecho
 
 import (
 	"net/http"
+	"time"
+
 	"shopnexus-remastered/internal/db"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 	"shopnexus-remastered/internal/utils/slice"
-	"time"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"

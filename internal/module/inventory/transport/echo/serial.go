@@ -2,15 +2,16 @@ package inventoryecho
 
 import (
 	"net/http"
+
+	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/response"
+	"shopnexus-remastered/internal/module/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ListProductSerialRequest struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 	SkuID int64 `query:"sku_id" validate:"required,gt=0"`
 }
 

@@ -1,8 +1,9 @@
 package inventorymodel
 
 import (
-	"shopnexus-remastered/internal/db"
 	"time"
+
+	"shopnexus-remastered/internal/db"
 )
 
 const (

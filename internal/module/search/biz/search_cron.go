@@ -10,6 +10,7 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgsqlc"
 	"shopnexus-remastered/internal/utils/slice"
 )
@@ -19,7 +20,7 @@ const (
 	MetadataProductSyncBatchSize  = 1000
 )
 
-func (b *SearchBiz) InitCron() error {
+func (b *SearchBiz) SetupCron() error {
 	go b.StartProductSyncCron(context.Background(), time.Second, true)  // TODO: Make config for duration
 	go b.StartProductSyncCron(context.Background(), time.Second, false) // TODO: Make config for duration
 	return nil
@@ -27,59 +28,67 @@ func (b *SearchBiz) InitCron() error {
 
 // SyncProductData fetches all product data and sends it to search engine server
 func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) error {
-	// ListStaleSyncSearch use SELECT FOR UPDATE SKIP LOCKED, so we need a transaction
-	txStorage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create transaction: %w", err)
-	}
-	defer txStorage.Rollback(ctx)
+	if err := b.storage.WithTx(ctx, b.storage, func(txStorage pgsqlc.Storage) error {
+		if metadataOnly {
+			metadataStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
+				RefType:         "Product",
+				Limit:           MetadataProductSyncBatchSize,
+				IsStaleMetadata: pgtype.Bool{Bool: true, Valid: true},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to list stale sync search: %w", err)
+			}
 
-	if metadataOnly {
-		metadataStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
-			RefType:         "Product",
-			Limit:           MetadataProductSyncBatchSize,
-			IsStaleMetadata: pgtype.Bool{Bool: true, Valid: true},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list stale sync search: %w", err)
+			if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+				Storage:      txStorage,
+				Stales:       metadataStales,
+				MetadataOnly: true,
+			}); err != nil {
+				return fmt.Errorf("failed to update stale products (metadata): %w", err)
+			}
+		} else {
+			embeddingStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
+				RefType:          "Product",
+				Limit:            EmbeddingProductSyncBatchSize,
+				IsStaleEmbedding: pgtype.Bool{Bool: true, Valid: true},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to list stale sync search: %w", err)
+			}
+
+			if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+				Storage:      txStorage,
+				Stales:       embeddingStales,
+				MetadataOnly: false,
+			}); err != nil {
+				return fmt.Errorf("failed to update stale products (embedding): %w", err)
+			}
 		}
 
-		if err := b.UpdateStaleProducts(ctx, txStorage, metadataStales, true); err != nil {
-			return fmt.Errorf("failed to update stale products (metadata): %w", err)
-		}
-	} else {
-		embeddingStales, err := txStorage.ListStaleSearchSync(ctx, db.ListStaleSearchSyncParams{
-			RefType:          "Product",
-			Limit:            EmbeddingProductSyncBatchSize,
-			IsStaleEmbedding: pgtype.Bool{Bool: true, Valid: true},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list stale sync search: %w", err)
-		}
-
-		if err := b.UpdateStaleProducts(ctx, txStorage, embeddingStales, false); err != nil {
-			return fmt.Errorf("failed to update stale products (embedding): %w", err)
-		}
-	}
-
-	// Till here, all operations are successful, release the locks
-	if err := txStorage.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to sync product data: %w", err)
 	}
 
 	return nil
 }
 
-func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgsqlc.Storage, stales []db.ListStaleSearchSyncRow, metadataOnly bool) error {
-	if len(stales) == 0 {
-		return nil
+type UpdateStaleProductsParams struct {
+	Storage      pgsqlc.Storage              `validate:"required"`
+	Stales       []db.ListStaleSearchSyncRow `validate:"required"`
+	MetadataOnly bool
+}
+
+func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
+	if err := validator.Validate(params); err != nil {
+		return err
 	}
 
-	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
+	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(params.Stales), params.MetadataOnly)
 
 	// Fetch product details
 	var productDetails []catalogmodel.ProductDetail
-	for _, stale := range stales {
+	for _, stale := range params.Stales {
 		detail, err := b.getProductDetail(ctx, stale.RefID)
 		if err != nil {
 			log.Printf("❌ Failed to get product detail for product ID %d: %v", stale.RefID, err)
@@ -89,21 +98,21 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgsqlc.S
 		productDetails = append(productDetails, detail)
 	}
 
-	staleMap := slice.GroupBy(stales, func(s db.ListStaleSearchSyncRow) (int64, db.ListStaleSearchSyncRow) { return s.RefID, s })
+	staleMap := slice.GroupBy(params.Stales, func(s db.ListStaleSearchSyncRow) (int64, db.ListStaleSearchSyncRow) { return s.RefID, s })
 	var updateArgs []db.UpdateBatchSystemSearchSyncParams
 	for _, detail := range productDetails {
 		updateArgs = append(updateArgs, db.UpdateBatchSystemSearchSyncParams{
 			ID:               staleMap[detail.ID].ID,
 			RefType:          pgtype.Text{String: staleMap[detail.ID].RefType, Valid: true},
 			RefID:            pgtype.Int8{Int64: detail.ID, Valid: true},
-			IsStaleEmbedding: pgtype.Bool{Bool: metadataOnly, Valid: true},
+			IsStaleEmbedding: pgtype.Bool{Bool: params.MetadataOnly, Valid: true},
 			IsStaleMetadata:  pgtype.Bool{Bool: false, Valid: true},
 		})
 	}
 
 	// Update product stale status
 	var updateErr error
-	txStorage.UpdateBatchSystemSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
+	params.Storage.UpdateBatchSystemSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
 		updateErr = err
 	})
 	if updateErr != nil {
@@ -111,7 +120,10 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, txStorage *pgsqlc.S
 	}
 
 	// Last step: send to search server (cannot be in the transaction)
-	if err := b.UpdateProducts(ctx, productDetails, metadataOnly); err != nil {
+	if err := b.UpdateProducts(ctx, UpdateProductsParams{
+		Products:     productDetails,
+		MetadataOnly: params.MetadataOnly,
+	}); err != nil {
 		return fmt.Errorf("failed to update products: %w", err)
 	}
 

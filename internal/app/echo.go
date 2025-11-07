@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 
-	"shopnexus-remastered/internal/module/shared/transport/echo/binder"
+	"shopnexus-remastered/internal/module/shared/binder"
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/logger"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	"shopnexus-remastered/internal/module/shared/validator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

@@ -4,19 +4,19 @@ import (
 	"context"
 
 	"shopnexus-remastered/internal/db"
-	sharedmodel "shopnexus-remastered/internal/module/shared/model"
-	"shopnexus-remastered/internal/module/shared/transport/echo/validator"
+	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
 
 type ListBrandParams struct {
-	sharedmodel.PaginationParams
+	commonmodel.PaginationParams
 }
 
-func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (sharedmodel.PaginateResult[db.CatalogBrand], error) {
-	var zero sharedmodel.PaginateResult[db.CatalogBrand]
+func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (commonmodel.PaginateResult[db.CatalogBrand], error) {
+	var zero commonmodel.PaginateResult[db.CatalogBrand]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -35,7 +35,7 @@ func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (sha
 		return zero, err
 	}
 
-	return sharedmodel.PaginateResult[db.CatalogBrand]{
+	return commonmodel.PaginateResult[db.CatalogBrand]{
 
 		PageParams: params.PaginationParams,
 		Data:       dbBrands,
