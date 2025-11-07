@@ -170,6 +170,7 @@ func getPostgreSQLArrayType(dataType string) string {
 func isRangeFilterableColumn(col *Column) bool {
 	// Check if column type supports range queries (numeric and date types)
 	lowerType := strings.ToLower(col.Type)
+	lowerName := strings.ToLower(col.Name)
 	rangeTypes := []string{
 		"int", "integer", "int4", "bigint", "int8", "bigserial", "serial", "serial8",
 		"smallint", "int2", "smallserial", "serial2", "serial4",
@@ -178,7 +179,7 @@ func isRangeFilterableColumn(col *Column) bool {
 	}
 
 	for _, rangeType := range rangeTypes {
-		if strings.Contains(lowerType, rangeType) {
+		if strings.Contains(lowerType, rangeType) && !strings.Contains(lowerName, "id") {
 			return true
 		}
 	}

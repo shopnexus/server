@@ -303,10 +303,7 @@ func (t *Table) GetUpdatableColumns() []*Column {
 func (t *Table) GetFilterableColumns() []*Column {
 	var columns []*Column
 	for _, col := range t.Columns {
-		// Include most columns except large text fields for filtering
-		if !strings.Contains(strings.ToLower(col.Type), "text") || col.Name == "code" {
-			columns = append(columns, col)
-		}
+		columns = append(columns, col)
 	}
 	return columns
 }
