@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -65,63 +66,75 @@ func New(opts Options) (*pgxpool.Pool, error) {
 // https://stackoverflow.com/questions/75658429/need-to-update-psql-row-of-a-composite-type-in-golang-with-jack-pgx
 // https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype
 func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type, error) {
-	// Get a single connection just to load type information.
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Release()
 
-	// TODO: Currently hard code, should find a way to auto load all custom types instead
-	dataTypeNames := []string{
-		`"account"."type"`,
-		`"account"."_type"`,
-		`"account"."status"`,
-		`"account"."_status"`,
-		`"account"."gender"`,
-		`"account"."_gender"`,
-		`"account"."address_type"`,
-		`"account"."_address_type"`,
+	// Find all custom types in your schemas
+	query := `
+		SELECT n.nspname || '.' || t.typname AS type_name
+		FROM pg_type t
+		JOIN pg_namespace n ON t.typnamespace = n.oid
+		WHERE n.nspname IN ('account', 'catalog', 'inventory', 'order', 'promotion', 'common', 'system')
+		AND t.typtype IN ('e')  -- enums only (e for enum, c for composite)
+		ORDER BY type_name
+	`
 
-		`"catalog"."comment_ref_type"`,
-		`"catalog"."_comment_ref_type"`,
-
-		`"inventory"."stock_ref_type"`,
-		`"inventory"."_stock_ref_type"`,
-		`"inventory"."product_status"`,
-		`"inventory"."_product_status"`,
-
-		`"order"."refund_method"`,
-		`"order"."_refund_method"`,
-		`"order"."invoice_type"`,
-		`"order"."_invoice_type"`,
-		`"order"."invoice_ref_type"`,
-		`"order"."_invoice_ref_type"`,
-
-		`"promotion"."type"`,
-		`"promotion"."_type"`,
-		`"promotion"."ref_type"`,
-		`"promotion"."_ref_type"`,
-
-		`"common"."resource_ref_type"`,
-		`"common"."_resource_ref_type"`,
-		`"common"."status"`,
-		`"common"."_status"`,
-
-		//`"system"."event_type"`,
-		//`"system"."_event_type"`,
+	rows, err := conn.Query(ctx, query)
+	if err != nil {
+		return nil, err
 	}
 
-	var typesToRegister []*pgtype.Type
-	for _, typeName := range dataTypeNames {
-		dataType, err := conn.Conn().LoadType(ctx, typeName)
-		if err != nil {
-			return nil, err
+	// First, collect all type names while the rows are open
+	var typeNames []string
+	for rows.Next() {
+		var typeName string // Eg: promotion.discount
+		if err := rows.Scan(&typeName); err != nil {
+			continue
 		}
-		// You need to register only for this connection too, otherwise the array type will look for the register element type.
+		typeNames = append(typeNames, typeName)
+	}
+	rows.Close() // Close rows to release the connection
+
+	// Now iterate over collected type names and load/register them
+	var typesToRegister []*pgtype.Type
+	for _, typeName := range typeNames {
+		// Split typeName (e.g., "promotion.discount") into schema and type
+		parts := strings.Split(typeName, ".")
+		if len(parts) != 2 {
+			continue // Skip if format is unexpected
+		}
+		schema := parts[0]
+		typeNameOnly := parts[1]
+
+		// Format as "schema"."type" (e.g., "promotion"."discount")
+		quotedTypeName := fmt.Sprintf(`"%s"."%s"`, schema, typeNameOnly)
+		// Format array type as "schema"."_type" (e.g., "promotion"."_discount")
+		quotedArrayTypeName := fmt.Sprintf(`"%s"."_%s"`, schema, typeNameOnly)
+
+		fmt.Println("Registering custom type:", quotedTypeName, "and array type:", quotedArrayTypeName)
+
+		// Load and register the base type
+		dataType, err := conn.Conn().LoadType(ctx, quotedTypeName)
+		if err != nil {
+			slog.Warn("Failed to load type for " + quotedTypeName + ": " + err.Error())
+			continue
+		}
 		conn.Conn().TypeMap().RegisterType(dataType)
 		typesToRegister = append(typesToRegister, dataType)
+
+		// Load and register the array type
+		arrayType, err := conn.Conn().LoadType(ctx, quotedArrayTypeName)
+		if err != nil {
+			slog.Warn("Failed to load array type for " + quotedArrayTypeName + ": " + err.Error())
+			continue
+		}
+		conn.Conn().TypeMap().RegisterType(arrayType)
+		typesToRegister = append(typesToRegister, arrayType)
 	}
+
 	return typesToRegister, nil
 }
 
