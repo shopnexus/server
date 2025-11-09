@@ -1,66 +1,18 @@
 version: "2"
 sql:
-  # Database 1 - Example: Product & Catalog related queries
   - schema: "prisma/migrations/0_init"
-    queries: 
-      - "./queries/product.sql"
-      - "./queries/comment.sql"
-      - "./queries/option.sql"
+    queries: "./queries/"
     engine: "postgresql"
     gen:
       go:
-        package: "db1"
+        package: "db"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/db/1"
+        out: "internal/db"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
         emit_json_tags: true # Custom dto
-#        emit_pointers_for_null_types: true
-        emit_enum_valid_method: true
-        emit_all_enum_values: true
-
-  # Database 2 - Example: Order & Cart related queries
-  - schema: "prisma/migrations/0_init"
-    queries:
-      - "./queries/order.sql"
-      - "./queries/cart.sql"
-      - "./queries/invoice.sql"
-    engine: "postgresql"
-    gen:
-      go:
-        package: "db2"
-        sql_package: pgx/v5
-        sql_driver: github.com/jackc/pgx/v5
-        out: "internal/db/2"
-        emit_interface: true
-        emit_prepared_queries: true
-        emit_empty_slices: true # For api empty data response
-        emit_json_tags: true # Custom dto
-#        emit_pointers_for_null_types: true
-        emit_enum_valid_method: true
-        emit_all_enum_values: true
-
-  # Database 3 - Example: System & Resource related queries
-  - schema: "prisma/migrations/0_init"
-    queries:
-      - "./queries/system.sql"
-      - "./queries/resource.sql"
-      - "./queries/inventory.sql"
-      - "./queries/promotion.sql"
-      - "./queries/queries.sql"
-    engine: "postgresql"
-    gen:
-      go:
-        package: "db3"
-        sql_package: pgx/v5
-        sql_driver: github.com/jackc/pgx/v5
-        out: "internal/db/3"
-        emit_interface: true
-        emit_prepared_queries: true
-        emit_empty_slices: true # For api empty data response
-        emit_json_tags: true # Custom dto
-#        emit_pointers_for_null_types: true
+        #        emit_pointers_for_null_types: true
         emit_enum_valid_method: true
         emit_all_enum_values: true
