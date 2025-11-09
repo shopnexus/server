@@ -480,7 +480,7 @@ func (r iteratorForCreateCopyCatalogProductSku) Values() ([]interface{}, error) 
 		r.rows[0].Price,
 		r.rows[0].CanCombine,
 		r.rows[0].Attributes,
-		r.rows[0].Specifications,
+		r.rows[0].PackageDetails,
 		r.rows[0].DateCreated,
 		r.rows[0].DateDeleted,
 	}, nil
@@ -491,7 +491,7 @@ func (r iteratorForCreateCopyCatalogProductSku) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogProductSku(ctx context.Context, arg []CreateCopyCatalogProductSkuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted"}, &iteratorForCreateCopyCatalogProductSku{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "attributes", "package_details", "date_created", "date_deleted"}, &iteratorForCreateCopyCatalogProductSku{rows: arg})
 }
 
 // iteratorForCreateCopyCatalogProductSpu implements pgx.CopyFromSource.
@@ -522,6 +522,7 @@ func (r iteratorForCreateCopyCatalogProductSpu) Values() ([]interface{}, error) 
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
+		r.rows[0].Specifications,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
 		r.rows[0].DateDeleted,
@@ -533,7 +534,7 @@ func (r iteratorForCreateCopyCatalogProductSpu) Err() error {
 }
 
 func (q *Queries) CreateCopyCatalogProductSpu(ctx context.Context, arg []CreateCopyCatalogProductSpuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyCatalogProductSpu{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyCatalogProductSpu{rows: arg})
 }
 
 // iteratorForCreateCopyCatalogProductSpuTag implements pgx.CopyFromSource.
@@ -1165,7 +1166,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSku) Values() ([]interface{}, 
 		r.rows[0].Price,
 		r.rows[0].CanCombine,
 		r.rows[0].Attributes,
-		r.rows[0].Specifications,
+		r.rows[0].PackageDetails,
 		r.rows[0].DateDeleted,
 	}, nil
 }
@@ -1175,7 +1176,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSku) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogProductSku(ctx context.Context, arg []CreateCopyDefaultCatalogProductSkuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSku{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_sku"}, []string{"spu_id", "price", "can_combine", "attributes", "package_details", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSku{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogProductSpu implements pgx.CopyFromSource.
@@ -1206,6 +1207,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSpu) Values() ([]interface{}, 
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
+		r.rows[0].Specifications,
 		r.rows[0].DateDeleted,
 	}, nil
 }
@@ -1215,7 +1217,7 @@ func (r iteratorForCreateCopyDefaultCatalogProductSpu) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultCatalogProductSpu(ctx context.Context, arg []CreateCopyDefaultCatalogProductSpuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSpu{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted"}, &iteratorForCreateCopyDefaultCatalogProductSpu{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCatalogProductSpuTag implements pgx.CopyFromSource.

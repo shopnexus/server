@@ -123,6 +123,7 @@ Table ProductSpu {
   name String [not null]
   description String [not null]
   is_active Boolean [not null]
+  specifications Json [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
   date_deleted DateTime
@@ -134,7 +135,7 @@ Table ProductSku {
   price BigInt [not null]
   can_combine Boolean [not null]
   attributes Json [not null]
-  specifications Json [not null]
+  package_details Json [not null]
   date_created DateTime [default: `now()`, not null]
   date_deleted DateTime
 }

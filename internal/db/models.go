@@ -1137,24 +1137,25 @@ type CatalogProductSku struct {
 	Price          int64              `json:"price"`
 	CanCombine     bool               `json:"can_combine"`
 	Attributes     []byte             `json:"attributes"`
-	Specifications []byte             `json:"specifications"`
+	PackageDetails []byte             `json:"package_details"`
 	DateCreated    pgtype.Timestamptz `json:"date_created"`
 	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CatalogProductSpu struct {
-	ID            int64              `json:"id"`
-	Code          string             `json:"code"`
-	AccountID     int64              `json:"account_id"`
-	CategoryID    int64              `json:"category_id"`
-	BrandID       int64              `json:"brand_id"`
-	FeaturedSkuID pgtype.Int8        `json:"featured_sku_id"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description"`
-	IsActive      bool               `json:"is_active"`
-	DateCreated   pgtype.Timestamptz `json:"date_created"`
-	DateUpdated   pgtype.Timestamptz `json:"date_updated"`
-	DateDeleted   pgtype.Timestamptz `json:"date_deleted"`
+	ID             int64              `json:"id"`
+	Code           string             `json:"code"`
+	AccountID      int64              `json:"account_id"`
+	CategoryID     int64              `json:"category_id"`
+	BrandID        int64              `json:"brand_id"`
+	FeaturedSkuID  pgtype.Int8        `json:"featured_sku_id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	IsActive       bool               `json:"is_active"`
+	Specifications []byte             `json:"specifications"`
+	DateCreated    pgtype.Timestamptz `json:"date_created"`
+	DateUpdated    pgtype.Timestamptz `json:"date_updated"`
+	DateDeleted    pgtype.Timestamptz `json:"date_deleted"`
 }
 
 type CatalogProductSpuTag struct {

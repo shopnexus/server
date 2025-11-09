@@ -221,6 +221,7 @@ CREATE TABLE "catalog"."product_spu" (
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
+    "specifications" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_deleted" TIMESTAMPTZ(3),
@@ -235,7 +236,7 @@ CREATE TABLE "catalog"."product_sku" (
     "price" BIGINT NOT NULL,
     "can_combine" BOOLEAN NOT NULL,
     "attributes" JSONB NOT NULL,
-    "specifications" JSONB NOT NULL,
+    "package_details" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_deleted" TIMESTAMPTZ(3),
 

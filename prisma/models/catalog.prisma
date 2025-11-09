@@ -32,12 +32,13 @@ model ProductSpu {
   brand_id        BigInt
   featured_sku_id BigInt? @unique // If not null, this SKU is the featured SKU for this product
 
-  name         String
-  description  String
-  is_active    Boolean
-  date_created DateTime  @default(now()) @db.Timestamptz(3)
-  date_updated DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  date_deleted DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
+  name           String
+  description    String
+  is_active      Boolean
+  specifications Json      @db.JsonB // Key-value pairs of specifications
+  date_created   DateTime  @default(now()) @db.Timestamptz(3)
+  date_updated   DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  date_deleted   DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
   vendor   Vendor          @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   category ProductCategory @relation(fields: [category_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
@@ -57,12 +58,12 @@ model ProductSku {
   id     BigInt @id @default(autoincrement())
   spu_id BigInt
 
-  price          BigInt // Price of the item at this time
-  can_combine    Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
-  attributes     Json      @db.JsonB // Key-value pairs of attributes, e.g. color: red, size: M, etc.
-  specifications Json      @db.JsonB // Key-value pairs of specifications, e.g. weight: 1kg, dimensions: 10x10x10cm, etc.
-  date_created   DateTime  @default(now()) @db.Timestamptz(3)
-  date_deleted   DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
+  price           BigInt // Price of the item at this time
+  can_combine     Boolean // If true, allow customer to (put many products together inside one container), otherwise each product is a single item (for refunding stuff)
+  attributes      Json      @db.JsonB // Array Key-value of attributes, e.g. color: red, size: M, etc.
+  package_details Json      @db.JsonB // Array Key-value of package dimensions, e.g. weight: 1kg, dimensions: 10x10x10cm, etc.
+  date_created    DateTime  @default(now()) @db.Timestamptz(3)
+  date_deleted    DateTime? @db.Timestamptz(3) // If not null, this product model is deleted, but still can be used for historical purposes
 
   spu         ProductSpu      @relation(fields: [spu_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
   serials     ProductSerial[]

@@ -1453,6 +1453,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1478,6 +1479,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1502,6 +1504,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1518,27 +1521,27 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultCatalogProductSpu :one
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "catalog"."product_spu" ("code", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: UpdateCatalogProductSpu :one
 UPDATE "catalog"."product_spu"
@@ -1550,6 +1553,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
@@ -1566,6 +1570,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
@@ -1583,6 +1588,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1621,7 +1627,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
-    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
+    ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1642,7 +1648,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
-    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
+    ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1662,7 +1668,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
-    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
+    ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -1676,26 +1682,26 @@ OFFSET sqlc.narg('offset');
 
 
 -- name: CreateCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "package_details", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchCatalogProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "package_details", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "package_details", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultCatalogProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "package_details", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultCatalogProductSku :copyfrom
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "specifications", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "can_combine", "attributes", "package_details", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateCatalogProductSku :one
@@ -1704,7 +1710,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "attributes" = COALESCE(sqlc.narg('attributes'), "attributes"),
-    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
+    "package_details" = COALESCE(sqlc.narg('package_details'), "package_details"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id')
@@ -1716,7 +1722,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "price" = COALESCE(sqlc.narg('price'), "price"),
     "can_combine" = COALESCE(sqlc.narg('can_combine'), "can_combine"),
     "attributes" = COALESCE(sqlc.narg('attributes'), "attributes"),
-    "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
+    "package_details" = COALESCE(sqlc.narg('package_details'), "package_details"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
 WHERE id = sqlc.arg('id');
@@ -1731,7 +1737,7 @@ WHERE (
     ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
-    ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
+    ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
