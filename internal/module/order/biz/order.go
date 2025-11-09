@@ -20,6 +20,7 @@ import (
 	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
 
+	"github.com/bytedance/sonic"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
@@ -258,13 +259,15 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 				return fmt.Errorf("unknown shipment option: %s", orderSku.ShipmentOption)
 			}
 
+			var packageDetails shipment.PackageDetails
+			if err := sonic.Unmarshal([]byte(skuMap[orderSku.SkuID].PackageDetails), &packageDetails); err != nil {
+				return fmt.Errorf("failed to unmarshal packaged size for sku %d: %w", orderSku.SkuID, err)
+			}
+
 			ship, err := shipmentClient.Quote(ctx, shipment.CreateParams{
 				FromAddress: contact.Address,
 				ToAddress:   params.Address,
-				WeightGrams: 10,
-				LengthCM:    10,
-				WidthCM:     10,
-				HeightCM:    10,
+				Package:     packageDetails,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to quote shipment: %w", err)
@@ -277,7 +280,7 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 				TrackingCode: pgutil.StringToPgText(""),
 				LabelUrl:     pgutil.StringToPgText(""),
 				Status:       db.OrderShipmentStatusPending,
-				Cost:         ship.Costs.Int64(),
+				Cost:         int64(ship.Costs),
 				DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
 				WeightGrams:  10,
 				LengthCm:     10,
@@ -574,13 +577,15 @@ func (b *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (Quo
 				return fmt.Errorf("unknown shipment option: %s", sku.ShipmentOption)
 			}
 
+			var packageDetails shipment.PackageDetails
+			if err := sonic.Unmarshal([]byte(skuMap[sku.SkuID].PackageDetails), &packageDetails); err != nil {
+				return fmt.Errorf("failed to unmarshal packaged size for sku %d: %w", sku.SkuID, err)
+			}
+
 			shipmentQuote, err := shipmentClient.Quote(ctx, shipment.CreateParams{
 				FromAddress: vendorContact.Address,
 				ToAddress:   params.Address,
-				WeightGrams: 10,
-				LengthCM:    10,
-				WidthCM:     10,
-				HeightCM:    10,
+				Package:     packageDetails,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to quote shipment: %w", err)

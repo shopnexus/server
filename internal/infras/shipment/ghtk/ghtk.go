@@ -81,7 +81,7 @@ func (g *GTKClient) Config() commonmodel.OptionConfig {
 
 // Quote calculates estimated cost & ETD without creating a shipment
 func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (shipment.QuoteResult, error) {
-	cost := g.calculateShippingCost(params.WeightGrams, g.config.Method)
+	cost := g.calculateShippingCost(params.Package.WeightGrams, g.config.Method)
 	etd := g.calculateETA(g.config.Method)
 
 	return shipment.QuoteResult{
@@ -93,7 +93,7 @@ func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (sh
 // CreateShipment books a shipment and returns label + tracking info
 func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (shipment.ShippingOrder, error) {
 	trackingID := g.generateTrackingID()
-	cost := g.calculateShippingCost(params.WeightGrams, g.config.Method)
+	cost := g.calculateShippingCost(params.Package.WeightGrams, g.config.Method)
 	eta := g.calculateETA(g.config.Method)
 
 	// Create fake shipment record
@@ -106,10 +106,10 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		EstimatedETA: eta,
 		FromAddress:  params.FromAddress,
 		ToAddress:    params.ToAddress,
-		WeightGrams:  params.WeightGrams,
-		LengthCM:     params.LengthCM,
-		WidthCM:      params.WidthCM,
-		HeightCM:     params.HeightCM,
+		WeightGrams:  params.Package.WeightGrams,
+		LengthCM:     params.Package.LengthCM,
+		WidthCM:      params.Package.WidthCM,
+		HeightCM:     params.Package.HeightCM,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}

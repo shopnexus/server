@@ -13,11 +13,14 @@ type CreateParams struct {
 	FromAddress string `validate:"required,min=5,max=500"`
 	ToAddress   string `validate:"required,min=5,max=500"`
 
-	// Package details
-	WeightGrams int32 `validate:"required,min=1"`
-	LengthCM    int32 `validate:"required,min=1"`
-	WidthCM     int32 `validate:"required,min=1"`
-	HeightCM    int32 `validate:"required,min=1"`
+	Package PackageDetails `validate:"required,dive"`
+}
+
+type PackageDetails struct {
+	WeightGrams int32 `json:"weight_grams" validate:"required,min=1"`
+	LengthCM    int32 `json:"length_cm" validate:"required,min=1"`
+	WidthCM     int32 `json:"width_cm" validate:"required,min=1"`
+	HeightCM    int32 `json:"height_cm" validate:"required,min=1"`
 }
 
 // ShippingOrder represents a created shipment with tracking info.

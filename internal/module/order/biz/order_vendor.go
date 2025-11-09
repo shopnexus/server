@@ -2,7 +2,6 @@ package orderbiz
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"shopnexus-remastered/internal/db"
@@ -54,8 +53,8 @@ type ConfirmOrderParams struct {
 	Account     authmodel.AuthenticatedAccount
 	OrderItemID int64 `validate:"required,min=1"` // Confirmed SKU
 
-	FromAddress null.String     `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
-	Specs       json.RawMessage `validate:"required"`              // JSON object with weight and dimensions
+	FromAddress null.String             `validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
+	Package     shipment.PackageDetails `validate:"required"`              // JSON object with weight and dimensions
 }
 
 func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) error {
@@ -105,10 +104,7 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		ship, err := shipmentClient.Create(ctx, shipment.CreateParams{
 			FromAddress: fromAddress,
 			ToAddress:   dbShipment.ToAddress,
-			WeightGrams: dbShipment.WeightGrams,
-			LengthCM:    dbShipment.LengthCm,
-			WidthCM:     dbShipment.WidthCm,
-			HeightCM:    dbShipment.HeightCm,
+			Package:     params.Package,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create shipment: %w", err)
@@ -120,10 +116,13 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 			Status:       db.NullOrderShipmentStatus{OrderShipmentStatus: db.OrderShipmentStatusLabelCreated, Valid: true},
 			LabelUrl:     pgutil.StringToPgText("https://example.com/label.pdf"), // TODO: get real label URL from shipment client
 			Cost:         pgutil.Int64ToPgInt8(dbShipment.Cost),
-			NewCost:      pgutil.Int64ToPgInt8(ship.Costs.Int64()),
+			NewCost:      pgutil.Int64ToPgInt8(int64(ship.Costs)),
 			DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
 			FromAddress:  pgutil.StringToPgText(fromAddress),
-			// TODO: use Specs
+			WeightGrams:  pgutil.Int32ToPgInt4(params.Package.WeightGrams),
+			LengthCm:     pgutil.Int32ToPgInt4(params.Package.LengthCM),
+			WidthCm:      pgutil.Int32ToPgInt4(params.Package.WidthCM),
+			HeightCm:     pgutil.Int32ToPgInt4(params.Package.HeightCM),
 		})
 		if err != nil {
 			return err
