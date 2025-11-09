@@ -2,15 +2,15 @@ package inventorybiz
 
 import (
 	"context"
+	"errors"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/pubsub"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )
@@ -29,7 +29,7 @@ func NewInventoryBiz(
 		pubsub:  pubsub.Group("inventory"),
 	}
 
-	return b, errutil.Some(
+	return b, errors.Join(
 		b.InitPubsub(),
 	)
 }

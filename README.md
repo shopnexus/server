@@ -299,3 +299,24 @@ Add transaction callback to storage interface to reduce boilerplate code when us
 - You can choose to have a nested transaction by setting allowNestedTx (default: false) to true in NewTxQueries.
 
 ![img.png](images/img7.png)
+
+### 8-11-2024 Use errors.Join instead of my own errutil.Some
+
+```go
+func Some(errs ...error) error {
+ for _, err := range errs {
+  if err != nil {
+   return err
+  }
+ }
+ return nil
+}
+
+// Standard library approach (Go 1.20+)
+err := errors.Join(err1, err2, err3)
+// Returns an error containing all non-nil errors
+
+// Your Some function
+err := errutil.Some(err1, err2, err3)
+// Returns only the first non-nil error
+```

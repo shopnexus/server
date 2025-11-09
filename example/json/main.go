@@ -23,10 +23,12 @@ func main() {
 	}
 	bytes, _ := json.Marshal(b)
 
+	var sl []byte
+
 	txt, _ := json.Marshal(A{
 		B: bytes,
 		C: string(bytes),
-		D: bytes,
+		D: sl,
 	})
 
 	fmt.Println(string(txt))

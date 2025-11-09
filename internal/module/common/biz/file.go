@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/objectstore"
-	objlocal "shopnexus-remastered/internal/client/objectstore/local"
-	objremote "shopnexus-remastered/internal/client/objectstore/remote"
-	objs3 "shopnexus-remastered/internal/client/objectstore/s3"
 	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/infras/objectstore"
+	objlocal "shopnexus-remastered/internal/infras/objectstore/local"
+	objremote "shopnexus-remastered/internal/infras/objectstore/remote"
+	objs3 "shopnexus-remastered/internal/infras/objectstore/s3"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +26,7 @@ func (b *Commonbiz) SetupObjectStore() error {
 	b.objectstoreMap = make(map[string]objectstore.Client)
 
 	// setup local
-	local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./uploads", BaseURL: ""})
+	local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (b *Commonbiz) MustGetFileURL(ctx context.Context, provider string, objectK
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
 		// TODO: should return 404 placeholder image url
-		logger.Log.Sugar().Errorf("failed to get file url for object key %s: %v", objectKey, err)
+		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))
 		return ""
 	}
 

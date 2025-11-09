@@ -3,14 +3,14 @@ package analyticbiz
 import (
 	"context"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/pubsub"
 
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 )
 
 type AnalyticBiz struct {

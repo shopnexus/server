@@ -1,9 +1,9 @@
 package commonbiz
 
 import (
-	"shopnexus-remastered/internal/client/objectstore"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
+	"errors"
+	"shopnexus-remastered/internal/infras/objectstore"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 )
 
 type Commonbiz struct {
@@ -16,7 +16,7 @@ func Newcommonbiz(storage pgsqlc.Storage) (*Commonbiz, error) {
 		storage: storage,
 	}
 
-	return b, errutil.Some(
+	return b, errors.Join(
 		b.SetupObjectStore(),
 	)
 }

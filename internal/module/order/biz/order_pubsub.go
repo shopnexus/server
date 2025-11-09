@@ -2,15 +2,15 @@ package orderbiz
 
 import (
 	"context"
+	"errors"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/pubsub"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
-	"shopnexus-remastered/internal/utils/errutil"
 )
 
 func (b *OrderBiz) SetupPubsub() error {
-	return errutil.Some(
+	return errors.Join(
 		b.pubsub.Subscribe(ordermodel.TopicOrderCreated, pubsub.DecodeWrap(b.OrderCreated)),
 		b.pubsub.Subscribe(ordermodel.TopicOrderPaid, pubsub.DecodeWrap(b.OrderPaid)),
 	)

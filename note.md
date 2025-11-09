@@ -1,0 +1,10 @@
+# note
+
+- should write a blog about should not use default uuid in database. pass id from application layer instead because of
+  better control. E.g we can track the just created id before inserting to db without querying back to db or telling the
+  db returning back the entity
+  (Except for serial handle because we dont use the entity after generated, so just copy from or batch insert it)
+
+- dùng product code thay vì id trong url để lấy product (tăng SEO)
+- support no auth list product-card & checkout
+- should write a blog about transaction in service layer instead of repository layer (combine with sqlc)

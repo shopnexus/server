@@ -3,11 +3,11 @@ package accountbiz
 import (
 	"context"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/pubsub"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/utils/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 )
 
 type AccountBiz struct {

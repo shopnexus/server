@@ -10,14 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/cachestruct"
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/cachestruct"
+	"shopnexus-remastered/internal/infras/pubsub"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/guregu/null/v6"

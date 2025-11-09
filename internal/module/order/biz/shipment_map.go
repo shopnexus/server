@@ -3,8 +3,8 @@ package orderbiz
 import (
 	"context"
 
-	"shopnexus-remastered/internal/client/shipment"
-	"shopnexus-remastered/internal/client/shipment/ghtk"
+	"shopnexus-remastered/internal/infras/shipment"
+	"shopnexus-remastered/internal/infras/shipment/ghtk"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 )

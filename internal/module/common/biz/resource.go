@@ -8,14 +8,14 @@ import (
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/samber/lo"
 )
 
 type UpdateResourcesParams struct {
@@ -55,7 +55,7 @@ func (b *Commonbiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 			var createResourceArgs []db.CreateCopyDefaultCommonResourceReferenceParams
 
 			resources, err := txStorage.ListCommonResource(ctx, db.ListCommonResourceParams{
-				ID:         slice.Map(params.ResourceIDs, func(id uuid.UUID) pgtype.UUID { return pgutil.UUIDToPgUUID(id) }),
+				ID:         lo.Map(params.ResourceIDs, func(id uuid.UUID, _ int) pgtype.UUID { return pgutil.UUIDToPgUUID(id) }),
 				UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
 			})
 			if err != nil {
@@ -117,11 +117,11 @@ func (b *Commonbiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 			return err
 		}
 
-		deletedIDs := slice.Map(
-			slice.Filter(deletedResources, func(dr db.CommonResourceReference) bool {
+		deletedIDs := lo.Map(
+			lo.Filter(deletedResources, func(dr db.CommonResourceReference, _ int) bool {
 				return !slices.Contains(params.SkipDeleteResources, dr.RsID.Bytes) // Skip resources that should not be deleted
 			}),
-			func(dr db.CommonResourceReference) pgtype.UUID { return dr.RsID },
+			func(dr db.CommonResourceReference, _ int) pgtype.UUID { return dr.RsID },
 		)
 
 		if err := txStorage.DeleteCommonResourceReference(ctx, db.DeleteCommonResourceReferenceParams{
@@ -155,7 +155,7 @@ func (b *Commonbiz) GetResources(ctx context.Context, refType db.CommonResourceR
 		return nil, err
 	}
 
-	return slice.GroupBySlice(resources, func(rs db.ListSortedResourcesRow) (int64, commonmodel.Resource) {
+	return lo.GroupByMap(resources, func(rs db.ListSortedResourcesRow) (int64, commonmodel.Resource) {
 		return rs.RefID, commonmodel.Resource{
 			ID:       rs.ID.Bytes,
 			Url:      b.MustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),

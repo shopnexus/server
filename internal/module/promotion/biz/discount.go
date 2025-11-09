@@ -6,9 +6,9 @@ import (
 
 	"shopnexus-remastered/internal/db"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )

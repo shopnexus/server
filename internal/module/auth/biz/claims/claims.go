@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/cachestruct"
+	"shopnexus-remastered/internal/infras/cachestruct"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 
 	"github.com/golang-jwt/jwt/v5"

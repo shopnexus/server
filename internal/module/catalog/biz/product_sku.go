@@ -9,12 +9,12 @@ import (
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type ListProductSkuParams struct {
@@ -43,12 +43,12 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 
 	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
 		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-		RefID:   slice.Map(dbSkus, func(s db.CatalogProductSku) int64 { return s.ID }),
+		RefID:   lo.Map(dbSkus, func(s db.CatalogProductSku, _ int) int64 { return s.ID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
+	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
 
 	var skus []catalogmodel.ProductSku
 	for _, dbSku := range dbSkus {

@@ -10,18 +10,19 @@ import (
 	"net/http"
 	"sync"
 
-	"shopnexus-remastered/internal/client/cachestruct"
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/cachestruct"
+	"shopnexus-remastered/internal/infras/pubsub"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
+
+	"github.com/samber/lo"
 )
 
 const InteractionBatchSize = 10
@@ -51,7 +52,7 @@ func NewSearchBiz(storage pgsqlc.Storage, pubsub pubsub.Client, cache cachestruc
 		batchSize:  InteractionBatchSize,
 	}
 
-	return b, errutil.Some(
+	return b, errors.Join(
 		b.InitPubsub(),
 		b.SetupCron(),
 	)
@@ -211,7 +212,7 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 	if err != nil {
 		return zero, err
 	}
-	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
+	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
 
 	for _, sku := range skus {
 		var attributes []catalogmodel.ProductAttribute
@@ -282,7 +283,7 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,
 		},
-		Resources:      slice.NonNil(resourceMap[spu.ID]),
+		Resources:      slice.EnsureSlice(resourceMap[spu.ID]),
 		Skus:           skusDetail,
 		Specifications: nil,
 	}, nil

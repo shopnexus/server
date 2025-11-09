@@ -35,27 +35,24 @@ type Vnpay struct {
 }
 
 type Log struct {
-	Level           string `yaml:"level" mapstructure:"level" validate:"oneof=debug info warn error dpanic panic fatal"`
-	StacktraceLevel string `yaml:"stacktraceLevel" mapstructure:"stacktraceLevel" validate:"oneof=debug info warn error dpanic panic fatal"`
-	FileEnabled     bool   `yaml:"fileEnabled" mapstructure:"fileEnabled"`
-	FileSize        int    `yaml:"fileSize" mapstructure:"fileSize" validate:"gte=1"`
-	FilePath        string `yaml:"filePath" mapstructure:"filePath" validate:"required_if=FileEnabled true"`
-	FileCompress    bool   `yaml:"fileCompress" mapstructure:"fileCompress"`
-	MaxAge          int    `yaml:"maxAge" mapstructure:"maxAge" validate:"gte=0"`
-	MaxBackups      int    `yaml:"maxBackups" mapstructure:"maxBackups" validate:"gte=0"`
+	Level      string `yaml:"level" mapstructure:"level" validate:"required,oneof=debug info warn error"`
+	Format     string `yaml:"format" mapstructure:"format" validate:"oneof=json text"`
+	AddSource  bool   `yaml:"addSource" mapstructure:"addSource" validate:"required"`
+	TimeFormat string `yaml:"timeFormat" mapstructure:"timeFormat" validate:"required"`
 }
 
 type Postgres struct {
-	Url                string        `yaml:"url" mapstructure:"url"`
-	Host               string        `yaml:"host" mapstructure:"host" validate:"required_without=Url"`
-	Port               int           `yaml:"port" mapstructure:"port" validate:"required_without=Url"`
-	Username           string        `yaml:"username" mapstructure:"username" validate:"required_without=Url"`
-	Password           string        `yaml:"password" mapstructure:"password" validate:"required_without=Url"`
-	Database           string        `yaml:"database" mapstructure:"database" validate:"required_without=Url"`
-	MaxConnections     int32         `yaml:"maxConnections" mapstructure:"maxConnections" validate:"gte=1"`
-	MaxIdleConnections int32         `yaml:"maxIdleConnections" mapstructure:"maxIdleConnections" validate:"gte=0"`
-	MaxConnIdleTime    time.Duration `yaml:"maxConnIdleTime" mapstructure:"maxConnIdleTime" validate:"gte=0"`
-	LogQuery           bool          `yaml:"logQuery" mapstructure:"logQuery"`
+	Url                     string        `yaml:"url" mapstructure:"url"`
+	Host                    string        `yaml:"host" mapstructure:"host" validate:"required_without=Url"`
+	Port                    int           `yaml:"port" mapstructure:"port" validate:"required_without=Url"`
+	Username                string        `yaml:"username" mapstructure:"username" validate:"required_without=Url"`
+	Password                string        `yaml:"password" mapstructure:"password" validate:"required_without=Url"`
+	Database                string        `yaml:"database" mapstructure:"database" validate:"required_without=Url"`
+	MaxConnections          int32         `yaml:"maxConnections" mapstructure:"maxConnections" validate:"gte=1"`
+	MaxIdleConnections      int32         `yaml:"maxIdleConnections" mapstructure:"maxIdleConnections" validate:"gte=0"`
+	MaxConnIdleTime         time.Duration `yaml:"maxConnIdleTime" mapstructure:"maxConnIdleTime" validate:"gte=0"`
+	LogQuery                bool          `yaml:"logQuery" mapstructure:"logQuery"`
+	AllowNestedTransactions bool          `yaml:"allowNestedTransactions" mapstructure:"allowNestedTransactions"`
 }
 
 type Redis struct {

@@ -3,21 +3,21 @@ package catalogbiz
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 
-	"shopnexus-remastered/internal/client/cachestruct"
 	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/infras/cachestruct"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 )
 
 func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64) (map[int64]*catalogmodel.ProductCard, error) {
@@ -30,7 +30,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	spuMap := slice.GroupBy(spus, func(spu db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return spu.ID, spu })
+	spuMap := lo.KeyBy(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
 
 	// Get featured SKUs for each spu
 	var featuredIDs []int64
@@ -48,10 +48,10 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 		return zero, err
 	}
 	// map[spuID]FeaturedSKU
-	featuredMap := slice.GroupBy(featuredSkus, func(f db.CatalogProductSku) (int64, db.CatalogProductSku) { return f.SpuID, f })
+	featuredMap := lo.KeyBy(featuredSkus, func(f db.CatalogProductSku) int64 { return f.SpuID })
 
 	// map[skuID]*ProductPrice
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, slice.Map(featuredSkus, func(f db.CatalogProductSku) db.CatalogProductSku {
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, lo.Map(featuredSkus, func(f db.CatalogProductSku, _ int) db.CatalogProductSku {
 		return db.CatalogProductSku{
 			ID:          f.ID,
 			SpuID:       f.SpuID,
@@ -74,7 +74,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	ratingMap := slice.GroupBy(ratings, func(r db.ListRatingRow) (int64, db.ListRatingRow) { return r.RefID, r })
+	ratingMap := lo.KeyBy(ratings, func(r db.ListRatingRow) int64 { return r.RefID })
 
 	// Get first image of the product
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
@@ -84,14 +84,14 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := slice.GroupBy(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
+	resourcesMap := lo.GroupBy(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
 	// Map promotion to ProductCardPromo
 	promoCardsMap := make(map[int64][]catalogmodel.ProductCardPromo) // map[spuID]ProductCardPromo
 	for _, featured := range featuredSkus {
 		price := priceMap[featured.ID]
 
-		promoCardsMap[featured.SpuID] = slice.Map(price.Promotions, func(p promotionmodel.PromotionBase) catalogmodel.ProductCardPromo {
+		promoCardsMap[featured.SpuID] = lo.Map(price.Promotions, func(p promotionmodel.PromotionBase, _ int) catalogmodel.ProductCardPromo {
 			return catalogmodel.ProductCardPromo{
 				ID:          p.ID,
 				Title:       p.Title,
@@ -103,7 +103,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 	for _, spu := range spus {
 		featured := featuredMap[spu.ID]
 		rating := ratingMap[spu.ID]
-		resource := resourceMap[spu.ID]
+		resources := resourcesMap[spu.ID]
 
 		var price catalogmodel.ProductPrice
 		if priceMap[featured.ID] != nil {
@@ -130,12 +130,15 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 				Score: float32(rating.Score),
 				Total: int(rating.Count),
 			},
-			Resource: commonmodel.Resource{
-				ID:   resource.ID.Bytes,
-				Mime: resource.Mime,
-				Url:  b.common.MustGetFileURL(ctx, resource.Provider, resource.ObjectKey),
-				Size: resource.Size,
-			},
+			Resources: lo.Map(resources, func(r db.ListSortedResourcesRow, _ int) commonmodel.Resource {
+				return commonmodel.Resource{
+					ID:       r.ID.Bytes,
+					Url:      b.common.MustGetFileURL(ctx, r.Provider, r.ObjectKey),
+					Mime:     r.Mime,
+					Size:     r.Size,
+					Checksum: pgutil.PgTextToNullString(r.Checksum),
+				}
+			}),
 		}
 	}
 
@@ -174,11 +177,14 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 			Query:            params.Search.String,
 		})
 		if err != nil {
-			logger.Log.Sugar().Errorf("failed to search products: %v", err)
+			slog.Error("failed to search products",
+				slog.String("query", params.Search.String),
+				slog.Any("error", err),
+			)
 			searchArg.Description = pgutil.NullStringToPgText(params.Search)
 		} else {
-			searchArg.ID = slice.Map(searchProducts, func(p catalogmodel.ProductRecommend) int64 { return p.ID })
-			spuIDs = slice.Map(searchProducts, func(p catalogmodel.ProductRecommend) int64 { return p.ID }) // respect order
+			searchArg.ID = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID })
+			spuIDs = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID }) // respect order
 		}
 	}
 
@@ -192,14 +198,14 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 		return zero, err
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, slice.Map(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(spus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID }))
 	if err != nil {
 		return zero, err
 	}
 
 	// respect the order from search result, else use the order from DB query
 	if len(spuIDs) == 0 {
-		spuIDs = slice.Map(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+		spuIDs = lo.Map(spus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID })
 	}
 
 	for _, id := range spuIDs {
@@ -234,7 +240,10 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 	// Get current feed offset
 	var feedOffset int64 = 0
 	if err = b.cache.Get(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), &feedOffset); err != nil {
-		logger.Log.Sugar().Errorf("failed to get feed offset for account %d: %v", params.Account.ID, err)
+		slog.Error("failed to get feed offset for account",
+			slog.Int64("account_id", params.Account.ID),
+			slog.Any("error", err),
+		)
 	}
 	// Retrieve all recommended products from cache
 	if err := b.cache.ZRevRangeByScore(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), &rcmProducts, cachestruct.ZRangeOptions{
@@ -253,7 +262,10 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
 		if err != nil {
-			logger.Log.Sugar().Errorf("failed to get recommendations for account %d: %v", params.Account.ID, err)
+			slog.Error("failed to get recommendations for account",
+				slog.Int64("account_id", params.Account.ID),
+				slog.Any("error", err),
+			)
 		}
 		cancel()
 
@@ -262,7 +274,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 		// Remove all old recommendations
 		if err = b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID)); err != nil {
-			logger.Log.Sugar().Errorf("failed to reset feed offset for account %d: %v", params.Account.ID, err)
+			slog.Error("failed to reset feed offset for account", slog.Int64("account_id", params.Account.ID), slog.Any("error", err))
 		}
 
 		// Adding new feed
@@ -275,7 +287,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 	// Update feed offset in cache
 	if err = b.cache.Set(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), feedOffset, 0); err != nil {
-		logger.Log.Sugar().Errorf("failed to update feed offset for account %d: %v", params.Account.ID, err)
+		slog.Error("failed to update feed offset for account", slog.Int64("account_id", params.Account.ID), slog.Any("error", err))
 	}
 
 	// Amount of most sold products to fill the recommendations
@@ -297,7 +309,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		}
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, slice.Map(rcmProducts, func(p catalogmodel.ProductRecommend) int64 { return p.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID }))
 	if err != nil {
 		return zero, err
 	}

@@ -8,10 +8,10 @@ import (
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	"shopnexus-remastered/internal/module/shared/response"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 )
 
 type PromotionRefRequest struct {
@@ -57,7 +57,7 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 	result, err := h.biz.CreateDiscount(c.Request().Context(), promotionbiz.CreateDiscountParams{
 		CreatePromotionParams: promotionbiz.CreatePromotionParams{
 			Account: claims.Account,
-			Refs: slice.Map(req.Refs, func(r PromotionRefRequest) promotionbiz.PromotionRef {
+			Refs: lo.Map(req.Refs, func(r PromotionRefRequest, _ int) promotionbiz.PromotionRef {
 				return promotionbiz.PromotionRef{
 					RefType: r.RefType,
 					RefID:   r.RefID,
@@ -106,7 +106,7 @@ func (h *Handler) UpdateDiscount(c echo.Context) error {
 			ID:      req.ID,
 			Code:    req.Code,
 			OwnerID: req.OwnerID,
-			Refs: slice.Map(req.Refs, func(r PromotionRefRequest) promotionbiz.PromotionRef {
+			Refs: lo.Map(req.Refs, func(r PromotionRefRequest, _ int) promotionbiz.PromotionRef {
 				return promotionbiz.PromotionRef{
 					RefType: r.RefType,
 					RefID:   r.RefID,

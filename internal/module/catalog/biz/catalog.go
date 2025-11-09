@@ -1,12 +1,12 @@
 package catalogbiz
 
 import (
-	"shopnexus-remastered/internal/client/cachestruct"
-	"shopnexus-remastered/internal/client/pubsub"
+	"shopnexus-remastered/internal/infras/cachestruct"
+	"shopnexus-remastered/internal/infras/pubsub"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	searchbiz "shopnexus-remastered/internal/module/search/biz"
-	"shopnexus-remastered/internal/utils/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 )
 
 type CatalogBiz struct {

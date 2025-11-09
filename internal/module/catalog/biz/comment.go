@@ -9,14 +9,15 @@ import (
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/samber/lo"
 )
 
 type ListCommentParams struct {
@@ -76,16 +77,16 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 		return zero, err
 	}
 	// map[accountID]db.AccountProfile
-	profileMap := slice.GroupBy(dbProfiles, func(a db.AccountProfile) (int64, db.AccountProfile) { return a.ID, a })
+	profileMap := lo.KeyBy(dbProfiles, func(a db.AccountProfile) int64 { return a.ID })
 
 	// Map avatar accounts
 	avatars, err := b.storage.ListCommonResource(ctx, db.ListCommonResourceParams{
-		ID: slice.Map(dbProfiles, func(a db.AccountProfile) pgtype.UUID { return a.AvatarRsID }),
+		ID: lo.Map(dbProfiles, func(a db.AccountProfile, _ int) pgtype.UUID { return a.AvatarRsID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	avatarMap := slice.GroupBy(avatars, func(r db.CommonResource) (pgtype.UUID, db.CommonResource) { return r.ID, r })
+	avatarMap := lo.KeyBy(avatars, func(r db.CommonResource) pgtype.UUID { return r.ID })
 
 	// Map resources to comments
 	dbResources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
@@ -140,7 +141,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 			Score:       row.Score,
 			DateCreated: row.DateCreated,
 			DateUpdated: row.DateUpdated,
-			Resources:   slice.NonNil(resourceMap[row.ID]),
+			Resources:   slice.EnsureSlice(resourceMap[row.ID]),
 		})
 	}
 

@@ -2,12 +2,12 @@ package response
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/guregu/null/v6"
 
-	"shopnexus-remastered/internal/logger"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 
 	"github.com/bytedance/sonic"
@@ -76,7 +76,7 @@ func FromMessage(w http.ResponseWriter, httpCode int, message string) error {
 
 // FromError writes an error response based on the provided error type
 func FromError(w http.ResponseWriter, httpCode int, err error) error {
-	logger.Log.Sugar().Errorf("HTTP %d Error: %v", httpCode, err)
+	slog.Error("HTTP error", slog.Int("http_code", httpCode), slog.Any("error", err))
 	if err == nil {
 		return FromDTO(w, http.StatusOK, nil)
 	}

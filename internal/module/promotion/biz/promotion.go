@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 )
 
 type PromotionBiz struct {
@@ -63,21 +63,19 @@ func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionPa
 	}
 
 	refs, err := s.storage.ListPromotionRef(ctx, db.ListPromotionRefParams{
-		PromotionID: slice.Map(promos, func(p db.PromotionBase) int64 {
+		PromotionID: lo.Map(promos, func(p db.PromotionBase, _ int) int64 {
 			return p.ID
 		}),
 	})
 	if err != nil {
 		return zero, err
 	}
-	refsMap := slice.GroupBySlice(refs, func(r db.PromotionRef) (int64, db.PromotionRef) {
-		return r.PromotionID, r
-	})
+	refsMap := lo.GroupBy(refs, func(r db.PromotionRef) int64 { return r.PromotionID })
 
 	return commonmodel.PaginateResult[promotionmodel.PromotionBase]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
-		Data: slice.Map(promos, func(p db.PromotionBase) promotionmodel.PromotionBase {
+		Data: lo.Map(promos, func(p db.PromotionBase, _ int) promotionmodel.PromotionBase {
 			return DbPromotionToPromotionBase(p, refsMap[p.ID])
 		}),
 	}, nil
@@ -130,7 +128,7 @@ func (b *PromotionBiz) createPromotion(ctx context.Context, params CreatePromoti
 			return err
 		}
 
-		_, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
+		_, err = txStorage.CreateCopyDefaultPromotionRef(ctx, lo.Map(params.Refs, func(r PromotionRef, _ int) db.CreateCopyDefaultPromotionRefParams {
 			return db.CreateCopyDefaultPromotionRefParams{
 				PromotionID: dbPromo.ID,
 				RefType:     r.RefType,
@@ -204,7 +202,7 @@ func (s *PromotionBiz) updatePromotion(ctx context.Context, params UpdatePromoti
 			}
 
 			// Add new refs
-			if _, err = txStorage.CreateCopyDefaultPromotionRef(ctx, slice.Map(params.Refs, func(r PromotionRef) db.CreateCopyDefaultPromotionRefParams {
+			if _, err = txStorage.CreateCopyDefaultPromotionRef(ctx, lo.Map(params.Refs, func(r PromotionRef, _ int) db.CreateCopyDefaultPromotionRefParams {
 				return db.CreateCopyDefaultPromotionRefParams{
 					PromotionID: dbPromo.ID,
 					RefType:     r.RefType,
@@ -245,7 +243,7 @@ func DbPromotionToPromotionBase(dbPromo db.PromotionBase, refs []db.PromotionRef
 		AutoApply:   dbPromo.AutoApply,
 		DateStarted: dbPromo.DateStarted.Time,
 		DateEnded:   pgutil.PgTimestamptzToNullTime(dbPromo.DateEnded),
-		Refs: slice.Map(refs, func(r db.PromotionRef) promotionmodel.PromotionRef {
+		Refs: lo.Map(refs, func(r db.PromotionRef, _ int) promotionmodel.PromotionRef {
 			return promotionmodel.PromotionRef{
 				RefType: r.RefType,
 				RefID:   r.RefID,

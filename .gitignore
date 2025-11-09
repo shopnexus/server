@@ -31,8 +31,4 @@ config/config.*.yml
 
 node_modules/
 
-main
-
 tmp/
-
-uploads/

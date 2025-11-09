@@ -6,7 +6,7 @@ import (
 )
 
 type Resource struct {
-	ID   uuid.UUID `json:"id"`
+	ID   uuid.UUID `json:"-"`
 	Url  string    `json:"url"`
 	Mime string    `json:"mime"`
 	Size int64     `json:"size"`

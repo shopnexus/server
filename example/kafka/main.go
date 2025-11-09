@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"shopnexus-remastered/internal/client/pubsub"
+	"shopnexus-remastered/internal/infras/pubsub"
 )
 
 type Order struct {

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/payment"
-	"shopnexus-remastered/internal/client/payment/cod"
-	"shopnexus-remastered/internal/client/payment/vnpay"
+	"shopnexus-remastered/internal/infras/payment"
+	"shopnexus-remastered/internal/infras/payment/cod"
+	"shopnexus-remastered/internal/infras/payment/vnpay"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 )

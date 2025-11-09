@@ -8,15 +8,15 @@ import (
 	"fmt"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 
 	"shopnexus-remastered/internal/db"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 )
 
 type GetCartParams struct {
@@ -52,15 +52,15 @@ type ListCheckoutSkuParams struct {
 
 // TODO: should move to catalog biz
 func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSkuParams) ([]accountmodel.CheckoutSku, error) {
-	skuIDs := slice.Map(params.Skus, func(c OrderSku) int64 { return c.SkuID })
+	skuIDs := lo.Map(params.Skus, func(c OrderSku, _ int) int64 { return c.SkuID })
 	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{ID: skuIDs})
 	if err != nil {
 		return nil, nil
 	}
 	var spuIDs []int64
-	skuMap := slice.GroupBy(skus, func(sku db.CatalogProductSku) (int64, db.CatalogProductSku) {
+	skuMap := lo.KeyBy(skus, func(sku db.CatalogProductSku) int64 {
 		spuIDs = append(spuIDs, sku.SpuID)
-		return sku.ID, sku
+		return sku.ID
 	})
 
 	// List all SPUs that user want to see
@@ -69,9 +69,9 @@ func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 		return nil, err
 	}
 	categoryIDs := make([]int64, 0, len(spus))
-	spuMap := slice.GroupBy(spus, func(spu db.CatalogProductSpu) (int64, db.CatalogProductSpu) {
+	spuMap := lo.KeyBy(spus, func(spu db.CatalogProductSpu) int64 {
 		categoryIDs = append(categoryIDs, spu.CategoryID)
-		return spu.ID, spu
+		return spu.ID
 	})
 
 	// Calculate price using promotion biz map[skuID]*catalogmodel.ProductPrice
@@ -89,7 +89,7 @@ func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 		return nil, err
 	}
 	// map[spuID]resource
-	resourceMap := slice.GroupBy(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
+	resourcesMap := lo.GroupBy(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
 	// Get category
 	categories, err := b.storage.ListCatalogCategory(ctx, db.ListCatalogCategoryParams{
@@ -126,12 +126,15 @@ func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 			OriginalPrice: priceMap[sku.ID].OriginalPrice,
 			Price:         priceMap[sku.ID].Price,
 			Quantity:      item.Quantity,
-			Resource: commonmodel.Resource{
-				ID:   resourceMap[spu.ID].ID.Bytes,
-				Url:  b.common.MustGetFileURL(ctx, resourceMap[spu.ID].Provider, resourceMap[spu.ID].ObjectKey),
-				Mime: resourceMap[spu.ID].Mime,
-				Size: resourceMap[spu.ID].Size,
-			},
+			Resources: lo.Map(resourcesMap[spu.ID], func(r db.ListSortedResourcesRow, _ int) commonmodel.Resource {
+				return commonmodel.Resource{
+					ID:       r.ID.Bytes,
+					Url:      b.common.MustGetFileURL(ctx, r.Provider, r.ObjectKey),
+					Mime:     r.Mime,
+					Size:     r.Size,
+					Checksum: pgutil.PgTextToNullString(r.Checksum),
+				}
+			}),
 			Category:   categoryMap[spu.CategoryID],
 			Promotions: promos,
 		})

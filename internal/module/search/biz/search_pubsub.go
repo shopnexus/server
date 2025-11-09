@@ -3,19 +3,19 @@ package searchbiz
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/infras/pubsub"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 )
 
 func (b *SearchBiz) InitPubsub() error {
-	return errutil.Some(
+	return errors.Join(
 		b.pubsub.Subscribe(analyticmodel.TopicAnalyticInteraction, pubsub.DecodeWrap(b.AddInteraction)),
 	)
 }
@@ -65,6 +65,6 @@ func (b *SearchBiz) flushInteractions(ctx context.Context, interactions []analyt
 	}
 	_, err := b.storage.CreateCopyDefaultAnalyticInteraction(ctx, params)
 	if err != nil {
-		logger.Log.Sugar().Error("failed to flushInteractions analytic interactions: ", err)
+		slog.Error("failed to flushInteractions analytic interactions", slog.Any("error", err))
 	}
 }

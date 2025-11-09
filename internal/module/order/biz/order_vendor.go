@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"shopnexus-remastered/internal/client/shipment"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/shipment"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 
 	"github.com/guregu/null/v6"
 )

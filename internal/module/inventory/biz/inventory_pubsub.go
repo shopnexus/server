@@ -7,16 +7,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"shopnexus-remastered/internal/client/pubsub"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/pubsub"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
 )
 
 func (b *InventoryBiz) InitPubsub() error {
-	return errutil.Some(
+	return errors.Join(
 		b.pubsub.Subscribe(inventorymodel.TopicInventoryStockUpdated, pubsub.DecodeWrap(b.InventoryStockUpdated)),
 	)
 }

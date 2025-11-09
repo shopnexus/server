@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/samber/lo"
 
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/slice"
 )
 
 const (
@@ -98,7 +98,8 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleP
 		productDetails = append(productDetails, detail)
 	}
 
-	staleMap := slice.GroupBy(params.Stales, func(s db.ListStaleSearchSyncRow) (int64, db.ListStaleSearchSyncRow) { return s.RefID, s })
+	// map[refID]stale
+	staleMap := lo.KeyBy(params.Stales, func(s db.ListStaleSearchSyncRow) int64 { return s.RefID })
 	var updateArgs []db.UpdateBatchSystemSearchSyncParams
 	for _, detail := range productDetails {
 		updateArgs = append(updateArgs, db.UpdateBatchSystemSearchSyncParams{

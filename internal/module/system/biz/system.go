@@ -1,9 +1,9 @@
 package systembiz
 
 import (
-	"shopnexus-remastered/internal/client/pubsub"
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
+	"errors"
+	"shopnexus-remastered/internal/infras/pubsub"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 )
 
 type SystemBiz struct {
@@ -20,7 +20,7 @@ func NewSystemBiz(
 		pubsub:  pubsub.Group("system"),
 	}
 
-	return b, errutil.Some(
+	return b, errors.Join(
 		b.SetupPubsub(),
 	)
 }

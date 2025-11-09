@@ -9,8 +9,10 @@ import (
 	"shopnexus-remastered/internal/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/utils/pgutil"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
+
+	"github.com/samber/lo"
 )
 
 func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmodel.ProductDetail, error) {
@@ -44,7 +46,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 	if err != nil {
 		return zero, err
 	}
-	stockMap := slice.GroupBy(stocks, func(s db.InventoryStock) (int64, db.InventoryStock) { return s.RefID, s })
+	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
 
 	for _, sku := range skus {
 		var attributes []catalogmodel.ProductAttribute
@@ -130,8 +132,8 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,
 		},
-		Resources:      slice.NonNil(resourceMap[spu.ID]),
-		Promotions:     slice.NonNil(promotions),
+		Resources:      slice.EnsureSlice(resourceMap[spu.ID]),
+		Promotions:     slice.EnsureSlice(promotions),
 		Skus:           skusDetail,
 		Specifications: nil,
 	}, nil

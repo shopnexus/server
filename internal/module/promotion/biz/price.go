@@ -7,8 +7,9 @@ import (
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
+	"shopnexus-remastered/internal/module/shared/pgutil"
+
+	"github.com/samber/lo"
 )
 
 // CalculatePromotedPrices calculates promoted prices for given SKUs and SPUs
@@ -38,23 +39,23 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 	}
 
 	refs, err := s.storage.ListPromotionRef(ctx, db.ListPromotionRefParams{
-		PromotionID: slice.Map(promotions, func(p db.PromotionBase) int64 {
+		PromotionID: lo.Map(promotions, func(p db.PromotionBase, _ int) int64 {
 			return p.ID
 		}),
 	})
 	if err != nil {
 		return nil, err
 	}
-	refsMap := slice.GroupBySlice(refs, func(r db.PromotionRef) (int64, db.PromotionRef) {
-		return r.PromotionID, r
+	refsMap := lo.GroupBy(refs, func(r db.PromotionRef) int64 {
+		return r.PromotionID
 	})
 
-	promotionMap := slice.GroupBy(promotions, func(promo db.PromotionBase) (int64, promotionmodel.PromotionBase) {
+	promotionMap := lo.SliceToMap(promotions, func(promo db.PromotionBase) (int64, promotionmodel.PromotionBase) {
 		return promo.ID, DbPromotionToPromotionBase(promo, refsMap[promo.ID])
 	})
 
 	promoDiscounts, err := s.storage.ListPromotionDiscount(ctx, db.ListPromotionDiscountParams{
-		ID: slice.FilterMap(promotions, func(p db.PromotionBase) (int64, bool) {
+		ID: lo.FilterMap(promotions, func(p db.PromotionBase, _ int) (int64, bool) {
 			if p.Type == db.PromotionTypeDiscount {
 				return p.ID, true
 			}

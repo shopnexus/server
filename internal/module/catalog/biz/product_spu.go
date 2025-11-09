@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
+	"github.com/samber/lo"
 
 	"shopnexus-remastered/internal/db"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
@@ -15,9 +16,9 @@ import (
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	searchmodel "shopnexus-remastered/internal/module/search/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
@@ -34,7 +35,7 @@ func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []int64) map[int6
 		}
 		return zero
 	}
-	return slice.GroupBySlice(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag })
+	return lo.GroupByMap(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag })
 }
 
 // TODO: use join instead of spamming N+1 queries
@@ -96,7 +97,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		return zero, err
 	}
 
-	spuIDs := slice.Map(dbSpus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+	spuIDs := lo.Map(dbSpus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID })
 
 	// Calculate rating score
 	ratings, err := b.storage.ListRating(ctx, db.ListRatingParams{
@@ -106,7 +107,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 	if err != nil {
 		return zero, err
 	}
-	ratingMap := slice.GroupBy(ratings, func(r db.ListRatingRow) (int64, db.ListRatingRow) { return r.RefID, r })
+	ratingMap := lo.KeyBy(ratings, func(r db.ListRatingRow) int64 { return r.RefID })
 
 	tagsMap := b.mustGetTagsMap(ctx, spuIDs)
 
@@ -132,7 +133,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 				Score: ratingMap[spu.ID].Score,
 				Total: ratingMap[spu.ID].Count,
 			},
-			Tags:      slice.NonNil(tagsMap[spu.ID]),
+			Tags:      slice.EnsureSlice(tagsMap[spu.ID]),
 			Resources: resourcesMap[spu.ID],
 		})
 	}
@@ -231,7 +232,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		DateCreated:   spu.DateCreated.Time,
 		DateUpdated:   spu.DateUpdated.Time,
 		Rating:        catalogmodel.ProductRating{},
-		Tags:          slice.NonNil(tagsMap[spu.ID]),
+		Tags:          slice.EnsureSlice(tagsMap[spu.ID]),
 		Resources:     resources,
 	}, nil
 }
@@ -402,7 +403,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, params updateTagsParams) er
 		}
 		var nonExistingTags []string
 		for _, tag := range params.Tags {
-			if !slices.Contains(slice.Map(dbTags, func(t db.CatalogTag) string { return t.ID }), tag) {
+			if !slices.Contains(lo.Map(dbTags, func(t db.CatalogTag, _ int) string { return t.ID }), tag) {
 				nonExistingTags = append(nonExistingTags, tag)
 			}
 		}

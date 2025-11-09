@@ -11,7 +11,7 @@ type CheckoutSku struct {
 	OriginalPrice commonmodel.Concurrency `json:"original_price"`
 	Price         commonmodel.Concurrency `json:"price"`
 	Quantity      int64                   `json:"quantity"`
-	Resource      commonmodel.Resource    `json:"resource"`
+	Resources     []commonmodel.Resource  `json:"resources"`
 	Category      string                  `json:"category"`
 	Promotions    []int64                 `json:"promotions"`
 }

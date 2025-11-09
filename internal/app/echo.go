@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-
-	"shopnexus-remastered/internal/module/shared/binder"
+	"log/slog"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/module/shared/binder"
+
 	"shopnexus-remastered/internal/module/shared/validator"
 
 	"github.com/labstack/echo/v4"
@@ -37,7 +37,8 @@ func SetupEcho(params RouteParams) {
 	// Set the custom validator
 	customVal, err := validator.New()
 	if err != nil {
-		logger.Log.Sugar().Fatalf("Failed to create validator: %v", err)
+		slog.Error("Failed to create validator", err)
+		panic(err)
 	}
 	params.Echo.Validator = customVal
 	params.Echo.Binder = binder.NewCustomBinder()
@@ -54,15 +55,15 @@ func StartHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				port := ":8080" // Default port, you can make this configurable
-				logger.Log.Sugar().Infof("Starting HTTP server on port %s", port)
+				slog.Info("Starting HTTP server on port", "port", port)
 				if err := e.Start(port); err != nil {
-					logger.Log.Sugar().Errorf("HTTP server error: %v", err)
+					slog.Error("HTTP server error", err)
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Log.Sugar().Info("Shutting down HTTP server...")
+			slog.Info("Shutting down HTTP server...")
 			return e.Shutdown(ctx)
 		},
 	})

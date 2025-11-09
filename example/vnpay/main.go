@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/payment"
-	"shopnexus-remastered/internal/client/payment/vnpay"
+	"shopnexus-remastered/internal/infras/payment"
+	"shopnexus-remastered/internal/infras/payment/vnpay"
 )
 
 func main() {

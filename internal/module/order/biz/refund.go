@@ -9,13 +9,13 @@ import (
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgsqlc"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type ListRefundsParams struct {
@@ -42,17 +42,17 @@ func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (c
 
 	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
 		RefType: db.CommonResourceRefTypeRefund,
-		RefID:   slice.Map(refunds, func(r db.OrderRefund) int64 { return r.ID }),
+		RefID:   lo.Map(refunds, func(r db.OrderRefund, _ int) int64 { return r.ID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := slice.GroupBySlice(resources, func(r db.ListSortedResourcesRow) (int64, db.ListSortedResourcesRow) { return r.RefID, r })
+	resourcesMap := lo.GroupBy(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
 	return commonmodel.PaginateResult[ordermodel.Refund]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
-		Data: slice.Map(refunds, func(refund db.OrderRefund) ordermodel.Refund {
+		Data: lo.Map(refunds, func(refund db.OrderRefund, _ int) ordermodel.Refund {
 			return ordermodel.Refund{
 				ID:           refund.ID,
 				AccountID:    refund.AccountID,
@@ -64,7 +64,7 @@ func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (c
 				ReviewedByID: pgutil.PgInt8ToNullInt64(refund.ReviewedByID),
 				ShipmentID:   pgutil.PgInt8ToNullInt64(refund.ShipmentID),
 				DateCreated:  refund.DateCreated.Time,
-				Resources: slice.Map(resourceMap[refund.ID], func(resource db.ListSortedResourcesRow) commonmodel.Resource {
+				Resources: lo.Map(resourcesMap[refund.ID], func(resource db.ListSortedResourcesRow, _ int) commonmodel.Resource {
 					return commonmodel.Resource{
 						ID:   resource.ID.Bytes,
 						Mime: resource.Mime,

@@ -2,26 +2,26 @@ package orderbiz
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"shopnexus-remastered/internal/utils/errutil"
-	"shopnexus-remastered/internal/utils/pgsqlc"
+	"shopnexus-remastered/internal/module/shared/pgsqlc"
 
-	"shopnexus-remastered/internal/client/payment"
-	"shopnexus-remastered/internal/client/pubsub"
-	"shopnexus-remastered/internal/client/shipment"
 	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/internal/infras/payment"
+	"shopnexus-remastered/internal/infras/pubsub"
+	"shopnexus-remastered/internal/infras/shipment"
 	authmodel "shopnexus-remastered/internal/module/auth/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
+	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type OrderBiz struct {
@@ -46,7 +46,7 @@ func NewOrderBiz(
 		common:    common,
 	}
 
-	return b, errutil.Some(
+	return b, errors.Join(
 		b.SetupPaymentMap(),
 		b.SetupShipmentMap(),
 		b.SetupPubsub(),
@@ -107,17 +107,17 @@ func (b *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (com
 	}
 
 	orderItems, err := b.storage.ListOrderItem(ctx, db.ListOrderItemParams{
-		OrderID: slice.Map(orders, func(o db.OrderBase) int64 { return o.ID }),
+		OrderID: lo.Map(orders, func(o db.OrderBase, _ int) int64 { return o.ID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	orderItemsMap := slice.GroupBySlice(orderItems, func(oi db.OrderItem) (int64, db.OrderItem) { return oi.OrderID, oi })
+	orderItemsMap := lo.GroupByMap(orderItems, func(oi db.OrderItem) (int64, db.OrderItem) { return oi.OrderID, oi })
 
 	return commonmodel.PaginateResult[ordermodel.Order]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
-		Data: slice.Map(orders, func(o db.OrderBase) ordermodel.Order {
+		Data: lo.Map(orders, func(o db.OrderBase, _ int) ordermodel.Order {
 			return ordermodel.Order{
 				ID:            o.ID,
 				AccountID:     o.AccountID,
@@ -164,8 +164,8 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		return zero, fmt.Errorf("buy now only support single sku")
 	}
 
-	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
-	orderSkuMap := slice.GroupBy(params.Skus, func(s OrderSku) (int64, OrderSku) { return s.SkuID, s })
+	skuIDs := lo.Map(params.Skus, func(s OrderSku, _ int) int64 { return s.SkuID })
+	orderSkuMap := lo.KeyBy(params.Skus, func(s OrderSku) int64 { return s.SkuID })
 
 	var (
 		redirectUrl null.String
@@ -188,7 +188,7 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		}
 
 		var reserveStockErr error
-		txStorage.ReserveInventory(ctx, slice.Map(params.Skus, func(item OrderSku) db.ReserveInventoryParams {
+		txStorage.ReserveInventory(ctx, lo.Map(params.Skus, func(item OrderSku, _ int) db.ReserveInventoryParams {
 			return db.ReserveInventoryParams{
 				RefType: db.InventoryStockRefTypeProductSku,
 				RefID:   item.SkuID,
@@ -212,15 +212,15 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		if len(skus) != len(skuIDs) {
 			return ordermodel.ErrOrderItemNotFound
 		}
-		skuMap := slice.GroupBy(skus, func(s db.CatalogProductSku) (int64, db.CatalogProductSku) { return s.ID, s })
+		skuMap := lo.KeyBy(skus, func(s db.CatalogProductSku) int64 { return s.ID })
 
 		spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			ID: slice.Map(skus, func(s db.CatalogProductSku) int64 { return s.SpuID }),
+			ID: lo.Map(skus, func(s db.CatalogProductSku, _ int) int64 { return s.SpuID }),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list catalog product spu: %w", err)
 		}
-		spuMap := slice.GroupBy(spus, func(s db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return s.ID, s })
+		spuMap := lo.KeyBy(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
 
 		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 		if err != nil {
@@ -245,7 +245,7 @@ func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (C
 		if err != nil {
 			return fmt.Errorf("failed to get vendor address by sku ids: %w", err)
 		}
-		contactMap := slice.GroupBy(contacts, func(c db.GetVendorAddressBySkuIDsRow) (int64, db.GetVendorAddressBySkuIDsRow) { return c.SkuID, c })
+		contactMap := lo.KeyBy(contacts, func(c db.GetVendorAddressBySkuIDsRow) int64 { return c.SkuID })
 
 		var createShipmentArgs []db.CreateBatchOrderShipmentParams
 		for _, orderSku := range params.Skus {
@@ -526,8 +526,8 @@ func (b *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (Quo
 		return zero, err
 	}
 
-	skuIDs := slice.Map(params.Skus, func(s OrderSku) int64 { return s.SkuID })
-	orderSkuMap := slice.GroupBy(params.Skus, func(s OrderSku) (int64, OrderSku) { return s.SkuID, s })
+	skuIDs := lo.Map(params.Skus, func(s OrderSku, _ int) int64 { return s.SkuID })
+	orderSkuMap := lo.KeyBy(params.Skus, func(s OrderSku) int64 { return s.SkuID })
 
 	var subtotal, shippingPrice commonmodel.Concurrency
 
@@ -541,15 +541,15 @@ func (b *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (Quo
 		if len(skus) != len(skuIDs) {
 			return ordermodel.ErrOrderItemNotFound
 		}
-		skuMap := slice.GroupBy(skus, func(s db.CatalogProductSku) (int64, db.CatalogProductSku) { return s.ID, s })
+		skuMap := lo.KeyBy(skus, func(s db.CatalogProductSku) int64 { return s.ID })
 
 		spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			ID: slice.Map(skus, func(s db.CatalogProductSku) int64 { return s.SpuID }),
+			ID: lo.Map(skus, func(s db.CatalogProductSku, _ int) int64 { return s.SpuID }),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list catalog product spu: %w", err)
 		}
-		spuMap := slice.GroupBy(spus, func(s db.CatalogProductSpu) (int64, db.CatalogProductSpu) { return s.ID, s })
+		spuMap := lo.KeyBy(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
 
 		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
 		if err != nil {

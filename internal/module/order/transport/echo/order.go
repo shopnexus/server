@@ -1,16 +1,16 @@
 package orderecho
 
 import (
+	"log/slog"
 	"net/http"
 
-	"shopnexus-remastered/internal/logger"
 	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
 	"shopnexus-remastered/internal/module/shared/response"
-	"shopnexus-remastered/internal/utils/slice"
 
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 )
 
 type Handler struct {
@@ -128,7 +128,7 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Address:       req.Address,
 		PaymentOption: req.PaymentOption,
 		BuyNow:        req.BuyNow,
-		Skus: slice.Map(req.Skus, func(s OrderSku) orderbiz.OrderSku {
+		Skus: lo.Map(req.Skus, func(s OrderSku, _ int) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,
 				Quantity:       s.Quantity,
@@ -167,7 +167,7 @@ func (h *Handler) QuoteOrder(c echo.Context) error {
 	result, err := h.biz.QuoteOrder(c.Request().Context(), orderbiz.QuoteOrderParams{
 		Account: claims.Account,
 		Address: req.Address,
-		Skus: slice.Map(req.Skus, func(s OrderSku) orderbiz.OrderSku {
+		Skus: lo.Map(req.Skus, func(s OrderSku, _ int) orderbiz.OrderSku {
 			return orderbiz.OrderSku{
 				SkuID:          s.SkuID,
 				Quantity:       s.Quantity,
@@ -192,7 +192,7 @@ func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
 	//	return c.NoContent(http.StatusBadRequest)
 	//}
 	if err := c.Request().ParseForm(); err != nil {
-		logger.Log.Sugar().Errorln("VnpayVerifyIPN parse form error:", err)
+		slog.Error("VnpayVerifyIPN parse form error", slog.Any("error", err))
 		return c.NoContent(http.StatusBadRequest)
 	}
 
@@ -208,7 +208,7 @@ func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
 		PaymentGateway: "vnpay_card", // or "vnpay_banktransfer"
 		Data:           query,
 	}); err != nil {
-		logger.Log.Sugar().Errorln("VnpayVerifyIPN verify error:", err)
+		slog.Error("VnpayVerifyIPN verify error", slog.Any("error", err))
 		return c.NoContent(http.StatusBadRequest)
 	}
 

@@ -3,13 +3,14 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 
 	"go.uber.org/fx"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/client/cachestruct"
-	"shopnexus-remastered/internal/client/pubsub"
-	"shopnexus-remastered/internal/logger"
+	"shopnexus-remastered/internal/infras/cachestruct"
+	"shopnexus-remastered/internal/infras/pubsub"
 	"shopnexus-remastered/internal/module/account"
 	"shopnexus-remastered/internal/module/analytic"
 	"shopnexus-remastered/internal/module/auth"
@@ -72,7 +73,26 @@ func NewCacheStruct() (cachestruct.Client, error) {
 }
 
 func SetupLogger() {
-	logger.InitLogger()
+	cfg := config.GetConfig().Log
+
+	var level slog.Level
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     level,
+		AddSource: cfg.AddSource,
+	})))
 }
 
 func NewPubsubClient() (pubsub.Client, error) {

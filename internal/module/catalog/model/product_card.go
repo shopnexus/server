@@ -22,7 +22,7 @@ type ProductCard struct {
 	Price         commonmodel.Concurrency `json:"price"`
 	OriginalPrice commonmodel.Concurrency `json:"original_price"`
 	Rating        Rating                  `json:"rating"`
-	Resource      commonmodel.Resource    `json:"resource"`
+	Resources     []commonmodel.Resource  `json:"resources"`
 	Promotions    []ProductCardPromo      `json:"promotions"`
 }
 
