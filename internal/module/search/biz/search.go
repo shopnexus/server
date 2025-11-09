@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sync"
 
+	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/infras/cachestruct"
 	"shopnexus-remastered/internal/infras/pubsub"
@@ -28,8 +29,7 @@ import (
 
 const InteractionBatchSize = 1
 
-// const SearchServer = "https://b0373f0064cb.ngrok-free.app"
-const SearchServer = "http://192.168.1.117:8000"
+// const b.searchServer = "https://b0373f0064cb.ngrok-free.app"
 
 type SearchBiz struct {
 	httpClient *http.Client
@@ -37,20 +37,33 @@ type SearchBiz struct {
 	pubsub     pubsub.Client
 	cache      cachestruct.Client
 
-	batchSize int
-	mu        sync.Mutex
-	buffer    []analyticmodel.Interaction
-	syncLock  sync.Mutex
+	// local configs
+	searchServer string
+	batchSize    int
+	denseWeight  float32
+	sparseWeight float32
+
+	mu       sync.Mutex
+	buffer   []analyticmodel.Interaction
+	syncLock sync.Mutex
 }
 
 // NewSearchBiz creates a new instance of SearchBiz.
-func NewSearchBiz(storage pgsqlc.Storage, pubsub pubsub.Client, cache cachestruct.Client) (*SearchBiz, error) {
+func NewSearchBiz(
+	config *config.Config,
+	storage pgsqlc.Storage,
+	pubsub pubsub.Client,
+	cache cachestruct.Client,
+) (*SearchBiz, error) {
 	b := &SearchBiz{
-		httpClient: http.DefaultClient,
-		storage:    storage,
-		pubsub:     pubsub.Group("search"),
-		cache:      cache,
-		batchSize:  InteractionBatchSize,
+		httpClient:   http.DefaultClient,
+		storage:      storage,
+		pubsub:       pubsub.Group("search"),
+		cache:        cache,
+		searchServer: config.App.Search.Url,
+		denseWeight:  config.App.Search.DenseWeight,
+		sparseWeight: config.App.Search.SparseWeight,
+		batchSize:    config.App.Search.InteractionBatchSize,
 	}
 
 	return b, errors.Join(
@@ -72,8 +85,8 @@ func (b *SearchBiz) Search(ctx context.Context, params SearchParams) ([]catalogm
 		"offset": params.Offset(),
 		"limit":  params.GetLimit(),
 		"weights": map[string]float32{
-			"dense":  0.7, // TODO: create constants or config
-			"sparse": 1,
+			"dense":  b.denseWeight,
+			"sparse": b.sparseWeight,
 		},
 	}
 	jsonBytes, err := sonic.Marshal(body)
@@ -81,7 +94,7 @@ func (b *SearchBiz) Search(ctx context.Context, params SearchParams) ([]catalogm
 		return zero, err
 	}
 
-	response, err := b.httpClient.Post(SearchServer+"/search", "application/json", bytes.NewReader(jsonBytes))
+	response, err := b.httpClient.Post(b.searchServer+"/search", "application/json", bytes.NewReader(jsonBytes))
 	if err != nil {
 		return zero, err
 	}
@@ -102,7 +115,7 @@ type GetRecommendationsParams struct {
 
 func (b *SearchBiz) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	request, err := http.NewRequestWithContext(ctx, "GET",
-		fmt.Sprintf(SearchServer+"/recommend?account_id=%d&limit=%d", params.Account.ID, params.Limit), nil)
+		fmt.Sprintf(b.searchServer+"/recommend?account_id=%d&limit=%d", params.Account.ID, params.Limit), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +148,7 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 		return err
 	}
 
-	response, err := b.httpClient.Post(SearchServer+"/events", "application/json", bytes.NewReader(body))
+	response, err := b.httpClient.Post(b.searchServer+"/events", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -169,7 +182,7 @@ func (b *SearchBiz) UpdateProducts(ctx context.Context, params UpdateProductsPar
 		return err
 	}
 
-	response, err := b.httpClient.Post(SearchServer+"/products", "application/json", bytes.NewReader(body))
+	response, err := b.httpClient.Post(b.searchServer+"/products", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

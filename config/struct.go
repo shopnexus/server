@@ -19,6 +19,7 @@ type App struct {
 	PublicURL string `yaml:"publicUrl" mapstructure:"publicUrl" validate:"required,url"`
 	JWT       JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
 	Vnpay     Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
+	Search    Search `yaml:"search" mapstructure:"search" validate:"required"`
 }
 
 type JWT struct {
@@ -32,6 +33,13 @@ type Vnpay struct {
 	TmnCode    string `yaml:"tmnCode" mapstructure:"tmnCode" validate:"required"`
 	HashSecret string `yaml:"hashSecret" mapstructure:"hashSecret" validate:"required"`
 	ReturnURL  string `yaml:"returnUrl" mapstructure:"returnUrl" validate:"required,url"`
+}
+
+type Search struct {
+	Url                  string  `yaml:"url" mapstructure:"url" validate:"required,url"`
+	DenseWeight          float32 `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
+	SparseWeight         float32 `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
+	InteractionBatchSize int     `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
 }
 
 type Log struct {
