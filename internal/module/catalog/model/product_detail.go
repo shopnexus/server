@@ -18,7 +18,7 @@ type ProductDetail struct {
 	Resources      []commonmodel.Resource `json:"resources"`
 	Promotions     []ProductCardPromo     `json:"promotions"`
 	Skus           []ProductDetailSku     `json:"skus"`
-	Specifications map[string]string      `json:"specifications"`
+	Specifications []ProductSpecification `json:"specifications"`
 }
 
 type ProductRating struct {

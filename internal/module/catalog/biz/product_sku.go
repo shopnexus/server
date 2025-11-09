@@ -2,7 +2,6 @@ package catalogbiz
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"shopnexus-remastered/internal/db"
@@ -13,6 +12,7 @@ import (
 	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/module/shared/validator"
 
+	"github.com/bytedance/sonic"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
@@ -53,7 +53,7 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	var skus []catalogmodel.ProductSku
 	for _, dbSku := range dbSkus {
 		var attributes []catalogmodel.ProductAttribute
-		if err := json.Unmarshal(dbSku.Attributes, &attributes); err != nil {
+		if err := sonic.Unmarshal(dbSku.Attributes, &attributes); err != nil {
 			return zero, err
 		}
 		skus = append(skus, catalogmodel.ProductSku{
@@ -84,7 +84,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 	var sku db.CatalogProductSku
 
 	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		attributesBytes, err := json.Marshal(params.Attributes)
+		attributesBytes, err := sonic.Marshal(params.Attributes)
 		if err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 	)
 
 	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		attributesBytes, err := json.Marshal(params.Attributes)
+		attributesBytes, err := sonic.Marshal(params.Attributes)
 		if err != nil {
 			return err
 		}

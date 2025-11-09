@@ -3,7 +3,6 @@ package catalogbiz
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 
 	"shopnexus-remastered/internal/db"
@@ -12,6 +11,7 @@ import (
 	"shopnexus-remastered/internal/module/shared/pgutil"
 	"shopnexus-remastered/internal/utils/slice"
 
+	"github.com/bytedance/sonic"
 	"github.com/samber/lo"
 )
 
@@ -50,7 +50,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 
 	for _, sku := range skus {
 		var attributes []catalogmodel.ProductAttribute
-		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+		if err := sonic.Unmarshal(sku.Attributes, &attributes); err != nil {
 			return zero, err
 		}
 
@@ -118,6 +118,11 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 		}
 	}
 
+	var specifications []catalogmodel.ProductSpecification
+	if err := sonic.Unmarshal(spu.Specifications, &specifications); err != nil {
+		return zero, err
+	}
+
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
 		Code:        spu.Code,
@@ -135,6 +140,6 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 		Resources:      slice.EnsureSlice(resourceMap[spu.ID]),
 		Promotions:     slice.EnsureSlice(promotions),
 		Skus:           skusDetail,
-		Specifications: nil,
+		Specifications: specifications,
 	}, nil
 }
