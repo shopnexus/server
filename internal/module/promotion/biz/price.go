@@ -74,11 +74,11 @@ func (s *PromotionBiz) CalculatePromotedPrices(
 			if !IsPromotionApplicable(promotionMap[discount.ID], spuMap[sku.SpuID], price.SkuID) {
 				continue
 			}
+			price.Promotions = append(price.Promotions, promotionMap[discount.ID])
 
-			// Calculate discounted price
+			// Calculate discounted price and take the best price
 			discounted := CalculateDiscountedItemPrice(price.OriginalPrice, discount)
-			if price.Price > discounted {
-				price.Promotions = append(price.Promotions, promotionMap[discount.ID])
+			if discounted < price.Price {
 				price.Price = discounted
 			}
 		}
@@ -108,23 +108,22 @@ func IsPromotionApplicable(promo promotionmodel.PromotionBase, spu db.CatalogPro
 }
 
 func CalculateDiscountedItemPrice(originalPrice commonmodel.Concurrency, dbDiscount db.PromotionDiscount) commonmodel.Concurrency {
+	var maxDiscount = commonmodel.Concurrency(dbDiscount.MaxDiscount)
+	var minSpend = commonmodel.Concurrency(dbDiscount.MinSpend)
+
 	// If original price is less than the minimum spend, return the original price
-	if originalPrice.Int64() < dbDiscount.MinSpend {
+	if originalPrice < minSpend {
 		return originalPrice
 	}
 
-	var discount int64
+	var discount commonmodel.Concurrency
+
 	if dbDiscount.DiscountPercent.Valid {
-		discountAmount := originalPrice.Int64() * int64(dbDiscount.DiscountPercent.Int32) / 100
-		discount = min(discountAmount, dbDiscount.MaxDiscount)
+		discountAmount := originalPrice.Mul(int64(dbDiscount.DiscountPercent.Int32)).Div(100)
+		discount = min(discountAmount, maxDiscount)
 	} else if dbDiscount.DiscountPrice.Valid {
-		discount = min(dbDiscount.DiscountPrice.Int64, dbDiscount.MaxDiscount)
+		discount = min(commonmodel.Concurrency(dbDiscount.DiscountPrice.Int64), maxDiscount)
 	}
 
-	discountedPrice := commonmodel.Int64ToConcurrency(originalPrice.Int64() - discount)
-
-	if discountedPrice.Int64() < 0 {
-		return 0
-	}
-	return discountedPrice
+	return max(originalPrice-discount, 0)
 }
