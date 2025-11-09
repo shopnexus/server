@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+
+	"github.com/bytedance/sonic"
 )
 
 type CommonResponse struct {
@@ -20,10 +21,10 @@ func (m MyInt) MarshalJSON() ([]byte, error) {
 
 func main() {
 	var x commonmodel.Concurrency = 4212312312123123
-	data, _ := json.Marshal(x)
+	data, _ := sonic.Marshal(x)
 	fmt.Println(string(data)) // "custom:42"
 
-	data, _ = json.Marshal(CommonResponse{
+	data, _ = sonic.Marshal(CommonResponse{
 		Data: MyInt(123),
 	})
 	fmt.Println(string(data)) // {"data":"custom:123"

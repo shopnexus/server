@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/bytedance/sonic"
 )
 
 type A struct {
@@ -21,11 +23,11 @@ func main() {
 		E: "example",
 		F: "example2",
 	}
-	bytes, _ := json.Marshal(b)
+	bytes, _ := sonic.Marshal(b)
 
 	var sl []byte
 
-	txt, _ := json.Marshal(A{
+	txt, _ := sonic.Marshal(A{
 		B: bytes,
 		C: string(bytes),
 		D: sl,

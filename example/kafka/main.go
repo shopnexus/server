@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"shopnexus-remastered/internal/infras/pubsub"
+
+	"github.com/bytedance/sonic"
 )
 
 type Order struct {
@@ -21,8 +22,8 @@ func main() {
 		Config: pubsub.Config{
 			Brokers: []string{"localhost:9092"},
 			Timeout: 10 * time.Second,
-			Decoder: json.Unmarshal,
-			Encoder: json.Marshal,
+			Decoder: sonic.Unmarshal,
+			Encoder: sonic.Marshal,
 		},
 		Group: "test-group",
 	}

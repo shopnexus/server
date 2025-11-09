@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -69,7 +69,7 @@ func translateAll(trans ut.Translator) {
 		// translations are i18n aware!!!!
 		// eg. '10 characters' vs '1 character'
 		fmt.Println(errs.Translate(trans))
-		js, _ := json.Marshal(errs.Translate(trans))
+		js, _ := sonic.Marshal(errs.Translate(trans))
 		fmt.Println(string(js))
 	}
 }

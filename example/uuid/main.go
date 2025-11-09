@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 )
 
@@ -13,7 +13,7 @@ type A struct {
 
 func main() {
 	a := A{D: uuid.New()}
-	js, _ := json.Marshal(a)
+	js, _ := sonic.Marshal(a)
 	println(string(js))
 
 	b := map[*uuid.UUID]string{}
