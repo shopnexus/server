@@ -96,7 +96,7 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 }
 
 // type IPNReturn struct {
-// TODO: missing props!
+//! missing some props!
 // 	VnpAmount            string `json:"vnp_Amount"`
 // 	VnpBankCode          string `json:"vnp_BankCode"`
 // 	VnpCardType          string `json:"vnp_CardType"`

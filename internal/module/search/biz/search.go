@@ -22,13 +22,14 @@ import (
 	"shopnexus-remastered/internal/module/shared/validator"
 	"shopnexus-remastered/internal/utils/slice"
 
+	"github.com/bytedance/sonic"
 	"github.com/samber/lo"
 )
 
-const InteractionBatchSize = 10
+const InteractionBatchSize = 1
 
 // const SearchServer = "https://b0373f0064cb.ngrok-free.app"
-const SearchServer = "http://192.168.110.137:8000"
+const SearchServer = "http://192.168.1.117:8000"
 
 type SearchBiz struct {
 	httpClient *http.Client
@@ -75,7 +76,7 @@ func (b *SearchBiz) Search(ctx context.Context, params SearchParams) ([]catalogm
 			"sparse": 1,
 		},
 	}
-	jsonBytes, err := json.Marshal(body)
+	jsonBytes, err := sonic.Marshal(body)
 	if err != nil {
 		return zero, err
 	}
@@ -125,7 +126,7 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 		return nil
 	}
 
-	body, err := json.Marshal(struct {
+	body, err := sonic.Marshal(struct {
 		Events []analyticmodel.Interaction `json:"events"`
 	}{
 		Events: events,
@@ -149,7 +150,7 @@ func (b *SearchBiz) ProcessEvents(ctx context.Context, events []analyticmodel.In
 
 type UpdateProductsParams struct {
 	Products     []catalogmodel.ProductDetail `validate:"required"`
-	MetadataOnly bool                         `validate:"required"`
+	MetadataOnly bool
 }
 
 func (b *SearchBiz) UpdateProducts(ctx context.Context, params UpdateProductsParams) error {
@@ -157,7 +158,7 @@ func (b *SearchBiz) UpdateProducts(ctx context.Context, params UpdateProductsPar
 		return err
 	}
 
-	body, err := json.Marshal(struct {
+	body, err := sonic.Marshal(struct {
 		Products     []catalogmodel.ProductDetail `json:"products"`
 		MetadataOnly bool                         `json:"metadata_only"`
 	}{
@@ -216,7 +217,7 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 
 	for _, sku := range skus {
 		var attributes []catalogmodel.ProductAttribute
-		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+		if err := sonic.Unmarshal(sku.Attributes, &attributes); err != nil {
 			return zero, err
 		}
 
@@ -269,6 +270,11 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 		ID: pgutil.Int64ToPgInt8(spu.CategoryID),
 	})
 
+	var specifications []catalogmodel.ProductSpecification
+	if err := sonic.Unmarshal(spu.Specifications, &specifications); err != nil {
+		return zero, err
+	}
+
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
 		Code:        spu.Code,
@@ -285,6 +291,6 @@ func (b *SearchBiz) getProductDetail(ctx context.Context, id int64) (catalogmode
 		},
 		Resources:      slice.EnsureSlice(resourceMap[spu.ID]),
 		Skus:           skusDetail,
-		Specifications: nil,
+		Specifications: specifications,
 	}, nil
 }

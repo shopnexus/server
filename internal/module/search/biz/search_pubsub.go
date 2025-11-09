@@ -2,10 +2,10 @@ package searchbiz
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 
+	"github.com/bytedance/sonic"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"shopnexus-remastered/internal/db"
@@ -50,7 +50,7 @@ func (b *SearchBiz) AddInteraction(ctx context.Context, params AddInteractionPar
 func (b *SearchBiz) flushInteractions(ctx context.Context, interactions []analyticmodel.Interaction) {
 	params := make([]db.CreateCopyDefaultAnalyticInteractionParams, 0, len(interactions))
 	for _, i := range interactions {
-		metadata, _ := json.Marshal(i.Metadata)
+		metadata, _ := sonic.Marshal(i.Metadata)
 
 		params = append(params, db.CreateCopyDefaultAnalyticInteractionParams{
 			AccountID: pgutil.NullInt64ToPgInt8(i.AccountID),

@@ -1,11 +1,11 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/bytedance/sonic"
 	"go.uber.org/fx"
 
 	"shopnexus-remastered/config"
@@ -63,8 +63,8 @@ func NewCacheStruct() (cachestruct.Client, error) {
 	addr := fmt.Sprintf("%s:%s", config.GetConfig().Redis.Host, config.GetConfig().Redis.Port)
 	return cachestruct.NewRedisStructClient(cachestruct.RedisConfig{
 		Config: cachestruct.Config{
-			Decoder: json.Unmarshal,
-			Encoder: json.Marshal,
+			Decoder: sonic.Unmarshal,
+			Encoder: sonic.Marshal,
 		},
 		Addr:     []string{addr},
 		Password: config.GetConfig().Redis.Password,
@@ -100,8 +100,8 @@ func NewPubsubClient() (pubsub.Client, error) {
 		Config: pubsub.Config{
 			Timeout: 10,
 			Brokers: []string{"localhost:9092"},
-			Decoder: json.Unmarshal,
-			Encoder: json.Marshal,
+			Decoder: sonic.Unmarshal,
+			Encoder: sonic.Marshal,
 		},
 	})
 }

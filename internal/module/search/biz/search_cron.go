@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -74,12 +75,15 @@ func (b *SearchBiz) SyncProductData(ctx context.Context, metadataOnly bool) erro
 }
 
 type UpdateStaleProductsParams struct {
-	Storage      pgsqlc.Storage              `validate:"required"`
+	Storage      pgsqlc.Storage
 	Stales       []db.ListStaleSearchSyncRow `validate:"required"`
 	MetadataOnly bool
 }
 
 func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
+	if len(params.Stales) == 0 {
+		return nil
+	}
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -91,7 +95,7 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleP
 	for _, stale := range params.Stales {
 		detail, err := b.getProductDetail(ctx, stale.RefID)
 		if err != nil {
-			log.Printf("❌ Failed to get product detail for product ID %d: %v", stale.RefID, err)
+			slog.Error("Failed to get product detail for product ID", "product_id", stale.RefID, "error", err)
 			continue
 		}
 
@@ -133,11 +137,11 @@ func (b *SearchBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleP
 
 // StartProductSyncCron starts the cron job for product data sync
 func (b *SearchBiz) StartProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
-	log.Println("🚀 Starting product sync cron job...")
+	log.Println("Starting product sync cron job...")
 
 	// Run immediately on startup
 	if err := b.SyncProductData(ctx, metadataOnly); err != nil {
-		log.Printf("❌ Initial product sync failed: %v", err)
+		log.Printf("Initial product sync failed: %v", err)
 	}
 
 	for {
@@ -146,13 +150,13 @@ func (b *SearchBiz) StartProductSyncCron(ctx context.Context, duration time.Dura
 		case <-time.After(duration):
 			// continue to next sync
 		case <-ctx.Done():
-			log.Println("🛑 Stopping product sync cron job...")
+			log.Println("Stopping product sync cron job...")
 			return
 		}
 
 		b.syncLock.Lock()
 		if err := b.SyncProductData(ctx, metadataOnly); err != nil {
-			log.Printf("❌ Product sync failed: %v", err)
+			log.Printf("Product sync failed: %v", err)
 		}
 		b.syncLock.Unlock()
 	}

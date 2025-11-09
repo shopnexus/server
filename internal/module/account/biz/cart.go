@@ -3,10 +3,10 @@ package accountbiz
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
@@ -50,7 +50,6 @@ type ListCheckoutSkuParams struct {
 	Skus []OrderSku
 }
 
-// TODO: should move to catalog biz
 func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSkuParams) ([]accountmodel.CheckoutSku, error) {
 	skuIDs := lo.Map(params.Skus, func(c OrderSku, _ int) int64 { return c.SkuID })
 	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{ID: skuIDs})
@@ -114,7 +113,7 @@ func (b *AccountBiz) ListCheckoutSku(ctx context.Context, params ListCheckoutSku
 		}
 
 		var attributes []catalogmodel.ProductAttribute
-		if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+		if err := sonic.Unmarshal(sku.Attributes, &attributes); err != nil {
 			return nil, err
 		}
 

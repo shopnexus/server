@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -11,6 +10,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-kafka/v3/pkg/kafka"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/bytedance/sonic"
 )
 
 type KafkaClient struct {
@@ -28,10 +28,10 @@ func NewKafkaClient(cfg KafkaConfig) (*KafkaClient, error) {
 		return nil, fmt.Errorf("at least one broker must be specified")
 	}
 	if cfg.Decoder == nil {
-		cfg.Decoder = json.Unmarshal // Default to JSON decoder
+		cfg.Decoder = sonic.Unmarshal // Default to JSON decoder
 	}
 	if cfg.Encoder == nil {
-		cfg.Encoder = json.Marshal // Default to JSON encoder
+		cfg.Encoder = sonic.Marshal // Default to JSON encoder
 	}
 
 	return &KafkaClient{

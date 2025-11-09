@@ -2,13 +2,13 @@ package validator
 
 import (
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
 
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 
+	"github.com/bytedance/sonic"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -65,7 +65,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 	err := cv.validator.Struct(i)
 	if valErr, ok := err.(validator.ValidationErrors); ok {
 		trans, _ := cv.uni.GetTranslator("en")
-		text, err := json.Marshal(valErr.Translate(trans))
+		text, err := sonic.Marshal(valErr.Translate(trans))
 		if err != nil {
 			// Fallback to the original validation error if JSON marshaling fails
 			return valErr

@@ -2,12 +2,12 @@ package cachestruct
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/rueidis"
 )
 
@@ -38,10 +38,10 @@ func NewRedisStructClient(cfg RedisConfig) (*RedisClient, error) {
 	}
 
 	if cfg.Encoder != nil {
-		cfg.Encoder = json.Marshal
+		cfg.Encoder = sonic.Marshal
 	}
 	if cfg.Decoder != nil {
-		cfg.Decoder = json.Unmarshal
+		cfg.Decoder = sonic.Unmarshal
 	}
 
 	// Select DB if not zero

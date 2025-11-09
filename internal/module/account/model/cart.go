@@ -2,7 +2,7 @@ package accountmodel
 
 import commonmodel "shopnexus-remastered/internal/module/common/model"
 
-// TODO: move to catalog logic
+// TODO: should embed the product card data
 type CheckoutSku struct {
 	SkuID         int64                   `json:"sku_id"`
 	SpuID         int64                   `json:"spu_id"`

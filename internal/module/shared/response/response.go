@@ -1,9 +1,9 @@
 package response
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/guregu/null/v6"
@@ -28,6 +28,7 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 		errCode = errWithCode.Code()
 		message = errWithCode.Error()
 	}
+	debug.PrintStack()
 
 	data, err := sonic.Marshal(CommonResponse{
 		Data: nil,
@@ -118,7 +119,7 @@ func FromPaginate[T any](w http.ResponseWriter, paginate commonmodel.PaginateRes
 	// TODO: Create customer encoder/decoder
 	var nextCursor null.String
 	if paginate.NextCursor != nil {
-		encodedCursor, err := json.Marshal(paginate.NextCursor)
+		encodedCursor, err := sonic.Marshal(paginate.NextCursor)
 		if err != nil {
 			return writeError(w, http.StatusInternalServerError, err)
 		}
