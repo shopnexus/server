@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOEXPERIMENT=greenteagc go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o server .
+    -o server ./cmd/server
 
 # Stage 2: Create minimal runtime image
 FROM scratch
@@ -30,10 +30,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary
 COPY --from=builder /app/server /server
-
-# Copy configs and environment variables
-COPY config ./config
-COPY .env ./.env
 
 EXPOSE 8080
 
