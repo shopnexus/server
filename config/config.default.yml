@@ -1,0 +1,57 @@
+env: dev
+
+log:
+  level: debug
+  format: json
+  addSource: true
+  timeFormat: "2006-01-02 15:04:05"
+
+app:
+  name: shopnexus
+  publicUrl: "http://localhost:8080"
+  jwt:
+    secret: supersecretkey123
+    accessTokenDuration: 3600
+    refreshSecret: superrefreshsecret456
+    refreshTokenDuration: 1209600
+  vnpay:
+    tmnCode: ""
+    hashSecret: ""
+    returnUrl: "http://localhost:3000/payment/vnpay_return"
+  search:
+    url: "http://localhost:8000"
+    denseWeight: 0.75
+    sparseWeight: 0.25
+    interactionBatchSize: 1
+
+filestore:
+  type: s3 # Options: Local, S3, Cloudinary, Remote
+  presignedDefaultTTL: 1800 # in seconds
+  s3:
+    accessKeyID: ""
+    secretAccessKey: ""
+    region: ""
+    bucket: ""
+    cloudfrontUrl: ""
+
+postgres:
+  # Option 1: Using connection URL
+  # url: postgres://user:password@localhost:5432/mydb?sslmode=disable
+
+  # Option 2: Using separate fields (required if URL is not provided)
+  host: localhost
+  port: 5432
+  username: shopnexus
+  password: peakshopnexuspassword
+  database: shopnexus
+  maxConnections: 50
+  maxIdleConnections: 10
+  maxConnIdleTime: 300
+  logQuery: true
+  allowNestedTransactions: true
+
+redis:
+  host: localhost
+  port: "6379"
+  password: "peaksehopnexuspassword"
+  db: 0
