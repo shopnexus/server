@@ -21,20 +21,16 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOEXPERIMENT=greenteagc go build \
     -a -installsuffix cgo \
     -o server ./cmd/server
 
-# Stage 2: Create minimal runtime image
-FROM scratch
-
-# Copy timezone data and certificates from builder
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Stage 2: Create minimal runtime image using distroless
+FROM gcr.io/distroless/static:nonroot
 
 # Copy the binary
 COPY --from=builder /app/server /server
 
 EXPOSE 8080
 
-# Run as non-root user (if your app supports it)
-USER 65534:50051
+# Run as non-root user (nonroot user is UID/GID 65532 in distroless)
+USER nonroot:nonroot
 
 # Run the server
 ENTRYPOINT ["/server"]

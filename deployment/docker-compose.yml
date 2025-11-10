@@ -4,7 +4,6 @@ networks:
     external: false
 
 volumes:
-  postgres-backup-data:
   postgres-data:
   redis-data:
   kafka-data:
@@ -41,7 +40,7 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-peaksehopnexuspassword}
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s

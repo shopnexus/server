@@ -27,6 +27,10 @@ spec:
             - name: POSTGRES_DB
               value: shopnexus
             - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopnexus-secret
+                  key: postgres_password
             - name: POSTGRES_USER
               value: shopnexus
           image: postgres:17-alpine
@@ -46,16 +50,8 @@ spec:
             requests:
               cpu: 500m
               memory: "536870912"
-          volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: postgres-data
-            - mountPath: /backups
-              name: postgres-backup-data
       restartPolicy: Always
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgres-data
-        - name: postgres-backup-data
-          persistentVolumeClaim:
-            claimName: postgres-backup-data
