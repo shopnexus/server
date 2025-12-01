@@ -3,7 +3,7 @@ package accountecho
 import (
 	"net/http"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/guregu/null/v6"

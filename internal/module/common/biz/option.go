@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
 

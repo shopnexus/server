@@ -7,7 +7,7 @@ import (
 
 	"shopnexus-remastered/internal/infras/shipment"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"

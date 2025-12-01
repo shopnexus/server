@@ -2,14 +2,14 @@ version: "2"
 sql:
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/account/queries/"
+      - "./internal/module/account/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "accountdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/account/db"
+        out: "internal/module/account/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -19,14 +19,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/analytic/queries/"
+      - "./internal/module/analytic/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "analyticdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/analytic/db"
+        out: "internal/module/analytic/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -36,14 +36,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/catalog/queries/"
+      - "./internal/module/catalog/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "catalogdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/catalog/db"
+        out: "internal/module/catalog/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -53,14 +53,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/common/queries/"
+      - "./internal/module/common/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "commondb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/common/db"
+        out: "internal/module/common/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -70,14 +70,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/inventory/queries/"
+      - "./internal/module/inventory/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "inventorydb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/inventory/db"
+        out: "internal/module/inventory/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -87,14 +87,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/order/queries/"
+      - "./internal/module/order/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "orderdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/order/db"
+        out: "internal/module/order/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -104,14 +104,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/promotion/queries/"
+      - "./internal/module/promotion/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "promotiondb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/promotion/db"
+        out: "internal/module/promotion/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
@@ -121,14 +121,14 @@ sql:
 
   - schema: "prisma/migrations/0_init"
     queries:
-      - "./internal/module/system/queries/"
+      - "./internal/module/system/db/queries/"
     engine: "postgresql"
     gen:
       go:
         package: "systemdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/module/system/db"
+        out: "internal/module/system/db/sqlc"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response

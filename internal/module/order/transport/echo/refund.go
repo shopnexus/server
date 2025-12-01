@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/response"

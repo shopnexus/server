@@ -6,7 +6,7 @@ import (
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/pubsub"
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	"shopnexus-remastered/internal/shared/pgsqlc"
 

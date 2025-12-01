@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"shopnexus-remastered/internal/infras/pubsub"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 
 	"github.com/google/uuid"

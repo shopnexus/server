@@ -7,7 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/response"
 )

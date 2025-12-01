@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/response"
 

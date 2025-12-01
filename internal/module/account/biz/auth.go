@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"shopnexus-remastered/config"
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/validator"

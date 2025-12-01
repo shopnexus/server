@@ -3,7 +3,7 @@ package catalogbiz
 import (
 	"context"
 
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
 

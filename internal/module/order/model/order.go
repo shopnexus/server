@@ -5,7 +5,7 @@ import (
 	"time"
 
 	commonmodel "shopnexus-remastered/internal/module/common/model"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 
 	"github.com/google/uuid"

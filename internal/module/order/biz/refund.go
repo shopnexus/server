@@ -6,9 +6,9 @@ import (
 
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"

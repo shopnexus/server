@@ -11,7 +11,7 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	"shopnexus-remastered/internal/shared/validator"
 )

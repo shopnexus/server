@@ -10,7 +10,7 @@ import (
 	"github.com/samber/lo"
 
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	promotiondb "shopnexus-remastered/internal/module/promotion/db"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/pgsqlc"

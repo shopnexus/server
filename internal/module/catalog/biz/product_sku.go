@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/pgutil"

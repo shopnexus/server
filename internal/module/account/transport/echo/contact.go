@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/response"
 

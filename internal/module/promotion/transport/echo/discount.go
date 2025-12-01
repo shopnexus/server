@@ -5,7 +5,7 @@ import (
 	"time"
 
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	promotiondb "shopnexus-remastered/internal/module/promotion/db"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/response"
 

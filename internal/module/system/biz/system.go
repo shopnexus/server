@@ -3,7 +3,7 @@ package systembiz
 import (
 	"errors"
 	"shopnexus-remastered/internal/infras/pubsub"
-	systemdb "shopnexus-remastered/internal/module/system/db"
+	systemdb "shopnexus-remastered/internal/module/system/db/sqlc"
 	"shopnexus-remastered/internal/shared/pgsqlc"
 )
 

@@ -8,7 +8,7 @@ import (
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/google/uuid"

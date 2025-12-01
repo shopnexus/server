@@ -2,7 +2,7 @@ package analyticmodel
 
 import (
 	"encoding/json"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
 	"time"
 
 	"github.com/google/uuid"

@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	"shopnexus-remastered/internal/shared/pgsqlc"
 	"shopnexus-remastered/internal/shared/validator"

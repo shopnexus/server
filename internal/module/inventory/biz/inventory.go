@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"shopnexus-remastered/internal/infras/pubsub"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"

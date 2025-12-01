@@ -1,7 +1,7 @@
 package inventorymodel
 
 import (
-	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	"time"
 
 	"github.com/google/uuid"

@@ -6,7 +6,7 @@ import (
 	"shopnexus-remastered/internal/infras/cachestruct"
 	"shopnexus-remastered/internal/infras/pubsub"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"

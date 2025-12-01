@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	promotiondb "shopnexus-remastered/internal/module/promotion/db"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"

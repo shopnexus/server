@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"shopnexus-remastered/internal/infras/pubsub"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	"shopnexus-remastered/internal/shared/validator"
 )

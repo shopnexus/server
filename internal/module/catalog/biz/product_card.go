@@ -12,9 +12,9 @@ import (
 
 	"shopnexus-remastered/internal/infras/cachestruct"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
 )

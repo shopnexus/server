@@ -1,7 +1,7 @@
 package accountmodel
 
 import (
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

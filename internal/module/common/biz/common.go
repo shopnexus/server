@@ -3,7 +3,7 @@ package commonbiz
 import (
 	"errors"
 	"shopnexus-remastered/internal/infras/objectstore"
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	"shopnexus-remastered/internal/shared/pgsqlc"
 )
 

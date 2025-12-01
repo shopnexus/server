@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	"shopnexus-remastered/internal/shared/validator"
 

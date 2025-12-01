@@ -12,7 +12,7 @@ import (
 	objremote "shopnexus-remastered/internal/infras/objectstore/remote"
 	objs3 "shopnexus-remastered/internal/infras/objectstore/s3"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	commondb "shopnexus-remastered/internal/module/common/db"
+	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
 

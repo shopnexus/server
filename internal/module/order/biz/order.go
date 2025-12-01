@@ -14,7 +14,7 @@ import (
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	orderdb "shopnexus-remastered/internal/module/order/db"
+	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	commonmodel "shopnexus-remastered/internal/shared/model"

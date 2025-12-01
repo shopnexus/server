@@ -8,7 +8,7 @@ import (
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/pubsub"
 
-	analyticdb "shopnexus-remastered/internal/module/analytic/db"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
 	"shopnexus-remastered/internal/shared/pgsqlc"

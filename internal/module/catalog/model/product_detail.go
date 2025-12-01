@@ -1,7 +1,7 @@
 package catalogmodel
 
 import (
-	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 

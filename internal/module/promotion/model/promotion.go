@@ -1,7 +1,7 @@
 package promotionmodel
 
 import (
-	promotiondb "shopnexus-remastered/internal/module/promotion/db"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"time"
 
