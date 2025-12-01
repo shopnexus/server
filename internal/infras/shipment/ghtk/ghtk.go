@@ -6,23 +6,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"shopnexus-remastered/internal/infras/shipment"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"strings"
 	"time"
-
-	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/infras/shipment"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 )
 
 const (
-	ServiceExpress  commonmodel.OptionMethod = "express"
-	ServiceStandard commonmodel.OptionMethod = "standard"
-	ServiceEconomy  commonmodel.OptionMethod = "economy"
+	ServiceExpress  sharedmodel.OptionMethod = "express"
+	ServiceStandard sharedmodel.OptionMethod = "standard"
+	ServiceEconomy  sharedmodel.OptionMethod = "economy"
 )
 
 // GTKClient implements the shipment.Client interface for GTK (fake implementation)
 type GTKClient struct {
-	config   commonmodel.OptionConfig
+	config   sharedmodel.OptionConfig
 	baseURL  string
 	apiKey   string
 	clientID string
@@ -35,7 +33,7 @@ type fakeShipment struct {
 	ID           string
 	LabelURL     string
 	Service      string
-	Status       db.OrderShipmentStatus
+	Status       shipment.ShipmentStatus
 	Costs        int64
 	EstimatedETA time.Time
 
@@ -55,11 +53,11 @@ type fakeShipment struct {
 // NewClients creates a new GTK shipment clients
 func NewClients(baseURL, apiKey, clientID string) []*GTKClient {
 	var clients []*GTKClient
-	methods := []commonmodel.OptionMethod{ServiceExpress, ServiceStandard, ServiceEconomy}
+	methods := []sharedmodel.OptionMethod{ServiceExpress, ServiceStandard, ServiceEconomy}
 
 	for _, method := range methods {
 		clients = append(clients, &GTKClient{
-			config: commonmodel.OptionConfig{
+			config: sharedmodel.OptionConfig{
 				ID:          fmt.Sprintf("ghtk_%s", method),
 				Name:        fmt.Sprintf("Giao hàng tiết kiệm - %s", string(method)),
 				Description: "Dịch vụ giao hàng nhanh của Giao hàng tiết kiệm",
@@ -75,7 +73,7 @@ func NewClients(baseURL, apiKey, clientID string) []*GTKClient {
 	return clients
 }
 
-func (g *GTKClient) Config() commonmodel.OptionConfig {
+func (g *GTKClient) Config() sharedmodel.OptionConfig {
 	return g.config
 }
 
@@ -86,7 +84,7 @@ func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (sh
 
 	return shipment.QuoteResult{
 		ETA:   etd,
-		Costs: commonmodel.Int64ToConcurrency(cost),
+		Costs: sharedmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 
@@ -101,7 +99,7 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		ID:           trackingID,
 		LabelURL:     fmt.Sprintf("%s/labels/%s.pdf", g.baseURL, trackingID),
 		Service:      string(g.config.Method),
-		Status:       db.OrderShipmentStatusLabelCreated,
+		Status:       shipment.ShipmentStatusLabelCreated,
 		Costs:        cost,
 		EstimatedETA: eta,
 		FromAddress:  params.FromAddress,
@@ -122,7 +120,7 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		LabelURL: ship.LabelURL,
 		Service:  ship.Service,
 		ETA:      eta,
-		Costs:    commonmodel.Int64ToConcurrency(cost),
+		Costs:    sharedmodel.Int64ToConcurrency(cost),
 	}, nil
 }
 
@@ -145,7 +143,7 @@ func (g *GTKClient) Track(ctx context.Context, trackingID string) (shipment.Trac
 }
 
 // calculateShippingCost calculates shipping cost based on weight and service type
-func (g *GTKClient) calculateShippingCost(weightGrams int32, service commonmodel.OptionMethod) int64 {
+func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel.OptionMethod) int64 {
 	baseCost := int64(15000) // 15,000 VND base cost
 
 	// Weight-based pricing
@@ -172,7 +170,7 @@ func (g *GTKClient) calculateShippingCost(weightGrams int32, service commonmodel
 }
 
 // calculateETA calculates estimated time of arrival
-func (g *GTKClient) calculateETA(service commonmodel.OptionMethod) time.Time {
+func (g *GTKClient) calculateETA(service sharedmodel.OptionMethod) time.Time {
 	now := time.Now()
 
 	switch service {
@@ -195,13 +193,13 @@ func (g *GTKClient) updateShipmentStatus(ship *fakeShipment) {
 	// Simulate status progression based on elapsed time
 	switch {
 	case elapsed < 30*time.Minute:
-		ship.Status = db.OrderShipmentStatusLabelCreated
+		ship.Status = shipment.ShipmentStatusLabelCreated
 	case elapsed < 2*time.Hour:
-		ship.Status = db.OrderShipmentStatusInTransit
+		ship.Status = shipment.ShipmentStatusInTransit
 	case elapsed < 24*time.Hour:
-		ship.Status = db.OrderShipmentStatusOutForDelivery
-	case elapsed > 24*time.Hour && ship.Status != db.OrderShipmentStatusDelivered:
-		ship.Status = db.OrderShipmentStatusDelivered
+		ship.Status = shipment.ShipmentStatusOutForDelivery
+	case elapsed > 24*time.Hour && ship.Status != shipment.ShipmentStatusDelivered:
+		ship.Status = shipment.ShipmentStatusDelivered
 	}
 
 	ship.UpdatedAt = now
@@ -210,17 +208,17 @@ func (g *GTKClient) updateShipmentStatus(ship *fakeShipment) {
 // getCurrentLocation returns a fake location based on shipment status
 func (g *GTKClient) getCurrentLocation(ship *fakeShipment) string {
 	switch ship.Status {
-	case db.OrderShipmentStatusLabelCreated:
+	case shipment.ShipmentStatusLabelCreated:
 		return "Hà Nội - Đang chuẩn bị hàng"
-	case db.OrderShipmentStatusInTransit:
+	case shipment.ShipmentStatusInTransit:
 		return "Trung tâm phân phối - Đang vận chuyển"
-	case db.OrderShipmentStatusOutForDelivery:
+	case shipment.ShipmentStatusOutForDelivery:
 		return "Đang giao hàng - Gần địa chỉ nhận"
-	case db.OrderShipmentStatusDelivered:
+	case shipment.ShipmentStatusDelivered:
 		return "Đã giao hàng thành công"
-	case db.OrderShipmentStatusFailed:
+	case shipment.ShipmentStatusFailed:
 		return "Giao hàng thất bại"
-	case db.OrderShipmentStatusCancelled:
+	case shipment.ShipmentStatusCancelled:
 		return "Đơn hàng đã hủy"
 	default:
 		return "Đang xử lý"
@@ -251,11 +249,11 @@ func (g *GTKClient) Cancel(ctx context.Context, id string) error {
 	}
 
 	// If it's already delivered, we cannot cancel
-	if ship.Status == db.OrderShipmentStatusDelivered {
+	if ship.Status == shipment.ShipmentStatusDelivered {
 		return fmt.Errorf("cannot cancel delivered shipment: %s", id)
 	}
 
-	ship.Status = db.OrderShipmentStatusCancelled
+	ship.Status = shipment.ShipmentStatusCancelled
 	ship.UpdatedAt = time.Now()
 	return nil
 }
