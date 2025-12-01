@@ -9,4 +9,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Mi
+      storage: 10Gi # Increased from 100Mi to 10Gi for proper Kafka operation
+  # Optional: specify storage class if you have specific requirements
+  # storageClassName: standard
