@@ -1,18 +1,255 @@
 version: "2"
 sql:
   - schema: "prisma/migrations/0_init"
-    queries: "./queries/"
+    queries:
+      - "./internal/module/account/queries/"
     engine: "postgresql"
     gen:
       go:
-        package: "db"
+        package: "accountdb"
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        out: "internal/db"
+        out: "internal/module/account/db"
         emit_interface: true
         emit_prepared_queries: true
         emit_empty_slices: true # For api empty data response
         emit_json_tags: true # Custom dto
-        #        emit_pointers_for_null_types: true
         emit_enum_valid_method: true
         emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/analytic/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "analyticdb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/analytic/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/catalog/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "catalogdb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/catalog/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/common/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "commondb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/common/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/inventory/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "inventorydb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/inventory/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/order/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "orderdb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/order/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/promotion/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "promotiondb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/promotion/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+  - schema: "prisma/migrations/0_init"
+    queries:
+      - "./internal/module/system/queries/"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "systemdb"
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        out: "internal/module/system/db"
+        emit_interface: true
+        emit_prepared_queries: true
+        emit_empty_slices: true # For api empty data response
+        emit_json_tags: true # Custom dto
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+
+overrides:
+  go:
+    overrides:
+      # UUID
+      - db_type: "uuid"
+        nullable: false
+        go_type: github.com/google/uuid.UUID
+      - db_type: "uuid"
+        nullable: true
+        go_type: github.com/google/uuid.NullUUID
+
+      # Timestamp WITH TZ
+      - db_type: "timestamptz"
+        nullable: false
+        go_type: time.Time
+      - db_type: "timestamptz"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Time"
+
+      # Timestamp WITHOUT TZ
+      - db_type: "pg_catalog.timestamp"
+        nullable: false
+        go_type: time.Time
+      - db_type: "pg_catalog.timestamp"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Time"
+
+      # Date
+      - db_type: "pg_catalog.datetime"
+        nullable: false
+        go_type: time.Time
+      - db_type: "pg_catalog.datetime"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Time"
+
+      # Text
+      - db_type: "text"
+        nullable: false
+        go_type: string
+      - db_type: "text"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "String"
+
+      # Varchar
+      - db_type: "varchar"
+        nullable: false
+        go_type: string
+      - db_type: "pg_catalog.varchar"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "String"
+
+      # Int4
+      # - db_type: "int4"
+      #   nullable: false
+      #   go_type: int32
+      - db_type: "pg_catalog.int4"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Int32"
+
+      # Int8
+      # - db_type: "int8"
+      #   nullable: false
+      #   go_type: int64
+      - db_type: "pg_catalog.int8"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Int"
+
+      # Float8
+      - db_type: "float"
+        nullable: false
+        go_type: float64
+      - db_type: "pg_catalog.float8"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Float"
+
+      # Bool
+      # - db_type: "pg_catalog.bool"
+      #   nullable: false
+      #   go_type: bool
+      - db_type: "pg_catalog.bool"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Bool"
+
+      # JSONB
+      - db_type: "jsonb"
+        nullable: false
+        go_type: encoding/json.RawMessage
+      - db_type: "jsonb"
+        nullable: true
+        go_type: encoding/json.RawMessage
