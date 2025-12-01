@@ -1,12 +1,6 @@
--- name: Update{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :one
+-- name: Update{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :one
 UPDATE {{.GetFullTableName}}
 SET {{range $i, $col := .GetUpdatableColumns}}{{if $i}},
     {{end}}{{if $col.IsNullable}}{{quotedName $col}} = CASE WHEN {{sqlcArg (printf "null_%s" $col.Name)}}::bool = TRUE THEN NULL ELSE COALESCE({{sqlcNarg $col.Name}}, {{quotedName $col}}) END{{else}}{{quotedName $col}} = COALESCE({{sqlcNarg $col.Name}}, {{quotedName $col}}){{end}}{{end}}
 WHERE id = sqlc.arg('id')
 RETURNING *;
-
--- name: UpdateBatch{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :batchexec
-UPDATE {{.GetFullTableName}}
-SET {{range $i, $col := .GetUpdatableColumns}}{{if $i}},
-    {{end}}{{if $col.IsNullable}}{{quotedName $col}} = CASE WHEN {{sqlcArg (printf "null_%s" $col.Name)}}::bool = TRUE THEN NULL ELSE COALESCE({{sqlcNarg $col.Name}}, {{quotedName $col}}) END{{else}}{{quotedName $col}} = COALESCE({{sqlcNarg $col.Name}}, {{quotedName $col}}){{end}}{{end}}
-WHERE id = sqlc.arg('id');

@@ -28,12 +28,13 @@ type UniqueConstraint struct {
 }
 
 type Table struct {
-	Schema            string
-	Name              string
-	Columns           []*Column
-	PrimaryKey        []*Column
-	Constraints       []string
-	UniqueConstraints []*UniqueConstraint
+	Schema                   string
+	Name                     string
+	Columns                  []*Column
+	PrimaryKey               []*Column
+	Constraints              []string
+	UniqueConstraints        []*UniqueConstraint
+	IncludeSchemaInQueryName bool
 }
 
 type SchemaParser struct{}

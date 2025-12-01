@@ -11,12 +11,13 @@ import (
 
 func main() {
 	var (
-		schemaFile  = flag.String("schema", "", "Path to SQL migration file")
-		outputDir   = flag.String("output", "queries", "Output directory for generated SQL files")
-		tableName   = flag.String("table", "", "Specific table name to generate queries for (format: schema.table, optional)")
-		templateDir = flag.String("templates", "pkg/tool/templates", "Directory containing template files")
-		singleFile  = flag.Bool("single-file", false, "Generate all queries into a single file (only when table not specified)")
-		help        = flag.Bool("help", false, "Show help")
+		schemaFile       = flag.String("schema", "", "Path to SQL migration file")
+		outputDir        = flag.String("output", "queries", "Output directory for generated SQL files")
+		tableName        = flag.String("table", "", "Specific table name to generate queries for (format: schema.table, optional)")
+		templateDir      = flag.String("templates", "pkg/tool/templates", "Directory containing template files")
+		singleFile       = flag.Bool("single-file", false, "Generate all queries into a single file (only when table not specified)")
+		skipSchemaPrefix = flag.Bool("skip-schema-prefix", false, "Generate query names without schema prefix (use table name only)")
+		help             = flag.Bool("help", false, "Show help")
 	)
 	flag.Parse()
 
@@ -25,7 +26,7 @@ func main() {
 		return
 	}
 
-	generator := NewQueryGenerator(*templateDir)
+	generator := NewQueryGenerator(*templateDir, !*skipSchemaPrefix)
 	if err := generator.GenerateFromSchema(*schemaFile, *outputDir, *tableName, *singleFile); err != nil {
 		log.Fatalf("Error generating queries: %v", err)
 	}
@@ -46,6 +47,7 @@ func showHelp() {
 	fmt.Println("  -table <name>      Generate queries for specific table (format: schema.table or just table)")
 	fmt.Println("  -templates <dir>   Directory containing template files (default: tool/templates)")
 	fmt.Println("  -single-file       Generate all queries into a single file (only when table not specified)")
+	fmt.Println("  -skip-schema-prefix Generate query names without schema prefix (use table name only)")
 	fmt.Println("  -help              Show this help message")
 	fmt.Println()
 	fmt.Println("Examples:")
@@ -63,14 +65,16 @@ func showHelp() {
 }
 
 type QueryGenerator struct {
-	templateDir string
-	templates   *TemplateManager
+	templateDir          string
+	templates            *TemplateManager
+	includeSchemaInNames bool
 }
 
-func NewQueryGenerator(templateDir string) *QueryGenerator {
+func NewQueryGenerator(templateDir string, includeSchemaInNames bool) *QueryGenerator {
 	return &QueryGenerator{
-		templateDir: templateDir,
-		templates:   NewTemplateManager(templateDir),
+		templateDir:          templateDir,
+		templates:            NewTemplateManager(templateDir),
+		includeSchemaInNames: includeSchemaInNames,
 	}
 }
 
@@ -90,6 +94,11 @@ func (g *QueryGenerator) GenerateFromSchema(schemaFile, outputDir, specificTable
 	// CreateAccount output directory
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Apply schema prefix preference
+	for _, table := range tables {
+		table.IncludeSchemaInQueryName = g.includeSchemaInNames
 	}
 
 	// Filter tables if specific table is requested
@@ -158,9 +167,9 @@ func (g *QueryGenerator) generateAllTablesQueries(tables []*Table, outputDir str
 		var tableQueries []string
 
 		// Add a comment header for the table
-		tableQueries = append(tableQueries, fmt.Sprintf("-- ========================================"))
+		tableQueries = append(tableQueries, "-- ========================================")
 		tableQueries = append(tableQueries, fmt.Sprintf("-- Queries for table: %s.%s", table.Schema, table.Name))
-		tableQueries = append(tableQueries, fmt.Sprintf("-- ========================================"))
+		tableQueries = append(tableQueries, "-- ========================================")
 
 		// Generate different types of queries
 		queryTypes := []string{"get", "list", "create", "update", "delete"}

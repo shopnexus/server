@@ -1,19 +1,20 @@
--- name: Exists{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :one
-SELECT EXISTS (
-SELECT 1
-FROM {{.GetFullTableName}}
-{{generateFilterConditions .}}
-) as exists;
-
--- name: Count{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :one
+-- name: Count{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :one
 SELECT COUNT(*)
 FROM {{.GetFullTableName}}
 {{generateFilterConditions .}};
 
--- name: List{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :many
+-- name: List{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :many
 SELECT *
 FROM {{.GetFullTableName}}
 {{generateFilterConditions .}}
 ORDER BY "id"
-LIMIT {{sqlcNarg "limit"}}
-OFFSET {{sqlcNarg "offset"}};
+LIMIT {{sqlcNarg "limit"}}::int
+OFFSET {{sqlcNarg "offset"}}::int;
+
+-- name: ListCount{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :many
+SELECT sqlc.embed(embed_{{.Name | lower}}), COUNT(*) OVER() as total_count
+FROM {{.GetFullTableName}} embed_{{.Name | lower}}
+{{generateFilterConditions .}}
+ORDER BY "id"
+LIMIT {{sqlcNarg "limit"}}::int
+OFFSET {{sqlcNarg "offset"}}::int;
