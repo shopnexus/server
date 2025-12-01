@@ -4,34 +4,105 @@ import (
 	"context"
 	"fmt"
 
-	"shopnexus-remastered/internal/db"
+	accountdb "shopnexus-remastered/internal/module/account/db"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/samber/lo"
 )
 
+type ListProfileParams struct {
+	sharedmodel.PaginationParams
+	Issuer     accountmodel.AuthenticatedAccount // Who is requesting the profiles
+	AccountIDs []uuid.UUID                       `validate:"dive,required"`
+}
+
+func (b *AccountBiz) ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
+	var result sharedmodel.PaginateResult[accountmodel.Profile]
+	if err := validator.Validate(params); err != nil {
+		return result, err
+	}
+
+	listProfile, err := b.storage.Querier().ListCountProfile(ctx, accountdb.ListCountProfileParams{
+		ID:     params.AccountIDs,
+		Limit:  params.Limit,
+		Offset: params.Offset(),
+	})
+	if err != nil {
+		return result, err
+	}
+
+	var total null.Int64
+	if len(listProfile) > 0 {
+		total.SetValid(listProfile[0].TotalCount)
+	}
+
+	dbProfiles := lo.Map(listProfile, func(row accountdb.ListCountProfileRow, _ int) accountdb.AccountProfile {
+		return row.AccountProfile
+	})
+
+	listAccount, err := b.storage.Querier().ListAccount(ctx, accountdb.ListAccountParams{
+		ID: lo.Map(params.AccountIDs, func(id uuid.UUID, _ int) uuid.UUID { return id }),
+	})
+	if err != nil {
+		return result, err
+	}
+
+	accountMap := lo.KeyBy(listAccount, func(account accountdb.AccountAccount) uuid.UUID {
+		return account.ID
+	})
+
+	profiles := make([]accountmodel.Profile, 0, len(dbProfiles))
+	for _, dbProfile := range dbProfiles {
+		account := accountMap[dbProfile.ID]
+
+		profiles = append(profiles, accountmodel.Profile{
+			ID:          account.ID,
+			DateCreated: account.DateCreated,
+			DateUpdated: account.DateUpdated,
+
+			Type:     account.Type,
+			Status:   account.Status,
+			Phone:    account.Phone,
+			Email:    account.Email,
+			Username: account.Username,
+
+			Gender:           null.NewValue(dbProfile.Gender.AccountGender, dbProfile.Gender.Valid),
+			Name:             dbProfile.Name,
+			DateOfBirth:      dbProfile.DateOfBirth,
+			EmailVerified:    dbProfile.EmailVerified,
+			PhoneVerified:    dbProfile.PhoneVerified,
+			DefaultContactID: dbProfile.DefaultContactID,
+			AvatarURL:        b.common.GetResourceURLByID(ctx, dbProfile.AvatarRsID.UUID),
+		})
+	}
+
+	return sharedmodel.PaginateResult[accountmodel.Profile]{
+		PageParams: params.PaginationParams,
+		Data:       profiles,
+		Total:      total,
+	}, nil
+}
+
 type GetProfileParams struct {
-	Issuer    authmodel.AuthenticatedAccount // Who is requesting the profile
-	AccountID int64
+	Issuer    accountmodel.AuthenticatedAccount // Who is requesting the profile
+	AccountID uuid.UUID
 }
 
 func (b *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
-	profile, err := b.storage.GetAccountProfile(ctx, db.GetAccountProfileParams{
-		ID: pgutil.Int64ToPgInt8(params.AccountID),
+	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
+		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	account, err := b.storage.GetAccountBase(ctx, db.GetAccountBaseParams{
-		ID: pgutil.Int64ToPgInt8(params.AccountID),
+	account, err := b.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
+		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
 	})
 	if err != nil {
 		return zero, err
@@ -40,14 +111,14 @@ func (b *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 	var (
 		description null.String
 	)
-	if account.Type == db.AccountTypeCustomer {
-		// customer, err := s.storage.GetAccountCustomer(ctx, pgutil.Int64ToPgInt8(params.AccountID))
+	if account.Type == accountdb.AccountTypeCustomer {
+		// customer, err := s.storage.GetCustomer(ctx, pgutil.Int64ToPgInt8(params.AccountID))
 		// if err != nil {
 		// 	return zero, err
 		// }
 	}
-	if account.Type == db.AccountTypeVendor {
-		vendor, err := b.storage.GetAccountVendor(ctx, pgutil.Int64ToPgInt8(params.AccountID))
+	if account.Type == accountdb.AccountTypeVendor {
+		vendor, err := b.storage.Querier().GetVendor(ctx, uuid.NullUUID{UUID: params.AccountID, Valid: true})
 		if err != nil {
 			return zero, err
 		}
@@ -56,22 +127,22 @@ func (b *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 
 	return accountmodel.Profile{
 		ID:          account.ID,
-		DateCreated: account.DateCreated.Time,
-		DateUpdated: account.DateUpdated.Time,
+		DateCreated: account.DateCreated,
+		DateUpdated: account.DateUpdated,
 
 		Type:     account.Type,
 		Status:   account.Status,
-		Phone:    pgutil.PgTextToNullString(account.Phone),
-		Email:    pgutil.PgTextToNullString(account.Email),
-		Username: pgutil.PgTextToNullString(account.Username),
+		Phone:    account.Phone,
+		Email:    account.Email,
+		Username: account.Username,
 
 		Gender:           null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
-		Name:             pgutil.PgTextToNullString(profile.Name),
-		DateOfBirth:      profile.DateOfBirth.Time,
+		Name:             profile.Name,
+		DateOfBirth:      profile.DateOfBirth,
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
-		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
-		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.Bytes),
+		DefaultContactID: profile.DefaultContactID,
+		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.UUID),
 
 		// Vendor fields
 		Description: description,
@@ -79,22 +150,22 @@ func (b *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (a
 }
 
 type UpdateProfileParams struct {
-	Storage   pgsqlc.Storage
-	Issuer    authmodel.AuthenticatedAccount // Who is performing the update
-	AccountID int64                          // Whose profile to be updated
+	Storage   AccountStorage
+	Issuer    accountmodel.AuthenticatedAccount // Who is performing the update
+	AccountID uuid.UUID                         // Whose profile to be updated
 
 	// Account base fields
-	Status   db.AccountStatus
+	Status   accountdb.AccountStatus
 	Username null.String
 	Phone    null.String
 	Email    null.String
 
 	// Profile fields
-	Gender           db.AccountGender
+	Gender           accountdb.AccountGender
 	Name             null.String
 	DateOfBirth      null.Time
 	AvatarRsID       uuid.NullUUID
-	DefaultContactID null.Int64
+	DefaultContactID uuid.NullUUID
 
 	// Vendor fields
 	Description null.String
@@ -108,31 +179,31 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 	}
 
 	var (
-		account db.AccountBase
-		profile db.AccountProfile
+		account accountdb.AccountAccount
+		profile accountdb.AccountProfile
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage AccountStorage) error {
 		var err error
 
-		account, err = txStorage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
+		account, err = txStorage.Querier().UpdateAccount(ctx, accountdb.UpdateAccountParams{
 			ID:       params.AccountID,
-			Status:   db.NullAccountStatus{AccountStatus: params.Status, Valid: params.Status != ""},
-			Username: pgutil.NullStringToPgText(params.Username),
-			Phone:    pgutil.NullStringToPgText(params.Phone),
-			Email:    pgutil.NullStringToPgText(params.Email),
+			Status:   accountdb.NullAccountStatus{AccountStatus: params.Status, Valid: params.Status != ""},
+			Username: params.Username,
+			Phone:    params.Phone,
+			Email:    params.Email,
 		})
 		if err != nil {
 			return err
 		}
 
-		profile, err = txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
+		profile, err = txStorage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
 			ID:               params.AccountID,
-			Gender:           db.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
-			Name:             pgutil.NullStringToPgText(params.Name),
-			DateOfBirth:      pgtype.Date{Time: params.DateOfBirth.Time, Valid: params.DateOfBirth.Valid},
-			AvatarRsID:       pgutil.NullUUIDToPgUUID(params.AvatarRsID),
-			DefaultContactID: pgutil.NullInt64ToPgInt8(params.DefaultContactID),
+			Gender:           accountdb.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
+			Name:             params.Name,
+			DateOfBirth:      params.DateOfBirth,
+			AvatarRsID:       params.AvatarRsID,
+			DefaultContactID: params.DefaultContactID,
 		})
 		if err != nil {
 			return err
@@ -140,14 +211,14 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 
 		// Update customer/vendor additional profile
 		switch account.Type {
-		case db.AccountTypeCustomer:
-			_, err = txStorage.UpdateAccountCustomer(ctx, db.UpdateAccountCustomerParams{
+		case accountdb.AccountTypeCustomer:
+			_, err = txStorage.Querier().UpdateCustomer(ctx, accountdb.UpdateCustomerParams{
 				ID: params.AccountID,
 			})
-		case db.AccountTypeVendor:
-			_, err = txStorage.UpdateAccountVendor(ctx, db.UpdateAccountVendorParams{
+		case accountdb.AccountTypeVendor:
+			_, err = txStorage.Querier().UpdateVendor(ctx, accountdb.UpdateVendorParams{
 				ID:          params.AccountID,
-				Description: pgutil.NullStringToPgText(params.Description),
+				Description: params.Description,
 			})
 		}
 		if err != nil {
@@ -161,22 +232,22 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 
 	return accountmodel.Profile{
 		ID:          profile.ID,
-		DateCreated: profile.DateCreated.Time,
-		DateUpdated: profile.DateUpdated.Time,
+		DateCreated: profile.DateCreated,
+		DateUpdated: profile.DateUpdated,
 
 		Type:     account.Type,
 		Status:   account.Status,
-		Phone:    pgutil.PgTextToNullString(account.Phone),
-		Email:    pgutil.PgTextToNullString(account.Email),
-		Username: pgutil.PgTextToNullString(account.Username),
+		Phone:    account.Phone,
+		Email:    account.Email,
+		Username: account.Username,
 
 		Gender:           null.NewValue(profile.Gender.AccountGender, profile.Gender.Valid),
-		Name:             pgutil.PgTextToNullString(profile.Name),
-		DateOfBirth:      profile.DateOfBirth.Time,
+		Name:             profile.Name,
+		DateOfBirth:      profile.DateOfBirth,
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
-		DefaultContactID: pgutil.PgInt8ToNullInt64(profile.DefaultContactID),
+		DefaultContactID: profile.DefaultContactID,
 		Description:      params.Description,
-		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.Bytes),
+		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.UUID),
 	}, nil
 }

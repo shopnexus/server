@@ -4,162 +4,115 @@ import (
 	"context"
 	"fmt"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
+	accountbiz "shopnexus-remastered/internal/module/account/biz"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commondb "shopnexus-remastered/internal/module/common/db"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/slice"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
 )
 
 type ListCommentParams struct {
-	commonmodel.PaginationParams
-	RefType   db.CatalogCommentRefType `validate:"required"`
-	ID        []int64                  `validate:"omitempty,dive,gt=0"`
-	AccountID []int64                  `validate:"omitempty,dive,gt=0"`
-	RefID     []int64                  `validate:"omitempty,dive,gt=0"`
-	ScoreFrom null.Int32               `validate:"omitnil,gte=1,lte=10"`
-	ScoreTo   null.Int32               `validate:"omitnil,gte=1,lte=10"`
+	sharedmodel.PaginationParams
+	RefType   catalogdb.CatalogCommentRefType `validate:"required,validateFn=Valid"`
+	ID        []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
+	AccountID []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
+	RefID     []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
+	ScoreFrom null.Float                      `validate:"omitnil,gte=0,lte=1"`
+	ScoreTo   null.Float                      `validate:"omitnil,gte=0,lte=1"`
 }
 
-func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) (commonmodel.PaginateResult[catalogmodel.Comment], error) {
-	var zero commonmodel.PaginateResult[catalogmodel.Comment]
+func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
+	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogComment(ctx, db.CountCatalogCommentParams{
+	listComment, err := b.storage.Querier().ListCountComment(ctx, catalogdb.ListCountCommentParams{
+		Limit:     params.Limit,
+		Offset:    params.Offset(),
 		ID:        params.ID,
 		AccountID: params.AccountID,
-		RefType:   []db.CatalogCommentRefType{params.RefType},
+		RefType:   []catalogdb.CatalogCommentRefType{params.RefType},
 		RefID:     params.RefID,
-		ScoreFrom: pgutil.NullInt32ToPgInt4(params.ScoreFrom),
-		ScoreTo:   pgutil.NullInt32ToPgInt4(params.ScoreTo),
+		ScoreFrom: params.ScoreFrom,
+		ScoreTo:   params.ScoreTo,
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	dbComments, err := b.storage.ListCatalogComment(ctx, db.ListCatalogCommentParams{
-		Limit:     pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:    pgutil.Int32ToPgInt4(params.Offset()),
-		ID:        params.ID,
-		AccountID: params.AccountID,
-		RefType:   []db.CatalogCommentRefType{params.RefType},
-		RefID:     params.RefID,
-		ScoreFrom: pgutil.NullInt32ToPgInt4(params.ScoreFrom),
-		ScoreTo:   pgutil.NullInt32ToPgInt4(params.ScoreTo),
-	})
-	if err != nil {
-		return zero, err
+	var total null.Int64
+	if len(listComment) > 0 {
+		total.SetValid(listComment[0].TotalCount)
 	}
-	var commentIDs []int64
-	var accountIDs []int64
+
+	dbComments := lo.Map(listComment, func(row catalogdb.ListCountCommentRow, _ int) catalogdb.CatalogComment {
+		return row.CatalogComment
+	})
+
+	var commentIDs []uuid.UUID
+	var accountIDs []uuid.UUID
 	for _, row := range dbComments {
 		commentIDs = append(commentIDs, row.ID)
 		accountIDs = append(accountIDs, row.AccountID)
 	}
 
 	// Map accounts to comments
-	dbProfiles, err := b.storage.ListAccountProfile(ctx, db.ListAccountProfileParams{
-		ID: accountIDs,
+	listProfile, err := b.account.ListProfile(ctx, accountbiz.ListProfileParams{
+		AccountIDs: accountIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	// map[accountID]db.AccountProfile
-	profileMap := lo.KeyBy(dbProfiles, func(a db.AccountProfile) int64 { return a.ID })
-
-	// Map avatar accounts
-	avatars, err := b.storage.ListCommonResource(ctx, db.ListCommonResourceParams{
-		ID: lo.Map(dbProfiles, func(a db.AccountProfile, _ int) pgtype.UUID { return a.AvatarRsID }),
-	})
-	if err != nil {
-		return zero, err
-	}
-	avatarMap := lo.KeyBy(avatars, func(r db.CommonResource) pgtype.UUID { return r.ID })
+	// map[accountID]catalogdb.AccountProfile
+	profileMap := lo.KeyBy(listProfile.Data, func(a accountmodel.Profile) uuid.UUID { return a.ID })
 
 	// Map resources to comments
-	dbResources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.CommonResourceRefTypeComment,
-		RefID:   commentIDs,
-	})
+	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeComment, commentIDs)
 	if err != nil {
 		return zero, err
-	}
-	resourceMap := make(map[int64][]commonmodel.Resource)
-	for _, row := range dbResources {
-		// url, err :=
-
-		resourceMap[row.RefID] = append(resourceMap[row.RefID], commonmodel.Resource{
-			ID:       row.ID.Bytes,
-			Url:      b.common.MustGetFileURL(ctx, row.Provider, row.ObjectKey),
-			Mime:     row.Mime,
-			Size:     row.Size,
-			Checksum: pgutil.PgTextToNullString(row.Checksum),
-		})
 	}
 
 	var comments []catalogmodel.Comment
-	for _, row := range dbComments {
-		profile := profileMap[row.AccountID]
-		name := "Unknown User"
-		if profile.Name.Valid {
-			name = profile.Name.String
-		}
-		var avatar *commonmodel.Resource
-		if profile.AvatarRsID.Valid {
-			a := avatarMap[profile.AvatarRsID]
-			avatar = &commonmodel.Resource{
-				ID:   a.ID.Bytes,
-				Url:  b.common.MustGetFileURL(ctx, a.Provider, a.ObjectKey),
-				Mime: a.Mime,
-				Size: a.Size,
-			}
-		}
-
+	for _, dbComment := range dbComments {
 		comments = append(comments, catalogmodel.Comment{
-			ID: row.ID,
-			Account: catalogmodel.CommentAccount{
-				ID:       row.AccountID,
-				Name:     name,
-				Avatar:   avatar,
-				Verified: profile.PhoneVerified || profile.EmailVerified,
-			},
-			Body:        row.Body,
-			Upvote:      row.Upvote,
-			Downvote:    row.Downvote,
-			Score:       row.Score,
-			DateCreated: row.DateCreated,
-			DateUpdated: row.DateUpdated,
-			Resources:   slice.EnsureSlice(resourceMap[row.ID]),
+			ID:          dbComment.ID,
+			Profile:     profileMap[dbComment.AccountID],
+			Body:        dbComment.Body,
+			Upvote:      dbComment.Upvote,
+			Downvote:    dbComment.Downvote,
+			Score:       dbComment.Score,
+			DateCreated: dbComment.DateCreated,
+			DateUpdated: dbComment.DateUpdated,
+			Resources:   resourcesMap[dbComment.ID],
 		})
 	}
 
-	return commonmodel.PaginateResult[catalogmodel.Comment]{
+	return sharedmodel.PaginateResult[catalogmodel.Comment]{
 		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
 		Data:       comments,
+		Total:      total,
 	}, nil
 }
 
 type CreateCommentParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
+	Storage CatalogStorage
+	Account accountmodel.AuthenticatedAccount
 
-	RefType db.CatalogCommentRefType `validate:"required"`
-	RefID   int64                    `validate:"required,gt=0"`
-	Body    string                   `validate:"required,min=1,max=1000"`
-	Score   int32                    `validate:"required,gte=1,lte=10"`
+	RefType catalogdb.CatalogCommentRefType `validate:"required"`
+	RefID   uuid.UUID                       `validate:"required"`
+	Body    string                          `validate:"required,min=1,max=1000"`
+	Score   float64                         `validate:"required,gte=0,lte=1"`
 
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
@@ -172,13 +125,13 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 	}
 
 	var (
-		comment   db.CatalogComment
+		comment   catalogdb.CatalogComment
 		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		var err error
-		comment, err = txStorage.CreateDefaultCatalogComment(ctx, db.CreateDefaultCatalogCommentParams{
+		comment, err = txStorage.Querier().CreateDefaultComment(ctx, catalogdb.CreateDefaultCommentParams{
 			AccountID: params.Account.ID,
 			RefType:   params.RefType,
 			RefID:     params.RefID,
@@ -191,12 +144,12 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 
 		// Attach resources
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			Storage:        txStorage,
-			Account:        params.Account,
-			RefType:        db.CommonResourceRefTypeComment,
-			RefID:          comment.ID,
-			ResourceIDs:    params.ResourceIDs,
-			EmptyResources: true,
+			// TODO: use message queue instead sequential calls
+			Storage:     pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
+			Account:     params.Account,
+			RefType:     commondb.CommonResourceRefTypeComment,
+			RefID:       comment.ID,
+			ResourceIDs: params.ResourceIDs,
 		})
 		if err != nil {
 			return err
@@ -207,9 +160,17 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		return zero, fmt.Errorf("failed to create comment: %w", err)
 	}
 
+	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+		Issuer:    params.Account,
+		AccountID: comment.AccountID,
+	})
+	if err != nil {
+		return zero, fmt.Errorf("failed to get comment profile: %w", err)
+	}
+
 	return catalogmodel.Comment{
 		ID:          comment.ID,
-		Account:     catalogmodel.CommentAccount{ID: params.Account.ID},
+		Profile:     profile,
 		Body:        comment.Body,
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
@@ -221,12 +182,12 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 }
 
 type UpdateCommentParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
+	Storage CatalogStorage
+	Account accountmodel.AuthenticatedAccount
 
-	ID            int64       `validate:"required,gt=0"`
+	ID            uuid.UUID   `validate:"required"`
 	Body          null.String `validate:"omitempty,min=1,max=1000"`
-	Score         null.Int32  `validate:"omitempty,gte=1,lte=10"`
+	Score         null.Float  `validate:"omitempty,gte=0,lte=1"`
 	UpvoteDelta   null.Int64  `validate:"omitempty,ne=0"`
 	DownvoteDelta null.Int64  `validate:"omitempty,ne=0"`
 
@@ -242,18 +203,18 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 	}
 
 	var (
-		comment   db.CatalogComment
+		comment   catalogdb.CatalogComment
 		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		var err error
 
 		// Update base comment info
-		comment, err = txStorage.UpdateCatalogComment(ctx, db.UpdateCatalogCommentParams{
+		comment, err = txStorage.Querier().UpdateComment(ctx, catalogdb.UpdateCommentParams{
 			ID:    params.ID,
-			Body:  pgutil.NullStringToPgText(params.Body),
-			Score: pgutil.NullInt32ToPgInt4(params.Score),
+			Body:  params.Body,
+			Score: params.Score,
 		})
 		if err != nil {
 			return err
@@ -261,10 +222,10 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 
 		// Update upvote/downvote count
 		if params.UpvoteDelta.Valid || params.DownvoteDelta.Valid {
-			if err := txStorage.UpdateCatalogCommentUpvoteDownvote(ctx, db.UpdateCatalogCommentUpvoteDownvoteParams{
+			if err := txStorage.Querier().UpdateCommentUpvoteDownvote(ctx, catalogdb.UpdateCommentUpvoteDownvoteParams{
 				ID:            params.ID,
-				UpvoteDelta:   pgutil.NullInt64ToPgInt8(params.UpvoteDelta),
-				DownvoteDelta: pgutil.NullInt64ToPgInt8(params.DownvoteDelta),
+				UpvoteDelta:   params.UpvoteDelta,
+				DownvoteDelta: params.DownvoteDelta,
 			}); err != nil {
 				return err
 			}
@@ -272,12 +233,12 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 
 		// Update resources
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			Storage:         txStorage,
+			Storage:         pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
 			Account:         params.Account,
-			RefType:         db.CommonResourceRefTypeComment,
+			RefType:         commondb.CommonResourceRefTypeComment,
 			RefID:           params.ID,
 			ResourceIDs:     params.ResourceIDs,
-			EmptyResources:  params.EmptyResources,
+			EmptyResources:  true, // User may want to remove all resources (set to empty)
 			DeleteResources: true,
 		})
 		if err != nil {
@@ -289,9 +250,17 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		return zero, fmt.Errorf("failed to update comment: %w", err)
 	}
 
+	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+		Issuer:    params.Account,
+		AccountID: comment.AccountID,
+	})
+	if err != nil {
+		return zero, fmt.Errorf("failed to get comment profile: %w", err)
+	}
+
 	return catalogmodel.Comment{
 		ID:          comment.ID,
-		Account:     catalogmodel.CommentAccount{ID: params.Account.ID},
+		Profile:     profile,
 		Body:        comment.Body,
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
@@ -303,10 +272,10 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 }
 
 type DeleteCommentParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
+	Storage CatalogStorage
+	Account accountmodel.AuthenticatedAccount
 
-	CommentIDs []int64 `validate:"required,dive,gt=0"`
+	CommentIDs []uuid.UUID `validate:"required,dive,gt=0"`
 }
 
 func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentParams) error {
@@ -314,25 +283,24 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		// Delete base comments
-		if err := txStorage.DeleteCatalogComment(ctx, db.DeleteCatalogCommentParams{
+		if err := txStorage.Querier().DeleteComment(ctx, catalogdb.DeleteCommentParams{
 			ID: params.CommentIDs,
 		}); err != nil {
 			return err
 		}
 
 		// Remove associated resources
-		// if err := b.shared.DeleteResources(ctx, txStorage, commonbiz.DeleteResourcesParams{
-		// 	RefType:             db.CommonResourceRefTypeComment,
-		// 	RefID:               params.CommentIDs,
-		// 	DeleteResources:     true,
-		// 	SkipDeleteResources: nil,
-		// }); err != nil {
-		// 	return err
-		// }
-		// TODO: now: use update resources instead
-		// TODO: remove resources that are no longer referenced by any
+		if err := b.common.DeleteResources(ctx, commonbiz.DeleteResourcesParams{
+			// TODO: use message queue instead sequential calls
+			Storage:         pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
+			RefType:         commondb.CommonResourceRefTypeComment,
+			RefID:           params.CommentIDs,
+			DeleteResources: true,
+		}); err != nil {
+			return err
+		}
 
 		return nil
 	}); err != nil {

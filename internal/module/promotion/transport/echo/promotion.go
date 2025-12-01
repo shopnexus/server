@@ -3,13 +3,14 @@ package catalogecho
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 )
 
 type Handler struct {
@@ -32,7 +33,7 @@ func NewHandler(e *echo.Echo, biz *promotionbiz.PromotionBiz) *Handler {
 }
 
 type GetPromotionRequest struct {
-	ID int64 `param:"id" validate:"required"`
+	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) GetPromotion(c echo.Context) error {
@@ -78,7 +79,7 @@ func (h *Handler) ListPromotion(c echo.Context) error {
 }
 
 type DeletePromotionRequest struct {
-	ID int64 `param:"id" validate:"required,gt=0"`
+	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) DeletePromotion(c echo.Context) error {
@@ -106,7 +107,7 @@ func (h *Handler) DeletePromotion(c echo.Context) error {
 }
 
 type UpdatePromotionRequest struct {
-	ID            int64                 `json:"id" validate:"required"`
+	ID            uuid.UUID             `json:"id" validate:"required"`
 	Code          null.String           `json:"code" validate:"omitnil"`
 	OwnerID       null.Int64            `json:"owner_id" validate:"omitnil"`
 	Refs          []PromotionRefRequest `json:"refs" validate:"dive"`

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/infras/pubsub"
+	orderdb "shopnexus-remastered/internal/module/order/db"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
+
+	"github.com/google/uuid"
 )
 
 func (b *OrderBiz) SetupPubsub() error {
@@ -17,7 +19,7 @@ func (b *OrderBiz) SetupPubsub() error {
 }
 
 type OrderCreatedParams = struct {
-	OrderID int64
+	OrderID uuid.UUID
 }
 
 func (b *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
@@ -26,7 +28,7 @@ func (b *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) 
 }
 
 type OrderPaidParams = struct {
-	OrderID int64
+	OrderID uuid.UUID
 }
 
 func (b *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
@@ -37,10 +39,18 @@ func (b *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error 
 	// }
 	// defer txStorage.Rollback(ctx)
 
-	// Update the order status to success
-	_, err := b.storage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
-		ID:            params.OrderID,
-		PaymentStatus: db.NullCommonStatus{CommonStatus: db.CommonStatusSuccess, Valid: true},
+	// Get order to find payment ID
+	order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+		ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Update the payment status to success
+	_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+		ID:     order.PaymentID,
+		Status: orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusSuccess, Valid: true},
 	})
 	if err != nil {
 		return err

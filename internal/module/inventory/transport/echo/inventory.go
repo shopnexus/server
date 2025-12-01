@@ -3,11 +3,12 @@ package inventoryecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -31,8 +32,8 @@ func NewHandler(e *echo.Echo, biz *inventorybiz.InventoryBiz) *Handler {
 }
 
 type GetStockRequest struct {
-	RefID   int64                    `query:"ref_id" validate:"required,gt=0"`
-	RefType db.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
+	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
 
 func (h *Handler) GetStock(c echo.Context) error {
@@ -57,8 +58,8 @@ func (h *Handler) GetStock(c echo.Context) error {
 
 type ListStockHistoryRequest struct {
 	commonmodel.PaginationParams
-	RefID   int64                    `query:"ref_id" validate:"required,gt=0"`
-	RefType db.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
+	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
 
 func (h *Handler) ListStockHistory(c echo.Context) error {
@@ -83,10 +84,10 @@ func (h *Handler) ListStockHistory(c echo.Context) error {
 }
 
 type ImportStockRequest struct {
-	RefID     int64                    `json:"ref_id" validate:"required,gt=0"`
-	RefType   db.InventoryStockRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	Change    int64                    `json:"change" validate:"required,gt=0"`
-	SerialIDs []string                 `json:"serial_ids" validate:"dive,required"`
+	RefID     uuid.UUID                         `json:"ref_id" validate:"required"`
+	RefType   inventorydb.InventoryStockRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	Change    int64                             `json:"change" validate:"required,gt=0"`
+	SerialIDs []string                          `json:"serial_ids" validate:"dive,required"`
 }
 
 func (h *Handler) ImportStock(c echo.Context) error {
@@ -111,8 +112,8 @@ func (h *Handler) ImportStock(c echo.Context) error {
 }
 
 type UpdateSkuSerialRequest struct {
-	SerialIDs []string                  `json:"serial_ids" validate:"required,dive,required"`
-	Status    db.InventoryProductStatus `json:"status" validate:"required,validateFn=Valid"`
+	SerialIDs []string                           `json:"serial_ids" validate:"required,dive,required"`
+	Status    inventorydb.InventoryProductStatus `json:"status" validate:"required,validateFn=Valid"`
 }
 
 func (h *Handler) UpdateSkuSerial(c echo.Context) error {

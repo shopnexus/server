@@ -3,16 +3,17 @@ package inventoryecho
 import (
 	"net/http"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type ListProductSerialRequest struct {
 	commonmodel.PaginationParams
-	SkuID int64 `query:"sku_id" validate:"required,gt=0"`
+	SkuID uuid.UUID `query:"sku_id" validate:"required"`
 }
 
 func (h *Handler) ListProductSerial(c echo.Context) error {

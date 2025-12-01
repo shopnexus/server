@@ -4,19 +4,20 @@ import (
 	"net/http"
 	"time"
 
-	"shopnexus-remastered/internal/db"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 )
 
 type PromotionRefRequest struct {
-	RefType db.PromotionRefType `json:"ref_type" validate:"required"`
-	RefID   int64               `json:"ref_id" validate:"required"`
+	RefType promotiondb.PromotionRefType `json:"ref_type" validate:"required"`
+	RefID   uuid.UUID                    `json:"ref_id" validate:"required"`
 }
 
 type CreatePromotionRequest struct {
@@ -35,8 +36,8 @@ type CreateDiscountRequest struct {
 	MinSpend               int64 `json:"min_spend" validate:"required"`
 	MaxDiscount            int64 `json:"max_discount" validate:"required"`
 
-	// TODO: Either DiscountPercent or DiscountPrice must be provided
-	DiscountPercent null.Int32 `json:"discount_percent" validate:"omitnil"`
+	// Either DiscountPercent or DiscountPrice must be provided
+	DiscountPercent null.Float `json:"discount_percent" validate:"omitnil"`
 	DiscountPrice   null.Int64 `json:"discount_price" validate:"omitnil"`
 }
 
@@ -64,7 +65,7 @@ func (h *Handler) CreateDiscount(c echo.Context) error {
 				}
 			}),
 			Code:        req.Code,
-			Type:        db.PromotionTypeDiscount,
+			Type:        promotiondb.PromotionTypeDiscount,
 			Title:       req.Title,
 			Description: req.Description,
 			IsActive:    req.IsActive,
@@ -88,7 +89,7 @@ type UpdateDiscountRequest struct {
 	UpdatePromotionRequest `json:",inline"`
 	MinSpend               null.Int64 `json:"min_spend" validate:"omitnil,min=0,max=1000000000"`
 	MaxDiscount            null.Int64 `json:"max_discount" validate:"omitnil,min=0,max=1000000000"`
-	DiscountPercent        null.Int32 `json:"discount_percent" validate:"omitnil,min=1,max=100"`
+	DiscountPercent        null.Float `json:"discount_percent" validate:"omitnil,min=0,max=1"`
 	DiscountPrice          null.Int64 `json:"discount_price" validate:"omitnil,min=1,max=1000000000"`
 }
 

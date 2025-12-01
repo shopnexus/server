@@ -3,13 +3,14 @@ package catalogecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/module/shared/response"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type GetProductDetailRequest struct {
-	ID int64 `query:"id" validate:"required"`
+	ID uuid.UUID `query:"id" validate:"required"`
 }
 
 func (h *Handler) GetProductDetail(c echo.Context) error {

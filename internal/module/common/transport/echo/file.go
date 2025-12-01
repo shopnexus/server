@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/labstack/echo/v4"
 )

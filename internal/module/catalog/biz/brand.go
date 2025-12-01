@@ -3,42 +3,47 @@ package catalogbiz
 import (
 	"context"
 
-	"shopnexus-remastered/internal/db"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type ListBrandParams struct {
 	commonmodel.PaginationParams
+	ID     []uuid.UUID `validate:"omitempty"`
+	Search null.String `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (commonmodel.PaginateResult[db.CatalogBrand], error) {
-	var zero commonmodel.PaginateResult[db.CatalogBrand]
+func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (commonmodel.PaginateResult[catalogdb.CatalogBrand], error) {
+	var zero commonmodel.PaginateResult[catalogdb.CatalogBrand]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogBrand(ctx, db.CountCatalogBrandParams{})
-	if err != nil {
-		return zero, err
-	}
+	dbBrands, err := b.storage.Querier().SearchBrand(ctx, catalogdb.SearchBrandParams{
+		Limit:  params.Limit,
+		Offset: params.Offset(),
 
-	dbBrands, err := b.storage.ListCatalogBrand(ctx, db.ListCatalogBrandParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+		ID:     params.ID,
+		Search: params.Search,
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	return commonmodel.PaginateResult[db.CatalogBrand]{
+	var total null.Int64
+	if len(dbBrands) > 0 {
+		total.SetValid(dbBrands[0].TotalCount)
+	}
 
+	return commonmodel.PaginateResult[catalogdb.CatalogBrand]{
 		PageParams: params.PaginationParams,
-		Data:       dbBrands,
-		Total:      null.IntFrom(total),
+		Data:       lo.Map(dbBrands, func(dbBrand catalogdb.SearchBrandRow, _ int) catalogdb.CatalogBrand { return dbBrand.CatalogBrand }),
+		Total:      total,
 	}, nil
 }

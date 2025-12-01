@@ -2,44 +2,57 @@ package accountbiz
 
 import (
 	"context"
+	"time"
 
-	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/pubsub"
+	accountdb "shopnexus-remastered/internal/module/account/db"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-remastered/internal/shared/pgsqlc"
+
+	"github.com/google/uuid"
 )
 
+type AccountStorage = pgsqlc.Storage[*accountdb.Queries]
+
 type AccountBiz struct {
-	storage   pgsqlc.Storage
-	pubsub    pubsub.Client
-	common    *commonbiz.Commonbiz
-	promotion *promotionbiz.PromotionBiz
+	tokenDuration        time.Duration
+	jwtSecret            []byte
+	refreshTokenDuration time.Duration
+	refreshSecret        []byte
+
+	storage pgsqlc.Storage[*accountdb.Queries]
+	pubsub  pubsub.Client
+	common  *commonbiz.CommonBiz
 }
 
 // NewAccountBiz creates a new instance of AccountBiz.
 func NewAccountBiz(
-	storage pgsqlc.Storage,
+	config *config.Config,
+	pool pgsqlc.TxBeginner,
 	pubsub pubsub.Client,
-	common *commonbiz.Commonbiz,
-	promotion *promotionbiz.PromotionBiz,
+	common *commonbiz.CommonBiz,
 ) *AccountBiz {
 	return &AccountBiz{
-		storage:   storage,
-		pubsub:    pubsub,
-		common:    common,
-		promotion: promotion,
+		tokenDuration:        time.Duration(config.App.JWT.AccessTokenDuration * int64(time.Second)),
+		jwtSecret:            []byte(config.App.JWT.Secret),
+		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),
+		refreshSecret:        []byte(config.App.JWT.RefreshSecret),
+
+		storage: pgsqlc.NewStorage(pool, accountdb.New(pool)),
+		pubsub:  pubsub,
+		common:  common,
 	}
 }
 
 type DeleteAccountParams struct {
-	AccountID int64
+	AccountID uuid.UUID
 }
 
 func (b *AccountBiz) DeleteAccount(ctx context.Context, params DeleteAccountParams) error {
-	if _, err := b.storage.UpdateAccountBase(ctx, db.UpdateAccountBaseParams{
+	if _, err := b.storage.Querier().UpdateAccount(ctx, accountdb.UpdateAccountParams{
 		ID:     params.AccountID,
-		Status: db.NullAccountStatus{AccountStatus: db.AccountStatusSuspended, Valid: true},
+		Status: accountdb.NullAccountStatus{AccountStatus: accountdb.AccountStatusSuspended, Valid: true},
 	}); err != nil {
 		return err
 	}

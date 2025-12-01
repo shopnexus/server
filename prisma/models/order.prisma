@@ -1,74 +1,93 @@
-model Order {
+model CartItem {
   id         BigInt @id @default(autoincrement())
-  account_id BigInt
+  account_id String @db.Uuid
+  sku_id     String @db.Uuid
+  quantity   BigInt
 
-  payment_option String // PaymentGateway id, even COD
-  payment_status Status   @default(Pending) // Payment status for the order
-  address        String
-  date_created   DateTime @default(now()) @db.Timestamptz(3)
-  date_updated   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  customer Customer   @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  sku      ProductSku @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  opt      ServiceOption @relation(fields: [payment_option], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  customer Customer      @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  products OrderItem[]
+  @@unique([account_id, sku_id])
+  @@map("cart_item")
+  @@schema("order")
+}
 
-  @@index([account_id])
-  @@index([payment_option])
-  @@map("base")
+//! On delete should not cascade
+model Payment {
+  id         BigInt @id @default(autoincrement())
+  account_id String @db.Uuid
+  option     String
+
+  status       Status    @default(Pending)
+  amount       BigInt
+  data         Json      @db.JsonB
+  date_created DateTime  @default(now()) @db.Timestamptz(3)
+  date_paid    DateTime? @db.Timestamptz(3)
+  date_expired DateTime  @db.Timestamptz(3)
+
+  orders   Order?
+  customer Customer      @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  opt      ServiceOption @relation(fields: [option], references: [id], onUpdate: Cascade, onDelete: NoAction)
+
+  @@map("payment")
+  @@schema("order")
+}
+
+//! On delete should not cascade
+// TODO: hold the item quantity in the product stock (stock -= quantity), after 1h of inactivity, free the item stock in the product stock (stock += quantity)
+model Order {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id     String  @db.Uuid // Customer id who placed this order
+  vendor_id       String  @db.Uuid // Vendor id who sells this product (denormalized from ProductSpu.account_id for easier and faster querying)
+  payment_id      BigInt  @unique // After payment success, list in vendor orders and wait for confirm
+  shipment_id     String  @db.Uuid // When user order, create initial shipment, when vendor confirm, update shipment
+  confirmed_by_id String? @db.Uuid // VendorProfile id who confirmed this order, null if not confirmed yet
+
+  status           Status  @default(Pending)
+  address          String
+  product_cost     BigInt // price before promotion (not including shipping cost)
+  product_discount BigInt
+  ship_cost        BigInt
+  ship_discount    BigInt
+  total            BigInt // subtotal + shipping_fee - discount_amount
+  note             String? // Note for this item, e.g. "Please gift wrap this box nicely"
+  data             Json    @db.JsonB // Additional data related to the order (promotions, ...)
+
+  date_created DateTime @default(now()) @db.Timestamptz(3)
+
+  items     OrderItem[]
+  refund    Refund[]
+  customer  Customer    @relation(fields: [customer_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  shipment  Shipment?   @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  confirmer Vendor?     @relation("confirmer", fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  vendor    Vendor      @relation("vendor", fields: [vendor_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  payment   Payment     @relation(fields: [payment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+
+  @@index([vendor_id])
+  @@map("order")
   @@schema("order")
 }
 
 model OrderItem {
-  id              BigInt  @id @default(autoincrement())
-  order_id        BigInt
-  sku_id          BigInt
-  vendor_id       BigInt // Vendor id who sells this product (denormalized from ProductSpu.account_id for easier and faster querying)
-  confirmed_by_id BigInt? // VendorProfile id who confirmed this order, null if not confirmed yet
-  shipment_id     BigInt
-  note            String // Note for this item, e.g. "Please gift wrap this item"
-  status          Status  @default(Pending)
+  id       BigInt @id @default(autoincrement())
+  order_id String @db.Uuid
+  sku_id   String @db.Uuid
 
-  quantity BigInt
+  sku_name   String
+  quantity   BigInt
+  unit_price BigInt // snapshot unit price at the time of order placement
+  note       String? // Note for this item, e.g. "Please gift wrap this item"
+  serial_ids Json?   @db.JsonB
 
-  serials   OrderItemSerial[]
-  refund    Refund[]
-  order     Order             @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  sku       ProductSku        @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  shipment  Shipment          @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  confirmer Vendor?           @relation("confirmer", fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  vendor    Vendor            @relation("vendor", fields: [vendor_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  order      Order       @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  productSku ProductSku? @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
-  //! @@unique([order_id, sku_id]); Should not be unique, because product can be added multiple times (due to product.can_combine)
+  @@unique([order_id, sku_id])
   @@index([order_id])
   @@index([sku_id])
-  @@index([vendor_id])
   @@map("item")
   @@schema("order")
 }
-
-model OrderItemSerial {
-  id                BigInt @id @default(autoincrement())
-  order_item_id     BigInt
-  product_serial_id BigInt
-
-  order_item OrderItem     @relation(fields: [order_item_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  serial     ProductSerial @relation(fields: [product_serial_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-
-  @@unique([order_item_id, product_serial_id])
-  @@map("item_serial")
-  @@schema("order")
-}
-
-// enum PaymentMethod {
-//   COD // Cash on Delivery
-//   Card // Credit/Debit Card
-//   BankTransfer // Bank Transfer (internal only)
-//   Crypto // Cryptocurrency
-//   Other // Other payment methods
-
-//   @@map("payment_method")
-//   @@schema("order")
-// }
 
 enum RefundMethod {
   PickUp
@@ -78,12 +97,13 @@ enum RefundMethod {
   @@schema("order")
 }
 
+//! On delete should not cascade
 model Refund {
-  id             BigInt  @id @default(autoincrement())
-  account_id     BigInt // Account who requested this refund (Denormalized from OrderItem -> Order.account_id for easier and faster querying) @map("customer_id")
-  order_item_id  BigInt
-  reviewed_by_id BigInt? // VendorProfile id who reviewed this refund request, null if not reviewed yet
-  shipment_id    BigInt?
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id      String  @db.Uuid // Account who requested this refund (Denormalized from OrderItem -> Order.account_id for easier and faster querying)
+  order_id        String  @db.Uuid
+  confirmed_by_id String? @db.Uuid // VendorProfile id who confirmed this refund request, null if not confirmed yet
+  shipment_id     String? @db.Uuid
 
   method       RefundMethod
   status       Status       @default(Pending)
@@ -91,31 +111,34 @@ model Refund {
   address      String? // PICK_UP address, if method is DROP_OFF, address is empty
   date_created DateTime     @default(now()) @db.Timestamptz(3)
 
-  customer        Customer        @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  order_item      OrderItem       @relation(fields: [order_item_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  reviewer_vendor Vendor?         @relation(fields: [reviewed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  shipment        Shipment?       @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-  disputes        RefundDispute[]
+  disputes         RefundDispute[]
+  customer         Customer        @relation(fields: [account_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  order            Order           @relation(fields: [order_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  confirmer_vendor Vendor?         @relation(fields: [confirmed_by_id], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  shipment         Shipment?       @relation(fields: [shipment_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
   @@index([account_id])
-  @@index([order_item_id])
-  @@index([reviewed_by_id])
+  @@index([order_id])
+  @@index([confirmed_by_id])
+  @@index([shipment_id])
   @@map("refund")
   @@schema("order")
 }
 
+//! On delete should not cascade
 // Complaint about refund request for vendor
 model RefundDispute {
-  id           BigInt @id @default(autoincrement())
-  refund_id    BigInt // Refund id that this dispute belongs to
-  issued_by_id BigInt // Vendor id who issued this dispute
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refund_id    String @db.Uuid // Refund id that this dispute belongs to
+  issued_by_id String @db.Uuid // Vendor id who issued this dispute
 
-  reason       String
-  status       Status   @default(Pending)
+  reason String
+  status Status @default(Pending)
+
   date_created DateTime @default(now()) @db.Timestamptz(3)
   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  refund Refund @relation(fields: [refund_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  refund Refund @relation(fields: [refund_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
   vendor Vendor @relation(fields: [issued_by_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
 
   @@index([refund_id])
@@ -124,50 +147,14 @@ model RefundDispute {
   @@schema("order")
 }
 
-enum InvoiceType {
-  Sale // Regular sale invoice
-  Service // Service invoice, e.g. warranty, installation, etc.
-  Adjustment // Adjustment invoice, e.g. refund, credit note, etc.
-
-  @@map("invoice_type")
-  @@schema("order")
-}
-
-enum InvoiceRefType {
-  Order
-  Fee // TODO: create fee table
-
-  @@map("invoice_ref_type")
-  @@schema("order")
-}
-
-model Invoice {
-  id       BigInt         @id @default(autoincrement())
-  ref_type InvoiceRefType
-  ref_id   BigInt // Reference id, e.g. Order.id
-
-  type         InvoiceType
-  receiver_id  BigInt // Customer, or Vendor id who receive this invoice
-  note         String? // Optional note for the invoice
-  data         Json        @db.JsonB // All fundamental informations for the invoice (e.g. customer data, items, promotions, applied promotions, etc.)
-  date_created DateTime    @default(now()) @db.Timestamptz(3)
-
-  account Account @relation(fields: [receiver_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-
-  @@index([receiver_id])
-  @@index([ref_type, ref_id])
-  @@map("invoice")
-  @@schema("order")
-}
-
 model Shipment {
-  id            BigInt         @id @default(autoincrement())
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   option        String // e.g. "ghn-standard", references ShipmentOption.id
   tracking_code String? // Carrier-provided tracking number
   status        ShipmentStatus @default(Pending)
   label_url     String? // For customer download/printing
-  cost          BigInt
-  new_cost      BigInt // Updated cost after shipment created, e.g. after weight/size confirmed
+  cost          BigInt // Snapshot cost at user purchase
+  new_cost      BigInt // Updated cost after shipment created, e.g. after weight/size (or maybe new vendor address) confirmed
   date_eta      DateTime       @db.Timestamptz(3)
   from_address  String
   to_address    String
@@ -177,9 +164,9 @@ model Shipment {
   height_cm     Int
   date_created  DateTime       @default(now()) @db.Timestamptz(3)
 
-  items   OrderItem[]
   refunds Refund[]
   opt     ServiceOption @relation(fields: [option], references: [id], onUpdate: Cascade, onDelete: NoAction)
+  orders  Order[]
 
   @@map("shipment")
   @@schema("order")

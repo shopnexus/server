@@ -1,14 +1,16 @@
 package orderecho
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 )
@@ -43,7 +45,7 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 }
 
 type GetOrderRequest struct {
-	ID int64 `param:"id" validate:"required"`
+	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) GetOrder(c echo.Context) error {
@@ -55,15 +57,11 @@ func (h *Handler) GetOrder(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
+	if _, err := authclaims.GetClaims(c.Request()); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.GetOrder(c.Request().Context(), orderbiz.GetOrderParams{
-		Account: claims.Account,
-		OrderID: req.ID,
-	})
+	result, err := h.biz.GetOrder(c.Request().Context(), req.ID)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
@@ -95,18 +93,19 @@ func (h *Handler) ListOrders(c echo.Context) error {
 }
 
 type CheckoutRequest struct {
-	Address       string     `json:"address" validate:"required"`
-	PaymentOption string     `json:"payment_option" validate:"required,min=1,max=100"`
-	BuyNow        bool       `json:"buy_now" validate:"omitempty"`
-	Skus          []OrderSku `json:"skus" validate:"required,dive"`
+	Address       string                `json:"address" validate:"required"`
+	BuyNow        bool                  `json:"buy_now" validate:"omitempty"`
+	PaymentOption string                `json:"payment_option" validate:"required,min=1,max=100"`
+	Items         []CheckoutItemRequest `json:"items" validate:"required,min=1,dive"`
 }
 
-type OrderSku struct {
-	SkuID          int64   `json:"sku_id" validate:"required,gt=0"`
-	Quantity       int64   `json:"quantity" validate:"required,gt=0"`
-	PromotionIDs   []int64 `json:"promotion_ids" validate:"dive,gt=0"`
-	ShipmentOption string  `json:"shipment_option" validate:"required,min=1,max=100"`
-	Note           string  `json:"note" validate:"max=500"` // Note for this item, e.g. "Please gift wrap this item"
+type CheckoutItemRequest struct {
+	SkuID          uuid.UUID       `json:"sku_id" validate:"required,uuid"`
+	Quantity       int64           `json:"quantity" validate:"required,gt=0"`
+	Note           string          `json:"note" validate:"max=500"`
+	ShipmentOption string          `json:"shipment_option" validate:"required,min=1,max=100"`
+	PromotionCodes []string        `json:"promotion_codes" validate:"dive"`
+	Data           json.RawMessage `json:"data" validate:"omitempty"`
 }
 
 func (h *Handler) Checkout(c echo.Context) error {
@@ -123,18 +122,19 @@ func (h *Handler) Checkout(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.CreateOrder(c.Request().Context(), orderbiz.CreateOrderParams{
+	result, err := h.biz.Checkout(c.Request().Context(), orderbiz.CheckoutParams{
 		Account:       claims.Account,
 		Address:       req.Address,
-		PaymentOption: req.PaymentOption,
 		BuyNow:        req.BuyNow,
-		Skus: lo.Map(req.Skus, func(s OrderSku, _ int) orderbiz.OrderSku {
-			return orderbiz.OrderSku{
-				SkuID:          s.SkuID,
-				Quantity:       s.Quantity,
-				PromotionIDs:   s.PromotionIDs,
-				ShipmentOption: s.ShipmentOption,
-				Note:           s.Note,
+		PaymentOption: req.PaymentOption,
+		Items: lo.Map(req.Items, func(item CheckoutItemRequest, _ int) orderbiz.CheckoutItem {
+			return orderbiz.CheckoutItem{
+				SkuID:          item.SkuID,
+				Quantity:       item.Quantity,
+				PromotionCodes: item.PromotionCodes,
+				ShipmentOption: item.ShipmentOption,
+				Note:           item.Note,
+				Data:           item.Data,
 			}
 		}),
 	})
@@ -146,8 +146,8 @@ func (h *Handler) Checkout(c echo.Context) error {
 }
 
 type QuoteRequest struct {
-	Address string     `json:"address" validate:"required"`
-	Skus    []OrderSku `json:"skus" validate:"required,dive"`
+	Address string                `json:"address" validate:"required"`
+	Items   []CheckoutItemRequest `json:"items" validate:"required,min=1,dive"`
 }
 
 func (h *Handler) QuoteOrder(c echo.Context) error {
@@ -167,13 +167,14 @@ func (h *Handler) QuoteOrder(c echo.Context) error {
 	result, err := h.biz.QuoteOrder(c.Request().Context(), orderbiz.QuoteOrderParams{
 		Account: claims.Account,
 		Address: req.Address,
-		Skus: lo.Map(req.Skus, func(s OrderSku, _ int) orderbiz.OrderSku {
-			return orderbiz.OrderSku{
-				SkuID:          s.SkuID,
-				Quantity:       s.Quantity,
-				PromotionIDs:   s.PromotionIDs,
-				ShipmentOption: s.ShipmentOption,
-				Note:           s.Note,
+		Items: lo.Map(req.Items, func(item CheckoutItemRequest, _ int) orderbiz.CheckoutItem {
+			return orderbiz.CheckoutItem{
+				SkuID:          item.SkuID,
+				Quantity:       item.Quantity,
+				PromotionCodes: item.PromotionCodes,
+				ShipmentOption: item.ShipmentOption,
+				Note:           item.Note,
+				Data:           item.Data,
 			}
 		}),
 	})

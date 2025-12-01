@@ -1,9 +1,10 @@
 package inventorymodel
 
 import (
+	inventorydb "shopnexus-remastered/internal/module/inventory/db"
 	"time"
 
-	"shopnexus-remastered/internal/db"
+	"github.com/google/uuid"
 )
 
 const (
@@ -11,12 +12,12 @@ const (
 )
 
 type Stock struct {
-	ID           int64                    `json:"id"`
-	RefType      db.InventoryStockRefType `json:"ref_type"`
-	RefID        int64                    `json:"ref_id"`
-	CurrentStock int64                    `json:"current_stock"`
-	Sold         int64                    `json:"sold"`
-	DateCreated  time.Time                `json:"date_created"`
+	ID          int64                             `json:"id"`
+	RefType     inventorydb.InventoryStockRefType `json:"ref_type"`
+	RefID       uuid.UUID                         `json:"ref_id"`
+	Stock       int64                             `json:"stock"`
+	Taken       int64                             `json:"taken"`
+	DateCreated time.Time                         `json:"date_created"`
 }
 
 type StockHistory struct {

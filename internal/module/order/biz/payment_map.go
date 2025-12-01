@@ -8,7 +8,7 @@ import (
 	"shopnexus-remastered/internal/infras/payment/cod"
 	"shopnexus-remastered/internal/infras/payment/vnpay"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupPaymentMap() error {
@@ -33,7 +33,7 @@ func (b *OrderBiz) SetupPaymentMap() error {
 	}
 
 	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
-		Storage:  b.storage,
+		// TODO: should use message queue to update
 		Category: "payment",
 		Configs:  configs,
 	}); err != nil {

@@ -4,9 +4,10 @@ import (
 	"net/http"
 
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,6 +19,11 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/account")
 
+	authApi := api.Group("/auth")
+	authApi.POST("/login/basic", h.LoginBasic)
+	authApi.POST("/register/basic", h.RegisterBasic)
+	authApi.POST("/refresh", h.Refresh)
+
 	// Account endpoints)
 	api.GET("", h.GetAccount)
 	// api.PATCH("", h.UpdateAccount)
@@ -26,13 +32,6 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	meApi := api.Group("/me")
 	meApi.GET("", h.GetMe)
 	meApi.PATCH("", h.UpdateMe)
-
-	// Cart endpoints
-	cartApi := api.Group("/cart")
-	cartApi.GET("", h.GetCart)
-	cartApi.POST("", h.UpdateCart)
-	cartApi.DELETE("", h.ClearCart)
-	cartApi.GET("/buynow", h.GetCheckoutSku)
 
 	// Contact endpoints
 	contactApi := api.Group("/contact")
@@ -46,7 +45,7 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 }
 
 type GetAccountParams struct {
-	AccountID int64 `query:"account_id" validate:"required"`
+	AccountID uuid.UUID `query:"account_id" validate:"required"`
 }
 
 func (h *Handler) GetAccount(c echo.Context) error {

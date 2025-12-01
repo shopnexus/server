@@ -6,96 +6,95 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
-	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/infras/cachestruct"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	searchbiz "shopnexus-remastered/internal/module/search/biz"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	commondb "shopnexus-remastered/internal/module/common/db"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
 )
 
-func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64) (map[int64]*catalogmodel.ProductCard, error) {
-	var zero map[int64]*catalogmodel.ProductCard
-	var productMap = make(map[int64]*catalogmodel.ProductCard)
+func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+	var zero map[uuid.UUID]*catalogmodel.ProductCard
+	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
-	spus, err := b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
+	listSpu, err := b.ListProductSpu(ctx, ListProductSpuParams{
 		ID: spuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	spuMap := lo.KeyBy(spus, func(spu db.CatalogProductSpu) int64 { return spu.ID })
+	spus := listSpu.Data
+	spuMap := lo.KeyBy(spus, func(spu catalogmodel.ProductSpu) uuid.UUID { return spu.ID })
 
 	// Get featured SKUs for each spu
-	var featuredIDs []int64
+	var featuredIDs []uuid.UUID
 	for _, spu := range spus {
 		if spu.FeaturedSkuID.Valid {
-			featuredIDs = append(featuredIDs, spu.FeaturedSkuID.Int64)
+			featuredIDs = append(featuredIDs, spu.FeaturedSkuID.UUID)
 		}
 	}
 
 	// Get featured SKUs
-	featuredSkus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
+	featuredSkus, err := b.ListProductSku(ctx, ListProductSkuParams{
 		ID: featuredIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	// map[spuID]FeaturedSKU
-	featuredMap := lo.KeyBy(featuredSkus, func(f db.CatalogProductSku) int64 { return f.SpuID })
 
-	// map[skuID]*ProductPrice
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, lo.Map(featuredSkus, func(f db.CatalogProductSku, _ int) db.CatalogProductSku {
-		return db.CatalogProductSku{
-			ID:          f.ID,
-			SpuID:       f.SpuID,
-			Price:       f.Price,
-			CanCombine:  f.CanCombine,
-			DateCreated: f.DateCreated,
-			DateDeleted: f.DateDeleted,
-			Attributes:  f.Attributes,
-		}
-	}), spuMap)
+	// map[spuID]FeaturedSKU
+	featuredMap := lo.KeyBy(featuredSkus, func(row catalogmodel.ProductSku) uuid.UUID { return row.SpuID })
+
+	// Build price request inputs for featured SKUs
+	requestPrices := make([]catalogmodel.RequestOrderPrice, 0, len(featuredSkus))
+	for _, sku := range featuredSkus {
+		requestPrices = append(requestPrices, catalogmodel.RequestOrderPrice{
+			SkuID:     sku.ID,
+			SpuID:     sku.SpuID,
+			UnitPrice: commonmodel.Concurrency(sku.Price),
+			Quantity:  1,
+			ShipCost:  0,
+		})
+	}
+
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, requestPrices, spuMap)
 	if err != nil {
 		return zero, err
 	}
 
 	// Calculate rating score
-	ratings, err := b.storage.ListRating(ctx, db.ListRatingParams{
-		RefType: db.CatalogCommentRefTypeProductSpu,
+	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
+		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
 		RefID:   spuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	ratingMap := lo.KeyBy(ratings, func(r db.ListRatingRow) int64 { return r.RefID })
+	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
 	// Get first image of the product
-	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.CommonResourceRefTypeProductSpu,
-		RefID:   spuIDs,
-	})
+	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
 		return zero, err
 	}
-	resourcesMap := lo.GroupBy(resources, func(r db.ListSortedResourcesRow) int64 { return r.RefID })
 
-	// Map promotion to ProductCardPromo
-	promoCardsMap := make(map[int64][]catalogmodel.ProductCardPromo) // map[spuID]ProductCardPromo
+	// Map promotion codes to ProductCardPromo per SPU
+	promoCardsMap := make(map[uuid.UUID][]catalogmodel.ProductCardPromo)
 	for _, featured := range featuredSkus {
 		price := priceMap[featured.ID]
+		if price == nil || len(price.PromotionCodes) == 0 {
+			continue
+		}
 
-		promoCardsMap[featured.SpuID] = lo.Map(price.Promotions, func(p promotionmodel.PromotionBase, _ int) catalogmodel.ProductCardPromo {
+		promoCardsMap[featured.SpuID] = lo.Map(price.PromotionCodes, func(code string, _ int) catalogmodel.ProductCardPromo {
 			return catalogmodel.ProductCardPromo{
-				ID:          p.ID,
-				Title:       p.Title,
-				Description: p.Description.String,
+				Title: code,
 			}
 		})
 	}
@@ -105,40 +104,35 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 		rating := ratingMap[spu.ID]
 		resources := resourcesMap[spu.ID]
 
-		var price catalogmodel.ProductPrice
-		if priceMap[featured.ID] != nil {
-			price = *priceMap[featured.ID]
+		priceValue := commonmodel.Concurrency(featured.Price)
+		originalPrice := commonmodel.Concurrency(featured.Price)
+		if priceInfo := priceMap[featured.ID]; priceInfo != nil {
+			originalPrice = priceInfo.Request.UnitPrice
+			if priceInfo.ProductCost != 0 {
+				priceValue = priceInfo.ProductCost
+			}
 		}
 
 		productMap[spu.ID] = &catalogmodel.ProductCard{
 			ID:          spu.ID,
-			Code:        spu.Code,
+			Slug:        spu.Slug,
 			VendorID:    spu.AccountID,
-			CategoryID:  spu.CategoryID,
-			BrandID:     spu.BrandID,
+			CategoryID:  spu.Category.ID,
+			BrandID:     spu.Brand.ID,
 			Name:        spu.Name,
 			Description: spu.Description,
 			IsActive:    spu.IsActive,
-			DateCreated: spu.DateCreated.Time,
-			DateUpdated: spu.DateUpdated.Time,
-			DateDeleted: spu.DateDeleted.Time,
+			DateCreated: spu.DateCreated,
+			DateUpdated: spu.DateUpdated,
 
 			Promotions:    promoCardsMap[spu.ID],
-			Price:         price.Price,
-			OriginalPrice: price.OriginalPrice,
+			Price:         priceValue,
+			OriginalPrice: originalPrice,
 			Rating: catalogmodel.Rating{
 				Score: float32(rating.Score),
 				Total: int(rating.Count),
 			},
-			Resources: lo.Map(resources, func(r db.ListSortedResourcesRow, _ int) commonmodel.Resource {
-				return commonmodel.Resource{
-					ID:       r.ID.Bytes,
-					Url:      b.common.MustGetFileURL(ctx, r.Provider, r.ObjectKey),
-					Mime:     r.Mime,
-					Size:     r.Size,
-					Checksum: pgutil.PgTextToNullString(r.Checksum),
-				}
-			}),
+			Resources: resources,
 		}
 	}
 
@@ -147,8 +141,8 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []int64)
 
 type ListProductCardParams struct {
 	commonmodel.PaginationParams
-	VendorID null.Int64  `validate:"omitnil,min=1"`
-	Search   null.String `validate:"omitnil,min=1,max=100"`
+	VendorID uuid.NullUUID `validate:"omitnil"`
+	Search   null.String   `validate:"omitnil,min=1,max=100"`
 }
 
 func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
@@ -160,18 +154,20 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 		return zero, err
 	}
 
-	var spus []db.CatalogProductSpu
 	var total int64
-	var spuIDs []int64 // To respect order of search result
-	var searchArg = db.SearchCatalogProductSpuParams{
-		Limit:     pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:    pgutil.Int32ToPgInt4(params.Offset()),
-		AccountID: pgutil.NullInt64ToSlice(params.VendorID),
+	var spuIDs []uuid.UUID // To respect order of search result
+	var searchArg = catalogdb.SearchCountProductSpuParams{
+		Limit:  params.Limit,
+		Offset: params.Offset(),
+	}
+
+	if params.VendorID.Valid {
+		searchArg.AccountID = []uuid.UUID{params.VendorID.UUID}
 	}
 
 	// If search is provided, use search service to get product IDs
 	if params.Search.Valid {
-		searchProducts, err := b.search.Search(ctx, searchbiz.SearchParams{
+		searchProducts, err := b.Search(ctx, SearchParams{
 			PaginationParams: params.PaginationParams,
 			Collection:       "products",
 			Query:            params.Search.String,
@@ -181,31 +177,40 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 				slog.String("query", params.Search.String),
 				slog.Any("error", err),
 			)
-			searchArg.Description = pgutil.NullStringToPgText(params.Search)
+			searchArg.Description = params.Search
+			searchArg.Name = params.Search
+			searchArg.Slug = params.Search
 		} else {
-			searchArg.ID = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID })
-			spuIDs = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID }) // respect order
+			searchArg.ID = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID })
+			spuIDs = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }) // respect order
+		}
+		// total = int64(len(searchProducts))
+		// TODO: fix the search server to return total instead of calculating here
+		total = int64(params.Page.Int32)*int64(params.Limit.Int32) + 1
+		if len(searchProducts) < int(params.Limit.Int32) {
+			total -= int64(params.Limit.Int32) - int64(len(searchProducts))
+		}
+	} else {
+		total, err = b.storage.Querier().CountProductSpu(ctx, catalogdb.CountProductSpuParams{})
+		if err != nil {
+			return zero, err
 		}
 	}
 
-	total, err = b.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{})
+	searchCountSpu, err := b.storage.Querier().SearchCountProductSpu(ctx, searchArg)
 	if err != nil {
 		return zero, err
 	}
+	// TODO: handle total from search result
 
-	spus, err = b.storage.SearchCatalogProductSpu(ctx, searchArg)
-	if err != nil {
-		return zero, err
-	}
-
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(spus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }))
 	if err != nil {
 		return zero, err
 	}
 
 	// respect the order from search result, else use the order from DB query
 	if len(spuIDs) == 0 {
-		spuIDs = lo.Map(spus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID })
+		spuIDs = lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID })
 	}
 
 	for _, id := range spuIDs {
@@ -224,8 +229,8 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 }
 
 type ListRecommendedProductCardParams struct {
-	Account authmodel.AuthenticatedAccount
-	Limit   int `validate:"omitempty,min=1,max=100"`
+	Account accountmodel.AuthenticatedAccount `validate:"omitempty"`
+	Limit   int                               `validate:"omitempty,min=1,max=100"`
 }
 
 func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
@@ -241,7 +246,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 	var feedOffset int64 = 0
 	if err = b.cache.Get(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), &feedOffset); err != nil {
 		slog.Error("failed to get feed offset for account",
-			slog.Int64("account_id", params.Account.ID),
+			slog.String("account_id", params.Account.ID.String()),
 			slog.Any("error", err),
 		)
 	}
@@ -257,13 +262,13 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 	// if current feed offset is exceeding the size or there is no recommendation in cache, refresh the feed
 	if feedOffset >= catalogmodel.CacheRecommendSize || len(rcmProducts) == 0 {
 		rcmCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-		recommendations, err := b.search.GetRecommendations(rcmCtx, searchbiz.GetRecommendationsParams{
+		recommendations, err := b.GetRecommendations(rcmCtx, GetRecommendationsParams{
 			Account: params.Account,
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
 		if err != nil {
 			slog.Error("failed to get recommendations for account",
-				slog.Int64("account_id", params.Account.ID),
+				slog.String("account_id", params.Account.ID.String()),
 				slog.Any("error", err),
 			)
 		}
@@ -274,7 +279,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 		// Remove all old recommendations
 		if err = b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID)); err != nil {
-			slog.Error("failed to reset feed offset for account", slog.Int64("account_id", params.Account.ID), slog.Any("error", err))
+			slog.Error("failed to reset feed offset for account", slog.String("account_id", params.Account.ID.String()), slog.Any("error", err))
 		}
 
 		// Adding new feed
@@ -287,13 +292,13 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 	// Update feed offset in cache
 	if err = b.cache.Set(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), feedOffset, 0); err != nil {
-		slog.Error("failed to update feed offset for account", slog.Int64("account_id", params.Account.ID), slog.Any("error", err))
+		slog.Error("failed to update feed offset for account", slog.String("account_id", params.Account.ID.String()), slog.Any("error", err))
 	}
 
 	// Amount of most sold products to fill the recommendations
 	amount := int32(params.Limit - len(rcmProducts))
 	if amount > 0 {
-		mostSolds, err := b.storage.ListMostSoldProducts(ctx, db.ListMostSoldProductsParams{
+		mostSolds, err := b.storage.Querier().ListMostSoldProducts(ctx, catalogdb.ListMostSoldProductsParams{
 			Limit: amount,
 			TopN:  amount * 10, // get more to avoid dup with rcmProducts
 		})
@@ -309,7 +314,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		}
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) int64 { return p.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }))
 	if err != nil {
 		return zero, err
 	}

@@ -4,24 +4,28 @@ import (
 	"context"
 	"errors"
 
-	"shopnexus-remastered/internal/db"
 	"shopnexus-remastered/internal/infras/pubsub"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-remastered/internal/shared/validator"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
+type InventoryStorage = pgsqlc.Storage[*inventorydb.Queries]
+
 type InventoryBiz struct {
-	storage pgsqlc.Storage
+	storage InventoryStorage
 	pubsub  pubsub.Client
 }
 
 func NewInventoryBiz(
-	storage pgsqlc.Storage,
+	storage InventoryStorage,
 	pubsub pubsub.Client,
 ) (*InventoryBiz, error) {
 	b := &InventoryBiz{
@@ -34,9 +38,60 @@ func NewInventoryBiz(
 	)
 }
 
+type ListStockParams struct {
+	sharedmodel.PaginationParams
+	RefType []inventorydb.InventoryStockRefType `validate:"dive,required,validateFn=Valid"`
+	RefID   []uuid.UUID                         `validate:"dive,required"`
+}
+
+func (b *InventoryBiz) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorymodel.Stock], error) {
+	var zero sharedmodel.PaginateResult[inventorymodel.Stock]
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	listStock, err := b.storage.Querier().ListCountStock(ctx, inventorydb.ListCountStockParams{
+		Limit:   params.Limit,
+		Offset:  params.Offset(),
+		RefType: params.RefType,
+		RefID:   params.RefID,
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	var total null.Int64
+	if len(listStock) > 0 {
+		total.SetValid(listStock[0].TotalCount)
+	}
+
+	dbStocks := lo.Map(listStock, func(s inventorydb.ListCountStockRow, _ int) inventorydb.InventoryStock {
+		return s.InventoryStock
+	})
+
+	var stocks []inventorymodel.Stock
+	for _, stock := range dbStocks {
+		stocks = append(stocks, inventorymodel.Stock{
+			ID:          stock.ID,
+			RefID:       stock.RefID,
+			RefType:     stock.RefType,
+			Stock:       stock.Stock,
+			Taken:       stock.Taken,
+			DateCreated: stock.DateCreated,
+		})
+	}
+
+	return sharedmodel.PaginateResult[inventorymodel.Stock]{
+		PageParams: params.PaginationParams,
+		Total:      total,
+		Data:       stocks,
+	}, nil
+}
+
 type GetStockParams struct {
-	RefID   int64                    `validate:"required,gt=0"`
-	RefType db.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                         `validate:"required"`
+	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
 func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inventorymodel.Stock, error) {
@@ -46,45 +101,28 @@ func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inv
 		return zero, err
 	}
 
-	stock, err := b.storage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-		RefID:   pgutil.Int64ToPgInt8(params.RefID),
-		RefType: db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
+	stock, err := b.storage.Querier().GetStock(ctx, inventorydb.GetStockParams{
+		RefID:   uuid.NullUUID{UUID: params.RefID, Valid: true},
+		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	// dbChanges, err := b.storage.ListInventoryStockHistory(ctx, db.ListInventoryStockHistoryParams{
-	// 	StockID: []int64{stock.ID},
-	// })
-	// if err != nil {
-	// 	return zero, err
-	// }
-
-	// var changes []inventorymodel.StockHistory
-	// for _, change := range dbChanges {
-	// 	changes = append(changes, inventorymodel.StockHistory{
-	// 		ID:          change.ID,
-	// 		Change:      change.Change,
-	// 		DateCreated: change.DateCreated.Time,
-	// 	})
-	// }
-
 	return inventorymodel.Stock{
-		ID:           stock.ID,
-		RefID:        stock.RefID,
-		RefType:      stock.RefType,
-		CurrentStock: stock.CurrentStock,
-		Sold:         stock.Sold,
-		DateCreated:  stock.DateCreated.Time,
-		// Changes:      changes,
+		ID:          stock.ID,
+		RefID:       stock.RefID,
+		RefType:     stock.RefType,
+		Stock:       stock.Stock,
+		Taken:       stock.Taken,
+		DateCreated: stock.DateCreated,
 	}, nil
 }
 
 type ListStockHistoryParams struct {
 	commonmodel.PaginationParams
-	RefID   int64                    `validate:"required,gt=0"`
-	RefType db.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                         `validate:"required"`
+	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
 func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (commonmodel.PaginateResult[inventorymodel.StockHistory], error) {
@@ -93,25 +131,25 @@ func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHis
 		return zero, err
 	}
 
-	stock, err := b.storage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-		RefID:   pgutil.Int64ToPgInt8(params.RefID),
-		RefType: db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
+	stock, err := b.storage.Querier().GetStock(ctx, inventorydb.GetStockParams{
+		RefID:   uuid.NullUUID{UUID: params.RefID, Valid: true},
+		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountInventoryStockHistory(ctx, db.CountInventoryStockHistoryParams{
+	total, err := b.storage.Querier().CountStockHistory(ctx, inventorydb.CountStockHistoryParams{
 		StockID: []int64{stock.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	dbChanges, err := b.storage.ListInventoryStockHistory(ctx, db.ListInventoryStockHistoryParams{
+	dbChanges, err := b.storage.Querier().ListStockHistory(ctx, inventorydb.ListStockHistoryParams{
 		StockID: []int64{stock.ID},
-		Limit:   pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset:  pgutil.Int32ToPgInt4(params.Offset()),
+		Limit:   params.Limit,
+		Offset:  params.Offset(),
 	})
 	if err != nil {
 		return zero, err
@@ -122,7 +160,7 @@ func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHis
 		changes = append(changes, inventorymodel.StockHistory{
 			ID:          change.ID,
 			Change:      change.Change,
-			DateCreated: change.DateCreated.Time,
+			DateCreated: change.DateCreated,
 		})
 	}
 
@@ -134,10 +172,10 @@ func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHis
 }
 
 type ImportStockParams struct {
-	RefID     int64                    `validate:"required,gt=0"`
-	RefType   db.InventoryStockRefType `validate:"required,validateFn=Valid"`
-	Change    int64                    `validate:"required,gt=0"`
-	SerialIDs []string                 `validate:"dive,required"`
+	RefID     uuid.UUID                         `validate:"required"`
+	RefType   inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	Change    int64                             `validate:"required,gt=0"`
+	SerialIDs []string                          `validate:"dive,required"`
 }
 
 func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams) error {
@@ -145,15 +183,15 @@ func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams
 		return err
 	}
 
-	stock, err := b.storage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-		RefID:   pgutil.Int64ToPgInt8(params.RefID),
-		RefType: db.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
+	stock, err := b.storage.Querier().GetStock(ctx, inventorydb.GetStockParams{
+		RefID:   uuid.NullUUID{UUID: params.RefID, Valid: true},
+		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: params.RefType, Valid: true},
 	})
 	if err != nil {
 		return err
 	}
 
-	if _, err := b.storage.CreateDefaultInventoryStockHistory(ctx, db.CreateDefaultInventoryStockHistoryParams{
+	if _, err := b.storage.Querier().CreateDefaultStockHistory(ctx, inventorydb.CreateDefaultStockHistoryParams{
 		StockID: stock.ID,
 		Change:  params.Change,
 	}); err != nil {
@@ -176,7 +214,7 @@ func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams
 
 type UpdateSkuSerialParams struct {
 	SerialIDs []string
-	Status    db.InventoryProductStatus `validate:"required,validateFn=Valid"`
+	Status    inventorydb.InventoryProductStatus `validate:"required,validateFn=Valid"`
 }
 
 func (b *InventoryBiz) UpdateSkuSerial(ctx context.Context, params UpdateSkuSerialParams) error {
@@ -184,9 +222,9 @@ func (b *InventoryBiz) UpdateSkuSerial(ctx context.Context, params UpdateSkuSeri
 		return err
 	}
 
-	if err := b.storage.UpdateSerialStatus(ctx, db.UpdateSerialStatusParams{
-		SerialID: params.SerialIDs,
-		Status:   params.Status,
+	if err := b.storage.Querier().UpdateSerialStatus(ctx, inventorydb.UpdateSerialStatusParams{
+		ID:     params.SerialIDs,
+		Status: params.Status,
 	}); err != nil {
 		return err
 	}

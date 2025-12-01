@@ -7,10 +7,10 @@ import (
 )
 
 type Handler struct {
-	biz *commonbiz.Commonbiz
+	biz *commonbiz.CommonBiz
 }
 
-func NewHandler(e *echo.Echo, biz *commonbiz.Commonbiz) (*Handler, error) {
+func NewHandler(e *echo.Echo, biz *commonbiz.CommonBiz) (*Handler, error) {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/common")
 

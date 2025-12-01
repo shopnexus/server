@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"shopnexus-remastered/internal/db"
+	promotiondb "shopnexus-remastered/internal/module/promotion/db"
 	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
 )
@@ -17,7 +16,7 @@ type CreateDiscountParams struct {
 	CreatePromotionParams
 	MinSpend        int64      `validate:"required,min=0,max=1000000000"`
 	MaxDiscount     int64      `validate:"required,min=0,max=1000000000"`
-	DiscountPercent null.Int32 `validate:"omitnil,min=1,max=100"`
+	DiscountPercent null.Float `validate:"omitnil,min=0,max=1"`
 	DiscountPrice   null.Int64 `validate:"omitnil,min=1,max=1000000000"`
 }
 
@@ -28,10 +27,10 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 		return zero, err
 	}
 
-	var promotion promotionmodel.PromotionBase
-	var discount db.PromotionDiscount
+	var promotion promotionmodel.Promotion
+	var discount promotiondb.PromotionDiscount
 
-	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage PromotionStorage) error {
 		var err error
 		params.CreatePromotionParams.Storage = txStorage
 		promotion, err = s.createPromotion(ctx, params.CreatePromotionParams)
@@ -39,12 +38,12 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 			return err
 		}
 
-		discount, err = txStorage.CreateDefaultPromotionDiscount(ctx, db.CreateDefaultPromotionDiscountParams{
+		discount, err = txStorage.Querier().CreateDefaultDiscount(ctx, promotiondb.CreateDefaultDiscountParams{
 			ID:              promotion.ID,
 			MinSpend:        params.MinSpend,
 			MaxDiscount:     params.MaxDiscount,
-			DiscountPercent: pgutil.NullInt32ToPgInt4(params.DiscountPercent),
-			DiscountPrice:   pgutil.NullInt64ToPgInt8(params.DiscountPrice),
+			DiscountPercent: params.DiscountPercent,
+			DiscountPrice:   params.DiscountPrice,
 		})
 		if err != nil {
 			return err
@@ -55,11 +54,11 @@ func (s *PromotionBiz) CreateDiscount(ctx context.Context, params CreateDiscount
 	}
 
 	return promotionmodel.PromotionDiscount{
-		PromotionBase:   promotion,
-		MinSpend:        discount.MinSpend,
-		MaxDiscount:     discount.MaxDiscount,
-		DiscountPercent: pgutil.PgInt4ToNullInt32(discount.DiscountPercent),
-		DiscountPrice:   pgutil.PgInt8ToNullInt64(discount.DiscountPrice),
+		Promotion:       promotion,
+		MinSpend:        sharedmodel.Concurrency(discount.MinSpend),
+		MaxDiscount:     sharedmodel.Concurrency(discount.MaxDiscount),
+		DiscountPercent: discount.DiscountPercent,
+		DiscountPrice:   sharedmodel.NullConcurrencyFromNullInt64(discount.DiscountPrice),
 	}, nil
 }
 
@@ -67,7 +66,7 @@ type UpdateDiscountParams struct {
 	UpdatePromotionParams
 	MinSpend        null.Int64 `validate:"omitnil,min=0,max=1000000000"`
 	MaxDiscount     null.Int64 `validate:"omitnil,min=0,max=1000000000"`
-	DiscountPercent null.Int32 `validate:"omitnil,min=1,max=100"`
+	DiscountPercent null.Float `validate:"omitnil,min=0,max=1"`
 	DiscountPrice   null.Int64 `validate:"omitnil,min=1,max=1000000000"`
 }
 
@@ -78,10 +77,10 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 		return zero, err
 	}
 
-	var promotion promotionmodel.PromotionBase
-	var discount db.PromotionDiscount
+	var promotion promotionmodel.Promotion
+	var discount promotiondb.PromotionDiscount
 
-	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage PromotionStorage) error {
 		var err error
 		// Update base promotion
 		params.UpdatePromotionParams.Storage = txStorage
@@ -102,12 +101,12 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 			nullDiscountPercent = true
 		}
 
-		discount, err = txStorage.UpdatePromotionDiscount(ctx, db.UpdatePromotionDiscountParams{
+		discount, err = txStorage.Querier().UpdateDiscount(ctx, promotiondb.UpdateDiscountParams{
 			ID:                  promotion.ID,
-			MinSpend:            pgutil.NullInt64ToPgInt8(params.MinSpend),
-			MaxDiscount:         pgutil.NullInt64ToPgInt8(params.MaxDiscount),
-			DiscountPercent:     pgutil.NullInt32ToPgInt4(params.DiscountPercent),
-			DiscountPrice:       pgutil.NullInt64ToPgInt8(params.DiscountPrice),
+			MinSpend:            params.MinSpend,
+			MaxDiscount:         params.MaxDiscount,
+			DiscountPercent:     params.DiscountPercent,
+			DiscountPrice:       params.DiscountPrice,
 			NullDiscountPercent: nullDiscountPercent,
 			NullDiscountPrice:   nullDiscountPrice,
 		})
@@ -121,10 +120,10 @@ func (s *PromotionBiz) UpdateDiscount(ctx context.Context, params UpdateDiscount
 	}
 
 	return promotionmodel.PromotionDiscount{
-		PromotionBase:   promotion,
-		MinSpend:        discount.MinSpend,
-		MaxDiscount:     discount.MaxDiscount,
-		DiscountPercent: pgutil.PgInt4ToNullInt32(discount.DiscountPercent),
-		DiscountPrice:   pgutil.PgInt8ToNullInt64(discount.DiscountPrice),
+		Promotion:       promotion,
+		MinSpend:        sharedmodel.Concurrency(discount.MinSpend),
+		MaxDiscount:     sharedmodel.Concurrency(discount.MaxDiscount),
+		DiscountPercent: discount.DiscountPercent,
+		DiscountPrice:   sharedmodel.NullConcurrencyFromNullInt64(discount.DiscountPrice),
 	}, nil
 }

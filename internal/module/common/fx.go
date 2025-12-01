@@ -10,7 +10,7 @@ import (
 // Module provides the common module dependencies
 var Module = fx.Module("common",
 	fx.Provide(
-		commonbiz.Newcommonbiz,
+		commonbiz.NewcommonBiz,
 		commonecho.NewHandler,
 	),
 	fx.Invoke(

@@ -3,16 +3,19 @@ package commonbiz
 import (
 	"errors"
 	"shopnexus-remastered/internal/infras/objectstore"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	commondb "shopnexus-remastered/internal/module/common/db"
+	"shopnexus-remastered/internal/shared/pgsqlc"
 )
 
-type Commonbiz struct {
-	storage        pgsqlc.Storage
+type CommonStorage = pgsqlc.Storage[*commondb.Queries]
+
+type CommonBiz struct {
+	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 }
 
-func Newcommonbiz(storage pgsqlc.Storage) (*Commonbiz, error) {
-	b := &Commonbiz{
+func NewcommonBiz(storage CommonStorage) (*CommonBiz, error) {
+	b := &CommonBiz{
 		storage: storage,
 	}
 

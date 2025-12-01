@@ -23,9 +23,9 @@ enum PromotionRefType {
 }
 
 model Promotion {
-  id       BigInt  @id @default(autoincrement())
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code     String  @unique
-  owner_id BigInt? // null means system promotion
+  owner_id String? @db.Uuid // null means system promotion
 
   type        PromotionType // Type of promotion
   title       String // Title of the promotion
@@ -45,15 +45,15 @@ model Promotion {
   schedules PromotionSchedule[]
   refs      PromotionRef[]
 
-  @@map("base")
+  @@map("promotion")
   @@schema("promotion")
 }
 
 model PromotionRef {
   id           BigInt           @id @default(autoincrement())
-  promotion_id BigInt
+  promotion_id String           @db.Uuid
   ref_type     PromotionRefType // Type of reference
-  ref_id       BigInt // Reference id, e.g. product id, category id
+  ref_id       String           @db.Uuid // Reference id, e.g. product id, category id
 
   promotion Promotion @relation(fields: [promotion_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
@@ -64,7 +64,7 @@ model PromotionRef {
 
 model PromotionSchedule {
   id           BigInt @id @default(autoincrement())
-  promotion_id BigInt
+  promotion_id String @db.Uuid
   timezone     String // Timezone for the schedule, e.g., "America/New_York"
   cron_rule    String // (e.g., "0 9 * * 1" for every Monday 9AM)
   duration     Int // in minutes, e.g., 60 for 1 hour
@@ -79,11 +79,11 @@ model PromotionSchedule {
 }
 
 model PromotionDiscount {
-  id BigInt @id
+  id String @id @db.Uuid
 
   min_spend        BigInt // Minimum spend to apply this sale, 0 means applied immediately
   max_discount     BigInt // Maximum discount amount (fixed price), 0 means no limit
-  discount_percent Int? // either discount_percent or discount_price
+  discount_percent Float? // either discount_percent or discount_price
   discount_price   BigInt?
 
   promotion Promotion @relation(fields: [id], references: [id], onUpdate: Cascade, onDelete: Cascade)

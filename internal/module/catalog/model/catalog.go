@@ -1,8 +1,9 @@
 package catalogmodel
 
 import (
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -11,12 +12,35 @@ const (
 	CacheKeyRecommendOffset  = "catalog:recommend:offset:%d"
 )
 
-// ProductPrice is the final price of a product SKU after applying promotions
-type ProductPrice struct {
-	SkuID         int64
-	Price         commonmodel.Concurrency
-	OriginalPrice commonmodel.Concurrency
-	Promotions    []promotionmodel.PromotionBase
+// OrderPrice is the final price of a order after applying promotions
+type OrderPrice struct {
+	Request RequestOrderPrice
+
+	ProductCost commonmodel.Concurrency
+	ShipCost    commonmodel.Concurrency
+
+	PromotionCodes []string
+}
+
+func (o *OrderPrice) Total() commonmodel.Concurrency {
+	return o.ProductCost.Add(o.ShipCost)
+}
+
+type RequestOrderPrice struct {
+	SkuID          uuid.UUID
+	SpuID          uuid.UUID
+	UnitPrice      commonmodel.Concurrency
+	Quantity       int64
+	ShipCost       commonmodel.Concurrency
+	PromotionCodes []string
+}
+
+func (ro RequestOrderPrice) ProductCost() commonmodel.Concurrency {
+	return ro.UnitPrice.Mul(ro.Quantity)
+}
+
+func (ro RequestOrderPrice) Total() commonmodel.Concurrency {
+	return ro.ProductCost().Add(ro.ShipCost)
 }
 
 type Rating struct {

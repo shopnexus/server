@@ -1,6 +1,5 @@
 enum InteractionRefType {
   Product
-  Article
   Category
   Brand
 
@@ -10,12 +9,12 @@ enum InteractionRefType {
 
 model Interaction {
   id           BigInt             @id @default(autoincrement())
-  account_id   BigInt? // nullable for anonymous users
+  account_id   String?            @db.Uuid // nullable for anonymous users
   session_id   String? // for anonymous tracking (cookie/session-based)
   event_type   String // e.g. view, add_to_cart, purchase
   ref_type     InteractionRefType
-  ref_id       BigInt // reference to product/article/etc.
-  metadata     Json? // additional data (e.g. { "duration": 12, "source": "search" })
+  ref_id       String // reference to product/category/brand/etc.
+  metadata     Json?              @db.JsonB // additional data (e.g. { "duration": 12, "source": "search" })
   user_agent   String? // optional
   ip_address   String? // optional
   date_created DateTime           @default(now()) @db.Timestamptz(3)

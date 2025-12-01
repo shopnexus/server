@@ -1,5 +1,4 @@
 enum ResourceRefType {
-  Account
   ProductSpu
   ProductSku
   Brand
@@ -13,12 +12,12 @@ enum ResourceRefType {
 
 // TODO: should catch "remove" event and remove them in s3;
 model Resource {
-  id          String  @id @db.Uuid
-  uploaded_by BigInt?
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploaded_by String? @db.Uuid
 
   provider   String // From ServiceOption
   object_key String @db.VarChar(2048) // e.g. S3 object key, Cloudinary public_id, or local file path
-  mime       String // MIME type of the resource, e.g. image/jpeg, image/png, etc.
+  mime       String @db.VarChar(100) // MIME type of the resource, e.g. image/jpeg, image/png, etc.
   size       BigInt
   metadata   Json   @db.JsonB
 
@@ -36,12 +35,11 @@ model Resource {
 }
 
 model ResourceReference {
-  id         BigInt          @id @default(autoincrement())
-  rs_id      String          @db.Uuid
-  ref_type   ResourceRefType
-  ref_id     BigInt
-  order      Int
-  is_primary Boolean
+  id       BigInt          @id @default(autoincrement())
+  rs_id    String          @db.Uuid
+  ref_type ResourceRefType
+  ref_id   String          @db.Uuid
+  order    Int
 
   resource Resource @relation(fields: [rs_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
@@ -60,7 +58,7 @@ model ServiceOption {
   order       Int
 
   shipments Shipment[]
-  orders    Order[]
+  payments  Payment[]
 
   @@index([category, provider])
   @@map("service_option")

@@ -1,25 +1,27 @@
 package catalogmodel
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
-
+	accountmodel "shopnexus-remastered/internal/module/account/model"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type Comment struct {
-	ID          int64                  `json:"id"`
-	Account     CommentAccount         `json:"account"`
+	ID          uuid.UUID              `json:"id"`
+	Profile     accountmodel.Profile   `json:"profile"`
 	Body        string                 `json:"body"`
 	Upvote      int64                  `json:"upvote"`
 	Downvote    int64                  `json:"downvote"`
-	Score       int32                  `json:"score"`
-	DateCreated pgtype.Timestamptz     `json:"date_created"`
-	DateUpdated pgtype.Timestamptz     `json:"date_updated"`
+	Score       float64                `json:"score"`
+	DateCreated time.Time              `json:"date_created"`
+	DateUpdated time.Time              `json:"date_updated"`
 	Resources   []commonmodel.Resource `json:"resources"`
 }
 
 type CommentAccount struct {
-	ID       int64                 `json:"id"`
+	ID       uuid.UUID             `json:"id"`
 	Name     string                `json:"name"`
 	Verified bool                  `json:"verified"`
 	Avatar   *commonmodel.Resource `json:"avatar"`

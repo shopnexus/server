@@ -11,6 +11,6 @@ generator dbml {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["account", "analytic", "catalog", "common", "inventory", "order", "promotion", "system"]
   url      = env("DATABASE_URL")
-  schemas  = ["account", "catalog", "inventory", "promotion", "order", "analytic", "system", "common"]
 }

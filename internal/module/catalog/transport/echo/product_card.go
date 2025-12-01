@@ -3,19 +3,20 @@ package catalogecho
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 )
 
 type ListProductCardRequest struct {
 	commonmodel.PaginationParams
-	VendorID null.Int64  `query:"vendor_id" validate:"omitnil,min=1"`
-	Search   null.String `query:"search" validate:"omitnil"`
+	VendorID uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
+	Search   null.String   `query:"search" validate:"omitnil"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {
@@ -54,10 +55,7 @@ func (h *Handler) ListRecommendedProductCard(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
+	claims, _ := authclaims.GetClaims(c.Request())
 
 	result, err := h.biz.ListRecommendedProductCard(c.Request().Context(), catalogbiz.ListRecommendedProductCardParams{
 		Account: claims.Account,

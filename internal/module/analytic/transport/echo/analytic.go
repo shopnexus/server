@@ -4,11 +4,12 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/samber/lo"
 
-	"shopnexus-remastered/internal/db"
 	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/response"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	"shopnexus-remastered/internal/shared/response"
 )
 
 type Handler struct {
@@ -23,10 +24,14 @@ func NewHandler(e *echo.Echo, biz *analyticbiz.AnalyticBiz) *Handler {
 	return h
 }
 
+type CreateInteraction struct {
+	EventType string                                `json:"event_type" validate:"required,min=1"`
+	RefType   analyticdb.AnalyticInteractionRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	RefID     string                                `json:"ref_id" validate:"required"`
+}
+
 type CreateInteractionRequest struct {
-	EventType string                        `json:"event_type" validate:"required,min=1"`
-	RefType   db.AnalyticInteractionRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID     int64                         `json:"ref_id" validate:"required,min=1"`
+	Interactions []CreateInteraction `json:"interactions" validate:"required,dive,required"`
 }
 
 func (h *Handler) CreateInteraction(c echo.Context) error {
@@ -44,10 +49,14 @@ func (h *Handler) CreateInteraction(c echo.Context) error {
 	}
 
 	if err := h.biz.CreateInteraction(c.Request().Context(), analyticbiz.CreateInteractionParams{
-		Account:   claims.Account,
-		EventType: req.EventType,
-		RefType:   req.RefType,
-		RefID:     req.RefID,
+		Interactions: lo.Map(req.Interactions, func(i CreateInteraction, _ int) analyticbiz.CreateInteraction {
+			return analyticbiz.CreateInteraction{
+				AccountID: claims.Account.ID,
+				EventType: i.EventType,
+				RefType:   i.RefType,
+				RefID:     i.RefID,
+			}
+		}),
 	}); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

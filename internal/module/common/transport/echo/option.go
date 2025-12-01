@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/labstack/echo/v4"
 )

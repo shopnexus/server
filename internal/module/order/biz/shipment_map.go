@@ -2,11 +2,12 @@ package orderbiz
 
 import (
 	"context"
+	"fmt"
 
 	"shopnexus-remastered/internal/infras/shipment"
 	"shopnexus-remastered/internal/infras/shipment/ghtk"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupShipmentMap() error {
@@ -22,7 +23,8 @@ func (b *OrderBiz) SetupShipmentMap() error {
 	}
 
 	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
-		Storage:  b.storage,
+		// Storage:  b.storage,
+		// TODO: should use message queue to update
 		Category: "shipment",
 		Configs:  options,
 	}); err != nil {
@@ -30,4 +32,12 @@ func (b *OrderBiz) SetupShipmentMap() error {
 	}
 
 	return nil
+}
+
+func (b *OrderBiz) getShipmentClient(option string) (shipment.Client, error) {
+	client, ok := b.shipmentMap[option]
+	if !ok {
+		return nil, fmt.Errorf("unknown shipment option: %s", option)
+	}
+	return client, nil
 }

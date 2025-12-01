@@ -2,26 +2,31 @@ package catalogbiz
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	searchmodel "shopnexus-remastered/internal/module/search/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db"
+	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgutil"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
 type ListProductSkuParams struct {
-	SpuID      int64      `validate:"omitempty,gt=0"`
-	PriceFrom  null.Int64 `validate:"omitnil,gt=0"`
-	PriceTo    null.Int64 `validate:"omitnil,gt=0,gtefield=PriceFrom"`
-	CanCombine null.Bool  `validate:"omitnil"`
+	ID         []uuid.UUID `validate:"omitempty,dive,required"`
+	SpuID      []uuid.UUID `validate:"omitempty"`
+	PriceFrom  null.Int64  `validate:"omitnil,gt=0"`
+	PriceTo    null.Int64  `validate:"omitnil,gt=0,gtefield=PriceFrom"`
+	CanCombine null.Bool   `validate:"omitnil"`
 }
 
 func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
@@ -31,24 +36,24 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 		return zero, err
 	}
 
-	dbSkus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		SpuID:      []int64{params.SpuID},
-		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
-		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
+	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+		SpuID:      params.SpuID,
+		PriceFrom:  params.PriceFrom,
+		PriceTo:    params.PriceTo,
 		CanCombine: pgutil.NullBoolToSlice(params.CanCombine),
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
-		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-		RefID:   lo.Map(dbSkus, func(s db.CatalogProductSku, _ int) int64 { return s.ID }),
+	stocks, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
+		RefType: []inventorydb.InventoryStockRefType{inventorydb.InventoryStockRefTypeProductSku},
+		RefID:   lo.Map(dbSkus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.ID }),
 	})
 	if err != nil {
 		return zero, err
 	}
-	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
+	stockMap := lo.KeyBy(stocks.Data, func(s inventorymodel.Stock) uuid.UUID { return s.RefID })
 
 	var skus []catalogmodel.ProductSku
 	for _, dbSku := range dbSkus {
@@ -57,13 +62,14 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 			return zero, err
 		}
 		skus = append(skus, catalogmodel.ProductSku{
-			ID:          dbSku.ID,
-			SpuID:       dbSku.SpuID,
-			Price:       dbSku.Price,
-			CanCombine:  dbSku.CanCombine,
-			DateCreated: dbSku.DateCreated.Time,
-			Stock:       stockMap[dbSku.ID].CurrentStock,
-			Attributes:  attributes,
+			ID:             dbSku.ID,
+			SpuID:          dbSku.SpuID,
+			Price:          sharedmodel.Concurrency(dbSku.Price),
+			CanCombine:     dbSku.CanCombine,
+			DateCreated:    dbSku.DateCreated,
+			Stock:          stockMap[dbSku.ID].Stock,
+			Attributes:     attributes,
+			PackageDetails: dbSku.PackageDetails,
 		})
 	}
 
@@ -71,42 +77,48 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 }
 
 type CreateProductSkuParams struct {
-	Storage    pgsqlc.Storage
-	Account    authmodel.AuthenticatedAccount
-	SpuID      int64                           `validate:"required,gt=0"`
-	Price      int64                           `validate:"required,gt=0"`
-	CanCombine bool                            `validate:"required"`
-	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
+	Storage        CatalogStorage
+	Account        accountmodel.AuthenticatedAccount
+	SpuID          uuid.UUID                       `validate:"required"`
+	Price          sharedmodel.Concurrency         `validate:"required,gt=0"`
+	CanCombine     bool                            `validate:"required"`
+	Attributes     []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
+	PackageDetails json.RawMessage                 `validate:"required"`
 }
 
 func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
-	var sku db.CatalogProductSku
+	var sku catalogdb.CatalogProductSku
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		attributesBytes, err := sonic.Marshal(params.Attributes)
+		if err != nil {
+			return err
+		}
+		packagedetailsBytes, err := sonic.Marshal(params.PackageDetails)
 		if err != nil {
 			return err
 		}
 
 		// Create sku
-		sku, err = txStorage.CreateDefaultCatalogProductSku(ctx, db.CreateDefaultCatalogProductSkuParams{
-			SpuID:      params.SpuID,
-			Price:      params.Price,
-			CanCombine: params.CanCombine,
-			Attributes: attributesBytes,
+		sku, err = txStorage.Querier().CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
+			SpuID:          params.SpuID,
+			Price:          int64(params.Price),
+			CanCombine:     params.CanCombine,
+			Attributes:     attributesBytes,
+			PackageDetails: packagedetailsBytes,
 		})
 		if err != nil {
 			return err
 		}
 
-		// Create sku stock
-		if _, err := txStorage.CreateDefaultInventoryStock(ctx, db.CreateDefaultInventoryStockParams{
-			RefType: db.InventoryStockRefTypeProductSku,
-			RefID:   sku.ID,
-		}); err != nil {
-			return err
-		}
+		// TODO: Create sku stock via message queue
+		// if _, err := txStorage.Querier().CreateDefaultInventoryStock(ctx, catalogdb.CreateDefaultInventoryStockParams{
+		// 	RefType: catalogdb.InventoryStockRefTypeProductSku,
+		// 	RefID:   sku.ID,
+		// }); err != nil {
+		// 	return err
+		// }
 
 		return nil
 	}); err != nil {
@@ -114,23 +126,25 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 	}
 
 	return catalogmodel.ProductSku{
-		ID:          sku.ID,
-		SpuID:       sku.SpuID,
-		Price:       sku.Price,
-		CanCombine:  sku.CanCombine,
-		DateCreated: sku.DateCreated.Time,
-		Stock:       0,
-		Attributes:  params.Attributes,
+		ID:             sku.ID,
+		SpuID:          sku.SpuID,
+		Price:          sharedmodel.Concurrency(sku.Price),
+		CanCombine:     sku.CanCombine,
+		DateCreated:    sku.DateCreated,
+		Stock:          0,
+		Attributes:     params.Attributes,
+		PackageDetails: sku.PackageDetails,
 	}, nil
 }
 
 type UpdateProductSkuParams struct {
-	Storage    pgsqlc.Storage
-	Account    authmodel.AuthenticatedAccount
-	ID         int64                           `validate:"required,gt=0"`
-	Price      null.Int64                      `validate:"omitnil,gt=0"`
-	CanCombine null.Bool                       `validate:"omitnil"`
-	Attributes []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
+	Storage        CatalogStorage
+	Account        accountmodel.AuthenticatedAccount
+	ID             uuid.UUID                       `validate:"required"`
+	Price          sharedmodel.NullConcurrency     `validate:"omitnil"`
+	CanCombine     null.Bool                       `validate:"omitnil"`
+	Attributes     []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
+	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
 
 func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
@@ -141,40 +155,46 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 	}
 
 	var (
-		sku   db.CatalogProductSku
-		stock db.InventoryStock
+		sku   catalogdb.CatalogProductSku
+		stock inventorymodel.Stock
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		attributesBytes, err := sonic.Marshal(params.Attributes)
+		if err != nil {
+			return err
+		}
+		packageDetailsBytes, err := sonic.Marshal(params.PackageDetails)
 		if err != nil {
 			return err
 		}
 		// TODO: check biz logic of attribute update
 
-		sku, err = txStorage.UpdateCatalogProductSku(ctx, db.UpdateCatalogProductSkuParams{
-			ID:         params.ID,
-			Price:      pgutil.NullInt64ToPgInt8(params.Price),
-			CanCombine: pgutil.NullBoolToPgBool(params.CanCombine),
-			Attributes: attributesBytes,
+		sku, err = txStorage.Querier().UpdateProductSku(ctx, catalogdb.UpdateProductSkuParams{
+			ID:             params.ID,
+			Price:          params.Price.ToNullInt64(),
+			CanCombine:     params.CanCombine,
+			Attributes:     attributesBytes,
+			PackageDetails: packageDetailsBytes,
 		})
 		if err != nil {
 			return err
 		}
 
-		stock, err = txStorage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-			RefType: db.NullInventoryStockRefType{InventoryStockRefType: db.InventoryStockRefTypeProductSku, Valid: true},
-			RefID:   pgutil.Int64ToPgInt8(sku.ID),
+		stock, err = b.inventory.GetStock(ctx, inventorybiz.GetStockParams{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   sku.ID,
 		})
 		if err != nil {
 			return err
 		}
 
 		// Invalidate search index for the parent product (spu)
-		if err := txStorage.UpdateStaleSearchSync(ctx, db.UpdateStaleSearchSyncParams{
-			RefType:         searchmodel.RefTypeProduct,
+		// TODO: should use message queue
+		if err := txStorage.Querier().UpdateStaleSearchSync(ctx, catalogdb.UpdateStaleSearchSyncParams{
+			RefType:         catalogmodel.RefTypeProduct,
 			RefID:           sku.SpuID,
-			IsStaleMetadata: pgutil.BoolToPgBool(true),
+			IsStaleMetadata: null.BoolFrom(true),
 		}); err != nil {
 			return err
 		}
@@ -185,20 +205,21 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 	}
 
 	return catalogmodel.ProductSku{
-		ID:          sku.ID,
-		SpuID:       sku.SpuID,
-		Price:       sku.Price,
-		CanCombine:  sku.CanCombine,
-		DateCreated: sku.DateCreated.Time,
-		Stock:       stock.CurrentStock,
-		Attributes:  params.Attributes,
+		ID:             sku.ID,
+		SpuID:          sku.SpuID,
+		Price:          sharedmodel.Concurrency(sku.Price),
+		CanCombine:     sku.CanCombine,
+		DateCreated:    sku.DateCreated,
+		Stock:          stock.Stock,
+		Attributes:     params.Attributes,
+		PackageDetails: params.PackageDetails,
 	}, nil
 }
 
 type DeleteProductSkuParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
-	ID      int64 `validate:"required,gt=0"`
+	Storage CatalogStorage
+	Account accountmodel.AuthenticatedAccount
+	ID      uuid.UUID `validate:"required"`
 }
 
 func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductSkuParams) error {
@@ -206,21 +227,22 @@ func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		// Delete sku
-		if err := txStorage.DeleteCatalogProductSku(ctx, db.DeleteCatalogProductSkuParams{
-			ID: []int64{params.ID},
+		if err := txStorage.Querier().DeleteProductSku(ctx, catalogdb.DeleteProductSkuParams{
+			ID: []uuid.UUID{params.ID},
 		}); err != nil {
 			return err
 		}
 
+		// TODO: should delete via message queue instead
 		// Delete the associated stock record
-		if err := txStorage.DeleteInventoryStock(ctx, db.DeleteInventoryStockParams{
-			RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-			RefID:   []int64{params.ID},
-		}); err != nil {
-			return err
-		}
+		// if err := txStorage.Querier().DeleteInventoryStock(ctx, catalogdb.DeleteInventoryStockParams{
+		// 	RefType: []catalogdb.InventoryStockRefType{catalogdb.InventoryStockRefTypeProductSku},
+		// 	RefID:   []uuid.UUID{params.ID},
+		// }); err != nil {
+		// 	return err
+		// }
 
 		return nil
 	}); err != nil {

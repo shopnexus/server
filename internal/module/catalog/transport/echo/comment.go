@@ -3,11 +3,11 @@ package catalogecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -16,12 +16,12 @@ import (
 
 type ListCommentRequest struct {
 	commonmodel.PaginationParams
-	RefType   db.CatalogCommentRefType `query:"ref_type" validate:"required"`
-	RefID     int64                    `query:"ref_id" validate:"required"`
-	ID        []int64                  `query:"id" validate:"omitempty"`
-	AccountID []int64                  `query:"account_id" validate:"omitempty"`
-	ScoreFrom null.Int32               `query:"score_from" validate:"omitnil"`
-	ScoreTo   null.Int32               `query:"score_to" validate:"omitnil"`
+	RefType   catalogdb.CatalogCommentRefType `query:"ref_type" validate:"required"`
+	RefID     uuid.UUID                       `query:"ref_id" validate:"required"`
+	ID        []uuid.UUID                     `query:"id" validate:"omitempty"`
+	AccountID []uuid.UUID                     `query:"account_id" validate:"omitempty"`
+	ScoreFrom null.Float                      `query:"score_from" validate:"omitnil"`
+	ScoreTo   null.Float                      `query:"score_to" validate:"omitnil"`
 }
 
 func (h *Handler) ListComment(c echo.Context) error {
@@ -38,7 +38,7 @@ func (h *Handler) ListComment(c echo.Context) error {
 		RefType:          req.RefType,
 		ID:               req.ID,
 		AccountID:        req.AccountID,
-		RefID:            []int64{req.RefID},
+		RefID:            []uuid.UUID{req.RefID},
 		ScoreFrom:        req.ScoreFrom,
 		ScoreTo:          req.ScoreTo,
 	})
@@ -50,10 +50,10 @@ func (h *Handler) ListComment(c echo.Context) error {
 }
 
 type CreateCommentRequest struct {
-	RefType db.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID   int64                    `json:"ref_id" validate:"required"`
-	Body    string                   `json:"body" validate:"required"`
-	Score   int32                    `json:"score" validate:"required"`
+	RefType catalogdb.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                       `json:"ref_id" validate:"required"`
+	Body    string                          `json:"body" validate:"required"`
+	Score   float64                         `json:"score" validate:"required"`
 
 	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"required"`
 }
@@ -89,9 +89,9 @@ func (h *Handler) CreateComment(c echo.Context) error {
 }
 
 type UpdateCommentRequest struct {
-	ID             int64       `json:"id" validate:"required"`
+	ID             uuid.UUID   `json:"id" validate:"required"`
 	Body           null.String `json:"body" validate:"required"`
-	Score          null.Int32  `json:"score" validate:"required"`
+	Score          null.Float  `json:"score" validate:"required"`
 	ResourceIDs    []uuid.UUID `json:"resource_ids" validate:"required"`
 	EmptyResources bool        `json:"empty_resources" validate:"omitempty"`
 }
@@ -125,7 +125,7 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 }
 
 type DeleteCommentRequest struct {
-	IDs []int64 `json:"ids" validate:"required"`
+	IDs []uuid.UUID `json:"ids" validate:"required"`
 }
 
 func (h *Handler) DeleteComment(c echo.Context) error {

@@ -32,7 +32,7 @@ enum AddressType {
 }
 
 model Account {
-  id BigInt @id @default(autoincrement())
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   type         AccountType
   status       AccountStatus @default(Active)
@@ -50,23 +50,22 @@ model Account {
   // events           Event[]
   notifications    Notification[]
   comments         Comment[]
-  invoices         Invoice[]
   upload_resources Resource[]     @relation("resource_upload_by")
 
-  @@map("base")
+  @@map("account")
   @@schema("account")
 }
 
 model Profile {
-  id BigInt @id
+  id String @id @db.Uuid
 
   gender             Gender?
   name               String?   @db.VarChar(100)
-  date_of_birth      DateTime? @db.Date
+  date_of_birth      DateTime?
   avatar_rs_id       String?   @unique @db.Uuid // Resource id for avatar
   email_verified     Boolean   @default(false)
   phone_verified     Boolean   @default(false)
-  default_contact_id BigInt?   @unique // Default contact id for this profile
+  default_contact_id String?   @unique @db.Uuid // Default contact id for this profile
   date_created       DateTime  @default(now()) @db.Timestamptz(3)
   date_updated       DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 
@@ -79,24 +78,25 @@ model Profile {
 }
 
 model Customer {
-  id           BigInt   @id
+  id           String   @id @db.Uuid
   date_created DateTime @default(now()) @db.Timestamptz(3)
   date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
   account         Account       @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   orders          Order[]
-  CartItem        CartItem[]
   UserInteraction Interaction[]
   refunds         Refund[]
+  cart_items      CartItem[]
+  payments        Payment[]
 
   @@map("customer")
   @@schema("account")
 }
 
 model Vendor {
-  id BigInt @id
+  id String @id @db.Uuid
 
-  description String @default("") @db.VarChar(255)
+  description String @default("")
 
   account          Account         @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: Cascade)
   spus             ProductSpu[]
@@ -104,38 +104,18 @@ model Vendor {
   refund_disputes  RefundDispute[]
   promotions       Promotion[]
   income_histories IncomeHistory[]
-  confirmed_items  OrderItem[]     @relation("confirmer")
-  vendor_orders    OrderItem[]     @relation("vendor")
+  confirmed_items  Order[]         @relation("confirmer")
+  vendor_orders    Order[]         @relation("vendor")
 
   @@index([id])
   @@map("vendor")
   @@schema("account")
 }
 
-// TODO: hold the item quantity in the product stock (stock -= quantity), after 1h of inactivity, free the item stock in the product stock (stock += quantity)
-model CartItem {
-  id      BigInt @id @default(autoincrement())
-  cart_id BigInt // is account_id (CustomerProfile.id)
-  sku_id  BigInt
-
-  quantity     BigInt
-  date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  customer Customer   @relation(fields: [cart_id], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  sku      ProductSku @relation(fields: [sku_id], references: [id], onUpdate: Cascade, onDelete: NoAction)
-
-  @@unique([cart_id, sku_id])
-  @@index([cart_id])
-  @@index([sku_id])
-  @@map("cart_item")
-  @@schema("account")
-}
-
 model IncomeHistory {
   // * Should select for update or any other locking mechanism when creating new income history
   id         BigInt @id @default(autoincrement())
-  account_id BigInt // Only vendor
+  account_id String @db.Uuid // Only vendor
 
   type            String   @db.VarChar(50) // e.g. sale, refund, commission, payout
   income          BigInt // in USD (+/-)
@@ -154,7 +134,7 @@ model IncomeHistory {
 
 model Notification {
   id         BigInt @id @default(autoincrement())
-  account_id BigInt
+  account_id String @db.Uuid
 
   type    String @db.VarChar(50) // e.g. email, sms, push
   channel String @db.VarChar(50) // e.g. order_update, promotion, system_alert
@@ -177,8 +157,8 @@ model Notification {
 }
 
 model Contact {
-  id         BigInt @id @default(autoincrement())
-  account_id BigInt
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_id String @db.Uuid
 
   full_name      String      @db.VarChar(100)
   phone          String      @db.VarChar(30)

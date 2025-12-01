@@ -10,22 +10,3 @@ model OutboxEvent {
   @@map("outbox_event")
   @@schema("system")
 }
-
-model SearchSync {
-  id                 BigInt  @id @default(autoincrement())
-  ref_type           String  @db.VarChar(100) // e.g. Product, Category, Brand, ...
-  ref_id             BigInt
-  is_stale_embedding Boolean @default(true) // Stale vector embedding
-  is_stale_metadata  Boolean @default(true) // Stale things like name, description, price, etc.
-
-  date_created DateTime @default(now()) @db.Timestamptz(3)
-  date_updated DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  @@unique([ref_type, ref_id])
-  @@index([ref_type, ref_id])
-  @@index([is_stale_embedding])
-  @@index([is_stale_metadata])
-  @@index([date_created])
-  @@map("search_sync")
-  @@schema("system")
-}

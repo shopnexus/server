@@ -35,13 +35,13 @@ CREATE TYPE "account"."gender" AS ENUM ('Male', 'Female', 'Other');
 CREATE TYPE "account"."address_type" AS ENUM ('Home', 'Work');
 
 -- CreateEnum
-CREATE TYPE "analytic"."interaction_ref_type" AS ENUM ('Product', 'Article', 'Category', 'Brand');
+CREATE TYPE "analytic"."interaction_ref_type" AS ENUM ('Product', 'Category', 'Brand');
 
 -- CreateEnum
 CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
 
 -- CreateEnum
-CREATE TYPE "common"."resource_ref_type" AS ENUM ('Account', 'ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
+CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
 
 -- CreateEnum
 CREATE TYPE "common"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
@@ -56,12 +56,6 @@ CREATE TYPE "inventory"."product_status" AS ENUM ('Active', 'Inactive', 'Sold', 
 CREATE TYPE "order"."refund_method" AS ENUM ('PickUp', 'DropOff');
 
 -- CreateEnum
-CREATE TYPE "order"."invoice_type" AS ENUM ('Sale', 'Service', 'Adjustment');
-
--- CreateEnum
-CREATE TYPE "order"."invoice_ref_type" AS ENUM ('Order', 'Fee');
-
--- CreateEnum
 CREATE TYPE "order"."shipment_status" AS ENUM ('Pending', 'LabelCreated', 'InTransit', 'OutForDelivery', 'Delivered', 'Failed', 'Cancelled');
 
 -- CreateEnum
@@ -71,8 +65,8 @@ CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'ShipDiscount', 'Bundle', 'B
 CREATE TYPE "promotion"."ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Category', 'Brand');
 
 -- CreateTable
-CREATE TABLE "account"."base" (
-    "id" BIGSERIAL NOT NULL,
+CREATE TABLE "account"."account" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "type" "account"."type" NOT NULL,
     "status" "account"."status" NOT NULL DEFAULT 'Active',
     "phone" VARCHAR(50),
@@ -82,19 +76,19 @@ CREATE TABLE "account"."base" (
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "base_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "account_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "account"."profile" (
-    "id" BIGINT NOT NULL,
+    "id" UUID NOT NULL,
     "gender" "account"."gender",
     "name" VARCHAR(100),
-    "date_of_birth" DATE,
+    "date_of_birth" TIMESTAMP(3),
     "avatar_rs_id" UUID,
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
-    "default_contact_id" BIGINT,
+    "default_contact_id" UUID,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -103,7 +97,7 @@ CREATE TABLE "account"."profile" (
 
 -- CreateTable
 CREATE TABLE "account"."customer" (
-    "id" BIGINT NOT NULL,
+    "id" UUID NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -112,28 +106,16 @@ CREATE TABLE "account"."customer" (
 
 -- CreateTable
 CREATE TABLE "account"."vendor" (
-    "id" BIGINT NOT NULL,
-    "description" VARCHAR(255) NOT NULL DEFAULT '',
+    "id" UUID NOT NULL,
+    "description" TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT "vendor_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "account"."cart_item" (
-    "id" BIGSERIAL NOT NULL,
-    "cart_id" BIGINT NOT NULL,
-    "sku_id" BIGINT NOT NULL,
-    "quantity" BIGINT NOT NULL,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "cart_item_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "account"."income_history" (
     "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
+    "account_id" UUID NOT NULL,
     "type" VARCHAR(50) NOT NULL,
     "income" BIGINT NOT NULL,
     "current_balance" BIGINT NOT NULL,
@@ -146,7 +128,7 @@ CREATE TABLE "account"."income_history" (
 -- CreateTable
 CREATE TABLE "account"."notification" (
     "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
+    "account_id" UUID NOT NULL,
     "type" VARCHAR(50) NOT NULL,
     "channel" VARCHAR(50) NOT NULL,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
@@ -161,8 +143,8 @@ CREATE TABLE "account"."notification" (
 
 -- CreateTable
 CREATE TABLE "account"."contact" (
-    "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "account_id" UUID NOT NULL,
     "full_name" VARCHAR(100) NOT NULL,
     "phone" VARCHAR(30) NOT NULL,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
@@ -177,11 +159,11 @@ CREATE TABLE "account"."contact" (
 -- CreateTable
 CREATE TABLE "analytic"."interaction" (
     "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT,
+    "account_id" UUID,
     "session_id" TEXT,
     "event_type" TEXT NOT NULL,
     "ref_type" "analytic"."interaction_ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
+    "ref_id" TEXT NOT NULL,
     "metadata" JSONB,
     "user_agent" TEXT,
     "ip_address" TEXT,
@@ -192,7 +174,7 @@ CREATE TABLE "analytic"."interaction" (
 
 -- CreateTable
 CREATE TABLE "catalog"."brand" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -202,7 +184,7 @@ CREATE TABLE "catalog"."brand" (
 
 -- CreateTable
 CREATE TABLE "catalog"."category" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "description" TEXT NOT NULL,
     "parent_id" BIGINT,
@@ -212,12 +194,12 @@ CREATE TABLE "catalog"."category" (
 
 -- CreateTable
 CREATE TABLE "catalog"."product_spu" (
-    "id" BIGSERIAL NOT NULL,
-    "code" TEXT NOT NULL,
-    "account_id" BIGINT NOT NULL,
-    "category_id" BIGINT NOT NULL,
-    "brand_id" BIGINT NOT NULL,
-    "featured_sku_id" BIGINT,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "slug" TEXT NOT NULL,
+    "account_id" UUID NOT NULL,
+    "category_id" UUID NOT NULL,
+    "brand_id" UUID NOT NULL,
+    "featured_sku_id" UUID,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
@@ -231,8 +213,8 @@ CREATE TABLE "catalog"."product_spu" (
 
 -- CreateTable
 CREATE TABLE "catalog"."product_sku" (
-    "id" BIGSERIAL NOT NULL,
-    "spu_id" BIGINT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "spu_id" UUID NOT NULL,
     "price" BIGINT NOT NULL,
     "can_combine" BOOLEAN NOT NULL,
     "attributes" JSONB NOT NULL,
@@ -246,7 +228,7 @@ CREATE TABLE "catalog"."product_sku" (
 -- CreateTable
 CREATE TABLE "catalog"."tag" (
     "id" VARCHAR(100) NOT NULL,
-    "description" TEXT NOT NULL,
+    "description" VARCHAR(255),
 
     CONSTRAINT "tag_pkey" PRIMARY KEY ("id")
 );
@@ -254,7 +236,7 @@ CREATE TABLE "catalog"."tag" (
 -- CreateTable
 CREATE TABLE "catalog"."product_spu_tag" (
     "id" BIGSERIAL NOT NULL,
-    "spu_id" BIGINT NOT NULL,
+    "spu_id" UUID NOT NULL,
     "tag" VARCHAR(100) NOT NULL,
 
     CONSTRAINT "product_spu_tag_pkey" PRIMARY KEY ("id")
@@ -262,14 +244,14 @@ CREATE TABLE "catalog"."product_spu_tag" (
 
 -- CreateTable
 CREATE TABLE "catalog"."comment" (
-    "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "account_id" UUID NOT NULL,
     "ref_type" "catalog"."comment_ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
+    "ref_id" UUID NOT NULL,
     "body" TEXT NOT NULL,
     "upvote" BIGINT NOT NULL DEFAULT 0,
     "downvote" BIGINT NOT NULL DEFAULT 0,
-    "score" INTEGER NOT NULL,
+    "score" DOUBLE PRECISION NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -277,12 +259,25 @@ CREATE TABLE "catalog"."comment" (
 );
 
 -- CreateTable
+CREATE TABLE "catalog"."search_sync" (
+    "id" BIGSERIAL NOT NULL,
+    "ref_type" VARCHAR(100) NOT NULL,
+    "ref_id" UUID NOT NULL,
+    "is_stale_embedding" BOOLEAN NOT NULL DEFAULT true,
+    "is_stale_metadata" BOOLEAN NOT NULL DEFAULT true,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "search_sync_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "common"."resource" (
-    "id" UUID NOT NULL,
-    "uploaded_by" BIGINT,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "uploaded_by" UUID,
     "provider" TEXT NOT NULL,
     "object_key" VARCHAR(2048) NOT NULL,
-    "mime" TEXT NOT NULL,
+    "mime" VARCHAR(100) NOT NULL,
     "size" BIGINT NOT NULL,
     "metadata" JSONB NOT NULL,
     "checksum" TEXT,
@@ -297,9 +292,8 @@ CREATE TABLE "common"."resource_reference" (
     "id" BIGSERIAL NOT NULL,
     "rs_id" UUID NOT NULL,
     "ref_type" "common"."resource_ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
+    "ref_id" UUID NOT NULL,
     "order" INTEGER NOT NULL,
-    "is_primary" BOOLEAN NOT NULL,
 
     CONSTRAINT "resource_reference_pkey" PRIMARY KEY ("id")
 );
@@ -320,9 +314,8 @@ CREATE TABLE "common"."service_option" (
 
 -- CreateTable
 CREATE TABLE "inventory"."sku_serial" (
-    "id" BIGSERIAL NOT NULL,
-    "serial_id" VARCHAR(50) NOT NULL,
-    "sku_id" BIGINT NOT NULL,
+    "id" TEXT NOT NULL,
+    "sku_id" UUID NOT NULL,
     "status" "inventory"."product_status" NOT NULL DEFAULT 'Active',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -333,9 +326,10 @@ CREATE TABLE "inventory"."sku_serial" (
 CREATE TABLE "inventory"."stock" (
     "id" BIGSERIAL NOT NULL,
     "ref_type" "inventory"."stock_ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
-    "current_stock" BIGINT NOT NULL DEFAULT 0,
-    "sold" BIGINT NOT NULL DEFAULT 0,
+    "ref_id" UUID NOT NULL,
+    "stock" BIGINT NOT NULL,
+    "taken" BIGINT NOT NULL DEFAULT 0,
+    "serial_required" BOOLEAN NOT NULL DEFAULT false,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "stock_pkey" PRIMARY KEY ("id")
@@ -352,49 +346,73 @@ CREATE TABLE "inventory"."stock_history" (
 );
 
 -- CreateTable
-CREATE TABLE "order"."base" (
+CREATE TABLE "order"."cart_item" (
     "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
-    "payment_option" TEXT NOT NULL,
-    "payment_status" "common"."status" NOT NULL DEFAULT 'Pending',
-    "address" TEXT NOT NULL,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "account_id" UUID NOT NULL,
+    "sku_id" UUID NOT NULL,
+    "quantity" BIGINT NOT NULL,
 
-    CONSTRAINT "base_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "cart_item_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "order"."payment" (
+    "id" BIGSERIAL NOT NULL,
+    "account_id" UUID NOT NULL,
+    "option" TEXT NOT NULL,
+    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "amount" BIGINT NOT NULL,
+    "data" JSONB NOT NULL,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "date_paid" TIMESTAMPTZ(3),
+    "date_expired" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "payment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "order"."order" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "customer_id" UUID NOT NULL,
+    "vendor_id" UUID NOT NULL,
+    "payment_id" BIGINT NOT NULL,
+    "shipment_id" UUID NOT NULL,
+    "confirmed_by_id" UUID,
+    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "address" TEXT NOT NULL,
+    "product_cost" BIGINT NOT NULL,
+    "product_discount" BIGINT NOT NULL,
+    "ship_cost" BIGINT NOT NULL,
+    "ship_discount" BIGINT NOT NULL,
+    "total" BIGINT NOT NULL,
+    "note" TEXT,
+    "data" JSONB NOT NULL,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "order_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "order"."item" (
     "id" BIGSERIAL NOT NULL,
-    "order_id" BIGINT NOT NULL,
-    "sku_id" BIGINT NOT NULL,
-    "vendor_id" BIGINT NOT NULL,
-    "confirmed_by_id" BIGINT,
-    "shipment_id" BIGINT NOT NULL,
-    "note" TEXT NOT NULL,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "order_id" UUID NOT NULL,
+    "sku_id" UUID NOT NULL,
+    "sku_name" TEXT NOT NULL,
     "quantity" BIGINT NOT NULL,
+    "unit_price" BIGINT NOT NULL,
+    "note" TEXT,
+    "serial_ids" JSONB,
 
     CONSTRAINT "item_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "order"."item_serial" (
-    "id" BIGSERIAL NOT NULL,
-    "order_item_id" BIGINT NOT NULL,
-    "product_serial_id" BIGINT NOT NULL,
-
-    CONSTRAINT "item_serial_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "order"."refund" (
-    "id" BIGSERIAL NOT NULL,
-    "account_id" BIGINT NOT NULL,
-    "order_item_id" BIGINT NOT NULL,
-    "reviewed_by_id" BIGINT,
-    "shipment_id" BIGINT,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "account_id" UUID NOT NULL,
+    "order_id" UUID NOT NULL,
+    "confirmed_by_id" UUID,
+    "shipment_id" UUID,
     "method" "order"."refund_method" NOT NULL,
     "status" "common"."status" NOT NULL DEFAULT 'Pending',
     "reason" TEXT NOT NULL,
@@ -406,9 +424,9 @@ CREATE TABLE "order"."refund" (
 
 -- CreateTable
 CREATE TABLE "order"."refund_dispute" (
-    "id" BIGSERIAL NOT NULL,
-    "refund_id" BIGINT NOT NULL,
-    "issued_by_id" BIGINT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "refund_id" UUID NOT NULL,
+    "issued_by_id" UUID NOT NULL,
     "reason" TEXT NOT NULL,
     "status" "common"."status" NOT NULL DEFAULT 'Pending',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -418,22 +436,8 @@ CREATE TABLE "order"."refund_dispute" (
 );
 
 -- CreateTable
-CREATE TABLE "order"."invoice" (
-    "id" BIGSERIAL NOT NULL,
-    "ref_type" "order"."invoice_ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
-    "type" "order"."invoice_type" NOT NULL,
-    "receiver_id" BIGINT NOT NULL,
-    "note" TEXT,
-    "data" JSONB NOT NULL,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "invoice_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "order"."shipment" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "option" TEXT NOT NULL,
     "tracking_code" TEXT,
     "status" "order"."shipment_status" NOT NULL DEFAULT 'Pending',
@@ -453,10 +457,10 @@ CREATE TABLE "order"."shipment" (
 );
 
 -- CreateTable
-CREATE TABLE "promotion"."base" (
-    "id" BIGSERIAL NOT NULL,
+CREATE TABLE "promotion"."promotion" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "code" TEXT NOT NULL,
-    "owner_id" BIGINT,
+    "owner_id" UUID,
     "type" "promotion"."type" NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
@@ -467,15 +471,15 @@ CREATE TABLE "promotion"."base" (
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "base_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "promotion_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "promotion"."ref" (
     "id" BIGSERIAL NOT NULL,
-    "promotion_id" BIGINT NOT NULL,
+    "promotion_id" UUID NOT NULL,
     "ref_type" "promotion"."ref_type" NOT NULL,
-    "ref_id" BIGINT NOT NULL,
+    "ref_id" UUID NOT NULL,
 
     CONSTRAINT "ref_pkey" PRIMARY KEY ("id")
 );
@@ -483,7 +487,7 @@ CREATE TABLE "promotion"."ref" (
 -- CreateTable
 CREATE TABLE "promotion"."schedule" (
     "id" BIGSERIAL NOT NULL,
-    "promotion_id" BIGINT NOT NULL,
+    "promotion_id" UUID NOT NULL,
     "timezone" TEXT NOT NULL,
     "cron_rule" TEXT NOT NULL,
     "duration" INTEGER NOT NULL,
@@ -495,10 +499,10 @@ CREATE TABLE "promotion"."schedule" (
 
 -- CreateTable
 CREATE TABLE "promotion"."discount" (
-    "id" BIGINT NOT NULL,
+    "id" UUID NOT NULL,
     "min_spend" BIGINT NOT NULL,
     "max_discount" BIGINT NOT NULL,
-    "discount_percent" INTEGER,
+    "discount_percent" DOUBLE PRECISION,
     "discount_price" BIGINT,
 
     CONSTRAINT "discount_pkey" PRIMARY KEY ("id")
@@ -516,27 +520,14 @@ CREATE TABLE "system"."outbox_event" (
     CONSTRAINT "outbox_event_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "system"."search_sync" (
-    "id" BIGSERIAL NOT NULL,
-    "ref_type" VARCHAR(100) NOT NULL,
-    "ref_id" BIGINT NOT NULL,
-    "is_stale_embedding" BOOLEAN NOT NULL DEFAULT true,
-    "is_stale_metadata" BOOLEAN NOT NULL DEFAULT true,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "search_sync_pkey" PRIMARY KEY ("id")
-);
+-- CreateIndex
+CREATE UNIQUE INDEX "account_phone_key" ON "account"."account"("phone");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "base_phone_key" ON "account"."base"("phone");
+CREATE UNIQUE INDEX "account_email_key" ON "account"."account"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "base_email_key" ON "account"."base"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "base_username_key" ON "account"."base"("username");
+CREATE UNIQUE INDEX "account_username_key" ON "account"."account"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "profile_avatar_rs_id_key" ON "account"."profile"("avatar_rs_id");
@@ -546,15 +537,6 @@ CREATE UNIQUE INDEX "profile_default_contact_id_key" ON "account"."profile"("def
 
 -- CreateIndex
 CREATE INDEX "vendor_id_idx" ON "account"."vendor"("id");
-
--- CreateIndex
-CREATE INDEX "cart_item_cart_id_idx" ON "account"."cart_item"("cart_id");
-
--- CreateIndex
-CREATE INDEX "cart_item_sku_id_idx" ON "account"."cart_item"("sku_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "cart_item_cart_id_sku_id_key" ON "account"."cart_item"("cart_id", "sku_id");
 
 -- CreateIndex
 CREATE INDEX "income_history_account_id_idx" ON "account"."income_history"("account_id");
@@ -602,7 +584,7 @@ CREATE UNIQUE INDEX "category_name_key" ON "catalog"."category"("name");
 CREATE INDEX "category_parent_id_idx" ON "catalog"."category"("parent_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_spu_code_key" ON "catalog"."product_spu"("code");
+CREATE UNIQUE INDEX "product_spu_slug_key" ON "catalog"."product_spu"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "product_spu_featured_sku_id_key" ON "catalog"."product_spu"("featured_sku_id");
@@ -620,22 +602,28 @@ CREATE INDEX "product_spu_brand_id_idx" ON "catalog"."product_spu"("brand_id");
 CREATE INDEX "product_sku_spu_id_idx" ON "catalog"."product_sku"("spu_id");
 
 -- CreateIndex
-CREATE INDEX "product_spu_tag_spu_id_idx" ON "catalog"."product_spu_tag"("spu_id");
-
--- CreateIndex
-CREATE INDEX "product_spu_tag_tag_idx" ON "catalog"."product_spu_tag"("tag");
-
--- CreateIndex
 CREATE UNIQUE INDEX "product_spu_tag_spu_id_tag_key" ON "catalog"."product_spu_tag"("spu_id", "tag");
+
+-- CreateIndex
+CREATE INDEX "search_sync_ref_type_ref_id_idx" ON "catalog"."search_sync"("ref_type", "ref_id");
+
+-- CreateIndex
+CREATE INDEX "search_sync_is_stale_embedding_idx" ON "catalog"."search_sync"("is_stale_embedding");
+
+-- CreateIndex
+CREATE INDEX "search_sync_is_stale_metadata_idx" ON "catalog"."search_sync"("is_stale_metadata");
+
+-- CreateIndex
+CREATE INDEX "search_sync_date_created_idx" ON "catalog"."search_sync"("date_created");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "search_sync_ref_type_ref_id_key" ON "catalog"."search_sync"("ref_type", "ref_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "resource_provider_object_key_key" ON "common"."resource"("provider", "object_key");
 
 -- CreateIndex
 CREATE INDEX "service_option_category_provider_idx" ON "common"."service_option"("category", "provider");
-
--- CreateIndex
-CREATE UNIQUE INDEX "sku_serial_serial_id_key" ON "inventory"."sku_serial"("serial_id");
 
 -- CreateIndex
 CREATE INDEX "sku_serial_sku_id_idx" ON "inventory"."sku_serial"("sku_id");
@@ -650,10 +638,13 @@ CREATE INDEX "stock_history_stock_id_idx" ON "inventory"."stock_history"("stock_
 CREATE INDEX "stock_history_date_created_idx" ON "inventory"."stock_history"("date_created");
 
 -- CreateIndex
-CREATE INDEX "base_account_id_idx" ON "order"."base"("account_id");
+CREATE UNIQUE INDEX "cart_item_account_id_sku_id_key" ON "order"."cart_item"("account_id", "sku_id");
 
 -- CreateIndex
-CREATE INDEX "base_payment_option_idx" ON "order"."base"("payment_option");
+CREATE UNIQUE INDEX "order_payment_id_key" ON "order"."order"("payment_id");
+
+-- CreateIndex
+CREATE INDEX "order_vendor_id_idx" ON "order"."order"("vendor_id");
 
 -- CreateIndex
 CREATE INDEX "item_order_id_idx" ON "order"."item"("order_id");
@@ -662,19 +653,19 @@ CREATE INDEX "item_order_id_idx" ON "order"."item"("order_id");
 CREATE INDEX "item_sku_id_idx" ON "order"."item"("sku_id");
 
 -- CreateIndex
-CREATE INDEX "item_vendor_id_idx" ON "order"."item"("vendor_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "item_serial_order_item_id_product_serial_id_key" ON "order"."item_serial"("order_item_id", "product_serial_id");
+CREATE UNIQUE INDEX "item_order_id_sku_id_key" ON "order"."item"("order_id", "sku_id");
 
 -- CreateIndex
 CREATE INDEX "refund_account_id_idx" ON "order"."refund"("account_id");
 
 -- CreateIndex
-CREATE INDEX "refund_order_item_id_idx" ON "order"."refund"("order_item_id");
+CREATE INDEX "refund_order_id_idx" ON "order"."refund"("order_id");
 
 -- CreateIndex
-CREATE INDEX "refund_reviewed_by_id_idx" ON "order"."refund"("reviewed_by_id");
+CREATE INDEX "refund_confirmed_by_id_idx" ON "order"."refund"("confirmed_by_id");
+
+-- CreateIndex
+CREATE INDEX "refund_shipment_id_idx" ON "order"."refund"("shipment_id");
 
 -- CreateIndex
 CREATE INDEX "refund_dispute_refund_id_idx" ON "order"."refund_dispute"("refund_id");
@@ -683,13 +674,7 @@ CREATE INDEX "refund_dispute_refund_id_idx" ON "order"."refund_dispute"("refund_
 CREATE INDEX "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute"("issued_by_id");
 
 -- CreateIndex
-CREATE INDEX "invoice_receiver_id_idx" ON "order"."invoice"("receiver_id");
-
--- CreateIndex
-CREATE INDEX "invoice_ref_type_ref_id_idx" ON "order"."invoice"("ref_type", "ref_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "base_code_key" ON "promotion"."base"("code");
+CREATE UNIQUE INDEX "promotion_code_key" ON "promotion"."promotion"("code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ref_promotion_id_ref_type_ref_id_key" ON "promotion"."ref"("promotion_id", "ref_type", "ref_id");
@@ -697,50 +682,29 @@ CREATE UNIQUE INDEX "ref_promotion_id_ref_type_ref_id_key" ON "promotion"."ref"(
 -- CreateIndex
 CREATE INDEX "outbox_event_date_created_idx" ON "system"."outbox_event"("date_created");
 
--- CreateIndex
-CREATE INDEX "search_sync_ref_type_ref_id_idx" ON "system"."search_sync"("ref_type", "ref_id");
-
--- CreateIndex
-CREATE INDEX "search_sync_is_stale_embedding_idx" ON "system"."search_sync"("is_stale_embedding");
-
--- CreateIndex
-CREATE INDEX "search_sync_is_stale_metadata_idx" ON "system"."search_sync"("is_stale_metadata");
-
--- CreateIndex
-CREATE INDEX "search_sync_date_created_idx" ON "system"."search_sync"("date_created");
-
--- CreateIndex
-CREATE UNIQUE INDEX "search_sync_ref_type_ref_id_key" ON "system"."search_sync"("ref_type", "ref_id");
-
 -- AddForeignKey
 ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_default_contact_id_fkey" FOREIGN KEY ("default_contact_id") REFERENCES "account"."contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "account"."profile" ADD CONSTRAINT "profile_avatar_rs_id_fkey" FOREIGN KEY ("avatar_rs_id") REFERENCES "common"."resource"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "account"."customer" ADD CONSTRAINT "customer_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "account"."customer" ADD CONSTRAINT "customer_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "account"."vendor" ADD CONSTRAINT "vendor_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "account"."cart_item" ADD CONSTRAINT "cart_item_cart_id_fkey" FOREIGN KEY ("cart_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "account"."cart_item" ADD CONSTRAINT "cart_item_sku_id_fkey" FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+ALTER TABLE "account"."vendor" ADD CONSTRAINT "vendor_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "account"."income_history" ADD CONSTRAINT "income_history_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."vendor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "account"."notification" ADD CONSTRAINT "notification_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "account"."notification" ADD CONSTRAINT "notification_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "account"."contact" ADD CONSTRAINT "contact_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "account"."contact" ADD CONSTRAINT "contact_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "analytic"."interaction" ADD CONSTRAINT "interaction_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -764,10 +728,10 @@ ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_spu_id_f
 ALTER TABLE "catalog"."product_spu_tag" ADD CONSTRAINT "product_spu_tag_tag_fkey" FOREIGN KEY ("tag") REFERENCES "catalog"."tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "catalog"."comment" ADD CONSTRAINT "comment_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "catalog"."comment" ADD CONSTRAINT "comment_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "common"."resource" ADD CONSTRAINT "resource_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "account"."base"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "common"."resource" ADD CONSTRAINT "resource_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "account"."account"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "common"."resource_reference" ADD CONSTRAINT "resource_reference_rs_id_fkey" FOREIGN KEY ("rs_id") REFERENCES "common"."resource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -779,65 +743,68 @@ ALTER TABLE "inventory"."sku_serial" ADD CONSTRAINT "sku_serial_sku_id_fkey" FOR
 ALTER TABLE "inventory"."stock_history" ADD CONSTRAINT "stock_history_stock_id_fkey" FOREIGN KEY ("stock_id") REFERENCES "inventory"."stock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."base" ADD CONSTRAINT "base_payment_option_fkey" FOREIGN KEY ("payment_option") REFERENCES "common"."service_option"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+ALTER TABLE "order"."cart_item" ADD CONSTRAINT "cart_item_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."base" ADD CONSTRAINT "base_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order"."cart_item" ADD CONSTRAINT "cart_item_sku_id_fkey" FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."item" ADD CONSTRAINT "item_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order"."payment" ADD CONSTRAINT "payment_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."payment" ADD CONSTRAINT "payment_option_fkey" FOREIGN KEY ("option") REFERENCES "common"."service_option"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."order" ADD CONSTRAINT "order_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "account"."customer"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."order" ADD CONSTRAINT "order_shipment_id_fkey" FOREIGN KEY ("shipment_id") REFERENCES "order"."shipment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."order" ADD CONSTRAINT "order_confirmed_by_id_fkey" FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."order" ADD CONSTRAINT "order_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."order" ADD CONSTRAINT "order_payment_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "order"."payment"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order"."item" ADD CONSTRAINT "item_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"."order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."item" ADD CONSTRAINT "item_sku_id_fkey" FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."item" ADD CONSTRAINT "item_shipment_id_fkey" FOREIGN KEY ("shipment_id") REFERENCES "order"."shipment"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "order"."item" ADD CONSTRAINT "item_confirmed_by_id_fkey" FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "order"."item" ADD CONSTRAINT "item_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "order"."item_serial" ADD CONSTRAINT "item_serial_order_item_id_fkey" FOREIGN KEY ("order_item_id") REFERENCES "order"."item"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "order"."item_serial" ADD CONSTRAINT "item_serial_product_serial_id_fkey" FOREIGN KEY ("product_serial_id") REFERENCES "inventory"."sku_serial"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "account"."customer"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_order_item_id_fkey" FOREIGN KEY ("order_item_id") REFERENCES "order"."item"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "order"."order"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_reviewed_by_id_fkey" FOREIGN KEY ("reviewed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_confirmed_by_id_fkey" FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."refund" ADD CONSTRAINT "refund_shipment_id_fkey" FOREIGN KEY ("shipment_id") REFERENCES "order"."shipment"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_refund_id_fkey" FOREIGN KEY ("refund_id") REFERENCES "order"."refund"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_refund_id_fkey" FOREIGN KEY ("refund_id") REFERENCES "order"."refund"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "order"."refund_dispute" ADD CONSTRAINT "refund_dispute_issued_by_id_fkey" FOREIGN KEY ("issued_by_id") REFERENCES "account"."vendor"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "order"."invoice" ADD CONSTRAINT "invoice_receiver_id_fkey" FOREIGN KEY ("receiver_id") REFERENCES "account"."base"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "order"."shipment" ADD CONSTRAINT "shipment_option_fkey" FOREIGN KEY ("option") REFERENCES "common"."service_option"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "promotion"."base" ADD CONSTRAINT "base_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "promotion"."promotion" ADD CONSTRAINT "promotion_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "account"."vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "promotion"."ref" ADD CONSTRAINT "ref_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "promotion"."ref" ADD CONSTRAINT "ref_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."promotion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "promotion"."schedule" ADD CONSTRAINT "schedule_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "promotion"."schedule" ADD CONSTRAINT "schedule_promotion_id_fkey" FOREIGN KEY ("promotion_id") REFERENCES "promotion"."promotion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "promotion"."discount" ADD CONSTRAINT "discount_id_fkey" FOREIGN KEY ("id") REFERENCES "promotion"."base"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "promotion"."discount" ADD CONSTRAINT "discount_id_fkey" FOREIGN KEY ("id") REFERENCES "promotion"."promotion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

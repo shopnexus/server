@@ -1,0 +1,119 @@
+-- name: GetSchedule :one
+SELECT *
+FROM "promotion"."schedule"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: CountSchedule :one
+SELECT COUNT(*)
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+);
+
+-- name: ListSchedule :many
+SELECT *
+FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: ListCountSchedule :many
+SELECT sqlc.embed(embed_schedule), COUNT(*) OVER() as total_count
+FROM "promotion"."schedule" embed_schedule
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateBatchSchedule :batchone
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopySchedule :copyfrom
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: CreateDefaultSchedule :one
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyDefaultSchedule :copyfrom
+INSERT INTO "promotion"."schedule" ("promotion_id", "timezone", "cron_rule", "duration", "next_run_at", "last_run_at")
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: UpdateSchedule :one
+UPDATE "promotion"."schedule"
+SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
+    "timezone" = COALESCE(sqlc.narg('timezone'), "timezone"),
+    "cron_rule" = COALESCE(sqlc.narg('cron_rule'), "cron_rule"),
+    "duration" = COALESCE(sqlc.narg('duration'), "duration"),
+    "next_run_at" = CASE WHEN sqlc.arg('null_next_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('next_run_at'), "next_run_at") END,
+    "last_run_at" = CASE WHEN sqlc.arg('null_last_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_run_at'), "last_run_at") END
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteSchedule :exec
+DELETE FROM "promotion"."schedule"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("promotion_id" = ANY(sqlc.slice('promotion_id')) OR sqlc.slice('promotion_id') IS NULL) AND
+    ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
+    ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
+    ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
+    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
+    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
+    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+);

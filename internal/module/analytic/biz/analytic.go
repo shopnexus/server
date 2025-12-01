@@ -2,64 +2,81 @@ package analyticbiz
 
 import (
 	"context"
+	"log/slog"
+	"time"
 
-	"shopnexus-remastered/internal/db"
+	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/pubsub"
 
+	analyticdb "shopnexus-remastered/internal/module/analytic/db"
 	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
 	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
+	"shopnexus-remastered/internal/shared/pgsqlc"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type AnalyticBiz struct {
-	storage   pgsqlc.Storage
+	storage   pgsqlc.Storage[*analyticdb.Queries]
 	pubsub    pubsub.Client
 	promotion *promotionbiz.PromotionBiz
 }
 
 // NewAnalyticBiz creates a new instance of AnalyticBiz.
 func NewAnalyticBiz(
-	storage pgsqlc.Storage,
+	config *config.Config,
+	pool pgsqlc.TxBeginner,
 	pubsub pubsub.Client,
 	promotionBiz *promotionbiz.PromotionBiz,
 ) *AnalyticBiz {
 	return &AnalyticBiz{
-		storage:   storage,
+		storage:   pgsqlc.NewStorage(pool, analyticdb.New(pool)),
 		pubsub:    pubsub,
 		promotion: promotionBiz,
 	}
 }
 
-type CreateInteractionParams struct {
-	Account authmodel.AuthenticatedAccount
-
+type CreateInteraction struct {
+	AccountID uuid.UUID
 	EventType string
-	RefType   db.AnalyticInteractionRefType
-	RefID     int64
+	RefType   analyticdb.AnalyticInteractionRefType
+	RefID     string
 }
 
-func (s *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
-	interaction, err := s.storage.CreateDefaultAnalyticInteraction(ctx, db.CreateDefaultAnalyticInteractionParams{
-		AccountID: pgutil.Int64ToPgInt8(params.Account.ID),
-		EventType: params.EventType,
-		RefType:   params.RefType,
-		RefID:     params.RefID,
-		Metadata:  []byte("{}"),
-	})
-	if err != nil {
-		return err
-	}
-	// TODO: add outbox event
+type CreateInteractionParams struct {
+	Interactions []CreateInteraction
+}
 
-	return s.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
-		ID:          interaction.ID,
-		AccountID:   pgutil.PgInt8ToNullInt64(interaction.AccountID),
-		EventType:   params.EventType,
-		RefType:     params.RefType,
-		RefID:       params.RefID,
-		DateCreated: interaction.DateCreated.Time,
-		Metadata:    interaction.Metadata,
+func (b *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
+	args := lo.Map(params.Interactions, func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
+		return analyticdb.CreateBatchInteractionParams{
+			AccountID:   uuid.NullUUID{UUID: interaction.AccountID, Valid: true},
+			EventType:   interaction.EventType,
+			RefType:     interaction.RefType,
+			RefID:       interaction.RefID,
+			Metadata:    []byte("{}"),
+			DateCreated: time.Now(),
+		}
 	})
+
+	b.storage.Querier().CreateBatchInteraction(ctx, args).QueryRow(func(_ int, ai analyticdb.AnalyticInteraction, err error) {
+		if err == nil {
+			if err := b.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
+				ID:          ai.ID,
+				AccountID:   ai.AccountID,
+				EventType:   ai.EventType,
+				RefType:     ai.RefType,
+				RefID:       ai.RefID,
+				Metadata:    ai.Metadata,
+				DateCreated: ai.DateCreated,
+			}); err != nil {
+				slog.Error("failed to publish analytic interaction", "error", err)
+			}
+		} else {
+			slog.Error("failed to create analytic interaction", "error", err)
+		}
+	})
+
+	return nil
 }

@@ -1,15 +1,15 @@
 package inventorymodel
 
 import (
+	inventorydb "shopnexus-remastered/internal/module/inventory/db"
 	"time"
 
-	"shopnexus-remastered/internal/db"
+	"github.com/google/uuid"
 )
 
 type ProductSerial struct {
-	ID          int64                     `json:"id"`
-	SerialID    string                    `json:"serial_id"`
-	SkuID       int64                     `json:"sku_id"`
-	Status      db.InventoryProductStatus `json:"status"`
-	DateCreated time.Time                 `json:"date_created"`
+	ID          string                             `json:"id"`
+	SkuID       uuid.UUID                          `json:"sku_id"`
+	Status      inventorydb.InventoryProductStatus `json:"status"`
+	DateCreated time.Time                          `json:"date_created"`
 }

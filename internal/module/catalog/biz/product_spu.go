@@ -4,91 +4,91 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
 	"github.com/samber/lo"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commondb "shopnexus-remastered/internal/module/common/db"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
-	searchmodel "shopnexus-remastered/internal/module/search/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
-	"shopnexus-remastered/internal/utils/slice"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
 )
 
-func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []int64) map[int64][]string { // map[spuID][]tag
-	tags, err := b.storage.ListCatalogProductSpuTag(ctx, db.ListCatalogProductSpuTagParams{
+func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []uuid.UUID) map[uuid.UUID][]string { // map[spuID][]tag
+	tags, err := b.storage.Querier().ListProductSpuTag(ctx, catalogdb.ListProductSpuTagParams{
 		SpuID: spuID,
 	})
 	if err != nil {
-		zero := map[int64][]string{}
+		zero := map[uuid.UUID][]string{}
 		for _, id := range spuID {
 			zero[id] = []string{}
 		}
 		return zero
 	}
-	return lo.GroupByMap(tags, func(tag db.CatalogProductSpuTag) (int64, string) { return tag.SpuID, tag.Tag })
+	return lo.GroupByMap(tags, func(tag catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return tag.SpuID, tag.Tag })
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetCategory(ctx context.Context, categoryID int64) db.CatalogCategory {
-	category, _ := b.storage.GetCatalogCategory(ctx, db.GetCatalogCategoryParams{
-		ID: pgutil.Int64ToPgInt8(categoryID),
+func (b *CatalogBiz) mustGetCategory(ctx context.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
+	category, _ := b.storage.Querier().GetCategory(ctx, catalogdb.GetCategoryParams{
+		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
 	})
 	return category
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID int64) db.CatalogBrand {
-	brand, _ := b.storage.GetCatalogBrand(ctx, db.GetCatalogBrandParams{
-		ID: pgutil.Int64ToPgInt8(brandID),
+func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
+	brand, _ := b.storage.Querier().GetBrand(ctx, catalogdb.GetBrandParams{
+		ID: uuid.NullUUID{UUID: brandID, Valid: true},
 	})
 	return brand
 }
 
-type ListProductSpuParams struct {
-	commonmodel.PaginationParams
-	Account    authmodel.AuthenticatedAccount
-	ID         []int64  `validate:"omitempty,dive,gt=0"`
-	Code       []string `validate:"omitempty,dive,min=1,max=100"`
-	CategoryID []int64  `validate:"omitempty,dive,gt=0"`
-	BrandID    []int64  `validate:"omitempty,dive,gt=0"`
-	IsActive   []bool   `validate:"omitempty,dive"`
+func (b *CatalogBiz) GetProductSpu(ctx context.Context, id uuid.UUID) (catalogmodel.ProductSpu, error) {
+	listSpu, err := b.ListProductSpu(ctx, ListProductSpuParams{
+		ID: []uuid.UUID{id},
+	})
+	if err != nil {
+		return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu: %w", err)
+	}
+	if len(listSpu.Data) == 0 {
+		return catalogmodel.ProductSpu{}, sharedmodel.ErrEntityNotFound.Fmt("ProductSpu")
+	}
+	return listSpu.Data[0], nil
 }
 
-func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (commonmodel.PaginateResult[catalogmodel.ProductSpu], error) {
-	var zero commonmodel.PaginateResult[catalogmodel.ProductSpu]
+type ListProductSpuParams struct {
+	sharedmodel.PaginationParams
+	Account    accountmodel.AuthenticatedAccount
+	ID         []uuid.UUID `validate:"omitempty,dive"`
+	Slug       []string    `validate:"omitempty,dive,min=1,max=100"`
+	CategoryID []uuid.UUID `validate:"omitempty,dive"`
+	BrandID    []uuid.UUID `validate:"omitempty,dive"`
+	IsActive   []bool      `validate:"omitempty,dive"`
+}
+
+func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
+	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogProductSpu(ctx, db.CountCatalogProductSpuParams{
-		ID:   params.ID,
-		Code: params.Code,
-		// AccountID:  []int64{params.Account.ID},
-		CategoryID: params.CategoryID,
-		BrandID:    params.BrandID,
-		IsActive:   params.IsActive,
-	})
-	if err != nil {
-		return zero, err
-	}
-
-	dbSpus, err := b.storage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+	listCountSpu, err := b.storage.Querier().ListCountProductSpu(ctx, catalogdb.ListCountProductSpuParams{
+		Limit:  params.Limit,
+		Offset: params.Offset(),
 		ID:     params.ID,
-		Code:   params.Code,
-		// AccountID:  []int64{params.Account.ID}, // TODO: uncomment this
+		Slug:   params.Slug,
+		// AccountID:  []int64{params.Account.ID}, // TODO: uncomment this (filter by account only for vendor)
 		CategoryID: params.CategoryID,
 		BrandID:    params.BrandID,
 		IsActive:   params.IsActive,
@@ -97,21 +97,29 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		return zero, err
 	}
 
-	spuIDs := lo.Map(dbSpus, func(spu db.CatalogProductSpu, _ int) int64 { return spu.ID })
+	var total null.Int64
+	if len(listCountSpu) > 0 {
+		total.SetValid(listCountSpu[0].TotalCount)
+	}
 
+	dbSpus := lo.Map(listCountSpu, func(row catalogdb.ListCountProductSpuRow, _ int) catalogdb.CatalogProductSpu {
+		return row.CatalogProductSpu
+	})
+
+	spuIDs := lo.Map(dbSpus, func(spu catalogdb.CatalogProductSpu, _ int) uuid.UUID { return spu.ID })
 	// Calculate rating score
-	ratings, err := b.storage.ListRating(ctx, db.ListRatingParams{
-		RefType: db.CatalogCommentRefTypeProductSpu,
+	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
+		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
 		RefID:   spuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	ratingMap := lo.KeyBy(ratings, func(r db.ListRatingRow) int64 { return r.RefID })
+	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
 	tagsMap := b.mustGetTagsMap(ctx, spuIDs)
 
-	resourcesMap, err := b.common.GetResources(ctx, db.CommonResourceRefTypeProductSpu, spuIDs)
+	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
 		return zero, err
 	}
@@ -120,41 +128,43 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 	for _, spu := range dbSpus {
 		spus = append(spus, catalogmodel.ProductSpu{
 			ID:            spu.ID,
-			Code:          spu.Code,
+			AccountID:     spu.AccountID,
+			Slug:          spu.Slug,
 			Category:      b.mustGetCategory(ctx, spu.CategoryID),
 			Brand:         b.mustGetBrand(ctx, spu.BrandID),
-			FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
+			FeaturedSkuID: spu.FeaturedSkuID,
 			Name:          spu.Name,
 			Description:   spu.Description,
 			IsActive:      spu.IsActive,
-			DateCreated:   spu.DateCreated.Time,
-			DateUpdated:   spu.DateUpdated.Time,
+			DateCreated:   spu.DateCreated,
+			DateUpdated:   spu.DateUpdated,
 			Rating: catalogmodel.ProductRating{
 				Score: ratingMap[spu.ID].Score,
 				Total: ratingMap[spu.ID].Count,
 			},
-			Tags:      slice.EnsureSlice(tagsMap[spu.ID]),
+			Tags:      tagsMap[spu.ID],
 			Resources: resourcesMap[spu.ID],
 		})
 	}
 
-	return commonmodel.PaginateResult[catalogmodel.ProductSpu]{
+	return sharedmodel.PaginateResult[catalogmodel.ProductSpu]{
 		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
+		Total:      total,
 		Data:       spus,
 	}, nil
 }
 
 type CreateProductSpuParams struct {
-	Storage     pgsqlc.Storage
-	Account     authmodel.AuthenticatedAccount
-	CategoryID  int64       `validate:"required,gt=0"`
-	BrandID     int64       `validate:"required,gt=0"`
-	Name        string      `validate:"required,min=1,max=200"`
-	Description string      `validate:"required,max=1000"`
-	IsActive    bool        `validate:"omitempty"`
-	Tags        []string    `validate:"required,dive,min=1,max=100"`
-	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
+	Storage        CatalogStorage
+	Account        accountmodel.AuthenticatedAccount
+	CategoryID     uuid.UUID                           `validate:"required"`
+	BrandID        uuid.UUID                           `validate:"required"`
+	Name           string                              `validate:"required,min=1,max=200"`
+	Description    string                              `validate:"required,max=10000"`
+	IsActive       bool                                `validate:"omitempty"`
+	Tags           []string                            `validate:"required,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
+	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
@@ -165,20 +175,26 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 	}
 
 	var (
-		spu       db.CatalogProductSpu
+		spu       catalogdb.CatalogProductSpu
 		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		var err error
-		spu, err = txStorage.CreateDefaultCatalogProductSpu(ctx, db.CreateDefaultCatalogProductSpuParams{
-			Code:        GenerateSlug(params.Name),
-			AccountID:   params.Account.ID,
-			CategoryID:  params.CategoryID,
-			BrandID:     params.BrandID,
-			Name:        params.Name,
-			Description: params.Description,
-			IsActive:    params.IsActive,
+		specsBytes, err := sonic.Marshal(params.Specifications)
+		if err != nil {
+			return err
+		}
+
+		spu, err = txStorage.Querier().CreateDefaultProductSpu(ctx, catalogdb.CreateDefaultProductSpuParams{
+			Slug:           GenerateSlug(params.Name),
+			AccountID:      params.Account.ID,
+			CategoryID:     params.CategoryID,
+			BrandID:        params.BrandID,
+			Name:           params.Name,
+			Description:    params.Description,
+			IsActive:       params.IsActive,
+			Specifications: specsBytes,
 		})
 		if err != nil {
 			return err
@@ -195,9 +211,10 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 
 		// Create resources
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			Storage:     txStorage,
+			// TODO: use message queue instead of sequential processing
+			Storage:     pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
 			Account:     params.Account,
-			RefType:     db.CommonResourceRefTypeProductSpu,
+			RefType:     commondb.CommonResourceRefTypeProductSpu,
 			RefID:       spu.ID,
 			ResourceIDs: params.ResourceIDs,
 		})
@@ -206,49 +223,50 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		}
 
 		// Create system search sync (TODO: should move to event)
-		if _, err := txStorage.CreateDefaultSystemSearchSync(ctx, db.CreateDefaultSystemSearchSyncParams{
-			RefType: searchmodel.RefTypeProduct,
-			RefID:   spu.ID,
-		}); err != nil {
-			return err
-		}
+		// if _, err := txStorage.Querier().CreateDefaultSystemSearchSync(ctx, catalogdb.CreateDefaultSystemSearchSyncParams{
+		// 	RefType: searchmodel.RefTypeProduct,
+		// 	RefID:   spu.ID,
+		// }); err != nil {
+		// 	return err
+		// }
 
 		return nil
 	}); err != nil {
 		return zero, fmt.Errorf("failed to create product spu: %w", err)
 	}
 
-	tagsMap := b.mustGetTagsMap(ctx, []int64{spu.ID})
+	tagsMap := b.mustGetTagsMap(ctx, []uuid.UUID{spu.ID})
 
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
-		Code:          spu.Code,
+		Slug:          spu.Slug,
 		Category:      b.mustGetCategory(ctx, spu.CategoryID),
 		Brand:         b.mustGetBrand(ctx, spu.BrandID),
-		FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
+		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,
 		IsActive:      spu.IsActive,
-		DateCreated:   spu.DateCreated.Time,
-		DateUpdated:   spu.DateUpdated.Time,
+		DateCreated:   spu.DateCreated,
+		DateUpdated:   spu.DateUpdated,
 		Rating:        catalogmodel.ProductRating{},
-		Tags:          slice.EnsureSlice(tagsMap[spu.ID]),
+		Tags:          tagsMap[spu.ID],
 		Resources:     resources,
 	}, nil
 }
 
 type UpdateProductSpuParams struct {
-	Storage       pgsqlc.Storage
-	Account       authmodel.AuthenticatedAccount
-	ID            int64       `validate:"required,gt=0"`
-	FeaturedSkuID null.Int64  `validate:"omitnil,gt=0"`
-	CategoryID    null.Int64  `validate:"omitnil,gt=0"`
-	BrandID       null.Int64  `validate:"omitnil,gt=0"`
-	Name          null.String `validate:"omitnil,min=1,max=200"`
-	Description   null.String `validate:"omitnil,max=1000"`
-	IsActive      null.Bool   `validate:"omitnil"`
-	Tags          []string    `validate:"required,dive,min=1,max=100"`
-	ResourceIDs   []uuid.UUID `validate:"omitempty,dive"`
+	Storage        CatalogStorage
+	Account        accountmodel.AuthenticatedAccount
+	ID             uuid.UUID                           `validate:"required"`
+	FeaturedSkuID  uuid.NullUUID                       `validate:"omitnil"`
+	CategoryID     uuid.NullUUID                       `validate:"omitnil"`
+	BrandID        uuid.NullUUID                       `validate:"omitnil"`
+	Name           null.String                         `validate:"omitnil,min=1,max=200"`
+	Description    null.String                         `validate:"omitnil,max=10000"`
+	IsActive       null.Bool                           `validate:"omitnil"`
+	Tags           []string                            `validate:"omitempty,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
+	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
@@ -260,30 +278,37 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 
 	// TODO: check if the featured sku id belongs to the spu id
 
-	var code null.String
+	var slug null.String
 	if params.Name.Valid {
-		code.SetValid(GenerateSlug(params.Name.String))
+		slug.SetValid(GenerateSlug(params.Name.String))
 	}
 
 	var (
-		spu       db.CatalogProductSpu
+		spu       catalogdb.CatalogProductSpu
 		resources []commonmodel.Resource
 	)
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
 		var err error
 
+		specsBytes, err := sonic.Marshal(params.Specifications)
+		if err != nil {
+			return err
+		}
+
 		// Update the product spu
-		spu, err = txStorage.UpdateCatalogProductSpu(ctx, db.UpdateCatalogProductSpuParams{
+		spu, err = txStorage.Querier().UpdateProductSpu(ctx, catalogdb.UpdateProductSpuParams{
 			ID:            params.ID,
-			Code:          pgutil.NullStringToPgText(code),
-			FeaturedSkuID: pgutil.NullInt64ToPgInt8(params.FeaturedSkuID),
-			CategoryID:    pgutil.NullInt64ToPgInt8(params.CategoryID),
-			BrandID:       pgutil.NullInt64ToPgInt8(params.BrandID),
-			Name:          pgutil.NullStringToPgText(params.Name),
-			Description:   pgutil.NullStringToPgText(params.Description),
-			IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
-			DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
+			Slug:          slug,
+			FeaturedSkuID: params.FeaturedSkuID,
+			CategoryID:    params.CategoryID,
+			BrandID:       params.BrandID,
+			Name:          params.Name,
+			Description:   params.Description,
+			IsActive:      params.IsActive,
+			// TODO: add handle update now in tool generate sql
+			// DateUpdated:    time.Now(),
+			Specifications: specsBytes,
 		})
 		if err != nil {
 			return err
@@ -300,34 +325,34 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 
 		// Update resources
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			Storage:         txStorage,
-			Account:         params.Account,
-			RefType:         db.CommonResourceRefTypeProductSpu,
-			RefID:           spu.ID,
-			ResourceIDs:     params.ResourceIDs,
-			EmptyResources:  true,
-			DeleteResources: true,
+			// TODO: use message queue instead of sequential processing
+			Storage:     pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
+			Account:     params.Account,
+			RefType:     commondb.CommonResourceRefTypeProductSpu,
+			RefID:       spu.ID,
+			ResourceIDs: params.ResourceIDs,
 		})
 		if err != nil {
 			return err
 		}
 
-		// Prepare the search sync update
-		updateSearchSyncArg := db.UpdateStaleSearchSyncParams{
-			RefType:         searchmodel.RefTypeProduct,
-			RefID:           params.ID,
-			IsStaleMetadata: pgutil.BoolToPgBool(true),
-		}
+		// TODO: move to event queue
+		// // Prepare the search sync update
+		// updateSearchSyncArg := catalogdb.UpdateStaleSearchSyncParams{
+		// 	RefType:         searchmodel.RefTypeProduct,
+		// 	RefID:           params.ID,
+		// 	IsStaleMetadata: null.BoolFrom(true),
+		// }
 
-		// If the description is updated, we also need to update the embedding
-		if params.Description.Valid {
-			updateSearchSyncArg.IsStaleEmbedding = pgutil.BoolToPgBool(true)
-		}
+		// // If the description is updated, we also need to update the embedding
+		// if params.Description.Valid {
+		// 	updateSearchSyncArg.IsStaleEmbedding = null.BoolFrom(true)
+		// }
 
-		// Mark the search sync as stale
-		if err := txStorage.UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
-			return err
-		}
+		// // Mark the search sync as stale
+		// if err := txStorage.UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
+		// 	return err
+		// }
 
 		return nil
 	}); err != nil {
@@ -336,15 +361,15 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
-		Code:          spu.Code,
+		Slug:          spu.Slug,
 		Category:      b.mustGetCategory(ctx, spu.CategoryID),
 		Brand:         b.mustGetBrand(ctx, spu.BrandID),
-		FeaturedSkuID: pgutil.PgInt8ToNullInt64(spu.FeaturedSkuID),
+		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,
 		IsActive:      spu.IsActive,
-		DateCreated:   spu.DateCreated.Time,
-		DateUpdated:   spu.DateUpdated.Time,
+		DateCreated:   spu.DateCreated,
+		DateUpdated:   spu.DateUpdated,
 		Rating:        catalogmodel.ProductRating{},
 		Tags:          params.Tags,
 		Resources:     resources,
@@ -352,9 +377,9 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 }
 
 type DeleteProductSpuParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
-	ID      int64 `validate:"required,gt=0"`
+	Storage CatalogStorage
+	Account accountmodel.AuthenticatedAccount
+	ID      uuid.UUID `validate:"required"`
 }
 
 func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductSpuParams) error {
@@ -362,9 +387,9 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		if err := txStorage.DeleteCatalogProductSpu(ctx, db.DeleteCatalogProductSpuParams{
-			ID: []int64{params.ID},
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
+		if err := txStorage.Querier().DeleteProductSpu(ctx, catalogdb.DeleteProductSpuParams{
+			ID: []uuid.UUID{params.ID},
 		}); err != nil {
 			return err
 		}
@@ -378,8 +403,8 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 }
 
 type updateTagsParams struct {
-	Storage pgsqlc.Storage
-	SpuID   int64
+	Storage CatalogStorage
+	SpuID   uuid.UUID
 	Tags    []string
 }
 
@@ -388,47 +413,48 @@ func (b *CatalogBiz) updateTags(ctx context.Context, params updateTagsParams) er
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		if err := txStorage.DeleteCatalogProductSpuTag(ctx, db.DeleteCatalogProductSpuTagParams{
-			SpuID: []int64{params.SpuID},
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CatalogStorage) error {
+		if err := txStorage.Querier().DeleteProductSpuTag(ctx, catalogdb.DeleteProductSpuTagParams{
+			SpuID: []uuid.UUID{params.SpuID},
 		}); err != nil {
 			return err
 		}
 
-		dbTags, err := txStorage.ListCatalogTag(ctx, db.ListCatalogTagParams{
+		dbTags, err := txStorage.Querier().ListTag(ctx, catalogdb.ListTagParams{
 			ID: params.Tags,
 		})
 		if err != nil {
 			return err
 		}
+
 		var nonExistingTags []string
 		for _, tag := range params.Tags {
-			if !slices.Contains(lo.Map(dbTags, func(t db.CatalogTag, _ int) string { return t.ID }), tag) {
+			if !slices.Contains(lo.Map(dbTags, func(t catalogdb.CatalogTag, _ int) string { return t.ID }), tag) {
 				nonExistingTags = append(nonExistingTags, tag)
 			}
 		}
 
 		if len(nonExistingTags) > 0 {
-			var args []db.CreateCopyDefaultCatalogTagParams
+			var args []catalogdb.CreateCopyDefaultTagParams
 			for _, tag := range nonExistingTags {
-				args = append(args, db.CreateCopyDefaultCatalogTagParams{
-					ID:          tag,
-					Description: "",
+				args = append(args, catalogdb.CreateCopyDefaultTagParams{
+					ID: tag,
+					// Description: "",
 				})
 			}
-			if _, err := txStorage.CreateCopyDefaultCatalogTag(ctx, args); err != nil {
+			if _, err := txStorage.Querier().CreateCopyDefaultTag(ctx, args); err != nil {
 				return err
 			}
 		}
 
-		var args []db.CreateCopyDefaultCatalogProductSpuTagParams
+		var args []catalogdb.CreateCopyDefaultProductSpuTagParams
 		for _, tag := range params.Tags {
-			args = append(args, db.CreateCopyDefaultCatalogProductSpuTagParams{
+			args = append(args, catalogdb.CreateCopyDefaultProductSpuTagParams{
 				SpuID: params.SpuID,
 				Tag:   tag,
 			})
 		}
-		if _, err := txStorage.CreateCopyDefaultCatalogProductSpuTag(ctx, args); err != nil {
+		if _, err := txStorage.Querier().CreateCopyDefaultProductSpuTag(ctx, args); err != nil {
 			return err
 		}
 		return nil

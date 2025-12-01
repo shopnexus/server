@@ -3,11 +3,11 @@ package orderecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	orderdb "shopnexus-remastered/internal/module/order/db"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -15,11 +15,11 @@ import (
 )
 
 type CreateRefundRequest struct {
-	OrderItemID int64                `json:"order_item_id" validate:"required"`
-	Method      db.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
-	Reason      string               `json:"reason" validate:"required,max=500"`
-	Address     null.String          `json:"address" validate:"omitnil,max=500"`
-	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"dive"`
+	OrderID     uuid.UUID                 `json:"order_id" validate:"required"`
+	Method      orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
+	Reason      string                    `json:"reason" validate:"required,max=500"`
+	Address     null.String               `json:"address" validate:"omitnil,max=500"`
+	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"dive"`
 }
 
 func (h *Handler) CreateRefund(c echo.Context) error {
@@ -38,7 +38,7 @@ func (h *Handler) CreateRefund(c echo.Context) error {
 
 	result, err := h.biz.CreateRefund(c.Request().Context(), orderbiz.CreateRefundParams{
 		Account:     claims.Account,
-		OrderItemID: req.OrderItemID,
+		OrderID:     req.OrderID,
 		Method:      req.Method,
 		Reason:      req.Reason,
 		Address:     req.Address,
@@ -75,11 +75,11 @@ func (h *Handler) ListRefunds(c echo.Context) error {
 }
 
 type UpdateRefundRequest struct {
-	RefundID    int64                `json:"id" validate:"required"`
-	Method      db.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
-	Address     null.String          `json:"address" validate:"omitnil,max=500"`
-	Reason      null.String          `json:"reason" validate:"omitnil,max=500"`
-	ResourceIDs []uuid.UUID          `json:"resource_ids" validate:"required,dive"`
+	RefundID    uuid.UUID                 `json:"id" validate:"required"`
+	Method      orderdb.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
+	Address     null.String               `json:"address" validate:"omitnil,max=500"`
+	Reason      null.String               `json:"reason" validate:"omitnil,max=500"`
+	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"required,dive"`
 }
 
 func (h *Handler) UpdateRefund(c echo.Context) error {
@@ -112,7 +112,7 @@ func (h *Handler) UpdateRefund(c echo.Context) error {
 }
 
 type CancelRefundRequest struct {
-	RefundID int64 `json:"id" validate:"required"`
+	RefundID uuid.UUID `json:"id" validate:"required"`
 }
 
 func (h *Handler) CancelRefund(c echo.Context) error {
@@ -140,7 +140,7 @@ func (h *Handler) CancelRefund(c echo.Context) error {
 }
 
 type ConfirmRefundRequest struct {
-	RefundID int64 `json:"id" validate:"required"`
+	RefundID uuid.UUID `json:"id" validate:"required"`
 }
 
 func (h *Handler) ConfirmRefund(c echo.Context) error {

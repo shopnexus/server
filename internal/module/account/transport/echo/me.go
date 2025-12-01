@@ -3,10 +3,10 @@ package accountecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/response"
+	accountdb "shopnexus-remastered/internal/module/account/db"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -31,17 +31,17 @@ func (h *Handler) GetMe(c echo.Context) error {
 
 type UpdateMeRequest struct {
 	// Account base fields
-	Status   db.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
-	Username null.String      `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
-	Phone    null.String      `json:"phone" validate:"omitempty,e164"`
-	Email    null.String      `json:"email" validate:"omitempty,email"`
+	Status   accountdb.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
+	Username null.String             `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
+	Phone    null.String             `json:"phone" validate:"omitempty,e164"`
+	Email    null.String             `json:"email" validate:"omitempty,email"`
 
 	// Profile fields
-	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
-	Name             null.String      `json:"name" validate:"omitnil"`
-	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID       uuid.NullUUID    `json:"avatar_rs_id" validate:"omitnil"`
-	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
+	Gender           accountdb.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
+	Name             null.String             `json:"name" validate:"omitnil"`
+	DateOfBirth      null.Time               `json:"date_of_birth" validate:"omitnil"`
+	AvatarRsID       uuid.NullUUID           `json:"avatar_rs_id" validate:"omitnil"`
+	DefaultContactID uuid.NullUUID           `json:"default_contact_id" validate:"omitnil"`
 
 	// Vendor fields
 	Description null.String `json:"description" validate:"omitnil,max=500"`

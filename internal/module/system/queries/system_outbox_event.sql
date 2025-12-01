@@ -1,0 +1,106 @@
+-- name: GetOutboxEvent :one
+SELECT *
+FROM "system"."outbox_event"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: CountOutboxEvent :one
+SELECT COUNT(*)
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
+-- name: ListOutboxEvent :many
+SELECT *
+FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: ListCountOutboxEvent :many
+SELECT sqlc.embed(embed_outbox_event), COUNT(*) OVER() as total_count
+FROM "system"."outbox_event" embed_outbox_event
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateBatchOutboxEvent :batchone
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyOutboxEvent :copyfrom
+INSERT INTO "system"."outbox_event" ("topic", "data", "processed", "date_processed", "date_created")
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CreateDefaultOutboxEvent :one
+INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyDefaultOutboxEvent :copyfrom
+INSERT INTO "system"."outbox_event" ("topic", "data", "date_processed")
+VALUES ($1, $2, $3);
+
+-- name: UpdateOutboxEvent :one
+UPDATE "system"."outbox_event"
+SET "topic" = COALESCE(sqlc.narg('topic'), "topic"),
+    "data" = COALESCE(sqlc.narg('data'), "data"),
+    "processed" = COALESCE(sqlc.narg('processed'), "processed"),
+    "date_processed" = CASE WHEN sqlc.arg('null_date_processed')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_processed'), "date_processed") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteOutboxEvent :exec
+DELETE FROM "system"."outbox_event"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("topic" = ANY(sqlc.slice('topic')) OR sqlc.slice('topic') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
+    ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
+    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);

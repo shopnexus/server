@@ -1,14 +1,15 @@
 package orderecho
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"shopnexus-remastered/internal/infras/shipment"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
 	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	authclaims "shopnexus-remastered/internal/shared/claims"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
@@ -43,10 +44,10 @@ func (h *Handler) ListVendorOrder(c echo.Context) error {
 }
 
 type ConfirmOrderRequest struct {
-	OrderItemID int64 `json:"order_item_id" validate:"required,min=1"` // Confirmed SKU
+	OrderID uuid.UUID `json:"order_id" validate:"required,uuid"`
 
-	FromAddress null.String             `json:"from_address" validate:"omitnil,min=5,max=500"` // Optional updated from address (in case vendor wants to change warehouse address)
-	Package     shipment.PackageDetails `json:"package" validate:"required"`                   // JSON object with weight and dimensions
+	FromAddress null.String     `json:"from_address" validate:"omitnil,min=5,max=500"`
+	Package     json.RawMessage `json:"package" validate:"omitempty"`
 }
 
 func (h *Handler) ConfirmOrder(c echo.Context) error {
@@ -65,7 +66,7 @@ func (h *Handler) ConfirmOrder(c echo.Context) error {
 
 	if err = h.biz.ConfirmOrder(c.Request().Context(), orderbiz.ConfirmOrderParams{
 		Account:     claims.Account,
-		OrderItemID: req.OrderItemID,
+		OrderID:     req.OrderID,
 		FromAddress: req.FromAddress,
 		Package:     req.Package,
 	}); err != nil {

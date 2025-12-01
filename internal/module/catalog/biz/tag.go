@@ -3,59 +3,59 @@ package catalogbiz
 import (
 	"context"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	catalogdb "shopnexus-remastered/internal/module/catalog/db"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type ListTagParams struct {
 	commonmodel.PaginationParams
 }
 
-func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonmodel.PaginateResult[db.CatalogTag], error) {
-	var zero commonmodel.PaginateResult[db.CatalogTag]
+func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
+	var zero commonmodel.PaginateResult[catalogdb.CatalogTag]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.CountCatalogTag(ctx, db.CountCatalogTagParams{})
-	if err != nil {
-		return zero, err
-	}
-
-	dbTags, err := b.storage.ListCatalogTag(ctx, db.ListCatalogTagParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+	listTag, err := b.storage.Querier().ListCountTag(ctx, catalogdb.ListCountTagParams{
+		Limit:  params.Limit,
+		Offset: params.Offset(),
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	return commonmodel.PaginateResult[db.CatalogTag]{
+	var total null.Int64
+	if len(listTag) > 0 {
+		total.SetValid(listTag[0].TotalCount)
+	}
+
+	return commonmodel.PaginateResult[catalogdb.CatalogTag]{
 		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
-		Data:       dbTags,
+		Total:      total,
+		Data:       lo.Map(listTag, func(row catalogdb.ListCountTagRow, _ int) catalogdb.CatalogTag { return row.CatalogTag }),
 	}, nil
 }
 
 type GetTagParams struct {
-	Account authmodel.AuthenticatedAccount
+	Account accountmodel.AuthenticatedAccount
 	Tag     string `validate:"required,min=1,max=100"`
 }
 
-func (b *CatalogBiz) GetTag(ctx context.Context, params GetTagParams) (db.CatalogTag, error) {
-	var zero db.CatalogTag
+func (b *CatalogBiz) GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
+	var zero catalogdb.CatalogTag
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	tag, err := b.storage.GetCatalogTag(ctx, pgutil.StringToPgText(params.Tag))
+	tag, err := b.storage.Querier().GetTag(ctx, null.StringFrom(params.Tag))
 	if err != nil {
 		return zero, err
 	}

@@ -3,28 +3,29 @@ package accountbiz
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	accountdb "shopnexus-remastered/internal/module/account/db"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	"shopnexus-remastered/internal/shared/validator"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 )
 
 type ListContactParams struct {
-	Account authmodel.AuthenticatedAccount
+	AccountID []uuid.UUID `validate:"dive,required"`
+	ID        []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *AccountBiz) ListContact(ctx context.Context, params ListContactParams) ([]db.AccountContact, error) {
+func (b *AccountBiz) ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
 
-	contacts, err := b.storage.ListAccountContact(ctx, db.ListAccountContactParams{
-		AccountID: []int64{params.Account.ID},
+	contacts, err := b.storage.Querier().ListContact(ctx, accountdb.ListContactParams{
+		AccountID: params.AccountID,
+		ID:        params.ID,
 	})
 	if err != nil {
 		return nil, err
@@ -34,46 +35,53 @@ func (b *AccountBiz) ListContact(ctx context.Context, params ListContactParams) 
 }
 
 type GetContactParams struct {
-	Account   authmodel.AuthenticatedAccount
-	ContactID int64 `validate:"required"`
+	Account   accountmodel.AuthenticatedAccount
+	ContactID uuid.UUID `validate:"required"`
 }
 
-func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (db.AccountContact, error) {
-	var zero db.AccountContact
+func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (accountdb.AccountContact, error) {
+	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	contact, err := b.storage.GetAccountContact(ctx, pgutil.Int64ToPgInt8(params.ContactID))
+	result, err := b.ListContact(ctx, ListContactParams{
+		AccountID: []uuid.UUID{params.Account.ID},
+		ID:        []uuid.UUID{params.ContactID},
+	})
 	if err != nil {
 		return zero, err
 	}
 
-	return contact, nil
+	if len(result) == 0 {
+		return zero, fmt.Errorf("contact not found")
+	}
+
+	return result[0], nil
 }
 
 type CreateContactParams struct {
-	Storage     pgsqlc.Storage
-	Account     authmodel.AuthenticatedAccount
-	FullName    string                `validate:"required"`
-	Phone       string                `validate:"required"`
-	Address     string                `validate:"required"`
-	AddressType db.AccountAddressType `validate:"required,validateFn=Valid"`
+	Storage     AccountStorage
+	Account     accountmodel.AuthenticatedAccount
+	FullName    string                       `validate:"required"`
+	Phone       string                       `validate:"required"`
+	Address     string                       `validate:"required"`
+	AddressType accountdb.AccountAddressType `validate:"required,validateFn=Valid"`
 }
 
-func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactParams) (db.AccountContact, error) {
-	var zero db.AccountContact
+func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error) {
+	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	var dbContact db.AccountContact
+	var dbContact accountdb.AccountContact
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage AccountStorage) error {
 		var err error
-		dbContact, err = txStorage.CreateDefaultAccountContact(ctx, db.CreateDefaultAccountContactParams{
+		dbContact, err = txStorage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 			AccountID:   params.Account.ID,
 			FullName:    params.FullName,
 			Phone:       params.Phone,
@@ -84,16 +92,16 @@ func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactPara
 			return err
 		}
 
-		total, err := txStorage.CountAccountContact(ctx, db.CountAccountContactParams{
-			AccountID: []int64{params.Account.ID},
+		total, err := txStorage.Querier().CountContact(ctx, accountdb.CountContactParams{
+			AccountID: []uuid.UUID{params.Account.ID},
 		})
 		if err != nil {
 			return err
 		}
 		if total == 1 {
-			if _, err := txStorage.UpdateAccountProfile(ctx, db.UpdateAccountProfileParams{
+			if _, err := txStorage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
 				ID:               params.Account.ID,
-				DefaultContactID: pgutil.Int64ToPgInt8(dbContact.ID),
+				DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
 			}); err != nil {
 				return err
 			}
@@ -108,32 +116,31 @@ func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactPara
 }
 
 type UpdateContactParams struct {
-	Account     authmodel.AuthenticatedAccount
-	ContactID   int64                 `validate:"required"`
-	FullName    null.String           `validate:"omitnil"`
-	Phone       null.String           `validate:"omitnil"`
-	Address     null.String           `validate:"omitnil"`
-	AddressType db.AccountAddressType `validate:"omitempty,validateFn=Valid"`
+	Account     accountmodel.AuthenticatedAccount
+	ContactID   uuid.UUID                    `validate:"required"`
+	FullName    null.String                  `validate:"omitnil"`
+	Phone       null.String                  `validate:"omitnil"`
+	Address     null.String                  `validate:"omitnil"`
+	AddressType accountdb.AccountAddressType `validate:"omitempty,validateFn=Valid"`
 
 	PhoneVerified null.Bool `validate:"omitnil"`
 }
 
-func (b *AccountBiz) UpdateContact(ctx context.Context, params UpdateContactParams) (db.AccountContact, error) {
-	var zero db.AccountContact
+func (b *AccountBiz) UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
+	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	updatedContact, err := b.storage.UpdateAccountContact(ctx, db.UpdateAccountContactParams{
+	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
 		ID:          params.ContactID,
-		FullName:    pgutil.NullStringToPgText(params.FullName),
-		Phone:       pgutil.NullStringToPgText(params.Phone),
-		Address:     pgutil.NullStringToPgText(params.Address),
-		AddressType: db.NullAccountAddressType{AccountAddressType: params.AddressType, Valid: params.AddressType.Valid()},
+		FullName:    params.FullName,
+		Phone:       params.Phone,
+		Address:     params.Address,
+		AddressType: accountdb.NullAccountAddressType{AccountAddressType: params.AddressType, Valid: params.AddressType.Valid()},
 
-		PhoneVerified: pgutil.NullBoolToPgBool(params.PhoneVerified),
-		DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
+		PhoneVerified: params.PhoneVerified,
 	})
 	if err != nil {
 		return zero, err
@@ -143,13 +150,25 @@ func (b *AccountBiz) UpdateContact(ctx context.Context, params UpdateContactPara
 }
 
 type DeleteContactParams struct {
-	Account   authmodel.AuthenticatedAccount
-	ContactID int64
+	Account   accountmodel.AuthenticatedAccount
+	ContactID uuid.UUID
 }
 
 func (b *AccountBiz) DeleteContact(ctx context.Context, params DeleteContactParams) error {
-	return b.storage.DeleteAccountContact(ctx, db.DeleteAccountContactParams{
-		ID:        []int64{params.ContactID},
-		AccountID: []int64{params.Account.ID},
+	return b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
+		ID:        []uuid.UUID{params.ContactID},
+		AccountID: []uuid.UUID{params.Account.ID},
 	})
+}
+
+func (b *AccountBiz) GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
+	contacts, err := b.storage.Querier().ListDefaultContact(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(contacts) != len(accountIDs) {
+		return nil, fmt.Errorf("some accounts have no default contact")
+	}
+
+	return lo.KeyBy(contacts, func(c accountdb.AccountContact) uuid.UUID { return c.AccountID }), nil
 }

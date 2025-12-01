@@ -3,7 +3,7 @@
 //// ------------------------------------------------------
 
 Table Account {
-  id BigInt [pk, increment]
+  id String [pk]
   type AccountType [not null]
   status AccountStatus [not null, default: 'Active']
   phone String [unique]
@@ -15,45 +15,32 @@ Table Account {
 }
 
 Table Profile {
-  id BigInt [pk]
+  id String [pk]
   gender Gender
   name String
   date_of_birth DateTime
   avatar_rs_id String [unique]
   email_verified Boolean [not null, default: false]
   phone_verified Boolean [not null, default: false]
-  default_contact_id BigInt [unique]
+  default_contact_id String [unique]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
 
 Table Customer {
-  id BigInt [pk]
+  id String [pk]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
 
 Table Vendor {
-  id BigInt [pk]
+  id String [pk]
   description String [not null, default: '']
-}
-
-Table CartItem {
-  id BigInt [pk, increment]
-  cart_id BigInt [not null]
-  sku_id BigInt [not null]
-  quantity BigInt [not null]
-  date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [default: `now()`, not null]
-
-  indexes {
-    (cart_id, sku_id) [unique]
-  }
 }
 
 Table IncomeHistory {
   id BigInt [pk, increment]
-  account_id BigInt [not null]
+  account_id String [not null]
   type String [not null]
   income BigInt [not null]
   current_balance BigInt [not null]
@@ -63,7 +50,7 @@ Table IncomeHistory {
 
 Table Notification {
   id BigInt [pk, increment]
-  account_id BigInt [not null]
+  account_id String [not null]
   type String [not null]
   channel String [not null]
   is_read Boolean [not null, default: false]
@@ -75,8 +62,8 @@ Table Notification {
 }
 
 Table Contact {
-  id BigInt [pk, increment]
-  account_id BigInt [not null]
+  id String [pk]
+  account_id String [not null]
   full_name String [not null]
   phone String [not null]
   phone_verified Boolean [not null, default: false]
@@ -88,11 +75,11 @@ Table Contact {
 
 Table Interaction {
   id BigInt [pk, increment]
-  account_id BigInt
+  account_id String
   session_id String
   event_type String [not null]
   ref_type InteractionRefType [not null]
-  ref_id BigInt [not null]
+  ref_id String [not null]
   metadata Json
   user_agent String
   ip_address String
@@ -100,26 +87,26 @@ Table Interaction {
 }
 
 Table Brand {
-  id BigInt [pk, increment]
+  id String [pk]
   code String [unique, not null]
   name String [not null]
   description String [not null]
 }
 
 Table ProductCategory {
-  id BigInt [pk, increment]
+  id String [pk]
   name String [unique, not null]
   description String [not null]
   parent_id BigInt
 }
 
 Table ProductSpu {
-  id BigInt [pk, increment]
-  code String [unique, not null]
-  account_id BigInt [not null]
-  category_id BigInt [not null]
-  brand_id BigInt [not null]
-  featured_sku_id BigInt [unique]
+  id String [pk]
+  slug String [unique, not null]
+  account_id String [not null]
+  category_id String [not null]
+  brand_id String [not null]
+  featured_sku_id String [unique]
   name String [not null]
   description String [not null]
   is_active Boolean [not null]
@@ -130,8 +117,8 @@ Table ProductSpu {
 }
 
 Table ProductSku {
-  id BigInt [pk, increment]
-  spu_id BigInt [not null]
+  id String [pk]
+  spu_id String [not null]
   price BigInt [not null]
   can_combine Boolean [not null]
   attributes Json [not null]
@@ -142,12 +129,12 @@ Table ProductSku {
 
 Table Tag {
   id String [pk]
-  description String [not null]
+  description String
 }
 
 Table ProductTag {
   id BigInt [pk, increment]
-  spu_id BigInt [not null]
+  spu_id String [not null]
   tag String [not null]
 
   indexes {
@@ -156,21 +143,35 @@ Table ProductTag {
 }
 
 Table Comment {
-  id BigInt [pk, increment]
-  account_id BigInt [not null]
+  id String [pk]
+  account_id String [not null]
   ref_type CommentRefType [not null]
-  ref_id BigInt [not null]
+  ref_id String [not null]
   body String [not null]
   upvote BigInt [not null, default: 0]
   downvote BigInt [not null, default: 0]
-  score Int [not null]
+  score Float [not null]
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
 
+Table SearchSync {
+  id BigInt [pk, increment]
+  ref_type String [not null]
+  ref_id String [not null]
+  is_stale_embedding Boolean [not null, default: true]
+  is_stale_metadata Boolean [not null, default: true]
+  date_created DateTime [default: `now()`, not null]
+  date_updated DateTime [default: `now()`, not null]
+
+  indexes {
+    (ref_type, ref_id) [unique]
+  }
+}
+
 Table Resource {
   id String [pk]
-  uploaded_by BigInt
+  uploaded_by String
   provider String [not null]
   object_key String [not null]
   mime String [not null]
@@ -189,9 +190,8 @@ Table ResourceReference {
   id BigInt [pk, increment]
   rs_id String [not null]
   ref_type ResourceRefType [not null]
-  ref_id BigInt [not null]
+  ref_id String [not null]
   order Int [not null]
-  is_primary Boolean [not null]
 }
 
 Table ServiceOption {
@@ -206,9 +206,8 @@ Table ServiceOption {
 }
 
 Table ProductSerial {
-  id BigInt [pk, increment]
-  serial_id String [unique, not null]
-  sku_id BigInt [not null]
+  id String [pk]
+  sku_id String [not null]
   status ProductStatus [not null, default: 'Active']
   date_created DateTime [default: `now()`, not null]
 }
@@ -216,9 +215,10 @@ Table ProductSerial {
 Table Stock {
   id BigInt [pk, increment]
   ref_type StockRefType [not null]
-  ref_id BigInt [not null]
-  current_stock BigInt [not null, default: 0]
-  sold BigInt [not null, default: 0]
+  ref_id String [not null]
+  stock BigInt [not null]
+  taken BigInt [not null, default: 0]
+  serial_required Boolean [not null, default: false]
   date_created DateTime [default: `now()`, not null]
 
   indexes {
@@ -233,44 +233,69 @@ Table StockHistory {
   date_created DateTime [default: `now()`, not null]
 }
 
-Table Order {
+Table CartItem {
   id BigInt [pk, increment]
-  account_id BigInt [not null]
-  payment_option String [not null]
-  payment_status Status [not null, default: 'Pending']
-  address String [not null]
+  account_id String [not null]
+  sku_id String [not null]
+  quantity BigInt [not null]
+
+  indexes {
+    (account_id, sku_id) [unique]
+  }
+}
+
+Table Payment {
+  id BigInt [pk, increment]
+  account_id String [not null]
+  option String [not null]
+  status Status [not null, default: 'Pending']
+  amount BigInt [not null]
+  data Json [not null]
   date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [default: `now()`, not null]
+  date_paid DateTime
+  date_expired DateTime [not null]
+}
+
+Table Order {
+  id String [pk]
+  customer_id String [not null]
+  vendor_id String [not null]
+  payment_id BigInt [unique, not null]
+  shipment_id String [not null]
+  confirmed_by_id String
+  status Status [not null, default: 'Pending']
+  address String [not null]
+  product_cost BigInt [not null]
+  product_discount BigInt [not null]
+  ship_cost BigInt [not null]
+  ship_discount BigInt [not null]
+  total BigInt [not null]
+  note String
+  data Json [not null]
+  date_created DateTime [default: `now()`, not null]
 }
 
 Table OrderItem {
   id BigInt [pk, increment]
-  order_id BigInt [not null]
-  sku_id BigInt [not null]
-  vendor_id BigInt [not null]
-  confirmed_by_id BigInt
-  shipment_id BigInt [not null]
-  note String [not null]
-  status Status [not null, default: 'Pending']
+  order_id String [not null]
+  sku_id String [not null]
+  sku_name String [not null]
   quantity BigInt [not null]
-}
-
-Table OrderItemSerial {
-  id BigInt [pk, increment]
-  order_item_id BigInt [not null]
-  product_serial_id BigInt [not null]
+  unit_price BigInt [not null]
+  note String
+  serial_ids Json
 
   indexes {
-    (order_item_id, product_serial_id) [unique]
+    (order_id, sku_id) [unique]
   }
 }
 
 Table Refund {
-  id BigInt [pk, increment]
-  account_id BigInt [not null]
-  order_item_id BigInt [not null]
-  reviewed_by_id BigInt
-  shipment_id BigInt
+  id String [pk]
+  account_id String [not null]
+  order_id String [not null]
+  confirmed_by_id String
+  shipment_id String
   method RefundMethod [not null]
   status Status [not null, default: 'Pending']
   reason String [not null]
@@ -279,28 +304,17 @@ Table Refund {
 }
 
 Table RefundDispute {
-  id BigInt [pk, increment]
-  refund_id BigInt [not null]
-  issued_by_id BigInt [not null]
+  id String [pk]
+  refund_id String [not null]
+  issued_by_id String [not null]
   reason String [not null]
   status Status [not null, default: 'Pending']
   date_created DateTime [default: `now()`, not null]
   date_updated DateTime [default: `now()`, not null]
 }
 
-Table Invoice {
-  id BigInt [pk, increment]
-  ref_type InvoiceRefType [not null]
-  ref_id BigInt [not null]
-  type InvoiceType [not null]
-  receiver_id BigInt [not null]
-  note String
-  data Json [not null]
-  date_created DateTime [default: `now()`, not null]
-}
-
 Table Shipment {
-  id BigInt [pk, increment]
+  id String [pk]
   option String [not null]
   tracking_code String
   status ShipmentStatus [not null, default: 'Pending']
@@ -318,9 +332,9 @@ Table Shipment {
 }
 
 Table Promotion {
-  id BigInt [pk, increment]
+  id String [pk]
   code String [unique, not null]
-  owner_id BigInt
+  owner_id String
   type PromotionType [not null]
   title String [not null]
   description String
@@ -334,9 +348,9 @@ Table Promotion {
 
 Table PromotionRef {
   id BigInt [pk, increment]
-  promotion_id BigInt [not null]
+  promotion_id String [not null]
   ref_type PromotionRefType [not null]
-  ref_id BigInt [not null]
+  ref_id String [not null]
 
   indexes {
     (promotion_id, ref_type, ref_id) [unique]
@@ -345,7 +359,7 @@ Table PromotionRef {
 
 Table PromotionSchedule {
   id BigInt [pk, increment]
-  promotion_id BigInt [not null]
+  promotion_id String [not null]
   timezone String [not null]
   cron_rule String [not null]
   duration Int [not null]
@@ -354,10 +368,10 @@ Table PromotionSchedule {
 }
 
 Table PromotionDiscount {
-  id BigInt [pk]
+  id String [pk]
   min_spend BigInt [not null]
   max_discount BigInt [not null]
-  discount_percent Int
+  discount_percent Float
   discount_price BigInt
 }
 
@@ -368,20 +382,6 @@ Table OutboxEvent {
   processed Boolean [not null, default: false]
   date_processed DateTime
   date_created DateTime [default: `now()`, not null]
-}
-
-Table SearchSync {
-  id BigInt [pk, increment]
-  ref_type String [not null]
-  ref_id BigInt [not null]
-  is_stale_embedding Boolean [not null, default: true]
-  is_stale_metadata Boolean [not null, default: true]
-  date_created DateTime [default: `now()`, not null]
-  date_updated DateTime [default: `now()`, not null]
-
-  indexes {
-    (ref_type, ref_id) [unique]
-  }
 }
 
 Enum AccountType {
@@ -407,7 +407,6 @@ Enum AddressType {
 
 Enum InteractionRefType {
   Product
-  Article
   Category
   Brand
 }
@@ -418,7 +417,6 @@ Enum CommentRefType {
 }
 
 Enum ResourceRefType {
-  Account
   ProductSpu
   ProductSku
   Brand
@@ -450,17 +448,6 @@ Enum ProductStatus {
 Enum RefundMethod {
   PickUp
   DropOff
-}
-
-Enum InvoiceType {
-  Sale
-  Service
-  Adjustment
-}
-
-Enum InvoiceRefType {
-  Order
-  Fee
 }
 
 Enum ShipmentStatus {
@@ -498,10 +485,6 @@ Ref: Customer.id - Account.id [delete: Cascade]
 
 Ref: Vendor.id - Account.id [delete: Cascade]
 
-Ref: CartItem.cart_id > Customer.id [delete: Cascade]
-
-Ref: CartItem.sku_id > ProductSku.id [delete: No Action]
-
 Ref: IncomeHistory.account_id > Vendor.id [delete: Cascade]
 
 Ref: Notification.account_id > Account.id [delete: Cascade]
@@ -532,37 +515,39 @@ Ref: ProductSerial.sku_id > ProductSku.id [delete: Cascade]
 
 Ref: StockHistory.stock_id > Stock.id [delete: Cascade]
 
-Ref: Order.payment_option > ServiceOption.id [delete: No Action]
+Ref: CartItem.account_id > Customer.id [delete: Cascade]
 
-Ref: Order.account_id > Customer.id [delete: Cascade]
+Ref: CartItem.sku_id > ProductSku.id [delete: Cascade]
+
+Ref: Payment.account_id > Customer.id [delete: No Action]
+
+Ref: Payment.option > ServiceOption.id [delete: No Action]
+
+Ref: Order.customer_id > Customer.id [delete: No Action]
+
+Ref: Order.shipment_id > Shipment.id [delete: Set Null]
+
+Ref: Order.confirmed_by_id > Vendor.id [delete: Set Null]
+
+Ref: Order.vendor_id > Vendor.id [delete: Set Null]
+
+Ref: Order.payment_id - Payment.id [delete: No Action]
 
 Ref: OrderItem.order_id > Order.id [delete: Cascade]
 
 Ref: OrderItem.sku_id > ProductSku.id [delete: No Action]
 
-Ref: OrderItem.shipment_id > Shipment.id [delete: No Action]
-
-Ref: OrderItem.confirmed_by_id > Vendor.id [delete: Set Null]
-
-Ref: OrderItem.vendor_id > Vendor.id [delete: Set Null]
-
-Ref: OrderItemSerial.order_item_id > OrderItem.id [delete: Cascade]
-
-Ref: OrderItemSerial.product_serial_id > ProductSerial.id [delete: No Action]
-
 Ref: Refund.account_id > Customer.id [delete: No Action]
 
-Ref: Refund.order_item_id > OrderItem.id [delete: No Action]
+Ref: Refund.order_id > Order.id [delete: No Action]
 
-Ref: Refund.reviewed_by_id > Vendor.id [delete: Set Null]
+Ref: Refund.confirmed_by_id > Vendor.id [delete: Set Null]
 
 Ref: Refund.shipment_id > Shipment.id [delete: No Action]
 
-Ref: RefundDispute.refund_id > Refund.id [delete: Cascade]
+Ref: RefundDispute.refund_id > Refund.id [delete: No Action]
 
 Ref: RefundDispute.issued_by_id > Vendor.id [delete: No Action]
-
-Ref: Invoice.receiver_id > Account.id [delete: No Action]
 
 Ref: Shipment.option > ServiceOption.id [delete: No Action]
 

@@ -6,31 +6,31 @@ import (
 	"errors"
 	"fmt"
 
-	"shopnexus-remastered/internal/db"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	commondb "shopnexus-remastered/internal/module/common/db"
+	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/validator"
+
+	"github.com/guregu/null/v6"
 )
 
 type UpdateServiceOptionsParams struct {
-	Storage  pgsqlc.Storage
+	Storage  CommonStorage
 	Category string                     `validate:"required,oneof=objectstore payment shipment"`
 	Configs  []commonmodel.OptionConfig `validate:"required,dive"`
 }
 
-func (b *Commonbiz) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
+func (b *CommonBiz) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CommonStorage) error {
 		for index, cfg := range params.Configs {
-			_, err := txStorage.GetCommonServiceOption(ctx, pgutil.StringToPgText(cfg.ID))
+			_, err := txStorage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
 			if err != nil {
 				// if not found, create it
 				if errors.Is(err, sql.ErrNoRows) {
-					_, err = txStorage.CreateCommonServiceOption(ctx, db.CreateCommonServiceOptionParams{
+					_, err = txStorage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
 						ID:          cfg.ID,
 						Category:    string(params.Category),
 						Name:        cfg.Name,
@@ -49,15 +49,15 @@ func (b *Commonbiz) UpdateServiceOptions(ctx context.Context, params UpdateServi
 				return err
 			} else {
 				// update existing
-				_, err = txStorage.UpdateCommonServiceOption(ctx, db.UpdateCommonServiceOptionParams{
+				_, err = txStorage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
 					ID:          cfg.ID,
-					Name:        pgutil.StringToPgText(cfg.Name),
-					Description: pgutil.StringToPgText(cfg.Description),
-					Provider:    pgutil.StringToPgText(cfg.Provider),
-					Method:      pgutil.StringToPgText(string(cfg.Method)),
-					IsActive:    pgutil.BoolToPgBool(true),
-					Category:    pgutil.StringToPgText(string(params.Category)),
-					Order:       pgutil.Int32ToPgInt4(int32(index)),
+					Name:        null.StringFrom(cfg.Name),
+					Description: null.StringFrom(cfg.Description),
+					Provider:    null.StringFrom(cfg.Provider),
+					Method:      null.StringFrom(string(cfg.Method)),
+					IsActive:    null.BoolFrom(true),
+					Category:    null.StringFrom(string(params.Category)),
+					Order:       null.Int32From(int32(index)),
 				})
 				if err != nil {
 					return err
@@ -77,12 +77,12 @@ type ListServiceOptionParams struct {
 	IsActive []bool   `validate:"omitempty,dive"`
 }
 
-func (b *Commonbiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]commonmodel.OptionConfig, error) {
+func (b *CommonBiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]commonmodel.OptionConfig, error) {
 	if validator.Validate(params) != nil {
 		return nil, validator.Validate(params)
 	}
 
-	dbOptions, err := b.storage.SearchServiceOption(ctx, db.SearchServiceOptionParams{
+	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
 		Category: params.Category,
 		IsActive: params.IsActive,
 	})
