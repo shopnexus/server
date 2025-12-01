@@ -171,7 +171,7 @@ I can validate the enum field directly with the generated Valid() method from sq
 
 ```go
 type CreateOrderParams struct {
- Account     authmodel.AuthenticatedAccount
+ Account     accountmodel.AuthenticatedAccount
  Address     string                `validate:"required"`
  OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
  SkuIDs      []int64               `validate:"required,dive,gt=0"`
@@ -300,7 +300,7 @@ Add transaction callback to storage interface to reduce boilerplate code when us
 
 ![img.png](images/img7.png)
 
-### 8-11-2024 Use errors.Join instead of my own errutil.Some
+### 8-11-2025 Use errors.Join instead of my own errutil.Some
 
 ```go
 func Some(errs ...error) error {
@@ -320,3 +320,13 @@ err := errors.Join(err1, err2, err3)
 err := errutil.Some(err1, err2, err3)
 // Returns only the first non-nil error
 ```
+
+### 18-11-2025 Making big update for entire project 🔥
+
+- Each service has its own storage interface (db) to reduce coupling between services
+- Refactor pgsqlc module to support generic
+- Refactor entire order schema to support both multi-vendor and single-vendor ecommerce systems 🤓
+- Now support register all custom types for encode plans in pgxpool instead of hardcoded type names (internal/infras/pg/pg.go)
+- Remove the global config.GetConfig() calls, pass the config struct to each service biz layer instead for better testability and reduce coupling
+
+![alt text](images/img8.png)
