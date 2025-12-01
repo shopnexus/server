@@ -4,7 +4,7 @@ import "time"
 
 type Config struct {
 	// General configuration
-	Env string `yaml:"env" mapstructure:"env" validate:"required,oneof=dev staging production"`
+	Env string `yaml:"env" mapstructure:"env" validate:"required"`
 	Log Log    `yaml:"log" mapstructure:"log" validate:"required"`
 	App App    `yaml:"app" mapstructure:"app" validate:"required"`
 

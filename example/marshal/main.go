@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 
 	"github.com/bytedance/sonic"
 )
