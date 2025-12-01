@@ -24,7 +24,7 @@ go.work.sum
 # env file
 .env
 config/config.*.yml
-!config/config.example.yml
+!config/config.default.yml
 
 .vscode/
 .idea/
