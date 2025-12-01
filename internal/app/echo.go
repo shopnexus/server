@@ -5,9 +5,9 @@ import (
 	"log/slog"
 
 	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/module/shared/binder"
+	"shopnexus-remastered/internal/shared/binder"
 
-	"shopnexus-remastered/internal/module/shared/validator"
+	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
