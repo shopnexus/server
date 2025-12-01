@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"shopnexus-remastered/internal/infras/payment"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 )
 
 // Type guard
@@ -95,21 +95,6 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 	}, nil
 }
 
-// type IPNReturn struct {
-//! missing some props!
-// 	VnpAmount            string `json:"vnp_Amount"`
-// 	VnpBankCode          string `json:"vnp_BankCode"`
-// 	VnpCardType          string `json:"vnp_CardType"`
-// 	VnpOrderInfo         string `json:"vnp_OrderInfo"`
-// 	VnpPayDate           string `json:"vnp_PayDate"`
-// 	VnpResponseCode      string `json:"vnp_ResponseCode"`
-// 	VnpSecureHash        string `json:"vnp_SecureHash"`
-// 	VnpTmnCode           string `json:"vnp_TmnCode"`
-// 	VnpTransactionNo     string `json:"vnp_TransactionNo"`
-// 	VnpTransactionStatus string `json:"vnp_TransactionStatus"`
-// 	VnpTxnRef            string `json:"vnp_TxnRef"`
-// }
-
 func (c *ClientImpl) VerifyPayment(ctx context.Context, ipn map[string]any) (payment.VerifyResult, error) {
 	var zero payment.VerifyResult
 
@@ -135,35 +120,7 @@ func (c *ClientImpl) VerifyPayment(ctx context.Context, ipn map[string]any) (pay
 		return zero, fmt.Errorf("missing or invalid vnp_TxnRef in IPN data")
 	}
 
-	var refID int64
-	if _, err := fmt.Sscanf(vnpTxnRef, "%d", &refID); err != nil {
-		return zero, fmt.Errorf("invalid vnp_TxnRef format: %w", err)
-	}
-
 	return payment.VerifyResult{
-		RefID: refID,
+		RefID: vnpTxnRef,
 	}, nil
 }
-
-//
-//func (c *ClientImpl) VerifyHandler() http.Handler {
-//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//		if err := r.ParseForm(); err != nil {
-//			http.Error(w, "failed to parse form", http.StatusBadRequest)
-//			return
-//		}
-//
-//		query := make(map[string]any)
-//		for key, values := range r.Form {
-//			if len(values) > 0 {
-//				query[key] = values[0]
-//			}
-//		}
-//
-//		// Verify the checksum hash
-//		if _, err := c.VerifyPayment(r.Context(), query); err != nil {
-//			http.Error(w, err.Error(), http.StatusBadRequest)
-//			return
-//		}
-//	})
-//}

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"shopnexus-remastered/internal/infras/payment"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 )
 
 // Type guard
@@ -44,7 +44,7 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 
 func (c *ClientImpl) VerifyPayment(ctx context.Context, data map[string]any) (payment.VerifyResult, error) {
 	// For COD, we assume payment is verified upon delivery.
-	refID, ok := data["ref_id"].(int64)
+	refID, ok := data["ref_id"].(string)
 	if !ok {
 		return payment.VerifyResult{}, nil // or return an error
 	}

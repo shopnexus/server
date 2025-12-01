@@ -3,12 +3,12 @@ package payment
 import (
 	"context"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	sharedmodel "shopnexus-remastered/internal/shared/model"
 )
 
 type CreateOrderParams struct {
 	RefID  int64
-	Amount commonmodel.Concurrency
+	Amount sharedmodel.Concurrency
 	Info   string
 }
 
@@ -17,7 +17,7 @@ type CreateOrderResult struct {
 }
 
 type VerifyResult struct {
-	RefID int64
+	RefID string
 }
 
 type Client interface {
