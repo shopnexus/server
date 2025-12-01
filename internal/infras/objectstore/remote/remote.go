@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	commonmodel "shopnexus-remastered/internal/shared/model"
 )
 
 type ClientImpl struct {
