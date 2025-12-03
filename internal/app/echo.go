@@ -37,7 +37,7 @@ func SetupEcho(params RouteParams) {
 	// Set the custom validator
 	customVal, err := validator.New()
 	if err != nil {
-		slog.Error("Failed to create validator", err)
+		slog.Error("Failed to create validator", slog.Any("error", err))
 		panic(err)
 	}
 	params.Echo.Validator = customVal
@@ -57,7 +57,7 @@ func StartHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 				port := ":8080" // Default port, you can make this configurable
 				slog.Info("Starting HTTP server on port", "port", port)
 				if err := e.Start(port); err != nil {
-					slog.Error("HTTP server error", err)
+					slog.Error("HTTP server error", slog.Any("error", err))
 				}
 			}()
 			return nil

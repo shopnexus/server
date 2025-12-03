@@ -7,13 +7,13 @@ import (
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/pg"
+	"shopnexus-remastered/internal/shared/pgsqlc"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 )
 
-// NewPgxPool creates a new database connection
-func NewPgxPool(lc fx.Lifecycle, cfg *config.Config) (*pgxpool.Pool, error) {
+// NewPgSqlc creates a new database connection
+func NewPgSqlc(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.TxBeginner, error) {
 	pool, err := pg.New(pg.Options{
 		Url:             cfg.Postgres.Url,
 		Host:            cfg.Postgres.Host,

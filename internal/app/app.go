@@ -26,7 +26,7 @@ var Module = fx.Module("main",
 	// Infrastructure
 	fx.Provide(
 		NewConfig,
-		NewPgxPool,
+		NewPgSqlc,
 		NewEcho,
 		NewCacheStruct,
 		NewPubsubClient,
