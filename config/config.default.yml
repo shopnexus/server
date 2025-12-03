@@ -23,6 +23,10 @@ app:
     denseWeight: 0.75
     sparseWeight: 0.25
     interactionBatchSize: 1
+    productMetadataSyncInterval: 1s
+    productEmbeddingSyncInterval: 1s
+  order:
+    paymentExpiryDays: 30
 
 filestore:
   type: s3 # Options: Local, S3, Cloudinary, Remote
@@ -33,6 +37,7 @@ filestore:
     region: ""
     bucket: ""
     cloudfrontUrl: ""
+  placeholder404Url: ""
 
 postgres:
   # Option 1: Using connection URL

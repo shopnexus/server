@@ -20,6 +20,7 @@ type App struct {
 	JWT       JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
 	Vnpay     Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
 	Search    Search `yaml:"search" mapstructure:"search" validate:"required"`
+	Order     Order  `yaml:"order" mapstructure:"order" validate:"required"`
 }
 
 type JWT struct {
@@ -36,10 +37,21 @@ type Vnpay struct {
 }
 
 type Search struct {
-	Url                  string  `yaml:"url" mapstructure:"url" validate:"required,url"`
-	DenseWeight          float32 `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
-	SparseWeight         float32 `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
-	InteractionBatchSize int     `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
+	Url                  string        `yaml:"url" mapstructure:"url" validate:"required,url"`
+	DenseWeight          float32       `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
+	SparseWeight         float32       `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
+	InteractionBatchSize int           `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
+	// ProductMetadataSyncInterval controls how often product metadata is synced to the search engine.
+	// If zero or negative, a sensible default will be used by the caller.
+	ProductMetadataSyncInterval time.Duration `yaml:"productMetadataSyncInterval" mapstructure:"productMetadataSyncInterval" validate:"gte=0"`
+	// ProductEmbeddingSyncInterval controls how often product embeddings are synced to the search engine.
+	// If zero or negative, a sensible default will be used by the caller.
+	ProductEmbeddingSyncInterval time.Duration `yaml:"productEmbeddingSyncInterval" mapstructure:"productEmbeddingSyncInterval" validate:"gte=0"`
+}
+
+type Order struct {
+	// PaymentExpiryDays defines how many days a payment will stay pending before expiring.
+	PaymentExpiryDays int64 `yaml:"paymentExpiryDays" mapstructure:"paymentExpiryDays" validate:"required,gte=1"`
 }
 
 type Log struct {
@@ -74,6 +86,9 @@ type Filestore struct {
 	Type                string      `yaml:"type" mapstructure:"type" validate:"required,oneof=local s3"`
 	PresignedDefaultTTL int64       `yaml:"presignedDefaultTTL" mapstructure:"presignedDefaultTTL" validate:"gte=1"`
 	S3                  S3Filestore `yaml:"s3" mapstructure:"s3"`
+	// Placeholder404Url is used when a requested resource/file cannot be resolved.
+	// If empty, callers may fall back to an empty string.
+	Placeholder404Url string `yaml:"placeholder404Url" mapstructure:"placeholder404Url" validate:"omitempty,url"`
 }
 
 type S3Filestore struct {
