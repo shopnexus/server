@@ -1,6 +1,3 @@
-ALTER TABLE IF EXISTS "common"."resource"
-    DROP CONSTRAINT IF EXISTS "resource_uploaded_by_fkey";
-
 DROP INDEX IF EXISTS "contact_account_id_idx";
 DROP INDEX IF EXISTS "notification_date_created_idx";
 DROP INDEX IF EXISTS "notification_channel_idx";

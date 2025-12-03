@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
+	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/shipment"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
@@ -14,7 +17,6 @@ import (
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
-	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
@@ -187,12 +189,16 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 			serialIDs := serialIDsMap[checkoutItem.SkuID]
 
 			// Create payment
+			expiryDays := config.GetConfig().App.Order.PaymentExpiryDays
+			if expiryDays <= 0 {
+				expiryDays = 30
+			}
 			payment, err := txStorage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
 				AccountID:   params.Account.ID,
 				Option:      params.PaymentOption,
 				Amount:      int64(price.Total()),
 				Data:        checkoutItem.Data,
-				DateExpired: time.Now().Add(time.Hour * 24 * 30), // TODO: add config
+				DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create payment: %w", err)
@@ -219,7 +225,7 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 			orderIDs = append(orderIDs, order.ID)
 
 			// Create order items
-			var createOrderItemArgs []orderdb.CreateBatchItemParams
+			var createOrderItemArgs []orderdb.CreateCopyItemParams
 			// If can combine the serial ids into one order item, then create one order item, otherwise create one order item for each serial id
 			if sku.CanCombine {
 				jsonSerialIDs, err := sonic.Marshal(serialIDs)
@@ -227,7 +233,7 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 					return fmt.Errorf("failed to marshal serial ids: %w", err)
 				}
 
-				createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateBatchItemParams{
+				createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
 					OrderID:   order.ID,
 					SkuID:     sku.ID,
 					SkuName:   spuMap[sku.SpuID].Name,
@@ -243,7 +249,7 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 						return fmt.Errorf("failed to marshal serial ids: %w", err)
 					}
 
-					createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateBatchItemParams{
+					createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
 						OrderID:   order.ID,
 						SkuID:     sku.ID,
 						SkuName:   spuMap[sku.SpuID].Name,
@@ -253,6 +259,11 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 						SerialIds: jsonSerialIDs,
 					})
 				}
+			}
+
+			// Create order items
+			if _, err := txStorage.Querier().CreateCopyItem(ctx, createOrderItemArgs); err != nil {
+				return fmt.Errorf("failed to create order items: %w", err)
 			}
 		}
 
@@ -290,7 +301,7 @@ func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) er
 	}
 
 	// Check if the payment is pending
-	if order.Payment.Status != orderdb.CommonStatusPending {
+	if order.Payment.Status != orderdb.OrderStatusPending {
 		return fmt.Errorf("payment %d cannot be canceled", order.Payment.ID)
 	}
 	// Check if the shipment is pending
@@ -298,7 +309,7 @@ func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) er
 		return fmt.Errorf("shipment %s cannot be canceled", shipment.ID)
 	}
 	// Check if the order is pending
-	if order.Status != orderdb.CommonStatusPending {
+	if order.Status != orderdb.OrderStatusPending {
 		return fmt.Errorf("order %s cannot be canceled", order.ID)
 	}
 
@@ -309,7 +320,7 @@ func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) er
 	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
 		if _, err := txStorage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 			ID:     order.Payment.ID,
-			Status: orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusCanceled, Valid: true},
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
 			return fmt.Errorf("failed to update payment status: %w", err)
 		}
@@ -323,7 +334,7 @@ func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) er
 
 		if _, err := txStorage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
 			ID:     order.ID,
-			Status: orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusCanceled, Valid: true},
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
 			return fmt.Errorf("failed to update order status: %w", err)
 		}

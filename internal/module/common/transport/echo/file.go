@@ -47,26 +47,3 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		"url": result.URL,
 	})
 }
-
-// type GetFileRequest struct {
-// 	ObjectKey string `param:"object_key" validate:"required"`
-// }
-
-// func (h *Handler) GetFile(c echo.Context) error {
-// 	var req GetFileRequest
-// 	if err := c.Bind(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-// 	if err := c.Validate(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-
-// 	url, err := h.biz.GetFileURL(c.Request().Context(), "TODO: bruh", req.ObjectKey)
-// 	if err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-// 	}
-
-// 	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{
-// 		"url": url,
-// 	})
-// }

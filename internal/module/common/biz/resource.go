@@ -167,7 +167,7 @@ func (b *CommonBiz) GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UU
 	result := make(map[uuid.UUID]commonmodel.Resource)
 	for _, rsID := range resourceIDs {
 		result[rsID] = commonmodel.Resource{
-			Url: "", // TODO: use 404 placeholder image URL
+			Url: b.getPlaceholderURL(),
 		}
 	}
 

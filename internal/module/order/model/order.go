@@ -24,7 +24,7 @@ type Order struct {
 	VendorID        uuid.UUID               `json:"vendor_id"`
 	ShipmentID      uuid.UUID               `json:"shipment_id"`
 	Payment         Payment                 `json:"payment"`
-	Status          orderdb.CommonStatus    `json:"status"`
+	Status          orderdb.OrderStatus     `json:"status"`
 	Address         string                  `json:"address"`
 	ProductCost     sharedmodel.Concurrency `json:"product_cost"`
 	ShipCost        sharedmodel.Concurrency `json:"ship_cost"`
@@ -44,7 +44,7 @@ type Refund struct {
 	ConfirmedByID uuid.NullUUID             `json:"confirmed_by_id"`
 	ShipmentID    uuid.NullUUID             `json:"shipment_id"`
 	Method        orderdb.OrderRefundMethod `json:"method"`
-	Status        orderdb.CommonStatus      `json:"status"`
+	Status        orderdb.OrderStatus       `json:"status"`
 	Reason        string                    `json:"reason"`
 	Address       null.String               `json:"address"`
 	DateCreated   time.Time                 `json:"date_created"`
@@ -55,7 +55,7 @@ type Payment struct {
 	ID          int64                   `json:"id"`
 	AccountID   uuid.UUID               `json:"account_id"`
 	Option      string                  `json:"option"`
-	Status      orderdb.CommonStatus    `json:"status"`
+	Status      orderdb.OrderStatus     `json:"status"`
 	Amount      sharedmodel.Concurrency `json:"amount"`
 	Data        json.RawMessage         `json:"data"`
 	DateCreated time.Time               `json:"date_created"`

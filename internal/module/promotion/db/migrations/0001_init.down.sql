@@ -7,9 +7,6 @@ ALTER TABLE IF EXISTS "promotion"."schedule"
 ALTER TABLE IF EXISTS "promotion"."ref"
     DROP CONSTRAINT IF EXISTS "ref_promotion_id_fkey";
 
-ALTER TABLE IF EXISTS "promotion"."promotion"
-    DROP CONSTRAINT IF EXISTS "promotion_owner_id_fkey";
-
 DROP INDEX IF EXISTS "ref_promotion_id_ref_type_ref_id_key";
 DROP INDEX IF EXISTS "promotion_code_key";
 

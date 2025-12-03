@@ -50,7 +50,7 @@ func (b *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error 
 	// Update the payment status to success
 	_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 		ID:     order.PaymentID,
-		Status: orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusSuccess, Valid: true},
+		Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusSuccess, Valid: true},
 	})
 	if err != nil {
 		return err

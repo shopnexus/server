@@ -276,7 +276,18 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		return zero, err
 	}
 
-	// TODO: check if the featured sku id belongs to the spu id
+	// Ensure the featured SKU (if provided) belongs to the current SPU.
+	if params.FeaturedSkuID.Valid {
+		skus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+			ID: []uuid.UUID{params.FeaturedSkuID.UUID},
+		})
+		if err != nil {
+			return zero, fmt.Errorf("failed to validate featured sku: %w", err)
+		}
+		if len(skus) == 0 || skus[0].SpuID != params.ID {
+			return zero, fmt.Errorf("featured sku does not belong to product spu")
+		}
+	}
 
 	var slug null.String
 	if params.Name.Valid {

@@ -14,44 +14,48 @@ import (
 	"github.com/samber/lo"
 )
 
-type ListProductSerialParams struct {
+type ListSerialParams struct {
 	commonmodel.PaginationParams
-	SkuID uuid.UUID `validate:"required"`
+	RefID   uuid.UUID                         `validate:"required"`
+	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) ListProductSerial(ctx context.Context, params ListProductSerialParams) (commonmodel.PaginateResult[inventorymodel.ProductSerial], error) {
-	var zero commonmodel.PaginateResult[inventorymodel.ProductSerial]
+func (b *InventoryBiz) ListSerial(ctx context.Context, params ListSerialParams) (commonmodel.PaginateResult[inventorymodel.Serial], error) {
+	var zero commonmodel.PaginateResult[inventorymodel.Serial]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	total, err := b.storage.Querier().CountSkuSerial(ctx, inventorydb.CountSkuSerialParams{
-		SkuID: []uuid.UUID{params.SkuID},
+	total, err := b.storage.Querier().CountSerial(ctx, inventorydb.CountSerialParams{
+		RefType: []inventorydb.InventoryStockRefType{params.RefType},
+		RefID:   []uuid.UUID{params.RefID},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	dbSerials, err := b.storage.Querier().ListSkuSerial(ctx, inventorydb.ListSkuSerialParams{
-		SkuID:  []uuid.UUID{params.SkuID},
-		Limit:  params.Limit,
-		Offset: params.Offset(),
+	dbSerials, err := b.storage.Querier().ListSerial(ctx, inventorydb.ListSerialParams{
+		RefType: []inventorydb.InventoryStockRefType{params.RefType},
+		RefID:   []uuid.UUID{params.RefID},
+		Limit:   params.Limit,
+		Offset:  params.Offset(),
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	var serials []inventorymodel.ProductSerial
+	var serials []inventorymodel.Serial
 	for _, serial := range dbSerials {
-		serials = append(serials, inventorymodel.ProductSerial{
+		serials = append(serials, inventorymodel.Serial{
 			ID:          serial.ID,
-			SkuID:       serial.SkuID,
+			RefType:     serial.RefType,
+			RefID:       serial.RefID,
 			Status:      serial.Status,
 			DateCreated: serial.DateCreated,
 		})
 	}
 
-	return commonmodel.PaginateResult[inventorymodel.ProductSerial]{
+	return commonmodel.PaginateResult[inventorymodel.Serial]{
 		PageParams: params.PaginationParams,
 		Total:      null.IntFrom(total),
 		Data:       serials,
@@ -106,8 +110,9 @@ func (b *InventoryBiz) ReserveInventory(ctx context.Context, params ReserveInven
 			// If serial is required, reserve available serials
 			if stock.SerialRequired {
 				serials, err := txStorage.Querier().GetAvailableSerials(ctx, inventorydb.GetAvailableSerialsParams{
-					SkuID:  item.RefID,
-					Amount: int32(item.Amount),
+					RefType: item.RefType,
+					RefID:   item.RefID,
+					Amount:  int32(item.Amount),
 				})
 				if err != nil {
 					return err
@@ -123,7 +128,7 @@ func (b *InventoryBiz) ReserveInventory(ctx context.Context, params ReserveInven
 					ID: lo.Map(serials, func(serial inventorydb.GetAvailableSerialsRow, _ int) string {
 						return serial.ID
 					}),
-					Status: inventorydb.InventoryProductStatusSold,
+					Status: inventorydb.InventoryStatusTaken,
 				}); err != nil {
 					return err
 				}

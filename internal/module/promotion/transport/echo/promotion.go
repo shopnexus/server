@@ -109,7 +109,7 @@ func (h *Handler) DeletePromotion(c echo.Context) error {
 type UpdatePromotionRequest struct {
 	ID            uuid.UUID             `json:"id" validate:"required"`
 	Code          null.String           `json:"code" validate:"omitnil"`
-	OwnerID       null.Int64            `json:"owner_id" validate:"omitnil"`
+	OwnerID       uuid.NullUUID         `json:"owner_id" validate:"omitnil"`
 	Refs          []PromotionRefRequest `json:"refs" validate:"dive"`
 	Title         null.String           `json:"title" validate:"omitnil"`
 	Description   null.String           `json:"description" validate:"omitnil"`

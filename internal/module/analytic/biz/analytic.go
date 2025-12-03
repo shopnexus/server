@@ -17,8 +17,10 @@ import (
 	"github.com/samber/lo"
 )
 
+type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
+
 type AnalyticBiz struct {
-	storage   pgsqlc.Storage[*analyticdb.Queries]
+	storage   AnalyticStorage
 	pubsub    pubsub.Client
 	promotion *promotionbiz.PromotionBiz
 }
@@ -26,12 +28,12 @@ type AnalyticBiz struct {
 // NewAnalyticBiz creates a new instance of AnalyticBiz.
 func NewAnalyticBiz(
 	config *config.Config,
-	pool pgsqlc.TxBeginner,
+	storage AnalyticStorage,
 	pubsub pubsub.Client,
 	promotionBiz *promotionbiz.PromotionBiz,
 ) *AnalyticBiz {
 	return &AnalyticBiz{
-		storage:   pgsqlc.NewStorage(pool, analyticdb.New(pool)),
+		storage:   storage,
 		pubsub:    pubsub,
 		promotion: promotionBiz,
 	}

@@ -1,7 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS "common";
 
 CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
-CREATE TYPE "common"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
 
 CREATE TABLE IF NOT EXISTS "common"."resource" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS "common"."resource" (
     "size" BIGINT NOT NULL,
     "metadata" JSONB NOT NULL,
     "checksum" TEXT,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "resource_pkey" PRIMARY KEY ("id")
 );

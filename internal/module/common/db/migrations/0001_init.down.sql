@@ -9,7 +9,6 @@ DROP TABLE IF EXISTS "common"."service_option";
 DROP TABLE IF EXISTS "common"."resource";
 
 DROP TYPE IF EXISTS "common"."resource_ref_type";
-DROP TYPE IF EXISTS "common"."status";
 
 DROP SCHEMA IF EXISTS "common";
 

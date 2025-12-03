@@ -7,9 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type ProductSerial struct {
-	ID          string                             `json:"id"`
-	SkuID       uuid.UUID                          `json:"sku_id"`
-	Status      inventorydb.InventoryProductStatus `json:"status"`
-	DateCreated time.Time                          `json:"date_created"`
+type Serial struct {
+	ID          string                            `json:"id"`
+	RefType     inventorydb.InventoryStockRefType `json:"ref_type"`
+	RefID       uuid.UUID                         `json:"ref_id"`
+	Status      inventorydb.InventoryStatus       `json:"status"`
+	DateCreated time.Time                         `json:"date_created"`
 }

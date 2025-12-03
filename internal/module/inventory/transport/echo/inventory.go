@@ -26,8 +26,8 @@ func NewHandler(e *echo.Echo, biz *inventorybiz.InventoryBiz) *Handler {
 	stockApi.POST("/import", h.ImportStock)
 
 	serialApi := api.Group("/serial")
-	serialApi.GET("", h.ListProductSerial)
-	serialApi.PATCH("", h.UpdateSkuSerial)
+	serialApi.GET("", h.ListSerial)
+	serialApi.PATCH("", h.UpdateSerial)
 	return h
 }
 
@@ -111,13 +111,13 @@ func (h *Handler) ImportStock(c echo.Context) error {
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "add stock successfully")
 }
 
-type UpdateSkuSerialRequest struct {
-	SerialIDs []string                           `json:"serial_ids" validate:"required,dive,required"`
-	Status    inventorydb.InventoryProductStatus `json:"status" validate:"required,validateFn=Valid"`
+type UpdateSerialRequest struct {
+	SerialIDs []string                    `json:"serial_ids" validate:"required,dive,required"`
+	Status    inventorydb.InventoryStatus `json:"status" validate:"required,validateFn=Valid"`
 }
 
-func (h *Handler) UpdateSkuSerial(c echo.Context) error {
-	var req UpdateSkuSerialRequest
+func (h *Handler) UpdateSerial(c echo.Context) error {
+	var req UpdateSerialRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -125,7 +125,7 @@ func (h *Handler) UpdateSkuSerial(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	if err := h.biz.UpdateSkuSerial(c.Request().Context(), inventorybiz.UpdateSkuSerialParams{
+	if err := h.biz.UpdateSerial(c.Request().Context(), inventorybiz.UpdateSerialParams{
 		SerialIDs: req.SerialIDs,
 		Status:    req.Status,
 	}); err != nil {

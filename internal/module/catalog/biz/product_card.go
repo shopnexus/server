@@ -15,6 +15,8 @@ import (
 	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
+	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/validator"
 )
@@ -298,20 +300,31 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 	// Amount of most sold products to fill the recommendations
 	amount := int32(params.Limit - len(rcmProducts))
 	if amount > 0 {
-		mostSolds, err := b.storage.Querier().ListMostSoldProducts(ctx, catalogdb.ListMostSoldProductsParams{
-			Limit: amount,
-			TopN:  amount * 10, // get more to avoid dup with rcmProducts
+		mostSolds, err := b.inventory.ListMostTaken(ctx, inventorybiz.ListMostTakenParams{
+			PaginationParams: commonmodel.PaginationParams{
+				Limit: null.Int32From(int32(amount * 100)),
+			},
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
 		})
 		if err != nil {
 			return zero, err
 		}
 
-		for _, p := range mostSolds {
-			rcmProducts = append(rcmProducts, catalogmodel.ProductRecommend{
-				ID:    p.SpuID,
-				Score: 0, // most sold has score 0
-			})
+		skuIDs := lo.Map(mostSolds, func(p inventorydb.InventorySerial, _ int) uuid.UUID { return p.RefID })
+		skus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+			ID: skuIDs,
+		})
+		if err != nil {
+			return zero, err
 		}
+
+		uniqueSpuIDs := lo.UniqMap(skus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.SpuID })
+		rcmProducts = append(rcmProducts, lo.Map(uniqueSpuIDs, func(spuID uuid.UUID, _ int) catalogmodel.ProductRecommend {
+			return catalogmodel.ProductRecommend{
+				ID:    spuID,
+				Score: 0, // most sold has score 0
+			}
+		})...)
 	}
 
 	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }))

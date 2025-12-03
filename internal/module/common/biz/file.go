@@ -62,6 +62,11 @@ func (b *CommonBiz) SetupObjectStore() error {
 	return nil
 }
 
+// getPlaceholderURL returns the configured 404 placeholder image URL, if any.
+func (b *CommonBiz) getPlaceholderURL() string {
+	return config.GetConfig().Filestore.Placeholder404Url
+}
+
 func (b *CommonBiz) mustGetObjectStore(provider string) objectstore.Client {
 	client, ok := b.objectstoreMap[provider]
 	if !ok {
@@ -142,9 +147,8 @@ func (b *CommonBiz) GetFileURL(ctx context.Context, provider string, objectKey s
 func (b *CommonBiz) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
-		// TODO: should return 404 placeholder image url
 		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))
-		return ""
+		return b.getPlaceholderURL()
 	}
 
 	return url

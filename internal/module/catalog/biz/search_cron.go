@@ -11,6 +11,7 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
+	"shopnexus-remastered/config"
 	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	"shopnexus-remastered/internal/shared/validator"
@@ -22,8 +23,20 @@ const (
 )
 
 func (b *CatalogBiz) SetupCron() error {
-	go b.StartProductSyncCron(context.Background(), time.Second, true)  // TODO: Make config for duration
-	go b.StartProductSyncCron(context.Background(), time.Second, false) // TODO: Make config for duration
+	cfg := config.GetConfig()
+
+	metadataInterval := cfg.App.Search.ProductMetadataSyncInterval
+	if metadataInterval <= 0 {
+		metadataInterval = time.Second
+	}
+
+	embeddingInterval := cfg.App.Search.ProductEmbeddingSyncInterval
+	if embeddingInterval <= 0 {
+		embeddingInterval = time.Second
+	}
+
+	go b.StartProductSyncCron(context.Background(), metadataInterval, true)
+	go b.StartProductSyncCron(context.Background(), embeddingInterval, false)
 	return nil
 }
 

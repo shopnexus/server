@@ -21,7 +21,7 @@ type AccountBiz struct {
 	refreshTokenDuration time.Duration
 	refreshSecret        []byte
 
-	storage pgsqlc.Storage[*accountdb.Queries]
+	storage AccountStorage
 	pubsub  pubsub.Client
 	common  *commonbiz.CommonBiz
 }
@@ -29,7 +29,7 @@ type AccountBiz struct {
 // NewAccountBiz creates a new instance of AccountBiz.
 func NewAccountBiz(
 	config *config.Config,
-	pool pgsqlc.TxBeginner,
+	storage AccountStorage,
 	pubsub pubsub.Client,
 	common *commonbiz.CommonBiz,
 ) *AccountBiz {
@@ -39,7 +39,7 @@ func NewAccountBiz(
 		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),
 		refreshSecret:        []byte(config.App.JWT.RefreshSecret),
 
-		storage: pgsqlc.NewStorage(pool, accountdb.New(pool)),
+		storage: storage,
 		pubsub:  pubsub,
 		common:  common,
 	}

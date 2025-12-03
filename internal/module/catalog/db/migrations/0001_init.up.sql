@@ -102,10 +102,6 @@ CREATE INDEX IF NOT EXISTS "search_sync_date_created_idx" ON "catalog"."search_s
 CREATE UNIQUE INDEX IF NOT EXISTS "search_sync_ref_type_ref_id_key" ON "catalog"."search_sync" ("ref_type", "ref_id");
 
 ALTER TABLE "catalog"."product_spu"
-    ADD CONSTRAINT "product_spu_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."vendor" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "catalog"."product_spu"
     ADD CONSTRAINT "product_spu_category_id_fkey"
     FOREIGN KEY ("category_id") REFERENCES "catalog"."category" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -124,8 +120,3 @@ ALTER TABLE "catalog"."product_spu_tag"
 ALTER TABLE "catalog"."product_spu_tag"
     ADD CONSTRAINT "product_spu_tag_tag_fkey"
     FOREIGN KEY ("tag") REFERENCES "catalog"."tag" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "catalog"."comment"
-    ADD CONSTRAINT "comment_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

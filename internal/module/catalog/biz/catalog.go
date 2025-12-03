@@ -28,8 +28,8 @@ type CatalogBiz struct {
 }
 
 func NewCatalogBiz(
-	config config.Config,
-	pool pgsqlc.TxBeginner,
+	config *config.Config,
+	storage CatalogStorage,
 	cache cachestruct.Client,
 	pubsub pubsub.Client,
 	common *commonbiz.CommonBiz,
@@ -40,7 +40,7 @@ func NewCatalogBiz(
 	return &CatalogBiz{
 		cache:     cache,
 		pubsub:    pubsub.Group("catalog"),
-		storage:   pgsqlc.NewStorage(pool, catalogdb.New(pool)),
+		storage:   storage,
 		common:    common,
 		account:   account,
 		inventory: inventory,

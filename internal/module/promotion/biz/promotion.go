@@ -156,7 +156,7 @@ type UpdatePromotionParams struct {
 
 	ID            uuid.UUID      `validate:"required"`
 	Code          null.String    `validate:"omitnil"`
-	OwnerID       null.Int64     `validate:"omitnil"`
+	OwnerID       uuid.NullUUID  `validate:"omitnil"`
 	Title         null.String    `validate:"omitnil"`
 	Description   null.String    `validate:"omitnil"`
 	IsActive      null.Bool      `validate:"omitnil"`

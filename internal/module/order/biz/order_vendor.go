@@ -72,7 +72,7 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 	if err != nil {
 		return err
 	}
-	if order.Payment.Status != orderdb.CommonStatusSuccess || order.Status != orderdb.CommonStatusPending {
+	if order.Payment.Status != orderdb.OrderStatusSuccess || order.Status != orderdb.OrderStatusPending {
 		return fmt.Errorf("order is not in a confirmable state (payment status: %s, order status: %s)", order.Payment.Status, order.Status)
 	}
 
@@ -80,7 +80,7 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		_, err := txStorage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
 			ID:            order.ID,
 			ConfirmedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-			Status:        orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusProcessing, Valid: true},
+			Status:        orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusProcessing, Valid: true},
 		})
 
 		dbShipment, err := txStorage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})

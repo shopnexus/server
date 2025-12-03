@@ -129,8 +129,3 @@ ALTER TABLE "account"."notification"
 ALTER TABLE "account"."contact"
     ADD CONSTRAINT "contact_account_id_fkey"
     FOREIGN KEY ("account_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "common"."resource"
-    ADD CONSTRAINT "resource_uploaded_by_fkey"
-    FOREIGN KEY ("uploaded_by") REFERENCES "account"."account" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
-

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
+	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/response"
 
@@ -13,10 +14,11 @@ import (
 
 type ListProductSerialRequest struct {
 	commonmodel.PaginationParams
-	SkuID uuid.UUID `query:"sku_id" validate:"required"`
+	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
+	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
 
-func (h *Handler) ListProductSerial(c echo.Context) error {
+func (h *Handler) ListSerial(c echo.Context) error {
 	var req ListProductSerialRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
@@ -25,9 +27,10 @@ func (h *Handler) ListProductSerial(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.ListProductSerial(c.Request().Context(), inventorybiz.ListProductSerialParams{
+	result, err := h.biz.ListSerial(c.Request().Context(), inventorybiz.ListSerialParams{
 		PaginationParams: req.PaginationParams,
-		SkuID:            req.SkuID,
+		RefID:            req.RefID,
+		RefType:          req.RefType,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

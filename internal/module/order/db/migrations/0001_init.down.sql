@@ -75,6 +75,7 @@ DROP TABLE IF EXISTS "order"."cart_item";
 
 DROP TYPE IF EXISTS "order"."shipment_status";
 DROP TYPE IF EXISTS "order"."refund_method";
+DROP TYPE IF EXISTS "order"."status";
 
 DROP SCHEMA IF EXISTS "order";
 

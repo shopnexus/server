@@ -166,9 +166,9 @@ type UpdateRefundParams struct {
 	Reason   null.String               `validate:"omitnil,max=500"`
 
 	// Fields below are only updated after vendor confirms
-	Status        orderdb.CommonStatus `validate:"omitempty,validateFn=Valid"`
-	ConfirmedByID uuid.NullUUID        `validate:"omitnil"`
-	ResourceIDs   []uuid.UUID          `validate:"required,dive"`
+	Status        orderdb.OrderStatus `validate:"omitempty,validateFn=Valid"`
+	ConfirmedByID uuid.NullUUID       `validate:"omitnil"`
+	ResourceIDs   []uuid.UUID         `validate:"required,dive"`
 }
 
 func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
@@ -190,7 +190,7 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 			return fmt.Errorf("failed to get refund: %w", err)
 		}
 
-		if refund.Status != orderdb.CommonStatusPending {
+		if refund.Status != orderdb.OrderStatusPending {
 			return ordermodel.ErrRefundCannotBeUpdated
 		}
 
@@ -202,7 +202,7 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 			Reason:        params.Reason,
 			Address:       params.Address,
 			NullAddress:   nullAddress,
-			Status:        orderdb.NullCommonStatus{CommonStatus: params.Status, Valid: params.Status != ""},
+			Status:        orderdb.NullOrderStatus{OrderStatus: params.Status, Valid: params.Status != ""},
 			ConfirmedByID: params.ConfirmedByID,
 		})
 		if err != nil {
@@ -255,7 +255,7 @@ func (b *OrderBiz) CancelRefund(ctx context.Context, params CancelRefundParams) 
 	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
 		if _, err := txStorage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
 			ID:     params.RefundID,
-			Status: orderdb.NullCommonStatus{CommonStatus: orderdb.CommonStatusCanceled, Valid: true},
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
 			return fmt.Errorf("failed to cancel refund: %w", err)
 		}
@@ -287,7 +287,7 @@ func (b *OrderBiz) ConfirmRefund(ctx context.Context, params ConfirmRefundParams
 		Storage:       params.Storage,
 		Account:       params.Account,
 		RefundID:      params.RefundID,
-		Status:        orderdb.CommonStatusProcessing,
+		Status:        orderdb.OrderStatusProcessing,
 		ConfirmedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 	})
 }

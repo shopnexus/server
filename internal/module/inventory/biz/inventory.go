@@ -3,8 +3,10 @@ package inventorybiz
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"shopnexus-remastered/internal/infras/pubsub"
+	accountmodel "shopnexus-remastered/internal/module/account/model"
 	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	commonmodel "shopnexus-remastered/internal/shared/model"
@@ -171,6 +173,40 @@ func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHis
 	}, nil
 }
 
+type CreateStockParams struct {
+	Storage InventoryStorage
+	Account accountmodel.AuthenticatedAccount
+	RefID   uuid.UUID                         `validate:"required"`
+	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	Stock   int64                             `validate:"required,gt=0"`
+}
+
+func (b *InventoryBiz) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
+	var zero inventorydb.InventoryStock
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+	var stock inventorydb.InventoryStock
+
+	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage InventoryStorage) error {
+		var err error
+		stock, err = txStorage.Querier().CreateDefaultStock(ctx, inventorydb.CreateDefaultStockParams{
+			RefType: params.RefType,
+			RefID:   params.RefID,
+			Stock:   params.Stock,
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return zero, fmt.Errorf("failed to create stock: %w", err)
+	}
+
+	return stock, nil
+}
+
 type ImportStockParams struct {
 	RefID     uuid.UUID                         `validate:"required"`
 	RefType   inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
@@ -212,12 +248,12 @@ func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams
 	return nil
 }
 
-type UpdateSkuSerialParams struct {
+type UpdateSerialParams struct {
 	SerialIDs []string
-	Status    inventorydb.InventoryProductStatus `validate:"required,validateFn=Valid"`
+	Status    inventorydb.InventoryStatus `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) UpdateSkuSerial(ctx context.Context, params UpdateSkuSerialParams) error {
+func (b *InventoryBiz) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -230,4 +266,27 @@ func (b *InventoryBiz) UpdateSkuSerial(ctx context.Context, params UpdateSkuSeri
 	}
 
 	return nil
+}
+
+type ListMostTakenParams struct {
+	sharedmodel.PaginationParams
+	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
+}
+
+func (b *InventoryBiz) ListMostTaken(ctx context.Context, params ListMostTakenParams) ([]inventorydb.InventorySerial, error) {
+	var zero []inventorydb.InventorySerial
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	results, err := b.storage.Querier().ListMostTaken(ctx, inventorydb.ListMostTakenParams{
+		Limit:   params.Limit,
+		Offset:  params.Offset(),
+		RefType: params.RefType,
+	})
+	if err != nil {
+		return zero, err
+	}
+	return results, nil
 }

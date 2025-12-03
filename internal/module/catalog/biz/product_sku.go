@@ -112,13 +112,16 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 			return err
 		}
 
-		// TODO: Create sku stock via message queue
-		// if _, err := txStorage.Querier().CreateDefaultInventoryStock(ctx, catalogdb.CreateDefaultInventoryStockParams{
-		// 	RefType: catalogdb.InventoryStockRefTypeProductSku,
-		// 	RefID:   sku.ID,
-		// }); err != nil {
-		// 	return err
-		// }
+		// TODO: use message queue
+		if _, err := b.inventory.CreateStock(ctx, inventorybiz.CreateStockParams{
+			// Storage: params.Storage,
+			Account: params.Account,
+			RefID:   sku.ID,
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			Stock:   0,
+		}); err != nil {
+			return err
+		}
 
 		return nil
 	}); err != nil {

@@ -50,10 +50,6 @@ CREATE TABLE IF NOT EXISTS "promotion"."discount" (
 CREATE UNIQUE INDEX IF NOT EXISTS "promotion_code_key" ON "promotion"."promotion" ("code");
 CREATE UNIQUE INDEX IF NOT EXISTS "ref_promotion_id_ref_type_ref_id_key" ON "promotion"."ref" ("promotion_id", "ref_type", "ref_id");
 
-ALTER TABLE "promotion"."promotion"
-    ADD CONSTRAINT "promotion_owner_id_fkey"
-    FOREIGN KEY ("owner_id") REFERENCES "account"."vendor" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 ALTER TABLE "promotion"."ref"
     ADD CONSTRAINT "ref_promotion_id_fkey"
     FOREIGN KEY ("promotion_id") REFERENCES "promotion"."promotion" ("id") ON DELETE CASCADE ON UPDATE CASCADE;

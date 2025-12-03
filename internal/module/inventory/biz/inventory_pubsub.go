@@ -33,7 +33,7 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 		return err
 	}
 
-	var args []inventorydb.CreateCopyDefaultSkuSerialParams
+	var args []inventorydb.CreateCopyDefaultSerialParams
 
 	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage InventoryStorage) error {
 		if params.RefType == inventorydb.InventoryStockRefTypeProductSku {
@@ -44,22 +44,24 @@ func (b *InventoryBiz) InventoryStockUpdated(ctx context.Context, params Invento
 				}
 
 				for _, serialID := range params.SerialIDs {
-					args = append(args, inventorydb.CreateCopyDefaultSkuSerialParams{
-						ID:    serialID,
-						SkuID: params.RefID,
+					args = append(args, inventorydb.CreateCopyDefaultSerialParams{
+						ID:      serialID,
+						RefType: params.RefType,
+						RefID:   params.RefID,
 					})
 				}
 			} else {
 				// Use our generated serial ids
 				for i := int64(0); i < params.Change; i++ {
-					args = append(args, inventorydb.CreateCopyDefaultSkuSerialParams{
-						ID:    uuid.NewString(),
-						SkuID: params.RefID,
+					args = append(args, inventorydb.CreateCopyDefaultSerialParams{
+						ID:      uuid.NewString(),
+						RefType: params.RefType,
+						RefID:   params.RefID,
 					})
 				}
 			}
 
-			if _, err := txStorage.Querier().CreateCopyDefaultSkuSerial(ctx, args); err != nil {
+			if _, err := txStorage.Querier().CreateCopyDefaultSerial(ctx, args); err != nil {
 				return err
 			}
 		}

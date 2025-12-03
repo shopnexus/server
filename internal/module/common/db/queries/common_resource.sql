@@ -17,7 +17,6 @@ WHERE (
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
     ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
@@ -37,7 +36,6 @@ WHERE (
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
     ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
@@ -60,7 +58,6 @@ WHERE (
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
     ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
@@ -70,18 +67,18 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateResource :one
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchResource :batchone
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyResource :copyfrom
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "status", "created_at")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultResource :one
 INSERT INTO "common"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
@@ -101,7 +98,6 @@ SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NUL
     "size" = COALESCE(sqlc.narg('size'), "size"),
     "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
-    "status" = COALESCE(sqlc.narg('status'), "status"),
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
 WHERE id = sqlc.arg('id')
 RETURNING *;
@@ -119,7 +115,6 @@ WHERE (
     ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
     ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
     ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)

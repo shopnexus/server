@@ -20,8 +20,3 @@ CREATE INDEX IF NOT EXISTS "interaction_account_id_idx" ON "analytic"."interacti
 CREATE INDEX IF NOT EXISTS "interaction_session_id_idx" ON "analytic"."interaction" ("session_id");
 CREATE INDEX IF NOT EXISTS "interaction_event_type_idx" ON "analytic"."interaction" ("event_type");
 CREATE INDEX IF NOT EXISTS "interaction_ref_type_ref_id_idx" ON "analytic"."interaction" ("ref_type", "ref_id");
-
-ALTER TABLE "analytic"."interaction"
-    ADD CONSTRAINT "interaction_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

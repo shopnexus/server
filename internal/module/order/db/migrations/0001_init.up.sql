@@ -2,6 +2,7 @@ CREATE SCHEMA IF NOT EXISTS "order";
 
 CREATE TYPE "order"."refund_method" AS ENUM ('PickUp', 'DropOff');
 CREATE TYPE "order"."shipment_status" AS ENUM ('Pending', 'LabelCreated', 'InTransit', 'OutForDelivery', 'Delivered', 'Failed', 'Cancelled');
+CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
 
 CREATE TABLE IF NOT EXISTS "order"."cart_item" (
     "id" BIGSERIAL NOT NULL,
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "order"."payment" (
     "id" BIGSERIAL NOT NULL,
     "account_id" UUID NOT NULL,
     "option" TEXT NOT NULL,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "status" "order"."status" NOT NULL DEFAULT 'Pending',
     "amount" BIGINT NOT NULL,
     "data" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS "order"."order" (
     "payment_id" BIGINT NOT NULL,
     "shipment_id" UUID NOT NULL,
     "confirmed_by_id" UUID,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "status" "order"."status" NOT NULL DEFAULT 'Pending',
     "address" TEXT NOT NULL,
     "product_cost" BIGINT NOT NULL,
     "product_discount" BIGINT NOT NULL,
@@ -82,7 +83,7 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
     "confirmed_by_id" UUID,
     "shipment_id" UUID,
     "method" "order"."refund_method" NOT NULL,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "status" "order"."status" NOT NULL DEFAULT 'Pending',
     "reason" TEXT NOT NULL,
     "address" TEXT,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -94,7 +95,7 @@ CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (
     "refund_id" UUID NOT NULL,
     "issued_by_id" UUID NOT NULL,
     "reason" TEXT NOT NULL,
-    "status" "common"."status" NOT NULL DEFAULT 'Pending',
+    "status" "order"."status" NOT NULL DEFAULT 'Pending',
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "refund_dispute_pkey" PRIMARY KEY ("id")
@@ -113,33 +114,6 @@ CREATE INDEX IF NOT EXISTS "refund_shipment_id_idx" ON "order"."refund" ("shipme
 CREATE INDEX IF NOT EXISTS "refund_dispute_refund_id_idx" ON "order"."refund_dispute" ("refund_id");
 CREATE INDEX IF NOT EXISTS "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute" ("issued_by_id");
 
-ALTER TABLE "order"."cart_item"
-    ADD CONSTRAINT "cart_item_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "order"."cart_item"
-    ADD CONSTRAINT "cart_item_sku_id_fkey"
-    FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "order"."payment"
-    ADD CONSTRAINT "payment_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."customer" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."payment"
-    ADD CONSTRAINT "payment_option_fkey"
-    FOREIGN KEY ("option") REFERENCES "common"."service_option" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."shipment"
-    ADD CONSTRAINT "shipment_option_fkey"
-    FOREIGN KEY ("option") REFERENCES "common"."service_option" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."order"
-    ADD CONSTRAINT "order_customer_id_fkey"
-    FOREIGN KEY ("customer_id") REFERENCES "account"."customer" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."order"
-    ADD CONSTRAINT "order_vendor_id_fkey"
-    FOREIGN KEY ("vendor_id") REFERENCES "account"."vendor" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 ALTER TABLE "order"."order"
     ADD CONSTRAINT "order_payment_id_fkey"
@@ -149,29 +123,13 @@ ALTER TABLE "order"."order"
     ADD CONSTRAINT "order_shipment_id_fkey"
     FOREIGN KEY ("shipment_id") REFERENCES "order"."shipment" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-ALTER TABLE "order"."order"
-    ADD CONSTRAINT "order_confirmed_by_id_fkey"
-    FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 ALTER TABLE "order"."item"
     ADD CONSTRAINT "item_order_id_fkey"
     FOREIGN KEY ("order_id") REFERENCES "order"."order" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "order"."item"
-    ADD CONSTRAINT "item_sku_id_fkey"
-    FOREIGN KEY ("sku_id") REFERENCES "catalog"."product_sku" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."refund"
-    ADD CONSTRAINT "refund_account_id_fkey"
-    FOREIGN KEY ("account_id") REFERENCES "account"."customer" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
 ALTER TABLE "order"."refund"
     ADD CONSTRAINT "refund_order_id_fkey"
     FOREIGN KEY ("order_id") REFERENCES "order"."order" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."refund"
-    ADD CONSTRAINT "refund_confirmed_by_id_fkey"
-    FOREIGN KEY ("confirmed_by_id") REFERENCES "account"."vendor" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "order"."refund"
     ADD CONSTRAINT "refund_shipment_id_fkey"
@@ -180,8 +138,3 @@ ALTER TABLE "order"."refund"
 ALTER TABLE "order"."refund_dispute"
     ADD CONSTRAINT "refund_dispute_refund_id_fkey"
     FOREIGN KEY ("refund_id") REFERENCES "order"."refund" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
-ALTER TABLE "order"."refund_dispute"
-    ADD CONSTRAINT "refund_dispute_issued_by_id_fkey"
-    FOREIGN KEY ("issued_by_id") REFERENCES "account"."vendor" ("id") ON DELETE NO ACTION ON UPDATE CASCADE;
-
