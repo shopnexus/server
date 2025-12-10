@@ -6,8 +6,6 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"github.com/guregu/null/v6"
-
 	commonmodel "shopnexus-remastered/internal/shared/model"
 
 	"github.com/bytedance/sonic"
@@ -116,16 +114,6 @@ func FromPaginate[T any](w http.ResponseWriter, paginate commonmodel.PaginateRes
 		data = make([]T, 0)
 	}
 
-	// TODO: Create customer encoder/decoder
-	var nextCursor null.String
-	if paginate.NextCursor != nil {
-		encodedCursor, err := sonic.Marshal(paginate.NextCursor)
-		if err != nil {
-			return writeError(w, http.StatusInternalServerError, err)
-		}
-		nextCursor.SetValid(string(encodedCursor))
-	}
-
 	response := PaginationResponse[T]{
 		Data: data,
 		PageMeta: PageMeta{
@@ -134,7 +122,7 @@ func FromPaginate[T any](w http.ResponseWriter, paginate commonmodel.PaginateRes
 			Page:       paginate.PageParams.Page,
 			Cursor:     paginate.PageParams.Cursor,
 			NextPage:   paginate.NextPage(),
-			NextCursor: nextCursor,
+			NextCursor: paginate.EncodeNextCursor(),
 		},
 	}
 

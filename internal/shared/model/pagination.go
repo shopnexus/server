@@ -1,6 +1,9 @@
 package sharedmodel
 
 import (
+	"encoding/base64"
+
+	"github.com/bytedance/sonic"
 	"github.com/guregu/null/v6"
 )
 
@@ -38,12 +41,23 @@ func (p PaginationParams) Offset() null.Int32 {
 	return null.Int32{}
 }
 
+func (p PaginationParams) DecodeCursor(dst any) error {
+	if !p.Cursor.Valid {
+		return nil
+	}
+	encoded, err := base64.StdEncoding.DecodeString(p.Cursor.String)
+	if err != nil {
+		return err
+	}
+	return sonic.Unmarshal(encoded, dst)
+}
+
 // PaginateResult represents a paginated result set
 type PaginateResult[T any] struct {
 	PageParams PaginationParams
 	Data       []T
 	Total      null.Int64 // Only valid when using "page" pagination, "cursor" pagination will not
-	NextCursor any        // Any struct that can be marshaled to JSON (filter conditions for the next page)
+	NextCursor any        // Filter conditions for the next page
 }
 
 func (p PaginateResult[T]) NextPage() null.Int32 {
@@ -59,4 +73,24 @@ func (p PaginateResult[T]) NextPage() null.Int32 {
 		}
 	}
 	return null.Int32{}
+}
+
+func (p PaginateResult[T]) EncodeNextCursor() null.String {
+	var zero null.String
+
+	if p.NextCursor == nil {
+		return zero
+	}
+
+	marshalled, err := sonic.Marshal(p.NextCursor)
+	if err != nil {
+		return zero
+	}
+
+	encoded, err := base64.StdEncoding.DecodeString(string(marshalled))
+	if err != nil {
+		return zero
+	}
+
+	return null.StringFrom(string(encoded))
 }
