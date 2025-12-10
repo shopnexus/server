@@ -106,10 +106,6 @@ ALTER TABLE "account"."profile"
     ADD CONSTRAINT "profile_id_fkey"
     FOREIGN KEY ("id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "account"."profile"
-    ADD CONSTRAINT "profile_avatar_rs_id_fkey"
-    FOREIGN KEY ("avatar_rs_id") REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 ALTER TABLE "account"."customer"
     ADD CONSTRAINT "customer_id_fkey"
     FOREIGN KEY ("id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS "catalog"."category";
 DROP TABLE IF EXISTS "catalog"."brand";
 
 DROP TYPE IF EXISTS "catalog"."comment_ref_type";
+DROP TYPE IF EXISTS "catalog"."search_sync_ref_type";
 
 DROP SCHEMA IF EXISTS "catalog";
 

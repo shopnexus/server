@@ -1,6 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS "catalog";
 
 CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
+CREATE TYPE "catalog"."search_sync_ref_type" AS ENUM ('ProductSpu');
 
 CREATE TABLE IF NOT EXISTS "catalog"."brand" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS "catalog"."comment" (
 
 CREATE TABLE IF NOT EXISTS "catalog"."search_sync" (
     "id" BIGSERIAL NOT NULL,
-    "ref_type" VARCHAR(100) NOT NULL,
+    "ref_type" "catalog"."search_sync_ref_type" NOT NULL,
     "ref_id" UUID NOT NULL,
     "is_stale_embedding" BOOLEAN NOT NULL DEFAULT true,
     "is_stale_metadata" BOOLEAN NOT NULL DEFAULT true,
