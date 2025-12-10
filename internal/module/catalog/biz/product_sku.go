@@ -12,6 +12,7 @@ import (
 	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
 	"shopnexus-remastered/internal/shared/pgutil"
 	"shopnexus-remastered/internal/shared/validator"
 
@@ -114,7 +115,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 
 		// TODO: use message queue
 		if _, err := b.inventory.CreateStock(ctx, inventorybiz.CreateStockParams{
-			// Storage: params.Storage,
+			Storage: pgsqlc.NewStorage(txStorage.Conn(), inventorydb.New(txStorage.Conn())),
 			Account: params.Account,
 			RefID:   sku.ID,
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
@@ -193,7 +194,6 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		}
 
 		// Invalidate search index for the parent product (spu)
-		// TODO: should use message queue
 		if err := txStorage.Querier().UpdateStaleSearchSync(ctx, catalogdb.UpdateStaleSearchSyncParams{
 			RefType:         catalogmodel.RefTypeProduct,
 			RefID:           sku.SpuID,

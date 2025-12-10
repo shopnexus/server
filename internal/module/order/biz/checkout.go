@@ -16,6 +16,7 @@ import (
 	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
 	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
@@ -107,8 +108,9 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 		}
 
 		// Next step: reserve inventory
-		// TODO: should use message queue in order to atomically reserve inventory
+		// TODO: use message queue in order to atomically reserve inventory
 		inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
+			Storage: pgsqlc.NewStorage(txStorage.Conn(), inventorydb.New(txStorage.Conn())),
 			Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveIventory {
 				return inventorybiz.ReserveIventory{
 					RefType: inventorydb.InventoryStockRefTypeProductSku,

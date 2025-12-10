@@ -11,6 +11,7 @@ import (
 	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-remastered/internal/module/order/model"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-remastered/internal/shared/pgsqlc"
 	"shopnexus-remastered/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -209,8 +210,9 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 			return fmt.Errorf("failed to update refund: %w", err)
 		}
 
+		//TODO: use message queue instead of sequential processing
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			//TODO: message queue implement instead
+			Storage:         pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
 			Account:         params.Account,
 			RefType:         commondb.CommonResourceRefTypeRefund,
 			RefID:           refund.ID,

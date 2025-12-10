@@ -88,7 +88,7 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 		Offset: params.Offset(),
 		ID:     params.ID,
 		Slug:   params.Slug,
-		// AccountID:  []int64{params.Account.ID}, // TODO: uncomment this (filter by account only for vendor)
+		// AccountID:  []int64{params.Account.ID}, // TODO!: uncomment this (filter by account only for vendor)
 		CategoryID: params.CategoryID,
 		BrandID:    params.BrandID,
 		IsActive:   params.IsActive,
@@ -307,7 +307,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 			return err
 		}
 
-		// Update the product spu
+		// FIRST STEP: Update the product spu
 		spu, err = txStorage.Querier().UpdateProductSpu(ctx, catalogdb.UpdateProductSpuParams{
 			ID:            params.ID,
 			Slug:          slug,
@@ -325,7 +325,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 			return err
 		}
 
-		// Update tags
+		// NEXT STEP: Update tags
 		if err := b.updateTags(ctx, updateTagsParams{
 			Storage: txStorage,
 			SpuID:   spu.ID,
@@ -334,10 +334,26 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 			return err
 		}
 
-		// Update resources
+		// NEXT STEP: Mark the search sync as stale
+		updateSearchSyncArg := catalogdb.UpdateStaleSearchSyncParams{
+			RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
+			RefID:           params.ID,
+			IsStaleMetadata: null.BoolFrom(true),
+		}
+
+		// If the description is changed, we also need to update the embedding
+		if params.Description.Valid {
+			updateSearchSyncArg.IsStaleEmbedding = null.BoolFrom(true)
+		}
+
+		if err := txStorage.Querier().UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
+			return err
+		}
+
+		// LAST STEP: Update resources
+		// TODO: use message queue instead of sequential processing
 		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			// TODO: use message queue instead of sequential processing
-			Storage:     pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
+			Storage:     pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())), // workaround to execute in the same transaction
 			Account:     params.Account,
 			RefType:     commondb.CommonResourceRefTypeProductSpu,
 			RefID:       spu.ID,
@@ -346,24 +362,6 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		if err != nil {
 			return err
 		}
-
-		// TODO: move to event queue
-		// // Prepare the search sync update
-		// updateSearchSyncArg := catalogdb.UpdateStaleSearchSyncParams{
-		// 	RefType:         searchmodel.RefTypeProduct,
-		// 	RefID:           params.ID,
-		// 	IsStaleMetadata: null.BoolFrom(true),
-		// }
-
-		// // If the description is updated, we also need to update the embedding
-		// if params.Description.Valid {
-		// 	updateSearchSyncArg.IsStaleEmbedding = null.BoolFrom(true)
-		// }
-
-		// // Mark the search sync as stale
-		// if err := txStorage.UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
-		// 	return err
-		// }
 
 		return nil
 	}); err != nil {

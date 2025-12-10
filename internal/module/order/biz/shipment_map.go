@@ -22,9 +22,9 @@ func (b *OrderBiz) SetupShipmentMap() error {
 		options = append(options, c.Config())
 	}
 
+	// TODO: should use message queue to update
 	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
 		// Storage:  b.storage,
-		// TODO: should use message queue to update
 		Category: "shipment",
 		Configs:  options,
 	}); err != nil {
