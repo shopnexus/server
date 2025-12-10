@@ -122,7 +122,6 @@ func (ts *TxStorage[T]) Commit(ctx context.Context) error {
 
 func (ts *TxStorage[T]) Rollback(ctx context.Context) error {
 	if err := ts.tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) && err != nil {
-		// TODO: push to error tracking system
 		slog.Error("failed to rollback transaction", slog.Any("error", err))
 		return fmt.Errorf("failed to rollback transactional queries: %w", err)
 	}

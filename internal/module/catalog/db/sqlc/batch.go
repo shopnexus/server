@@ -453,12 +453,12 @@ type CreateBatchSearchSyncBatchResults struct {
 }
 
 type CreateBatchSearchSyncParams struct {
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  bool      `json:"is_stale_metadata"`
-	DateCreated      time.Time `json:"date_created"`
-	DateUpdated      time.Time `json:"date_updated"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  bool                     `json:"is_stale_metadata"`
+	DateCreated      time.Time                `json:"date_created"`
+	DateUpdated      time.Time                `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchSearchSync(ctx context.Context, arg []CreateBatchSearchSyncParams) *CreateBatchSearchSyncBatchResults {
@@ -578,10 +578,10 @@ type UpdateBatchStaleSearchSyncBatchResults struct {
 }
 
 type UpdateBatchStaleSearchSyncParams struct {
-	IsStaleMetadata  null.Bool `json:"is_stale_metadata"`
-	IsStaleEmbedding null.Bool `json:"is_stale_embedding"`
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
+	IsStaleMetadata  null.Bool                `json:"is_stale_metadata"`
+	IsStaleEmbedding null.Bool                `json:"is_stale_embedding"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
 }
 
 func (q *Queries) UpdateBatchStaleSearchSync(ctx context.Context, arg []UpdateBatchStaleSearchSyncParams) *UpdateBatchStaleSearchSyncBatchResults {

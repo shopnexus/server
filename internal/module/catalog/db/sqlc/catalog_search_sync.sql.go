@@ -33,17 +33,17 @@ WHERE (
 `
 
 type CountSearchSyncParams struct {
-	ID               []int64     `json:"id"`
-	RefType          []string    `json:"ref_type"`
-	RefID            []uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding []bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  []bool      `json:"is_stale_metadata"`
-	DateCreated      []time.Time `json:"date_created"`
-	DateCreatedFrom  null.Time   `json:"date_created_from"`
-	DateCreatedTo    null.Time   `json:"date_created_to"`
-	DateUpdated      []time.Time `json:"date_updated"`
-	DateUpdatedFrom  null.Time   `json:"date_updated_from"`
-	DateUpdatedTo    null.Time   `json:"date_updated_to"`
+	ID               []int64                    `json:"id"`
+	RefType          []CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            []uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding []bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool                     `json:"is_stale_metadata"`
+	DateCreated      []time.Time                `json:"date_created"`
+	DateCreatedFrom  null.Time                  `json:"date_created_from"`
+	DateCreatedTo    null.Time                  `json:"date_created_to"`
+	DateUpdated      []time.Time                `json:"date_updated"`
+	DateUpdatedFrom  null.Time                  `json:"date_updated_from"`
+	DateUpdatedTo    null.Time                  `json:"date_updated_to"`
 }
 
 func (q *Queries) CountSearchSync(ctx context.Context, arg CountSearchSyncParams) (int64, error) {
@@ -66,17 +66,17 @@ func (q *Queries) CountSearchSync(ctx context.Context, arg CountSearchSyncParams
 }
 
 type CreateCopyDefaultSearchSyncParams struct {
-	RefType string    `json:"ref_type"`
-	RefID   uuid.UUID `json:"ref_id"`
+	RefType CatalogSearchSyncRefType `json:"ref_type"`
+	RefID   uuid.UUID                `json:"ref_id"`
 }
 
 type CreateCopySearchSyncParams struct {
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  bool      `json:"is_stale_metadata"`
-	DateCreated      time.Time `json:"date_created"`
-	DateUpdated      time.Time `json:"date_updated"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  bool                     `json:"is_stale_metadata"`
+	DateCreated      time.Time                `json:"date_created"`
+	DateUpdated      time.Time                `json:"date_updated"`
 }
 
 const createDefaultSearchSync = `-- name: CreateDefaultSearchSync :one
@@ -86,8 +86,8 @@ RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_crea
 `
 
 type CreateDefaultSearchSyncParams struct {
-	RefType string    `json:"ref_type"`
-	RefID   uuid.UUID `json:"ref_id"`
+	RefType CatalogSearchSyncRefType `json:"ref_type"`
+	RefID   uuid.UUID                `json:"ref_id"`
 }
 
 func (q *Queries) CreateDefaultSearchSync(ctx context.Context, arg CreateDefaultSearchSyncParams) (CatalogSearchSync, error) {
@@ -112,12 +112,12 @@ RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_crea
 `
 
 type CreateSearchSyncParams struct {
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  bool      `json:"is_stale_metadata"`
-	DateCreated      time.Time `json:"date_created"`
-	DateUpdated      time.Time `json:"date_updated"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  bool                     `json:"is_stale_metadata"`
+	DateCreated      time.Time                `json:"date_created"`
+	DateUpdated      time.Time                `json:"date_updated"`
 }
 
 func (q *Queries) CreateSearchSync(ctx context.Context, arg CreateSearchSyncParams) (CatalogSearchSync, error) {
@@ -160,17 +160,17 @@ WHERE (
 `
 
 type DeleteSearchSyncParams struct {
-	ID               []int64     `json:"id"`
-	RefType          []string    `json:"ref_type"`
-	RefID            []uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding []bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  []bool      `json:"is_stale_metadata"`
-	DateCreated      []time.Time `json:"date_created"`
-	DateCreatedFrom  null.Time   `json:"date_created_from"`
-	DateCreatedTo    null.Time   `json:"date_created_to"`
-	DateUpdated      []time.Time `json:"date_updated"`
-	DateUpdatedFrom  null.Time   `json:"date_updated_from"`
-	DateUpdatedTo    null.Time   `json:"date_updated_to"`
+	ID               []int64                    `json:"id"`
+	RefType          []CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            []uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding []bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool                     `json:"is_stale_metadata"`
+	DateCreated      []time.Time                `json:"date_created"`
+	DateCreatedFrom  null.Time                  `json:"date_created_from"`
+	DateCreatedTo    null.Time                  `json:"date_created_to"`
+	DateUpdated      []time.Time                `json:"date_updated"`
+	DateUpdatedFrom  null.Time                  `json:"date_updated_from"`
+	DateUpdatedTo    null.Time                  `json:"date_updated_to"`
 }
 
 func (q *Queries) DeleteSearchSync(ctx context.Context, arg DeleteSearchSyncParams) error {
@@ -197,9 +197,9 @@ WHERE ("id" = $1) OR ("ref_type" = $2 AND "ref_id" = $3)
 `
 
 type GetSearchSyncParams struct {
-	ID      pgtype.Int8   `json:"id"`
-	RefType null.String   `json:"ref_type"`
-	RefID   uuid.NullUUID `json:"ref_id"`
+	ID      pgtype.Int8                  `json:"id"`
+	RefType NullCatalogSearchSyncRefType `json:"ref_type"`
+	RefID   uuid.NullUUID                `json:"ref_id"`
 }
 
 func (q *Queries) GetSearchSync(ctx context.Context, arg GetSearchSyncParams) (CatalogSearchSync, error) {
@@ -239,19 +239,19 @@ OFFSET $12::int
 `
 
 type ListCountSearchSyncParams struct {
-	ID               []int64     `json:"id"`
-	RefType          []string    `json:"ref_type"`
-	RefID            []uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding []bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  []bool      `json:"is_stale_metadata"`
-	DateCreated      []time.Time `json:"date_created"`
-	DateCreatedFrom  null.Time   `json:"date_created_from"`
-	DateCreatedTo    null.Time   `json:"date_created_to"`
-	DateUpdated      []time.Time `json:"date_updated"`
-	DateUpdatedFrom  null.Time   `json:"date_updated_from"`
-	DateUpdatedTo    null.Time   `json:"date_updated_to"`
-	Offset           null.Int32  `json:"offset"`
-	Limit            null.Int32  `json:"limit"`
+	ID               []int64                    `json:"id"`
+	RefType          []CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            []uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding []bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool                     `json:"is_stale_metadata"`
+	DateCreated      []time.Time                `json:"date_created"`
+	DateCreatedFrom  null.Time                  `json:"date_created_from"`
+	DateCreatedTo    null.Time                  `json:"date_created_to"`
+	DateUpdated      []time.Time                `json:"date_updated"`
+	DateUpdatedFrom  null.Time                  `json:"date_updated_from"`
+	DateUpdatedTo    null.Time                  `json:"date_updated_to"`
+	Offset           null.Int32                 `json:"offset"`
+	Limit            null.Int32                 `json:"limit"`
 }
 
 type ListCountSearchSyncRow struct {
@@ -324,19 +324,19 @@ OFFSET $12::int
 `
 
 type ListSearchSyncParams struct {
-	ID               []int64     `json:"id"`
-	RefType          []string    `json:"ref_type"`
-	RefID            []uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding []bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  []bool      `json:"is_stale_metadata"`
-	DateCreated      []time.Time `json:"date_created"`
-	DateCreatedFrom  null.Time   `json:"date_created_from"`
-	DateCreatedTo    null.Time   `json:"date_created_to"`
-	DateUpdated      []time.Time `json:"date_updated"`
-	DateUpdatedFrom  null.Time   `json:"date_updated_from"`
-	DateUpdatedTo    null.Time   `json:"date_updated_to"`
-	Offset           null.Int32  `json:"offset"`
-	Limit            null.Int32  `json:"limit"`
+	ID               []int64                    `json:"id"`
+	RefType          []CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            []uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding []bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  []bool                     `json:"is_stale_metadata"`
+	DateCreated      []time.Time                `json:"date_created"`
+	DateCreatedFrom  null.Time                  `json:"date_created_from"`
+	DateCreatedTo    null.Time                  `json:"date_created_to"`
+	DateUpdated      []time.Time                `json:"date_updated"`
+	DateUpdatedFrom  null.Time                  `json:"date_updated_from"`
+	DateUpdatedTo    null.Time                  `json:"date_updated_to"`
+	Offset           null.Int32                 `json:"offset"`
+	Limit            null.Int32                 `json:"limit"`
 }
 
 func (q *Queries) ListSearchSync(ctx context.Context, arg ListSearchSyncParams) ([]CatalogSearchSync, error) {
@@ -394,13 +394,13 @@ RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_crea
 `
 
 type UpdateSearchSyncParams struct {
-	RefType          null.String   `json:"ref_type"`
-	RefID            uuid.NullUUID `json:"ref_id"`
-	IsStaleEmbedding null.Bool     `json:"is_stale_embedding"`
-	IsStaleMetadata  null.Bool     `json:"is_stale_metadata"`
-	DateCreated      null.Time     `json:"date_created"`
-	DateUpdated      null.Time     `json:"date_updated"`
-	ID               int64         `json:"id"`
+	RefType          NullCatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.NullUUID                `json:"ref_id"`
+	IsStaleEmbedding null.Bool                    `json:"is_stale_embedding"`
+	IsStaleMetadata  null.Bool                    `json:"is_stale_metadata"`
+	DateCreated      null.Time                    `json:"date_created"`
+	DateUpdated      null.Time                    `json:"date_updated"`
+	ID               int64                        `json:"id"`
 }
 
 func (q *Queries) UpdateSearchSync(ctx context.Context, arg UpdateSearchSyncParams) (CatalogSearchSync, error) {

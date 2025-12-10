@@ -22,16 +22,16 @@ LIMIT $4
 `
 
 type ListStaleSearchSyncParams struct {
-	RefType          string    `json:"ref_type"`
-	IsStaleMetadata  null.Bool `json:"is_stale_metadata"`
-	IsStaleEmbedding null.Bool `json:"is_stale_embedding"`
-	Limit            int32     `json:"limit"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	IsStaleMetadata  null.Bool                `json:"is_stale_metadata"`
+	IsStaleEmbedding null.Bool                `json:"is_stale_embedding"`
+	Limit            int32                    `json:"limit"`
 }
 
 type ListStaleSearchSyncRow struct {
-	ID      int64     `json:"id"`
-	RefID   uuid.UUID `json:"ref_id"`
-	RefType string    `json:"ref_type"`
+	ID      int64                    `json:"id"`
+	RefID   uuid.UUID                `json:"ref_id"`
+	RefType CatalogSearchSyncRefType `json:"ref_type"`
 }
 
 func (q *Queries) ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error) {
@@ -69,10 +69,10 @@ WHERE ref_type = $3 AND ref_id = $4
 `
 
 type UpdateStaleSearchSyncParams struct {
-	IsStaleMetadata  null.Bool `json:"is_stale_metadata"`
-	IsStaleEmbedding null.Bool `json:"is_stale_embedding"`
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
+	IsStaleMetadata  null.Bool                `json:"is_stale_metadata"`
+	IsStaleEmbedding null.Bool                `json:"is_stale_embedding"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
 }
 
 func (q *Queries) UpdateStaleSearchSync(ctx context.Context, arg UpdateStaleSearchSyncParams) error {

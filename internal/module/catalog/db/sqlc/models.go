@@ -72,6 +72,61 @@ func AllCatalogCommentRefTypeValues() []CatalogCommentRefType {
 	}
 }
 
+type CatalogSearchSyncRefType string
+
+const (
+	CatalogSearchSyncRefTypeProductSpu CatalogSearchSyncRefType = "ProductSpu"
+)
+
+func (e *CatalogSearchSyncRefType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CatalogSearchSyncRefType(s)
+	case string:
+		*e = CatalogSearchSyncRefType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CatalogSearchSyncRefType: %T", src)
+	}
+	return nil
+}
+
+type NullCatalogSearchSyncRefType struct {
+	CatalogSearchSyncRefType CatalogSearchSyncRefType `json:"catalog_search_sync_ref_type"`
+	Valid                    bool                     `json:"valid"` // Valid is true if CatalogSearchSyncRefType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCatalogSearchSyncRefType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CatalogSearchSyncRefType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CatalogSearchSyncRefType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCatalogSearchSyncRefType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CatalogSearchSyncRefType), nil
+}
+
+func (e CatalogSearchSyncRefType) Valid() bool {
+	switch e {
+	case CatalogSearchSyncRefTypeProductSpu:
+		return true
+	}
+	return false
+}
+
+func AllCatalogSearchSyncRefTypeValues() []CatalogSearchSyncRefType {
+	return []CatalogSearchSyncRefType{
+		CatalogSearchSyncRefTypeProductSpu,
+	}
+}
+
 type CatalogBrand struct {
 	ID          uuid.UUID `json:"id"`
 	Code        string    `json:"code"`
@@ -133,13 +188,13 @@ type CatalogProductSpuTag struct {
 }
 
 type CatalogSearchSync struct {
-	ID               int64     `json:"id"`
-	RefType          string    `json:"ref_type"`
-	RefID            uuid.UUID `json:"ref_id"`
-	IsStaleEmbedding bool      `json:"is_stale_embedding"`
-	IsStaleMetadata  bool      `json:"is_stale_metadata"`
-	DateCreated      time.Time `json:"date_created"`
-	DateUpdated      time.Time `json:"date_updated"`
+	ID               int64                    `json:"id"`
+	RefType          CatalogSearchSyncRefType `json:"ref_type"`
+	RefID            uuid.UUID                `json:"ref_id"`
+	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
+	IsStaleMetadata  bool                     `json:"is_stale_metadata"`
+	DateCreated      time.Time                `json:"date_created"`
+	DateUpdated      time.Time                `json:"date_updated"`
 }
 
 type CatalogTag struct {
