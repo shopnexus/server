@@ -5,18 +5,26 @@ networks:
 
 volumes:
   postgres-data:
+    name: shopnexus-postgres-data-dev
   redis-data:
+    name: shopnexus-redis-data-dev
   kafka-data:
+    name: shopnexus-kafka-data-dev
   es-data:
+    name: shopnexus-es-data-dev
   minio-data:
+    name: shopnexus-minio-data-dev
   milvus-data:
+    name: shopnexus-milvus-data-dev
   etcd-data:
+    name: shopnexus-etcd-data-dev
   server-data:
+    name: shopnexus-server-data-dev
 
 services:
   postgres:
     container_name: shopnexus-postgres-dev
-    image: postgres:17-alpine
+    image: postgres:18
     ports:
       - "5432:5432"
     environment:
@@ -35,7 +43,7 @@ services:
 
   redis:
     container_name: shopnexus-redis-dev
-    image: redis:8-alpine
+    image: redis:8
     ports:
       - "6379:6379"
     volumes:
