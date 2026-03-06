@@ -72,7 +72,8 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 	q.Add("vnp_Version", "2.1.0")
 	q.Add("vnp_Command", "pay")
 	q.Add("vnp_TmnCode", c.tmnCode)
-	q.Add("vnp_Amount", fmt.Sprintf("%s", params.Amount.Mul(100).String()))
+	// TODO: add currency conversion in concurrency struct, currently hard coded 27000
+	q.Add("vnp_Amount", fmt.Sprintf("%.0f", params.Amount.Mul(100).Mul(27000).Float64()))
 	// q.Add("vnp_BankCode", string(BankCodeVNPAYQR))
 	q.Add("vnp_CreateDate", formatTime(time.Now()))
 	q.Add("vnp_CurrCode", "VND")
@@ -89,6 +90,7 @@ func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrder
 	secureHash := sign(encodedQuery, []byte(c.hashSecret))
 	q.Add("vnp_SecureHash", secureHash)
 	redirectUrl := req.URL.String() + "?" + encodedQuery + "&vnp_SecureHash=" + secureHash
+	fmt.Println(encodedQuery)
 
 	return payment.CreateOrderResult{
 		RedirectURL: redirectUrl,

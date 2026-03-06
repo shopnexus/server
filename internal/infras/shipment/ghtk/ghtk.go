@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"shopnexus-remastered/internal/infras/shipment"
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 	"strings"
@@ -34,7 +33,7 @@ type fakeShipment struct {
 	LabelURL     string
 	Service      string
 	Status       shipment.ShipmentStatus
-	Costs        int64
+	Costs        sharedmodel.Concurrency
 	EstimatedETA time.Time
 
 	FromAddress string
@@ -84,7 +83,7 @@ func (g *GTKClient) Quote(ctx context.Context, params shipment.CreateParams) (sh
 
 	return shipment.QuoteResult{
 		ETA:   etd,
-		Costs: sharedmodel.Int64ToConcurrency(cost),
+		Costs: cost,
 	}, nil
 }
 
@@ -120,7 +119,7 @@ func (g *GTKClient) Create(ctx context.Context, params shipment.CreateParams) (s
 		LabelURL: ship.LabelURL,
 		Service:  ship.Service,
 		ETA:      eta,
-		Costs:    sharedmodel.Int64ToConcurrency(cost),
+		Costs:    cost,
 	}, nil
 }
 
@@ -143,13 +142,13 @@ func (g *GTKClient) Track(ctx context.Context, trackingID string) (shipment.Trac
 }
 
 // calculateShippingCost calculates shipping cost based on weight and service type
-func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel.OptionMethod) int64 {
-	baseCost := int64(15000) // 15,000 VND base cost
+func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel.OptionMethod) sharedmodel.Concurrency {
+	baseCost := sharedmodel.Int64ToConcurrency(15000) // 15,000 VND base cost
 
 	// Weight-based pricing
-	weightCost := int64(0)
+	var weightCost sharedmodel.Concurrency
 	if weightGrams > 1000 {
-		weightCost = (int64(weightGrams) - 1000) / 1000 * 2000 // 2,000 VND per additional kg
+		weightCost = sharedmodel.Int64ToConcurrency((int64(weightGrams) - 1000) / 1000 * 2000) // 2,000 VND per additional kg
 	}
 
 	// Service type multiplier
@@ -165,8 +164,9 @@ func (g *GTKClient) calculateShippingCost(weightGrams int32, service sharedmodel
 		serviceMultiplier = 1.0
 	}
 
-	totalCost := float64(baseCost+weightCost) * serviceMultiplier
-	return int64(math.Ceil(totalCost))
+	totalCost := sharedmodel.FloatToConcurrency((baseCost + weightCost).Float64() * serviceMultiplier)
+	// TODO: add currency conversion in concurrency struct
+	return totalCost / 27000 // temporary convert to usdt
 }
 
 // calculateETA calculates estimated time of arrival
