@@ -11,7 +11,10 @@ type Config struct {
 	// Infrastructure components
 	Postgres  Postgres  `yaml:"postgres" mapstructure:"postgres" validate:"required"`
 	Redis     Redis     `yaml:"redis" mapstructure:"redis" validate:"required"`
+	Kafka     Kafka     `yaml:"kafka" mapstructure:"kafka" validate:"required"`
 	Filestore Filestore `yaml:"filestore" mapstructure:"filestore" validate:"required"`
+	Milvus    Milvus    `yaml:"milvus" mapstructure:"milvus" validate:"required"`
+	Embedding Embedding `yaml:"embedding" mapstructure:"embedding" validate:"required"`
 }
 
 type App struct {
@@ -37,10 +40,10 @@ type Vnpay struct {
 }
 
 type Search struct {
-	Url                  string        `yaml:"url" mapstructure:"url" validate:"required,url"`
-	DenseWeight          float32       `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
-	SparseWeight         float32       `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
-	InteractionBatchSize int           `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
+	Url                  string  `yaml:"url" mapstructure:"url" validate:"required,url"`
+	DenseWeight          float32 `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
+	SparseWeight         float32 `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
+	InteractionBatchSize int     `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
 	// ProductMetadataSyncInterval controls how often product metadata is synced to the search engine.
 	// If zero or negative, a sensible default will be used by the caller.
 	ProductMetadataSyncInterval time.Duration `yaml:"productMetadataSyncInterval" mapstructure:"productMetadataSyncInterval" validate:"gte=0"`
@@ -80,6 +83,20 @@ type Redis struct {
 	Port     string `yaml:"port" mapstructure:"port" validate:"required"`
 	Password string `yaml:"password" mapstructure:"password"`
 	DB       int64  `yaml:"db" mapstructure:"db" validate:"gte=0"`
+}
+
+type Kafka struct {
+	Host string `yaml:"host" mapstructure:"host" validate:"required"`
+	Port string `yaml:"port" mapstructure:"port" validate:"required"`
+	// Password string `yaml:"password" mapstructure:"password"`
+}
+
+type Milvus struct {
+	Address string `yaml:"address" mapstructure:"address" validate:"required"`
+}
+
+type Embedding struct {
+	URL string `yaml:"url" mapstructure:"url" validate:"required,url"`
 }
 
 type Filestore struct {
