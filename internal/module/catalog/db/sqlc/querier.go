@@ -98,6 +98,7 @@ type Querier interface {
 	SearchBrand(ctx context.Context, arg SearchBrandParams) ([]SearchBrandRow, error)
 	SearchCategory(ctx context.Context, arg SearchCategoryParams) ([]SearchCategoryRow, error)
 	SearchCountProductSpu(ctx context.Context, arg SearchCountProductSpuParams) ([]SearchCountProductSpuRow, error)
+	SearchTag(ctx context.Context, arg SearchTagParams) ([]SearchTagRow, error)
 	UpdateBatchStaleSearchSync(ctx context.Context, arg []UpdateBatchStaleSearchSyncParams) *UpdateBatchStaleSearchSyncBatchResults
 	UpdateBrand(ctx context.Context, arg UpdateBrandParams) (CatalogBrand, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (CatalogCategory, error)

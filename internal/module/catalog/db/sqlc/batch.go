@@ -301,7 +301,7 @@ func (b *CreateBatchProductSkuBatchResults) Close() error {
 const createBatchProductSpu = `-- name: CreateBatchProductSpu :batchone
 INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 `
 
 type CreateBatchProductSpuBatchResults struct {
@@ -375,6 +375,7 @@ func (b *CreateBatchProductSpuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
+			&i.Number,
 		)
 		if f != nil {
 			f(t, i, err)

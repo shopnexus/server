@@ -8,8 +8,8 @@ import (
 
 const (
 	CacheRecommendSize       = 100
-	CacheKeyRecommendProduct = "catalog:recommend:product:%d"
-	CacheKeyRecommendOffset  = "catalog:recommend:offset:%d"
+	CacheKeyRecommendProduct = "catalog:recommend:product:%s"
+	CacheKeyRecommendOffset  = "catalog:recommend:offset:%s"
 )
 
 // OrderPrice is the final price of a order after applying promotions

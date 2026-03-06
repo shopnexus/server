@@ -3,14 +3,18 @@ package catalogecho
 import (
 	"net/http"
 
+	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
+	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/response"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type GetProductDetailRequest struct {
-	ID uuid.UUID `query:"id" validate:"required"`
+	ID   uuid.NullUUID `query:"id" validate:"omitnil"`
+	Slug null.String   `query:"slug" validate:"omitnil"`
 }
 
 func (h *Handler) GetProductDetail(c echo.Context) error {
@@ -22,7 +26,17 @@ func (h *Handler) GetProductDetail(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.GetProductDetail(c.Request().Context(), req.ID)
+	params := catalogbiz.GetProductDetailParams{
+		ID:   req.ID,
+		Slug: req.Slug,
+	}
+
+	// Optionally pass authenticated account for view tracking
+	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
+		params.Account = &claims.Account
+	}
+
+	result, err := h.biz.GetProductDetail(c.Request().Context(), params)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

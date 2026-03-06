@@ -49,10 +49,12 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	// Brand
 	brandApi := api.Group("/brand")
 	brandApi.GET("", h.ListBrand)
+	brandApi.GET("/:id", h.GetBrand)
 
 	// Category
 	categoryApi := api.Group("/category")
 	categoryApi.GET("", h.ListCategory)
+	categoryApi.GET("/:id", h.GetCategory)
 
 	return h
 }

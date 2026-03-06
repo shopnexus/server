@@ -14,6 +14,7 @@ import (
 
 type ListTagParams struct {
 	commonmodel.PaginationParams
+	Search null.String `validate:"omitnil,max=100"`
 }
 
 func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
@@ -23,7 +24,8 @@ func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonm
 		return zero, err
 	}
 
-	listTag, err := b.storage.Querier().ListCountTag(ctx, catalogdb.ListCountTagParams{
+	listTag, err := b.storage.Querier().SearchTag(ctx, catalogdb.SearchTagParams{
+		Search: params.Search,
 		Limit:  params.Limit,
 		Offset: params.Offset(),
 	})
@@ -39,7 +41,7 @@ func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonm
 	return commonmodel.PaginateResult[catalogdb.CatalogTag]{
 		PageParams: params.PaginationParams,
 		Total:      total,
-		Data:       lo.Map(listTag, func(row catalogdb.ListCountTagRow, _ int) catalogdb.CatalogTag { return row.CatalogTag }),
+		Data:       lo.Map(listTag, func(row catalogdb.SearchTagRow, _ int) catalogdb.CatalogTag { return row.CatalogTag }),
 	}, nil
 }
 

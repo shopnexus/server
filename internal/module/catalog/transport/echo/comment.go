@@ -33,8 +33,14 @@ func (h *Handler) ListComment(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
 	result, err := h.biz.ListComment(c.Request().Context(), catalogbiz.ListCommentParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
+		Account:          claims.Account,
 		RefType:          req.RefType,
 		ID:               req.ID,
 		AccountID:        req.AccountID,
@@ -50,12 +56,11 @@ func (h *Handler) ListComment(c echo.Context) error {
 }
 
 type CreateCommentRequest struct {
-	RefType catalogdb.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID   uuid.UUID                       `json:"ref_id" validate:"required"`
-	Body    string                          `json:"body" validate:"required"`
-	Score   float64                         `json:"score" validate:"required"`
-
-	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"required"`
+	RefType     catalogdb.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	RefID       uuid.UUID                       `json:"ref_id" validate:"required"`
+	Body        string                          `json:"body" validate:"required"`
+	Score       float64                         `json:"score" validate:"required"`
+	ResourceIDs []uuid.UUID                     `json:"resource_ids" validate:"required"`
 }
 
 func (h *Handler) CreateComment(c echo.Context) error {

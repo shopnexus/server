@@ -31,14 +31,13 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
+	// claims, err := authclaims.GetClaims(c.Request())
+	// if err != nil {
+	// 	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	// }
 
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
-		PaginationParams: req.PaginationParams,
-		Account:          claims.Account,
+		PaginationParams: req.PaginationParams.Constrain(),
 		Slug:             req.Code,
 		CategoryID:       req.CategoryID,
 		BrandID:          req.BrandID,
@@ -64,14 +63,8 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
-		Account: claims.Account,
-		ID:      []uuid.UUID{req.ID},
+		ID: []uuid.UUID{req.ID},
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

@@ -38,6 +38,7 @@ func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuPa
 	}
 
 	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+		ID:         params.ID,
 		SpuID:      params.SpuID,
 		PriceFrom:  params.PriceFrom,
 		PriceTo:    params.PriceTo,

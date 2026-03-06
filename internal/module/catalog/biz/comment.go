@@ -6,6 +6,9 @@ import (
 
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
+	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
@@ -22,6 +25,7 @@ import (
 
 type ListCommentParams struct {
 	sharedmodel.PaginationParams
+	Account   accountmodel.AuthenticatedAccount
 	RefType   catalogdb.CatalogCommentRefType `validate:"required,validateFn=Valid"`
 	ID        []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
 	AccountID []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
@@ -69,6 +73,7 @@ func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) 
 
 	// Map accounts to comments
 	listProfile, err := b.account.ListProfile(ctx, accountbiz.ListProfileParams{
+		Issuer:     params.Account,
 		AccountIDs: accountIDs,
 	})
 	if err != nil {
@@ -166,6 +171,23 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 	})
 	if err != nil {
 		return zero, fmt.Errorf("failed to get comment profile: %w", err)
+	}
+
+	// Track analytic interactions for product reviews
+	if params.RefType == catalogdb.CatalogCommentRefTypeProductSpu {
+		refID := params.RefID.String()
+		interactions := []analyticbiz.CreateInteraction{
+			{Account: params.Account, EventType: analyticmodel.EventWriteReview, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID},
+		}
+		switch {
+		case params.Score >= 0.8:
+			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingHigh, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+		case params.Score >= 0.4:
+			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingMed, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+		default:
+			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingLow, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+		}
+		b.analytic.TrackInteractions(interactions)
 	}
 
 	return catalogmodel.Comment{

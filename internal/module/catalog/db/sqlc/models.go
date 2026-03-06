@@ -179,6 +179,7 @@ type CatalogProductSpu struct {
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`
 	DateDeleted    null.Time       `json:"date_deleted"`
+	Number         int64           `json:"number"`
 }
 
 type CatalogProductSpuTag struct {

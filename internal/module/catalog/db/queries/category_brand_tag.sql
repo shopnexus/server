@@ -31,3 +31,20 @@ WHERE (
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
+
+-- name: SearchTag :many
+SELECT 
+    sqlc.embed(tag),
+    COUNT(*) OVER() as total_count
+FROM "catalog"."tag" tag
+WHERE (
+   ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    (
+        "id" ILIKE '%' || sqlc.narg('search') || '%' OR
+        "description" ILIKE '%' || sqlc.narg('search') || '%'  OR
+        sqlc.narg('search') IS NULL 
+    )
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;

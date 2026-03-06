@@ -19,10 +19,3 @@ type Comment struct {
 	DateUpdated time.Time              `json:"date_updated"`
 	Resources   []commonmodel.Resource `json:"resources"`
 }
-
-type CommentAccount struct {
-	ID       uuid.UUID             `json:"id"`
-	Name     string                `json:"name"`
-	Verified bool                  `json:"verified"`
-	Avatar   *commonmodel.Resource `json:"avatar"`
-}

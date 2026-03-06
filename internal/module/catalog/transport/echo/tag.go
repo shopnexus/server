@@ -8,11 +8,13 @@ import (
 	commonmodel "shopnexus-remastered/internal/shared/model"
 	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type ListTagRequest struct {
 	commonmodel.PaginationParams
+	Search null.String `query:"search" validate:"omitnil,max=100"`
 }
 
 func (h *Handler) ListTag(c echo.Context) error {
@@ -25,7 +27,8 @@ func (h *Handler) ListTag(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListTag(c.Request().Context(), catalogbiz.ListTagParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
+		Search:           req.Search,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

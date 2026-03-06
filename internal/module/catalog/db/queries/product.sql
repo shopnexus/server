@@ -37,10 +37,12 @@ WHERE (
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
     ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("date_deleted" = NULL) AND (
-      ("slug" ILIKE '%' || sqlc.narg('slug') || '%') OR
-      ("name" ILIKE '%' || sqlc.narg('name') || '%') OR
-      ("description" ILIKE '%' || sqlc.narg('description') || '%')
+    (
+      ("date_deleted" IS NULL) AND (
+        (("slug" ILIKE '%' || sqlc.narg('slug') || '%') OR sqlc.narg('slug') IS NULL) AND
+        (("name" ILIKE '%' || sqlc.narg('name') || '%') OR sqlc.narg('name') IS NULL) AND
+        (("description" ILIKE '%' || sqlc.narg('description') || '%') OR sqlc.narg('description') IS NULL)
+      )
     )
 )
 ORDER BY "id"

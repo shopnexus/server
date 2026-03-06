@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
+	accountmodel "shopnexus-remastered/internal/module/account/model"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
@@ -14,13 +17,23 @@ import (
 	sharedmodel "shopnexus-remastered/internal/shared/model"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
-func (b *CatalogBiz) GetProductDetail(ctx context.Context, id uuid.UUID) (catalogmodel.ProductDetail, error) {
+type GetProductDetailParams struct {
+	Account *accountmodel.AuthenticatedAccount // optional, for view tracking
+	ID      uuid.NullUUID
+	Slug    null.String
+}
+
+func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
-	spu, err := b.GetProductSpu(ctx, id)
+	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
+		ID:   params.ID,
+		Slug: params.Slug,
+	})
 	if err != nil {
 		return zero, err
 	}
@@ -120,6 +133,11 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id uuid.UUID) (catalo
 				Title: code,
 			})
 		}
+	}
+
+	// Track view interaction for authenticated users
+	if params.Account != nil {
+		b.analytic.TrackInteraction(*params.Account, analyticmodel.EventView, analyticdb.AnalyticInteractionRefTypeProduct, spu.ID.String())
 	}
 
 	return catalogmodel.ProductDetail{

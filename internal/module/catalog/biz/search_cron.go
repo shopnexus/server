@@ -45,7 +45,7 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 	if err := b.storage.WithTx(ctx, b.storage, func(txStorage CatalogStorage) error {
 		if metadataOnly {
 			metadataStales, err := txStorage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-				RefType:         "Product",
+				RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
 				Limit:           MetadataProductSyncBatchSize,
 				IsStaleMetadata: null.BoolFrom(true),
 			})
@@ -62,7 +62,7 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 			}
 		} else {
 			embeddingStales, err := txStorage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-				RefType:          "Product",
+				RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
 				Limit:            EmbeddingProductSyncBatchSize,
 				IsStaleEmbedding: null.BoolFrom(true),
 			})
@@ -106,7 +106,9 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 	// Fetch product details
 	var productDetails []catalogmodel.ProductDetail
 	for _, stale := range params.Stales {
-		detail, err := b.GetProductDetail(ctx, stale.RefID)
+		detail, err := b.GetProductDetail(ctx, GetProductDetailParams{
+			ID: uuid.NullUUID{UUID: stale.RefID, Valid: true},
+		})
 		if err != nil {
 			slog.Error("Failed to get product detail for product ID", "product_id", stale.RefID, "error", err)
 			continue
@@ -166,10 +168,10 @@ func (b *CatalogBiz) StartProductSyncCron(ctx context.Context, duration time.Dur
 			return
 		}
 
-		b.searchClient.syncLock.Lock()
+		b.syncLock.Lock()
 		if err := b.SyncProductData(ctx, metadataOnly); err != nil {
 			log.Printf("Product sync failed: %v", err)
 		}
-		b.searchClient.syncLock.Unlock()
+		b.syncLock.Unlock()
 	}
 }

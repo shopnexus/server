@@ -35,7 +35,11 @@ func (h *Handler) GetBrand(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromPaginate(c.Response().Writer, result)
+	if len(result.Data) == 0 {
+		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "brand not found"))
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
 
 type ListBrandRequest struct {
@@ -53,7 +57,7 @@ func (h *Handler) ListBrand(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListBrand(c.Request().Context(), catalogbiz.ListBrandParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 		Search:           req.Search,
 	})
 	if err != nil {

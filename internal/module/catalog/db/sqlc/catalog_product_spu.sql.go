@@ -121,7 +121,7 @@ type CreateCopyProductSpuParams struct {
 const createDefaultProductSpu = `-- name: CreateDefaultProductSpu :one
 INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 `
 
 type CreateDefaultProductSpuParams struct {
@@ -165,6 +165,7 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
+		&i.Number,
 	)
 	return i, err
 }
@@ -172,7 +173,7 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 const createProductSpu = `-- name: CreateProductSpu :one
 INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 `
 
 type CreateProductSpuParams struct {
@@ -222,6 +223,7 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
+		&i.Number,
 	)
 	return i, err
 }
@@ -299,7 +301,7 @@ func (q *Queries) DeleteProductSpu(ctx context.Context, arg DeleteProductSpuPara
 }
 
 const getProductSpu = `-- name: GetProductSpu :one
-SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 FROM "catalog"."product_spu"
 WHERE ("id" = $1) OR ("slug" = $2) OR ("featured_sku_id" = $3)
 `
@@ -327,12 +329,13 @@ func (q *Queries) GetProductSpu(ctx context.Context, arg GetProductSpuParams) (C
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
+		&i.Number,
 	)
 	return i, err
 }
 
 const listCountProductSpu = `-- name: ListCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.brand_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.brand_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, embed_product_spu.number, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -434,6 +437,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSpu.DateCreated,
 			&i.CatalogProductSpu.DateUpdated,
 			&i.CatalogProductSpu.DateDeleted,
+			&i.CatalogProductSpu.Number,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -447,7 +451,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 }
 
 const listProductSpu = `-- name: ListProductSpu :many
-SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -544,6 +548,7 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -570,7 +575,7 @@ SET "slug" = COALESCE($1, "slug"),
     "date_updated" = COALESCE($12, "date_updated"),
     "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
 WHERE id = $15
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
 `
 
 type UpdateProductSpuParams struct {
@@ -624,6 +629,7 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
+		&i.Number,
 	)
 	return i, err
 }

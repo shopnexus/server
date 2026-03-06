@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 
 	"shopnexus-remastered/internal/infras/cachestruct"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
@@ -300,7 +301,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 	// Amount of most sold products to fill the recommendations
 	amount := int32(params.Limit - len(rcmProducts))
 	if amount > 0 {
-		mostSolds, err := b.inventory.ListMostTaken(ctx, inventorybiz.ListMostTakenParams{
+		mostSolds, err := b.inventory.ListMostTakenSku(ctx, inventorybiz.ListMostTakenSkuParams{
 			PaginationParams: commonmodel.PaginationParams{
 				Limit: null.Int32From(int32(amount * 100)),
 			},
@@ -309,8 +310,11 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		if err != nil {
 			return zero, err
 		}
+		// Take random amount of shuffled most sold products
+		mutable.Shuffle(mostSolds)
+		mostSolds = mostSolds[:amount]
 
-		skuIDs := lo.Map(mostSolds, func(p inventorydb.InventorySerial, _ int) uuid.UUID { return p.RefID })
+		skuIDs := lo.Map(mostSolds, func(p inventorydb.InventoryStock, _ int) uuid.UUID { return p.RefID })
 		skus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
 			ID: skuIDs,
 		})

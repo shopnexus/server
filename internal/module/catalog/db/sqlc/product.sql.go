@@ -102,7 +102,7 @@ func (q *Queries) ListRating(ctx context.Context, arg ListRatingParams) ([]ListR
 }
 
 const searchCountProductSpu = `-- name: SearchCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.brand_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.brand_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, embed_product_spu.number, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -117,10 +117,12 @@ WHERE (
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
     ("date_updated" > $11 OR $11 IS NULL) AND
     ("date_updated" < $12 OR $12 IS NULL) AND
-    ("date_deleted" = NULL) AND (
-      ("slug" ILIKE '%' || $13 || '%') OR
-      ("name" ILIKE '%' || $14 || '%') OR
-      ("description" ILIKE '%' || $15 || '%')
+    (
+      ("date_deleted" IS NULL) AND (
+        (("slug" ILIKE '%' || $13 || '%') OR $13 IS NULL) AND
+        (("name" ILIKE '%' || $14 || '%') OR $14 IS NULL) AND
+        (("description" ILIKE '%' || $15 || '%') OR $15 IS NULL)
+      )
     )
 )
 ORDER BY "id"
@@ -194,6 +196,7 @@ func (q *Queries) SearchCountProductSpu(ctx context.Context, arg SearchCountProd
 			&i.CatalogProductSpu.DateCreated,
 			&i.CatalogProductSpu.DateUpdated,
 			&i.CatalogProductSpu.DateDeleted,
+			&i.CatalogProductSpu.Number,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err

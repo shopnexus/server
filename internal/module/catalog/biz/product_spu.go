@@ -53,13 +53,33 @@ func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID uuid.UUID) catalo
 	return brand
 }
 
-func (b *CatalogBiz) GetProductSpu(ctx context.Context, id uuid.UUID) (catalogmodel.ProductSpu, error) {
-	listSpu, err := b.ListProductSpu(ctx, ListProductSpuParams{
-		ID: []uuid.UUID{id},
-	})
-	if err != nil {
-		return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu: %w", err)
+type GetProductSpuParams struct {
+	ID   uuid.NullUUID `validate:"omitnil"`
+	Slug null.String   `validate:"omitnil"`
+}
+
+func (b *CatalogBiz) GetProductSpu(ctx context.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
+	var (
+		listSpu sharedmodel.PaginateResult[catalogmodel.ProductSpu]
+		err     error
+	)
+
+	if params.ID.Valid {
+		listSpu, err = b.ListProductSpu(ctx, ListProductSpuParams{
+			ID: []uuid.UUID{params.ID.UUID},
+		})
+		if err != nil {
+			return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu: %w", err)
+		}
+	} else if params.Slug.Valid {
+		listSpu, err = b.ListProductSpu(ctx, ListProductSpuParams{
+			Slug: []string{params.Slug.String},
+		})
+		if err != nil {
+			return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu by slug: %w", err)
+		}
 	}
+
 	if len(listSpu.Data) == 0 {
 		return catalogmodel.ProductSpu{}, sharedmodel.ErrEntityNotFound.Fmt("ProductSpu")
 	}
@@ -68,12 +88,12 @@ func (b *CatalogBiz) GetProductSpu(ctx context.Context, id uuid.UUID) (catalogmo
 
 type ListProductSpuParams struct {
 	sharedmodel.PaginationParams
-	Account    accountmodel.AuthenticatedAccount
-	ID         []uuid.UUID `validate:"omitempty,dive"`
-	Slug       []string    `validate:"omitempty,dive,min=1,max=100"`
-	CategoryID []uuid.UUID `validate:"omitempty,dive"`
-	BrandID    []uuid.UUID `validate:"omitempty,dive"`
-	IsActive   []bool      `validate:"omitempty,dive"`
+	Account    accountmodel.AuthenticatedAccount `validate:"omitempty"`
+	ID         []uuid.UUID                       `validate:"omitempty,dive"`
+	Slug       []string                          `validate:"omitempty,dive"`
+	CategoryID []uuid.UUID                       `validate:"omitempty,dive"`
+	BrandID    []uuid.UUID                       `validate:"omitempty,dive"`
+	IsActive   []bool                            `validate:"omitempty,dive"`
 }
 
 func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
@@ -126,6 +146,9 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 
 	var spus []catalogmodel.ProductSpu
 	for _, spu := range dbSpus {
+		specs := []catalogmodel.ProductSpecification{}
+		sonic.Unmarshal(spu.Specifications, &specs)
+
 		spus = append(spus, catalogmodel.ProductSpu{
 			ID:            spu.ID,
 			AccountID:     spu.AccountID,
@@ -142,8 +165,9 @@ func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuPa
 				Score: ratingMap[spu.ID].Score,
 				Total: ratingMap[spu.ID].Count,
 			},
-			Tags:      tagsMap[spu.ID],
-			Resources: resourcesMap[spu.ID],
+			Tags:           tagsMap[spu.ID],
+			Resources:      resourcesMap[spu.ID],
+			Specifications: specs,
 		})
 	}
 
@@ -223,12 +247,12 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		}
 
 		// Create system search sync (TODO: should move to event)
-		// if _, err := txStorage.Querier().CreateDefaultSystemSearchSync(ctx, catalogdb.CreateDefaultSystemSearchSyncParams{
-		// 	RefType: searchmodel.RefTypeProduct,
-		// 	RefID:   spu.ID,
-		// }); err != nil {
-		// 	return err
-		// }
+		if _, err := txStorage.Querier().CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
+			RefType: catalogdb.CatalogSearchSyncRefTypeProductSpu,
+			RefID:   spu.ID,
+		}); err != nil {
+			return err
+		}
 
 		return nil
 	}); err != nil {
@@ -238,19 +262,21 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 	tagsMap := b.mustGetTagsMap(ctx, []uuid.UUID{spu.ID})
 
 	return catalogmodel.ProductSpu{
-		ID:            spu.ID,
-		Slug:          spu.Slug,
-		Category:      b.mustGetCategory(ctx, spu.CategoryID),
-		Brand:         b.mustGetBrand(ctx, spu.BrandID),
-		FeaturedSkuID: spu.FeaturedSkuID,
-		Name:          spu.Name,
-		Description:   spu.Description,
-		IsActive:      spu.IsActive,
-		DateCreated:   spu.DateCreated,
-		DateUpdated:   spu.DateUpdated,
-		Rating:        catalogmodel.ProductRating{},
-		Tags:          tagsMap[spu.ID],
-		Resources:     resources,
+		ID:             spu.ID,
+		AccountID:      spu.AccountID,
+		Slug:           spu.Slug,
+		Category:       b.mustGetCategory(ctx, spu.CategoryID),
+		Brand:          b.mustGetBrand(ctx, spu.BrandID),
+		FeaturedSkuID:  spu.FeaturedSkuID,
+		Name:           spu.Name,
+		Description:    spu.Description,
+		IsActive:       spu.IsActive,
+		DateCreated:    spu.DateCreated,
+		DateUpdated:    spu.DateUpdated,
+		Rating:         catalogmodel.ProductRating{},
+		Tags:           tagsMap[spu.ID],
+		Resources:      resources,
+		Specifications: params.Specifications,
 	}, nil
 }
 

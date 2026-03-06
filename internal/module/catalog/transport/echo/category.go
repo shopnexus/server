@@ -28,7 +28,7 @@ func (h *Handler) ListCategory(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListCategory(c.Request().Context(), catalogbiz.ListCategoryParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 		ID:               req.ID,
 		Search:           req.Search,
 	})
@@ -37,4 +37,34 @@ func (h *Handler) ListCategory(c echo.Context) error {
 	}
 
 	return response.FromPaginate(c.Response().Writer, result)
+}
+
+type GetCategoryRequest struct {
+	ID uuid.UUID `param:"id" validate:"required"`
+}
+
+func (h *Handler) GetCategory(c echo.Context) error {
+	var req GetCategoryRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.ListCategory(c.Request().Context(), catalogbiz.ListCategoryParams{
+		PaginationParams: commonmodel.PaginationParams{
+			Limit: null.Int32From(1),
+		}.Constrain(),
+		ID: []uuid.UUID{req.ID},
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	if len(result.Data) == 0 {
+		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "category not found"))
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
