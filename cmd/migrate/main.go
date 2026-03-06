@@ -5,8 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"shopnexus-remastered/config"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -16,28 +14,33 @@ import (
 )
 
 func main() {
-	// Read DB URL from env (or hardcode here if you prefer)
 	dbURL := config.GetConfig().Postgres.Url
-	// Optional: pass a single module name, e.g. "account" or "analytic"
 	moduleFlag := flag.String("module", "", "module to migrate (if empty, migrate all modules)")
 	downFlag := flag.Bool("down", false, "run down migrations (rollback) instead of up")
+	forceFlag := flag.Int("force", -1, "force set migration version (use to fix dirty state, e.g. -force 1)")
 	flag.Parse()
 
-	// Define your modules here in the order they should be migrated
+	// Modules ordered by dependency: common first, modules with cross-schema FKs last
 	modules := []string{
-		"account",
-		"analytic",
-		"catalog",
 		"common",
+		"account",
+		"catalog",
+		"analytic",
 		"inventory",
 		"order",
 		"promotion",
 		"system",
-		// add more modules here...
+		"chat", // depends on account schema
 	}
 
 	if *moduleFlag != "" {
-		// Run for a single module
+		if *forceFlag >= 0 {
+			if err := forceModule(dbURL, *moduleFlag, *forceFlag); err != nil {
+				log.Fatalf("force %s to version %d failed: %v", *moduleFlag, *forceFlag, err)
+			}
+			log.Printf("force %s to version %d done", *moduleFlag, *forceFlag)
+			return
+		}
 		direction := "up"
 		if *downFlag {
 			direction = "down"
@@ -49,8 +52,7 @@ func main() {
 		return
 	}
 
-	// Run for all modules
-	// When rolling back, run in reverse order
+	// Run for all modules; rollback runs in reverse order
 	if *downFlag {
 		for i := len(modules) - 1; i >= 0; i-- {
 			m := modules[i]
@@ -69,56 +71,69 @@ func main() {
 			log.Printf("migrate up %s done", m)
 		}
 	}
-
 }
 
-func migrateModule(dbURL, module string, down bool) error {
-	// Open DB connection
+// migrationsSourceURL returns a file:// URL using a relative path.
+// golang-migrate's parseURL resolves "./..." via filepath.Abs, which works cross-platform
+// (avoids Windows issues with absolute file:// URLs like file:///D:/...).
+func migrationsSourceURL(module string) string {
+	return fmt.Sprintf("file://./internal/module/%s/db/migrations", module)
+}
+
+func newMigrate(dbURL, module string) (*migrate.Migrate, error) {
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		return fmt.Errorf("open db: %w", err)
+		return nil, fmt.Errorf("open db: %w", err)
 	}
-	defer db.Close()
 
-	// Create driver with module-specific migrations table
-	// This ensures each module tracks its migrations separately
 	driver, err := postgres.WithInstance(db, &postgres.Config{
 		MigrationsTable: fmt.Sprintf("schema_migrations_%s", module),
 	})
 	if err != nil {
-		return fmt.Errorf("create driver: %w", err)
+		db.Close()
+		return nil, fmt.Errorf("create driver: %w", err)
 	}
 
-	// Build path to migrations for this module
-	// Example: file:///<project-root>/internal/module/account/migrations
-	cwd, err := os.Getwd()
+	sourceURL := migrationsSourceURL(module)
+
+	m, err := migrate.NewWithDatabaseInstance(sourceURL, "postgres", driver)
 	if err != nil {
-		return fmt.Errorf("getwd: %w", err)
+		db.Close()
+		return nil, fmt.Errorf("new migrate: %w", err)
 	}
-	migrationsPath := filepath.Join(cwd, "internal", "module", module, "db", "migrations")
-	sourceURL := "file://" + filepath.ToSlash(migrationsPath)
 
-	m, err := migrate.NewWithDatabaseInstance(
-		sourceURL,
-		"postgres",
-		driver,
-	)
+	return m, nil
+}
+
+func migrateModule(dbURL, module string, down bool) error {
+	m, err := newMigrate(dbURL, module)
 	if err != nil {
-		return fmt.Errorf("new migrate: %w", err)
+		return err
 	}
+	defer m.Close()
 
-	// Run migrations in the specified direction
 	if down {
-		// Run all down migrations (rollback)
 		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 			return fmt.Errorf("migrate down: %w", err)
 		}
 	} else {
-		// Run all up migrations
 		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 			return fmt.Errorf("migrate up: %w", err)
 		}
 	}
 
+	return nil
+}
+
+func forceModule(dbURL, module string, version int) error {
+	m, err := newMigrate(dbURL, module)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if err := m.Force(version); err != nil {
+		return fmt.Errorf("force version: %w", err)
+	}
 	return nil
 }

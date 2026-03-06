@@ -30,7 +30,7 @@ func (b *OrderBiz) GetCart(ctx context.Context, params GetCartParams) ([]ordermo
 		AccountID: []uuid.UUID{params.AccountID},
 	})
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
