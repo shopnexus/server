@@ -20,7 +20,7 @@ func NewEcho() *echo.Echo {
 
 	// Middleware
 	//e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
+	// e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
 	return e

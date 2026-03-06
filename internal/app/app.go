@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,10 +11,13 @@ import (
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/cachestruct"
+	"shopnexus-remastered/internal/infras/embedding"
+	"shopnexus-remastered/internal/infras/milvus"
 	"shopnexus-remastered/internal/infras/pubsub"
 	"shopnexus-remastered/internal/module/account"
 	"shopnexus-remastered/internal/module/analytic"
 	"shopnexus-remastered/internal/module/catalog"
+	"shopnexus-remastered/internal/module/chat"
 	"shopnexus-remastered/internal/module/common"
 	"shopnexus-remastered/internal/module/inventory"
 	"shopnexus-remastered/internal/module/order"
@@ -30,6 +34,8 @@ var Module = fx.Module("main",
 		NewEcho,
 		NewCacheStruct,
 		NewPubsubClient,
+		NewMilvusClient,
+		NewEmbeddingClient,
 	),
 
 	// Business modules
@@ -40,6 +46,7 @@ var Module = fx.Module("main",
 	order.Module,
 	promotion.Module,
 	analytic.Module,
+	chat.Module,
 	system.Module,
 
 	// HTTP server
@@ -91,13 +98,37 @@ func SetupLogger() {
 	})))
 }
 
-func NewPubsubClient() (pubsub.Client, error) {
+func NewPubsubClient(cfg *config.Config) (pubsub.Client, error) {
 	return pubsub.NewKafkaClient(pubsub.KafkaConfig{
 		Config: pubsub.Config{
 			Timeout: 10,
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{fmt.Sprintf("%s:%s", cfg.Kafka.Host, cfg.Kafka.Port)},
 			Decoder: sonic.Unmarshal,
 			Encoder: sonic.Marshal,
 		},
+	})
+}
+
+func NewMilvusClient(lc fx.Lifecycle, cfg *config.Config) (*milvus.Client, error) {
+	client, err := milvus.NewClient(context.Background(), milvus.Config{
+		Address: cfg.Milvus.Address,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			slog.Info("Closing Milvus connection...")
+			return client.Close(ctx)
+		},
+	})
+
+	return client, nil
+}
+
+func NewEmbeddingClient(cfg *config.Config) *embedding.Client {
+	return embedding.NewClient(embedding.Config{
+		URL: cfg.Embedding.URL,
 	})
 }
