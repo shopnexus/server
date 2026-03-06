@@ -59,9 +59,9 @@ func (s *storage[T]) Conn() TxBeginner {
 func (s *storage[T]) BeginTx(ctx context.Context, preferStorage Storage[T]) (*TxStorage[T], error) {
 	if preferStorage != nil {
 		// if preferStorage is already a TxStorage and not allowed nested tx
-		if _, ok := preferStorage.(*TxStorage[T]); ok && !s.allowNestedTx {
-			return preferStorage.(*TxStorage[T]), nil
-		}
+		// if _, ok := preferStorage.(*TxStorage[T]); ok && !s.allowNestedTx {
+		// 	return preferStorage.(*TxStorage[T]), nil
+		// }
 
 		// begin a new transaction
 		return preferStorage.BeginTx(ctx, nil)
@@ -98,18 +98,24 @@ func (s *storage[T]) WithTx(ctx context.Context, preferStorage Storage[T], fn fu
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	// if preferStorage == nil {
 	defer txStorage.Rollback(ctx)
+	// }
 
 	if err := fn(txStorage); err != nil {
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
+	// if preferStorage == nil {
 	return txStorage.Commit(ctx)
+	// }
+	// return nil
 }
 
 // TxStorage provides database queries within an active transaction
 type TxStorage[T Querier] struct {
-	tx pgx.Tx
+	tx        pgx.Tx
+	committed bool
 	*storage[T]
 }
 
@@ -117,10 +123,14 @@ func (ts *TxStorage[T]) Commit(ctx context.Context) error {
 	if err := ts.tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transactional queries: %w", err)
 	}
+	ts.committed = true
 	return nil
 }
 
 func (ts *TxStorage[T]) Rollback(ctx context.Context) error {
+	// if ts.committed {
+	// 	return nil
+	// }
 	if err := ts.tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) && err != nil {
 		slog.Error("failed to rollback transaction", slog.Any("error", err))
 		return fmt.Errorf("failed to rollback transactional queries: %w", err)

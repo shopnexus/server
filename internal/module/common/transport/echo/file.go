@@ -8,6 +8,7 @@ import (
 	authclaims "shopnexus-remastered/internal/shared/claims"
 	"shopnexus-remastered/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -42,8 +43,12 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]any{
-		"id":  result.ResourceID,
-		"url": result.URL,
-	})
+	// Get the full resource details
+	resourceMap := h.biz.GetResourcesByIDs(c.Request().Context(), []uuid.UUID{result.ResourceID})
+	resource, ok := resourceMap[result.ResourceID]
+	if !ok {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, fmt.Errorf("failed to retrieve uploaded resource"))
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, resource)
 }

@@ -128,11 +128,14 @@ func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 			return err
 		}
 
-		if err := txStorage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
-			ID: deletedIDs,
-		}); err != nil {
-			return err
+		if params.DeleteResources {
+			if err := txStorage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
+				ID: deletedIDs,
+			}); err != nil {
+				return err
+			}
 		}
+
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to delete resources: %w", err)

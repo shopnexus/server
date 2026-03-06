@@ -21,7 +21,7 @@ func (e Error) Code() string {
 }
 
 // Fmt creates a new error from the base error template with provided arguments
-func (e Error) Fmt(args ...interface{}) Error {
+func (e Error) Fmt(args ...any) Error {
 	return Error{
 		ErrCode: e.ErrCode,
 		Message: fmt.Sprintf(e.Message, args...),

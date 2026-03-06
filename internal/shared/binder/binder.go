@@ -1,6 +1,7 @@
 package binder
 
 import (
+	"encoding"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -108,37 +109,79 @@ func (cb *CustomBinder) bindCommaSeparatedFields(i any, c echo.Context, commaSep
 }
 
 func (cb *CustomBinder) bindRegularFields(i any, c echo.Context, commaSeparatedFields map[string]bool) error {
-	// Create a new request with comma-separated fields removed
-	originalReq := c.Request()
-	values := originalReq.URL.Query()
-
-	// Filter out comma-separated fields
-	filteredValues := make(map[string][]string)
-	for key, vals := range values {
-		if !commaSeparatedFields[key] {
-			filteredValues[key] = vals
-		}
+	rv := reflect.ValueOf(i)
+	if rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
 	}
 
-	// Build new query string
-	var queryParts []string
-	for key, vals := range filteredValues {
-		for _, val := range vals {
-			queryParts = append(queryParts, key+"="+val)
-		}
+	// Bind query and path params field by field with descriptive error messages
+	if err := cb.bindStructFields(rv, rv.Type(), c, commaSeparatedFields); err != nil {
+		return err
 	}
 
-	// Temporarily modify the request URL
-	originalRawQuery := originalReq.URL.RawQuery
-	originalReq.URL.RawQuery = strings.Join(queryParts, "&")
+	// Bind body using default binder (JSON errors already include field context)
+	if err := cb.DefaultBinder.BindBody(c, i); err != nil {
+		if he, ok := err.(*echo.HTTPError); ok && he.Internal != nil {
+			return commonmodel.ErrValidation.Fmt(he.Internal.Error())
+		}
+		return commonmodel.ErrValidation.Fmt(err.Error())
+	}
 
-	// Use default binder for remaining fields
-	err := cb.DefaultBinder.Bind(i, c)
+	return nil
+}
 
-	// Restore original query
-	originalReq.URL.RawQuery = originalRawQuery
+func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c echo.Context, commaSeparatedFields map[string]bool) error {
+	for j := 0; j < rt.NumField(); j++ {
+		field := rv.Field(j)
+		fieldType := rt.Field(j)
 
-	return err
+		// Recurse into embedded structs
+		if fieldType.Anonymous {
+			embedded := field
+			embeddedType := fieldType.Type
+			if embedded.Kind() == reflect.Ptr {
+				if embedded.IsNil() {
+					embedded.Set(reflect.New(embeddedType.Elem()))
+				}
+				embedded = embedded.Elem()
+				embeddedType = embeddedType.Elem()
+			}
+			if embedded.Kind() == reflect.Struct {
+				if err := cb.bindStructFields(embedded, embeddedType, c, commaSeparatedFields); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+
+		if !field.CanSet() {
+			continue
+		}
+
+		// Bind query params
+		if queryTag := fieldType.Tag.Get("query"); queryTag != "" {
+			if commaSeparatedFields[queryTag] {
+				continue
+			}
+			if value := c.QueryParam(queryTag); value != "" {
+				if err := cb.setSingleValueFromString(field, value); err != nil {
+					return commonmodel.ErrValidation.Fmt("query param '%s': %v", queryTag, err)
+				}
+			}
+			continue
+		}
+
+		// Bind path params
+		if paramTag := fieldType.Tag.Get("param"); paramTag != "" {
+			if value := c.Param(paramTag); value != "" {
+				if err := cb.setSingleValueFromString(field, value); err != nil {
+					return commonmodel.ErrValidation.Fmt("path param '%s': %v", paramTag, err)
+				}
+			}
+			continue
+		}
+	}
+	return nil
 }
 
 func (cb *CustomBinder) setSliceFromCommaSeparated(field reflect.Value, param string) error {
@@ -167,6 +210,16 @@ func (cb *CustomBinder) setSliceFromCommaSeparated(field reflect.Value, param st
 }
 
 func (cb *CustomBinder) setSingleValueFromString(field reflect.Value, value string) error {
+	// Support types implementing encoding.TextUnmarshaler (e.g., uuid.UUID, uuid.NullUUID, null.String)
+	if field.CanAddr() {
+		if tu, ok := field.Addr().Interface().(encoding.TextUnmarshaler); ok {
+			return tu.UnmarshalText([]byte(value))
+		}
+	}
+	if tu, ok := field.Interface().(encoding.TextUnmarshaler); ok {
+		return tu.UnmarshalText([]byte(value))
+	}
+
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(value)

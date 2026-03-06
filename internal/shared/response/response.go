@@ -1,10 +1,13 @@
 package response
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
-	"runtime/debug"
+	"runtime"
 	"strconv"
+	"strings"
 
 	commonmodel "shopnexus-remastered/internal/shared/model"
 
@@ -22,11 +25,14 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	message := http.StatusText(httpCode)
 
 	// Use the error's message if it implements ErrorWithCode (domain errors)
-	if errWithCode, ok := err.(commonmodel.ErrorWithCode); ok {
+	var errWithCode commonmodel.Error
+	if errors.As(err, &errWithCode) {
 		errCode = errWithCode.Code()
 		message = errWithCode.Error()
 	}
-	debug.PrintStack()
+	// debug.PrintStack()
+	// traceError(err)
+	GetStackTrace()
 
 	data, err := sonic.Marshal(CommonResponse{
 		Data: nil,
@@ -49,7 +55,7 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 
 // writeResponse is the core response writer with better error handling
 func writeResponse(w http.ResponseWriter, httpCode int, dto any) error {
-	data, err := sonic.Marshal(dto)
+	data, err := MarshalJSONWithEmptyArrays(dto)
 	if err != nil {
 		return writeError(w, http.StatusInternalServerError, err)
 	}
@@ -75,6 +81,7 @@ func FromMessage(w http.ResponseWriter, httpCode int, message string) error {
 
 // FromError writes an error response based on the provided error type
 func FromError(w http.ResponseWriter, httpCode int, err error) error {
+	fmt.Println(GetStackTrace())
 	slog.Error("HTTP error", slog.Int("http_code", httpCode), slog.Any("error", err))
 	if err == nil {
 		return FromDTO(w, http.StatusOK, nil)
@@ -127,4 +134,27 @@ func FromPaginate[T any](w http.ResponseWriter, paginate commonmodel.PaginateRes
 	}
 
 	return writeResponse(w, http.StatusOK, response)
+}
+
+func GetStackTrace() string {
+	var pc [32]uintptr
+	n := runtime.Callers(0, pc[:]) // 0 includes all frames
+
+	var builder strings.Builder
+	builder.WriteString("Stack trace:\n")
+
+	frames := runtime.CallersFrames(pc[:n])
+	for {
+		frame, more := frames.Next()
+		// Skip runtime and testing frames (like JavaScript skips built-ins)
+		if !strings.Contains(frame.File, "runtime/") &&
+			!strings.Contains(frame.File, "testing/") {
+			builder.WriteString(fmt.Sprintf("  at %s (%s:%d)\n",
+				frame.Function, frame.File, frame.Line))
+		}
+		if !more {
+			break
+		}
+	}
+	return builder.String()
 }
