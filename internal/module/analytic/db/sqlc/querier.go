@@ -7,6 +7,7 @@ package analyticdb
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -19,9 +20,13 @@ type Querier interface {
 	CreateInteraction(ctx context.Context, arg CreateInteractionParams) (AnalyticInteraction, error)
 	DeleteInteraction(ctx context.Context, arg DeleteInteractionParams) error
 	GetInteraction(ctx context.Context, id pgtype.Int8) (AnalyticInteraction, error)
+	GetProductPopularity(ctx context.Context, spuID uuid.UUID) (AnalyticProductPopularity, error)
 	ListCountInteraction(ctx context.Context, arg ListCountInteractionParams) ([]ListCountInteractionRow, error)
 	ListInteraction(ctx context.Context, arg ListInteractionParams) ([]AnalyticInteraction, error)
+	ListProductPopularity(ctx context.Context, spuID []uuid.UUID) ([]AnalyticProductPopularity, error)
+	ListTopProductPopularity(ctx context.Context, arg ListTopProductPopularityParams) ([]AnalyticProductPopularity, error)
 	UpdateInteraction(ctx context.Context, arg UpdateInteractionParams) (AnalyticInteraction, error)
+	UpsertProductPopularity(ctx context.Context, arg UpsertProductPopularityParams) (AnalyticProductPopularity, error)
 }
 
 var _ Querier = (*Queries)(nil)

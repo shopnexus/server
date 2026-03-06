@@ -76,14 +76,26 @@ func AllAnalyticInteractionRefTypeValues() []AnalyticInteractionRefType {
 }
 
 type AnalyticInteraction struct {
-	ID          int64                      `json:"id"`
-	AccountID   uuid.NullUUID              `json:"account_id"`
-	SessionID   null.String                `json:"session_id"`
-	EventType   string                     `json:"event_type"`
-	RefType     AnalyticInteractionRefType `json:"ref_type"`
-	RefID       string                     `json:"ref_id"`
-	Metadata    json.RawMessage            `json:"metadata"`
-	UserAgent   null.String                `json:"user_agent"`
-	IpAddress   null.String                `json:"ip_address"`
-	DateCreated time.Time                  `json:"date_created"`
+	ID            int64                      `json:"id"`
+	AccountID     uuid.NullUUID              `json:"account_id"`
+	SessionID     null.String                `json:"session_id"`
+	EventType     string                     `json:"event_type"`
+	RefType       AnalyticInteractionRefType `json:"ref_type"`
+	RefID         string                     `json:"ref_id"`
+	Metadata      json.RawMessage            `json:"metadata"`
+	UserAgent     null.String                `json:"user_agent"`
+	IpAddress     null.String                `json:"ip_address"`
+	DateCreated   time.Time                  `json:"date_created"`
+	AccountNumber int64                      `json:"account_number"`
+}
+
+type AnalyticProductPopularity struct {
+	SpuID         uuid.UUID `json:"spu_id"`
+	Score         float64   `json:"score"`
+	ViewCount     int64     `json:"view_count"`
+	PurchaseCount int64     `json:"purchase_count"`
+	FavoriteCount int64     `json:"favorite_count"`
+	CartCount     int64     `json:"cart_count"`
+	ReviewCount   int64     `json:"review_count"`
+	DateUpdated   time.Time `json:"date_updated"`
 }

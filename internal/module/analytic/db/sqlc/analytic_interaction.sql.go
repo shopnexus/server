@@ -101,7 +101,7 @@ type CreateCopyInteractionParams struct {
 const createDefaultInteraction = `-- name: CreateDefaultInteraction :one
 INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
 type CreateDefaultInteractionParams struct {
@@ -138,6 +138,7 @@ func (q *Queries) CreateDefaultInteraction(ctx context.Context, arg CreateDefaul
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.DateCreated,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -145,7 +146,7 @@ func (q *Queries) CreateDefaultInteraction(ctx context.Context, arg CreateDefaul
 const createInteraction = `-- name: CreateInteraction :one
 INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
 type CreateInteractionParams struct {
@@ -184,6 +185,7 @@ func (q *Queries) CreateInteraction(ctx context.Context, arg CreateInteractionPa
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.DateCreated,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -246,7 +248,7 @@ func (q *Queries) DeleteInteraction(ctx context.Context, arg DeleteInteractionPa
 }
 
 const getInteraction = `-- name: GetInteraction :one
-SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 FROM "analytic"."interaction"
 WHERE ("id" = $1)
 `
@@ -265,12 +267,13 @@ func (q *Queries) GetInteraction(ctx context.Context, id pgtype.Int8) (AnalyticI
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.DateCreated,
+		&i.AccountNumber,
 	)
 	return i, err
 }
 
 const listCountInteraction = `-- name: ListCountInteraction :many
-SELECT embed_interaction.id, embed_interaction.account_id, embed_interaction.session_id, embed_interaction.event_type, embed_interaction.ref_type, embed_interaction.ref_id, embed_interaction.metadata, embed_interaction.user_agent, embed_interaction.ip_address, embed_interaction.date_created, COUNT(*) OVER() as total_count
+SELECT embed_interaction.id, embed_interaction.account_id, embed_interaction.session_id, embed_interaction.event_type, embed_interaction.ref_type, embed_interaction.ref_id, embed_interaction.metadata, embed_interaction.user_agent, embed_interaction.ip_address, embed_interaction.date_created, embed_interaction.account_number, COUNT(*) OVER() as total_count
 FROM "analytic"."interaction" embed_interaction
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -354,6 +357,7 @@ func (q *Queries) ListCountInteraction(ctx context.Context, arg ListCountInterac
 			&i.AnalyticInteraction.UserAgent,
 			&i.AnalyticInteraction.IpAddress,
 			&i.AnalyticInteraction.DateCreated,
+			&i.AnalyticInteraction.AccountNumber,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -367,7 +371,7 @@ func (q *Queries) ListCountInteraction(ctx context.Context, arg ListCountInterac
 }
 
 const listInteraction = `-- name: ListInteraction :many
-SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -446,6 +450,7 @@ func (q *Queries) ListInteraction(ctx context.Context, arg ListInteractionParams
 			&i.UserAgent,
 			&i.IpAddress,
 			&i.DateCreated,
+			&i.AccountNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -469,7 +474,7 @@ SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "accoun
     "ip_address" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "ip_address") END,
     "date_created" = COALESCE($14, "date_created")
 WHERE id = $15
-RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
+RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
 type UpdateInteractionParams struct {
@@ -520,6 +525,7 @@ func (q *Queries) UpdateInteraction(ctx context.Context, arg UpdateInteractionPa
 		&i.UserAgent,
 		&i.IpAddress,
 		&i.DateCreated,
+		&i.AccountNumber,
 	)
 	return i, err
 }
