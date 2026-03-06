@@ -6,6 +6,7 @@ package accountdb
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -258,6 +259,7 @@ type AccountAccount struct {
 	Password    null.String   `json:"password"`
 	DateCreated time.Time     `json:"date_created"`
 	DateUpdated time.Time     `json:"date_updated"`
+	Number      int64         `json:"number"`
 }
 
 type AccountContact struct {
@@ -276,6 +278,13 @@ type AccountCustomer struct {
 	ID          uuid.UUID `json:"id"`
 	DateCreated time.Time `json:"date_created"`
 	DateUpdated time.Time `json:"date_updated"`
+}
+
+type AccountFavorite struct {
+	ID          int64     `json:"id"`
+	AccountID   uuid.UUID `json:"account_id"`
+	SpuID       uuid.UUID `json:"spu_id"`
+	DateCreated time.Time `json:"date_created"`
 }
 
 type AccountIncomeHistory struct {
@@ -299,6 +308,17 @@ type AccountNotification struct {
 	DateUpdated   time.Time `json:"date_updated"`
 	DateSent      null.Time `json:"date_sent"`
 	DateScheduled null.Time `json:"date_scheduled"`
+}
+
+type AccountPaymentMethod struct {
+	ID          uuid.UUID       `json:"id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	Type        string          `json:"type"`
+	Label       string          `json:"label"`
+	Data        json.RawMessage `json:"data"`
+	IsDefault   bool            `json:"is_default"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 type AccountProfile struct {

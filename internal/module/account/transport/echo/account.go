@@ -41,6 +41,21 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	contactApi.PATCH("", h.UpdateContact)
 	contactApi.DELETE("", h.DeleteContact)
 
+	// Favorite endpoints
+	favoriteApi := api.Group("/favorite")
+	favoriteApi.POST("/:spu_id", h.AddFavorite)
+	favoriteApi.DELETE("/:spu_id", h.RemoveFavorite)
+	favoriteApi.GET("", h.ListFavorite)
+	favoriteApi.GET("/:spu_id/check", h.CheckFavorite)
+
+	// Payment method endpoints
+	paymentApi := api.Group("/payment-method")
+	paymentApi.POST("", h.CreatePaymentMethod)
+	paymentApi.GET("", h.ListPaymentMethod)
+	paymentApi.PATCH("", h.UpdatePaymentMethod)
+	paymentApi.DELETE("", h.DeletePaymentMethod)
+	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
+
 	return h
 }
 

@@ -73,7 +73,7 @@ func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO "account"."account" ("id", "type", "status", "phone", "email", "username", "password", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated
+RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
 `
 
 type CreateAccountParams struct {
@@ -111,6 +111,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Number,
 	)
 	return i, err
 }
@@ -138,7 +139,7 @@ type CreateCopyDefaultAccountParams struct {
 const createDefaultAccount = `-- name: CreateDefaultAccount :one
 INSERT INTO "account"."account" ("type", "phone", "email", "username", "password")
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated
+RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
 `
 
 type CreateDefaultAccountParams struct {
@@ -168,6 +169,7 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Number,
 	)
 	return i, err
 }
@@ -227,7 +229,7 @@ func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) er
 }
 
 const getAccount = `-- name: GetAccount :one
-SELECT id, type, status, phone, email, username, password, date_created, date_updated
+SELECT id, type, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE ("id" = $1) OR ("phone" = $2) OR ("email" = $3) OR ("username" = $4)
 `
@@ -257,12 +259,13 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Number,
 	)
 	return i, err
 }
 
 const listAccount = `-- name: ListAccount :many
-SELECT id, type, status, phone, email, username, password, date_created, date_updated
+SELECT id, type, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -337,6 +340,7 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 			&i.Password,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -349,7 +353,7 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 }
 
 const listCountAccount = `-- name: ListCountAccount :many
-SELECT embed_account.id, embed_account.type, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_account.id, embed_account.type, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, embed_account.number, COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -429,6 +433,7 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 			&i.AccountAccount.Password,
 			&i.AccountAccount.DateCreated,
 			&i.AccountAccount.DateUpdated,
+			&i.AccountAccount.Number,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -452,7 +457,7 @@ SET "type" = COALESCE($1, "type"),
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated")
 WHERE id = $13
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated
+RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
 `
 
 type UpdateAccountParams struct {
@@ -498,6 +503,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Number,
 	)
 	return i, err
 }

@@ -22,8 +22,9 @@ import (
 func (a *AccountBiz) CreateClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
-			Type: account.Type,
-			ID:   account.ID,
+			Type:   account.Type,
+			ID:     account.ID,
+			Number: account.Number,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewString(),
@@ -53,8 +54,9 @@ func (a *AccountBiz) GenerateAccessToken(account accountdb.AccountAccount) (stri
 func (a *AccountBiz) CreateRefreshClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
-			Type: account.Type,
-			ID:   account.ID,
+			Type:   account.Type,
+			ID:     account.ID,
+			Number: account.Number,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   account.ID.String(),

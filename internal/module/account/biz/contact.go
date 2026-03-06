@@ -166,7 +166,7 @@ func (b *AccountBiz) GetDefaultContact(ctx context.Context, accountIDs []uuid.UU
 	if err != nil {
 		return nil, err
 	}
-	if len(contacts) != len(accountIDs) {
+	if len(contacts) != len(lo.Uniq(accountIDs)) {
 		return nil, fmt.Errorf("some accounts have no default contact")
 	}
 

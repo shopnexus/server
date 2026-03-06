@@ -22,7 +22,7 @@ var (
 const createBatchAccount = `-- name: CreateBatchAccount :batchone
 INSERT INTO "account"."account" ("id", "type", "status", "phone", "email", "username", "password", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated
+RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
 `
 
 type CreateBatchAccountBatchResults struct {
@@ -84,6 +84,7 @@ func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, er
 			&i.Password,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Number,
 		)
 		if f != nil {
 			f(t, i, err)

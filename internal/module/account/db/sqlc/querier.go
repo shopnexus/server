@@ -15,6 +15,7 @@ type Querier interface {
 	CountAccount(ctx context.Context, arg CountAccountParams) (int64, error)
 	CountContact(ctx context.Context, arg CountContactParams) (int64, error)
 	CountCustomer(ctx context.Context, arg CountCustomerParams) (int64, error)
+	CountFavoriteBySpuID(ctx context.Context, spuID []uuid.UUID) ([]CountFavoriteBySpuIDRow, error)
 	CountIncomeHistory(ctx context.Context, arg CountIncomeHistoryParams) (int64, error)
 	CountNotification(ctx context.Context, arg CountNotificationParams) (int64, error)
 	CountProfile(ctx context.Context, arg CountProfileParams) (int64, error)
@@ -46,8 +47,10 @@ type Querier interface {
 	CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error)
 	CreateDefaultContact(ctx context.Context, arg CreateDefaultContactParams) (AccountContact, error)
 	CreateDefaultCustomer(ctx context.Context, id uuid.UUID) (AccountCustomer, error)
+	CreateDefaultFavorite(ctx context.Context, arg CreateDefaultFavoriteParams) (AccountFavorite, error)
 	CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefaultIncomeHistoryParams) (AccountIncomeHistory, error)
 	CreateDefaultNotification(ctx context.Context, arg CreateDefaultNotificationParams) (AccountNotification, error)
+	CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefaultPaymentMethodParams) (AccountPaymentMethod, error)
 	CreateDefaultProfile(ctx context.Context, arg CreateDefaultProfileParams) (AccountProfile, error)
 	CreateDefaultVendor(ctx context.Context, id uuid.UUID) (AccountVendor, error)
 	CreateIncomeHistory(ctx context.Context, arg CreateIncomeHistoryParams) (AccountIncomeHistory, error)
@@ -57,15 +60,19 @@ type Querier interface {
 	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) error
+	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error
 	DeleteIncomeHistory(ctx context.Context, arg DeleteIncomeHistoryParams) error
 	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
+	DeletePaymentMethod(ctx context.Context, arg DeletePaymentMethodParams) error
 	DeleteProfile(ctx context.Context, arg DeleteProfileParams) error
 	DeleteVendor(ctx context.Context, arg DeleteVendorParams) error
 	GetAccount(ctx context.Context, arg GetAccountParams) (AccountAccount, error)
 	GetContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error)
 	GetCustomer(ctx context.Context, id uuid.NullUUID) (AccountCustomer, error)
+	GetFavorite(ctx context.Context, arg GetFavoriteParams) (AccountFavorite, error)
 	GetIncomeHistory(ctx context.Context, id pgtype.Int8) (AccountIncomeHistory, error)
 	GetNotification(ctx context.Context, id pgtype.Int8) (AccountNotification, error)
+	GetPaymentMethod(ctx context.Context, arg GetPaymentMethodParams) (AccountPaymentMethod, error)
 	GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error)
 	GetVendor(ctx context.Context, id uuid.NullUUID) (AccountVendor, error)
 	ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error)
@@ -73,8 +80,10 @@ type Querier interface {
 	ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error)
 	ListCountContact(ctx context.Context, arg ListCountContactParams) ([]ListCountContactRow, error)
 	ListCountCustomer(ctx context.Context, arg ListCountCustomerParams) ([]ListCountCustomerRow, error)
+	ListCountFavorite(ctx context.Context, arg ListCountFavoriteParams) ([]ListCountFavoriteRow, error)
 	ListCountIncomeHistory(ctx context.Context, arg ListCountIncomeHistoryParams) ([]ListCountIncomeHistoryRow, error)
 	ListCountNotification(ctx context.Context, arg ListCountNotificationParams) ([]ListCountNotificationRow, error)
+	ListCountPaymentMethod(ctx context.Context, arg ListCountPaymentMethodParams) ([]ListCountPaymentMethodRow, error)
 	ListCountProfile(ctx context.Context, arg ListCountProfileParams) ([]ListCountProfileRow, error)
 	ListCountVendor(ctx context.Context, arg ListCountVendorParams) ([]ListCountVendorRow, error)
 	ListCustomer(ctx context.Context, arg ListCustomerParams) ([]AccountCustomer, error)
@@ -83,11 +92,14 @@ type Querier interface {
 	ListNotification(ctx context.Context, arg ListNotificationParams) ([]AccountNotification, error)
 	ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error)
 	ListVendor(ctx context.Context, arg ListVendorParams) ([]AccountVendor, error)
+	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (AccountPaymentMethod, error)
+	UnsetDefaultPaymentMethod(ctx context.Context, accountID uuid.UUID) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error)
 	UpdateContact(ctx context.Context, arg UpdateContactParams) (AccountContact, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (AccountCustomer, error)
 	UpdateIncomeHistory(ctx context.Context, arg UpdateIncomeHistoryParams) (AccountIncomeHistory, error)
 	UpdateNotification(ctx context.Context, arg UpdateNotificationParams) (AccountNotification, error)
+	UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMethodParams) (AccountPaymentMethod, error)
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error)
 	UpdateVendor(ctx context.Context, arg UpdateVendorParams) (AccountVendor, error)
 }

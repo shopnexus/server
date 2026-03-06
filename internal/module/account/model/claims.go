@@ -13,6 +13,7 @@ type Claims struct {
 }
 
 type AuthenticatedAccount struct {
-	Type accountdb.AccountType `validate:"required,validateFn=Valid"`
-	ID   uuid.UUID             `validate:"required"`
+	Type   accountdb.AccountType `validate:"required,validateFn=Valid"`
+	ID     uuid.UUID             `validate:"required"`
+	Number int64                 `validate:"required"`
 }
