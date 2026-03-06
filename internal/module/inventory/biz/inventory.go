@@ -268,19 +268,19 @@ func (b *InventoryBiz) UpdateSerial(ctx context.Context, params UpdateSerialPara
 	return nil
 }
 
-type ListMostTakenParams struct {
+type ListMostTakenSkuParams struct {
 	sharedmodel.PaginationParams
 	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) ListMostTaken(ctx context.Context, params ListMostTakenParams) ([]inventorydb.InventorySerial, error) {
-	var zero []inventorydb.InventorySerial
+func (b *InventoryBiz) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
+	var zero []inventorydb.InventoryStock
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	results, err := b.storage.Querier().ListMostTaken(ctx, inventorydb.ListMostTakenParams{
+	results, err := b.storage.Querier().ListMostTakenSku(ctx, inventorydb.ListMostTakenSkuParams{
 		Limit:   params.Limit,
 		Offset:  params.Offset(),
 		RefType: params.RefType,

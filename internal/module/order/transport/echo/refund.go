@@ -65,7 +65,7 @@ func (h *Handler) ListRefunds(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListRefunds(c.Request().Context(), orderbiz.ListRefundsParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

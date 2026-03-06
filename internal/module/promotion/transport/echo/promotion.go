@@ -69,7 +69,7 @@ func (h *Handler) ListPromotion(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListPromotion(c.Request().Context(), promotionbiz.ListPromotionParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

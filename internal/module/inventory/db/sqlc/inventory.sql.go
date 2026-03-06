@@ -73,36 +73,37 @@ func (q *Queries) GetAvailableSerials(ctx context.Context, arg GetAvailableSeria
 	return items, nil
 }
 
-const listMostTaken = `-- name: ListMostTaken :many
-SELECT se.id, se.ref_type, se.ref_id, se.status, se.date_created
-FROM "inventory"."serial" se
-INNER JOIN "inventory"."stock" st ON se.ref_id = st.ref_id AND se.ref_type = st.ref_type
-WHERE se.ref_type = $1
-ORDER BY st.taken DESC
+const listMostTakenSku = `-- name: ListMostTakenSku :many
+SELECT id, ref_type, ref_id, stock, taken, serial_required, date_created
+FROM "inventory"."stock"
+WHERE ref_type = $1
+ORDER BY taken DESC
 LIMIT $3::int
 OFFSET $2::int
 `
 
-type ListMostTakenParams struct {
+type ListMostTakenSkuParams struct {
 	RefType InventoryStockRefType `json:"ref_type"`
 	Offset  null.Int32            `json:"offset"`
 	Limit   null.Int32            `json:"limit"`
 }
 
-func (q *Queries) ListMostTaken(ctx context.Context, arg ListMostTakenParams) ([]InventorySerial, error) {
-	rows, err := q.db.Query(ctx, listMostTaken, arg.RefType, arg.Offset, arg.Limit)
+func (q *Queries) ListMostTakenSku(ctx context.Context, arg ListMostTakenSkuParams) ([]InventoryStock, error) {
+	rows, err := q.db.Query(ctx, listMostTakenSku, arg.RefType, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []InventorySerial{}
+	items := []InventoryStock{}
 	for rows.Next() {
-		var i InventorySerial
+		var i InventoryStock
 		if err := rows.Scan(
 			&i.ID,
 			&i.RefType,
 			&i.RefID,
-			&i.Status,
+			&i.Stock,
+			&i.Taken,
+			&i.SerialRequired,
 			&i.DateCreated,
 		); err != nil {
 			return nil, err

@@ -34,7 +34,7 @@ func (h *Handler) ListVendorOrder(c echo.Context) error {
 
 	result, err := h.biz.ListVendorOrder(c.Request().Context(), orderbiz.ListVendorOrderParams{
 		Account:          claims.Account,
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -44,7 +44,7 @@ func (h *Handler) ListVendorOrder(c echo.Context) error {
 }
 
 type ConfirmOrderRequest struct {
-	OrderID uuid.UUID `json:"order_id" validate:"required,uuid"`
+	OrderID uuid.UUID `json:"order_id" validate:"required"`
 
 	FromAddress null.String     `json:"from_address" validate:"omitnil,min=5,max=500"`
 	Package     json.RawMessage `json:"package" validate:"omitempty"`

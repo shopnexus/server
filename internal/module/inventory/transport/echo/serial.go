@@ -28,7 +28,7 @@ func (h *Handler) ListSerial(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListSerial(c.Request().Context(), inventorybiz.ListSerialParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 		RefID:            req.RefID,
 		RefType:          req.RefType,
 	})

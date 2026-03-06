@@ -72,7 +72,7 @@ func (h *Handler) ListStockHistory(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListStockHistory(c.Request().Context(), inventorybiz.ListStockHistoryParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 		RefID:            req.RefID,
 		RefType:          req.RefType,
 	})

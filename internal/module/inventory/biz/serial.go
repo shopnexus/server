@@ -94,8 +94,8 @@ func (b *InventoryBiz) ReserveInventory(ctx context.Context, params ReserveInven
 				return err
 			}
 
-			if stock.Stock-stock.Taken < item.Amount {
-				return inventorymodel.ErrOutOfStock.Fmt("%s %s", item.RefType, item.RefID)
+			if stock.Stock < item.Amount {
+				return inventorymodel.ErrOutOfStock.Fmt(item.RefID.String())
 			}
 
 			// Adjust the inventory (reserve the inventory)
@@ -120,7 +120,7 @@ func (b *InventoryBiz) ReserveInventory(ctx context.Context, params ReserveInven
 
 				// Check if enough serials are available
 				if len(serials) != int(item.Amount) {
-					return inventorymodel.ErrOutOfStock.Fmt("%s %s", item.RefType, item.RefID)
+					return inventorymodel.ErrOutOfStock.Fmt(item.RefID.String())
 				}
 
 				// Reserve the serials

@@ -41,7 +41,7 @@ type Querier interface {
 	ListCountSerial(ctx context.Context, arg ListCountSerialParams) ([]ListCountSerialRow, error)
 	ListCountStock(ctx context.Context, arg ListCountStockParams) ([]ListCountStockRow, error)
 	ListCountStockHistory(ctx context.Context, arg ListCountStockHistoryParams) ([]ListCountStockHistoryRow, error)
-	ListMostTaken(ctx context.Context, arg ListMostTakenParams) ([]InventorySerial, error)
+	ListMostTakenSku(ctx context.Context, arg ListMostTakenSkuParams) ([]InventoryStock, error)
 	ListSerial(ctx context.Context, arg ListSerialParams) ([]InventorySerial, error)
 	ListStock(ctx context.Context, arg ListStockParams) ([]InventoryStock, error)
 	ListStockHistory(ctx context.Context, arg ListStockHistoryParams) ([]InventoryStockHistory, error)

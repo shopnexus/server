@@ -7,8 +7,12 @@ import (
 	"time"
 
 	"shopnexus-remastered/config"
+	"shopnexus-remastered/internal/infras/payment"
 	"shopnexus-remastered/internal/infras/shipment"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
+	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
@@ -74,7 +78,8 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 	skuMap := lo.KeyBy(skus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
 
 	listSpu, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
-		ID: lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
+		Account: params.Account,
+		ID:      lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
 	})
 	if err != nil {
 		return zero, fmt.Errorf("failed to list catalog product spu: %w", err)
@@ -127,7 +132,7 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 		serialIDsMap := lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) { return i.RefID, i.SerialIDs })
 
 		// Next step: create shipments (each checkout item have a shipment)
-		var shipmentMap map[uuid.UUID]orderdb.OrderShipment
+		shipmentMap := make(map[uuid.UUID]orderdb.OrderShipment)
 		for _, checkoutItem := range params.Items {
 			shipmentClient, err := b.getShipmentClient(checkoutItem.ShipmentOption)
 			if err != nil {
@@ -184,33 +189,53 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 			return fmt.Errorf("failed to calculate promoted prices: %w", err)
 		}
 
-		// Next step: create orders (each checkout item is a order)
+		// Next step: Create a payment record for all of that orders (each checkout items is an order)
+		expiryDays := config.GetConfig().App.Order.PaymentExpiryDays
+		if expiryDays <= 0 {
+			expiryDays = 30
+		}
+		var totalPrice sharedmodel.Concurrency
+		for _, checkoutItem := range params.Items {
+			price := priceMap[checkoutItem.SkuID]
+			totalPrice += price.Total()
+		}
+		dbPayment, err := txStorage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
+			AccountID:   params.Account.ID,
+			Option:      params.PaymentOption,
+			Amount:      int64(totalPrice),
+			Data:        []byte("[]"), // TODO: may put some data here idk
+			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create payment: %w", err)
+		}
+
+		// Next step: Call payment provider to create payment
+		paymentProvider, err := b.getPaymentClient(params.PaymentOption)
+		if err != nil {
+			return fmt.Errorf("failed to get payment provider: %w", err)
+		}
+		createdOrder, err := paymentProvider.CreateOrder(ctx, payment.CreateOrderParams{
+			RefID:  dbPayment.ID,
+			Amount: totalPrice,
+			Info:   fmt.Sprintf("Order %d", dbPayment.ID),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create payment order: %w", err)
+		}
+		redirectUrl.SetValid(createdOrder.RedirectURL)
+
+		// Next step: create orders (each checkout item is an order)
 		for _, checkoutItem := range params.Items {
 			sku := skuMap[checkoutItem.SkuID]
 			price := priceMap[checkoutItem.SkuID]
 			serialIDs := serialIDsMap[checkoutItem.SkuID]
 
-			// Create payment
-			expiryDays := config.GetConfig().App.Order.PaymentExpiryDays
-			if expiryDays <= 0 {
-				expiryDays = 30
-			}
-			payment, err := txStorage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-				AccountID:   params.Account.ID,
-				Option:      params.PaymentOption,
-				Amount:      int64(price.Total()),
-				Data:        checkoutItem.Data,
-				DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create payment: %w", err)
-			}
-
 			// Create order
 			order, err := txStorage.Querier().CreateDefaultOrder(ctx, orderdb.CreateDefaultOrderParams{
 				CustomerID:      params.Account.ID,
 				VendorID:        spuMap[sku.SpuID].AccountID,
-				PaymentID:       payment.ID,
+				PaymentID:       dbPayment.ID,
 				ShipmentID:      shipmentMap[checkoutItem.SkuID].ID,
 				Address:         params.Address,
 				ProductCost:     int64(price.ProductCost),
@@ -282,6 +307,18 @@ func (b *OrderBiz) Checkout(ctx context.Context, params CheckoutParams) (Checkou
 		return zero, fmt.Errorf("failed to fetch created orders: %w", err)
 	}
 
+	// Track purchase interactions for each SKU
+	var purchaseInteractions []analyticbiz.CreateInteraction
+	for _, item := range params.Items {
+		purchaseInteractions = append(purchaseInteractions, analyticbiz.CreateInteraction{
+			Account:   params.Account,
+			EventType: analyticmodel.EventPurchase,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     item.SkuID.String(),
+		})
+	}
+	b.analytic.TrackInteractions(purchaseInteractions)
+
 	return CheckoutResult{Orders: orders.Data, RedirectUrl: redirectUrl}, nil
 }
 
@@ -345,6 +382,18 @@ func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) er
 	}); err != nil {
 		return fmt.Errorf("failed to cancel order %s: %w", params.OrderID, err)
 	}
+
+	// Track cancel_order interactions for each item in the order
+	var cancelInteractions []analyticbiz.CreateInteraction
+	for _, item := range order.Items {
+		cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
+			Account:   params.Account,
+			EventType: analyticmodel.EventCancelOrder,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     item.SkuID.String(),
+		})
+	}
+	b.analytic.TrackInteractions(cancelInteractions)
 
 	return nil
 }

@@ -62,9 +62,3 @@ type Payment struct {
 	DatePaid    null.Time               `json:"date_paid"`
 	DateExpired time.Time               `json:"date_expired"`
 }
-
-type OrderItem struct {
-	SkuID    uuid.UUID `json:"sku_id"`
-	Quantity int64     `json:"quantity"`
-	Note     string    `json:"note"`
-}

@@ -10,6 +10,7 @@ import (
 	"shopnexus-remastered/internal/infras/shipment"
 	accountbiz "shopnexus-remastered/internal/module/account/biz"
 	accountmodel "shopnexus-remastered/internal/module/account/model"
+	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
 	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
 	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
@@ -39,19 +40,28 @@ type OrderBiz struct {
 	inventory   *inventorybiz.InventoryBiz
 	promotion   *promotionbiz.PromotionBiz
 	common      *commonbiz.CommonBiz
+	analytic    *analyticbiz.AnalyticBiz
 }
 
 func NewOrderBiz(
 	storage OrderStorage,
 	pubsub pubsub.Client,
+	account *accountbiz.AccountBiz,
+	catalog *catalogbiz.CatalogBiz,
+	inventory *inventorybiz.InventoryBiz,
 	promotion *promotionbiz.PromotionBiz,
 	common *commonbiz.CommonBiz,
+	analytic *analyticbiz.AnalyticBiz,
 ) (*OrderBiz, error) {
 	b := &OrderBiz{
 		storage:   storage,
 		pubsub:    pubsub.Group("order"),
+		account:   account,
+		catalog:   catalog,
+		inventory: inventory,
 		promotion: promotion,
 		common:    common,
+		analytic:  analytic,
 	}
 
 	return b, errors.Join(

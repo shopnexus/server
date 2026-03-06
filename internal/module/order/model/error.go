@@ -1,10 +1,10 @@
 package ordermodel
 
-import commonmodel "shopnexus-remastered/internal/shared/model"
+import sharedmodel "shopnexus-remastered/internal/shared/model"
 
 var (
-	ErrOrderItemNotFound      = commonmodel.NewError("order.order_item_not_found", "Sorry, we couldn't find the item you requested")
-	ErrPaymentGatewayNotFound = commonmodel.NewError("order.payment_gateway_not_found", "Sorry, we couldn't find the payment gateway you requested")
-	ErrRefundAddressRequired  = commonmodel.NewError("order.refund_address_required", "Address is required for pick up method")
-	ErrRefundCannotBeUpdated  = commonmodel.NewError("order.refund_cannot_be_updated", "Refund cannot be updated in its current status")
+	ErrOrderItemNotFound      = sharedmodel.NewError("order.order_item_not_found", "Sorry, we couldn't find the item you requested")
+	ErrPaymentGatewayNotFound = sharedmodel.NewError("order.payment_gateway_not_found", "Sorry, we couldn't find the payment gateway you requested")
+	ErrRefundAddressRequired  = sharedmodel.NewError("order.refund_address_required", "Address is required for pick up method")
+	ErrRefundCannotBeUpdated  = sharedmodel.NewError("order.refund_cannot_be_updated", "Refund cannot be updated in its current status")
 )

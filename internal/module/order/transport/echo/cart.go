@@ -25,7 +25,10 @@ func (h *Handler) GetCart(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, _ := authclaims.GetClaims(c.Request())
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
 
 	result, err := h.biz.GetCart(c.Request().Context(), orderbiz.GetCartParams{
 		AccountID: claims.Account.ID,
@@ -39,7 +42,7 @@ func (h *Handler) GetCart(c echo.Context) error {
 }
 
 type UpdateCartRequest struct {
-	SkuID         uuid.UUID  `json:"sku_id" validate:"required,uuid"`
+	SkuID         uuid.UUID  `json:"sku_id" validate:"required"`
 	Quantity      null.Int64 `json:"quantity" validate:"omitnil"`
 	DeltaQuantity null.Int64 `json:"delta_quantity" validate:"omitnil"`
 }
@@ -96,31 +99,35 @@ func (h *Handler) ClearCart(c echo.Context) error {
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Clear cart successfully")
 }
 
-// type GetCheckoutSkuRequest struct {
-// 	SkuID    uuid.UUID `query:"sku_id" validate:"required,uuid"`
-// 	Quantity int64     `query:"quantity"`
-// }
+type ListCheckoutCartRequest struct {
+	SkuIDs         []uuid.UUID   `query:"sku_ids" validate:"omitempty,dive"`                  // Select items in cart to checkout
+	BuyNowSkuID    uuid.NullUUID `query:"buy_now_sku_id" validate:"omitnil"`                  // Instant checkout
+	BuyNowQuantity null.Int64    `query:"buy_now_quantity" validate:"omitnil,min=1,max=1000"` // Instant checkout quantity
+}
 
-// func (h *Handler) GetCheckoutSku(c echo.Context) error {
-// 	var req GetCheckoutSkuRequest
-// 	if err := c.Bind(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-// 	if err := c.Validate(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
+func (h *Handler) ListCheckoutCart(c echo.Context) error {
+	var req ListCheckoutCartRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
 
-// 	result, err := h.biz.ListCheckoutSku(c.Request().Context(), orderbiz.ListCheckoutSkuParams{
-// 		Skus: []orderbiz.CartOrderSku{
-// 			{
-// 				SkuID:    req.SkuID,
-// 				Quantity: req.Quantity,
-// 			},
-// 		},
-// 	})
-// 	if err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-// 	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
 
-// 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-// }
+	result, err := h.biz.ListCheckoutCart(c.Request().Context(), orderbiz.ListCheckoutCartParams{
+		Account:        claims.Account,
+		SkuIDs:         req.SkuIDs,
+		BuyNowSkuID:    req.BuyNowSkuID,
+		BuyNowQuantity: req.BuyNowQuantity,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}

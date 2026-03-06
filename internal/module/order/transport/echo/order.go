@@ -25,10 +25,18 @@ func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
 
 	api.GET("", h.ListOrders)
 	api.GET("/:id", h.GetOrder)
+	api.GET("/cart", h.GetCart)
+	api.GET("/cart-checkout", h.ListCheckoutCart)
 	api.POST("/checkout", h.Checkout)
 	api.POST("/confirm", h.ConfirmOrder)
 	api.POST("/quote", h.QuoteOrder)
 	api.GET("/vendor", h.ListVendorOrder)
+
+	// Cart endpoints
+	cartApi := api.Group("/cart")
+	cartApi.GET("", h.GetCart)
+	cartApi.POST("", h.UpdateCart)
+	cartApi.DELETE("", h.ClearCart)
 
 	refundApi := api.Group("/refund")
 	refundApi.GET("", h.ListRefunds)
@@ -83,7 +91,7 @@ func (h *Handler) ListOrders(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListOrders(c.Request().Context(), orderbiz.ListOrdersParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -100,7 +108,7 @@ type CheckoutRequest struct {
 }
 
 type CheckoutItemRequest struct {
-	SkuID          uuid.UUID       `json:"sku_id" validate:"required,uuid"`
+	SkuID          uuid.UUID       `json:"sku_id" validate:"required"`
 	Quantity       int64           `json:"quantity" validate:"required,gt=0"`
 	Note           string          `json:"note" validate:"max=500"`
 	ShipmentOption string          `json:"shipment_option" validate:"required,min=1,max=100"`
@@ -206,7 +214,7 @@ func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
 
 	// Verify the checksum hash
 	if err := h.biz.VerifyPayment(c.Request().Context(), orderbiz.VerifyPaymentParams{
-		PaymentGateway: "vnpay_card", // or "vnpay_banktransfer"
+		PaymentGateway: "vnpay_qr",
 		Data:           query,
 	}); err != nil {
 		slog.Error("VnpayVerifyIPN verify error", slog.Any("error", err))

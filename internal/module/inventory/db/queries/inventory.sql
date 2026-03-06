@@ -24,11 +24,10 @@ UPDATE "inventory"."stock"
 SET "stock" = stock + sqlc.arg('change')
 WHERE id = sqlc.arg('id');
 
--- name: ListMostTaken :many
-SELECT se.*
-FROM "inventory"."serial" se
-INNER JOIN "inventory"."stock" st ON se.ref_id = st.ref_id AND se.ref_type = st.ref_type
-WHERE se.ref_type = sqlc.arg('ref_type')
-ORDER BY st.taken DESC
+-- name: ListMostTakenSku :many
+SELECT *
+FROM "inventory"."stock"
+WHERE ref_type = sqlc.arg('ref_type')
+ORDER BY taken DESC
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;

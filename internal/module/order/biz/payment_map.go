@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"context"
+	"fmt"
 
 	"shopnexus-remastered/config"
 	"shopnexus-remastered/internal/infras/payment"
@@ -44,4 +45,12 @@ func (b *OrderBiz) SetupPaymentMap() error {
 	}
 
 	return nil
+}
+
+func (b *OrderBiz) getPaymentClient(option string) (payment.Client, error) {
+	client, ok := b.paymentMap[option]
+	if !ok {
+		return nil, fmt.Errorf("unknown payment option: %s", option)
+	}
+	return client, nil
 }

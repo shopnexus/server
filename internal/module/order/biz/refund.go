@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	accountmodel "shopnexus-remastered/internal/module/account/model"
+	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
 	commonbiz "shopnexus-remastered/internal/module/common/biz"
 	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-remastered/internal/module/common/model"
@@ -141,6 +143,13 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 		return nil
 	}); err != nil {
 		return zero, fmt.Errorf("failed to create refund: %w", err)
+	}
+
+	// Track refund_requested interaction for each item in the order
+	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
+		for _, item := range order.Items {
+			b.analytic.TrackInteraction(params.Account, analyticmodel.EventRefundReq, analyticdb.AnalyticInteractionRefTypeProduct, item.SkuID.String())
+		}
 	}
 
 	return ordermodel.Refund{

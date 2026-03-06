@@ -62,7 +62,7 @@ DROP INDEX IF EXISTS "item_order_id_sku_id_key";
 DROP INDEX IF EXISTS "item_sku_id_idx";
 DROP INDEX IF EXISTS "item_order_id_idx";
 DROP INDEX IF EXISTS "order_vendor_id_idx";
-DROP INDEX IF EXISTS "order_payment_id_key";
+-- DROP INDEX IF EXISTS "order_payment_id_key";
 DROP INDEX IF EXISTS "cart_item_account_id_sku_id_key";
 
 DROP TABLE IF EXISTS "order"."refund_dispute";

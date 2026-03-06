@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "cart_item_account_id_sku_id_key" ON "order"."cart_item" ("account_id", "sku_id");
-CREATE UNIQUE INDEX IF NOT EXISTS "order_payment_id_key" ON "order"."order" ("payment_id");
+-- One payment for many orders
+-- CREATE UNIQUE INDEX IF NOT EXISTS "order_payment_id_key" ON "order"."order" ("payment_id");
 CREATE INDEX IF NOT EXISTS "order_vendor_id_idx" ON "order"."order" ("vendor_id");
 CREATE INDEX IF NOT EXISTS "item_order_id_idx" ON "order"."item" ("order_id");
 CREATE INDEX IF NOT EXISTS "item_sku_id_idx" ON "order"."item" ("sku_id");
