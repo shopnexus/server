@@ -32,3 +32,4 @@ config/config.*.yml
 node_modules/
 
 tmp/
+tmpclaude*
