@@ -19,13 +19,12 @@ type Config struct {
 }
 
 type App struct {
-	Name      string `yaml:"name" mapstructure:"name" validate:"required"`
-	Port      string `yaml:"port" mapstructure:"port"`
-	PublicURL string `yaml:"publicUrl" mapstructure:"publicUrl" validate:"required,url"`
-	JWT       JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
-	Vnpay     Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
-	Search    Search `yaml:"search" mapstructure:"search" validate:"required"`
-	Order     Order  `yaml:"order" mapstructure:"order" validate:"required"`
+	Name   string `yaml:"name" mapstructure:"name" validate:"required"`
+	Port   string `yaml:"port" mapstructure:"port"`
+	JWT    JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
+	Vnpay  Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
+	Search Search `yaml:"search" mapstructure:"search" validate:"required"`
+	Order  Order  `yaml:"order" mapstructure:"order" validate:"required"`
 }
 
 type JWT struct {
@@ -102,6 +101,7 @@ type Embedding struct {
 
 type Restate struct {
 	IngressAddress string `yaml:"ingressAddress" mapstructure:"ingressAddress" validate:"required,url"`
+	AdminAddress   string `yaml:"adminAddress" mapstructure:"adminAddress" validate:"required,url"`
 	ServicePort    string `yaml:"servicePort" mapstructure:"servicePort" validate:"required"`
 }
 

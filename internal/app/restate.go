@@ -1,10 +1,15 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
+
 	"shopnexus-server/config"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
@@ -40,10 +45,47 @@ func SetupRestate(
 		Bind(restate.Reflect(chatBiz))
 
 	go func() {
-		slog.Info("Starting Restate server on port", "port", bindAddress)
+		slog.Info("Starting Restate service endpoint", "address", bindAddress)
 		if err := srv.Start(context.Background(), bindAddress); err != nil {
 			slog.Error("Restate server error", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}()
+
+	// Auto-register with Restate runtime
+	go func() {
+		serviceURL := fmt.Sprintf("http://host.docker.internal:%s", cfg.Restate.ServicePort)
+		registerWithRestate(cfg.Restate.AdminAddress, serviceURL)
+	}()
+}
+
+// registerWithRestate registers the service endpoint with the Restate admin API.
+// Retries up to 10 times with 2s delay to handle startup ordering.
+func registerWithRestate(adminAddress, serviceURL string) {
+	type deploymentRequest struct {
+		URI   string `json:"uri"`
+		Force bool   `json:"force"`
+	}
+
+	body, _ := json.Marshal(deploymentRequest{URI: serviceURL, Force: true})
+
+	for i := range 10 {
+		time.Sleep(2 * time.Second)
+
+		resp, err := http.Post(adminAddress+"/deployments", "application/json", bytes.NewReader(body))
+		if err != nil {
+			slog.Warn("Restate registration attempt failed", "attempt", i+1, "error", err)
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			slog.Info("Registered services with Restate", "admin", adminAddress, "endpoint", serviceURL)
+			return
+		}
+
+		slog.Warn("Restate registration returned non-OK", "attempt", i+1, "status", resp.StatusCode)
+	}
+
+	slog.Error("Failed to register with Restate after retries", "admin", adminAddress)
 }

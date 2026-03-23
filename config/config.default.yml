@@ -73,4 +73,5 @@ embedding:
 
 restate:
   ingressAddress: "http://localhost:8080"
+  adminAddress: "http://localhost:9470"
   servicePort: "8081"
