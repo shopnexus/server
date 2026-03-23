@@ -1,3 +1,0 @@
--- name: Delete{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :exec
-DELETE FROM {{.GetFullTableName}}
-{{generateFilterConditions .}};

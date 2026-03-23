@@ -1,0 +1,474 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+
+	pgv6 "github.com/pganalyze/pg_query_go/v6"
+	pgquery "github.com/wasilibs/go-pgquery"
+)
+
+// Column represents a single column in a database table.
+type Column struct {
+	Name       string
+	Type       string // base pg type: "varchar", "int8", "timestamptz", etc.
+	Nullable   bool
+	PrimaryKey bool
+	Serial     bool // SERIAL/BIGSERIAL/SMALLSERIAL or GENERATED AS IDENTITY
+	HasDefault bool
+}
+
+// Quoted returns the column name wrapped in double quotes.
+func (c *Column) Quoted() string {
+	return fmt.Sprintf(`"%s"`, c.Name)
+}
+
+// IsRangeFilterable returns true for numeric/date/timestamp types,
+// false if the column name contains "id".
+func (c *Column) IsRangeFilterable() bool {
+	lowerType := strings.ToLower(c.Type)
+	lowerName := strings.ToLower(c.Name)
+
+	if strings.Contains(lowerName, "id") {
+		return false
+	}
+
+	rangeTypes := []string{
+		"int", "integer", "bigint", "smallint",
+		"decimal", "numeric", "real", "float", "double",
+		"timestamp", "timestamptz", "date", "time",
+	}
+	for _, rt := range rangeTypes {
+		if strings.Contains(lowerType, rt) {
+			return true
+		}
+	}
+	return false
+}
+
+// UniqueConstraint represents a UNIQUE constraint on one or more columns.
+type UniqueConstraint struct {
+	Name    string
+	Columns []string
+}
+
+// Table represents a parsed database table.
+type Table struct {
+	Schema            string
+	Name              string
+	Columns           []*Column
+	PrimaryKeys       []*Column
+	UniqueConstraints []*UniqueConstraint
+}
+
+// FullName returns "schema"."table".
+func (t *Table) FullName() string {
+	return fmt.Sprintf(`"%s"."%s"`, t.Schema, t.Name)
+}
+
+// QualifiedName returns schema.table.
+func (t *Table) QualifiedName() string {
+	return t.Schema + "." + t.Name
+}
+
+// SafeFileName returns schema_table.
+func (t *Table) SafeFileName() string {
+	return t.Schema + "_" + t.Name
+}
+
+// NonSerialColumns returns all columns except serial ones.
+func (t *Table) NonSerialColumns() []*Column {
+	var cols []*Column
+	for _, c := range t.Columns {
+		if !c.Serial {
+			cols = append(cols, c)
+		}
+	}
+	return cols
+}
+
+// InsertableColumns returns non-serial columns that have no default.
+func (t *Table) InsertableColumns() []*Column {
+	var cols []*Column
+	for _, c := range t.Columns {
+		if !c.Serial && !c.HasDefault {
+			cols = append(cols, c)
+		}
+	}
+	return cols
+}
+
+// UpdatableColumns returns non-serial and non-pk columns.
+func (t *Table) UpdatableColumns() []*Column {
+	var cols []*Column
+	for _, c := range t.Columns {
+		if !c.Serial && !c.PrimaryKey {
+			cols = append(cols, c)
+		}
+	}
+	return cols
+}
+
+// FilterableColumns returns all columns.
+func (t *Table) FilterableColumns() []*Column {
+	return t.Columns
+}
+
+// IdentifierSets returns the primary key first, then each unique constraint
+// as sets of columns that can uniquely identify a row.
+func (t *Table) IdentifierSets() [][]*Column {
+	var sets [][]*Column
+
+	if len(t.PrimaryKeys) > 0 {
+		sets = append(sets, t.PrimaryKeys)
+	}
+
+	for _, uc := range t.UniqueConstraints {
+		var cols []*Column
+		for _, colName := range uc.Columns {
+			for _, c := range t.Columns {
+				if c.Name == colName {
+					cols = append(cols, c)
+					break
+				}
+			}
+		}
+		if len(cols) == len(uc.Columns) {
+			sets = append(sets, cols)
+		}
+	}
+
+	return sets
+}
+
+// ParseSchemaFiles reads multiple SQL migration files (in order) and parses
+// all CREATE TABLE, ALTER TABLE ADD COLUMN, and CREATE UNIQUE INDEX statements.
+// Later files can add columns to tables defined in earlier files.
+func ParseSchemaFiles(filenames []string) ([]*Table, error) {
+	tableMap := make(map[string]*Table)
+	var tableOrder []string
+
+	for _, filename := range filenames {
+		data, err := os.ReadFile(filename)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", filename, err)
+		}
+		sql := string(data)
+
+		serialCols := prescanSerials(sql)
+
+		tree, err := pgquery.Parse(sql)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %s: %w", filename, err)
+		}
+
+		for _, rawStmt := range tree.Stmts {
+			switch n := rawStmt.Stmt.Node.(type) {
+			case *pgv6.Node_CreateStmt:
+				tbl := parseCreateStmt(n.CreateStmt, serialCols)
+				if tbl != nil {
+					key := tbl.QualifiedName()
+					tableMap[key] = tbl
+					tableOrder = append(tableOrder, key)
+				}
+
+			case *pgv6.Node_IndexStmt:
+				parseIndexStmt(n.IndexStmt, tableMap)
+
+			case *pgv6.Node_AlterTableStmt:
+				parseAlterTableStmt(n.AlterTableStmt, tableMap, serialCols)
+			}
+		}
+	}
+
+	tables := make([]*Table, 0, len(tableOrder))
+	seen := make(map[string]bool)
+	for _, key := range tableOrder {
+		if !seen[key] {
+			seen[key] = true
+			tables = append(tables, tableMap[key])
+		}
+	}
+
+	return tables, nil
+}
+
+// prescanSerials does a line-by-line scan of the raw SQL to detect
+// SERIAL / BIGSERIAL / SMALLSERIAL columns in CREATE TABLE blocks,
+// since pg_query transforms these to int4/int8/int2 in the grammar.
+// GENERATED AS IDENTITY is handled by the AST (ColumnDef.Identity), not here.
+// Returns a set keyed by "schema.table.column".
+func prescanSerials(sql string) map[string]bool {
+	result := make(map[string]bool)
+
+	reTable := regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"\."([^"]+)"`)
+	reSerial := regexp.MustCompile(`(?i)^\s*"([^"]+)"\s+\w*SERIAL`)
+
+	scanner := bufio.NewScanner(strings.NewReader(sql))
+	var currentSchema, currentTable string
+	inCreateTable := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if m := reTable.FindStringSubmatch(line); m != nil {
+			currentSchema = m[1]
+			currentTable = m[2]
+			inCreateTable = true
+			continue
+		}
+		if inCreateTable && strings.Contains(line, ");") {
+			inCreateTable = false
+			continue
+		}
+		if inCreateTable {
+			if m := reSerial.FindStringSubmatch(line); m != nil {
+				key := currentSchema + "." + currentTable + "." + m[1]
+				result[key] = true
+			}
+		}
+	}
+
+	return result
+}
+
+// parseCreateStmt extracts a Table from a CREATE TABLE AST node.
+func parseCreateStmt(cs *pgv6.CreateStmt, serialCols map[string]bool) *Table {
+	if cs.Relation == nil {
+		return nil
+	}
+
+	tbl := &Table{
+		Schema: cs.Relation.Schemaname,
+		Name:   cs.Relation.Relname,
+	}
+
+	// First pass: parse columns.
+	for _, elt := range cs.TableElts {
+		switch n := elt.Node.(type) {
+		case *pgv6.Node_ColumnDef:
+			col := parseColumnDef(n.ColumnDef, tbl.Schema, tbl.Name, serialCols)
+			if col != nil {
+				tbl.Columns = append(tbl.Columns, col)
+				if col.PrimaryKey {
+					tbl.PrimaryKeys = append(tbl.PrimaryKeys, col)
+				}
+			}
+		}
+	}
+
+	// Second pass: parse table-level constraints (PRIMARY KEY, UNIQUE).
+	for _, elt := range cs.TableElts {
+		switch n := elt.Node.(type) {
+		case *pgv6.Node_Constraint:
+			parseTableConstraint(n.Constraint, tbl)
+		}
+	}
+
+	return tbl
+}
+
+// parseAlterTableStmt handles ALTER TABLE ADD COLUMN statements,
+// merging new columns into existing tables.
+func parseAlterTableStmt(stmt *pgv6.AlterTableStmt, tableMap map[string]*Table, serialCols map[string]bool) {
+	if stmt.Relation == nil {
+		return
+	}
+
+	tableKey := stmt.Relation.Schemaname + "." + stmt.Relation.Relname
+	tbl, ok := tableMap[tableKey]
+	if !ok {
+		return
+	}
+
+	for _, cmd := range stmt.Cmds {
+		atCmd, ok := cmd.Node.(*pgv6.Node_AlterTableCmd)
+		if !ok {
+			continue
+		}
+
+		// AT_AddColumn
+		if atCmd.AlterTableCmd.Subtype != pgv6.AlterTableType_AT_AddColumn {
+			continue
+		}
+
+		defNode := atCmd.AlterTableCmd.Def
+		if defNode == nil {
+			continue
+		}
+
+		colDefNode, ok := defNode.Node.(*pgv6.Node_ColumnDef)
+		if !ok {
+			continue
+		}
+
+		col := parseColumnDef(colDefNode.ColumnDef, tbl.Schema, tbl.Name, serialCols)
+		if col == nil {
+			continue
+		}
+
+		// Check for GENERATED AS IDENTITY via the identity field
+		if colDefNode.ColumnDef.Identity != "" {
+			col.Serial = true
+			col.Nullable = false
+			if !col.HasDefault {
+				col.HasDefault = true
+			}
+		}
+
+		tbl.Columns = append(tbl.Columns, col)
+		if col.PrimaryKey {
+			tbl.PrimaryKeys = append(tbl.PrimaryKeys, col)
+		}
+	}
+}
+
+// parseColumnDef extracts a Column from a ColumnDef AST node.
+func parseColumnDef(cd *pgv6.ColumnDef, schema, table string, serialCols map[string]bool) *Column {
+	col := &Column{
+		Name:     cd.Colname,
+		Nullable: true, // default to nullable
+	}
+
+	// Resolve type name.
+	if cd.TypeName != nil {
+		col.Type = resolveTypeName(cd.TypeName)
+	}
+
+	// Check if this was a SERIAL column in the original SQL.
+	serialKey := schema + "." + table + "." + col.Name
+	if serialCols[serialKey] {
+		col.Serial = true
+	}
+
+	// Check ColumnDef.IsNotNull field.
+	if cd.IsNotNull {
+		col.Nullable = false
+	}
+
+	// Check for GENERATED AS IDENTITY.
+	if cd.Identity != "" {
+		col.Serial = true
+		col.Nullable = false
+		col.HasDefault = true
+	}
+
+	// Walk column-level constraints.
+	for _, cNode := range cd.Constraints {
+		if cn, ok := cNode.Node.(*pgv6.Node_Constraint); ok {
+			switch cn.Constraint.Contype {
+			case pgv6.ConstrType_CONSTR_NOTNULL:
+				col.Nullable = false
+			case pgv6.ConstrType_CONSTR_DEFAULT:
+				col.HasDefault = true
+			case pgv6.ConstrType_CONSTR_PRIMARY:
+				col.PrimaryKey = true
+				col.Nullable = false
+			case pgv6.ConstrType_CONSTR_IDENTITY:
+				col.Serial = true
+				col.Nullable = false
+				col.HasDefault = true
+			}
+		}
+	}
+
+	return col
+}
+
+// resolveTypeName converts a TypeName AST node into a string representation.
+func resolveTypeName(tn *pgv6.TypeName) string {
+	var parts []string
+	for _, nameNode := range tn.Names {
+		if s, ok := nameNode.Node.(*pgv6.Node_String_); ok {
+			parts = append(parts, s.String_.Sval)
+		}
+	}
+
+	// Strip "pg_catalog." prefix for built-in types.
+	if len(parts) >= 2 && parts[0] == "pg_catalog" {
+		parts = parts[1:]
+	}
+
+	typeName := strings.Join(parts, ".")
+
+	// Append type modifiers like (100) for VARCHAR(100) or (3) for TIMESTAMPTZ(3).
+	if len(tn.Typmods) > 0 {
+		var mods []string
+		for _, modNode := range tn.Typmods {
+			switch v := modNode.Node.(type) {
+			case *pgv6.Node_Integer:
+				mods = append(mods, fmt.Sprintf("%d", v.Integer.Ival))
+			case *pgv6.Node_AConst:
+				if ival, ok := v.AConst.Val.(*pgv6.A_Const_Ival); ok {
+					mods = append(mods, fmt.Sprintf("%d", ival.Ival.Ival))
+				}
+			}
+		}
+		if len(mods) > 0 {
+			typeName += "(" + strings.Join(mods, ",") + ")"
+		}
+	}
+
+	return typeName
+}
+
+// parseTableConstraint handles table-level PRIMARY KEY and UNIQUE constraints.
+func parseTableConstraint(c *pgv6.Constraint, tbl *Table) {
+	switch c.Contype {
+	case pgv6.ConstrType_CONSTR_PRIMARY:
+		for _, keyNode := range c.Keys {
+			if s, ok := keyNode.Node.(*pgv6.Node_String_); ok {
+				colName := s.String_.Sval
+				for _, col := range tbl.Columns {
+					if col.Name == colName {
+						col.PrimaryKey = true
+						col.Nullable = false
+						tbl.PrimaryKeys = append(tbl.PrimaryKeys, col)
+						break
+					}
+				}
+			}
+		}
+
+	case pgv6.ConstrType_CONSTR_UNIQUE:
+		uc := &UniqueConstraint{Name: c.Conname}
+		for _, keyNode := range c.Keys {
+			if s, ok := keyNode.Node.(*pgv6.Node_String_); ok {
+				uc.Columns = append(uc.Columns, s.String_.Sval)
+			}
+		}
+		if len(uc.Columns) > 0 {
+			tbl.UniqueConstraints = append(tbl.UniqueConstraints, uc)
+		}
+	}
+}
+
+// parseIndexStmt handles CREATE UNIQUE INDEX statements.
+func parseIndexStmt(idx *pgv6.IndexStmt, tableMap map[string]*Table) {
+	if !idx.Unique {
+		return
+	}
+	if idx.Relation == nil {
+		return
+	}
+
+	tableKey := idx.Relation.Schemaname + "." + idx.Relation.Relname
+	tbl, ok := tableMap[tableKey]
+	if !ok {
+		return
+	}
+
+	uc := &UniqueConstraint{Name: idx.Idxname}
+	for _, paramNode := range idx.IndexParams {
+		if ie, ok := paramNode.Node.(*pgv6.Node_IndexElem); ok {
+			uc.Columns = append(uc.Columns, ie.IndexElem.Name)
+		}
+	}
+
+	if len(uc.Columns) > 0 {
+		tbl.UniqueConstraints = append(tbl.UniqueConstraints, uc)
+	}
+}

@@ -1,4 +1,0 @@
--- name: Get{{if .IncludeSchemaInQueryName}}{{.GetSchemaName | pascalCase}}{{end}}{{.Name | pascalCase}} :one
-SELECT *
-FROM {{.GetFullTableName}}
-{{generateWhereConditions .}};
