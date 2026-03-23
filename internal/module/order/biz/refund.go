@@ -6,6 +6,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
@@ -133,11 +134,17 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 
 	// Track refund_requested interaction (separate step, uses GetOrder which has its own Run)
 	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
-		_ = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-			for _, item := range order.Items {
-				b.analytic.TrackInteraction(params.Account, analyticmodel.EventRefundReq, analyticdb.AnalyticInteractionRefTypeProduct, item.SkuID.String())
-			}
-			return nil
+		var refundInteractions []analyticbiz.CreateInteraction
+		for _, item := range order.Items {
+			refundInteractions = append(refundInteractions, analyticbiz.CreateInteraction{
+				Account:   params.Account,
+				EventType: analyticmodel.EventRefundReq,
+				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+				RefID:     item.SkuID.String(),
+			})
+		}
+		restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+			Interactions: refundInteractions,
 		})
 	}
 

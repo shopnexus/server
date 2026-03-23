@@ -1,9 +1,10 @@
 package analyticbiz
 
 import (
-	"context"
 	"log/slog"
 	"time"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
@@ -24,35 +25,7 @@ type CreateInteractionParams struct {
 	Interactions []CreateInteraction
 }
 
-// TrackInteraction fires-and-forgets a single analytic interaction.
-// It does not block the caller and swallows errors (logged only).
-func (b *AnalyticBiz) TrackInteraction(account accountmodel.AuthenticatedAccount, eventType string, refType analyticdb.AnalyticInteractionRefType, refID string) {
-	go func() {
-		if err := b.CreateInteraction(context.Background(), CreateInteractionParams{
-			Interactions: []CreateInteraction{{
-				Account:   account,
-				EventType: eventType,
-				RefType:   refType,
-				RefID:     refID,
-			}},
-		}); err != nil {
-			slog.Error("failed to track interaction", "event_type", eventType, "error", err)
-		}
-	}()
-}
-
-// TrackInteractions fires-and-forgets multiple analytic interactions.
-func (b *AnalyticBiz) TrackInteractions(interactions []CreateInteraction) {
-	go func() {
-		if err := b.CreateInteraction(context.Background(), CreateInteractionParams{
-			Interactions: interactions,
-		}); err != nil {
-			slog.Error("failed to track interactions", "error", err)
-		}
-	}()
-}
-
-func (b *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
+func (b *AnalyticBiz) CreateInteraction(ctx restate.Context, params CreateInteractionParams) error {
 	args := lo.Map(params.Interactions, func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
 		return analyticdb.CreateBatchInteractionParams{
 			AccountID:     uuid.NullUUID{UUID: interaction.Account.ID, Valid: true},
@@ -67,7 +40,8 @@ func (b *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateIntera
 
 	b.storage.Querier().CreateBatchInteraction(ctx, args).QueryRow(func(_ int, ai analyticdb.AnalyticInteraction, err error) {
 		if err == nil {
-			if err := b.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
+			// Fan out to HandlePopularityEvent and CatalogBiz.AddInteraction via Restate
+			event := analyticmodel.Interaction{
 				ID:            ai.ID,
 				AccountID:     ai.AccountID,
 				AccountNumber: ai.AccountNumber,
@@ -76,11 +50,11 @@ func (b *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateIntera
 				RefID:         ai.RefID,
 				Metadata:      ai.Metadata,
 				DateCreated:   ai.DateCreated,
-			}); err != nil {
-				slog.Error("failed to publish analytic interaction", "error", err)
 			}
+			restate.ServiceSend(ctx, "AnalyticBiz", "HandlePopularityEvent").Send(event)
+			restate.ServiceSend(ctx, "CatalogBiz", "AddInteraction").Send(event)
 		} else {
-			slog.Error("failed to create analytic interaction", "error", err)
+			slog.Error("create analytic interaction: %w", "error", err)
 		}
 	})
 

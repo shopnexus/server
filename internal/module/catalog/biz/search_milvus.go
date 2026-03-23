@@ -1,9 +1,10 @@
 package catalogbiz
 
 import (
-	"context"
 	"fmt"
 	"strings"
+
+	restate "github.com/restatedev/sdk-go"
 
 	"github.com/bytedance/sonic"
 	"github.com/milvus-io/milvus/client/v2/column"
@@ -15,7 +16,7 @@ import (
 )
 
 // getProductVectors fetches content_vector for the given product IDs from Milvus.
-func (b *CatalogBiz) getProductVectors(ctx context.Context, ids []string) (map[string][]float32, error) {
+func (b *CatalogBiz) getProductVectors(ctx restate.Context, ids []string) (map[string][]float32, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -50,7 +51,7 @@ func (b *CatalogBiz) getProductVectors(ctx context.Context, ids []string) (map[s
 }
 
 // getAccountInterests fetches interest vectors and strengths for the given account IDs.
-func (b *CatalogBiz) getAccountInterests(ctx context.Context, ids []string) (map[string]accountInterests, error) {
+func (b *CatalogBiz) getAccountInterests(ctx restate.Context, ids []string) (map[string]accountInterests, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -104,7 +105,7 @@ func (b *CatalogBiz) getAccountInterests(ctx context.Context, ids []string) (map
 }
 
 // upsertAccountInterests upserts an account's interest vectors and strengths to Milvus.
-func (b *CatalogBiz) upsertAccountInterests(ctx context.Context, accountID string, accountNumber int64, interests [][]float32, strengths []float32) error {
+func (b *CatalogBiz) upsertAccountInterests(ctx restate.Context, accountID string, accountNumber int64, interests [][]float32, strengths []float32) error {
 	cols := []column.Column{
 		column.NewColumnVarChar("id", []string{accountID}),
 		column.NewColumnInt64("number", []int64{accountNumber}),
@@ -119,7 +120,7 @@ func (b *CatalogBiz) upsertAccountInterests(ctx context.Context, accountID strin
 }
 
 // getProductAllVectors fetches content_vector and sparse_vector for the given product IDs from Milvus.
-func (b *CatalogBiz) getProductAllVectors(ctx context.Context, ids []string) (map[string]existingVectors, error) {
+func (b *CatalogBiz) getProductAllVectors(ctx restate.Context, ids []string) (map[string]existingVectors, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -169,7 +170,7 @@ type existingVectors struct {
 }
 
 // upsertProducts upserts product data (and optionally vectors) to Milvus.
-func (b *CatalogBiz) upsertProducts(ctx context.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
+func (b *CatalogBiz) upsertProducts(ctx restate.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
 	if len(products) == 0 {
 		return nil
 	}

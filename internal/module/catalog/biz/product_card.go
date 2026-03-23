@@ -1,10 +1,10 @@
 package catalogbiz
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"time"
+
+	restate "github.com/restatedev/sdk-go"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo/mutable"
 
 	"shopnexus-server/internal/infras/cachestruct"
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
@@ -22,7 +23,7 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogBiz) productCardsFromSpuIDs(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -105,7 +106,7 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.U
 	// Check favorites for authenticated user
 	var favoriteSet map[uuid.UUID]bool
 	if accountID != nil {
-		favoriteSet, _ = b.account.CheckFavorites(ctx, *accountID, spuIDs)
+		favoriteSet, _ = b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: *accountID, SpuIDs: spuIDs})
 	}
 
 	for _, spu := range spus {
@@ -154,12 +155,12 @@ type GetProductCardParams struct {
 	SpuID     uuid.UUID `validate:"required"`
 }
 
-func (b *CatalogBiz) GetProductCard(ctx context.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
+	productCardMap, err := b.productCardsFromSpuIDs(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +180,7 @@ type ListProductCardParams struct {
 	Search    null.String   `validate:"omitnil,min=1,max=100"`
 }
 
-func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero commonmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
 	var err error
@@ -237,7 +238,7 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	}
 	// TODO: handle total from search result
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
+	productCardMap, err := b.productCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
 	if err != nil {
 		return zero, err
 	}
@@ -267,7 +268,7 @@ type ListRecommendedProductCardParams struct {
 	Limit   int                               `validate:"omitempty,min=1,max=100"`
 }
 
-func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
+func (b *CatalogBiz) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
 	var zero []catalogmodel.ProductCard
 	var rcmProducts []catalogmodel.ProductRecommend
 	var err error
@@ -295,8 +296,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 
 	// if current feed offset is exceeding the size or there is no recommendation in cache, refresh the feed
 	if feedOffset >= catalogmodel.CacheRecommendSize || len(rcmProducts) == 0 {
-		rcmCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-		recommendations, err := b.GetRecommendations(rcmCtx, GetRecommendationsParams{
+		recommendations, err := b.GetRecommendations(ctx, GetRecommendationsParams{
 			Account: params.Account,
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
@@ -306,8 +306,6 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 				slog.Any("error", err),
 			)
 		}
-		cancel()
-
 		// Reset feed offset
 		feedOffset = 0
 
@@ -364,7 +362,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		})...)
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
+	productCardMap, err := b.productCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
 	if err != nil {
 		return zero, err
 	}

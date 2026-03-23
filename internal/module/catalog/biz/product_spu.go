@@ -1,8 +1,9 @@
 package catalogbiz
 
 import (
-	"context"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []uuid.UUID) map[uuid.UUID][]string { // map[spuID][]tag
+func (b *CatalogBiz) mustGetTagsMap(ctx restate.Context, spuID []uuid.UUID) map[uuid.UUID][]string { // map[spuID][]tag
 	tags, err := b.storage.Querier().ListProductSpuTag(ctx, catalogdb.ListProductSpuTagParams{
 		SpuID: spuID,
 	})
@@ -35,7 +36,7 @@ func (b *CatalogBiz) mustGetTagsMap(ctx context.Context, spuID []uuid.UUID) map[
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetCategory(ctx context.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
+func (b *CatalogBiz) mustGetCategory(ctx restate.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
 	category, _ := b.storage.Querier().GetCategory(ctx, catalogdb.GetCategoryParams{
 		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
 	})
@@ -43,7 +44,7 @@ func (b *CatalogBiz) mustGetCategory(ctx context.Context, categoryID uuid.UUID) 
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetBrand(ctx context.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
+func (b *CatalogBiz) mustGetBrand(ctx restate.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
 	brand, _ := b.storage.Querier().GetBrand(ctx, catalogdb.GetBrandParams{
 		ID: uuid.NullUUID{UUID: brandID, Valid: true},
 	})
@@ -55,7 +56,7 @@ type GetProductSpuParams struct {
 	Slug null.String   `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) GetProductSpu(ctx context.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogBiz) GetProductSpu(ctx restate.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var (
 		listSpu sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 		err     error
@@ -93,7 +94,7 @@ type ListProductSpuParams struct {
 	IsActive   []bool                            `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
+func (b *CatalogBiz) ListProductSpu(ctx restate.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
@@ -176,7 +177,7 @@ type CreateProductSpuParams struct {
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogBiz) CreateProductSpu(ctx restate.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
@@ -253,7 +254,7 @@ type UpdateProductSpuParams struct {
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogBiz) UpdateProductSpu(ctx restate.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
@@ -349,7 +350,7 @@ type DeleteProductSpuParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
-func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductSpuParams) error {
+func (b *CatalogBiz) DeleteProductSpu(ctx restate.Context, params DeleteProductSpuParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -369,7 +370,7 @@ type updateTagsParams struct {
 }
 
 // updateTags replaces all tags for the given SPU. It must be called within an existing transaction.
-func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, params updateTagsParams) error {
+func (b *CatalogBiz) updateTags(ctx restate.Context, q *catalogdb.Queries, params updateTagsParams) error {
 	if err := q.DeleteProductSpuTag(ctx, catalogdb.DeleteProductSpuTagParams{
 		SpuID: []uuid.UUID{params.SpuID},
 	}); err != nil {
@@ -426,7 +427,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, param
 
 // dbToProductSpu maps a DB CatalogProductSpu row to the model type.
 // Callers should set Rating, Tags, Resources, and Specifications as needed.
-func (b *CatalogBiz) dbToProductSpu(ctx context.Context, spu catalogdb.CatalogProductSpu) catalogmodel.ProductSpu {
+func (b *CatalogBiz) dbToProductSpu(ctx restate.Context, spu catalogdb.CatalogProductSpu) catalogmodel.ProductSpu {
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
 		AccountID:     spu.AccountID,

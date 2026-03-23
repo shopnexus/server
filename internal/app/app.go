@@ -12,6 +12,7 @@ import (
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cachestruct"
+	restateclient "shopnexus-server/internal/infras/restate"
 	"shopnexus-server/internal/infras/embedding"
 	"shopnexus-server/internal/infras/milvus"
 	"shopnexus-server/internal/infras/pubsub"
@@ -37,6 +38,7 @@ var Module = fx.Module("main",
 		NewPubsubClient,
 		NewMilvusClient,
 		NewEmbeddingClient,
+		NewRestateClient,
 	),
 
 	// Business modules
@@ -98,6 +100,10 @@ func SetupLogger() {
 		Level:     level,
 		AddSource: cfg.AddSource,
 	})))
+}
+
+func NewRestateClient(cfg *config.Config) *restateclient.Client {
+	return restateclient.NewClient(cfg.Restate.IngressAddress)
 }
 
 func NewPubsubClient(cfg *config.Config) (pubsub.Client, error) {

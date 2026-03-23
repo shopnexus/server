@@ -9,9 +9,8 @@ import (
 	"shopnexus-server/internal/infras/cachestruct"
 	"shopnexus-server/internal/infras/embedding"
 	"shopnexus-server/internal/infras/milvus"
-	"shopnexus-server/internal/infras/pubsub"
+	restateclient "shopnexus-server/internal/infras/restate"
 	accountbiz "shopnexus-server/internal/module/account/biz"
-	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
@@ -71,14 +70,13 @@ type CatalogClient interface {
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
 type CatalogBiz struct {
-	cache     cachestruct.Client
-	pubsub    pubsub.Client
-	storage   CatalogStorage
-	common    *commonbiz.CommonBiz
-	account   *accountbiz.AccountBiz
-	inventory *inventorybiz.InventoryBiz
-	promotion *promotionbiz.PromotionBiz
-	analytic  *analyticbiz.AnalyticBiz
+	cache         cachestruct.Client
+	restateClient *restateclient.Client
+	storage       CatalogStorage
+	common        *commonbiz.CommonBiz
+	account       *accountbiz.AccountBiz
+	inventory     *inventorybiz.InventoryBiz
+	promotion     *promotionbiz.PromotionBiz
 
 	// Vector search (replaces searchClient)
 	milvus       *milvus.Client
@@ -97,25 +95,23 @@ func NewCatalogBiz(
 	cfg *config.Config,
 	storage CatalogStorage,
 	cache cachestruct.Client,
-	pubsub pubsub.Client,
+	restateClient *restateclient.Client,
 	common *commonbiz.CommonBiz,
 	account *accountbiz.AccountBiz,
 	inventory *inventorybiz.InventoryBiz,
 	promotion *promotionbiz.PromotionBiz,
-	analytic *analyticbiz.AnalyticBiz,
 	milvusClient *milvus.Client,
 	embeddingClient *embedding.Client,
 ) *CatalogBiz {
 
 	b := &CatalogBiz{
-		cache:     cache,
-		pubsub:    pubsub.Group("catalog"),
-		storage:   storage,
-		common:    common,
-		account:   account,
-		inventory: inventory,
-		promotion: promotion,
-		analytic:  analytic,
+		cache:         cache,
+		restateClient: restateClient,
+		storage:       storage,
+		common:        common,
+		account:       account,
+		inventory:     inventory,
+		promotion:     promotion,
 
 		milvus:       milvusClient,
 		embedding:    embeddingClient,
@@ -129,7 +125,6 @@ func NewCatalogBiz(
 		slog.Error("Failed to setup Milvus collections", "error", err)
 	}
 
-	b.InitPubsub()
 	b.SetupCron()
 
 	return b

@@ -1,7 +1,7 @@
 package catalogbiz
 
 import (
-	"context"
+	restate "github.com/restatedev/sdk-go"
 
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	commonmodel "shopnexus-server/internal/shared/model"
@@ -18,7 +18,7 @@ type ListBrandParams struct {
 	Search null.String `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) ListBrand(ctx context.Context, params ListBrandParams) (commonmodel.PaginateResult[catalogdb.CatalogBrand], error) {
+func (b *CatalogBiz) ListBrand(ctx restate.Context, params ListBrandParams) (commonmodel.PaginateResult[catalogdb.CatalogBrand], error) {
 	var zero commonmodel.PaginateResult[catalogdb.CatalogBrand]
 
 	if err := validator.Validate(params); err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/pubsub"
 	analyticconfig "shopnexus-server/internal/module/analytic/config"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -29,7 +28,6 @@ type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
 type AnalyticBiz struct {
 	storage           AnalyticStorage
-	pubsub            pubsub.Client
 	promotion         *promotionbiz.PromotionBiz
 	popularityWeights map[string]float64
 }
@@ -38,12 +36,10 @@ type AnalyticBiz struct {
 func NewAnalyticBiz(
 	config *config.Config,
 	storage AnalyticStorage,
-	pubsub pubsub.Client,
 	promotionBiz *promotionbiz.PromotionBiz,
 ) *AnalyticBiz {
 	return &AnalyticBiz{
 		storage:           storage,
-		pubsub:            pubsub,
 		promotion:         promotionBiz,
 		popularityWeights: analyticconfig.DefaultPopularityWeights().WeightMap(),
 	}

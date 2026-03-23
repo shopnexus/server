@@ -1,7 +1,7 @@
 package catalogbiz
 
 import (
-	"context"
+	restate "github.com/restatedev/sdk-go"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
@@ -17,7 +17,7 @@ type ListTagParams struct {
 	Search null.String `validate:"omitnil,max=100"`
 }
 
-func (b *CatalogBiz) ListTag(ctx context.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
+func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
 	var zero commonmodel.PaginateResult[catalogdb.CatalogTag]
 
 	if err := validator.Validate(params); err != nil {
@@ -50,7 +50,7 @@ type GetTagParams struct {
 	Tag     string `validate:"required,min=1,max=100"`
 }
 
-func (b *CatalogBiz) GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
+func (b *CatalogBiz) GetTag(ctx restate.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
 	var zero catalogdb.CatalogTag
 
 	if err := validator.Validate(params); err != nil {

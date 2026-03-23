@@ -1,8 +1,9 @@
 package catalogbiz
 
 import (
-	"context"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -32,7 +33,7 @@ type ListCommentParams struct {
 	ScoreTo   null.Float                      `validate:"omitnil,gte=0,lte=1"`
 }
 
-func (b *CatalogBiz) ListComment(ctx context.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
+func (b *CatalogBiz) ListComment(ctx restate.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
@@ -119,7 +120,7 @@ type CreateCommentParams struct {
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
+func (b *CatalogBiz) CreateComment(ctx restate.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
@@ -171,7 +172,9 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		default:
 			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingLow, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
 		}
-		b.analytic.TrackInteractions(interactions)
+		restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+			Interactions: interactions,
+		})
 	}
 
 	return catalogmodel.Comment{
@@ -200,7 +203,7 @@ type UpdateCommentParams struct {
 	EmptyResources bool
 }
 
-func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
+func (b *CatalogBiz) UpdateComment(ctx restate.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
@@ -268,7 +271,7 @@ type DeleteCommentParams struct {
 	CommentIDs []uuid.UUID `validate:"required,dive,gt=0"`
 }
 
-func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentParams) error {
+func (b *CatalogBiz) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}

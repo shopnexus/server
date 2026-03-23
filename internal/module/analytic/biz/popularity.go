@@ -1,9 +1,10 @@
 package analyticbiz
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
+
+	restate "github.com/restatedev/sdk-go"
 
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -11,11 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-
-	"shopnexus-server/internal/infras/pubsub"
 )
 
-func (b *AnalyticBiz) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {
+func (b *AnalyticBiz) HandlePopularityEvent(ctx restate.Context, event analyticmodel.Interaction) error {
 	if event.RefType != analyticdb.AnalyticInteractionRefTypeProduct {
 		return nil
 	}
@@ -60,23 +59,14 @@ func (b *AnalyticBiz) HandlePopularityEvent(ctx context.Context, event analyticm
 	return nil
 }
 
-func (b *AnalyticBiz) GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticBiz) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
 	return b.storage.Querier().GetProductPopularity(ctx, spuID)
 }
 
-func (b *AnalyticBiz) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticBiz) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	params = params.Constrain()
 	return b.storage.Querier().ListTopProductPopularity(ctx, analyticdb.ListTopProductPopularityParams{
 		Limit:  null.Int32From(params.Limit.Int32),
 		Offset: params.Offset(),
 	})
-}
-
-func (b *AnalyticBiz) InitPopularityPubsub() error {
-	return b.pubsub.Subscribe(analyticmodel.TopicAnalyticInteraction, pubsub.DecodeWrap(func(ctx context.Context, event analyticmodel.Interaction) error {
-		if err := b.HandlePopularityEvent(ctx, event); err != nil {
-			slog.Error("failed to handle popularity event", "error", err)
-		}
-		return nil
-	}))
 }

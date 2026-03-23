@@ -1,7 +1,6 @@
 package orderbiz
 
 import (
-	"context"
 	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
@@ -50,38 +49,38 @@ func (b *OrderBiz) ListOrders(ctx restate.Context, params ListOrdersParams) (com
 		return zero, err
 	}
 
-	return restate.Run(ctx, func(ctx restate.RunContext) (commonmodel.PaginateResult[ordermodel.Order], error) {
-		listCountOrder, err := b.storage.Querier().ListCountOrder(ctx, orderdb.ListCountOrderParams{
+	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountOrderRow, error) {
+		return b.storage.Querier().ListCountOrder(ctx, orderdb.ListCountOrderParams{
 			Limit:  params.Limit,
 			Offset: params.Offset(),
 			ID:     params.ID,
 		})
-		if err != nil {
-			return zero, err
-		}
-
-		var total null.Int
-		if len(listCountOrder) > 0 {
-			total.SetValid(listCountOrder[0].TotalCount)
-		}
-
-		orders := lo.Map(listCountOrder, func(item orderdb.ListCountOrderRow, _ int) orderdb.OrderOrder {
-			return item.OrderOrder
-		})
-		data, err := b.hydrateOrders(ctx, orders)
-		if err != nil {
-			return zero, err
-		}
-
-		return commonmodel.PaginateResult[ordermodel.Order]{
-			PageParams: params.PaginationParams,
-			Total:      total,
-			Data:       data,
-		}, nil
 	})
+	if err != nil {
+		return zero, err
+	}
+
+	var total null.Int
+	if len(listCountOrder) > 0 {
+		total.SetValid(listCountOrder[0].TotalCount)
+	}
+
+	orders := lo.Map(listCountOrder, func(item orderdb.ListCountOrderRow, _ int) orderdb.OrderOrder {
+		return item.OrderOrder
+	})
+	data, err := b.hydrateOrders(ctx, orders)
+	if err != nil {
+		return zero, err
+	}
+
+	return commonmodel.PaginateResult[ordermodel.Order]{
+		PageParams: params.PaginationParams,
+		Total:      total,
+		Data:       data,
+	}, nil
 }
 
-func (b *OrderBiz) hydrateOrders(ctx context.Context, orders []orderdb.OrderOrder) ([]ordermodel.Order, error) {
+func (b *OrderBiz) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrder) ([]ordermodel.Order, error) {
 	if len(orders) == 0 {
 		return []ordermodel.Order{}, nil
 	}
@@ -89,16 +88,36 @@ func (b *OrderBiz) hydrateOrders(ctx context.Context, orders []orderdb.OrderOrde
 	orderIDs := lo.Map(orders, func(o orderdb.OrderOrder, _ int) uuid.UUID { return o.ID })
 	paymentIDs := lo.Map(orders, func(o orderdb.OrderOrder, _ int) int64 { return o.PaymentID })
 
-	orderItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
-		OrderID: orderIDs,
+	// Fetch order items and payments from DB inside Run
+	type dbResults struct {
+		OrderItems []orderdb.OrderItem    `json:"order_items"`
+		Payments   []orderdb.OrderPayment `json:"payments"`
+	}
+	dbData, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResults, error) {
+		orderItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
+			OrderID: orderIDs,
+		})
+		if err != nil {
+			return dbResults{}, err
+		}
+
+		payments, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+			ID: paymentIDs,
+		})
+		if err != nil {
+			return dbResults{}, err
+		}
+
+		return dbResults{OrderItems: orderItems, Payments: payments}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	orderItemsMap := lo.GroupByMap(orderItems, func(oi orderdb.OrderItem) (uuid.UUID, orderdb.OrderItem) { return oi.OrderID, oi })
 
-	// Lookup SKU → SPU to get product images
-	skuIDs := lo.Map(orderItems, func(oi orderdb.OrderItem, _ int) uuid.UUID { return oi.SkuID })
+	orderItemsMap := lo.GroupByMap(dbData.OrderItems, func(oi orderdb.OrderItem) (uuid.UUID, orderdb.OrderItem) { return oi.OrderID, oi })
+
+	// Lookup SKU → SPU to get product images (cross-module call, needs restate.Context)
+	skuIDs := lo.Map(dbData.OrderItems, func(oi orderdb.OrderItem, _ int) uuid.UUID { return oi.SkuID })
 	skuIDs = lo.Uniq(skuIDs)
 
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
@@ -113,6 +132,8 @@ func (b *OrderBiz) hydrateOrders(ctx context.Context, orders []orderdb.OrderOrde
 	}
 
 	spuIDs := lo.Uniq(lo.Values(skuToSpuMap))
+
+	// GetResources uses context.Context, safe to call with restate.Context (which embeds it)
 	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
 		return nil, err
@@ -139,19 +160,13 @@ func (b *OrderBiz) hydrateOrders(ctx context.Context, orders []orderdb.OrderOrde
 		enrichedItemsMap[orderID] = enriched
 	}
 
-	payments, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
-		ID: paymentIDs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	paymentMap := lo.KeyBy(payments, func(p orderdb.OrderPayment) int64 { return p.ID })
+	paymentMap := lo.KeyBy(dbData.Payments, func(p orderdb.OrderPayment) int64 { return p.ID })
 
 	result := make([]ordermodel.Order, 0, len(orders))
 	for _, o := range orders {
 		payment, ok := paymentMap[o.PaymentID]
 		if !ok {
-			return nil, fmt.Errorf("missing payment %d for order %s", o.PaymentID, o.ID)
+			return nil, ordermodel.ErrMissingPayment
 		}
 
 		result = append(result, ordermodel.Order{
@@ -213,11 +228,20 @@ func (b *OrderBiz) VerifyPayment(ctx restate.Context, params VerifyPaymentParams
 		return err
 	}
 
-	// Publish event for order paid
+	// Update payment status
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		return b.pubsub.Publish(ordermodel.TopicOrderPaid, OrderPaidParams{
-			OrderID: refID,
+		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: refID, Valid: true},
 		})
+		if err != nil {
+			return err
+		}
+
+		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+			ID:     order.PaymentID,
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusSuccess, Valid: true},
+		})
+		return err
 	})
 }
 
@@ -239,36 +263,36 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		return zero, err
 	}
 
+	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
+
+	// Get skus map (cross-module, needs restate.Context)
+	quoteSkus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
+		ID: skuIDs,
+	})
+	if err != nil {
+		return zero, fmt.Errorf("list catalog product skus: %w", err)
+	}
+	if len(quoteSkus) != len(skuIDs) {
+		return zero, ordermodel.ErrOrderItemNotFound
+	}
+	skuMap := lo.KeyBy(quoteSkus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
+
+	// Get spus map (cross-module, needs restate.Context)
+	quoteSpus, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
+		ID: lo.Map(quoteSkus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
+	})
+	if err != nil {
+		return zero, fmt.Errorf("list catalog product spu: %w", err)
+	}
+	spuMap := lo.KeyBy(quoteSpus.Data, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
+
+	vendorIDs := lo.Map(quoteSpus.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
+	contactMap, err := b.account.GetDefaultContact(ctx, vendorIDs)
+	if err != nil {
+		return zero, fmt.Errorf("get default contact map: %w", err)
+	}
+
 	return restate.Run(ctx, func(ctx restate.RunContext) (QuoteOrderResult, error) {
-		skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
-
-		// Get skus map
-		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
-			ID: skuIDs,
-		})
-		if err != nil {
-			return zero, fmt.Errorf("list catalog product skus: %w", err)
-		}
-		if len(skus) != len(skuIDs) {
-			return zero, ordermodel.ErrOrderItemNotFound
-		}
-		skuMap := lo.KeyBy(skus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
-
-		// Get spus map
-		spus, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
-			ID: lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
-		})
-		if err != nil {
-			return zero, fmt.Errorf("list catalog product spu: %w", err)
-		}
-		spuMap := lo.KeyBy(spus.Data, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
-
-		vendorIDs := lo.Map(spus.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
-		contactMap, err := b.account.GetDefaultContact(ctx, vendorIDs)
-		if err != nil {
-			return zero, fmt.Errorf("get default contact map: %w", err)
-		}
-
 		// Quote shipping per checkout item
 		shippingCostMap := make(map[uuid.UUID]commonmodel.Concurrency, len(params.Items))
 		for _, checkoutItem := range params.Items {
@@ -302,7 +326,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		for _, orderItem := range params.Items {
 			shipCost, ok := shippingCostMap[orderItem.SkuID]
 			if !ok {
-				return zero, fmt.Errorf("missing shipping quote for sku %s", orderItem.SkuID)
+				return zero, ordermodel.ErrMissingShippingQuote
 			}
 
 			requestOrderPrices = append(requestOrderPrices, catalogmodel.RequestOrderPrice{
@@ -324,7 +348,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		for _, checkoutItem := range params.Items {
 			price, ok := priceMap[checkoutItem.SkuID]
 			if !ok {
-				return zero, fmt.Errorf("missing promoted price for sku %s", checkoutItem.SkuID)
+				return zero, ordermodel.ErrMissingPromotedPrice
 			}
 
 			result.ProductCost = result.ProductCost.Add(price.ProductCost)

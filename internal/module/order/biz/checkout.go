@@ -84,45 +84,40 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 	checkoutItemMap := lo.KeyBy(params.Items, func(s CheckoutItem) uuid.UUID { return s.SkuID })
 
 	// Step 1: Fetch product data (catalog + contacts)
-	products, err := restate.Run(ctx, func(ctx restate.RunContext) (checkoutProductsResult, error) {
-		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
-			ID: skuIDs,
-		})
-		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("list catalog product skus: %w", err)
-		}
-		if len(skus) != len(skuIDs) {
-			return checkoutProductsResult{}, ordermodel.ErrOrderItemNotFound
-		}
-
-		listSpu, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
-			Account: params.Account,
-			ID:      lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
-		})
-		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("list catalog product spu: %w", err)
-		}
-
-		vendorIDs := lo.Map(listSpu.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
-		contactMapRaw, err := b.account.GetDefaultContact(ctx, vendorIDs)
-		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("get default contact map: %w", err)
-		}
-
-		// Simplify to just addresses for serialization safety
-		contactMap := make(map[uuid.UUID]string, len(contactMapRaw))
-		for id, contact := range contactMapRaw {
-			contactMap[id] = contact.Address
-		}
-
-		return checkoutProductsResult{
-			Skus:       skus,
-			SpusData:   listSpu.Data,
-			ContactMap: contactMap,
-		}, nil
+	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
+		ID: skuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list catalog product skus: %w", err)
+	}
+	if len(skus) != len(skuIDs) {
+		return zero, ordermodel.ErrOrderItemNotFound
+	}
+
+	listSpu, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
+		Account: params.Account,
+		ID:      lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
+	})
+	if err != nil {
+		return zero, fmt.Errorf("list catalog product spu: %w", err)
+	}
+
+	vendorIDs := lo.Map(listSpu.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
+	contactMapRaw, err := b.account.GetDefaultContact(ctx, vendorIDs)
+	if err != nil {
+		return zero, fmt.Errorf("get default contact map: %w", err)
+	}
+
+	// Simplify to just addresses for serialization safety
+	contactMap := make(map[uuid.UUID]string, len(contactMapRaw))
+	for id, contact := range contactMapRaw {
+		contactMap[id] = contact.Address
+	}
+
+	products := checkoutProductsResult{
+		Skus:       skus,
+		SpusData:   listSpu.Data,
+		ContactMap: contactMap,
 	}
 
 	// Build maps (pure computation)
@@ -140,7 +135,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				return fmt.Errorf("remove checkout items: %w", err)
 			}
 			if len(cartItems) != len(skuIDs) {
-				return fmt.Errorf("some sku not found in cart")
+				return ordermodel.ErrSkuNotFoundInCart
 			}
 			return nil
 		}); err != nil {
@@ -149,27 +144,22 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 	}
 
 	// Step 3: Reserve inventory
-	serialIDsMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID][]string, error) {
-		inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
-			Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
-				return inventorybiz.ReserveInventoryItem{
-					RefType: inventorydb.InventoryStockRefTypeProductSku,
-					RefID:   item.SkuID,
-					Amount:  checkoutItemMap[item.SkuID].Quantity,
-				}
-			}),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("reserve inventory: %w", err)
-		}
-
-		return lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) {
-			return i.RefID, i.SerialIDs
-		}), nil
+	inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
+		Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
+			return inventorybiz.ReserveInventoryItem{
+				RefType: inventorydb.InventoryStockRefTypeProductSku,
+				RefID:   item.SkuID,
+				Amount:  checkoutItemMap[item.SkuID].Quantity,
+			}
+		}),
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("reserve inventory: %w", err)
 	}
+
+	serialIDsMap := lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) {
+		return i.RefID, i.SerialIDs
+	})
 
 	// Step 4: Create shipments
 	shipmentMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID]checkoutShipmentEntry, error) {
@@ -370,18 +360,17 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 	}
 
 	// Step 9: Track purchase interactions
-	_ = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		var purchaseInteractions []analyticbiz.CreateInteraction
-		for _, item := range params.Items {
-			purchaseInteractions = append(purchaseInteractions, analyticbiz.CreateInteraction{
-				Account:   params.Account,
-				EventType: analyticmodel.EventPurchase,
-				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
-				RefID:     item.SkuID.String(),
-			})
-		}
-		b.analytic.TrackInteractions(purchaseInteractions)
-		return nil
+	var purchaseInteractions []analyticbiz.CreateInteraction
+	for _, item := range params.Items {
+		purchaseInteractions = append(purchaseInteractions, analyticbiz.CreateInteraction{
+			Account:   params.Account,
+			EventType: analyticmodel.EventPurchase,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     item.SkuID.String(),
+		})
+	}
+	restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		Interactions: purchaseInteractions,
 	})
 
 	return CheckoutResult{
@@ -416,13 +405,13 @@ func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) er
 
 	// Validate cancellation (pure checks)
 	if order.Payment.Status != orderdb.OrderStatusPending {
-		return fmt.Errorf("payment %d cannot be canceled", order.Payment.ID)
+		return ordermodel.ErrPaymentCannotCancel
 	}
 	if shipmentStatus != orderdb.OrderShipmentStatusPending {
-		return fmt.Errorf("shipment %s cannot be canceled", order.ShipmentID)
+		return ordermodel.ErrShipmentCannotCancel
 	}
 	if order.Status != orderdb.OrderStatusPending {
-		return fmt.Errorf("order %s cannot be canceled", order.ID)
+		return ordermodel.ErrOrderCannotCancel
 	}
 
 	// Cancel payment, shipment, and order
@@ -454,18 +443,17 @@ func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) er
 	}
 
 	// Track cancel_order interactions
-	_ = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		var cancelInteractions []analyticbiz.CreateInteraction
-		for _, item := range order.Items {
-			cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
-				Account:   params.Account,
-				EventType: analyticmodel.EventCancelOrder,
-				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
-				RefID:     item.SkuID.String(),
-			})
-		}
-		b.analytic.TrackInteractions(cancelInteractions)
-		return nil
+	var cancelInteractions []analyticbiz.CreateInteraction
+	for _, item := range order.Items {
+		cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
+			Account:   params.Account,
+			EventType: analyticmodel.EventCancelOrder,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     item.SkuID.String(),
+		})
+	}
+	restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		Interactions: cancelInteractions,
 	})
 
 	return nil

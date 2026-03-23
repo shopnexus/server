@@ -39,8 +39,6 @@ func SetupRestate(
 		Bind(restate.Reflect(analyticBiz)).
 		Bind(restate.Reflect(chatBiz))
 
-	// Start the Restate server in a separate goroutine
-
 	go func() {
 		slog.Info("Starting Restate server on port", "port", bindAddress)
 		if err := srv.Start(context.Background(), bindAddress); err != nil {

@@ -1,7 +1,7 @@
 package inventorybiz
 
 import (
-	"context"
+	restate "github.com/restatedev/sdk-go"
 
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
@@ -14,7 +14,7 @@ import (
 )
 
 // getStockByRef is a shared helper to look up stock by (ref_type, ref_id).
-func (b *InventoryBiz) getStockByRef(ctx context.Context, q inventorydb.Querier, refType inventorydb.InventoryStockRefType, refID uuid.UUID) (inventorydb.InventoryStock, error) {
+func (b *InventoryBiz) getStockByRef(ctx restate.Context, q inventorydb.Querier, refType inventorydb.InventoryStockRefType, refID uuid.UUID) (inventorydb.InventoryStock, error) {
 	return q.GetStock(ctx, inventorydb.GetStockParams{
 		RefID:   uuid.NullUUID{UUID: refID, Valid: true},
 		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: refType, Valid: true},
@@ -28,7 +28,7 @@ type GetStockParams struct {
 	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
+func (b *InventoryBiz) GetStock(ctx restate.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
 	var zero inventorydb.InventoryStock
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -42,7 +42,7 @@ type ListStockParams struct {
 	RefID   []uuid.UUID                         `validate:"dive,required"`
 }
 
-func (b *InventoryBiz) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
+func (b *InventoryBiz) ListStock(ctx restate.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventoryStock]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -80,7 +80,7 @@ type CreateStockParams struct {
 	Stock   int64                             `validate:"required,gt=0"`
 }
 
-func (b *InventoryBiz) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
+func (b *InventoryBiz) CreateStock(ctx restate.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
 	var zero inventorydb.InventoryStock
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -101,7 +101,7 @@ type ListStockHistoryParams struct {
 	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
+func (b *InventoryBiz) ListStockHistory(ctx restate.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventoryStockHistory]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -146,7 +146,7 @@ type ImportStockParams struct {
 	SerialIDs []string                          `validate:"dive,required"`
 }
 
-func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams) error {
+func (b *InventoryBiz) ImportStock(ctx restate.Context, params ImportStockParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ type ReserveInventoryParams struct {
 	Items []ReserveInventoryItem
 }
 
-func (b *InventoryBiz) ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
+func (b *InventoryBiz) ReserveInventory(ctx restate.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
 	var results []ReserveInventoryResult
 	q := b.storage.Querier()
 
@@ -289,7 +289,7 @@ type UpdateSerialParams struct {
 	Status    inventorydb.InventoryStatus `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
+func (b *InventoryBiz) UpdateSerial(ctx restate.Context, params UpdateSerialParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ type ListSerialParams struct {
 	StockID int64 `validate:"required,gt=0"`
 }
 
-func (b *InventoryBiz) ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
+func (b *InventoryBiz) ListSerial(ctx restate.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventorySerial]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -343,7 +343,7 @@ type ListMostTakenSkuParams struct {
 	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
 }
 
-func (b *InventoryBiz) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
+func (b *InventoryBiz) ListMostTakenSku(ctx restate.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}

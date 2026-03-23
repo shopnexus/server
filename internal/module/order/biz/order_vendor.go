@@ -26,34 +26,34 @@ type ListVendorOrderParams struct {
 func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
 	var zero commonmodel.PaginateResult[ordermodel.Order]
 
-	return restate.Run(ctx, func(ctx restate.RunContext) (commonmodel.PaginateResult[ordermodel.Order], error) {
-		listCountOrder, err := b.storage.Querier().ListCountVendorOrder(ctx, orderdb.ListCountVendorOrderParams{
+	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountVendorOrderRow, error) {
+		return b.storage.Querier().ListCountVendorOrder(ctx, orderdb.ListCountVendorOrderParams{
 			Limit:    params.Limit,
 			Offset:   params.Offset(),
 			VendorID: []uuid.UUID{params.Account.ID},
 		})
-		if err != nil {
-			return zero, err
-		}
-
-		var total null.Int
-		if len(listCountOrder) > 0 {
-			total.SetValid(listCountOrder[0].TotalCount)
-		}
-
-		orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountVendorOrderRow, _ int) orderdb.OrderOrder {
-			return item.OrderOrder
-		}))
-		if err != nil {
-			return zero, err
-		}
-
-		return commonmodel.PaginateResult[ordermodel.Order]{
-			PageParams: params.PaginationParams,
-			Total:      total,
-			Data:       orders,
-		}, nil
 	})
+	if err != nil {
+		return zero, err
+	}
+
+	var total null.Int
+	if len(listCountOrder) > 0 {
+		total.SetValid(listCountOrder[0].TotalCount)
+	}
+
+	orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountVendorOrderRow, _ int) orderdb.OrderOrder {
+		return item.OrderOrder
+	}))
+	if err != nil {
+		return zero, err
+	}
+
+	return commonmodel.PaginateResult[ordermodel.Order]{
+		PageParams: params.PaginationParams,
+		Total:      total,
+		Data:       orders,
+	}, nil
 }
 
 // ConfirmOrderParams represents the parameters required to confirm an order by SKU (not the whole order).
@@ -77,7 +77,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 		return err
 	}
 	if order.Payment.Status != orderdb.OrderStatusSuccess || order.Status != orderdb.OrderStatusPending {
-		return fmt.Errorf("order is not in a confirmable state (payment status: %s, order status: %s)", order.Payment.Status, order.Status)
+		return ordermodel.ErrOrderNotConfirmable
 	}
 
 	// Update order + shipment in one durable step
@@ -98,7 +98,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 
 		shipmentClient, ok := b.shipmentMap[dbShipment.Option]
 		if !ok {
-			return fmt.Errorf("unknown shipment option: %s", dbShipment.Option)
+			return ordermodel.ErrUnknownShipmentOption.Fmt(dbShipment.Option)
 		}
 
 		var (
@@ -151,8 +151,5 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 		return err
 	}
 
-	// Publish event
-	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		return b.pubsub.Publish(ordermodel.TopicOrderConfirmed, order)
-	})
+	return nil
 }

@@ -1,11 +1,13 @@
 package catalogbiz
 
 import (
-	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"time"
+
+	restate "github.com/restatedev/sdk-go"
 
 	"github.com/google/uuid"
 	"github.com/milvus-io/milvus/client/v2/entity"
@@ -25,14 +27,14 @@ type SearchParams struct {
 	Query      string
 }
 
-func (b *CatalogBiz) Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
+func (b *CatalogBiz) Search(ctx restate.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
 	// 1. Get embeddings from embedding service
 	embeddings, err := b.embedding.Embed(ctx, []string{params.Query})
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
 	if len(embeddings) == 0 {
-		return nil, fmt.Errorf("no embeddings returned")
+		return nil, catalogmodel.ErrNoEmbeddingsResult
 	}
 	emb := embeddings[0]
 
@@ -82,7 +84,7 @@ type GetRecommendationsParams struct {
 	Limit   int32
 }
 
-func (b *CatalogBiz) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
+func (b *CatalogBiz) GetRecommendations(ctx restate.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	accountID := params.Account.ID.String()
 
 	// 1. Query account interest vectors from Milvus
@@ -168,7 +170,7 @@ func (b *CatalogBiz) GetRecommendations(ctx context.Context, params GetRecommend
 	return products, nil
 }
 
-func (b *CatalogBiz) ProcessEvents(ctx context.Context, events []analyticmodel.Interaction) error {
+func (b *CatalogBiz) ProcessEvents(ctx restate.Context, events []analyticmodel.Interaction) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -248,7 +250,7 @@ type UpdateProductsParams struct {
 	MetadataOnly bool
 }
 
-func (b *CatalogBiz) UpdateProducts(ctx context.Context, params UpdateProductsParams) error {
+func (b *CatalogBiz) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -323,6 +325,44 @@ func mapToSparseEmbedding(m map[uint32]float32) entity.SparseEmbedding {
 	}
 	emb, _ := entity.NewSliceSparseEmbedding(positions, values)
 	return emb
+}
+
+type AddInteractionParams = analyticmodel.Interaction
+
+func (b *CatalogBiz) AddInteraction(ctx restate.Context, params AddInteractionParams) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// buffer the event
+	// WIP: storing buffer in memory kinda sucks, but good enough for now
+	b.buffer = append(b.buffer, params)
+
+	// if reached batch size, process events
+	if len(b.buffer) >= b.batchSize {
+		toInsert := b.buffer
+		b.buffer = make([]analyticmodel.Interaction, 0, b.batchSize) // reset buffer
+
+		// Refresh customer feeds
+		if err := b.ProcessEvents(ctx, toInsert); err != nil {
+			return err
+		}
+
+		// Remove old recommendations for all affected accounts
+		seen := make(map[uuid.UUID]struct{})
+		for _, ev := range toInsert {
+			if !ev.AccountID.Valid {
+				continue
+			}
+			if _, ok := seen[ev.AccountID.UUID]; ok {
+				continue
+			}
+			seen[ev.AccountID.UUID] = struct{}{}
+			if err := b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, ev.AccountID.UUID.String())); err != nil {
+				slog.Error("failed to reset feed offset for account", slog.String("account_id", ev.AccountID.UUID.String()), slog.Any("error", err))
+			}
+		}
+	}
+	return nil
 }
 
 // InterleaveShuffle splits each input slice into numParts chunks,

@@ -2,11 +2,11 @@ package orderbiz
 
 import (
 	"context"
-	"fmt"
 
 	"shopnexus-server/internal/infras/shipment"
 	"shopnexus-server/internal/infras/shipment/ghtk"
 	commonbiz "shopnexus-server/internal/module/common/biz"
+	ordermodel "shopnexus-server/internal/module/order/model"
 	commonmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -37,7 +37,7 @@ func (b *OrderBiz) SetupShipmentMap() error {
 func (b *OrderBiz) getShipmentClient(option string) (shipment.Client, error) {
 	client, ok := b.shipmentMap[option]
 	if !ok {
-		return nil, fmt.Errorf("unknown shipment option: %s", option)
+		return nil, ordermodel.ErrUnknownShipmentOption.Fmt(option)
 	}
 	return client, nil
 }

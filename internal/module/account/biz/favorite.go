@@ -1,8 +1,9 @@
 package accountbiz
 
 import (
-	"context"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -17,7 +18,7 @@ type AddFavoriteParams struct {
 	SpuID   uuid.UUID `validate:"required"`
 }
 
-func (b *AccountBiz) AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
+func (b *AccountBiz) AddFavorite(ctx restate.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
 	var zero accountdb.AccountFavorite
 
 	// Check if already favorited
@@ -45,7 +46,7 @@ type RemoveFavoriteParams struct {
 	SpuID   uuid.UUID `validate:"required"`
 }
 
-func (b *AccountBiz) RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error {
+func (b *AccountBiz) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
 	return b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
 		AccountID: params.Account.ID,
 		SpuID:     params.SpuID,
@@ -57,7 +58,7 @@ type ListFavoriteParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (b *AccountBiz) ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
+func (b *AccountBiz) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountFavorite]
 	params.PaginationParams = params.Constrain()
 
@@ -84,9 +85,15 @@ func (b *AccountBiz) ListFavorite(ctx context.Context, params ListFavoriteParams
 	}, nil
 }
 
+type CheckFavoritesParams struct {
+	AccountID uuid.UUID
+	SpuIDs    []uuid.UUID
+}
+
 // CheckFavorites checks which SPU IDs are favorited by the given account.
-// Returns a set of favorited SPU IDs.
-func (b *AccountBiz) CheckFavorites(ctx context.Context, accountID uuid.UUID, spuIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+func (b *AccountBiz) CheckFavorites(ctx restate.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
+	accountID := params.AccountID
+	spuIDs := params.SpuIDs
 	if len(spuIDs) == 0 {
 		return nil, nil
 	}

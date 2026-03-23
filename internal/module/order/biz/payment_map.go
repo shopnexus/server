@@ -2,13 +2,13 @@ package orderbiz
 
 import (
 	"context"
-	"fmt"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/payment"
 	"shopnexus-server/internal/infras/payment/cod"
 	"shopnexus-server/internal/infras/payment/vnpay"
 	commonbiz "shopnexus-server/internal/module/common/biz"
+	ordermodel "shopnexus-server/internal/module/order/model"
 	commonmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -47,7 +47,7 @@ func (b *OrderBiz) SetupPaymentMap() error {
 func (b *OrderBiz) getPaymentClient(option string) (payment.Client, error) {
 	client, ok := b.paymentMap[option]
 	if !ok {
-		return nil, fmt.Errorf("unknown payment option: %s", option)
+		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option)
 	}
 	return client, nil
 }

@@ -1,8 +1,9 @@
 package accountbiz
 
 import (
-	"context"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -20,7 +21,7 @@ type ListProfileParams struct {
 	AccountIDs []uuid.UUID                       `validate:"dive,required"`
 }
 
-func (b *AccountBiz) ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
+func (b *AccountBiz) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	var result sharedmodel.PaginateResult[accountmodel.Profile]
 	if err := validator.Validate(params); err != nil {
 		return result, err
@@ -73,7 +74,7 @@ type GetProfileParams struct {
 	AccountID uuid.UUID
 }
 
-func (b *AccountBiz) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
+func (b *AccountBiz) GetProfile(ctx restate.Context, params GetProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
 		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
@@ -124,7 +125,7 @@ type UpdateProfileParams struct {
 	Description null.String
 }
 
-func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
+func (b *AccountBiz) UpdateProfile(ctx restate.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 
 	if err := validator.Validate(params); err != nil {
@@ -177,7 +178,7 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 
 // dbToProfile maps DB account + profile rows to the model type.
 // Callers should set Description as needed (only relevant for vendor accounts).
-func (b *AccountBiz) dbToProfile(ctx context.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
+func (b *AccountBiz) dbToProfile(ctx restate.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
 	return accountmodel.Profile{
 		ID:          account.ID,
 		DateCreated: account.DateCreated,

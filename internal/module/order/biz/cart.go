@@ -7,6 +7,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
@@ -27,24 +28,26 @@ type GetCartParams struct {
 }
 
 func (b *OrderBiz) GetCart(ctx restate.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
-	return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
-		cartItems, err := b.storage.Querier().ListCartItem(ctx, orderdb.ListCartItemParams{
+	cartItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderCartItem, error) {
+		return b.storage.Querier().ListCartItem(ctx, orderdb.ListCartItemParams{
 			AccountID: []uuid.UUID{params.AccountID},
 		})
-		if err != nil {
-			return nil, err
-		}
+	})
+	if err != nil {
+		return nil, err
+	}
 
-		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
-			ID: lo.Map(cartItems, func(c orderdb.OrderCartItem, _ int) uuid.UUID { return c.SkuID }),
-		})
-		if err != nil {
-			return nil, err
-		}
-		skuMap := lo.SliceToMap(skus, func(s catalogmodel.ProductSku) (uuid.UUID, catalogmodel.ProductSku) {
-			return s.ID, s
-		})
+	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
+		ID: lo.Map(cartItems, func(c orderdb.OrderCartItem, _ int) uuid.UUID { return c.SkuID }),
+	})
+	if err != nil {
+		return nil, err
+	}
+	skuMap := lo.SliceToMap(skus, func(s catalogmodel.ProductSku) (uuid.UUID, catalogmodel.ProductSku) {
+		return s.ID, s
+	})
 
+	return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
 		var items []ordermodel.CartItem
 		for _, cartItem := range cartItems {
 			sku := skuMap[cartItem.SkuID]
@@ -83,7 +86,8 @@ func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) erro
 		return err
 	}
 
-	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+	// Track which event type to send after the durable step
+	eventType, err := restate.Run(ctx, func(ctx restate.RunContext) (string, error) {
 		var newQuantity int64
 
 		if params.DeltaQuantity.Valid {
@@ -92,13 +96,13 @@ func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) erro
 				SkuID:     uuid.NullUUID{UUID: params.SkuID, Valid: true},
 			})
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return err
+				return "", err
 			}
 			newQuantity = cartItem.Quantity + params.DeltaQuantity.Int64
 		} else if params.Quantity.Valid {
 			newQuantity = params.Quantity.Int64
 		} else {
-			return ordermodel.ErrQuantityParamRequired
+			return "", ordermodel.ErrQuantityParamRequired
 		}
 
 		// If quantity = 0, remove cart item and return early
@@ -107,10 +111,9 @@ func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) erro
 				AccountID: []uuid.UUID{params.Account.ID},
 				SkuID:     []uuid.UUID{params.SkuID},
 			}); err != nil {
-				return err
+				return "", err
 			}
-			b.analytic.TrackInteraction(params.Account, analyticmodel.EventRemoveFromCart, analyticdb.AnalyticInteractionRefTypeProduct, params.SkuID.String())
-			return nil
+			return analyticmodel.EventRemoveFromCart, nil
 		}
 
 		if err := b.storage.Querier().UpdateCart(ctx, orderdb.UpdateCartParams{
@@ -118,11 +121,23 @@ func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) erro
 			SkuID:     params.SkuID,
 			Quantity:  newQuantity,
 		}); err != nil {
-			return err
+			return "", err
 		}
-		b.analytic.TrackInteraction(params.Account, analyticmodel.EventAddToCart, analyticdb.AnalyticInteractionRefTypeProduct, params.SkuID.String())
-		return nil
+		return analyticmodel.EventAddToCart, nil
 	})
+	if err != nil {
+		return err
+	}
+
+	restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		Interactions: []analyticbiz.CreateInteraction{{
+			Account:   params.Account,
+			EventType: eventType,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     params.SkuID.String(),
+		}},
+	})
+	return nil
 }
 
 type ClearCartParams struct {
@@ -155,12 +170,12 @@ func (b *OrderBiz) ListCheckoutCart(ctx restate.Context, params ListCheckoutCart
 			return nil, ordermodel.ErrBuyNowQuantityRequired
 		}
 
-		return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
-			skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{ID: []uuid.UUID{params.BuyNowSkuID.UUID}})
-			if err != nil {
-				return nil, err
-			}
+		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{ID: []uuid.UUID{params.BuyNowSkuID.UUID}})
+		if err != nil {
+			return nil, err
+		}
 
+		return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
 			var results []ordermodel.CartItem
 			if len(skus) > 0 {
 				sku := skus[0]

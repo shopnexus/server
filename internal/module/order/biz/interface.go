@@ -5,10 +5,8 @@ import (
 	"errors"
 
 	"shopnexus-server/internal/infras/payment"
-	"shopnexus-server/internal/infras/pubsub"
 	"shopnexus-server/internal/infras/shipment"
 	accountbiz "shopnexus-server/internal/module/account/biz"
-	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
@@ -57,39 +55,32 @@ type OrderBiz struct {
 	storage     OrderStorage
 	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
 	shipmentMap map[string]shipment.Client // map[shipmentOption]shipment.Client
-	pubsub      pubsub.Client
 	account     *accountbiz.AccountBiz
 	catalog     *catalogbiz.CatalogBiz
 	inventory   *inventorybiz.InventoryBiz
 	promotion   *promotionbiz.PromotionBiz
 	common      *commonbiz.CommonBiz
-	analytic    *analyticbiz.AnalyticBiz
 }
 
 func NewOrderBiz(
 	storage OrderStorage,
-	pubsub pubsub.Client,
 	account *accountbiz.AccountBiz,
 	catalog *catalogbiz.CatalogBiz,
 	inventory *inventorybiz.InventoryBiz,
 	promotion *promotionbiz.PromotionBiz,
 	common *commonbiz.CommonBiz,
-	analytic *analyticbiz.AnalyticBiz,
 ) (*OrderBiz, error) {
 	b := &OrderBiz{
 		storage:   storage,
-		pubsub:    pubsub.Group("order"),
 		account:   account,
 		catalog:   catalog,
 		inventory: inventory,
 		promotion: promotion,
 		common:    common,
-		analytic:  analytic,
 	}
 
 	return b, errors.Join(
 		b.SetupPaymentMap(),
 		b.SetupShipmentMap(),
-		b.SetupPubsub(),
 	)
 }

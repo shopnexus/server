@@ -1,7 +1,6 @@
 package accountbiz
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"shopnexus-server/config"
@@ -10,6 +9,8 @@ import (
 	authclaims "shopnexus-server/internal/shared/claims"
 	"shopnexus-server/internal/shared/validator"
 	"time"
+
+	restate "github.com/restatedev/sdk-go"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -105,7 +106,7 @@ type LoginResult struct {
 	RefreshToken string
 }
 
-func (a *AccountBiz) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
+func (a *AccountBiz) Login(ctx restate.Context, params LoginParams) (LoginResult, error) {
 	var zero LoginResult
 
 	if err := validator.Validate(params); err != nil {
@@ -169,7 +170,7 @@ type RegisterResult struct {
 	RefreshToken string
 }
 
-func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (RegisterResult, error) {
+func (a *AccountBiz) Register(ctx restate.Context, params RegisterParams) (RegisterResult, error) {
 	var zero RegisterResult
 
 	if err := validator.Validate(params); err != nil {
@@ -251,7 +252,7 @@ type RefreshResult struct {
 }
 
 // Refresh validates the provided refresh token, loads the account, and issues new tokens
-func (a *AccountBiz) Refresh(ctx context.Context, refreshToken string) (RefreshResult, error) {
+func (a *AccountBiz) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
 	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
 	if err != nil {

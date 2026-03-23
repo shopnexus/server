@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	restate "github.com/restatedev/sdk-go"
+
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
@@ -24,7 +26,7 @@ type GetPromotionParams struct {
 	ID uuid.UUID `validate:"required"`
 }
 
-func (s *PromotionBiz) GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionBiz) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	promo, err := s.storage.Querier().GetPromotion(ctx, promotiondb.GetPromotionParams{
@@ -51,7 +53,7 @@ type ListPromotionParams struct {
 	ID []uuid.UUID `validate:"omitempty,dive,required"`
 }
 
-func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.Promotion], error) {
+func (s *PromotionBiz) ListPromotion(ctx restate.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.Promotion], error) {
 	var zero commonmodel.PaginateResult[promotionmodel.Promotion]
 
 	rows, err := s.storage.Querier().ListCountPromotion(ctx, promotiondb.ListCountPromotionParams{
@@ -108,7 +110,7 @@ type CreatePromotionParams struct {
 	Refs        []promotionmodel.PromotionRef `validate:"dive"`
 }
 
-func (b *PromotionBiz) CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
+func (b *PromotionBiz) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -164,7 +166,7 @@ type UpdatePromotionParams struct {
 	Refs            *[]promotionmodel.PromotionRef `validate:"omitnil"`
 }
 
-func (s *PromotionBiz) UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionBiz) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -214,7 +216,7 @@ type DeletePromotionParams struct {
 	ID      uuid.UUID
 }
 
-func (s *PromotionBiz) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
+func (s *PromotionBiz) DeletePromotion(ctx restate.Context, params DeletePromotionParams) error {
 	return s.storage.Querier().DeletePromotion(ctx, promotiondb.DeletePromotionParams{
 		ID: []uuid.UUID{params.ID},
 	})

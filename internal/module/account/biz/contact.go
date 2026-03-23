@@ -1,8 +1,9 @@
 package accountbiz
 
 import (
-	"context"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -18,7 +19,7 @@ type ListContactParams struct {
 	ID        []uuid.UUID `validate:"omitempty,dive"`
 }
 
-func (b *AccountBiz) ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
+func (b *AccountBiz) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ type GetContactParams struct {
 	ContactID uuid.UUID `validate:"required"`
 }
 
-func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBiz) GetContact(ctx restate.Context, params GetContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -69,7 +70,7 @@ type CreateContactParams struct {
 	AddressType accountdb.AccountAddressType `validate:"required,validateFn=Valid"`
 }
 
-func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBiz) CreateContact(ctx restate.Context, params CreateContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -116,7 +117,7 @@ type UpdateContactParams struct {
 	PhoneVerified null.Bool `validate:"omitnil"`
 }
 
-func (b *AccountBiz) UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBiz) UpdateContact(ctx restate.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -144,14 +145,14 @@ type DeleteContactParams struct {
 	ContactID uuid.UUID
 }
 
-func (b *AccountBiz) DeleteContact(ctx context.Context, params DeleteContactParams) error {
+func (b *AccountBiz) DeleteContact(ctx restate.Context, params DeleteContactParams) error {
 	return b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
 		ID:        []uuid.UUID{params.ContactID},
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 }
 
-func (b *AccountBiz) GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
+func (b *AccountBiz) GetDefaultContact(ctx restate.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
 	contacts, err := b.storage.Querier().ListDefaultContact(ctx, accountIDs)
 	if err != nil {
 		return nil, err

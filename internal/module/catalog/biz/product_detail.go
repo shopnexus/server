@@ -1,11 +1,14 @@
 package catalogbiz
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 
+	restate "github.com/restatedev/sdk-go"
+
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
@@ -26,7 +29,7 @@ type GetProductDetailParams struct {
 	Slug    null.String
 }
 
-func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogBiz) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
 	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
@@ -140,13 +143,20 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	// Check favorite for authenticated user
 	var isFavorite bool
 	if params.Account != nil {
-		favoriteSet, _ := b.account.CheckFavorites(ctx, params.Account.ID, []uuid.UUID{spu.ID})
+		favoriteSet, _ := b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: params.Account.ID, SpuIDs: []uuid.UUID{spu.ID}})
 		isFavorite = favoriteSet[spu.ID]
 	}
 
 	// Track view interaction for authenticated users
 	if params.Account != nil {
-		b.analytic.TrackInteraction(*params.Account, analyticmodel.EventView, analyticdb.AnalyticInteractionRefTypeProduct, spu.ID.String())
+		restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+			Interactions: []analyticbiz.CreateInteraction{{
+				Account:   *params.Account,
+				EventType: analyticmodel.EventView,
+				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+				RefID:     spu.ID.String(),
+			}},
+		})
 	}
 
 	return catalogmodel.ProductDetail{

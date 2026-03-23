@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 
 	"shopnexus-server/config"
+	restateclient "shopnexus-server/internal/infras/restate"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	"shopnexus-server/internal/shared/validator"
@@ -35,13 +36,13 @@ func (b *CatalogBiz) SetupCron() error {
 		embeddingInterval = time.Second
 	}
 
-	go b.StartProductSyncCron(context.Background(), metadataInterval, true)
-	go b.StartProductSyncCron(context.Background(), embeddingInterval, false)
+	go b.startProductSyncCron(context.Background(), metadataInterval, true)
+	go b.startProductSyncCron(context.Background(), embeddingInterval, false)
 	return nil
 }
 
-// SyncProductData fetches all product data and sends it to search engine server
-func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) error {
+// syncProductData fetches stale products and syncs them via Restate ingress
+func (b *CatalogBiz) syncProductData(ctx context.Context, metadataOnly bool) error {
 	if metadataOnly {
 		metadataStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
 			RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
@@ -52,7 +53,7 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 			return fmt.Errorf("sync product data: %w", err)
 		}
 
-		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       metadataStales,
 			MetadataOnly: true,
 		}); err != nil {
@@ -68,7 +69,7 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 			return fmt.Errorf("sync product data: %w", err)
 		}
 
-		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       embeddingStales,
 			MetadataOnly: false,
 		}); err != nil {
@@ -84,7 +85,8 @@ type UpdateStaleProductsParams struct {
 	MetadataOnly bool
 }
 
-func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
+// updateStaleProducts fetches product details via Restate and syncs to search engine
+func (b *CatalogBiz) updateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
 	if len(params.Stales) == 0 {
 		return nil
 	}
@@ -94,14 +96,14 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 
 	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(params.Stales), params.MetadataOnly)
 
-	// Fetch product details
+	// Fetch product details via Restate ingress
 	var productDetails []catalogmodel.ProductDetail
 	for _, stale := range params.Stales {
-		detail, err := b.GetProductDetail(ctx, GetProductDetailParams{
+		detail, err := restateclient.Call[catalogmodel.ProductDetail](ctx, b.restateClient, "CatalogBiz", "GetProductDetail", GetProductDetailParams{
 			ID: uuid.NullUUID{UUID: stale.RefID, Valid: true},
 		})
 		if err != nil {
-			slog.Error("Failed to get product detail for product ID", "product_id", stale.RefID, "error", err)
+			slog.Error("get product detail for sync", "product_id", stale.RefID, "error", err)
 			continue
 		}
 
@@ -129,8 +131,8 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 		return fmt.Errorf("update batch system search sync: %w", updateErr)
 	}
 
-	// Last step: send to search server (cannot be in the transaction)
-	if err := b.UpdateProducts(ctx, UpdateProductsParams{
+	// Last step: send to search server via Restate ingress
+	if err := restateclient.Send(ctx, b.restateClient, "CatalogBiz", "UpdateProducts", UpdateProductsParams{
 		Products:     productDetails,
 		MetadataOnly: params.MetadataOnly,
 	}); err != nil {
@@ -140,12 +142,12 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 	return nil
 }
 
-// StartProductSyncCron starts the cron job for product data sync
-func (b *CatalogBiz) StartProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
+// startProductSyncCron starts the cron job for product data sync
+func (b *CatalogBiz) startProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
 	log.Println("Starting product sync cron job...")
 
 	// Run immediately on startup
-	if err := b.SyncProductData(ctx, metadataOnly); err != nil {
+	if err := b.syncProductData(ctx, metadataOnly); err != nil {
 		log.Printf("Initial product sync failed: %v", err)
 	}
 
@@ -163,7 +165,7 @@ func (b *CatalogBiz) StartProductSyncCron(ctx context.Context, duration time.Dur
 		}
 
 		b.syncLock.Lock()
-		if err := b.SyncProductData(ctx, metadataOnly); err != nil {
+		if err := b.syncProductData(ctx, metadataOnly); err != nil {
 			log.Printf("Product sync failed: %v", err)
 		}
 		b.syncLock.Unlock()

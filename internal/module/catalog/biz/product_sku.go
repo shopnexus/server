@@ -1,9 +1,10 @@
 package catalogbiz
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+
+	restate "github.com/restatedev/sdk-go"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
@@ -28,7 +29,7 @@ type ListProductSkuParams struct {
 	CanCombine null.Bool   `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+func (b *CatalogBiz) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
@@ -79,7 +80,7 @@ type CreateProductSkuParams struct {
 	PackageDetails json.RawMessage                 `validate:"required"`
 }
 
-func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogBiz) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
@@ -127,7 +128,7 @@ type UpdateProductSkuParams struct {
 	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
 
-func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogBiz) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
@@ -196,7 +197,7 @@ type DeleteProductSkuParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
-func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductSkuParams) error {
+func (b *CatalogBiz) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
