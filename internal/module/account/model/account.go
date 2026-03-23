@@ -21,13 +21,13 @@ type Profile struct {
 	Username null.String             `json:"username"`
 
 	// Profile fields
-	Gender           null.Value[accountdb.AccountGender] `json:"gender"`
-	Name             null.String                         `json:"name"`
-	DateOfBirth      null.Time                           `json:"date_of_birth"`
-	EmailVerified    bool                                `json:"email_verified"`
-	PhoneVerified    bool                                `json:"phone_verified"`
-	DefaultContactID uuid.NullUUID                       `json:"default_contact_id"`
-	AvatarURL        null.String                         `json:"avatar_url"`
+	Gender           *accountdb.AccountGender `json:"gender"`
+	Name             null.String              `json:"name"`
+	DateOfBirth      null.Time                `json:"date_of_birth"`
+	EmailVerified    bool                     `json:"email_verified"`
+	PhoneVerified    bool                     `json:"phone_verified"`
+	DefaultContactID uuid.NullUUID            `json:"default_contact_id"`
+	AvatarURL        null.String              `json:"avatar_url"`
 
 	// Vendor fields
 	Description null.String `json:"description"`
