@@ -54,9 +54,12 @@ func SetupHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				port := ":8000" // Default port, you can make this configurable
-				slog.Info("Starting HTTP server on port", "port", port)
-				if err := e.Start(port); err != nil {
+				port := cfg.App.Port
+				if port == "" {
+					port = "8080"
+				}
+				slog.Info("Starting HTTP server", "port", port)
+				if err := e.Start(":" + port); err != nil {
 					slog.Error("HTTP server error", slog.Any("error", err))
 				}
 			}()

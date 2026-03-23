@@ -20,6 +20,7 @@ type Config struct {
 
 type App struct {
 	Name      string `yaml:"name" mapstructure:"name" validate:"required"`
+	Port      string `yaml:"port" mapstructure:"port"`
 	PublicURL string `yaml:"publicUrl" mapstructure:"publicUrl" validate:"required,url"`
 	JWT       JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
 	Vnpay     Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
