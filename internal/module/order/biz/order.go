@@ -32,7 +32,7 @@ func (b *OrderBiz) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.
 		return zero, err
 	}
 	if len(orders.Data) == 0 {
-		return zero, fmt.Errorf("order not found")
+		return zero, ordermodel.ErrOrderNotFound
 	}
 
 	return orders.Data[0], nil

@@ -55,7 +55,7 @@ func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (a
 	}
 
 	if len(result) == 0 {
-		return zero, fmt.Errorf("contact not found")
+		return zero, accountmodel.ErrContactNotFound
 	}
 
 	return result[0], nil
@@ -157,7 +157,7 @@ func (b *AccountBiz) GetDefaultContact(ctx context.Context, accountIDs []uuid.UU
 		return nil, err
 	}
 	if len(contacts) != len(lo.Uniq(accountIDs)) {
-		return nil, fmt.Errorf("some accounts have no default contact")
+		return nil, accountmodel.ErrNoDefaultContact
 	}
 
 	return lo.KeyBy(contacts, func(c accountdb.AccountContact) uuid.UUID { return c.AccountID }), nil

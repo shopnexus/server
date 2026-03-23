@@ -2,7 +2,6 @@ package inventorybiz
 
 import (
 	"context"
-	"errors"
 
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
@@ -172,7 +171,7 @@ func (b *InventoryBiz) ImportStock(ctx context.Context, params ImportStockParams
 
 		if len(params.SerialIDs) != 0 {
 			if len(params.SerialIDs) != int(params.Change) {
-				return errors.New("length of serial_ids must be equal to change when serial_ids is provided")
+				return inventorymodel.ErrSerialCountMismatch
 			}
 			for _, id := range params.SerialIDs {
 				args = append(args, inventorydb.CreateCopyDefaultSerialParams{

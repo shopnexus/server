@@ -166,7 +166,7 @@ func (b *CatalogBiz) GetProductCard(ctx context.Context, params GetProductCardPa
 
 	card, ok := productCardMap[params.SpuID]
 	if !ok || card == nil {
-		return nil, fmt.Errorf("product not found")
+		return nil, catalogmodel.ErrProductNotFound
 	}
 
 	return card, nil

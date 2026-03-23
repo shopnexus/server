@@ -7,6 +7,7 @@ import (
 
 	accountmodel "shopnexus-server/internal/module/account/model"
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
+	chatmodel "shopnexus-server/internal/module/chat/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -87,11 +88,11 @@ func (b *ChatBiz) SendMessage(ctx context.Context, params SendMessageParams) (ch
 
 	conv, err := b.storage.Querier().GetConversation(ctx, params.ConversationID)
 	if err != nil {
-		return zero, fmt.Errorf("conversation not found: %w", err)
+		return zero, chatmodel.ErrConversationNotFound
 	}
 
 	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
-		return zero, fmt.Errorf("not a participant of this conversation")
+		return zero, chatmodel.ErrNotParticipant
 	}
 
 	msg, err := b.storage.Querier().CreateMessage(ctx, chatdb.CreateMessageParams{
@@ -124,11 +125,11 @@ func (b *ChatBiz) ListMessage(ctx context.Context, params ListMessageParams) (sh
 
 	conv, err := b.storage.Querier().GetConversation(ctx, params.ConversationID)
 	if err != nil {
-		return zero, fmt.Errorf("conversation not found: %w", err)
+		return zero, chatmodel.ErrConversationNotFound
 	}
 
 	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
-		return zero, fmt.Errorf("not a participant of this conversation")
+		return zero, chatmodel.ErrNotParticipant
 	}
 
 	messages, err := b.storage.Querier().ListMessageByConversation(ctx, chatdb.ListMessageByConversationParams{

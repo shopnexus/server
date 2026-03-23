@@ -269,7 +269,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 			return zero, fmt.Errorf("failed to validate featured sku: %w", err)
 		}
 		if len(skus) == 0 || skus[0].SpuID != params.ID {
-			return zero, fmt.Errorf("featured sku does not belong to product spu")
+			return zero, catalogmodel.ErrSkuNotBelongToSpu
 		}
 	}
 

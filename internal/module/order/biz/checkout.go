@@ -77,7 +77,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		return zero, err
 	}
 	if params.BuyNow && len(params.Items) != 1 {
-		return zero, fmt.Errorf("buy now only support single sku")
+		return zero, ordermodel.ErrBuyNowSingleSkuOnly
 	}
 
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })

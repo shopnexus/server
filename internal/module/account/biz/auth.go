@@ -113,7 +113,7 @@ func (a *AccountBiz) Login(ctx context.Context, params LoginParams) (LoginResult
 	}
 
 	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
-		return zero, fmt.Errorf("at least one of username, email, or phone must be provided")
+		return zero, accountmodel.ErrMissingIdentifier
 	}
 
 	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
@@ -183,7 +183,7 @@ func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (Regis
 	// If register via Google OAuth, password can be nil => password is nil, email is required
 	//! More oauth providers can be added in the future
 	if !params.Password.Valid && !params.Email.Valid {
-		return zero, fmt.Errorf("email is required when password is not provided")
+		return zero, accountmodel.ErrEmailRequiredForOAuth
 	}
 
 	// Hash the password if provided
@@ -222,7 +222,7 @@ func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (Regis
 	case accountdb.AccountTypeVendor:
 		_, err = a.storage.Querier().CreateDefaultVendor(ctx, account.ID)
 	default:
-		return zero, fmt.Errorf("unsupported account type: %v", account.Type)
+		return zero, accountmodel.ErrUnsupportedAccountType
 	}
 	if err != nil {
 		return zero, fmt.Errorf("failed to register account: %w", err)
