@@ -8,6 +8,7 @@ import (
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgutil"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -193,7 +194,7 @@ func (b *AccountBiz) dbToProfile(ctx restate.Context, account accountdb.AccountA
 		Email:    account.Email,
 		Username: account.Username,
 
-		Gender:           genderPtr(profile.Gender),
+		Gender:           pgutil.NullToPtr(profile.Gender.AccountGender, profile.Gender.Valid),
 		Name:             profile.Name,
 		DateOfBirth:      profile.DateOfBirth,
 		EmailVerified:    profile.EmailVerified,
@@ -201,11 +202,4 @@ func (b *AccountBiz) dbToProfile(ctx restate.Context, account accountdb.AccountA
 		DefaultContactID: profile.DefaultContactID,
 		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.UUID),
 	}
-}
-
-func genderPtr(ng accountdb.NullAccountGender) *accountdb.AccountGender {
-	if !ng.Valid {
-		return nil
-	}
-	return &ng.AccountGender
 }

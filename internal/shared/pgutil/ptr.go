@@ -5,6 +5,19 @@ import (
 	"database/sql/driver"
 )
 
+// Ptr returns a pointer to the given value.
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+// NullToPtr returns a pointer to val if valid is true, or nil otherwise.
+func NullToPtr[T any](val T, valid bool) *T {
+	if !valid {
+		return nil
+	}
+	return &val
+}
+
 // PgtypeToPtr converts a pgtype to a pointer value
 func PgtypeToPtr[T any](v driver.Valuer) *T {
 	data, err := v.Value()
