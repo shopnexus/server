@@ -1,4 +1,4 @@
-.PHONY: run dev generate migrate seed seedcmt build register
+.PHONY: run dev generate pgtempl migrate seed seedcmt build register
 
 # Downgrade protobuf registration conflict to warning (restate-sdk vs milvus share "internal.proto")
 export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
@@ -14,6 +14,9 @@ build:
 
 generate:
 	go generate ./...
+
+pgtempl:
+	go run ./cmd/pgtempl/ -module all
 
 migrate:
 	go run ./cmd/migrate/

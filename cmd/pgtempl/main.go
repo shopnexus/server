@@ -27,10 +27,10 @@ func main() {
 		fmt.Println("Reads all migration files for a module and generates SQLC queries.")
 		fmt.Println()
 		fmt.Println("Usage:")
-		fmt.Println("  go run ./cmd/pgtempl -module <name> [options]")
+		fmt.Println("  go run ./cmd/pgtempl/ -module <name> [options]")
 		fmt.Println()
 		fmt.Println("Options:")
-		fmt.Println("  -module <name>       Module name, e.g. account, catalog (required)")
+		fmt.Println("  -module <name>       Module name, e.g. account, catalog, or 'all' (required)")
 		fmt.Println("  -output <dir>        Output directory (default: internal/module/<module>/db/queries)")
 		fmt.Println("  -table <name>        Generate for specific table (schema.table)")
 		fmt.Println("  -single-file         All queries in one file")
@@ -38,57 +38,99 @@ func main() {
 		fmt.Println("  -help                Show this help")
 		fmt.Println()
 		fmt.Println("Examples:")
-		fmt.Println("  go run ./cmd/pgtempl -module account")
-		fmt.Println("  go run ./cmd/pgtempl -module catalog -table catalog.product_spu")
-		fmt.Println("  go run ./cmd/pgtempl -module order -skip-schema-prefix")
+		fmt.Println("  go run ./cmd/pgtempl/ -module all")
+		fmt.Println("  go run ./cmd/pgtempl/ -module account")
+		fmt.Println("  go run ./cmd/pgtempl/ -module catalog -table catalog.product_spu")
 		return
 	}
 
-	// Resolve migration files.
-	migrationsDir := filepath.Join("internal", "module", *module, "db", "migrations")
+	// Discover modules to process
+	modules := []string{*module}
+	if *module == "all" {
+		var err error
+		modules, err = discoverModules()
+		if err != nil {
+			log.Fatalf("Error discovering modules: %v", err)
+		}
+		if len(modules) == 0 {
+			log.Fatal("No modules with migrations found")
+		}
+		fmt.Printf("Found %d modules: %s\n", len(modules), strings.Join(modules, ", "))
+	}
+
+	for _, mod := range modules {
+		if err := generateForModule(mod, *outputDir, *tableName, *singleFile, *skipSchemaPrefix); err != nil {
+			log.Printf("Error generating for module %s: %v", mod, err)
+		}
+	}
+}
+
+// generateForModule generates queries for a single module.
+func generateForModule(module, outputDir, tableName string, singleFile, skipSchemaPrefix bool) error {
+	migrationsDir := filepath.Join("internal", "module", module, "db", "migrations")
 	files, err := discoverMigrations(migrationsDir)
 	if err != nil {
-		log.Fatalf("Error discovering migrations: %v", err)
+		return fmt.Errorf("discover migrations: %w", err)
 	}
 	if len(files) == 0 {
-		log.Fatalf("No migration files found in %s", migrationsDir)
+		return fmt.Errorf("no migration files in %s", migrationsDir)
 	}
 
-	// Parse all migration files in order.
 	tables, err := ParseSchemaFiles(files)
 	if err != nil {
-		log.Fatalf("Error parsing schema: %v", err)
+		return fmt.Errorf("parse schema: %w", err)
 	}
 
-	// Filter to specific table if requested.
-	if *tableName != "" {
+	if tableName != "" {
 		var filtered []*Table
 		for _, t := range tables {
-			if t.QualifiedName() == *tableName || t.Name == *tableName {
+			if t.QualifiedName() == tableName || t.Name == tableName {
 				filtered = append(filtered, t)
 			}
 		}
 		tables = filtered
 	}
 
-	// Resolve output directory.
-	out := *outputDir
+	out := outputDir
 	if out == "" {
-		out = filepath.Join("internal", "module", *module, "db", "queries")
+		out = filepath.Join("internal", "module", module, "db", "queries")
 	}
 	if err := os.MkdirAll(out, 0755); err != nil {
-		log.Fatalf("Error creating output directory: %v", err)
+		return fmt.Errorf("create output dir: %w", err)
 	}
 
-	gen := &Generator{IncludeSchema: !*skipSchemaPrefix}
+	gen := &Generator{IncludeSchema: !skipSchemaPrefix}
 
-	if *singleFile && *tableName == "" {
+	if singleFile && tableName == "" {
 		writeSingleFile(tables, gen, out)
 	} else {
 		writePerTable(tables, gen, out)
 	}
 
-	fmt.Printf("Successfully generated SQLC queries in %s\n", out)
+	fmt.Printf("[%s] Generated SQLC queries in %s\n", module, out)
+	return nil
+}
+
+// discoverModules finds all modules that have a db/migrations directory.
+func discoverModules() ([]string, error) {
+	modulesDir := filepath.Join("internal", "module")
+	entries, err := os.ReadDir(modulesDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", modulesDir, err)
+	}
+
+	var modules []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		migrationsDir := filepath.Join(modulesDir, e.Name(), "db", "migrations")
+		if info, err := os.Stat(migrationsDir); err == nil && info.IsDir() {
+			modules = append(modules, e.Name())
+		}
+	}
+	sort.Strings(modules)
+	return modules, nil
 }
 
 // discoverMigrations finds all *.up.sql files in the given directory, sorted by name.
