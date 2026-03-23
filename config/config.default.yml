@@ -61,6 +61,10 @@ redis:
   password: "peaksehopnexuspassword"
   db: 0
 
+nats:
+  host: localhost
+  port: 4222
+
 milvus:
   address: "localhost:19530"
 

@@ -8,8 +8,8 @@ volumes:
     name: shopnexus-postgres-data-dev
   redis-data:
     name: shopnexus-redis-data-dev
-  kafka-data:
-    name: shopnexus-kafka-data-dev
+  nats-data:
+    name: shopnexus-nats-data-dev
   server-data:
     name: shopnexus-server-data-dev
   restate-data:
@@ -81,46 +81,23 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  kafka:
-    container_name: shopnexus-kafka-dev
-    image: confluentinc/cp-kafka:latest
+  nats:
+    container_name: shopnexus-nats-dev
+    image: nats:latest
     ports:
-      - "127.0.0.1:9492:9092"
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+    command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
     volumes:
-      - kafka-data:/data
+      - nats-data:/data
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1",
-        ]
+        ["CMD", "wget", "--spider", "--quiet", "http://localhost:8222/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 5s
     restart: unless-stopped
-    environment:
-      # Required in KRaft mode
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-
-      # Listener configuration
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092,PLAINTEXT_HOST://127.0.0.1:9092
-      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://khoakomlem-internal.ddns.net:9092,PLAINTEXT_HOST://khoakomlem-internal.ddns.net:9092
-      # KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9492
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # Kafka will automatically create topics if needed.
-      KAFKA_NUM_PARTITIONS: 3 # Default number of partitions for new topics.
-      KAFKA_LOG_RETENTION_HOURS: 168 # Keep logs for 7 days.
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0 # No delay for consumer rebalancing.
-      CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk" # A unique ID for the Kafka cluster.
 
   restate-1:
     <<: *restate-defaults
@@ -234,33 +211,15 @@ services:
         condition: service_healthy
 
   attu:
-    container_name: milvus-attu
+    container_name: shopnexus-milvus-attu
     image: zilliz/attu:latest
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:5004:3000"
     environment:
       - MILVUS_URL=http://standalone:19530
     depends_on:
       - "milvus"
     restart: unless-stopped
-
-  # kafka-ui:
-  #   container_name: shopnexus-kafka-ui-dev
-  #   image: ghcr.io/kafbat/kafka-ui:latest
-  #   ports:
-  #     - "127.0.0.1:8081:8080"
-  #   depends_on:
-  #     - kafka
-  #   environment:
-  #     - KAFKA_CLUSTERS_0_NAME=local
-  #     - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:9093/actuator/health"]
-  #     interval: 1m30s
-  #     timeout: 30s
-  #     retries: 5
-  #     start_period: 30s
 
   # server:
   #   container_name: shopnexus-server-dev
@@ -270,7 +229,7 @@ services:
   #   ports:
   #     - "50051:50051"
   #   depends_on:
-  #     kafka:
+  #     nats:
   #       condition: service_healthy
   #     postgres:
   #       condition: service_healthy
