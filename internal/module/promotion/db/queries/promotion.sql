@@ -2,6 +2,7 @@
 SELECT *
 FROM promotion.promotion
 WHERE is_active = true
+  AND date_started <= NOW()
   AND (date_ended IS NULL OR date_ended > NOW())
   AND (
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL)
@@ -10,4 +11,5 @@ WHERE is_active = true
       "id" = ANY(sqlc.slice('id')) OR
       "code" = ANY(sqlc.slice('code'))
     )
-  );
+  )
+ORDER BY "group", "priority" DESC;

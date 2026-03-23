@@ -15,6 +15,7 @@ WHERE (
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
+    ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
     ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
     ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
@@ -41,6 +42,7 @@ WHERE (
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
+    ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
     ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
     ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
@@ -70,6 +72,7 @@ WHERE (
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
+    ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
     ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
     ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
@@ -88,27 +91,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreatePromotion :one
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateBatchPromotion :batchone
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateCopyPromotion :copyfrom
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultPromotion :one
-INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultPromotion :copyfrom
-INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdatePromotion :one
 UPDATE "promotion"."promotion"
@@ -119,6 +122,9 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END,
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
     "auto_apply" = COALESCE(sqlc.narg('auto_apply'), "auto_apply"),
+    "group" = COALESCE(sqlc.narg('group'), "group"),
+    "priority" = COALESCE(sqlc.narg('priority'), "priority"),
+    "data" = CASE WHEN sqlc.arg('null_data')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('data'), "data") END,
     "date_started" = COALESCE(sqlc.narg('date_started'), "date_started"),
     "date_ended" = CASE WHEN sqlc.arg('null_date_ended')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_ended'), "date_ended") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
@@ -137,6 +143,7 @@ WHERE (
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
+    ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
     ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
     ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
