@@ -14,9 +14,12 @@ import (
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface ChatClient -service ChatBiz
 type ChatClient interface {
+	// Conversation
 	CreateConversation(ctx context.Context, params CreateConversationParams) (chatdb.ChatConversation, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (chatdb.ChatConversation, error)
 	ListConversation(ctx context.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error)
+
+	// Message
 	SendMessage(ctx context.Context, params SendMessageParams) (chatdb.ChatMessage, error)
 	ListMessage(ctx context.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error)
 	MarkRead(ctx context.Context, params MarkReadParams) error
@@ -24,10 +27,12 @@ type ChatClient interface {
 
 type ChatStorage = pgsqlc.Storage[*chatdb.Queries]
 
+// ChatBiz implements the core business logic for the chat module.
 type ChatBiz struct {
 	storage ChatStorage
 }
 
+// NewChatBiz creates a new ChatBiz with the given dependencies.
 func NewChatBiz(storage ChatStorage) *ChatBiz {
 	return &ChatBiz{storage: storage}
 }

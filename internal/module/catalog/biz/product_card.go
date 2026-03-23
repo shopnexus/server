@@ -155,6 +155,7 @@ type GetProductCardParams struct {
 	SpuID     uuid.UUID `validate:"required"`
 }
 
+// GetProductCard returns a single product card by SPU ID.
 func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
@@ -180,6 +181,7 @@ type ListProductCardParams struct {
 	Search    null.String   `validate:"omitnil,min=1,max=100"`
 }
 
+// ListProductCard returns paginated product cards with optional search and vendor filter.
 func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero commonmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
@@ -268,6 +270,7 @@ type ListRecommendedProductCardParams struct {
 	Limit   int                               `validate:"omitempty,min=1,max=100"`
 }
 
+// ListRecommendedProductCard returns personalized product card recommendations for the authenticated user.
 func (b *CatalogBiz) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
 	var zero []catalogmodel.ProductCard
 	var rcmProducts []catalogmodel.ProductRecommend

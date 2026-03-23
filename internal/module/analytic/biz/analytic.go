@@ -25,6 +25,7 @@ type CreateInteractionParams struct {
 	Interactions []CreateInteraction
 }
 
+// CreateInteraction records a batch of user interactions and fans out popularity events.
 func (b *AnalyticBiz) CreateInteraction(ctx restate.Context, params CreateInteractionParams) error {
 	args := lo.Map(params.Interactions, func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
 		return analyticdb.CreateBatchInteractionParams{

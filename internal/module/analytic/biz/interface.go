@@ -18,7 +18,10 @@ import (
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface AnalyticClient -service AnalyticBiz
 type AnalyticClient interface {
+	// Interaction
 	CreateInteraction(ctx context.Context, params CreateInteractionParams) error
+
+	// Popularity
 	HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error
 	GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error)
 	ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error)
@@ -26,13 +29,14 @@ type AnalyticClient interface {
 
 type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
+// AnalyticBiz implements the core business logic for the analytic module.
 type AnalyticBiz struct {
 	storage           AnalyticStorage
 	promotion         *promotionbiz.PromotionBiz
 	popularityWeights map[string]float64
 }
 
-// NewAnalyticBiz creates a new instance of AnalyticBiz.
+// NewAnalyticBiz creates a new AnalyticBiz with the given dependencies.
 func NewAnalyticBiz(
 	config *config.Config,
 	storage AnalyticStorage,

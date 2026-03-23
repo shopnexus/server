@@ -26,6 +26,7 @@ type GetPromotionParams struct {
 	ID uuid.UUID `validate:"required"`
 }
 
+// GetPromotion returns a promotion by ID, including its refs.
 func (s *PromotionBiz) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
@@ -53,6 +54,7 @@ type ListPromotionParams struct {
 	ID []uuid.UUID `validate:"omitempty,dive,required"`
 }
 
+// ListPromotion returns a paginated list of promotions with their refs.
 func (s *PromotionBiz) ListPromotion(ctx restate.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.Promotion], error) {
 	var zero commonmodel.PaginateResult[promotionmodel.Promotion]
 
@@ -110,6 +112,7 @@ type CreatePromotionParams struct {
 	Refs        []promotionmodel.PromotionRef `validate:"dive"`
 }
 
+// CreatePromotion creates a new promotion with the given parameters and refs.
 func (b *PromotionBiz) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
@@ -166,6 +169,7 @@ type UpdatePromotionParams struct {
 	Refs            *[]promotionmodel.PromotionRef `validate:"omitnil"`
 }
 
+// UpdatePromotion updates the specified promotion fields and optionally replaces its refs.
 func (s *PromotionBiz) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
@@ -216,6 +220,7 @@ type DeletePromotionParams struct {
 	ID      uuid.UUID
 }
 
+// DeletePromotion deletes the promotion with the given ID.
 func (s *PromotionBiz) DeletePromotion(ctx restate.Context, params DeletePromotionParams) error {
 	return s.storage.Querier().DeletePromotion(ctx, promotiondb.DeletePromotionParams{
 		ID: []uuid.UUID{params.ID},

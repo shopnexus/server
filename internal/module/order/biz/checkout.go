@@ -70,6 +70,7 @@ type checkoutPaymentResult struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
+// Checkout processes a purchase order with payment creation, inventory reservation, and shipment booking.
 func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
 	var zero CheckoutResult
 
@@ -384,6 +385,7 @@ type CancelOrderParams = struct {
 	OrderID uuid.UUID
 }
 
+// CancelOrder cancels a pending order along with its payment and shipment.
 func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)

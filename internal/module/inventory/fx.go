@@ -22,10 +22,12 @@ var Module = fx.Module("inventory",
 	),
 )
 
+// NewInventoryStorage creates a new inventory storage backed by PostgreSQL.
 func NewInventoryStorage(pool pgsqlc.TxBeginner) inventorybiz.InventoryStorage {
 	return pgsqlc.NewStorage(pool, inventorydb.New(pool))
 }
 
+// NewInventoryClient creates a Restate-backed client for the inventory module.
 func NewInventoryClient(cfg *config.Config) inventorybiz.InventoryClient {
 	return inventorybiz.NewInventoryBizProxy(cfg.Restate.IngressAddress)
 }

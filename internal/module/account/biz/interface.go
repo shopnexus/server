@@ -44,6 +44,7 @@ type AccountClient interface {
 	AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error)
 	RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error
 	ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error)
+
 	// Payment Method
 	CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
 	ListPaymentMethod(ctx context.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error)
@@ -54,6 +55,7 @@ type AccountClient interface {
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]
 
+// AccountBiz implements the core business logic for the account module.
 type AccountBiz struct {
 	tokenDuration        time.Duration
 	jwtSecret            []byte
@@ -65,7 +67,7 @@ type AccountBiz struct {
 	common  *commonbiz.CommonBiz
 }
 
-// NewAccountBiz creates a new instance of AccountBiz.
+// NewAccountBiz creates a new AccountBiz with the given dependencies.
 func NewAccountBiz(
 	config *config.Config,
 	storage AccountStorage,

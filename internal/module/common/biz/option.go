@@ -18,6 +18,7 @@ type UpdateServiceOptionsParams struct {
 	Configs  []commonmodel.OptionConfig `validate:"required,dive"`
 }
 
+// UpdateServiceOptions creates or updates service option configurations for a given category.
 func (b *CommonBiz) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -71,6 +72,7 @@ type ListServiceOptionParams struct {
 	IsActive []bool   `validate:"omitempty,dive"`
 }
 
+// ListServiceOption returns active service options filtered by category.
 func (b *CommonBiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]commonmodel.OptionConfig, error) {
 	if validator.Validate(params) != nil {
 		return nil, validator.Validate(params)

@@ -18,6 +18,7 @@ type AddFavoriteParams struct {
 	SpuID   uuid.UUID `validate:"required"`
 }
 
+// AddFavorite adds a product SPU to the account's favorites list.
 func (b *AccountBiz) AddFavorite(ctx restate.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
 	var zero accountdb.AccountFavorite
 
@@ -46,6 +47,7 @@ type RemoveFavoriteParams struct {
 	SpuID   uuid.UUID `validate:"required"`
 }
 
+// RemoveFavorite removes a product SPU from the account's favorites list.
 func (b *AccountBiz) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
 	return b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
 		AccountID: params.Account.ID,
@@ -58,6 +60,7 @@ type ListFavoriteParams struct {
 	sharedmodel.PaginationParams
 }
 
+// ListFavorite returns a paginated list of the account's favorited products.
 func (b *AccountBiz) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountFavorite]
 	params.PaginationParams = params.Constrain()

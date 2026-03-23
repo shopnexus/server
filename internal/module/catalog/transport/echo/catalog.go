@@ -6,10 +6,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the catalog module.
 type Handler struct {
 	biz catalogbiz.CatalogClient
 }
 
+// NewHandler registers catalog module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz catalogbiz.CatalogClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/catalog")

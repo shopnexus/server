@@ -12,10 +12,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the inventory module.
 type Handler struct {
 	biz inventorybiz.InventoryClient
 }
 
+// NewHandler registers inventory module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz inventorybiz.InventoryClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/inventory")

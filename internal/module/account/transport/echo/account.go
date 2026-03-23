@@ -11,10 +11,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the account module.
 type Handler struct {
 	biz accountbiz.AccountClient
 }
 
+// NewHandler registers account module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz accountbiz.AccountClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/account")

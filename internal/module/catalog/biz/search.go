@@ -27,6 +27,7 @@ type SearchParams struct {
 	Query      string
 }
 
+// Search performs hybrid dense+sparse vector search against the product collection.
 func (b *CatalogBiz) Search(ctx restate.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
 	// 1. Get embeddings from embedding service
 	embeddings, err := b.embedding.Embed(ctx, []string{params.Query})
@@ -84,6 +85,7 @@ type GetRecommendationsParams struct {
 	Limit   int32
 }
 
+// GetRecommendations returns product recommendations based on the user's interest vectors.
 func (b *CatalogBiz) GetRecommendations(ctx restate.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	accountID := params.Account.ID.String()
 
@@ -170,6 +172,7 @@ func (b *CatalogBiz) GetRecommendations(ctx restate.Context, params GetRecommend
 	return products, nil
 }
 
+// ProcessEvents updates account interest vectors in Milvus based on analytic interaction events.
 func (b *CatalogBiz) ProcessEvents(ctx restate.Context, events []analyticmodel.Interaction) error {
 	if len(events) == 0 {
 		return nil
@@ -250,6 +253,7 @@ type UpdateProductsParams struct {
 	MetadataOnly bool
 }
 
+// UpdateProducts upserts product data and embeddings into the Milvus search index.
 func (b *CatalogBiz) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -329,6 +333,7 @@ func mapToSparseEmbedding(m map[uint32]float32) entity.SparseEmbedding {
 
 type AddInteractionParams = analyticmodel.Interaction
 
+// AddInteraction buffers an analytic interaction event and flushes the batch when full.
 func (b *CatalogBiz) AddInteraction(ctx restate.Context, params AddInteractionParams) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

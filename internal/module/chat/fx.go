@@ -10,6 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
+// Module provides the chat module dependencies.
 var Module = fx.Module("chat",
 	fx.Provide(
 		NewChatStorage,
@@ -22,10 +23,12 @@ var Module = fx.Module("chat",
 	),
 )
 
+// NewChatStorage creates a new chat storage backed by PostgreSQL.
 func NewChatStorage(pool pgsqlc.TxBeginner) chatbiz.ChatStorage {
 	return pgsqlc.NewStorage(pool, chatdb.New(pool))
 }
 
+// NewChatClient creates a Restate-backed client for the chat module.
 func NewChatClient(cfg *config.Config) chatbiz.ChatClient {
 	return chatbiz.NewChatBizProxy(cfg.Restate.IngressAddress)
 }

@@ -21,6 +21,7 @@ var Module = fx.Module("system",
 	),
 )
 
+// NewSystemStorage creates a new system storage backed by PostgreSQL.
 func NewSystemStorage(pool pgsqlc.TxBeginner) systembiz.SystemStorage {
 	return pgsqlc.NewStorage(pool, systemdb.New(pool))
 }

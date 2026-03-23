@@ -23,6 +23,7 @@ type ListVendorOrderParams struct {
 	commonmodel.PaginationParams
 }
 
+// ListVendorOrder returns paginated orders belonging to the authenticated vendor.
 func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
 	var zero commonmodel.PaginateResult[ordermodel.Order]
 
@@ -66,6 +67,7 @@ type ConfirmOrderParams struct {
 	Package     json.RawMessage `validate:"omitempty"`             // JSON object with weight and dimensions
 }
 
+// ConfirmOrder confirms a paid pending order and optionally updates its shipment details.
 func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err

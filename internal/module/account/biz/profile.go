@@ -21,6 +21,7 @@ type ListProfileParams struct {
 	AccountIDs []uuid.UUID                       `validate:"dive,required"`
 }
 
+// ListProfile returns a paginated list of profiles for the given account IDs.
 func (b *AccountBiz) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	var result sharedmodel.PaginateResult[accountmodel.Profile]
 	if err := validator.Validate(params); err != nil {
@@ -74,6 +75,7 @@ type GetProfileParams struct {
 	AccountID uuid.UUID
 }
 
+// GetProfile returns the profile for the given account ID.
 func (b *AccountBiz) GetProfile(ctx restate.Context, params GetProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
@@ -125,6 +127,7 @@ type UpdateProfileParams struct {
 	Description null.String
 }
 
+// UpdateProfile updates the account and profile fields for the given account.
 func (b *AccountBiz) UpdateProfile(ctx restate.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 

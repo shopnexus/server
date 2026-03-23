@@ -2,6 +2,7 @@ package accountmodel
 
 import commonmodel "shopnexus-server/internal/shared/model"
 
+// Sentinel errors for the account module.
 var (
 	ErrInvalidCredentials     = commonmodel.NewError("auth.invalid_credentials", "Invalid credentials provided")
 	ErrAccountNotFound        = commonmodel.NewError("auth.account_not_found", "Account not found")

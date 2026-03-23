@@ -23,10 +23,12 @@ var Module = fx.Module("order",
 	),
 )
 
+// NewOrderStorage creates a new order storage backed by PostgreSQL.
 func NewOrderStorage(pool pgsqlc.TxBeginner) orderbiz.OrderStorage {
 	return pgsqlc.NewStorage(pool, orderdb.New(pool))
 }
 
+// NewOrderClient creates a Restate-backed client for the order module.
 func NewOrderClient(cfg *config.Config) orderbiz.OrderClient {
 	return orderbiz.NewOrderBizProxy(cfg.Restate.IngressAddress)
 }

@@ -23,10 +23,12 @@ var Module = fx.Module("account",
 	),
 )
 
+// NewAccountStorage creates a new account storage backed by PostgreSQL.
 func NewAccountStorage(pool pgsqlc.TxBeginner) accountbiz.AccountStorage {
 	return pgsqlc.NewStorage(pool, accountdb.New(pool))
 }
 
+// NewAccountClient creates a Restate-backed client for the account module.
 func NewAccountClient(cfg *config.Config) accountbiz.AccountClient {
 	return accountbiz.NewAccountBizProxy(cfg.Restate.IngressAddress)
 }

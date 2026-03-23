@@ -51,7 +51,7 @@ func (a *AccountBiz) GenerateAccessToken(account accountdb.AccountAccount) (stri
 	return signedToken, nil
 }
 
-// CreateRefreshClaims generates JWT claims for refresh token
+// CreateRefreshClaims generates JWT claims for a refresh token.
 func (a *AccountBiz) CreateRefreshClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
@@ -67,7 +67,7 @@ func (a *AccountBiz) CreateRefreshClaims(account accountdb.AccountAccount) accou
 	}
 }
 
-// GenerateRefreshToken creates a JWT refresh token
+// GenerateRefreshToken creates a signed JWT refresh token for the given account.
 func (a *AccountBiz) GenerateRefreshToken(account accountdb.AccountAccount) (string, error) {
 	claims := a.CreateRefreshClaims(account)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
@@ -106,6 +106,7 @@ type LoginResult struct {
 	RefreshToken string
 }
 
+// Login authenticates a user and returns access and refresh tokens.
 func (a *AccountBiz) Login(ctx restate.Context, params LoginParams) (LoginResult, error) {
 	var zero LoginResult
 
@@ -170,6 +171,7 @@ type RegisterResult struct {
 	RefreshToken string
 }
 
+// Register creates a new account with the given credentials and returns tokens.
 func (a *AccountBiz) Register(ctx restate.Context, params RegisterParams) (RegisterResult, error) {
 	var zero RegisterResult
 
@@ -251,7 +253,7 @@ type RefreshResult struct {
 	RefreshToken string
 }
 
-// Refresh validates the provided refresh token, loads the account, and issues new tokens
+// Refresh validates a refresh token and issues new access and refresh tokens.
 func (a *AccountBiz) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
 	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)

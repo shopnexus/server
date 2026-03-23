@@ -13,6 +13,7 @@ import (
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface PromotionClient -service PromotionBiz
 type PromotionClient interface {
+	// Promotion
 	GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error)
 	ListPromotion(ctx context.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error)
 	CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error)
@@ -22,10 +23,12 @@ type PromotionClient interface {
 
 type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]
 
+// PromotionBiz implements the core business logic for the promotion module.
 type PromotionBiz struct {
 	storage PromotionStorage
 }
 
+// NewPromotionBiz creates a new PromotionBiz with the given dependencies.
 func NewPromotionBiz(storage PromotionStorage) *PromotionBiz {
 	return &PromotionBiz{storage: storage}
 }

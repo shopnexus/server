@@ -21,6 +21,7 @@ var Module = fx.Module("common",
 	),
 )
 
+// NewCommonStorage creates a new common storage backed by PostgreSQL.
 func NewCommonStorage(pool pgsqlc.TxBeginner) commonbiz.CommonStorage {
 	return pgsqlc.NewStorage(pool, commondb.New(pool))
 }

@@ -56,6 +56,7 @@ type GetProductSpuParams struct {
 	Slug null.String   `validate:"omitnil"`
 }
 
+// GetProductSpu returns a single product SPU by ID or slug.
 func (b *CatalogBiz) GetProductSpu(ctx restate.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var (
 		listSpu sharedmodel.PaginateResult[catalogmodel.ProductSpu]
@@ -94,6 +95,7 @@ type ListProductSpuParams struct {
 	IsActive   []bool                            `validate:"omitempty,dive"`
 }
 
+// ListProductSpu returns paginated product SPUs with optional filters for category, brand, and active status.
 func (b *CatalogBiz) ListProductSpu(ctx restate.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
@@ -177,6 +179,7 @@ type CreateProductSpuParams struct {
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
+// CreateProductSpu creates a new product SPU with tags, resources, and search sync entry.
 func (b *CatalogBiz) CreateProductSpu(ctx restate.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
@@ -254,6 +257,7 @@ type UpdateProductSpuParams struct {
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
 }
 
+// UpdateProductSpu updates an existing product SPU and marks the search index as stale.
 func (b *CatalogBiz) UpdateProductSpu(ctx restate.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
@@ -350,6 +354,7 @@ type DeleteProductSpuParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
+// DeleteProductSpu deletes a product SPU by ID.
 func (b *CatalogBiz) DeleteProductSpu(ctx restate.Context, params DeleteProductSpuParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -443,6 +448,7 @@ func (b *CatalogBiz) dbToProductSpu(ctx restate.Context, spu catalogdb.CatalogPr
 	}
 }
 
+// GenerateSlug creates a URL-friendly slug from a product name with a unique suffix.
 func GenerateSlug(name string) string {
 	return fmt.Sprintf("%s.%s", slug.Make(name), uuid.NewString())
 }

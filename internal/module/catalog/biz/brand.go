@@ -18,6 +18,7 @@ type ListBrandParams struct {
 	Search null.String `validate:"omitnil"`
 }
 
+// ListBrand returns paginated brands with optional ID filter and text search.
 func (b *CatalogBiz) ListBrand(ctx restate.Context, params ListBrandParams) (commonmodel.PaginateResult[catalogdb.CatalogBrand], error) {
 	var zero commonmodel.PaginateResult[catalogdb.CatalogBrand]
 

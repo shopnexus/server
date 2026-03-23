@@ -29,6 +29,7 @@ type ListProductSkuParams struct {
 	CanCombine null.Bool   `validate:"omitnil"`
 }
 
+// ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
 func (b *CatalogBiz) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
 	var zero []catalogmodel.ProductSku
 
@@ -80,6 +81,7 @@ type CreateProductSkuParams struct {
 	PackageDetails json.RawMessage                 `validate:"required"`
 }
 
+// CreateProductSku creates a new product SKU and initializes its inventory stock.
 func (b *CatalogBiz) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
@@ -128,6 +130,7 @@ type UpdateProductSkuParams struct {
 	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
 
+// UpdateProductSku updates a product SKU and invalidates the parent SPU search index.
 func (b *CatalogBiz) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
@@ -197,6 +200,7 @@ type DeleteProductSkuParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
+// DeleteProductSku deletes a product SKU by ID.
 func (b *CatalogBiz) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err

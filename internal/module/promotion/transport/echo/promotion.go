@@ -18,10 +18,12 @@ import (
 	"shopnexus-server/internal/shared/response"
 )
 
+// Handler handles HTTP requests for the promotion module.
 type Handler struct {
 	biz promotionbiz.PromotionClient
 }
 
+// NewHandler registers promotion module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz promotionbiz.PromotionClient) *Handler {
 	h := &Handler{biz: biz}
 

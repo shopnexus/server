@@ -27,6 +27,7 @@ type GetCartParams struct {
 	AccountID uuid.UUID `validate:"required"`
 }
 
+// GetCart returns all cart items for the given account with SKU details and product images.
 func (b *OrderBiz) GetCart(ctx restate.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
 	cartItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderCartItem, error) {
 		return b.storage.Querier().ListCartItem(ctx, orderdb.ListCartItemParams{
@@ -81,6 +82,7 @@ type UpdateCartParams struct {
 	DeltaQuantity null.Int64 `validate:"omitnil,min=1,max=1000"`
 }
 
+// UpdateCart adds, updates, or removes a cart item and tracks the interaction.
 func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -144,6 +146,7 @@ type ClearCartParams struct {
 	Account accountmodel.AuthenticatedAccount
 }
 
+// ClearCart removes all items from the account's cart.
 func (b *OrderBiz) ClearCart(ctx restate.Context, params ClearCartParams) error {
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		return b.storage.Querier().DeleteCartItem(ctx, orderdb.DeleteCartItemParams{
@@ -159,6 +162,7 @@ type ListCheckoutCartParams struct {
 	BuyNowQuantity null.Int64    `validate:"omitempty,min=1,max=1000"` // Instant checkout quantity
 }
 
+// ListCheckoutCart returns cart items selected for checkout, or a single item for buy-now flow.
 func (b *OrderBiz) ListCheckoutCart(ctx restate.Context, params ListCheckoutCartParams) ([]ordermodel.CartItem, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err

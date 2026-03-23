@@ -36,10 +36,12 @@ type InventoryClient interface {
 
 type InventoryStorage = pgsqlc.Storage[*inventorydb.Queries]
 
+// InventoryBiz implements the core business logic for the inventory module.
 type InventoryBiz struct {
 	storage InventoryStorage
 }
 
+// NewInventoryBiz creates a new InventoryBiz with the given dependencies.
 func NewInventoryBiz(storage InventoryStorage) *InventoryBiz {
 	return &InventoryBiz{storage: storage}
 }

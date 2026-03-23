@@ -23,10 +23,12 @@ var Module = fx.Module("promotion",
 	),
 )
 
+// NewPromotionStorage creates a new promotion storage backed by PostgreSQL.
 func NewPromotionStorage(pool pgsqlc.TxBeginner) promotionbiz.PromotionStorage {
 	return pgsqlc.NewStorage(pool, promotiondb.New(pool))
 }
 
+// NewPromotionClient creates a Restate-backed client for the promotion module.
 func NewPromotionClient(cfg *config.Config) promotionbiz.PromotionClient {
 	return promotionbiz.NewPromotionBizProxy(cfg.Restate.IngressAddress)
 }

@@ -23,10 +23,12 @@ var Module = fx.Module("catalog",
 	),
 )
 
+// NewCatalogStorage creates a new catalog storage backed by PostgreSQL.
 func NewCatalogStorage(pool pgsqlc.TxBeginner) catalogbiz.CatalogStorage {
 	return pgsqlc.NewStorage(pool, catalogdb.New(pool))
 }
 
+// NewCatalogClient creates a Restate-backed client for the catalog module.
 func NewCatalogClient(cfg *config.Config) catalogbiz.CatalogClient {
 	return catalogbiz.NewCatalogBizProxy(cfg.Restate.IngressAddress)
 }

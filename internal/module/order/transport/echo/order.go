@@ -15,10 +15,12 @@ import (
 	"github.com/samber/lo"
 )
 
+// Handler handles HTTP requests for the order module.
 type Handler struct {
 	biz orderbiz.OrderClient
 }
 
+// NewHandler registers order module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz orderbiz.OrderClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/order")

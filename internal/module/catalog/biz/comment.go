@@ -33,6 +33,7 @@ type ListCommentParams struct {
 	ScoreTo   null.Float                      `validate:"omitnil,gte=0,lte=1"`
 }
 
+// ListComment returns paginated comments with author profiles and attached resources.
 func (b *CatalogBiz) ListComment(ctx restate.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
@@ -120,6 +121,7 @@ type CreateCommentParams struct {
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
+// CreateComment creates a new comment with resources and tracks review analytics.
 func (b *CatalogBiz) CreateComment(ctx restate.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
@@ -203,6 +205,7 @@ type UpdateCommentParams struct {
 	EmptyResources bool
 }
 
+// UpdateComment updates a comment's body, score, votes, and attached resources.
 func (b *CatalogBiz) UpdateComment(ctx restate.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
@@ -271,6 +274,7 @@ type DeleteCommentParams struct {
 	CommentIDs []uuid.UUID `validate:"required,dive,gt=0"`
 }
 
+// DeleteComment deletes comments and their associated resources.
 func (b *CatalogBiz) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err

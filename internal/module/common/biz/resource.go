@@ -24,6 +24,7 @@ type UpdateResourcesParams struct {
 	DeleteResources bool                           `validate:"omitempty"`
 }
 
+// UpdateResources replaces all resource references for a given entity and returns the updated list.
 func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
@@ -84,6 +85,7 @@ type DeleteResourcesParams struct {
 	SkipDeleteResources []uuid.UUID                    `validate:"omitempty,dive"` // Skip delete resource entities with these IDs (but still remove the references)
 }
 
+// DeleteResources removes resource references and optionally deletes the underlying resource records.
 func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -123,6 +125,7 @@ func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 	return nil
 }
 
+// GetResources returns resources grouped by reference ID for the given ref type and IDs.
 func (b *CommonBiz) GetResources(ctx context.Context, refType commondb.CommonResourceRefType, refIDs []uuid.UUID) (map[uuid.UUID][]commonmodel.Resource, error) {
 	var err error
 
@@ -145,6 +148,7 @@ func (b *CommonBiz) GetResources(ctx context.Context, refType commondb.CommonRes
 	}), nil
 }
 
+// GetResourcesByIDs returns a map of resources keyed by their IDs, falling back to placeholder URLs on error.
 func (b *CommonBiz) GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) map[uuid.UUID]commonmodel.Resource {
 	result := make(map[uuid.UUID]commonmodel.Resource)
 	for _, rsID := range resourceIDs {

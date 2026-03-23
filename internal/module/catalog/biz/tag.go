@@ -17,6 +17,7 @@ type ListTagParams struct {
 	Search null.String `validate:"omitnil,max=100"`
 }
 
+// ListTag returns paginated tags with optional text search.
 func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
 	var zero commonmodel.PaginateResult[catalogdb.CatalogTag]
 
@@ -50,6 +51,7 @@ type GetTagParams struct {
 	Tag     string `validate:"required,min=1,max=100"`
 }
 
+// GetTag returns a single tag by its name.
 func (b *CatalogBiz) GetTag(ctx restate.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
 	var zero catalogdb.CatalogTag
 

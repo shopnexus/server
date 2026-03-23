@@ -143,6 +143,7 @@ func (b *CommonBiz) GetFileURL(ctx context.Context, provider string, objectKey s
 	return url, nil
 }
 
+// MustGetFileURL returns the URL for an object key, falling back to a placeholder on error.
 func (b *CommonBiz) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {

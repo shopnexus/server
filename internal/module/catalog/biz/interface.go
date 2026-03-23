@@ -69,6 +69,7 @@ type CatalogClient interface {
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
+// CatalogBiz implements the core business logic for the catalog module.
 type CatalogBiz struct {
 	cache         cachestruct.Client
 	restateClient *restateclient.Client
@@ -91,6 +92,7 @@ type CatalogBiz struct {
 	syncLock sync.Mutex
 }
 
+// NewCatalogBiz creates a new CatalogBiz with the given dependencies.
 func NewCatalogBiz(
 	cfg *config.Config,
 	storage CatalogStorage,

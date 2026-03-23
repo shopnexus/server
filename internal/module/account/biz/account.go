@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// DeleteAccountParams holds the parameters for deleting an account.
 type DeleteAccountParams struct {
 	AccountID uuid.UUID
 }
 
+// DeleteAccount suspends the account with the given ID.
 func (b *AccountBiz) DeleteAccount(ctx restate.Context, params DeleteAccountParams) error {
 	if _, err := b.storage.Querier().UpdateAccount(ctx, accountdb.UpdateAccountParams{
 		ID:     params.AccountID,

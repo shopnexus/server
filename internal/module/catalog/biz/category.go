@@ -18,6 +18,7 @@ type ListCategoryParams struct {
 	Search null.String `validate:"omitnil"`
 }
 
+// ListCategory returns paginated categories with optional ID filter and text search.
 func (b *CatalogBiz) ListCategory(ctx restate.Context, params ListCategoryParams) (commonmodel.PaginateResult[catalogdb.CatalogCategory], error) {
 	var zero commonmodel.PaginateResult[catalogdb.CatalogCategory]
 

@@ -29,6 +29,7 @@ type GetProductDetailParams struct {
 	Slug    null.String
 }
 
+// GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
 func (b *CatalogBiz) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 

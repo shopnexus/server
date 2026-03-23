@@ -23,10 +23,12 @@ var Module = fx.Module("analytic",
 	),
 )
 
+// NewAnalyticStorage creates a new analytic storage backed by PostgreSQL.
 func NewAnalyticStorage(pool pgsqlc.TxBeginner) analyticbiz.AnalyticStorage {
 	return pgsqlc.NewStorage(pool, analyticdb.New(pool))
 }
 
+// NewAnalyticClient creates a Restate-backed client for the analytic module.
 func NewAnalyticClient(cfg *config.Config) analyticbiz.AnalyticClient {
 	return analyticbiz.NewAnalyticBizProxy(cfg.Restate.IngressAddress)
 }

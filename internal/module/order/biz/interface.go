@@ -51,6 +51,7 @@ type OrderClient interface {
 
 type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 
+// OrderBiz implements the core business logic for the order module.
 type OrderBiz struct {
 	storage     OrderStorage
 	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
@@ -62,6 +63,7 @@ type OrderBiz struct {
 	common      *commonbiz.CommonBiz
 }
 
+// NewOrderBiz creates a new OrderBiz with the given dependencies.
 func NewOrderBiz(
 	storage OrderStorage,
 	account *accountbiz.AccountBiz,

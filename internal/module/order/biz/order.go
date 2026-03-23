@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 )
 
+// GetOrder returns a single order by ID with all items and payment details.
 func (b *OrderBiz) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
@@ -42,6 +43,7 @@ type ListOrdersParams struct {
 	ID []uuid.UUID `validate:"dive"`
 }
 
+// ListOrders returns paginated orders with hydrated items, payments, and product resources.
 func (b *OrderBiz) ListOrders(ctx restate.Context, params ListOrdersParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
 	var zero commonmodel.PaginateResult[ordermodel.Order]
 
@@ -207,6 +209,7 @@ type VerifyPaymentParams struct {
 	Data           map[string]any
 }
 
+// VerifyPayment verifies a payment callback from the payment gateway and updates the payment status.
 func (b *OrderBiz) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
@@ -256,6 +259,7 @@ type QuoteOrderResult struct {
 	Total       commonmodel.Concurrency `json:"total"`
 }
 
+// QuoteOrder calculates the estimated total cost including shipping and promotions without placing an order.
 func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
 	var zero QuoteOrderResult
 

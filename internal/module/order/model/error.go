@@ -2,6 +2,7 @@ package ordermodel
 
 import sharedmodel "shopnexus-server/internal/shared/model"
 
+// Sentinel errors for the order module.
 var (
 	ErrOrderItemNotFound      = sharedmodel.NewError("order.order_item_not_found", "Sorry, we couldn't find the item you requested")
 	ErrPaymentGatewayNotFound = sharedmodel.NewError("order.payment_gateway_not_found", "Sorry, we couldn't find the payment gateway you requested")

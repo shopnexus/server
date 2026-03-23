@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the chat module.
 type Handler struct {
 	biz       chatbiz.ChatClient
 	upgrader  websocket.Upgrader
@@ -21,6 +22,7 @@ type Handler struct {
 	clientsMu sync.RWMutex
 }
 
+// NewHandler registers chat module routes and returns the handler.
 func NewHandler(e *echo.Echo, biz chatbiz.ChatClient) *Handler {
 	h := &Handler{
 		biz: biz,

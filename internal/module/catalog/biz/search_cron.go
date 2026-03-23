@@ -23,6 +23,7 @@ const (
 	MetadataProductSyncBatchSize  = 1000
 )
 
+// SetupCron starts background cron jobs for syncing product metadata and embeddings.
 func (b *CatalogBiz) SetupCron() error {
 	cfg := config.GetConfig()
 

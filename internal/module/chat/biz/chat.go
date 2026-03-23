@@ -20,6 +20,7 @@ type CreateConversationParams struct {
 	VendorID uuid.UUID `validate:"required"`
 }
 
+// CreateConversation creates a new conversation between a customer and vendor, or returns the existing one.
 func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
 	var zero chatdb.ChatConversation
 
@@ -42,6 +43,7 @@ func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversat
 	return result, nil
 }
 
+// GetConversation returns a conversation by its ID.
 func (b *ChatBiz) GetConversation(ctx restate.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
 	return b.storage.Querier().GetConversation(ctx, id)
 }
@@ -51,6 +53,7 @@ type ListConversationParams struct {
 	sharedmodel.PaginationParams
 }
 
+// ListConversation returns a paginated list of conversations for the authenticated account.
 func (b *ChatBiz) ListConversation(ctx restate.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatConversation]
 	params.PaginationParams = params.Constrain()
@@ -84,6 +87,7 @@ type SendMessageParams struct {
 	Metadata       json.RawMessage
 }
 
+// SendMessage sends a message in a conversation the account participates in.
 func (b *ChatBiz) SendMessage(ctx restate.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
 	var zero chatdb.ChatMessage
 
@@ -120,6 +124,7 @@ type ListMessageParams struct {
 	sharedmodel.PaginationParams
 }
 
+// ListMessage returns a paginated list of messages in a conversation.
 func (b *ChatBiz) ListMessage(ctx restate.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatMessage]
 	params.PaginationParams = params.Constrain()
@@ -159,6 +164,7 @@ type MarkReadParams struct {
 	ConversationID uuid.UUID `validate:"required"`
 }
 
+// MarkRead marks all messages in a conversation as read for the authenticated account.
 func (b *ChatBiz) MarkRead(ctx restate.Context, params MarkReadParams) error {
 	return b.storage.Querier().MarkMessagesRead(ctx, chatdb.MarkMessagesReadParams{
 		ConversationID: params.ConversationID,

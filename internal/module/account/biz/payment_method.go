@@ -22,6 +22,7 @@ type CreatePaymentMethodParams struct {
 	IsDefault bool
 }
 
+// CreatePaymentMethod creates a new payment method for the authenticated account.
 func (b *AccountBiz) CreatePaymentMethod(ctx restate.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
@@ -50,6 +51,7 @@ type ListPaymentMethodParams struct {
 	sharedmodel.PaginationParams
 }
 
+// ListPaymentMethod returns a paginated list of payment methods for the account.
 func (b *AccountBiz) ListPaymentMethod(ctx restate.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountPaymentMethod]
 	params.PaginationParams = params.Constrain()
@@ -85,6 +87,7 @@ type UpdatePaymentMethodParams struct {
 	Data    json.RawMessage `validate:"omitempty"`
 }
 
+// UpdatePaymentMethod updates the specified payment method fields.
 func (b *AccountBiz) UpdatePaymentMethod(ctx restate.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
@@ -107,6 +110,7 @@ type DeletePaymentMethodParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
+// DeletePaymentMethod removes a payment method belonging to the authenticated account.
 func (b *AccountBiz) DeletePaymentMethod(ctx restate.Context, params DeletePaymentMethodParams) error {
 	return b.storage.Querier().DeletePaymentMethod(ctx, accountdb.DeletePaymentMethodParams{
 		ID:        params.ID,
@@ -119,6 +123,7 @@ type SetDefaultPaymentMethodParams struct {
 	ID      uuid.UUID `validate:"required"`
 }
 
+// SetDefaultPaymentMethod marks the given payment method as the account's default.
 func (b *AccountBiz) SetDefaultPaymentMethod(ctx restate.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 

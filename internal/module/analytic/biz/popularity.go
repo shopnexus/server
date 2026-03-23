@@ -14,6 +14,7 @@ import (
 	"github.com/guregu/null/v6"
 )
 
+// HandlePopularityEvent updates product popularity scores based on an interaction event.
 func (b *AnalyticBiz) HandlePopularityEvent(ctx restate.Context, event analyticmodel.Interaction) error {
 	if event.RefType != analyticdb.AnalyticInteractionRefTypeProduct {
 		return nil
@@ -59,10 +60,12 @@ func (b *AnalyticBiz) HandlePopularityEvent(ctx restate.Context, event analyticm
 	return nil
 }
 
+// GetProductPopularity returns the popularity metrics for the given product SPU.
 func (b *AnalyticBiz) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
 	return b.storage.Querier().GetProductPopularity(ctx, spuID)
 }
 
+// ListTopProductPopularity returns the top products ranked by popularity score.
 func (b *AnalyticBiz) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	params = params.Constrain()
 	return b.storage.Querier().ListTopProductPopularity(ctx, analyticdb.ListTopProductPopularityParams{
