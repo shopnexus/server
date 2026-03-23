@@ -50,7 +50,7 @@ I should write a blog on this btw.
 
 ```go
 // The subcriber
-func (s *OrderBiz) SetupPubsub() error {
+func (s *orderBiz) SetupPubsub() error {
     return errutil.Some(
         s.pubsub.Subscribe("order.created", pubsub.DecodeWrap(s.OrderCreated)),
         s.pubsub.Subscribe("order.paid", pubsub.DecodeWrap(s.OrderPaid)),
@@ -61,7 +61,7 @@ type OrderCreatedParams = struct {
     OrderID int64
 }
 
-func (s *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
+func (s *orderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
     // code here
 
     return nil
@@ -72,7 +72,7 @@ type OrderPaidParams = struct {
     Amount  int64
 }
 
-func (s *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
+func (s *orderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
     // code here
 
     return nil
@@ -105,7 +105,7 @@ Also when finding subcribers, I can search globally by "OrderCreated*" or "Order
 - Maintainer will now easier to add new payment gateway or shipment provider
 
 ```go
-func (s *OrderBiz) SetupPaymentMap() error {
+func (s *orderBiz) SetupPaymentMap() error {
  var configs []sharedmodel.OptionConfig
 
  s.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client

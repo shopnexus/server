@@ -1,8 +1,8 @@
-# ShopNexus Remastered
+# ShopNexus Server
 
 [![wakatime](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f.svg)](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f)
 
-A production-grade e-commerce backend built in Go, designed as a **modular monolith** that can evolve into **microservices**. Supports multi-vendor marketplaces with real-time chat, AI-powered recommendations, event-driven architecture, and pluggable payment/shipment providers.
+A production-grade e-commerce backend built in Go, designed as a **modular monolith** that can evolve into **microservices**. Supports multi-vendor marketplaces with real-time chat, smart recommendations, event-driven architecture, and pluggable payment/shipment providers.
 
 > Development timeline and engineering notes: [timeline.md](timeline.md)
 
@@ -209,6 +209,7 @@ Restate           # Distributed state management (3-node cluster)
 ## Development Conventions
 
 ### Database
+
 - Table Per Type (TPT) for schema inheritance
 - Audit snapshots for tax and transaction disputes
 - `SELECT ... FOR UPDATE` for race condition prevention
@@ -216,6 +217,7 @@ Restate           # Distributed state management (3-node cluster)
 - Default values only for commonly-missing fields (created_at, status, is_active)
 
 ### Go
+
 - Vertical slice folder structure (by module)
 - Defensive programming: validate at both transport and biz layers
 - Always use `null.XXX` from guregu/null instead of pointers (better debugging, validator/v10 compatible)
@@ -223,6 +225,7 @@ Restate           # Distributed state management (3-node cluster)
 - No global state: config injected via constructor, not via `GetConfig()`
 
 ### Events
+
 - Choreography pattern: services react to events, no orchestrator
 - Compensating transactions for failure recovery
 - All inter-module communication via Kafka topics
