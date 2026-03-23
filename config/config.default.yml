@@ -8,7 +8,7 @@ log:
 
 app:
   name: shopnexus
-  publicUrl: "http://localhost:8080"
+  publicUrl: "http://localhost:5004"
   jwt:
     secret: supersecretkey123
     accessTokenDuration: 3600
@@ -70,3 +70,7 @@ milvus:
 
 embedding:
   url: "http://localhost:8000"
+
+restate:
+  ingressAddress: "http://localhost:8080"
+  servicePort: "8081"
