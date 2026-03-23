@@ -7,22 +7,22 @@ dev:
 	air
 
 run:
-	go run cmd/server/main.go
+	go run ./cmd/server/
 
 build:
-	go build -o bin/server cmd/server/main.go
+	go build -o bin/server ./cmd/server/
 
 generate:
 	go generate ./...
 
 migrate:
-	go run cmd/migrate/main.go
+	go run ./cmd/migrate/
 
 seed:
-	go run cmd/seed/main.go
+	go run ./cmd/seed/
 
 seedcmt:
-	go run cmd/seedcmt/main.go
+	go run ./cmd/seedcmt/
 
 # Register Go service endpoint with Restate runtime
 # Requires: Restate cluster running (docker-compose) and Go server running (make run/dev)
