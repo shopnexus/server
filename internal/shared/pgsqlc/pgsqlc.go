@@ -34,10 +34,10 @@ type Storage[T Querier] interface {
 	Conn() TxBeginner
 	// Querier returns the querier instance
 	Querier() T
-	// BeginTx starts a new transaction, prefer using the provided Storage if not nil, mannually manage the transaction
-	BeginTx(ctx context.Context, preferStorage Storage[T]) (*TxStorage[T], error)
-	// WithTx executes the given function within a transaction, prefer using the provided Storage if not nil, automatically commit/rollback
-	WithTx(ctx context.Context, preferStorage Storage[T], fn func(txStorage Storage[T]) error) error
+	// BeginTx starts a new transaction
+	BeginTx(ctx context.Context) (*TxStorage[T], error)
+	// WithTx executes the given function within a transaction, automatically commit/rollback
+	WithTx(ctx context.Context, fn func(txStorage Storage[T]) error) error
 }
 
 // Storage provides database queries with transaction support
@@ -56,21 +56,10 @@ func (s *storage[T]) Conn() TxBeginner {
 }
 
 // BeginTx starts a new database transaction
-func (s *storage[T]) BeginTx(ctx context.Context, preferStorage Storage[T]) (*TxStorage[T], error) {
-	if preferStorage != nil {
-		// if preferStorage is already a TxStorage and not allowed nested tx
-		// if _, ok := preferStorage.(*TxStorage[T]); ok && !s.allowNestedTx {
-		// 	return preferStorage.(*TxStorage[T]), nil
-		// }
-
-		// begin a new transaction
-		return preferStorage.BeginTx(ctx, nil)
-	}
-
+func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 	var tx pgx.Tx
 	var err error
 
-	// begin a nested transaction using savepoint
 	tx, err = s.conn.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -93,23 +82,18 @@ func (s *storage[T]) BeginTx(ctx context.Context, preferStorage Storage[T]) (*Tx
 	}, nil
 }
 
-func (s *storage[T]) WithTx(ctx context.Context, preferStorage Storage[T], fn func(txStorage Storage[T]) error) error {
-	txStorage, err := s.BeginTx(ctx, preferStorage)
+func (s *storage[T]) WithTx(ctx context.Context, fn func(txStorage Storage[T]) error) error {
+	txStorage, err := s.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	// if preferStorage == nil {
 	defer txStorage.Rollback(ctx)
-	// }
 
 	if err := fn(txStorage); err != nil {
 		return fmt.Errorf("failed to execute transaction: %w", err)
 	}
 
-	// if preferStorage == nil {
 	return txStorage.Commit(ctx)
-	// }
-	// return nil
 }
 
 // TxStorage provides database queries within an active transaction

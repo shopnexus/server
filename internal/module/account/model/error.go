@@ -1,6 +1,6 @@
 package accountmodel
 
-import commonmodel "shopnexus-remastered/internal/shared/model"
+import commonmodel "shopnexus-server/internal/shared/model"
 
 var (
 	ErrInvalidCredentials = commonmodel.NewError("auth.invalid_credentials", "Invalid credentials provided")

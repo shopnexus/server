@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pg"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pg"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"go.uber.org/fx"
 )

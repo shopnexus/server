@@ -7,84 +7,11 @@ package inventorydb
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-const countStock = `-- name: CountStock :one
-SELECT COUNT(*)
-FROM "inventory"."stock"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
-    ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
-    ("serial_required" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
-)
-`
-
-type CountStockParams struct {
-	ID              []int64                 `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Stock           []int64                 `json:"stock"`
-	StockFrom       null.Int                `json:"stock_from"`
-	StockTo         null.Int                `json:"stock_to"`
-	Taken           []int64                 `json:"taken"`
-	TakenFrom       null.Int                `json:"taken_from"`
-	TakenTo         null.Int                `json:"taken_to"`
-	SerialRequired  []bool                  `json:"serial_required"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-}
-
-func (q *Queries) CountStock(ctx context.Context, arg CountStockParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStock,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Stock,
-		arg.StockFrom,
-		arg.StockTo,
-		arg.Taken,
-		arg.TakenFrom,
-		arg.TakenTo,
-		arg.SerialRequired,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-type CreateCopyDefaultStockParams struct {
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-	Stock   int64                 `json:"stock"`
-}
-
-type CreateCopyStockParams struct {
-	RefType        InventoryStockRefType `json:"ref_type"`
-	RefID          uuid.UUID             `json:"ref_id"`
-	Stock          int64                 `json:"stock"`
-	Taken          int64                 `json:"taken"`
-	SerialRequired bool                  `json:"serial_required"`
-	DateCreated    time.Time             `json:"date_created"`
-}
 
 const createDefaultStock = `-- name: CreateDefaultStock :one
 INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock")
@@ -113,94 +40,13 @@ func (q *Queries) CreateDefaultStock(ctx context.Context, arg CreateDefaultStock
 	return i, err
 }
 
-const createStock = `-- name: CreateStock :one
-INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock", "taken", "serial_required", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, ref_type, ref_id, stock, taken, serial_required, date_created
-`
-
-type CreateStockParams struct {
-	RefType        InventoryStockRefType `json:"ref_type"`
-	RefID          uuid.UUID             `json:"ref_id"`
-	Stock          int64                 `json:"stock"`
-	Taken          int64                 `json:"taken"`
-	SerialRequired bool                  `json:"serial_required"`
-	DateCreated    time.Time             `json:"date_created"`
-}
-
-func (q *Queries) CreateStock(ctx context.Context, arg CreateStockParams) (InventoryStock, error) {
-	row := q.db.QueryRow(ctx, createStock,
-		arg.RefType,
-		arg.RefID,
-		arg.Stock,
-		arg.Taken,
-		arg.SerialRequired,
-		arg.DateCreated,
-	)
-	var i InventoryStock
-	err := row.Scan(
-		&i.ID,
-		&i.RefType,
-		&i.RefID,
-		&i.Stock,
-		&i.Taken,
-		&i.SerialRequired,
-		&i.DateCreated,
-	)
-	return i, err
-}
-
 const deleteStock = `-- name: DeleteStock :exec
 DELETE FROM "inventory"."stock"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
-    ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
-    ("serial_required" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
-)
+WHERE ("id" = ANY($1))
 `
 
-type DeleteStockParams struct {
-	ID              []int64                 `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Stock           []int64                 `json:"stock"`
-	StockFrom       null.Int                `json:"stock_from"`
-	StockTo         null.Int                `json:"stock_to"`
-	Taken           []int64                 `json:"taken"`
-	TakenFrom       null.Int                `json:"taken_from"`
-	TakenTo         null.Int                `json:"taken_to"`
-	SerialRequired  []bool                  `json:"serial_required"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-}
-
-func (q *Queries) DeleteStock(ctx context.Context, arg DeleteStockParams) error {
-	_, err := q.db.Exec(ctx, deleteStock,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Stock,
-		arg.StockFrom,
-		arg.StockTo,
-		arg.Taken,
-		arg.TakenFrom,
-		arg.TakenTo,
-		arg.SerialRequired,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
+func (q *Queries) DeleteStock(ctx context.Context, id []int64) error {
+	_, err := q.db.Exec(ctx, deleteStock, id)
 	return err
 }
 
@@ -237,39 +83,19 @@ FROM "inventory"."stock" embed_stock
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
-    ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
-    ("serial_required" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
+    ("ref_id" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15::int
-OFFSET $14::int
+LIMIT $5::int
+OFFSET $4::int
 `
 
 type ListCountStockParams struct {
-	ID              []int64                 `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Stock           []int64                 `json:"stock"`
-	StockFrom       null.Int                `json:"stock_from"`
-	StockTo         null.Int                `json:"stock_to"`
-	Taken           []int64                 `json:"taken"`
-	TakenFrom       null.Int                `json:"taken_from"`
-	TakenTo         null.Int                `json:"taken_to"`
-	SerialRequired  []bool                  `json:"serial_required"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-	Offset          null.Int32              `json:"offset"`
-	Limit           null.Int32              `json:"limit"`
+	ID      []int64                 `json:"id"`
+	RefType []InventoryStockRefType `json:"ref_type"`
+	RefID   []uuid.UUID             `json:"ref_id"`
+	Offset  null.Int32              `json:"offset"`
+	Limit   null.Int32              `json:"limit"`
 }
 
 type ListCountStockRow struct {
@@ -282,16 +108,6 @@ func (q *Queries) ListCountStock(ctx context.Context, arg ListCountStockParams) 
 		arg.ID,
 		arg.RefType,
 		arg.RefID,
-		arg.Stock,
-		arg.StockFrom,
-		arg.StockTo,
-		arg.Taken,
-		arg.TakenFrom,
-		arg.TakenTo,
-		arg.SerialRequired,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -311,91 +127,6 @@ func (q *Queries) ListCountStock(ctx context.Context, arg ListCountStockParams) 
 			&i.InventoryStock.SerialRequired,
 			&i.InventoryStock.DateCreated,
 			&i.TotalCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStock = `-- name: ListStock :many
-SELECT id, ref_type, ref_id, stock, taken, serial_required, date_created
-FROM "inventory"."stock"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
-    ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
-    ("serial_required" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
-)
-ORDER BY "id"
-LIMIT $15::int
-OFFSET $14::int
-`
-
-type ListStockParams struct {
-	ID              []int64                 `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Stock           []int64                 `json:"stock"`
-	StockFrom       null.Int                `json:"stock_from"`
-	StockTo         null.Int                `json:"stock_to"`
-	Taken           []int64                 `json:"taken"`
-	TakenFrom       null.Int                `json:"taken_from"`
-	TakenTo         null.Int                `json:"taken_to"`
-	SerialRequired  []bool                  `json:"serial_required"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-	Offset          null.Int32              `json:"offset"`
-	Limit           null.Int32              `json:"limit"`
-}
-
-func (q *Queries) ListStock(ctx context.Context, arg ListStockParams) ([]InventoryStock, error) {
-	rows, err := q.db.Query(ctx, listStock,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Stock,
-		arg.StockFrom,
-		arg.StockTo,
-		arg.Taken,
-		arg.TakenFrom,
-		arg.TakenTo,
-		arg.SerialRequired,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []InventoryStock{}
-	for rows.Next() {
-		var i InventoryStock
-		if err := rows.Scan(
-			&i.ID,
-			&i.RefType,
-			&i.RefID,
-			&i.Stock,
-			&i.Taken,
-			&i.SerialRequired,
-			&i.DateCreated,
 		); err != nil {
 			return nil, err
 		}

@@ -1,8 +1,8 @@
 package promotionmodel
 
 import (
-	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"encoding/json"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +19,9 @@ type Promotion struct {
 	Description null.String               `json:"description"`
 	IsActive    bool                      `json:"is_active"`
 	AutoApply   bool                      `json:"auto_apply"`
+	Group       string                    `json:"group"`
+	Priority    int32                     `json:"priority"`
+	Data        json.RawMessage           `json:"data"`
 
 	DateStarted time.Time `json:"date_started"`
 	DateEnded   null.Time `json:"date_ended"`
@@ -32,12 +35,4 @@ type Promotion struct {
 type PromotionRef struct {
 	RefType promotiondb.PromotionRefType `validate:"required,validateFn=Valid"`
 	RefID   uuid.UUID                    `validate:"required"`
-}
-
-type PromotionDiscount struct {
-	Promotion
-	MinSpend        sharedmodel.Concurrency     `json:"min_spend"`
-	MaxDiscount     sharedmodel.Concurrency     `json:"max_discount"`
-	DiscountPercent null.Float                  `json:"discount_percent"`
-	DiscountPrice   sharedmodel.NullConcurrency `json:"discount_price"`
 }

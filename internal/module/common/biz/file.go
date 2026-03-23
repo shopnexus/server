@@ -6,15 +6,15 @@ import (
 	"io"
 	"log/slog"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/objectstore"
-	objlocal "shopnexus-remastered/internal/infras/objectstore/local"
-	objremote "shopnexus-remastered/internal/infras/objectstore/remote"
-	objs3 "shopnexus-remastered/internal/infras/objectstore/s3"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/objectstore"
+	objlocal "shopnexus-server/internal/infras/objectstore/local"
+	objremote "shopnexus-server/internal/infras/objectstore/remote"
+	objs3 "shopnexus-server/internal/infras/objectstore/s3"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 )
@@ -52,7 +52,6 @@ func (b *CommonBiz) SetupObjectStore() error {
 	configs = append(configs, remote.Config())
 
 	if err := b.UpdateServiceOptions(context.Background(), UpdateServiceOptionsParams{
-		Storage:  b.storage,
 		Category: "objectstore",
 		Configs:  configs,
 	}); err != nil {

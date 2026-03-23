@@ -7,10 +7,10 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 )
 
 type ListProductCardRequest struct {
@@ -29,16 +29,42 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.ListProductCard(c.Request().Context(), catalogbiz.ListProductCardParams{
+	params := catalogbiz.ListProductCardParams{
 		PaginationParams: req.PaginationParams.Constrain(),
 		VendorID:         req.VendorID,
 		Search:           req.Search,
-	})
+	}
+
+	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
+		params.AccountID = &claims.Account.ID
+	}
+
+	result, err := h.biz.ListProductCard(c.Request().Context(), params)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
+}
+
+func (h *Handler) GetProductCard(c echo.Context) error {
+	spuID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	params := catalogbiz.GetProductCardParams{
+		SpuID: spuID,
+	}
+
+	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
+		params.AccountID = &claims.Account.ID
+	}
+
+	result, err := h.biz.GetProductCard(c.Request().Context(), params)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type ListRecommendedProductCardParams struct {
@@ -63,6 +89,5 @@ func (h *Handler) ListRecommendedProductCard(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

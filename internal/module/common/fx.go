@@ -3,10 +3,10 @@ package common
 import (
 	"go.uber.org/fx"
 
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonecho "shopnexus-remastered/internal/module/common/transport/echo"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonecho "shopnexus-server/internal/module/common/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // Module provides the common module dependencies

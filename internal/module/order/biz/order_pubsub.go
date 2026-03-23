@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"shopnexus-remastered/internal/infras/pubsub"
-	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
-	ordermodel "shopnexus-remastered/internal/module/order/model"
+	"shopnexus-server/internal/infras/pubsub"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	ordermodel "shopnexus-server/internal/module/order/model"
 
 	"github.com/google/uuid"
 )
@@ -32,14 +32,6 @@ type OrderPaidParams = struct {
 }
 
 func (b *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
-	// ! should not use txStorage here
-	// txStorage, err := s.storage.BeginTx(ctx)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer txStorage.Rollback(ctx)
-
-	// Get order to find payment ID
 	order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
 		ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
 	})
@@ -47,14 +39,9 @@ func (b *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error 
 		return err
 	}
 
-	// Update the payment status to success
 	_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 		ID:     order.PaymentID,
 		Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusSuccess, Valid: true},
 	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

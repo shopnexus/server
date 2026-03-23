@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pg"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
-	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pg"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
@@ -323,16 +323,24 @@ func processProduct(
 		}
 
 		// Create stock for this SKU
-		_, err = inventoryStore.CreateStock(ctx, inventorydb.CreateStockParams{
-			RefType:        inventorydb.InventoryStockRefTypeProductSku,
-			RefID:          sku.ID,
-			Stock:          stockPerSku,
-			Taken:          soldPerSku,
-			SerialRequired: false,
-			DateCreated:    time.Now(),
+		stock, err := inventoryStore.CreateDefaultStock(ctx, inventorydb.CreateDefaultStockParams{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   sku.ID,
+			Stock:   stockPerSku,
 		})
 		if err != nil {
 			return fmt.Errorf("create stock for sku: %w", err)
+		}
+
+		// Set taken count for seed data
+		if soldPerSku > 0 {
+			_, err = inventoryStore.UpdateStock(ctx, inventorydb.UpdateStockParams{
+				ID:    stock.ID,
+				Taken: null.IntFrom(soldPerSku),
+			})
+			if err != nil {
+				return fmt.Errorf("update stock taken for sku: %w", err)
+			}
 		}
 	}
 
@@ -732,7 +740,29 @@ func createPromotionsFromVouchers(
 			promotionCode = fmt.Sprintf("VOUCHER_%s_%s", strings.ToUpper(voucher.TextInfo), uuid.New().String()[:8])
 		}
 
-		// Create promotion
+		// Create discount data JSON
+		minSpend := toBigInt(voucher.MinSpend)
+		maxDiscount := toBigInt(voucher.DiscountCap)
+
+		discountData := map[string]interface{}{
+			"min_spend":    minSpend,
+			"max_discount": maxDiscount,
+		}
+
+		if voucher.DiscountPercentage > 0 {
+			discountData["discount_percent"] = voucher.DiscountPercentage
+		}
+
+		if voucher.Discount != nil && *voucher.Discount > 0 && voucher.DiscountPercentage == 0 {
+			discountData["discount_price"] = toBigInt(*voucher.Discount)
+		}
+
+		dataJSON, err := json.Marshal(discountData)
+		if err != nil {
+			return fmt.Errorf("marshal discount data: %w", err)
+		}
+
+		// Create promotion with embedded data
 		promotion, err := store.CreatePromotion(ctx, promotiondb.CreatePromotionParams{
 			ID:          uuid.New(),
 			Code:        promotionCode,
@@ -742,6 +772,9 @@ func createPromotionsFromVouchers(
 			Description: null.StringFrom(fmt.Sprintf("Promotion code: %s", voucher.TextInfo)),
 			IsActive:    true,
 			AutoApply:   !voucher.Claimable,
+			Group:       "product_discount",
+			Priority:    0,
+			Data:        dataJSON,
 			DateStarted: validityStart,
 			DateEnded:   null.TimeFrom(validityEnd),
 			DateCreated: time.Now(),
@@ -749,31 +782,6 @@ func createPromotionsFromVouchers(
 		})
 		if err != nil {
 			return fmt.Errorf("create promotion: %w", err)
-		}
-
-		// Create discount
-		minSpend := toBigInt(voucher.MinSpend)
-		maxDiscount := toBigInt(voucher.DiscountCap)
-
-		var discountPercent null.Float
-		if voucher.DiscountPercentage > 0 {
-			discountPercent = null.FloatFrom(voucher.DiscountPercentage)
-		}
-
-		var discountPrice null.Int
-		if voucher.Discount != nil && *voucher.Discount > 0 && voucher.DiscountPercentage == 0 {
-			discountPrice = null.IntFrom(toBigInt(*voucher.Discount))
-		}
-
-		_, err = store.CreateDiscount(ctx, promotiondb.CreateDiscountParams{
-			ID:              promotion.ID,
-			MinSpend:        minSpend,
-			MaxDiscount:     maxDiscount,
-			DiscountPercent: discountPercent,
-			DiscountPrice:   discountPrice,
-		})
-		if err != nil {
-			return fmt.Errorf("create discount: %w", err)
 		}
 
 		// Create promotion ref

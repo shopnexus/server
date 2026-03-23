@@ -3,10 +3,11 @@ package inventory
 import (
 	"go.uber.org/fx"
 
-	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
-	inventoryecho "shopnexus-remastered/internal/module/inventory/transport/echo"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	inventoryecho "shopnexus-server/internal/module/inventory/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // Module provides the inventory module dependencies
@@ -14,7 +15,7 @@ var Module = fx.Module("inventory",
 	fx.Provide(
 		NewInventoryStorage,
 		inventorybiz.NewInventoryBiz,
-		inventoryecho.NewHandler,
+		NewInventoryClient,
 	),
 	fx.Invoke(
 		inventoryecho.NewHandler,
@@ -23,4 +24,8 @@ var Module = fx.Module("inventory",
 
 func NewInventoryStorage(pool pgsqlc.TxBeginner) inventorybiz.InventoryStorage {
 	return pgsqlc.NewStorage(pool, inventorydb.New(pool))
+}
+
+func NewInventoryClient(cfg *config.Config) inventorybiz.InventoryClient {
+	return inventorybiz.NewInventoryBizProxy(cfg.Restate.IngressAddress)
 }

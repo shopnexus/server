@@ -2,9 +2,9 @@ package catalogmodel
 
 import (
 	"encoding/json"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
 
 	"github.com/google/uuid"

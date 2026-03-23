@@ -3,9 +3,9 @@ package catalogecho
 import (
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -35,10 +35,6 @@ func (h *Handler) GetBrand(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	if len(result.Data) == 0 {
-		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "brand not found"))
-	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
 
@@ -63,6 +59,5 @@ func (h *Handler) ListBrand(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 
-	"shopnexus-remastered/internal/infras/pubsub"
+	"shopnexus-server/internal/infras/pubsub"
 )
 
 func (b *AnalyticBiz) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {

@@ -6,6 +6,7 @@ package promotiondb
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -144,27 +145,22 @@ func AllPromotionTypeValues() []PromotionType {
 	}
 }
 
-type PromotionDiscount struct {
-	ID              uuid.UUID  `json:"id"`
-	MinSpend        int64      `json:"min_spend"`
-	MaxDiscount     int64      `json:"max_discount"`
-	DiscountPercent null.Float `json:"discount_percent"`
-	DiscountPrice   null.Int   `json:"discount_price"`
-}
-
 type PromotionPromotion struct {
-	ID          uuid.UUID     `json:"id"`
-	Code        string        `json:"code"`
-	OwnerID     uuid.NullUUID `json:"owner_id"`
-	Type        PromotionType `json:"type"`
-	Title       string        `json:"title"`
-	Description null.String   `json:"description"`
-	IsActive    bool          `json:"is_active"`
-	AutoApply   bool          `json:"auto_apply"`
-	DateStarted time.Time     `json:"date_started"`
-	DateEnded   null.Time     `json:"date_ended"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID          uuid.UUID       `json:"id"`
+	Code        string          `json:"code"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	Type        PromotionType   `json:"type"`
+	Title       string          `json:"title"`
+	Description null.String     `json:"description"`
+	IsActive    bool            `json:"is_active"`
+	AutoApply   bool            `json:"auto_apply"`
+	Group       string          `json:"group"`
+	Priority    int32           `json:"priority"`
+	Data        json.RawMessage `json:"data"`
+	DateStarted time.Time       `json:"date_started"`
+	DateEnded   null.Time       `json:"date_ended"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 type PromotionRef struct {

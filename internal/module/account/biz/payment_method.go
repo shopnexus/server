@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -24,24 +24,20 @@ type CreatePaymentMethodParams struct {
 func (b *AccountBiz) CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
-	var result accountdb.AccountPaymentMethod
-	if err := b.storage.WithTx(ctx, nil, func(txStorage AccountStorage) error {
-		if params.IsDefault {
-			if err := txStorage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-				return err
-			}
+	if params.IsDefault {
+		if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
+			return zero, fmt.Errorf("failed to create payment method: %w", err)
 		}
+	}
 
-		var err error
-		result, err = txStorage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
-			AccountID: params.Account.ID,
-			Type:      params.Type,
-			Label:     params.Label,
-			Data:      params.Data,
-			IsDefault: params.IsDefault,
-		})
-		return err
-	}); err != nil {
+	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
+		AccountID: params.Account.ID,
+		Type:      params.Type,
+		Label:     params.Label,
+		Data:      params.Data,
+		IsDefault: params.IsDefault,
+	})
+	if err != nil {
 		return zero, fmt.Errorf("failed to create payment method: %w", err)
 	}
 
@@ -125,19 +121,15 @@ type SetDefaultPaymentMethodParams struct {
 func (b *AccountBiz) SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
-	var result accountdb.AccountPaymentMethod
-	if err := b.storage.WithTx(ctx, nil, func(txStorage AccountStorage) error {
-		if err := txStorage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-			return err
-		}
+	if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
+		return zero, fmt.Errorf("failed to set default payment method: %w", err)
+	}
 
-		var err error
-		result, err = txStorage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
-			ID:        params.ID,
-			AccountID: params.Account.ID,
-		})
-		return err
-	}); err != nil {
+	result, err := b.storage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
+		ID:        params.ID,
+		AccountID: params.Account.ID,
+	})
+	if err != nil {
 		return zero, fmt.Errorf("failed to set default payment method: %w", err)
 	}
 

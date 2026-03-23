@@ -11,18 +11,18 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 
-	"shopnexus-remastered/internal/infras/cachestruct"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	"shopnexus-server/internal/infras/cachestruct"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -102,6 +102,12 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.U
 		})
 	}
 
+	// Check favorites for authenticated user
+	var favoriteSet map[uuid.UUID]bool
+	if accountID != nil {
+		favoriteSet, _ = b.account.CheckFavorites(ctx, *accountID, spuIDs)
+	}
+
 	for _, spu := range spus {
 		featured := featuredMap[spu.ID]
 		rating := ratingMap[spu.ID]
@@ -135,17 +141,42 @@ func (b *CatalogBiz) ProductCardsFromSpuIDs(ctx context.Context, spuIDs []uuid.U
 				Score: float32(rating.Score),
 				Total: int(rating.Count),
 			},
-			Resources: resources,
+			IsFavorite: favoriteSet[spu.ID],
+			Resources:  resources,
 		}
 	}
 
 	return productMap, nil
 }
 
+type GetProductCardParams struct {
+	AccountID *uuid.UUID
+	SpuID     uuid.UUID `validate:"required"`
+}
+
+func (b *CatalogBiz) GetProductCard(ctx context.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+	if err := validator.Validate(params); err != nil {
+		return nil, err
+	}
+
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	card, ok := productCardMap[params.SpuID]
+	if !ok || card == nil {
+		return nil, fmt.Errorf("product not found")
+	}
+
+	return card, nil
+}
+
 type ListProductCardParams struct {
 	commonmodel.PaginationParams
-	VendorID uuid.NullUUID `validate:"omitnil"`
-	Search   null.String   `validate:"omitnil,min=1,max=100"`
+	AccountID *uuid.UUID    // optional, for is_favorite
+	VendorID  uuid.NullUUID `validate:"omitnil"`
+	Search    null.String   `validate:"omitnil,min=1,max=100"`
 }
 
 func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
@@ -172,7 +203,7 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	if params.Search.Valid {
 		searchProducts, err := b.Search(ctx, SearchParams{
 			PaginationParams: params.PaginationParams,
-			Collection:       "products",
+			Collection:       CollectionProducts,
 			Query:            params.Search.String,
 		})
 		if err != nil {
@@ -206,7 +237,7 @@ func (b *CatalogBiz) ListProductCard(ctx context.Context, params ListProductCard
 	}
 	// TODO: handle total from search result
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
 	if err != nil {
 		return zero, err
 	}
@@ -312,7 +343,9 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		}
 		// Take random amount of shuffled most sold products
 		mutable.Shuffle(mostSolds)
-		mostSolds = mostSolds[:amount]
+		if int32(len(mostSolds)) > amount {
+			mostSolds = mostSolds[:amount]
+		}
 
 		skuIDs := lo.Map(mostSolds, func(p inventorydb.InventoryStock, _ int) uuid.UUID { return p.RefID })
 		skus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
@@ -331,7 +364,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx context.Context, params List
 		})...)
 	}
 
-	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }))
+	productCardMap, err := b.ProductCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
 	if err != nil {
 		return zero, err
 	}

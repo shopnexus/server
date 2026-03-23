@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"shopnexus-remastered/internal/infras/pubsub"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	"github.com/google/uuid"
+
+	"shopnexus-server/internal/infras/pubsub"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
 )
 
 func (b *CatalogBiz) InitPubsub() error {
@@ -37,10 +39,18 @@ func (b *CatalogBiz) AddInteraction(ctx context.Context, params AddInteractionPa
 			return err
 		}
 
-		// Remove all old recommendations
-		if params.AccountID.Valid {
-			if err := b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.AccountID.UUID.String())); err != nil {
-				slog.Error("failed to reset feed offset for account", slog.String("account_id", params.AccountID.UUID.String()), slog.Any("error", err))
+		// Remove old recommendations for all affected accounts
+		seen := make(map[uuid.UUID]struct{})
+		for _, ev := range toInsert {
+			if !ev.AccountID.Valid {
+				continue
+			}
+			if _, ok := seen[ev.AccountID.UUID]; ok {
+				continue
+			}
+			seen[ev.AccountID.UUID] = struct{}{}
+			if err := b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, ev.AccountID.UUID.String())); err != nil {
+				slog.Error("failed to reset feed offset for account", slog.String("account_id", ev.AccountID.UUID.String()), slog.Any("error", err))
 			}
 		}
 	}

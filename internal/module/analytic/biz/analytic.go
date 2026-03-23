@@ -5,15 +5,15 @@ import (
 	"log/slog"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pubsub"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pubsub"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	analyticconfig "shopnexus-remastered/internal/module/analytic/config"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticconfig "shopnexus-server/internal/module/analytic/config"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -22,10 +22,10 @@ import (
 type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
 type AnalyticBiz struct {
-	storage            AnalyticStorage
-	pubsub             pubsub.Client
-	promotion          *promotionbiz.PromotionBiz
-	popularityWeights  map[string]float64
+	storage           AnalyticStorage
+	pubsub            pubsub.Client
+	promotion         *promotionbiz.PromotionBiz
+	popularityWeights map[string]float64
 }
 
 // NewAnalyticBiz creates a new instance of AnalyticBiz.

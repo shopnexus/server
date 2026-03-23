@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"shopnexus-remastered/internal/infras/shipment"
-	"shopnexus-remastered/internal/infras/shipment/ghtk"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-server/internal/infras/shipment"
+	"shopnexus-server/internal/infras/shipment/ghtk"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commonmodel "shopnexus-server/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupShipmentMap() error {

@@ -7,13 +7,14 @@ import (
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/index"
 
-	"shopnexus-remastered/internal/infras/milvus"
+	"shopnexus-server/internal/infras/milvus"
+	catalogutil "shopnexus-server/internal/module/catalog/util"
 )
 
 const (
 	CollectionProducts = "products"
 	CollectionAccounts = "accounts"
-	ContentVectorDim   = 1024 // BGE-M3 dense dimension
+	ContentVectorDim   = 768 // 1024 - BGE-M3, 768 - MGTE
 )
 
 func productsSchema() *entity.Schema {
@@ -43,7 +44,7 @@ func accountsSchema() *entity.Schema {
 	schema := entity.NewSchema().
 		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPrimaryKey(true)).
 		WithField(entity.NewField().WithName("number").WithDataType(entity.FieldTypeInt64))
-	for i := 1; i <= numInterests; i++ {
+	for i := 1; i <= catalogutil.NumInterests; i++ {
 		schema.WithField(entity.NewField().WithName(fmt.Sprintf("interest_%d", i)).WithDataType(entity.FieldTypeFloatVector).WithDim(ContentVectorDim))
 		schema.WithField(entity.NewField().WithName(fmt.Sprintf("strength_%d", i)).WithDataType(entity.FieldTypeFloat))
 	}
@@ -51,8 +52,8 @@ func accountsSchema() *entity.Schema {
 }
 
 func accountsIndexes() []milvus.IndexDef {
-	indexes := make([]milvus.IndexDef, 0, numInterests)
-	for i := 1; i <= numInterests; i++ {
+	indexes := make([]milvus.IndexDef, 0, catalogutil.NumInterests)
+	for i := 1; i <= catalogutil.NumInterests; i++ {
 		indexes = append(indexes, milvus.IndexDef{
 			FieldName:  fmt.Sprintf("interest_%d", i),
 			IndexType:  index.AUTOINDEX,

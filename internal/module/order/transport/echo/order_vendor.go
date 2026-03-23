@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -64,7 +64,7 @@ func (h *Handler) ConfirmOrder(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err = h.biz.ConfirmOrder(c.Request().Context(), orderbiz.ConfirmOrderParams{
+	if err := h.biz.ConfirmOrder(c.Request().Context(), orderbiz.ConfirmOrderParams{
 		Account:     claims.Account,
 		OrderID:     req.OrderID,
 		FromAddress: req.FromAddress,

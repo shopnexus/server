@@ -5,16 +5,15 @@ import (
 	"database/sql"
 	"errors"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
-	inventorymodel "shopnexus-remastered/internal/module/inventory/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -55,7 +54,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 	if err != nil {
 		return zero, err
 	}
-	stockMap := lo.KeyBy(listStock.Data, func(s inventorymodel.Stock) uuid.UUID { return s.RefID })
+	stockMap := lo.KeyBy(listStock.Data, func(s inventorydb.InventoryStock) uuid.UUID { return s.RefID })
 
 	// Calculate promoted prices for SKUs
 	requestPrices := make([]catalogmodel.RequestOrderPrice, 0, len(skus))
@@ -102,6 +101,9 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 
 	// Get images
 	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, []uuid.UUID{spu.ID})
+	if err != nil {
+		return zero, err
+	}
 
 	// get rating
 	rating, err := b.storage.Querier().DetailRating(ctx, catalogdb.DetailRatingParams{
@@ -135,6 +137,13 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 		}
 	}
 
+	// Check favorite for authenticated user
+	var isFavorite bool
+	if params.Account != nil {
+		favoriteSet, _ := b.account.CheckFavorites(ctx, params.Account.ID, []uuid.UUID{spu.ID})
+		isFavorite = favoriteSet[spu.ID]
+	}
+
 	// Track view interaction for authenticated users
 	if params.Account != nil {
 		b.analytic.TrackInteraction(*params.Account, analyticmodel.EventView, analyticdb.AnalyticInteractionRefTypeProduct, spu.ID.String())
@@ -154,6 +163,7 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, params GetProductDeta
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,
 		},
+		IsFavorite:     isFavorite,
 		Resources:      resourcesMap[spu.ID],
 		Promotions:     promotions,
 		Skus:           skusDetail,

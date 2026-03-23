@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	chatdb "shopnexus-remastered/internal/module/chat/db/sqlc"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -22,6 +22,26 @@ type ChatBiz struct {
 
 func NewChatBiz(storage ChatStorage) *ChatBiz {
 	return &ChatBiz{storage: storage}
+}
+
+func (b *ChatBiz) WithTx(ctx context.Context, fn func(context.Context, *ChatBiz) error) error {
+	storage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer storage.Rollback(ctx)
+
+	biz := NewChatBiz(storage)
+
+	if err = fn(ctx, biz); err != nil {
+		return fmt.Errorf("failed to execute function with transaction: %w", err)
+	}
+
+	if err = storage.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 type CreateConversationParams struct {
@@ -105,23 +125,19 @@ func (b *ChatBiz) SendMessage(ctx context.Context, params SendMessageParams) (ch
 		return zero, fmt.Errorf("not a participant of this conversation")
 	}
 
-	var msg chatdb.ChatMessage
-	if err := b.storage.WithTx(ctx, nil, func(txStorage ChatStorage) error {
-		var err error
-		msg, err = txStorage.Querier().CreateMessage(ctx, chatdb.CreateMessageParams{
-			ConversationID: params.ConversationID,
-			SenderID:       params.Account.ID,
-			Type:           params.Type,
-			Content:        params.Content,
-			Metadata:       params.Metadata,
-		})
-		if err != nil {
-			return err
-		}
+	msg, err := b.storage.Querier().CreateMessage(ctx, chatdb.CreateMessageParams{
+		ConversationID: params.ConversationID,
+		SenderID:       params.Account.ID,
+		Type:           params.Type,
+		Content:        params.Content,
+		Metadata:       params.Metadata,
+	})
+	if err != nil {
+		return zero, fmt.Errorf("failed to create message: %w", err)
+	}
 
-		return txStorage.Querier().UpdateConversationLastMessage(ctx, params.ConversationID)
-	}); err != nil {
-		return zero, fmt.Errorf("failed to send message: %w", err)
+	if err := b.storage.Querier().UpdateConversationLastMessage(ctx, params.ConversationID); err != nil {
+		return zero, fmt.Errorf("failed to update conversation last message: %w", err)
 	}
 
 	return msg, nil

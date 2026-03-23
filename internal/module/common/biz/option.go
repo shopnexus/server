@@ -6,15 +6,14 @@ import (
 	"errors"
 	"fmt"
 
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
 )
 
 type UpdateServiceOptionsParams struct {
-	Storage  CommonStorage
 	Category string                     `validate:"required,oneof=objectstore payment shipment"`
 	Configs  []commonmodel.OptionConfig `validate:"required,dive"`
 }
@@ -24,49 +23,44 @@ func (b *CommonBiz) UpdateServiceOptions(ctx context.Context, params UpdateServi
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage CommonStorage) error {
-		for index, cfg := range params.Configs {
-			_, err := txStorage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
-			if err != nil {
-				// if not found, create it
-				if errors.Is(err, sql.ErrNoRows) {
-					_, err = txStorage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
-						ID:          cfg.ID,
-						Category:    string(params.Category),
-						Name:        cfg.Name,
-						Description: cfg.Description,
-						Provider:    cfg.Provider,
-						Method:      string(cfg.Method),
-						Order:       int32(index),
-					})
-					if err != nil {
-						return err
-					}
-					continue
-				}
-
-				// other db error
-				return err
-			} else {
-				// update existing
-				_, err = txStorage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
+	for index, cfg := range params.Configs {
+		_, err := b.storage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
+		if err != nil {
+			// if not found, create it
+			if errors.Is(err, sql.ErrNoRows) {
+				_, err = b.storage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
 					ID:          cfg.ID,
-					Name:        null.StringFrom(cfg.Name),
-					Description: null.StringFrom(cfg.Description),
-					Provider:    null.StringFrom(cfg.Provider),
-					Method:      null.StringFrom(string(cfg.Method)),
-					IsActive:    null.BoolFrom(true),
-					Category:    null.StringFrom(string(params.Category)),
-					Order:       null.Int32From(int32(index)),
+					Category:    string(params.Category),
+					Name:        cfg.Name,
+					Description: cfg.Description,
+					Provider:    cfg.Provider,
+					Method:      string(cfg.Method),
+					Order:       int32(index),
 				})
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to update service options: %w", err)
 				}
+				continue
+			}
+
+			// other db error
+			return fmt.Errorf("failed to update service options: %w", err)
+		} else {
+			// update existing
+			_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
+				ID:          cfg.ID,
+				Name:        null.StringFrom(cfg.Name),
+				Description: null.StringFrom(cfg.Description),
+				Provider:    null.StringFrom(cfg.Provider),
+				Method:      null.StringFrom(string(cfg.Method)),
+				IsActive:    null.BoolFrom(true),
+				Category:    null.StringFrom(string(params.Category)),
+				Order:       null.Int32From(int32(index)),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to update service options: %w", err)
 			}
 		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to update service options: %w", err)
 	}
 
 	return nil

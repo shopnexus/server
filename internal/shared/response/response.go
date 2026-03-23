@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	commonmodel "shopnexus-remastered/internal/shared/model"
+	commonmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/bytedance/sonic"
 )

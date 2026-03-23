@@ -23,7 +23,7 @@ func DecodeWrap[T any](f func(ctx context.Context, params T) error) func(msg *Me
 	}
 }
 
-// Config holds configuration values for the Kafka connection.
+// Config holds configuration values for the pub/sub connection.
 type Config struct {
 	Timeout time.Duration
 	Brokers []string

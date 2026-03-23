@@ -1,23 +1,24 @@
 package catalogecho
 
 import (
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 
 	"github.com/labstack/echo/v4"
 )
 
 type Handler struct {
-	biz *catalogbiz.CatalogBiz
+	biz catalogbiz.CatalogClient
 }
 
-func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
-	h := &Handler{biz: catalogbiz}
+func NewHandler(e *echo.Echo, biz catalogbiz.CatalogClient) *Handler {
+	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/catalog")
 
 	// Friendly APIs
 	api.GET("/product-detail", h.GetProductDetail)
 	api.GET("/product-card", h.ListProductCard)
 	api.GET("/product-card/recommended", h.ListRecommendedProductCard)
+	api.GET("/product-card/:id", h.GetProductCard)
 
 	// Product Spu
 	spuApi := api.Group("/product-spu")

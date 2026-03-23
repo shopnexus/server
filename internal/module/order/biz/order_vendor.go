@@ -1,16 +1,17 @@
 package orderbiz
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
-	"shopnexus-remastered/internal/infras/shipment"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
-	ordermodel "shopnexus-remastered/internal/module/order/model"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	"shopnexus-server/internal/infras/shipment"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	ordermodel "shopnexus-server/internal/module/order/model"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -22,39 +23,41 @@ type ListVendorOrderParams struct {
 	commonmodel.PaginationParams
 }
 
-func (b *OrderBiz) ListVendorOrder(ctx context.Context, params ListVendorOrderParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
 	var zero commonmodel.PaginateResult[ordermodel.Order]
-	listCountOrder, err := b.storage.Querier().ListCountVendorOrder(ctx, orderdb.ListCountVendorOrderParams{
-		Limit:    params.Limit,
-		Offset:   params.Offset(),
-		VendorID: []uuid.UUID{params.Account.ID},
+
+	return restate.Run(ctx, func(ctx restate.RunContext) (commonmodel.PaginateResult[ordermodel.Order], error) {
+		listCountOrder, err := b.storage.Querier().ListCountVendorOrder(ctx, orderdb.ListCountVendorOrderParams{
+			Limit:    params.Limit,
+			Offset:   params.Offset(),
+			VendorID: []uuid.UUID{params.Account.ID},
+		})
+		if err != nil {
+			return zero, err
+		}
+
+		var total null.Int
+		if len(listCountOrder) > 0 {
+			total.SetValid(listCountOrder[0].TotalCount)
+		}
+
+		orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountVendorOrderRow, _ int) orderdb.OrderOrder {
+			return item.OrderOrder
+		}))
+		if err != nil {
+			return zero, err
+		}
+
+		return commonmodel.PaginateResult[ordermodel.Order]{
+			PageParams: params.PaginationParams,
+			Total:      total,
+			Data:       orders,
+		}, nil
 	})
-	if err != nil {
-		return zero, err
-	}
-
-	var total null.Int
-	if len(listCountOrder) > 0 {
-		total.SetValid(listCountOrder[0].TotalCount)
-	}
-
-	orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountVendorOrderRow, _ int) orderdb.OrderOrder {
-		return item.OrderOrder
-	}))
-	if err != nil {
-		return zero, err
-	}
-
-	return commonmodel.PaginateResult[ordermodel.Order]{
-		PageParams: params.PaginationParams,
-		Total:      total,
-		Data:       orders,
-	}, nil
 }
 
 // ConfirmOrderParams represents the parameters required to confirm an order by SKU (not the whole order).
 type ConfirmOrderParams struct {
-	Storage OrderStorage
 	Account accountmodel.AuthenticatedAccount
 	OrderID uuid.UUID `validate:"required"`
 
@@ -63,11 +66,12 @@ type ConfirmOrderParams struct {
 	Package     json.RawMessage `validate:"omitempty"`             // JSON object with weight and dimensions
 }
 
-func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) error {
+func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
 
+	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {
 		return err
@@ -76,14 +80,18 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 		return fmt.Errorf("order is not in a confirmable state (payment status: %s, order status: %s)", order.Payment.Status, order.Status)
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
-		_, err := txStorage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
+	// Update order + shipment in one durable step
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err := b.storage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
 			ID:            order.ID,
 			ConfirmedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 			Status:        orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusProcessing, Valid: true},
 		})
+		if err != nil {
+			return fmt.Errorf("failed to update order status: %w", err)
+		}
 
-		dbShipment, err := txStorage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})
+		dbShipment, err := b.storage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})
 		if err != nil {
 			return err
 		}
@@ -99,13 +107,10 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 			fromAddress    string
 		)
 
-		// Check if we need to update shipment details
 		if params.FromAddress.Valid {
 			needUpdate = true
 			fromAddress = params.FromAddress.String
 		}
-
-		// Check if we need to update package details
 		if params.Package != nil {
 			if err := validator.Unmarshal(params.Package, &packageDetails); err != nil {
 				return fmt.Errorf("failed to unmarshal package: %w", err)
@@ -123,7 +128,7 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 				return fmt.Errorf("failed to create shipment: %w", err)
 			}
 
-			_, err = txStorage.Querier().UpdateShipment(ctx, orderdb.UpdateShipmentParams{
+			_, err = b.storage.Querier().UpdateShipment(ctx, orderdb.UpdateShipmentParams{
 				ID:           order.ShipmentID,
 				TrackingCode: null.StringFrom(ship.ID),
 				Status:       orderdb.NullOrderShipmentStatus{OrderShipmentStatus: orderdb.OrderShipmentStatusLabelCreated, Valid: true},
@@ -143,12 +148,11 @@ func (b *OrderBiz) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) 
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to confirm order: %w", err)
-	}
-
-	if err := b.pubsub.Publish(ordermodel.TopicOrderConfirmed, order); err != nil {
 		return err
 	}
 
-	return nil
+	// Publish event
+	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		return b.pubsub.Publish(ordermodel.TopicOrderConfirmed, order)
+	})
 }

@@ -3,11 +3,11 @@ package catalogecho
 import (
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -51,7 +51,6 @@ func (h *Handler) ListComment(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
@@ -89,7 +88,6 @@ func (h *Handler) CreateComment(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
@@ -125,7 +123,6 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, comment)
 }
 

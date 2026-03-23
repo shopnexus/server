@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/cachestruct"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/cachestruct"
+	accountmodel "shopnexus-server/internal/module/account/model"
 
 	"github.com/golang-jwt/jwt/v5"
 )

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"shopnexus-remastered/internal/infras/payment"
-	commonmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-server/internal/infras/payment"
+	commonmodel "shopnexus-server/internal/shared/model"
 )
 
 // Type guard

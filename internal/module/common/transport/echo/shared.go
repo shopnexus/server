@@ -1,7 +1,7 @@
 package commonecho
 
 import (
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 
 	"github.com/labstack/echo/v4"
 )

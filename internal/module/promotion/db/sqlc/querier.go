@@ -7,53 +7,41 @@ package promotiondb
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
-	CountDiscount(ctx context.Context, arg CountDiscountParams) (int64, error)
 	CountPromotion(ctx context.Context, arg CountPromotionParams) (int64, error)
 	CountRef(ctx context.Context, arg CountRefParams) (int64, error)
 	CountSchedule(ctx context.Context, arg CountScheduleParams) (int64, error)
-	CreateBatchDiscount(ctx context.Context, arg []CreateBatchDiscountParams) *CreateBatchDiscountBatchResults
 	CreateBatchPromotion(ctx context.Context, arg []CreateBatchPromotionParams) *CreateBatchPromotionBatchResults
 	CreateBatchRef(ctx context.Context, arg []CreateBatchRefParams) *CreateBatchRefBatchResults
 	CreateBatchSchedule(ctx context.Context, arg []CreateBatchScheduleParams) *CreateBatchScheduleBatchResults
-	CreateCopyDefaultDiscount(ctx context.Context, arg []CreateCopyDefaultDiscountParams) (int64, error)
 	CreateCopyDefaultPromotion(ctx context.Context, arg []CreateCopyDefaultPromotionParams) (int64, error)
 	CreateCopyDefaultRef(ctx context.Context, arg []CreateCopyDefaultRefParams) (int64, error)
 	CreateCopyDefaultSchedule(ctx context.Context, arg []CreateCopyDefaultScheduleParams) (int64, error)
-	CreateCopyDiscount(ctx context.Context, arg []CreateCopyDiscountParams) (int64, error)
 	CreateCopyPromotion(ctx context.Context, arg []CreateCopyPromotionParams) (int64, error)
 	CreateCopyRef(ctx context.Context, arg []CreateCopyRefParams) (int64, error)
 	CreateCopySchedule(ctx context.Context, arg []CreateCopyScheduleParams) (int64, error)
-	CreateDefaultDiscount(ctx context.Context, arg CreateDefaultDiscountParams) (PromotionDiscount, error)
 	CreateDefaultPromotion(ctx context.Context, arg CreateDefaultPromotionParams) (PromotionPromotion, error)
 	CreateDefaultRef(ctx context.Context, arg CreateDefaultRefParams) (PromotionRef, error)
 	CreateDefaultSchedule(ctx context.Context, arg CreateDefaultScheduleParams) (PromotionSchedule, error)
-	CreateDiscount(ctx context.Context, arg CreateDiscountParams) (PromotionDiscount, error)
 	CreatePromotion(ctx context.Context, arg CreatePromotionParams) (PromotionPromotion, error)
 	CreateRef(ctx context.Context, arg CreateRefParams) (PromotionRef, error)
 	CreateSchedule(ctx context.Context, arg CreateScheduleParams) (PromotionSchedule, error)
-	DeleteDiscount(ctx context.Context, arg DeleteDiscountParams) error
 	DeletePromotion(ctx context.Context, arg DeletePromotionParams) error
 	DeleteRef(ctx context.Context, arg DeleteRefParams) error
 	DeleteSchedule(ctx context.Context, arg DeleteScheduleParams) error
-	GetDiscount(ctx context.Context, id uuid.NullUUID) (PromotionDiscount, error)
 	GetPromotion(ctx context.Context, arg GetPromotionParams) (PromotionPromotion, error)
 	GetRef(ctx context.Context, arg GetRefParams) (PromotionRef, error)
 	GetSchedule(ctx context.Context, id pgtype.Int8) (PromotionSchedule, error)
 	ListActivePromotion(ctx context.Context, arg ListActivePromotionParams) ([]PromotionPromotion, error)
-	ListCountDiscount(ctx context.Context, arg ListCountDiscountParams) ([]ListCountDiscountRow, error)
 	ListCountPromotion(ctx context.Context, arg ListCountPromotionParams) ([]ListCountPromotionRow, error)
 	ListCountRef(ctx context.Context, arg ListCountRefParams) ([]ListCountRefRow, error)
 	ListCountSchedule(ctx context.Context, arg ListCountScheduleParams) ([]ListCountScheduleRow, error)
-	ListDiscount(ctx context.Context, arg ListDiscountParams) ([]PromotionDiscount, error)
 	ListPromotion(ctx context.Context, arg ListPromotionParams) ([]PromotionPromotion, error)
 	ListRef(ctx context.Context, arg ListRefParams) ([]PromotionRef, error)
 	ListSchedule(ctx context.Context, arg ListScheduleParams) ([]PromotionSchedule, error)
-	UpdateDiscount(ctx context.Context, arg UpdateDiscountParams) (PromotionDiscount, error)
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) (PromotionPromotion, error)
 	UpdateRef(ctx context.Context, arg UpdateRefParams) (PromotionRef, error)
 	UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) (PromotionSchedule, error)

@@ -7,6 +7,7 @@ package promotiondb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -19,75 +20,10 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const createBatchDiscount = `-- name: CreateBatchDiscount :batchone
-INSERT INTO "promotion"."discount" ("id", "min_spend", "max_discount", "discount_percent", "discount_price")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, min_spend, max_discount, discount_percent, discount_price
-`
-
-type CreateBatchDiscountBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchDiscountParams struct {
-	ID              uuid.UUID  `json:"id"`
-	MinSpend        int64      `json:"min_spend"`
-	MaxDiscount     int64      `json:"max_discount"`
-	DiscountPercent null.Float `json:"discount_percent"`
-	DiscountPrice   null.Int   `json:"discount_price"`
-}
-
-func (q *Queries) CreateBatchDiscount(ctx context.Context, arg []CreateBatchDiscountParams) *CreateBatchDiscountBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.MinSpend,
-			a.MaxDiscount,
-			a.DiscountPercent,
-			a.DiscountPrice,
-		}
-		batch.Queue(createBatchDiscount, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchDiscountBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchDiscountBatchResults) QueryRow(f func(int, PromotionDiscount, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i PromotionDiscount
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.MinSpend,
-			&i.MaxDiscount,
-			&i.DiscountPercent,
-			&i.DiscountPrice,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchDiscountBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchPromotion = `-- name: CreateBatchPromotion :batchone
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 `
 
 type CreateBatchPromotionBatchResults struct {
@@ -97,18 +33,21 @@ type CreateBatchPromotionBatchResults struct {
 }
 
 type CreateBatchPromotionParams struct {
-	ID          uuid.UUID     `json:"id"`
-	Code        string        `json:"code"`
-	OwnerID     uuid.NullUUID `json:"owner_id"`
-	Type        PromotionType `json:"type"`
-	Title       string        `json:"title"`
-	Description null.String   `json:"description"`
-	IsActive    bool          `json:"is_active"`
-	AutoApply   bool          `json:"auto_apply"`
-	DateStarted time.Time     `json:"date_started"`
-	DateEnded   null.Time     `json:"date_ended"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID          uuid.UUID       `json:"id"`
+	Code        string          `json:"code"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	Type        PromotionType   `json:"type"`
+	Title       string          `json:"title"`
+	Description null.String     `json:"description"`
+	IsActive    bool            `json:"is_active"`
+	AutoApply   bool            `json:"auto_apply"`
+	Group       string          `json:"group"`
+	Priority    int32           `json:"priority"`
+	Data        json.RawMessage `json:"data"`
+	DateStarted time.Time       `json:"date_started"`
+	DateEnded   null.Time       `json:"date_ended"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchPromotion(ctx context.Context, arg []CreateBatchPromotionParams) *CreateBatchPromotionBatchResults {
@@ -123,6 +62,9 @@ func (q *Queries) CreateBatchPromotion(ctx context.Context, arg []CreateBatchPro
 			a.Description,
 			a.IsActive,
 			a.AutoApply,
+			a.Group,
+			a.Priority,
+			a.Data,
 			a.DateStarted,
 			a.DateEnded,
 			a.DateCreated,
@@ -154,6 +96,9 @@ func (b *CreateBatchPromotionBatchResults) QueryRow(f func(int, PromotionPromoti
 			&i.Description,
 			&i.IsActive,
 			&i.AutoApply,
+			&i.Group,
+			&i.Priority,
+			&i.Data,
 			&i.DateStarted,
 			&i.DateEnded,
 			&i.DateCreated,

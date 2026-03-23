@@ -2,14 +2,14 @@ package analyticmodel
 
 import (
 	"encoding/json"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const (
-	TopicAnalyticInteraction = "analytic.interaction"
+	TopicAnalyticInteraction = "analytic_interaction"
 
 	// High intent events
 	EventPurchase    = "purchase"

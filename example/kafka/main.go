@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"shopnexus-remastered/internal/infras/pubsub"
+	"shopnexus-server/internal/infras/pubsub"
 
 	"github.com/bytedance/sonic"
 )
@@ -17,10 +17,10 @@ type Order struct {
 }
 
 func main() {
-	// Example usage of the Kafka client
-	cfg := pubsub.KafkaConfig{
+	// Example usage of the NATS client
+	cfg := pubsub.NatsConfig{
 		Config: pubsub.Config{
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{"localhost:4222"},
 			Timeout: 10 * time.Second,
 			Decoder: sonic.Unmarshal,
 			Encoder: sonic.Marshal,
@@ -28,9 +28,9 @@ func main() {
 		Group: "test-group",
 	}
 
-	client, err := pubsub.NewKafkaClient(cfg)
+	client, err := pubsub.NewNatsClient(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka client: %v", err)
+		log.Fatalf("Failed to create NATS client: %v", err)
 	}
 
 	go func() {
@@ -65,25 +65,7 @@ func main() {
 		log.Fatalf("Failed to subscribe to topic: %v", err)
 	}
 
-	//if err = client.Subscribe( "orders", func(msg *pubsub.MessageDecoder) error {
-	//	var order Order
-	//	if err := msg.Decode(&order); err != nil {
-	//		return err
-	//	}
-	//	log.Printf("Received order 2: %+v", order)
-	//	return nil
-	//}); err != nil {
-	//	log.Fatalf("Failed to subscribe to topic: %v", err)
-	//}
-
 	log.Println("Subscribed to topic 'orders' successfully")
-
-	//go func() {
-	//	for {
-	//		time.Sleep(10 * time.Second)
-	//		log.Println("Kafka client is running and listening for messages...")
-	//	}
-	//}()
 
 	select {} // Keep the main function running to listen for messages
 }

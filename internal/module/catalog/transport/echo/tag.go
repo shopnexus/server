@@ -3,10 +3,10 @@ package catalogecho
 import (
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
@@ -33,7 +33,6 @@ func (h *Handler) ListTag(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
@@ -62,6 +61,5 @@ func (h *Handler) GetTag(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

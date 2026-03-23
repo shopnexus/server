@@ -1,6 +1,6 @@
 package response
 
-import commonmodel "shopnexus-remastered/internal/shared/model"
+import commonmodel "shopnexus-server/internal/shared/model"
 
 type CommonResponse struct {
 	Data  any                `json:"data,omitempty"`

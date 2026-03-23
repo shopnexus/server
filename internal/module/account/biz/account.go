@@ -2,13 +2,14 @@ package accountbiz
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pubsub"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pubsub"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 )
@@ -43,6 +44,35 @@ func NewAccountBiz(
 		pubsub:  pubsub,
 		common:  common,
 	}
+}
+
+func (b *AccountBiz) WithTx(ctx context.Context, fn func(context.Context, *AccountBiz) error) error {
+	storage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer storage.Rollback(ctx)
+
+	biz := &AccountBiz{
+		tokenDuration:        b.tokenDuration,
+		jwtSecret:            b.jwtSecret,
+		refreshTokenDuration: b.refreshTokenDuration,
+		refreshSecret:        b.refreshSecret,
+
+		storage: storage,
+		pubsub:  b.pubsub,
+		common:  b.common,
+	}
+
+	if err = fn(ctx, biz); err != nil {
+		return fmt.Errorf("failed to execute function with transaction: %w", err)
+	}
+
+	if err = storage.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 type DeleteAccountParams struct {

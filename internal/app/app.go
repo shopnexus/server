@@ -5,24 +5,25 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/bytedance/sonic"
 	"go.uber.org/fx"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/cachestruct"
-	"shopnexus-remastered/internal/infras/embedding"
-	"shopnexus-remastered/internal/infras/milvus"
-	"shopnexus-remastered/internal/infras/pubsub"
-	"shopnexus-remastered/internal/module/account"
-	"shopnexus-remastered/internal/module/analytic"
-	"shopnexus-remastered/internal/module/catalog"
-	"shopnexus-remastered/internal/module/chat"
-	"shopnexus-remastered/internal/module/common"
-	"shopnexus-remastered/internal/module/inventory"
-	"shopnexus-remastered/internal/module/order"
-	"shopnexus-remastered/internal/module/promotion"
-	"shopnexus-remastered/internal/module/system"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/cachestruct"
+	"shopnexus-server/internal/infras/embedding"
+	"shopnexus-server/internal/infras/milvus"
+	"shopnexus-server/internal/infras/pubsub"
+	"shopnexus-server/internal/module/account"
+	"shopnexus-server/internal/module/analytic"
+	"shopnexus-server/internal/module/catalog"
+	"shopnexus-server/internal/module/chat"
+	"shopnexus-server/internal/module/common"
+	"shopnexus-server/internal/module/inventory"
+	"shopnexus-server/internal/module/order"
+	"shopnexus-server/internal/module/promotion"
+	"shopnexus-server/internal/module/system"
 )
 
 // Module combines all internal modules
@@ -52,8 +53,9 @@ var Module = fx.Module("main",
 	// HTTP server
 	fx.Invoke(
 		SetupLogger,
+		SetupRestate,
 		SetupEcho,
-		StartHTTPServer,
+		SetupHTTPServer,
 	),
 )
 
@@ -99,10 +101,10 @@ func SetupLogger() {
 }
 
 func NewPubsubClient(cfg *config.Config) (pubsub.Client, error) {
-	return pubsub.NewKafkaClient(pubsub.KafkaConfig{
+	return pubsub.NewNatsClient(pubsub.NatsConfig{
 		Config: pubsub.Config{
-			Timeout: 10,
-			Brokers: []string{fmt.Sprintf("%s:%s", cfg.Kafka.Host, cfg.Kafka.Port)},
+			Timeout: 10 * time.Second,
+			Brokers: []string{fmt.Sprintf("%s:%s", cfg.Nats.Host, cfg.Nats.Port)},
 			Decoder: sonic.Unmarshal,
 			Encoder: sonic.Marshal,
 		},

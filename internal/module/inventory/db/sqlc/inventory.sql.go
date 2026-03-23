@@ -8,53 +8,51 @@ package inventorydb
 import (
 	"context"
 
-	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 )
 
-const adjustInventory = `-- name: AdjustInventory :exec
+const adjustInventory = `-- name: AdjustInventory :execrows
 UPDATE inventory.stock
 SET stock = stock - $1,
     taken = taken + $1
-WHERE ref_type = $2
-  AND ref_id = $3
+WHERE id = $2
   AND stock >= $1
 `
 
 type AdjustInventoryParams struct {
-	Amount  int64                 `json:"amount"`
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
+	Amount  int64 `json:"amount"`
+	StockID int64 `json:"stock_id"`
 }
 
-func (q *Queries) AdjustInventory(ctx context.Context, arg AdjustInventoryParams) error {
-	_, err := q.db.Exec(ctx, adjustInventory, arg.Amount, arg.RefType, arg.RefID)
-	return err
+func (q *Queries) AdjustInventory(ctx context.Context, arg AdjustInventoryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, adjustInventory, arg.Amount, arg.StockID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getAvailableSerials = `-- name: GetAvailableSerials :many
-SELECT id, ref_type, ref_id
+SELECT id, stock_id
 FROM "inventory"."serial"
-WHERE ref_type = $1 AND ref_id = $2 AND "status" = 'Active'
+WHERE stock_id = $1 AND "status" = 'Active'
 ORDER BY date_created DESC
-FOR UPDATE SKIP LOCKED -- Lock the selected, but skip those already locked
-LIMIT $3
+FOR UPDATE SKIP LOCKED
+LIMIT $2
 `
 
 type GetAvailableSerialsParams struct {
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-	Amount  int32                 `json:"amount"`
+	StockID int64 `json:"stock_id"`
+	Amount  int32 `json:"amount"`
 }
 
 type GetAvailableSerialsRow struct {
-	ID      string                `json:"id"`
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
+	ID      string `json:"id"`
+	StockID int64  `json:"stock_id"`
 }
 
 func (q *Queries) GetAvailableSerials(ctx context.Context, arg GetAvailableSerialsParams) ([]GetAvailableSerialsRow, error) {
-	rows, err := q.db.Query(ctx, getAvailableSerials, arg.RefType, arg.RefID, arg.Amount)
+	rows, err := q.db.Query(ctx, getAvailableSerials, arg.StockID, arg.Amount)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +60,7 @@ func (q *Queries) GetAvailableSerials(ctx context.Context, arg GetAvailableSeria
 	items := []GetAvailableSerialsRow{}
 	for rows.Next() {
 		var i GetAvailableSerialsRow
-		if err := rows.Scan(&i.ID, &i.RefType, &i.RefID); err != nil {
+		if err := rows.Scan(&i.ID, &i.StockID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

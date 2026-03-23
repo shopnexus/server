@@ -2,22 +2,23 @@ package catalogbiz
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/cachestruct"
-	"shopnexus-remastered/internal/infras/embedding"
-	"shopnexus-remastered/internal/infras/milvus"
-	"shopnexus-remastered/internal/infras/pubsub"
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/cachestruct"
+	"shopnexus-server/internal/infras/embedding"
+	"shopnexus-server/internal/infras/milvus"
+	"shopnexus-server/internal/infras/pubsub"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
@@ -85,4 +86,38 @@ func NewCatalogBiz(
 	b.SetupCron()
 
 	return b
+}
+
+func (b *CatalogBiz) WithTx(ctx context.Context, fn func(context.Context, *CatalogBiz) error) error {
+	storage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer storage.Rollback(ctx)
+
+	biz := &CatalogBiz{
+		cache:        b.cache,
+		pubsub:       b.pubsub,
+		storage:      storage,
+		common:       b.common,
+		account:      b.account,
+		inventory:    b.inventory,
+		promotion:    b.promotion,
+		analytic:     b.analytic,
+		milvus:       b.milvus,
+		embedding:    b.embedding,
+		denseWeight:  b.denseWeight,
+		sparseWeight: b.sparseWeight,
+		batchSize:    b.batchSize,
+	}
+
+	if err = fn(ctx, biz); err != nil {
+		return fmt.Errorf("failed to execute function with transaction: %w", err)
+	}
+
+	if err = storage.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

@@ -1,8 +1,8 @@
 package catalogmodel
 
 import (
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	commonmodel "shopnexus-server/internal/module/common/model"
 	"time"
 
 	"github.com/google/uuid"

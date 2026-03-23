@@ -3,156 +3,244 @@ package promotionbiz
 import (
 	"context"
 
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	promotiondb "shopnexus-remastered/internal/module/promotion/db/sqlc"
-	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
+	promotionmodel "shopnexus-server/internal/module/promotion/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
-// CalculatePromotedPrices calculates promoted prices for given SKUs and SPUs
-// Returns only the price map: map[skuID]*catalogmodel.ProductPrice
+const PromotionGroupExclusive = "exclusive"
+
+// DiscountData represents the JSONB data for Discount and ShipDiscount promotion types.
+type DiscountData struct {
+	MinSpend        int64    `json:"min_spend"`
+	MaxDiscount     int64    `json:"max_discount"`
+	DiscountPercent *float64 `json:"discount_percent,omitempty"` // 0.0 – 1.0
+	DiscountPrice   *int64   `json:"discount_price,omitempty"`   // fixed amount off
+}
+
+// parsedPromotion holds a promotion with its pre-parsed discount data.
+type parsedPromotion struct {
+	promotionmodel.Promotion
+	discount *DiscountData // nil if data is empty or unparseable
+}
+
+// groupWinner is the best promotion selected within a single stacking group.
+type groupWinner struct {
+	promo       parsedPromotion
+	productCost sharedmodel.Concurrency
+	shipCost    sharedmodel.Concurrency
+}
+
+// CalculatePromotedPrices calculates promoted prices for the given SKUs.
+// Group-based stacking: different groups stack, same group picks the best.
 func (s *PromotionBiz) CalculatePromotedPrices(
 	ctx context.Context,
-	prices []catalogmodel.RequestOrderPrice, // Original prices
-	spuMap map[uuid.UUID]catalogmodel.ProductSpu, // Map of sku.spuID to SPU
+	prices []catalogmodel.RequestOrderPrice,
+	spuMap map[uuid.UUID]catalogmodel.ProductSpu,
 ) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
-	var promotionCodes []string
-	for _, price := range prices {
-		promotionCodes = append(promotionCodes, price.PromotionCodes...)
+	// Collect all manually-entered promotion codes
+	var codes []string
+	for _, p := range prices {
+		codes = append(codes, p.PromotionCodes...)
 	}
 
-	// Initialize prices
-	priceMap := make(map[uuid.UUID]*catalogmodel.OrderPrice)
-	for _, price := range prices {
-		priceMap[price.SkuID] = &catalogmodel.OrderPrice{
-			Request: price,
+	// Initialize output map
+	priceMap := make(map[uuid.UUID]*catalogmodel.OrderPrice, len(prices))
+	for _, p := range prices {
+		priceMap[p.SkuID] = &catalogmodel.OrderPrice{Request: p}
+	}
+
+	// Fetch active promotions (auto-apply + code-matched)
+	dbPromos, err := s.storage.Querier().ListActivePromotion(ctx, promotiondb.ListActivePromotionParams{
+		AutoApply: null.BoolFrom(true),
+		Code:      codes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(dbPromos) == 0 {
+		// No active promotions — set original prices and return early
+		for _, p := range prices {
+			op := priceMap[p.SkuID]
+			op.ProductCost = p.UnitPrice.Mul(p.Quantity)
+			op.ShipCost = p.ShipCost
 		}
+		return priceMap, nil
 	}
 
-	// Get all active promotions
-	promotions, err := s.storage.Querier().ListActivePromotion(ctx, promotiondb.ListActivePromotionParams{
-		AutoApply: null.BoolFrom(true), // Find auto-apply promotions
-		Code:      promotionCodes,      // OR specific promotion codes
-	})
+	// Batch-load refs for all promotions
+	promoIDs := lo.Map(dbPromos, func(p promotiondb.PromotionPromotion, _ int) uuid.UUID { return p.ID })
+	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{PromotionID: promoIDs})
 	if err != nil {
 		return nil, err
 	}
+	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID { return r.PromotionID })
 
-	promotionIDs := lo.Map(promotions, func(p promotiondb.PromotionPromotion, _ int) uuid.UUID {
-		return p.ID
-	})
-
-	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{
-		PromotionID: promotionIDs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID {
-		return r.PromotionID
-	})
-
-	promotionMap := lo.SliceToMap(promotions, func(promo promotiondb.PromotionPromotion) (uuid.UUID, promotionmodel.Promotion) {
-		return promo.ID, DbPromotionToPromotionBase(promo, refsMap[promo.ID])
-	})
-
-	promoDiscounts, err := s.storage.Querier().ListDiscount(ctx, promotiondb.ListDiscountParams{
-		ID: promotionIDs,
-	})
-	if err != nil {
-		return nil, err
+	// Build parsed promotions: unmarshal JSON once per promotion (not per SKU)
+	promos := make([]parsedPromotion, 0, len(dbPromos))
+	for _, p := range dbPromos {
+		promos = append(promos, parsedPromotion{
+			Promotion: dbToPromotion(p, refsMap[p.ID]),
+			discount:  parseDiscountData(p.ID, p.Data),
+		})
 	}
 
-	// Apply best discount promotion for each SKU
+	// Reusable buffer for applicable promotions per SKU
+	applicable := make([]parsedPromotion, 0, len(promos))
+
 	for _, price := range prices {
-		price := priceMap[price.SkuID]
+		op := priceMap[price.SkuID]
+		spu := spuMap[price.SpuID]
+		originalProduct := price.UnitPrice.Mul(price.Quantity)
+		originalShip := price.ShipCost
 
-		bestProductDiscountedPrice := price.Request.UnitPrice.Mul(price.Request.Quantity)
-
-		for _, discount := range promoDiscounts {
-			if !IsPromotionApplicable(promotionMap[discount.ID], spuMap[price.Request.SpuID], price.Request.SkuID) {
-				continue
-			}
-			price.PromotionCodes = append(price.PromotionCodes, promotionMap[discount.ID].Code)
-
-			// Calculate product discounted price and take the best price
-			productDiscounted := CalculateDiscountedItemPrice(price.Request.UnitPrice.Mul(price.Request.Quantity), discount)
-			// TODO: calculate shipping discounted price
-
-			// Take the best discounted price
-			if productDiscounted < bestProductDiscountedPrice {
-				bestProductDiscountedPrice = productDiscounted
+		// Filter applicable promotions (reuse slice)
+		applicable = applicable[:0]
+		for _, p := range promos {
+			if isApplicable(p.Promotion, spu, price.SkuID) {
+				applicable = append(applicable, p)
 			}
 		}
 
-		price.ShipCost = price.Request.ShipCost
-		price.ProductCost = bestProductDiscountedPrice
+		if len(applicable) == 0 {
+			op.ProductCost = originalProduct
+			op.ShipCost = originalShip
+			continue
+		}
+
+		// Group by stacking group → pick best winner per group
+		grouped := lo.GroupBy(applicable, func(p parsedPromotion) string { return p.Group })
+
+		var winners []groupWinner
+		for _, group := range grouped {
+			best := pickBestInGroup(group, originalProduct, originalShip)
+			if best != nil {
+				winners = append(winners, *best)
+			}
+		}
+
+		// Apply winners
+		applyWinners(op, winners, originalProduct, originalShip)
 	}
 
 	return priceMap, nil
 }
 
-func IsPromotionApplicable(promo promotionmodel.Promotion, spu catalogmodel.ProductSpu, skuID uuid.UUID) bool {
-	for _, ref := range promo.Refs {
-		refID := ref.RefID
-		switch ref.RefType {
-		case promotiondb.PromotionRefTypeCategory:
-			return spu.Category.ID == refID
-		case promotiondb.PromotionRefTypeProductSpu:
-			return refID == spu.ID
-		case promotiondb.PromotionRefTypeProductSku:
-			return refID == skuID
-		default:
-			return false
+// pickBestInGroup selects the promotion that gives the biggest total savings.
+// On equal savings, higher priority wins.
+func pickBestInGroup(group []parsedPromotion, originalProduct, originalShip sharedmodel.Concurrency) *groupWinner {
+	var best *groupWinner
+
+	for _, promo := range group {
+		productCost := originalProduct
+		shipCost := originalShip
+
+		if promo.discount != nil {
+			switch promo.Type {
+			case promotiondb.PromotionTypeDiscount:
+				productCost = applyDiscount(originalProduct, promo.discount)
+			case promotiondb.PromotionTypeShipDiscount:
+				shipCost = applyDiscount(originalShip, promo.discount)
+			}
+		}
+
+		totalCost := productCost + shipCost
+		if best == nil {
+			best = &groupWinner{promo: promo, productCost: productCost, shipCost: shipCost}
+			continue
+		}
+
+		bestTotal := best.productCost + best.shipCost
+		// Prefer bigger savings; on tie, prefer higher priority
+		if totalCost < bestTotal || (totalCost == bestTotal && promo.Priority > best.promo.Priority) {
+			best = &groupWinner{promo: promo, productCost: productCost, shipCost: shipCost}
 		}
 	}
 
+	return best
+}
+
+// applyWinners sets the final price on an OrderPrice from the group winners.
+func applyWinners(op *catalogmodel.OrderPrice, winners []groupWinner, originalProduct, originalShip sharedmodel.Concurrency) {
+	// Check for exclusive group — only that winner applies
+	for _, w := range winners {
+		if w.promo.Group == PromotionGroupExclusive {
+			op.ProductCost = w.productCost
+			op.ShipCost = w.shipCost
+			op.PromotionCodes = []string{w.promo.Code}
+			return
+		}
+	}
+
+	// Stack all group winners
+	op.ProductCost = originalProduct
+	op.ShipCost = originalShip
+
+	for _, w := range winners {
+		op.PromotionCodes = append(op.PromotionCodes, w.promo.Code)
+
+		switch w.promo.Type {
+		case promotiondb.PromotionTypeDiscount:
+			op.ProductCost = w.productCost
+		case promotiondb.PromotionTypeShipDiscount:
+			op.ShipCost = w.shipCost
+		}
+	}
+}
+
+// isApplicable checks if a promotion applies to a given SKU via ref matching.
+// A promotion with no refs applies to everything.
+func isApplicable(promo promotionmodel.Promotion, spu catalogmodel.ProductSpu, skuID uuid.UUID) bool {
+	if len(promo.Refs) == 0 {
+		return true
+	}
+	for _, ref := range promo.Refs {
+		switch ref.RefType {
+		case promotiondb.PromotionRefTypeCategory:
+			if spu.Category.ID == ref.RefID {
+				return true
+			}
+		case promotiondb.PromotionRefTypeBrand:
+			if spu.Brand.ID == ref.RefID {
+				return true
+			}
+		case promotiondb.PromotionRefTypeProductSpu:
+			if spu.ID == ref.RefID {
+				return true
+			}
+		case promotiondb.PromotionRefTypeProductSku:
+			if skuID == ref.RefID {
+				return true
+			}
+		}
+	}
 	return false
 }
 
-// CalculateDiscountedItemPrice calculates the price after applying a discount
-func CalculateDiscountedItemPrice(originalPrice sharedmodel.Concurrency, dbDiscount promotiondb.PromotionDiscount) sharedmodel.Concurrency {
-	var maxDiscount = sharedmodel.Concurrency(dbDiscount.MaxDiscount)
-	var minSpend = sharedmodel.Concurrency(dbDiscount.MinSpend)
+// applyDiscount calculates the price after applying a discount.
+func applyDiscount(originalPrice sharedmodel.Concurrency, d *DiscountData) sharedmodel.Concurrency {
+	if d == nil {
+		return originalPrice
+	}
 
-	// If original price is less than the minimum spend, return the original price
+	minSpend := sharedmodel.Concurrency(d.MinSpend)
 	if originalPrice < minSpend {
 		return originalPrice
 	}
 
+	maxDiscount := sharedmodel.Concurrency(d.MaxDiscount)
 	var discount sharedmodel.Concurrency
 
-	if dbDiscount.DiscountPercent.Valid {
-		discountAmount := sharedmodel.Concurrency(float64(originalPrice) * dbDiscount.DiscountPercent.Float64 / 100)
-		discount = min(discountAmount, maxDiscount)
-	} else if dbDiscount.DiscountPrice.Valid {
-		discount = min(sharedmodel.Concurrency(dbDiscount.DiscountPrice.Int64), maxDiscount)
+	if d.DiscountPercent != nil {
+		discount = min(sharedmodel.Concurrency(float64(originalPrice)*(*d.DiscountPercent)), maxDiscount)
+	} else if d.DiscountPrice != nil {
+		discount = min(sharedmodel.Concurrency(*d.DiscountPrice), maxDiscount)
 	}
 
 	return max(originalPrice-discount, 0)
-}
-
-func DbPromotionToPromotionBase(dbPromo promotiondb.PromotionPromotion, refs []promotiondb.PromotionRef) promotionmodel.Promotion {
-	return promotionmodel.Promotion{
-		ID:          dbPromo.ID,
-		Code:        dbPromo.Code,
-		Title:       dbPromo.Title,
-		Description: dbPromo.Description,
-		IsActive:    dbPromo.IsActive,
-		AutoApply:   dbPromo.AutoApply,
-		DateStarted: dbPromo.DateStarted,
-		DateEnded:   dbPromo.DateEnded,
-		Refs: lo.Map(refs, func(r promotiondb.PromotionRef, _ int) promotionmodel.PromotionRef {
-			return promotionmodel.PromotionRef{
-				RefType: r.RefType,
-				RefID:   r.RefID,
-			}
-		}),
-		DateCreated: dbPromo.DateCreated,
-		DateUpdated: dbPromo.DateUpdated,
-	}
 }

@@ -1,8 +1,8 @@
 package ordermodel
 
 import (
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonmodel "shopnexus-server/internal/module/common/model"
 
 	"github.com/google/uuid"
 )

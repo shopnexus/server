@@ -3,9 +3,9 @@ package catalogbiz
 import (
 	"context"
 
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"

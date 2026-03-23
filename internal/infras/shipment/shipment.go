@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 type ShipmentStatus string

@@ -3,13 +3,15 @@ package catalogbiz
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/milvus-io/milvus/client/v2/column"
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	catalogutil "shopnexus-server/internal/module/catalog/util"
 )
 
 // getProductVectors fetches content_vector for the given product IDs from Milvus.
@@ -71,9 +73,9 @@ func (b *CatalogBiz) getAccountInterests(ctx context.Context, ids []string) (map
 			continue
 		}
 
-		interests := make([][]float32, numInterests)
-		strengths := make([]float32, numInterests)
-		for j := 0; j < numInterests; j++ {
+		interests := make([][]float32, catalogutil.NumInterests)
+		strengths := make([]float32, catalogutil.NumInterests)
+		for j := 0; j < catalogutil.NumInterests; j++ {
 			vecCol := rs.GetColumn(fmt.Sprintf("interest_%d", j+1))
 			strCol := rs.GetColumn(fmt.Sprintf("strength_%d", j+1))
 
@@ -107,7 +109,7 @@ func (b *CatalogBiz) upsertAccountInterests(ctx context.Context, accountID strin
 		column.NewColumnVarChar("id", []string{accountID}),
 		column.NewColumnInt64("number", []int64{accountNumber}),
 	}
-	for i := 0; i < numInterests; i++ {
+	for i := 0; i < catalogutil.NumInterests; i++ {
 		cols = append(cols, column.NewColumnFloatVector(fmt.Sprintf("interest_%d", i+1), ContentVectorDim, [][]float32{interests[i]}))
 		cols = append(cols, column.NewColumnFloat(fmt.Sprintf("strength_%d", i+1), []float32{strengths[i]}))
 	}
@@ -116,10 +118,74 @@ func (b *CatalogBiz) upsertAccountInterests(ctx context.Context, accountID strin
 	return err
 }
 
+// getProductAllVectors fetches content_vector and sparse_vector for the given product IDs from Milvus.
+func (b *CatalogBiz) getProductAllVectors(ctx context.Context, ids []string) (map[string]existingVectors, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	expr := fmt.Sprintf("id in %s", toMilvusStringList(ids))
+	rs, err := b.milvus.Query(ctx, CollectionProducts, expr, []string{"id", "content_vector", "sparse_vector"})
+	if err != nil {
+		return nil, err
+	}
+
+	idCol := rs.GetColumn("id")
+	denseCol := rs.GetColumn("content_vector")
+	sparseCol := rs.GetColumn("sparse_vector")
+	if idCol == nil {
+		return nil, nil
+	}
+
+	result := make(map[string]existingVectors, rs.ResultCount)
+	for i := 0; i < rs.ResultCount; i++ {
+		id, err := idCol.GetAsString(i)
+		if err != nil {
+			continue
+		}
+		ev := existingVectors{}
+		if denseCol != nil {
+			if vecAny, err := denseCol.Get(i); err == nil {
+				if vec, ok := vecAny.(entity.FloatVector); ok {
+					ev.dense = []float32(vec)
+				}
+			}
+		}
+		if sparseCol != nil {
+			if sparseAny, err := sparseCol.Get(i); err == nil {
+				if sv, ok := sparseAny.(entity.SparseEmbedding); ok {
+					ev.sparse = sv
+				}
+			}
+		}
+		result[id] = ev
+	}
+	return result, nil
+}
+
+type existingVectors struct {
+	dense  []float32
+	sparse entity.SparseEmbedding
+}
+
 // upsertProducts upserts product data (and optionally vectors) to Milvus.
 func (b *CatalogBiz) upsertProducts(ctx context.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
 	if len(products) == 0 {
 		return nil
+	}
+
+	// For metadata-only updates, fetch existing vectors since Milvus Upsert requires all fields.
+	var existingVecMap map[string]existingVectors
+	if metadataOnly {
+		productIDs := make([]string, len(products))
+		for i, p := range products {
+			productIDs[i] = p.ID.String()
+		}
+		var err error
+		existingVecMap, err = b.getProductAllVectors(ctx, productIDs)
+		if err != nil {
+			return fmt.Errorf("fetch existing vectors: %w", err)
+		}
 	}
 
 	ids := make([]string, 0, len(products))
@@ -132,13 +198,8 @@ func (b *CatalogBiz) upsertProducts(ctx context.Context, products []catalogmodel
 	ratings := make([]float32, 0, len(products))
 	skusJSON := make([][]byte, 0, len(products))
 	specsJSON := make([][]byte, 0, len(products))
-	var denseVecs [][]float32
-	var sparseVecs []entity.SparseEmbedding
-
-	if !metadataOnly {
-		denseVecs = make([][]float32, 0, len(products))
-		sparseVecs = make([]entity.SparseEmbedding, 0, len(products))
-	}
+	denseVecs := make([][]float32, 0, len(products))
+	sparseVecs := make([]entity.SparseEmbedding, 0, len(products))
 
 	for _, p := range products {
 		pid := p.ID.String()
@@ -161,7 +222,17 @@ func (b *CatalogBiz) upsertProducts(ctx context.Context, products []catalogmodel
 		specBytes, _ := sonic.Marshal(p.Specifications)
 		specsJSON = append(specsJSON, specBytes)
 
-		if !metadataOnly {
+		if metadataOnly {
+			if ev, ok := existingVecMap[pid]; ok {
+				denseVecs = append(denseVecs, ev.dense)
+				sparseVecs = append(sparseVecs, ev.sparse)
+			} else {
+				// Product not yet in Milvus; use zero vectors
+				denseVecs = append(denseVecs, make([]float32, ContentVectorDim))
+				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+				sparseVecs = append(sparseVecs, emptyEmb)
+			}
+		} else {
 			emb := embeddings[pid]
 			denseVecs = append(denseVecs, emb.dense)
 			sparseVecs = append(sparseVecs, mapToSparseEmbedding(emb.sparse))
@@ -179,20 +250,11 @@ func (b *CatalogBiz) upsertProducts(ctx context.Context, products []catalogmodel
 		column.NewColumnFloat("rating", ratings),
 		column.NewColumnJSONBytes("skus", skusJSON),
 		column.NewColumnJSONBytes("specifications", specsJSON),
+		column.NewColumnFloatVector("content_vector", ContentVectorDim, denseVecs),
+		column.NewColumnSparseVectors("sparse_vector", sparseVecs),
 	}
 
-	if !metadataOnly {
-		cols = append(cols,
-			column.NewColumnFloatVector("content_vector", ContentVectorDim, denseVecs),
-			column.NewColumnSparseVectors("sparse_vector", sparseVecs),
-		)
-	}
-
-	opt := milvusclient.NewColumnBasedInsertOption(CollectionProducts, cols...)
-	if metadataOnly {
-		opt = opt.WithPartialUpdate(true)
-	}
-	_, err := b.milvus.Inner().Upsert(ctx, opt)
+	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionProducts, cols...))
 	return err
 }
 
@@ -201,13 +263,16 @@ func toMilvusStringList(ids []string) string {
 	if len(ids) == 0 {
 		return "[]"
 	}
-	s := "["
+	var b strings.Builder
+	b.WriteByte('[')
 	for i, id := range ids {
 		if i > 0 {
-			s += ","
+			b.WriteByte(',')
 		}
-		s += fmt.Sprintf("'%s'", id)
+		b.WriteByte('\'')
+		b.WriteString(id)
+		b.WriteByte('\'')
 	}
-	s += "]"
-	return s
+	b.WriteByte(']')
+	return b.String()
 }

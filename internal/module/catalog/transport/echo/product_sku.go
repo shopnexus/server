@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -40,7 +40,6 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
@@ -77,7 +76,6 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
@@ -114,7 +112,6 @@ func (h *Handler) UpdateProductSku(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 

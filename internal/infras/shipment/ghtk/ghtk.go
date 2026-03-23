@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"shopnexus-remastered/internal/infras/shipment"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	"shopnexus-server/internal/infras/shipment"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"strings"
 	"time"
 )

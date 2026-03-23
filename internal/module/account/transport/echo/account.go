@@ -3,19 +3,19 @@ package accountecho
 import (
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	"shopnexus-remastered/internal/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type Handler struct {
-	biz *accountbiz.AccountBiz
+	biz accountbiz.AccountClient
 }
 
-func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
+func NewHandler(e *echo.Echo, biz accountbiz.AccountClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/account")
 
@@ -46,7 +46,6 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	favoriteApi.POST("/:spu_id", h.AddFavorite)
 	favoriteApi.DELETE("/:spu_id", h.RemoveFavorite)
 	favoriteApi.GET("", h.ListFavorite)
-	favoriteApi.GET("/:spu_id/check", h.CheckFavorite)
 
 	// Payment method endpoints
 	paymentApi := api.Group("/payment-method")
@@ -59,12 +58,12 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	return h
 }
 
-type GetAccountParams struct {
+type GetAccountRequest struct {
 	AccountID uuid.UUID `query:"account_id" validate:"required"`
 }
 
 func (h *Handler) GetAccount(c echo.Context) error {
-	var req GetAccountParams
+	var req GetAccountRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}

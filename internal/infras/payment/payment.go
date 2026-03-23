@@ -3,7 +3,7 @@ package payment
 import (
 	"context"
 
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 type CreateOrderParams struct {

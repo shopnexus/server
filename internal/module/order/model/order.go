@@ -4,19 +4,31 @@ import (
 	"encoding/json"
 	"time"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 )
 
 const (
-	TopicOrderCreated   = "order.created"
-	TopicOrderPaid      = "order.paid"
-	TopicOrderConfirmed = "order.confirmed"
+	TopicOrderCreated   = "order_created"
+	TopicOrderPaid      = "order_paid"
+	TopicOrderConfirmed = "order_confirmed"
 )
+
+type OrderItem struct {
+	ID        int64                  `json:"id"`
+	OrderID   uuid.UUID              `json:"order_id"`
+	SkuID     uuid.UUID              `json:"sku_id"`
+	SkuName   string                 `json:"sku_name"`
+	Quantity  int64                  `json:"quantity"`
+	UnitPrice int64                  `json:"unit_price"`
+	Note      null.String            `json:"note"`
+	SerialIds json.RawMessage        `json:"serial_ids"`
+	Resources []commonmodel.Resource `json:"resources"`
+}
 
 type Order struct {
 	ID              uuid.UUID               `json:"id"`
@@ -34,7 +46,7 @@ type Order struct {
 	Note            null.String             `json:"note"`
 	Data            json.RawMessage         `json:"data"`
 	DateCreated     time.Time               `json:"date_created"`
-	Items           []orderdb.OrderItem     `json:"items"`
+	Items           []OrderItem             `json:"items"`
 }
 
 type Refund struct {

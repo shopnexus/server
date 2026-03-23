@@ -3,10 +3,10 @@ package catalogbiz
 import (
 	"context"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"

@@ -1,7 +1,7 @@
 package catalogmodel
 
 import (
-	commonmodel "shopnexus-remastered/internal/shared/model"
+	commonmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 )

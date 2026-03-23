@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"sync"
 
-	chatbiz "shopnexus-remastered/internal/module/chat/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	chatbiz "shopnexus-server/internal/module/chat/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -15,13 +15,13 @@ import (
 )
 
 type Handler struct {
-	biz       *chatbiz.ChatBiz
+	biz       chatbiz.ChatClient
 	upgrader  websocket.Upgrader
 	clients   map[uuid.UUID]*websocket.Conn
 	clientsMu sync.RWMutex
 }
 
-func NewHandler(e *echo.Echo, biz *chatbiz.ChatBiz) *Handler {
+func NewHandler(e *echo.Echo, biz chatbiz.ChatClient) *Handler {
 	h := &Handler{
 		biz: biz,
 		upgrader: websocket.Upgrader{

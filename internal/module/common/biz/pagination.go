@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"shopnexus-remastered/internal/utils/aes"
+	"shopnexus-server/internal/utils/aes"
 )
 
 // EncryptCursor encrypts a string ID with AES-GCM and returns a base64 cursor.

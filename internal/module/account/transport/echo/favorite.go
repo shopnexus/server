@@ -3,10 +3,10 @@ package accountecho
 import (
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -96,33 +96,4 @@ func (h *Handler) ListFavorite(c echo.Context) error {
 	}
 
 	return response.FromPaginate(c.Response().Writer, result)
-}
-
-type CheckFavoriteRequest struct {
-	SpuID uuid.UUID `param:"spu_id" validate:"required"`
-}
-
-func (h *Handler) CheckFavorite(c echo.Context) error {
-	var req CheckFavoriteRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
-	isFavorited, err := h.biz.CheckFavorite(c.Request().Context(), accountbiz.CheckFavoriteParams{
-		Account: claims.Account,
-		SpuID:   req.SpuID,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]bool{"is_favorited": isFavorited})
 }

@@ -11,10 +11,11 @@ type Config struct {
 	// Infrastructure components
 	Postgres  Postgres  `yaml:"postgres" mapstructure:"postgres" validate:"required"`
 	Redis     Redis     `yaml:"redis" mapstructure:"redis" validate:"required"`
-	Kafka     Kafka     `yaml:"kafka" mapstructure:"kafka" validate:"required"`
+	Nats      Nats      `yaml:"nats" mapstructure:"nats" validate:"required"`
 	Filestore Filestore `yaml:"filestore" mapstructure:"filestore" validate:"required"`
 	Milvus    Milvus    `yaml:"milvus" mapstructure:"milvus" validate:"required"`
 	Embedding Embedding `yaml:"embedding" mapstructure:"embedding" validate:"required"`
+	Restate   Restate   `yaml:"restate" mapstructure:"restate" validate:"required"`
 }
 
 type App struct {
@@ -85,10 +86,9 @@ type Redis struct {
 	DB       int64  `yaml:"db" mapstructure:"db" validate:"gte=0"`
 }
 
-type Kafka struct {
+type Nats struct {
 	Host string `yaml:"host" mapstructure:"host" validate:"required"`
 	Port string `yaml:"port" mapstructure:"port" validate:"required"`
-	// Password string `yaml:"password" mapstructure:"password"`
 }
 
 type Milvus struct {
@@ -97,6 +97,11 @@ type Milvus struct {
 
 type Embedding struct {
 	URL string `yaml:"url" mapstructure:"url" validate:"required,url"`
+}
+
+type Restate struct {
+	IngressAddress string `yaml:"ingressAddress" mapstructure:"ingressAddress" validate:"required,url"`
+	ServicePort    string `yaml:"servicePort" mapstructure:"servicePort" validate:"required"`
 }
 
 type Filestore struct {

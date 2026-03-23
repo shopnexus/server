@@ -6,10 +6,10 @@ import (
 	"math/rand"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pg"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pg"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"

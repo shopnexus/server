@@ -1,6 +1,6 @@
 package ordermodel
 
-import sharedmodel "shopnexus-remastered/internal/shared/model"
+import sharedmodel "shopnexus-server/internal/shared/model"
 
 var (
 	ErrOrderItemNotFound      = sharedmodel.NewError("order.order_item_not_found", "Sorry, we couldn't find the item you requested")

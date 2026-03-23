@@ -3,10 +3,10 @@ package accountecho
 import (
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	"shopnexus-remastered/internal/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -75,7 +75,6 @@ func (h *Handler) UpdateMe(c echo.Context) error {
 		DefaultContactID: req.DefaultContactID,
 		Description:      req.Description,
 	})
-
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

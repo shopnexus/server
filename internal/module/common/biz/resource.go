@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"slices"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/shared/pgsqlc"
-	"shopnexus-remastered/internal/shared/validator"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -17,7 +16,6 @@ import (
 )
 
 type UpdateResourcesParams struct {
-	Storage         pgsqlc.Storage[*commondb.Queries]
 	Account         accountmodel.AuthenticatedAccount
 	RefType         commondb.CommonResourceRefType `validate:"required,validateFn=Valid"`
 	RefID           uuid.UUID                      `validate:"required,gt=0"`
@@ -31,68 +29,55 @@ func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 		return nil, err
 	}
 
-	var resources []commonmodel.Resource
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage[*commondb.Queries]) error {
-		var err error
-
-		// Update resources (delete all and re-attach)
-		if len(params.ResourceIDs) > 0 || params.EmptyResources {
-			// First step: Delete all attached resources
-			if err := b.DeleteResources(ctx, DeleteResourcesParams{
-				Storage:             txStorage,
-				RefType:             params.RefType,
-				RefID:               []uuid.UUID{params.RefID},
-				DeleteResources:     params.DeleteResources,
-				SkipDeleteResources: params.ResourceIDs,
-			}); err != nil {
-				return err
-			}
-
-			// Next step: Attach resources
-			var createResourceArgs []commondb.CreateCopyDefaultResourceReferenceParams
-
-			resources, err := txStorage.Querier().ListResource(ctx, commondb.ListResourceParams{
-				ID: params.ResourceIDs,
-			})
-			if err != nil {
-				return err
-			}
-			if len(resources) != len(params.ResourceIDs) {
-				// Some resources not found or not belong to the user
-				return commonmodel.ErrResourceNotFound
-			}
-
-			for order, rsID := range params.ResourceIDs {
-				createResourceArgs = append(createResourceArgs, commondb.CreateCopyDefaultResourceReferenceParams{
-					RsID:    rsID,
-					RefType: params.RefType,
-					RefID:   params.RefID,
-					Order:   int32(order),
-				})
-			}
-
-			if _, err = txStorage.Querier().CreateCopyDefaultResourceReference(ctx, createResourceArgs); err != nil {
-				return err
-			}
+	// Update resources (delete all and re-attach)
+	if len(params.ResourceIDs) > 0 || params.EmptyResources {
+		// First step: Delete all attached resources
+		if err := b.DeleteResources(ctx, DeleteResourcesParams{
+			RefType:             params.RefType,
+			RefID:               []uuid.UUID{params.RefID},
+			DeleteResources:     params.DeleteResources,
+			SkipDeleteResources: params.ResourceIDs,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to update resources: %w", err)
 		}
 
-		resourcesMap, err := b.GetResources(ctx, params.RefType, []uuid.UUID{params.RefID})
+		// Next step: Attach resources
+		var createResourceArgs []commondb.CreateCopyDefaultResourceReferenceParams
+
+		resources, err := b.storage.Querier().ListResource(ctx, commondb.ListResourceParams{
+			ID: params.ResourceIDs,
+		})
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("failed to update resources: %w", err)
 		}
-		resources = resourcesMap[params.RefID]
+		if len(resources) != len(params.ResourceIDs) {
+			// Some resources not found or not belong to the user
+			return nil, commonmodel.ErrResourceNotFound
+		}
 
-		return nil
-	}); err != nil {
+		for order, rsID := range params.ResourceIDs {
+			createResourceArgs = append(createResourceArgs, commondb.CreateCopyDefaultResourceReferenceParams{
+				RsID:    rsID,
+				RefType: params.RefType,
+				RefID:   params.RefID,
+				Order:   int32(order),
+			})
+		}
+
+		if _, err = b.storage.Querier().CreateCopyDefaultResourceReference(ctx, createResourceArgs); err != nil {
+			return nil, fmt.Errorf("failed to update resources: %w", err)
+		}
+	}
+
+	resourcesMap, err := b.GetResources(ctx, params.RefType, []uuid.UUID{params.RefID})
+	if err != nil {
 		return nil, fmt.Errorf("failed to update resources: %w", err)
 	}
 
-	return resources, nil
+	return resourcesMap[params.RefID], nil
 }
 
 type DeleteResourcesParams struct {
-	Storage             pgsqlc.Storage[*commondb.Queries]
 	RefType             commondb.CommonResourceRefType `validate:"required,validateFn=Valid"`
 	RefID               []uuid.UUID                    `validate:"required,dive"`
 	DeleteResources     bool                           `validate:"omitempty"`
@@ -104,41 +89,35 @@ func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage[*commondb.Queries]) error {
-		deletedResources, err := txStorage.Querier().ListResourceReference(ctx, commondb.ListResourceReferenceParams{
-			RefType: []commondb.CommonResourceRefType{params.RefType},
-			RefID:   params.RefID,
-		})
-		if err != nil {
-			return err
-		}
+	deletedResources, err := b.storage.Querier().ListResourceReference(ctx, commondb.ListResourceReferenceParams{
+		RefType: []commondb.CommonResourceRefType{params.RefType},
+		RefID:   params.RefID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete resources: %w", err)
+	}
 
-		var deletedIDs []uuid.UUID
-		for _, dr := range deletedResources {
-			// Skip deleting resource entity if in skip list
-			if !slices.Contains(params.SkipDeleteResources, dr.RsID) {
-				deletedIDs = append(deletedIDs, dr.RsID)
-			}
+	var deletedIDs []uuid.UUID
+	for _, dr := range deletedResources {
+		// Skip deleting resource entity if in skip list
+		if !slices.Contains(params.SkipDeleteResources, dr.RsID) {
+			deletedIDs = append(deletedIDs, dr.RsID)
 		}
+	}
 
-		if err := txStorage.Querier().DeleteResourceReference(ctx, commondb.DeleteResourceReferenceParams{
-			RefType: []commondb.CommonResourceRefType{params.RefType}, // just for clarity
-			RsID:    deletedIDs,
-		}); err != nil {
-			return err
-		}
-
-		if params.DeleteResources {
-			if err := txStorage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
-				ID: deletedIDs,
-			}); err != nil {
-				return err
-			}
-		}
-
-		return nil
+	if err := b.storage.Querier().DeleteResourceReference(ctx, commondb.DeleteResourceReferenceParams{
+		RefType: []commondb.CommonResourceRefType{params.RefType}, // just for clarity
+		RsID:    deletedIDs,
 	}); err != nil {
 		return fmt.Errorf("failed to delete resources: %w", err)
+	}
+
+	if params.DeleteResources {
+		if err := b.storage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
+			ID: deletedIDs,
+		}); err != nil {
+			return fmt.Errorf("failed to delete resources: %w", err)
+		}
 	}
 
 	return nil

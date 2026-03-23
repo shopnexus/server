@@ -1,20 +1,19 @@
 package orderbiz
 
 import (
-	"context"
 	"fmt"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
-	ordermodel "shopnexus-remastered/internal/module/order/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/pgsqlc"
-	"shopnexus-remastered/internal/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	ordermodel "shopnexus-server/internal/module/order/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -25,59 +24,49 @@ type ListRefundsParams struct {
 	sharedmodel.PaginationParams
 }
 
-func (b *OrderBiz) ListRefunds(ctx context.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+func (b *OrderBiz) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	listCountRefund, err := b.storage.Querier().ListCountRefund(ctx, orderdb.ListCountRefundParams{
-		Offset: params.Offset(),
-		Limit:  params.Limit,
+	return restate.Run(ctx, func(ctx restate.RunContext) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+		listCountRefund, err := b.storage.Querier().ListCountRefund(ctx, orderdb.ListCountRefundParams{
+			Offset: params.Offset(),
+			Limit:  params.Limit,
+		})
+		if err != nil {
+			return zero, err
+		}
+
+		var total null.Int64
+		if len(listCountRefund) > 0 {
+			total.SetValid(listCountRefund[0].TotalCount)
+		}
+
+		ids := lo.Map(listCountRefund, func(refund orderdb.ListCountRefundRow, _ int) uuid.UUID {
+			return refund.OrderRefund.ID
+		})
+
+		resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeRefund, ids)
+		if err != nil {
+			return zero, err
+		}
+
+		return sharedmodel.PaginateResult[ordermodel.Refund]{
+			PageParams: params.PaginationParams,
+			Total:      total,
+			Data: lo.Map(listCountRefund, func(r orderdb.ListCountRefundRow, _ int) ordermodel.Refund {
+				m := dbToRefund(r.OrderRefund)
+				m.Resources = resourcesMap[r.OrderRefund.ID]
+				return m
+			}),
+		}, nil
 	})
-	if err != nil {
-		return zero, err
-	}
-
-	var total null.Int64
-	if len(listCountRefund) > 0 {
-		total.SetValid(listCountRefund[0].TotalCount)
-	}
-
-	ids := lo.Map(listCountRefund, func(refund orderdb.ListCountRefundRow, _ int) uuid.UUID {
-		return refund.OrderRefund.ID
-	})
-
-	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeRefund, ids)
-	if err != nil {
-		return zero, err
-	}
-
-	return sharedmodel.PaginateResult[ordermodel.Refund]{
-		PageParams: params.PaginationParams,
-		Total:      total,
-		Data: lo.Map(listCountRefund, func(r orderdb.ListCountRefundRow, _ int) ordermodel.Refund {
-			refund := r.OrderRefund
-			return ordermodel.Refund{
-				ID:            refund.ID,
-				AccountID:     refund.AccountID,
-				OrderID:       refund.OrderID,
-				ConfirmedByID: refund.ConfirmedByID,
-				ShipmentID:    refund.ShipmentID,
-				Method:        refund.Method,
-				Reason:        refund.Reason,
-				Address:       refund.Address,
-				Status:        refund.Status,
-				DateCreated:   refund.DateCreated,
-				Resources:     resourcesMap[refund.ID],
-			}
-		}),
-	}, nil
 }
 
 type CreateRefundParams struct {
-	Storage     OrderStorage
 	Account     accountmodel.AuthenticatedAccount
 	OrderID     uuid.UUID                 `validate:"required"`
 	Method      orderdb.OrderRefundMethod `validate:"required,validateFn=Valid"`
@@ -86,7 +75,7 @@ type CreateRefundParams struct {
 	ResourceIDs []uuid.UUID               `validate:"dive"`
 }
 
-func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -97,25 +86,21 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 		return zero, ordermodel.ErrRefundAddressRequired
 	}
 
-	// TODO: check if the order item belongs to the account
-	// TODO: check if the order item is refundable (not refunded yet, within time limit, etc)
+	// Create refund + update resources in one durable step
+	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
+		// TODO: check if the order item belongs to the account
+		// TODO: check if the order item is refundable (not refunded yet, within time limit, etc)
 
-	var (
-		refund    orderdb.OrderRefund
-		resources []commonmodel.Resource
-	)
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
-		order, err := txStorage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
 			ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get order: %w", err)
+			return zero, fmt.Errorf("failed to get order: %w", err)
 		}
 		_ = order
 		// TODO: check if the order is refundable
 
-		refund, err = txStorage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
+		dbRefund, err := b.storage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
 			AccountID: params.Account.ID,
 			OrderID:   params.OrderID,
 			Method:    params.Method,
@@ -123,52 +108,43 @@ func (b *OrderBiz) CreateRefund(ctx context.Context, params CreateRefundParams) 
 			Address:   params.Address,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create refund: %w", err)
+			return zero, fmt.Errorf("failed to create refund: %w", err)
 		}
 
-		var updateErr error
-		resources, updateErr = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			// Storage:         txStorage,
+		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
 			Account:         params.Account,
 			RefType:         commondb.CommonResourceRefTypeRefund,
-			RefID:           refund.ID,
+			RefID:           dbRefund.ID,
 			ResourceIDs:     params.ResourceIDs,
 			EmptyResources:  false,
 			DeleteResources: false,
 		})
-		if updateErr != nil {
-			return fmt.Errorf("failed to update refund resources: %w", updateErr)
+		if err != nil {
+			return zero, fmt.Errorf("failed to update refund resources: %w", err)
 		}
 
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to create refund: %w", err)
+		m := dbToRefund(dbRefund)
+		m.Resources = resources
+		return m, nil
+	})
+	if err != nil {
+		return zero, err
 	}
 
-	// Track refund_requested interaction for each item in the order
+	// Track refund_requested interaction (separate step, uses GetOrder which has its own Run)
 	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
-		for _, item := range order.Items {
-			b.analytic.TrackInteraction(params.Account, analyticmodel.EventRefundReq, analyticdb.AnalyticInteractionRefTypeProduct, item.SkuID.String())
-		}
+		_ = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+			for _, item := range order.Items {
+				b.analytic.TrackInteraction(params.Account, analyticmodel.EventRefundReq, analyticdb.AnalyticInteractionRefTypeProduct, item.SkuID.String())
+			}
+			return nil
+		})
 	}
 
-	return ordermodel.Refund{
-		ID:            refund.ID,
-		AccountID:     refund.AccountID,
-		OrderID:       refund.OrderID,
-		ConfirmedByID: refund.ConfirmedByID,
-		ShipmentID:    refund.ShipmentID,
-		Method:        refund.Method,
-		Reason:        refund.Reason,
-		Address:       refund.Address,
-		Status:        refund.Status,
-		DateCreated:   refund.DateCreated,
-		Resources:     resources,
-	}, nil
+	return refund, nil
 }
 
 type UpdateRefundParams struct {
-	Storage  OrderStorage
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID                 `validate:"required"`
 	Method   orderdb.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
@@ -181,32 +157,26 @@ type UpdateRefundParams struct {
 	ResourceIDs   []uuid.UUID         `validate:"required,dive"`
 }
 
-func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBiz) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	var (
-		refund    orderdb.OrderRefund
-		resources []commonmodel.Resource
-	)
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
-		var err error
-		refund, err = txStorage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+	return restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
+		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
-			return fmt.Errorf("failed to get refund: %w", err)
+			return zero, fmt.Errorf("failed to get refund: %w", err)
 		}
 
 		if refund.Status != orderdb.OrderStatusPending {
-			return ordermodel.ErrRefundCannotBeUpdated
+			return zero, ordermodel.ErrRefundCannotBeUpdated
 		}
 
 		nullAddress := params.Method == orderdb.OrderRefundMethodDropOff
 
-		refund, err = txStorage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
+		refund, err = b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
 			ID:            params.RefundID,
 			Method:        orderdb.NullOrderRefundMethod{OrderRefundMethod: params.Method, Valid: params.Method != ""},
 			Reason:        params.Reason,
@@ -216,12 +186,11 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 			ConfirmedByID: params.ConfirmedByID,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update refund: %w", err)
+			return zero, fmt.Errorf("failed to update refund: %w", err)
 		}
 
 		//TODO: use message queue instead of sequential processing
-		resources, err = b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-			Storage:         pgsqlc.NewStorage(txStorage.Conn(), commondb.New(txStorage.Conn())),
+		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
 			Account:         params.Account,
 			RefType:         commondb.CommonResourceRefTypeRefund,
 			RefID:           refund.ID,
@@ -229,63 +198,59 @@ func (b *OrderBiz) UpdateRefund(ctx context.Context, params UpdateRefundParams) 
 			DeleteResources: true,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update refund resources: %w", err)
+			return zero, fmt.Errorf("failed to update refund resources: %w", err)
 		}
 
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to update refund: %w", err)
-	}
+		m := dbToRefund(refund)
+		m.Resources = resources
+		return m, nil
+	})
+}
 
+// dbToRefund maps a DB OrderRefund row to the model type.
+// Callers should set Resources as needed.
+func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 	return ordermodel.Refund{
-		ID:            refund.ID,
-		AccountID:     refund.AccountID,
-		OrderID:       refund.OrderID,
-		Method:        refund.Method,
-		Reason:        refund.Reason,
-		Address:       refund.Address,
-		Status:        refund.Status,
-		ConfirmedByID: refund.ConfirmedByID,
-		ShipmentID:    refund.ShipmentID,
-		DateCreated:   refund.DateCreated,
-		Resources:     resources,
-	}, nil
+		ID:            r.ID,
+		AccountID:     r.AccountID,
+		OrderID:       r.OrderID,
+		ConfirmedByID: r.ConfirmedByID,
+		ShipmentID:    r.ShipmentID,
+		Method:        r.Method,
+		Reason:        r.Reason,
+		Address:       r.Address,
+		Status:        r.Status,
+		DateCreated:   r.DateCreated,
+	}
 }
 
 type CancelRefundParams struct {
-	Storage  OrderStorage
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
 }
 
-func (b *OrderBiz) CancelRefund(ctx context.Context, params CancelRefundParams) error {
+func (b *OrderBiz) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage OrderStorage) error {
-		if _, err := txStorage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
+	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		if _, err := b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
 			ID:     params.RefundID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("failed to cancel refund: %w", err)
+			return fmt.Errorf("failed to cancel refund %s: %w", params.RefundID, err)
 		}
-
 		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to cancel refund %s: %w", params.RefundID, err)
-	}
-
-	return nil
+	})
 }
 
 type ConfirmRefundParams struct {
-	Storage  OrderStorage
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
 }
 
-func (b *OrderBiz) ConfirmRefund(ctx context.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBiz) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -295,7 +260,6 @@ func (b *OrderBiz) ConfirmRefund(ctx context.Context, params ConfirmRefundParams
 	// TODO: tell the shipment to take the refund package if method is pick-up, skip if drop-off
 
 	return b.UpdateRefund(ctx, UpdateRefundParams{
-		Storage:       params.Storage,
 		Account:       params.Account,
 		RefundID:      params.RefundID,
 		Status:        orderdb.OrderStatusProcessing,

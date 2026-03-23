@@ -3,20 +3,20 @@ package inventoryecho
 import (
 	"net/http"
 
-	inventorybiz "shopnexus-remastered/internal/module/inventory/biz"
-	inventorydb "shopnexus-remastered/internal/module/inventory/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
 type Handler struct {
-	biz *inventorybiz.InventoryBiz
+	biz inventorybiz.InventoryClient
 }
 
-func NewHandler(e *echo.Echo, biz *inventorybiz.InventoryBiz) *Handler {
+func NewHandler(e *echo.Echo, biz inventorybiz.InventoryClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/inventory")
 
@@ -57,7 +57,7 @@ func (h *Handler) GetStock(c echo.Context) error {
 }
 
 type ListStockHistoryRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
 	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
@@ -109,6 +109,31 @@ func (h *Handler) ImportStock(c echo.Context) error {
 	}
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "add stock successfully")
+}
+
+type ListProductSerialRequest struct {
+	sharedmodel.PaginationParams
+	StockID int64 `query:"stock_id" validate:"required,gt=0"`
+}
+
+func (h *Handler) ListSerial(c echo.Context) error {
+	var req ListProductSerialRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.ListSerial(c.Request().Context(), inventorybiz.ListSerialParams{
+		PaginationParams: req.PaginationParams.Constrain(),
+		StockID:          req.StockID,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromPaginate(c.Response().Writer, result)
 }
 
 type UpdateSerialRequest struct {

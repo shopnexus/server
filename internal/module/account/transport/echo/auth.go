@@ -2,9 +2,10 @@ package accountecho
 
 import (
 	"net/http"
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	"shopnexus-remastered/internal/shared/response"
+
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
@@ -15,7 +16,7 @@ type LoginBasicRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
-type LoginBasicResponse struct {
+type AuthTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -39,7 +40,7 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, LoginBasicResponse{
+	return response.FromDTO(c.Response().Writer, http.StatusOK, AuthTokenResponse{
 		AccessToken:  result.AccessToken,
 		RefreshToken: result.RefreshToken,
 	})
@@ -51,11 +52,6 @@ type RegisterBasicRequest struct {
 	Email    null.String           `json:"email" validate:"omitnil"`
 	Phone    null.String           `json:"phone" validate:"omitnil"`
 	Password string                `json:"password" validate:"required"`
-}
-
-type RegisterBasicResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *Handler) RegisterBasic(c echo.Context) error {
@@ -78,7 +74,7 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusCreated, RegisterBasicResponse{
+	return response.FromDTO(c.Response().Writer, http.StatusCreated, AuthTokenResponse{
 		AccessToken:  result.AccessToken,
 		RefreshToken: result.RefreshToken,
 	})
@@ -86,11 +82,6 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
-}
-
-type RefreshResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *Handler) Refresh(c echo.Context) error {
@@ -107,7 +98,7 @@ func (h *Handler) Refresh(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, RefreshResponse{
+	return response.FromDTO(c.Response().Writer, http.StatusOK, AuthTokenResponse{
 		AccessToken:  result.AccessToken,
 		RefreshToken: result.RefreshToken,
 	})

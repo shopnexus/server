@@ -7,161 +7,27 @@ package inventorydb
 
 import (
 	"context"
-	"time"
 
-	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 )
 
-const countSerial = `-- name: CountSerial :one
-SELECT COUNT(*)
-FROM "inventory"."serial"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("status" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" = ANY($5) OR $5 IS NULL) AND
-    ("date_created" > $6 OR $6 IS NULL) AND
-    ("date_created" < $7 OR $7 IS NULL)
-)
-`
-
-type CountSerialParams struct {
-	ID              []string                `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Status          []InventoryStatus       `json:"status"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-}
-
-func (q *Queries) CountSerial(ctx context.Context, arg CountSerialParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSerial,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Status,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 type CreateCopyDefaultSerialParams struct {
-	ID      string                `json:"id"`
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-}
-
-type CreateCopySerialParams struct {
-	ID          string                `json:"id"`
-	RefType     InventoryStockRefType `json:"ref_type"`
-	RefID       uuid.UUID             `json:"ref_id"`
-	Status      InventoryStatus       `json:"status"`
-	DateCreated time.Time             `json:"date_created"`
-}
-
-const createDefaultSerial = `-- name: CreateDefaultSerial :one
-INSERT INTO "inventory"."serial" ("id", "ref_type", "ref_id")
-VALUES ($1, $2, $3)
-RETURNING id, ref_type, ref_id, status, date_created
-`
-
-type CreateDefaultSerialParams struct {
-	ID      string                `json:"id"`
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-}
-
-func (q *Queries) CreateDefaultSerial(ctx context.Context, arg CreateDefaultSerialParams) (InventorySerial, error) {
-	row := q.db.QueryRow(ctx, createDefaultSerial, arg.ID, arg.RefType, arg.RefID)
-	var i InventorySerial
-	err := row.Scan(
-		&i.ID,
-		&i.RefType,
-		&i.RefID,
-		&i.Status,
-		&i.DateCreated,
-	)
-	return i, err
-}
-
-const createSerial = `-- name: CreateSerial :one
-INSERT INTO "inventory"."serial" ("id", "ref_type", "ref_id", "status", "date_created")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, ref_type, ref_id, status, date_created
-`
-
-type CreateSerialParams struct {
-	ID          string                `json:"id"`
-	RefType     InventoryStockRefType `json:"ref_type"`
-	RefID       uuid.UUID             `json:"ref_id"`
-	Status      InventoryStatus       `json:"status"`
-	DateCreated time.Time             `json:"date_created"`
-}
-
-func (q *Queries) CreateSerial(ctx context.Context, arg CreateSerialParams) (InventorySerial, error) {
-	row := q.db.QueryRow(ctx, createSerial,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Status,
-		arg.DateCreated,
-	)
-	var i InventorySerial
-	err := row.Scan(
-		&i.ID,
-		&i.RefType,
-		&i.RefID,
-		&i.Status,
-		&i.DateCreated,
-	)
-	return i, err
+	ID      string `json:"id"`
+	StockID int64  `json:"stock_id"`
 }
 
 const deleteSerial = `-- name: DeleteSerial :exec
 DELETE FROM "inventory"."serial"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("status" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" = ANY($5) OR $5 IS NULL) AND
-    ("date_created" > $6 OR $6 IS NULL) AND
-    ("date_created" < $7 OR $7 IS NULL)
-)
+WHERE ("id" = ANY($1))
 `
 
-type DeleteSerialParams struct {
-	ID              []string                `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Status          []InventoryStatus       `json:"status"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-}
-
-func (q *Queries) DeleteSerial(ctx context.Context, arg DeleteSerialParams) error {
-	_, err := q.db.Exec(ctx, deleteSerial,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Status,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-	)
+func (q *Queries) DeleteSerial(ctx context.Context, id []string) error {
+	_, err := q.db.Exec(ctx, deleteSerial, id)
 	return err
 }
 
 const getSerial = `-- name: GetSerial :one
-SELECT id, ref_type, ref_id, status, date_created
+SELECT id, stock_id, status, date_created
 FROM "inventory"."serial"
 WHERE ("id" = $1)
 `
@@ -171,8 +37,7 @@ func (q *Queries) GetSerial(ctx context.Context, id null.String) (InventorySeria
 	var i InventorySerial
 	err := row.Scan(
 		&i.ID,
-		&i.RefType,
-		&i.RefID,
+		&i.StockID,
 		&i.Status,
 		&i.DateCreated,
 	)
@@ -180,32 +45,24 @@ func (q *Queries) GetSerial(ctx context.Context, id null.String) (InventorySeria
 }
 
 const listCountSerial = `-- name: ListCountSerial :many
-SELECT embed_serial.id, embed_serial.ref_type, embed_serial.ref_id, embed_serial.status, embed_serial.date_created, COUNT(*) OVER() as total_count
+SELECT embed_serial.id, embed_serial.stock_id, embed_serial.status, embed_serial.date_created, COUNT(*) OVER() as total_count
 FROM "inventory"."serial" embed_serial
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("status" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" = ANY($5) OR $5 IS NULL) AND
-    ("date_created" > $6 OR $6 IS NULL) AND
-    ("date_created" < $7 OR $7 IS NULL)
+    ("stock_id" = ANY($2) OR $2 IS NULL) AND
+    ("status" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "id"
-LIMIT $9::int
-OFFSET $8::int
+LIMIT $5::int
+OFFSET $4::int
 `
 
 type ListCountSerialParams struct {
-	ID              []string                `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Status          []InventoryStatus       `json:"status"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-	Offset          null.Int32              `json:"offset"`
-	Limit           null.Int32              `json:"limit"`
+	ID      []string          `json:"id"`
+	StockID []int64           `json:"stock_id"`
+	Status  []InventoryStatus `json:"status"`
+	Offset  null.Int32        `json:"offset"`
+	Limit   null.Int32        `json:"limit"`
 }
 
 type ListCountSerialRow struct {
@@ -216,12 +73,8 @@ type ListCountSerialRow struct {
 func (q *Queries) ListCountSerial(ctx context.Context, arg ListCountSerialParams) ([]ListCountSerialRow, error) {
 	rows, err := q.db.Query(ctx, listCountSerial,
 		arg.ID,
-		arg.RefType,
-		arg.RefID,
+		arg.StockID,
 		arg.Status,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -234,8 +87,7 @@ func (q *Queries) ListCountSerial(ctx context.Context, arg ListCountSerialParams
 		var i ListCountSerialRow
 		if err := rows.Scan(
 			&i.InventorySerial.ID,
-			&i.InventorySerial.RefType,
-			&i.InventorySerial.RefID,
+			&i.InventorySerial.StockID,
 			&i.InventorySerial.Status,
 			&i.InventorySerial.DateCreated,
 			&i.TotalCount,
@@ -250,93 +102,25 @@ func (q *Queries) ListCountSerial(ctx context.Context, arg ListCountSerialParams
 	return items, nil
 }
 
-const listSerial = `-- name: ListSerial :many
-SELECT id, ref_type, ref_id, status, date_created
-FROM "inventory"."serial"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("ref_type" = ANY($2) OR $2 IS NULL) AND
-    ("ref_id" = ANY($3) OR $3 IS NULL) AND
-    ("status" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" = ANY($5) OR $5 IS NULL) AND
-    ("date_created" > $6 OR $6 IS NULL) AND
-    ("date_created" < $7 OR $7 IS NULL)
-)
-ORDER BY "id"
-LIMIT $9::int
-OFFSET $8::int
-`
-
-type ListSerialParams struct {
-	ID              []string                `json:"id"`
-	RefType         []InventoryStockRefType `json:"ref_type"`
-	RefID           []uuid.UUID             `json:"ref_id"`
-	Status          []InventoryStatus       `json:"status"`
-	DateCreated     []time.Time             `json:"date_created"`
-	DateCreatedFrom null.Time               `json:"date_created_from"`
-	DateCreatedTo   null.Time               `json:"date_created_to"`
-	Offset          null.Int32              `json:"offset"`
-	Limit           null.Int32              `json:"limit"`
-}
-
-func (q *Queries) ListSerial(ctx context.Context, arg ListSerialParams) ([]InventorySerial, error) {
-	rows, err := q.db.Query(ctx, listSerial,
-		arg.ID,
-		arg.RefType,
-		arg.RefID,
-		arg.Status,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []InventorySerial{}
-	for rows.Next() {
-		var i InventorySerial
-		if err := rows.Scan(
-			&i.ID,
-			&i.RefType,
-			&i.RefID,
-			&i.Status,
-			&i.DateCreated,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const updateSerial = `-- name: UpdateSerial :one
 UPDATE "inventory"."serial"
-SET "ref_type" = COALESCE($1, "ref_type"),
-    "ref_id" = COALESCE($2, "ref_id"),
-    "status" = COALESCE($3, "status"),
-    "date_created" = COALESCE($4, "date_created")
-WHERE id = $5
-RETURNING id, ref_type, ref_id, status, date_created
+SET "stock_id" = COALESCE($1, "stock_id"),
+    "status" = COALESCE($2, "status"),
+    "date_created" = COALESCE($3, "date_created")
+WHERE id = $4
+RETURNING id, stock_id, status, date_created
 `
 
 type UpdateSerialParams struct {
-	RefType     NullInventoryStockRefType `json:"ref_type"`
-	RefID       uuid.NullUUID             `json:"ref_id"`
-	Status      NullInventoryStatus       `json:"status"`
-	DateCreated null.Time                 `json:"date_created"`
-	ID          string                    `json:"id"`
+	StockID     null.Int            `json:"stock_id"`
+	Status      NullInventoryStatus `json:"status"`
+	DateCreated null.Time           `json:"date_created"`
+	ID          string              `json:"id"`
 }
 
 func (q *Queries) UpdateSerial(ctx context.Context, arg UpdateSerialParams) (InventorySerial, error) {
 	row := q.db.QueryRow(ctx, updateSerial,
-		arg.RefType,
-		arg.RefID,
+		arg.StockID,
 		arg.Status,
 		arg.DateCreated,
 		arg.ID,
@@ -344,8 +128,7 @@ func (q *Queries) UpdateSerial(ctx context.Context, arg UpdateSerialParams) (Inv
 	var i InventorySerial
 	err := row.Scan(
 		&i.ID,
-		&i.RefType,
-		&i.RefID,
+		&i.StockID,
 		&i.Status,
 		&i.DateCreated,
 	)

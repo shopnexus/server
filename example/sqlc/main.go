@@ -3,10 +3,10 @@ package main
 // import (
 // 	"context"
 // 	"fmt"
-// 	"shopnexus-remastered/config"
-// 	"shopnexus-remastered/internal/infras/pg"
-// 	catalogdb "shopnexus-remastered/internal/module/catalog/db"
-// 	"shopnexus-remastered/internal/shared/pgsqlc"
+// 	"shopnexus-server/config"
+// 	"shopnexus-server/internal/infras/pg"
+// 	catalogdb "shopnexus-server/internal/module/catalog/db"
+// 	"shopnexus-server/internal/shared/pgsqlc"
 // 	"time"
 // )
 

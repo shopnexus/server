@@ -1,10 +1,11 @@
 package account
 
 import (
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	accountecho "shopnexus-remastered/internal/module/account/transport/echo"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountecho "shopnexus-server/internal/module/account/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"go.uber.org/fx"
 )
@@ -14,6 +15,7 @@ var Module = fx.Module("account",
 	fx.Provide(
 		NewAccountStorage,
 		accountbiz.NewAccountBiz,
+		NewAccountClient,
 		accountecho.NewHandler,
 	),
 	fx.Invoke(
@@ -23,4 +25,8 @@ var Module = fx.Module("account",
 
 func NewAccountStorage(pool pgsqlc.TxBeginner) accountbiz.AccountStorage {
 	return pgsqlc.NewStorage(pool, accountdb.New(pool))
+}
+
+func NewAccountClient(cfg *config.Config) accountbiz.AccountClient {
+	return accountbiz.NewAccountBizProxy(cfg.Restate.IngressAddress)
 }

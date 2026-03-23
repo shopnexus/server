@@ -3,11 +3,11 @@ package catalogecho
 import (
 	"net/http"
 
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -46,16 +46,15 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
-type GetProductSpuParams struct {
+type GetProductSpuRequest struct {
 	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) GetProductSpu(c echo.Context) error {
-	var req GetProductSpuParams
+	var req GetProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -68,10 +67,6 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	if len(result.Data) == 0 {
-		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "product spu not found"))
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
@@ -116,7 +111,6 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 
@@ -162,7 +156,6 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 

@@ -11,14 +11,14 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
-	"shopnexus-remastered/config"
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	"shopnexus-remastered/internal/shared/validator"
+	"shopnexus-server/config"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	"shopnexus-server/internal/shared/validator"
 )
 
 const (
-	EmbeddingProductSyncBatchSize = 100
+	EmbeddingProductSyncBatchSize = 32
 	MetadataProductSyncBatchSize  = 1000
 )
 
@@ -42,53 +42,44 @@ func (b *CatalogBiz) SetupCron() error {
 
 // SyncProductData fetches all product data and sends it to search engine server
 func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) error {
-	if err := b.storage.WithTx(ctx, b.storage, func(txStorage CatalogStorage) error {
-		if metadataOnly {
-			metadataStales, err := txStorage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-				RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
-				Limit:           MetadataProductSyncBatchSize,
-				IsStaleMetadata: null.BoolFrom(true),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to list stale sync search: %w", err)
-			}
-
-			if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
-				Storage:      txStorage,
-				Stales:       metadataStales,
-				MetadataOnly: true,
-			}); err != nil {
-				return fmt.Errorf("failed to update stale products (metadata): %w", err)
-			}
-		} else {
-			embeddingStales, err := txStorage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-				RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
-				Limit:            EmbeddingProductSyncBatchSize,
-				IsStaleEmbedding: null.BoolFrom(true),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to list stale sync search: %w", err)
-			}
-
-			if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
-				Storage:      txStorage,
-				Stales:       embeddingStales,
-				MetadataOnly: false,
-			}); err != nil {
-				return fmt.Errorf("failed to update stale products (embedding): %w", err)
-			}
+	if metadataOnly {
+		metadataStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
+			RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
+			Limit:           MetadataProductSyncBatchSize,
+			IsStaleMetadata: null.BoolFrom(true),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to sync product data: %w", err)
 		}
 
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to sync product data: %w", err)
+		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+			Stales:       metadataStales,
+			MetadataOnly: true,
+		}); err != nil {
+			return fmt.Errorf("failed to sync product data: %w", err)
+		}
+	} else {
+		embeddingStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
+			RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
+			Limit:            EmbeddingProductSyncBatchSize,
+			IsStaleEmbedding: null.BoolFrom(true),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to sync product data: %w", err)
+		}
+
+		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
+			Stales:       embeddingStales,
+			MetadataOnly: false,
+		}); err != nil {
+			return fmt.Errorf("failed to sync product data: %w", err)
+		}
 	}
 
 	return nil
 }
 
 type UpdateStaleProductsParams struct {
-	Storage      CatalogStorage
 	Stales       []catalogdb.ListStaleSearchSyncRow `validate:"required"`
 	MetadataOnly bool
 }
@@ -131,7 +122,7 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 
 	// Update product stale status
 	var updateErr error
-	params.Storage.Querier().UpdateBatchStaleSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
+	b.storage.Querier().UpdateBatchStaleSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
 		updateErr = err
 	})
 	if updateErr != nil {
@@ -158,10 +149,13 @@ func (b *CatalogBiz) StartProductSyncCron(ctx context.Context, duration time.Dur
 		log.Printf("Initial product sync failed: %v", err)
 	}
 
+	ticker := time.NewTicker(duration)
+	defer ticker.Stop()
+
 	for {
 		// Wait for duration or stop early if context is canceled
 		select {
-		case <-time.After(duration):
+		case <-ticker.C:
 			// continue to next sync
 		case <-ctx.Done():
 			log.Println("Stopping product sync cron job...")

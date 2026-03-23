@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/shared/binder"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/shared/binder"
 
-	"shopnexus-remastered/internal/shared/validator"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -49,12 +49,12 @@ func SetupEcho(params RouteParams) {
 	})
 }
 
-// StartHTTPServer starts the HTTP server with lifecycle management
-func StartHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
+// SetupHTTPServer starts the HTTP server with lifecycle management
+func SetupHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				port := ":8080" // Default port, you can make this configurable
+				port := ":8000" // Default port, you can make this configurable
 				slog.Info("Starting HTTP server on port", "port", port)
 				if err := e.Start(port); err != nil {
 					slog.Error("HTTP server error", slog.Any("error", err))

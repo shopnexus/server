@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -16,10 +16,10 @@ import (
 )
 
 type Handler struct {
-	biz *orderbiz.OrderBiz
+	biz orderbiz.OrderClient
 }
 
-func NewHandler(e *echo.Echo, biz *orderbiz.OrderBiz) *Handler {
+func NewHandler(e *echo.Echo, biz orderbiz.OrderClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/order")
 
@@ -116,6 +116,19 @@ type CheckoutItemRequest struct {
 	Data           json.RawMessage `json:"data" validate:"omitempty"`
 }
 
+func mapCheckoutItems(items []CheckoutItemRequest) []orderbiz.CheckoutItem {
+	return lo.Map(items, func(item CheckoutItemRequest, _ int) orderbiz.CheckoutItem {
+		return orderbiz.CheckoutItem{
+			SkuID:          item.SkuID,
+			Quantity:       item.Quantity,
+			PromotionCodes: item.PromotionCodes,
+			ShipmentOption: item.ShipmentOption,
+			Note:           item.Note,
+			Data:           item.Data,
+		}
+	})
+}
+
 func (h *Handler) Checkout(c echo.Context) error {
 	var req CheckoutRequest
 	if err := c.Bind(&req); err != nil {
@@ -135,16 +148,7 @@ func (h *Handler) Checkout(c echo.Context) error {
 		Address:       req.Address,
 		BuyNow:        req.BuyNow,
 		PaymentOption: req.PaymentOption,
-		Items: lo.Map(req.Items, func(item CheckoutItemRequest, _ int) orderbiz.CheckoutItem {
-			return orderbiz.CheckoutItem{
-				SkuID:          item.SkuID,
-				Quantity:       item.Quantity,
-				PromotionCodes: item.PromotionCodes,
-				ShipmentOption: item.ShipmentOption,
-				Note:           item.Note,
-				Data:           item.Data,
-			}
-		}),
+		Items:         mapCheckoutItems(req.Items),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -175,16 +179,7 @@ func (h *Handler) QuoteOrder(c echo.Context) error {
 	result, err := h.biz.QuoteOrder(c.Request().Context(), orderbiz.QuoteOrderParams{
 		Account: claims.Account,
 		Address: req.Address,
-		Items: lo.Map(req.Items, func(item CheckoutItemRequest, _ int) orderbiz.CheckoutItem {
-			return orderbiz.CheckoutItem{
-				SkuID:          item.SkuID,
-				Quantity:       item.Quantity,
-				PromotionCodes: item.PromotionCodes,
-				ShipmentOption: item.ShipmentOption,
-				Note:           item.Note,
-				Data:           item.Data,
-			}
-		}),
+		Items:   mapCheckoutItems(req.Items),
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -212,7 +207,6 @@ func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
 		}
 	}
 
-	// Verify the checksum hash
 	if err := h.biz.VerifyPayment(c.Request().Context(), orderbiz.VerifyPaymentParams{
 		PaymentGateway: "vnpay_qr",
 		Data:           query,

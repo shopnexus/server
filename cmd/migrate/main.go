@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"shopnexus-remastered/config"
+	"shopnexus-server/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"

@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 
-	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	"shopnexus-remastered/internal/shared/response"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/labstack/echo/v4"
 )
@@ -33,7 +33,6 @@ func (h *Handler) GetCart(c echo.Context) error {
 	result, err := h.biz.GetCart(c.Request().Context(), orderbiz.GetCartParams{
 		AccountID: claims.Account.ID,
 	})
-
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

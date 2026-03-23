@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -84,18 +84,24 @@ func (b *AccountBiz) ListFavorite(ctx context.Context, params ListFavoriteParams
 	}, nil
 }
 
-type CheckFavoriteParams struct {
-	Account accountmodel.AuthenticatedAccount
-	SpuID   uuid.UUID `validate:"required"`
-}
+// CheckFavorites checks which SPU IDs are favorited by the given account.
+// Returns a set of favorited SPU IDs.
+func (b *AccountBiz) CheckFavorites(ctx context.Context, accountID uuid.UUID, spuIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	if len(spuIDs) == 0 {
+		return nil, nil
+	}
 
-func (b *AccountBiz) CheckFavorite(ctx context.Context, params CheckFavoriteParams) (bool, error) {
-	_, err := b.storage.Querier().GetFavorite(ctx, accountdb.GetFavoriteParams{
-		AccountID: params.Account.ID,
-		SpuID:     params.SpuID,
+	rows, err := b.storage.Querier().ListCountFavorite(ctx, accountdb.ListCountFavoriteParams{
+		AccountID: []uuid.UUID{accountID},
+		SpuID:     spuIDs,
 	})
 	if err != nil {
-		return false, nil
+		return nil, fmt.Errorf("failed to check favorites: %w", err)
 	}
-	return true, nil
+
+	result := make(map[uuid.UUID]bool, len(rows))
+	for _, row := range rows {
+		result[row.AccountFavorite.SpuID] = true
+	}
+	return result, nil
 }

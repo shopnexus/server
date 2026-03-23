@@ -11,11 +11,12 @@ import (
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/validator"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	catalogutil "shopnexus-server/internal/module/catalog/util"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 )
 
 type SearchParams struct {
@@ -100,7 +101,7 @@ func (b *CatalogBiz) GetRecommendations(ctx context.Context, params GetRecommend
 	var searchReqs []*milvusclient.AnnRequest
 	var weights []float64
 
-	for i := 1; i <= numInterests; i++ {
+	for i := 1; i <= catalogutil.NumInterests; i++ {
 		strengthCol := rs.GetColumn(fmt.Sprintf("strength_%d", i))
 		if strengthCol == nil {
 			continue
@@ -212,7 +213,7 @@ func (b *CatalogBiz) ProcessEvents(ctx context.Context, events []analyticmodel.I
 
 	// 5. Process each account's events
 	for accountID, acctEvents := range accountEvents {
-		interests, strengths := defaultInterests(ContentVectorDim)
+		interests, strengths := catalogutil.DefaultInterests(ContentVectorDim)
 		if existing, ok := existingAccounts[accountID]; ok {
 			interests = existing.interests
 			strengths = existing.strengths
@@ -227,9 +228,9 @@ func (b *CatalogBiz) ProcessEvents(ctx context.Context, events []analyticmodel.I
 				continue
 			}
 			if weight > 0 {
-				assignPositive(interests, strengths, productVec, weight)
+				catalogutil.AssignPositive(interests, strengths, productVec, weight)
 			} else if weight < 0 {
-				assignNegative(interests, strengths, productVec, weight)
+				catalogutil.AssignNegative(interests, strengths, productVec, weight)
 			}
 		}
 
@@ -298,15 +299,15 @@ func aggregateProductWeights(events []analyticmodel.Interaction) map[string]floa
 		if e.RefID == "" {
 			continue
 		}
-		weights[e.RefID] += getEventWeight(strings.ToLower(e.EventType))
+		weights[e.RefID] += catalogutil.GetEventWeight(strings.ToLower(e.EventType))
 	}
 	return weights
 }
 
 func accountOutputFields() []string {
-	fields := make([]string, 0, 1+numInterests*2)
+	fields := make([]string, 0, 1+catalogutil.NumInterests*2)
 	fields = append(fields, "id")
-	for i := 1; i <= numInterests; i++ {
+	for i := 1; i <= catalogutil.NumInterests; i++ {
 		fields = append(fields, fmt.Sprintf("interest_%d", i))
 		fields = append(fields, fmt.Sprintf("strength_%d", i))
 	}

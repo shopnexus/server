@@ -12,28 +12,13 @@ import (
 )
 
 type Querier interface {
-	AdjustInventory(ctx context.Context, arg AdjustInventoryParams) error
-	CountSerial(ctx context.Context, arg CountSerialParams) (int64, error)
-	CountStock(ctx context.Context, arg CountStockParams) (int64, error)
-	CountStockHistory(ctx context.Context, arg CountStockHistoryParams) (int64, error)
-	CreateBatchSerial(ctx context.Context, arg []CreateBatchSerialParams) *CreateBatchSerialBatchResults
-	CreateBatchStock(ctx context.Context, arg []CreateBatchStockParams) *CreateBatchStockBatchResults
-	CreateBatchStockHistory(ctx context.Context, arg []CreateBatchStockHistoryParams) *CreateBatchStockHistoryBatchResults
+	AdjustInventory(ctx context.Context, arg AdjustInventoryParams) (int64, error)
 	CreateCopyDefaultSerial(ctx context.Context, arg []CreateCopyDefaultSerialParams) (int64, error)
-	CreateCopyDefaultStock(ctx context.Context, arg []CreateCopyDefaultStockParams) (int64, error)
-	CreateCopyDefaultStockHistory(ctx context.Context, arg []CreateCopyDefaultStockHistoryParams) (int64, error)
-	CreateCopySerial(ctx context.Context, arg []CreateCopySerialParams) (int64, error)
-	CreateCopyStock(ctx context.Context, arg []CreateCopyStockParams) (int64, error)
-	CreateCopyStockHistory(ctx context.Context, arg []CreateCopyStockHistoryParams) (int64, error)
-	CreateDefaultSerial(ctx context.Context, arg CreateDefaultSerialParams) (InventorySerial, error)
 	CreateDefaultStock(ctx context.Context, arg CreateDefaultStockParams) (InventoryStock, error)
 	CreateDefaultStockHistory(ctx context.Context, arg CreateDefaultStockHistoryParams) (InventoryStockHistory, error)
-	CreateSerial(ctx context.Context, arg CreateSerialParams) (InventorySerial, error)
-	CreateStock(ctx context.Context, arg CreateStockParams) (InventoryStock, error)
-	CreateStockHistory(ctx context.Context, arg CreateStockHistoryParams) (InventoryStockHistory, error)
-	DeleteSerial(ctx context.Context, arg DeleteSerialParams) error
-	DeleteStock(ctx context.Context, arg DeleteStockParams) error
-	DeleteStockHistory(ctx context.Context, arg DeleteStockHistoryParams) error
+	DeleteSerial(ctx context.Context, id []string) error
+	DeleteStock(ctx context.Context, id []int64) error
+	DeleteStockHistory(ctx context.Context, id []int64) error
 	GetAvailableSerials(ctx context.Context, arg GetAvailableSerialsParams) ([]GetAvailableSerialsRow, error)
 	GetSerial(ctx context.Context, id null.String) (InventorySerial, error)
 	GetStock(ctx context.Context, arg GetStockParams) (InventoryStock, error)
@@ -42,14 +27,10 @@ type Querier interface {
 	ListCountStock(ctx context.Context, arg ListCountStockParams) ([]ListCountStockRow, error)
 	ListCountStockHistory(ctx context.Context, arg ListCountStockHistoryParams) ([]ListCountStockHistoryRow, error)
 	ListMostTakenSku(ctx context.Context, arg ListMostTakenSkuParams) ([]InventoryStock, error)
-	ListSerial(ctx context.Context, arg ListSerialParams) ([]InventorySerial, error)
-	ListStock(ctx context.Context, arg ListStockParams) ([]InventoryStock, error)
-	ListStockHistory(ctx context.Context, arg ListStockHistoryParams) ([]InventoryStockHistory, error)
 	UpdateCurrentStock(ctx context.Context, arg UpdateCurrentStockParams) error
 	UpdateSerial(ctx context.Context, arg UpdateSerialParams) (InventorySerial, error)
 	UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error
 	UpdateStock(ctx context.Context, arg UpdateStockParams) (InventoryStock, error)
-	UpdateStockHistory(ctx context.Context, arg UpdateStockHistoryParams) (InventoryStockHistory, error)
 }
 
 var _ Querier = (*Queries)(nil)

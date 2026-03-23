@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	"shopnexus-remastered/internal/shared/validator"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -62,7 +62,6 @@ func (b *AccountBiz) GetContact(ctx context.Context, params GetContactParams) (a
 }
 
 type CreateContactParams struct {
-	Storage     AccountStorage
 	Account     accountmodel.AuthenticatedAccount
 	FullName    string                       `validate:"required"`
 	Phone       string                       `validate:"required"`
@@ -77,39 +76,30 @@ func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactPara
 		return zero, err
 	}
 
-	var dbContact accountdb.AccountContact
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage AccountStorage) error {
-		var err error
-		dbContact, err = txStorage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
-			AccountID:   params.Account.ID,
-			FullName:    params.FullName,
-			Phone:       params.Phone,
-			Address:     params.Address,
-			AddressType: params.AddressType,
-		})
-		if err != nil {
-			return err
-		}
-
-		total, err := txStorage.Querier().CountContact(ctx, accountdb.CountContactParams{
-			AccountID: []uuid.UUID{params.Account.ID},
-		})
-		if err != nil {
-			return err
-		}
-		if total == 1 {
-			if _, err := txStorage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
-				ID:               params.Account.ID,
-				DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
-			}); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}); err != nil {
+	dbContact, err := b.storage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
+		AccountID:   params.Account.ID,
+		FullName:    params.FullName,
+		Phone:       params.Phone,
+		Address:     params.Address,
+		AddressType: params.AddressType,
+	})
+	if err != nil {
 		return zero, fmt.Errorf("failed to create contact: %w", err)
+	}
+
+	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
+		AccountID: []uuid.UUID{params.Account.ID},
+	})
+	if err != nil {
+		return zero, fmt.Errorf("failed to create contact: %w", err)
+	}
+	if total == 1 {
+		if _, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
+			ID:               params.Account.ID,
+			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
+		}); err != nil {
+			return zero, fmt.Errorf("failed to create contact: %w", err)
+		}
 	}
 
 	return dbContact, nil

@@ -1,7 +1,7 @@
 package chatmodel
 
 import (
-	chatdb "shopnexus-remastered/internal/module/chat/db/sqlc"
+	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 
 	"github.com/google/uuid"
 )

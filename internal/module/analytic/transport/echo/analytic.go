@@ -7,18 +7,18 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 
-	analyticbiz "shopnexus-remastered/internal/module/analytic/biz"
-	analyticdb "shopnexus-remastered/internal/module/analytic/db/sqlc"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 )
 
 type Handler struct {
-	biz *analyticbiz.AnalyticBiz
+	biz analyticbiz.AnalyticClient
 }
 
-func NewHandler(e *echo.Echo, biz *analyticbiz.AnalyticBiz) *Handler {
+func NewHandler(e *echo.Echo, biz analyticbiz.AnalyticClient) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/analytic")
 	api.POST("/interaction", h.CreateInteraction)

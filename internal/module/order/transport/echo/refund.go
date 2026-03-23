@@ -3,11 +3,11 @@ package orderecho
 import (
 	"net/http"
 
-	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	orderdb "shopnexus-remastered/internal/module/order/db/sqlc"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	commonmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"

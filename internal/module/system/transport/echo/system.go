@@ -1,7 +1,7 @@
 package systemecho
 
 import (
-	systembiz "shopnexus-remastered/internal/module/system/biz"
+	systembiz "shopnexus-server/internal/module/system/biz"
 
 	"github.com/labstack/echo/v4"
 )

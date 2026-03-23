@@ -3,28 +3,17 @@ package accountecho
 import (
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	"shopnexus-remastered/internal/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
-type ListContactRequest struct {
-}
-
 func (h *Handler) ListContact(c echo.Context) error {
-	var req ListContactRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
 	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
@@ -33,7 +22,6 @@ func (h *Handler) ListContact(c echo.Context) error {
 	result, err := h.biz.ListContact(c.Request().Context(), accountbiz.ListContactParams{
 		AccountID: []uuid.UUID{claims.Account.ID},
 	})
-
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
@@ -63,7 +51,6 @@ func (h *Handler) GetContact(c echo.Context) error {
 		Account:   claims.Account,
 		ContactID: req.ContactID,
 	})
-
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
@@ -138,7 +125,6 @@ func (h *Handler) UpdateContact(c echo.Context) error {
 		AddressType:   req.AddressType,
 		PhoneVerified: req.PhoneVerified,
 	})
-
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}

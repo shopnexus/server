@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	chatbiz "shopnexus-remastered/internal/module/chat/biz"
-	chatmodel "shopnexus-remastered/internal/module/chat/model"
-	authclaims "shopnexus-remastered/internal/shared/claims"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	chatbiz "shopnexus-server/internal/module/chat/biz"
+	chatmodel "shopnexus-server/internal/module/chat/model"
+	authclaims "shopnexus-server/internal/shared/claims"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -89,6 +89,7 @@ func (h *Handler) handleSendMessage(ws *websocket.Conn, account accountmodel.Aut
 
 	conv, err := h.biz.GetConversation(context.Background(), req.ConversationID)
 	if err != nil {
+		h.sendWSError(ws, err.Error())
 		return
 	}
 
@@ -120,6 +121,7 @@ func (h *Handler) handleMarkRead(ws *websocket.Conn, account accountmodel.Authen
 
 	conv, err := h.biz.GetConversation(context.Background(), req.ConversationID)
 	if err != nil {
+		h.sendWSError(ws, err.Error())
 		return
 	}
 

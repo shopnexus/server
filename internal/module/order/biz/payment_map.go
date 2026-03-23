@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/payment"
-	"shopnexus-remastered/internal/infras/payment/cod"
-	"shopnexus-remastered/internal/infras/payment/vnpay"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commondb "shopnexus-remastered/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/payment"
+	"shopnexus-server/internal/infras/payment/cod"
+	"shopnexus-server/internal/infras/payment/vnpay"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commonmodel "shopnexus-server/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupPaymentMap() error {
@@ -37,7 +35,6 @@ func (b *OrderBiz) SetupPaymentMap() error {
 
 	// TODO: use message queue to update
 	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
-		Storage:  pgsqlc.NewStorage(b.storage.Conn(), commondb.New(b.storage.Conn())),
 		Category: "payment",
 		Configs:  configs,
 	}); err != nil {

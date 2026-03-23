@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"shopnexus-remastered/config"
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
-	accountmodel "shopnexus-remastered/internal/module/account/model"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	"shopnexus-remastered/internal/shared/validator"
+	"shopnexus-server/config"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/validator"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -128,7 +128,11 @@ func (a *AccountBiz) Login(ctx context.Context, params LoginParams) (LoginResult
 		return zero, err
 	}
 
-	if account.Password.Valid && params.Password.Valid {
+	// If the account has a password, require it for login
+	if account.Password.Valid {
+		if !params.Password.Valid {
+			return zero, accountmodel.ErrInvalidCredentials
+		}
 		if !a.ComparePassword(account.Password.String, params.Password.String) {
 			return zero, accountmodel.ErrInvalidCredentials
 		}
@@ -152,7 +156,6 @@ func (a *AccountBiz) Login(ctx context.Context, params LoginParams) (LoginResult
 }
 
 type RegisterParams struct {
-	Storage  AccountStorage
 	Type     accountdb.AccountType `validate:"required,validateFn=Valid"`
 	Username null.String           `validate:"omitnil,min=1,max=255"`
 	Email    null.String           `validate:"omitnil,email"`
@@ -183,54 +186,45 @@ func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (Regis
 		return zero, fmt.Errorf("email is required when password is not provided")
 	}
 
-	var account accountdb.AccountAccount
-
-	if err := a.storage.WithTx(ctx, params.Storage, func(txStorage AccountStorage) error {
-		// Hash the password if provided
-		var hashedPassword null.String
-		if params.Password.Valid {
-			hashed, err := a.CreateHash(params.Password.String)
-			if err != nil {
-				return err
-			}
-			hashedPassword.SetValid(hashed)
-		}
-
-		var err error
-		// Create account base
-		account, err = txStorage.Querier().CreateDefaultAccount(ctx, accountdb.CreateDefaultAccountParams{
-			Type:     params.Type,
-			Phone:    params.Phone,
-			Email:    params.Email,
-			Username: params.Username,
-			Password: hashedPassword,
-		})
+	// Hash the password if provided
+	var hashedPassword null.String
+	if params.Password.Valid {
+		hashed, err := a.CreateHash(params.Password.String)
 		if err != nil {
-			return err
+			return zero, err
 		}
+		hashedPassword.SetValid(hashed)
+	}
 
-		// Create empty profile
-		if _, err = txStorage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
-			ID: account.ID,
-		}); err != nil {
-			return err
-		}
+	// Create account base
+	account, err := a.storage.Querier().CreateDefaultAccount(ctx, accountdb.CreateDefaultAccountParams{
+		Type:     params.Type,
+		Phone:    params.Phone,
+		Email:    params.Email,
+		Username: params.Username,
+		Password: hashedPassword,
+	})
+	if err != nil {
+		return zero, fmt.Errorf("failed to register account: %w", err)
+	}
 
-		// Create empty customer/vendor additional profile
-		switch account.Type {
-		case accountdb.AccountTypeCustomer:
-			_, err = txStorage.Querier().CreateDefaultCustomer(ctx, account.ID)
-		case accountdb.AccountTypeVendor:
-			_, err = txStorage.Querier().CreateDefaultVendor(ctx, account.ID)
-		default:
-			return fmt.Errorf("unsupported account type: %v", account.Type)
-		}
-		if err != nil {
-			return err
-		}
-
-		return nil
+	// Create empty profile
+	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
+		ID: account.ID,
 	}); err != nil {
+		return zero, fmt.Errorf("failed to register account: %w", err)
+	}
+
+	// Create empty customer/vendor additional profile
+	switch account.Type {
+	case accountdb.AccountTypeCustomer:
+		_, err = a.storage.Querier().CreateDefaultCustomer(ctx, account.ID)
+	case accountdb.AccountTypeVendor:
+		_, err = a.storage.Querier().CreateDefaultVendor(ctx, account.ID)
+	default:
+		return zero, fmt.Errorf("unsupported account type: %v", account.Type)
+	}
+	if err != nil {
 		return zero, fmt.Errorf("failed to register account: %w", err)
 	}
 

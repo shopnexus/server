@@ -1,7 +1,7 @@
 package accountmodel
 
 import (
-	accountdb "shopnexus-remastered/internal/module/account/db/sqlc"
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	"time"
 
 	"github.com/google/uuid"

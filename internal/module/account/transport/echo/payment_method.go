@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/shared/claims"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
-	"shopnexus-remastered/internal/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"

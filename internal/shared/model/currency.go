@@ -34,6 +34,15 @@ func (c Concurrency) MarshalJSON() ([]byte, error) {
 	return []byte(c.String()), nil
 }
 
+func (c *Concurrency) UnmarshalJSON(data []byte) error {
+	value, err := strconv.ParseFloat(string(data), 64)
+	if err != nil {
+		return err
+	}
+	*c = FloatToConcurrency(value)
+	return nil
+}
+
 // Float64 returns the Concurrency value as a float64 but scaled by FloatingPointPrecision.
 func (c Concurrency) Float64() float64 {
 	return float64(c) / FloatingPointPrecision

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"sync"
 
-	commonmodel "shopnexus-remastered/internal/shared/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/bytedance/sonic"
 	"github.com/go-playground/locales/en"

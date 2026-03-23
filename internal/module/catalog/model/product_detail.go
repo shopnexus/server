@@ -1,9 +1,9 @@
 package catalogmodel
 
 import (
-	catalogdb "shopnexus-remastered/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	sharedmodel "shopnexus-remastered/internal/shared/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 )
@@ -18,6 +18,7 @@ type ProductDetail struct {
 	IsActive       bool                      `json:"is_active"`
 	Category       catalogdb.CatalogCategory `json:"category"`
 	Rating         ProductRating             `json:"rating"`
+	IsFavorite     bool                      `json:"is_favorite"`
 	Resources      []commonmodel.Resource    `json:"resources"`
 	Promotions     []ProductCardPromo        `json:"promotions"`
 	Skus           []ProductDetailSku        `json:"skus"`

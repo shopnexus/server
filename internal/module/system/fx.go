@@ -3,10 +3,10 @@ package system
 import (
 	"go.uber.org/fx"
 
-	systembiz "shopnexus-remastered/internal/module/system/biz"
-	systemdb "shopnexus-remastered/internal/module/system/db/sqlc"
-	systemecho "shopnexus-remastered/internal/module/system/transport/echo"
-	"shopnexus-remastered/internal/shared/pgsqlc"
+	systembiz "shopnexus-server/internal/module/system/biz"
+	systemdb "shopnexus-server/internal/module/system/db/sqlc"
+	systemecho "shopnexus-server/internal/module/system/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // Module provides the system module dependencies
