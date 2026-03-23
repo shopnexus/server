@@ -205,14 +205,14 @@ func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (Regis
 		Password: hashedPassword,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to register account: %w", err)
+		return zero, fmt.Errorf("register account: %w", err)
 	}
 
 	// Create empty profile
 	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
 		ID: account.ID,
 	}); err != nil {
-		return zero, fmt.Errorf("failed to register account: %w", err)
+		return zero, fmt.Errorf("register account: %w", err)
 	}
 
 	// Create empty customer/vendor additional profile
@@ -225,7 +225,7 @@ func (a *AccountBiz) Register(ctx context.Context, params RegisterParams) (Regis
 		return zero, accountmodel.ErrUnsupportedAccountType
 	}
 	if err != nil {
-		return zero, fmt.Errorf("failed to register account: %w", err)
+		return zero, fmt.Errorf("register account: %w", err)
 	}
 
 	accessToken, err := a.GenerateAccessToken(account)

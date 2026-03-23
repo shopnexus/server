@@ -88,7 +88,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 			Status:        orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusProcessing, Valid: true},
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update order status: %w", err)
+			return fmt.Errorf("update order status: %w", err)
 		}
 
 		dbShipment, err := b.storage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})
@@ -113,7 +113,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 		}
 		if params.Package != nil {
 			if err := validator.Unmarshal(params.Package, &packageDetails); err != nil {
-				return fmt.Errorf("failed to unmarshal package: %w", err)
+				return fmt.Errorf("unmarshal package: %w", err)
 			}
 			needUpdate = true
 		}
@@ -125,7 +125,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 				Package:     packageDetails,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to create shipment: %w", err)
+				return fmt.Errorf("create shipment: %w", err)
 			}
 
 			_, err = b.storage.Querier().UpdateShipment(ctx, orderdb.UpdateShipmentParams{

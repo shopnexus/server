@@ -54,7 +54,7 @@ func (b *AnalyticBiz) HandlePopularityEvent(ctx context.Context, event analyticm
 		CartCount:     cartCount,
 		ReviewCount:   reviewCount,
 	}); err != nil {
-		return fmt.Errorf("failed to upsert product popularity: %w", err)
+		return fmt.Errorf("upsert product popularity: %w", err)
 	}
 
 	return nil

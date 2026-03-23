@@ -84,11 +84,11 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product sku: %w", err)
+		return zero, fmt.Errorf("create product sku: %w", err)
 	}
 	packagedetailsBytes, err := sonic.Marshal(params.PackageDetails)
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product sku: %w", err)
+		return zero, fmt.Errorf("create product sku: %w", err)
 	}
 
 	// Create sku
@@ -100,7 +100,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 		PackageDetails: packagedetailsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product sku: %w", err)
+		return zero, fmt.Errorf("create product sku: %w", err)
 	}
 
 	// TODO: use message queue
@@ -109,7 +109,7 @@ func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductS
 		RefType: inventorydb.InventoryStockRefTypeProductSku,
 		Stock:   0,
 	}); err != nil {
-		return zero, fmt.Errorf("failed to create product sku: %w", err)
+		return zero, fmt.Errorf("create product sku: %w", err)
 	}
 
 	m := dbToProductSku(sku)
@@ -136,11 +136,11 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, fmt.Errorf("update product sku: %w", err)
 	}
 	packageDetailsBytes, err := sonic.Marshal(params.PackageDetails)
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, fmt.Errorf("update product sku: %w", err)
 	}
 	// TODO: check biz logic of attribute update
 
@@ -152,7 +152,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		PackageDetails: packageDetailsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, fmt.Errorf("update product sku: %w", err)
 	}
 
 	stock, err := b.inventory.GetStock(ctx, inventorybiz.GetStockParams{
@@ -160,7 +160,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		RefID:   sku.ID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, fmt.Errorf("update product sku: %w", err)
 	}
 
 	// Invalidate search index for the parent product (spu)
@@ -169,7 +169,7 @@ func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductS
 		RefID:           sku.SpuID,
 		IsStaleMetadata: null.BoolFrom(true),
 	}); err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, fmt.Errorf("update product sku: %w", err)
 	}
 
 	m := dbToProductSku(sku)
@@ -205,7 +205,7 @@ func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductS
 	if err := b.storage.Querier().DeleteProductSku(ctx, catalogdb.DeleteProductSkuParams{
 		ID: []uuid.UUID{params.ID},
 	}); err != nil {
-		return fmt.Errorf("failed to delete product sku: %w", err)
+		return fmt.Errorf("delete product sku: %w", err)
 	}
 
 	// TODO: should delete via message queue instead

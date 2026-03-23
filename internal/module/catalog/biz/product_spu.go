@@ -66,14 +66,14 @@ func (b *CatalogBiz) GetProductSpu(ctx context.Context, params GetProductSpuPara
 			ID: []uuid.UUID{params.ID.UUID},
 		})
 		if err != nil {
-			return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu: %w", err)
+			return catalogmodel.ProductSpu{}, fmt.Errorf("get product spu: %w", err)
 		}
 	} else if params.Slug.Valid {
 		listSpu, err = b.ListProductSpu(ctx, ListProductSpuParams{
 			Slug: []string{params.Slug.String},
 		})
 		if err != nil {
-			return catalogmodel.ProductSpu{}, fmt.Errorf("failed to get product spu by slug: %w", err)
+			return catalogmodel.ProductSpu{}, fmt.Errorf("get product spu by slug: %w", err)
 		}
 	}
 
@@ -185,7 +185,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 
 	specsBytes, err := sonic.Marshal(params.Specifications)
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product spu: %w", err)
+		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
 	spu, err := b.storage.Querier().CreateDefaultProductSpu(ctx, catalogdb.CreateDefaultProductSpuParams{
@@ -199,7 +199,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		Specifications: specsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product spu: %w", err)
+		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
 	// Create tags
@@ -207,7 +207,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		SpuID: spu.ID,
 		Tags:  params.Tags,
 	}); err != nil {
-		return zero, fmt.Errorf("failed to create product spu: %w", err)
+		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
 	// Create resources
@@ -219,7 +219,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create product spu: %w", err)
+		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
 	// Create system search sync (TODO: should move to event)
@@ -227,7 +227,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx context.Context, params CreateProductS
 		RefType: catalogdb.CatalogSearchSyncRefTypeProductSpu,
 		RefID:   spu.ID,
 	}); err != nil {
-		return zero, fmt.Errorf("failed to create product spu: %w", err)
+		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
 	tagsMap := b.mustGetTagsMap(ctx, []uuid.UUID{spu.ID})
@@ -266,7 +266,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 			ID: []uuid.UUID{params.FeaturedSkuID.UUID},
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to validate featured sku: %w", err)
+			return zero, fmt.Errorf("validate featured sku: %w", err)
 		}
 		if len(skus) == 0 || skus[0].SpuID != params.ID {
 			return zero, catalogmodel.ErrSkuNotBelongToSpu
@@ -280,7 +280,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 
 	specsBytes, err := sonic.Marshal(params.Specifications)
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product spu: %w", err)
+		return zero, fmt.Errorf("update product spu: %w", err)
 	}
 
 	// FIRST STEP: Update the product spu
@@ -298,7 +298,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		Specifications: specsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product spu: %w", err)
+		return zero, fmt.Errorf("update product spu: %w", err)
 	}
 
 	// NEXT STEP: Update tags
@@ -306,7 +306,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		SpuID: spu.ID,
 		Tags:  params.Tags,
 	}); err != nil {
-		return zero, fmt.Errorf("failed to update product spu: %w", err)
+		return zero, fmt.Errorf("update product spu: %w", err)
 	}
 
 	// NEXT STEP: Mark the search sync as stale
@@ -322,7 +322,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 	}
 
 	if err := b.storage.Querier().UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
-		return zero, fmt.Errorf("failed to update product spu: %w", err)
+		return zero, fmt.Errorf("update product spu: %w", err)
 	}
 
 	// LAST STEP: Update resources
@@ -334,7 +334,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx context.Context, params UpdateProductS
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update product spu: %w", err)
+		return zero, fmt.Errorf("update product spu: %w", err)
 	}
 
 	m := b.dbToProductSpu(ctx, spu)
@@ -357,7 +357,7 @@ func (b *CatalogBiz) DeleteProductSpu(ctx context.Context, params DeleteProductS
 	if err := b.storage.Querier().DeleteProductSpu(ctx, catalogdb.DeleteProductSpuParams{
 		ID: []uuid.UUID{params.ID},
 	}); err != nil {
-		return fmt.Errorf("failed to delete product spu: %w", err)
+		return fmt.Errorf("delete product spu: %w", err)
 	}
 
 	return nil
@@ -373,7 +373,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, param
 	if err := q.DeleteProductSpuTag(ctx, catalogdb.DeleteProductSpuTagParams{
 		SpuID: []uuid.UUID{params.SpuID},
 	}); err != nil {
-		return fmt.Errorf("failed to delete existing tags for spu %s: %w", params.SpuID, err)
+		return fmt.Errorf("delete existing tags for spu %s: %w", params.SpuID, err)
 	}
 
 	if len(params.Tags) == 0 {
@@ -384,7 +384,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, param
 		ID: params.Tags,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list tags: %w", err)
+		return fmt.Errorf("list tags: %w", err)
 	}
 
 	var nonExistingTags []string
@@ -406,7 +406,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, param
 			})
 		}
 		if _, err := q.CreateCopyDefaultTag(ctx, args); err != nil {
-			return fmt.Errorf("failed to create tags: %w", err)
+			return fmt.Errorf("create tags: %w", err)
 		}
 	}
 
@@ -418,7 +418,7 @@ func (b *CatalogBiz) updateTags(ctx context.Context, q *catalogdb.Queries, param
 		})
 	}
 	if _, err := q.CreateCopyDefaultProductSpuTag(ctx, args); err != nil {
-		return fmt.Errorf("failed to create product spu tags: %w", err)
+		return fmt.Errorf("create product spu tags: %w", err)
 	}
 
 	return nil

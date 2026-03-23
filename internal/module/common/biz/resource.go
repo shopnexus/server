@@ -38,7 +38,7 @@ func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 			DeleteResources:     params.DeleteResources,
 			SkipDeleteResources: params.ResourceIDs,
 		}); err != nil {
-			return nil, fmt.Errorf("failed to update resources: %w", err)
+			return nil, fmt.Errorf("update resources: %w", err)
 		}
 
 		// Next step: Attach resources
@@ -48,7 +48,7 @@ func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 			ID: params.ResourceIDs,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to update resources: %w", err)
+			return nil, fmt.Errorf("update resources: %w", err)
 		}
 		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
@@ -65,13 +65,13 @@ func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 		}
 
 		if _, err = b.storage.Querier().CreateCopyDefaultResourceReference(ctx, createResourceArgs); err != nil {
-			return nil, fmt.Errorf("failed to update resources: %w", err)
+			return nil, fmt.Errorf("update resources: %w", err)
 		}
 	}
 
 	resourcesMap, err := b.GetResources(ctx, params.RefType, []uuid.UUID{params.RefID})
 	if err != nil {
-		return nil, fmt.Errorf("failed to update resources: %w", err)
+		return nil, fmt.Errorf("update resources: %w", err)
 	}
 
 	return resourcesMap[params.RefID], nil
@@ -94,7 +94,7 @@ func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 		RefID:   params.RefID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete resources: %w", err)
+		return fmt.Errorf("delete resources: %w", err)
 	}
 
 	var deletedIDs []uuid.UUID
@@ -109,14 +109,14 @@ func (b *CommonBiz) DeleteResources(ctx context.Context, params DeleteResourcesP
 		RefType: []commondb.CommonResourceRefType{params.RefType}, // just for clarity
 		RsID:    deletedIDs,
 	}); err != nil {
-		return fmt.Errorf("failed to delete resources: %w", err)
+		return fmt.Errorf("delete resources: %w", err)
 	}
 
 	if params.DeleteResources {
 		if err := b.storage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
 			ID: deletedIDs,
 		}); err != nil {
-			return fmt.Errorf("failed to delete resources: %w", err)
+			return fmt.Errorf("delete resources: %w", err)
 		}
 	}
 

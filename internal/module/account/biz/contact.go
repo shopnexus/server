@@ -84,21 +84,21 @@ func (b *AccountBiz) CreateContact(ctx context.Context, params CreateContactPara
 		AddressType: params.AddressType,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create contact: %w", err)
+		return zero, fmt.Errorf("create contact: %w", err)
 	}
 
 	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create contact: %w", err)
+		return zero, fmt.Errorf("create contact: %w", err)
 	}
 	if total == 1 {
 		if _, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
 			ID:               params.Account.ID,
 			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
 		}); err != nil {
-			return zero, fmt.Errorf("failed to create contact: %w", err)
+			return zero, fmt.Errorf("create contact: %w", err)
 		}
 	}
 

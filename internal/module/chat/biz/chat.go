@@ -35,7 +35,7 @@ func (b *ChatBiz) CreateConversation(ctx context.Context, params CreateConversat
 		VendorID:   params.VendorID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create conversation: %w", err)
+		return zero, fmt.Errorf("create conversation: %w", err)
 	}
 
 	return result, nil
@@ -60,12 +60,12 @@ func (b *ChatBiz) ListConversation(ctx context.Context, params ListConversationP
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to list conversations: %w", err)
+		return zero, fmt.Errorf("list conversations: %w", err)
 	}
 
 	total, err := b.storage.Querier().CountConversationByAccount(ctx, params.Account.ID)
 	if err != nil {
-		return zero, fmt.Errorf("failed to count conversations: %w", err)
+		return zero, fmt.Errorf("count conversations: %w", err)
 	}
 
 	return sharedmodel.PaginateResult[chatdb.ChatConversation]{
@@ -103,11 +103,11 @@ func (b *ChatBiz) SendMessage(ctx context.Context, params SendMessageParams) (ch
 		Metadata:       params.Metadata,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create message: %w", err)
+		return zero, fmt.Errorf("create message: %w", err)
 	}
 
 	if err := b.storage.Querier().UpdateConversationLastMessage(ctx, params.ConversationID); err != nil {
-		return zero, fmt.Errorf("failed to update conversation last message: %w", err)
+		return zero, fmt.Errorf("update conversation last message: %w", err)
 	}
 
 	return msg, nil
@@ -138,12 +138,12 @@ func (b *ChatBiz) ListMessage(ctx context.Context, params ListMessageParams) (sh
 		Offset:         params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to list messages: %w", err)
+		return zero, fmt.Errorf("list messages: %w", err)
 	}
 
 	total, err := b.storage.Querier().CountMessageByConversation(ctx, params.ConversationID)
 	if err != nil {
-		return zero, fmt.Errorf("failed to count messages: %w", err)
+		return zero, fmt.Errorf("count messages: %w", err)
 	}
 
 	return sharedmodel.PaginateResult[chatdb.ChatMessage]{

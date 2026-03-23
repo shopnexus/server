@@ -139,7 +139,7 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		Email:    params.Email,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update profile: %w", err)
+		return zero, fmt.Errorf("update profile: %w", err)
 	}
 
 	profile, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
@@ -151,7 +151,7 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		DefaultContactID: params.DefaultContactID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update profile: %w", err)
+		return zero, fmt.Errorf("update profile: %w", err)
 	}
 
 	// Update customer/vendor additional profile
@@ -167,7 +167,7 @@ func (b *AccountBiz) UpdateProfile(ctx context.Context, params UpdateProfilePara
 		})
 	}
 	if err != nil {
-		return zero, fmt.Errorf("failed to update profile: %w", err)
+		return zero, fmt.Errorf("update profile: %w", err)
 	}
 
 	m := b.dbToProfile(ctx, account, profile)

@@ -247,7 +247,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 			ID: skuIDs,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to list catalog product skus: %w", err)
+			return zero, fmt.Errorf("list catalog product skus: %w", err)
 		}
 		if len(skus) != len(skuIDs) {
 			return zero, ordermodel.ErrOrderItemNotFound
@@ -259,14 +259,14 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 			ID: lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to list catalog product spu: %w", err)
+			return zero, fmt.Errorf("list catalog product spu: %w", err)
 		}
 		spuMap := lo.KeyBy(spus.Data, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
 
 		vendorIDs := lo.Map(spus.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
 		contactMap, err := b.account.GetDefaultContact(ctx, vendorIDs)
 		if err != nil {
-			return zero, fmt.Errorf("failed to get default contact map: %w", err)
+			return zero, fmt.Errorf("get default contact map: %w", err)
 		}
 
 		// Quote shipping per checkout item
@@ -274,7 +274,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		for _, checkoutItem := range params.Items {
 			shipmentClient, err := b.getShipmentClient(checkoutItem.ShipmentOption)
 			if err != nil {
-				return zero, fmt.Errorf("failed to get shipment client: %w", err)
+				return zero, fmt.Errorf("get shipment client: %w", err)
 			}
 
 			sku := skuMap[checkoutItem.SkuID]
@@ -282,7 +282,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 
 			var packageDetails shipment.PackageDetails
 			if err := sonic.Unmarshal(sku.PackageDetails, &packageDetails); err != nil {
-				return zero, fmt.Errorf("failed to unmarshal package details for sku %s: %w", checkoutItem.SkuID, err)
+				return zero, fmt.Errorf("unmarshal package details for sku %s: %w", checkoutItem.SkuID, err)
 			}
 
 			shipmentQuote, err := shipmentClient.Quote(ctx, shipment.CreateParams{
@@ -291,7 +291,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 				Package:     packageDetails,
 			})
 			if err != nil {
-				return zero, fmt.Errorf("failed to quote shipment: %w", err)
+				return zero, fmt.Errorf("quote shipment: %w", err)
 			}
 
 			shippingCostMap[checkoutItem.SkuID] = commonmodel.Concurrency(shipmentQuote.Costs)
@@ -317,7 +317,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 
 		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, requestOrderPrices, spuMap)
 		if err != nil {
-			return zero, fmt.Errorf("failed to calculate promoted prices: %w", err)
+			return zero, fmt.Errorf("calculate promoted prices: %w", err)
 		}
 
 		var result QuoteOrderResult

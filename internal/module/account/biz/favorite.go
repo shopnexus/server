@@ -34,7 +34,7 @@ func (b *AccountBiz) AddFavorite(ctx context.Context, params AddFavoriteParams) 
 		SpuID:     params.SpuID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to add favorite: %w", err)
+		return zero, fmt.Errorf("add favorite: %w", err)
 	}
 
 	return result, nil
@@ -67,7 +67,7 @@ func (b *AccountBiz) ListFavorite(ctx context.Context, params ListFavoriteParams
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to list favorites: %w", err)
+		return zero, fmt.Errorf("list favorites: %w", err)
 	}
 
 	favorites := make([]accountdb.AccountFavorite, len(rows))
@@ -96,7 +96,7 @@ func (b *AccountBiz) CheckFavorites(ctx context.Context, accountID uuid.UUID, sp
 		SpuID:     spuIDs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to check favorites: %w", err)
+		return nil, fmt.Errorf("check favorites: %w", err)
 	}
 
 	result := make(map[uuid.UUID]bool, len(rows))

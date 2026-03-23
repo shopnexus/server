@@ -134,7 +134,7 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		Score:     params.Score,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create comment: %w", err)
+		return zero, fmt.Errorf("create comment: %w", err)
 	}
 
 	// Attach resources
@@ -146,7 +146,7 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create comment: %w", err)
+		return zero, fmt.Errorf("create comment: %w", err)
 	}
 
 	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
@@ -154,7 +154,7 @@ func (b *CatalogBiz) CreateComment(ctx context.Context, params CreateCommentPara
 		AccountID: comment.AccountID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to get comment profile: %w", err)
+		return zero, fmt.Errorf("get comment profile: %w", err)
 	}
 
 	// Track analytic interactions for product reviews
@@ -214,7 +214,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		Score: params.Score,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update comment: %w", err)
+		return zero, fmt.Errorf("update comment: %w", err)
 	}
 
 	// Update upvote/downvote count
@@ -224,7 +224,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 			UpvoteDelta:   params.UpvoteDelta,
 			DownvoteDelta: params.DownvoteDelta,
 		}); err != nil {
-			return zero, fmt.Errorf("failed to update comment: %w", err)
+			return zero, fmt.Errorf("update comment: %w", err)
 		}
 	}
 
@@ -238,7 +238,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		DeleteResources: true,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update comment: %w", err)
+		return zero, fmt.Errorf("update comment: %w", err)
 	}
 
 	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
@@ -246,7 +246,7 @@ func (b *CatalogBiz) UpdateComment(ctx context.Context, params UpdateCommentPara
 		AccountID: comment.AccountID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to get comment profile: %w", err)
+		return zero, fmt.Errorf("get comment profile: %w", err)
 	}
 
 	return catalogmodel.Comment{
@@ -277,7 +277,7 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 	if err := b.storage.Querier().DeleteComment(ctx, catalogdb.DeleteCommentParams{
 		ID: params.CommentIDs,
 	}); err != nil {
-		return fmt.Errorf("failed to delete comment: %w", err)
+		return fmt.Errorf("delete comment: %w", err)
 	}
 
 	// Remove associated resources
@@ -287,7 +287,7 @@ func (b *CatalogBiz) DeleteComment(ctx context.Context, params DeleteCommentPara
 		RefID:           params.CommentIDs,
 		DeleteResources: true,
 	}); err != nil {
-		return fmt.Errorf("failed to delete comment: %w", err)
+		return fmt.Errorf("delete comment: %w", err)
 	}
 
 	return nil

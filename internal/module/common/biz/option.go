@@ -38,13 +38,13 @@ func (b *CommonBiz) UpdateServiceOptions(ctx context.Context, params UpdateServi
 					Order:       int32(index),
 				})
 				if err != nil {
-					return fmt.Errorf("failed to update service options: %w", err)
+					return fmt.Errorf("update service options: %w", err)
 				}
 				continue
 			}
 
 			// other db error
-			return fmt.Errorf("failed to update service options: %w", err)
+			return fmt.Errorf("update service options: %w", err)
 		} else {
 			// update existing
 			_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
@@ -58,7 +58,7 @@ func (b *CommonBiz) UpdateServiceOptions(ctx context.Context, params UpdateServi
 				Order:       null.Int32From(int32(index)),
 			})
 			if err != nil {
-				return fmt.Errorf("failed to update service options: %w", err)
+				return fmt.Errorf("update service options: %w", err)
 			}
 		}
 	}

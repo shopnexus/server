@@ -26,7 +26,7 @@ func (b *AccountBiz) CreatePaymentMethod(ctx context.Context, params CreatePayme
 
 	if params.IsDefault {
 		if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-			return zero, fmt.Errorf("failed to create payment method: %w", err)
+			return zero, fmt.Errorf("create payment method: %w", err)
 		}
 	}
 
@@ -38,7 +38,7 @@ func (b *AccountBiz) CreatePaymentMethod(ctx context.Context, params CreatePayme
 		IsDefault: params.IsDefault,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to create payment method: %w", err)
+		return zero, fmt.Errorf("create payment method: %w", err)
 	}
 
 	return result, nil
@@ -59,7 +59,7 @@ func (b *AccountBiz) ListPaymentMethod(ctx context.Context, params ListPaymentMe
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to list payment methods: %w", err)
+		return zero, fmt.Errorf("list payment methods: %w", err)
 	}
 
 	methods := make([]accountdb.AccountPaymentMethod, len(rows))
@@ -95,7 +95,7 @@ func (b *AccountBiz) UpdatePaymentMethod(ctx context.Context, params UpdatePayme
 		Data:      params.Data,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to update payment method: %w", err)
+		return zero, fmt.Errorf("update payment method: %w", err)
 	}
 
 	return result, nil
@@ -122,7 +122,7 @@ func (b *AccountBiz) SetDefaultPaymentMethod(ctx context.Context, params SetDefa
 	var zero accountdb.AccountPaymentMethod
 
 	if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-		return zero, fmt.Errorf("failed to set default payment method: %w", err)
+		return zero, fmt.Errorf("set default payment method: %w", err)
 	}
 
 	result, err := b.storage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
@@ -130,7 +130,7 @@ func (b *AccountBiz) SetDefaultPaymentMethod(ctx context.Context, params SetDefa
 		AccountID: params.Account.ID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to set default payment method: %w", err)
+		return zero, fmt.Errorf("set default payment method: %w", err)
 	}
 
 	return result, nil

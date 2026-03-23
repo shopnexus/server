@@ -89,7 +89,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			ID: skuIDs,
 		})
 		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("failed to list catalog product skus: %w", err)
+			return checkoutProductsResult{}, fmt.Errorf("list catalog product skus: %w", err)
 		}
 		if len(skus) != len(skuIDs) {
 			return checkoutProductsResult{}, ordermodel.ErrOrderItemNotFound
@@ -100,13 +100,13 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			ID:      lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
 		})
 		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("failed to list catalog product spu: %w", err)
+			return checkoutProductsResult{}, fmt.Errorf("list catalog product spu: %w", err)
 		}
 
 		vendorIDs := lo.Map(listSpu.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
 		contactMapRaw, err := b.account.GetDefaultContact(ctx, vendorIDs)
 		if err != nil {
-			return checkoutProductsResult{}, fmt.Errorf("failed to get default contact map: %w", err)
+			return checkoutProductsResult{}, fmt.Errorf("get default contact map: %w", err)
 		}
 
 		// Simplify to just addresses for serialization safety
@@ -137,7 +137,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				SkuID:     skuIDs,
 			})
 			if err != nil {
-				return fmt.Errorf("failed to remove checkout items: %w", err)
+				return fmt.Errorf("remove checkout items: %w", err)
 			}
 			if len(cartItems) != len(skuIDs) {
 				return fmt.Errorf("some sku not found in cart")
@@ -160,7 +160,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			}),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to reserve inventory: %w", err)
+			return nil, fmt.Errorf("reserve inventory: %w", err)
 		}
 
 		return lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) {
@@ -177,12 +177,12 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		for _, checkoutItem := range params.Items {
 			shipmentClient, err := b.getShipmentClient(checkoutItem.ShipmentOption)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get shipment client: %w", err)
+				return nil, fmt.Errorf("get shipment client: %w", err)
 			}
 
 			var defaultPackageDetails shipment.PackageDetails
 			if err := sonic.Unmarshal(skuMap[checkoutItem.SkuID].PackageDetails, &defaultPackageDetails); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal package details for sku %s: %w", checkoutItem.SkuID, err)
+				return nil, fmt.Errorf("unmarshal package details for sku %s: %w", checkoutItem.SkuID, err)
 			}
 
 			contactAddress := products.ContactMap[spuMap[skuMap[checkoutItem.SkuID].SpuID].AccountID]
@@ -193,7 +193,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				Package:     defaultPackageDetails,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to create shipment: %w", err)
+				return nil, fmt.Errorf("create shipment: %w", err)
 			}
 
 			dbShipment, err := b.storage.Querier().CreateDefaultShipment(ctx, orderdb.CreateDefaultShipmentParams{
@@ -208,7 +208,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				HeightCm:    int32(defaultPackageDetails.HeightCM),
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to create shipment: %w", err)
+				return nil, fmt.Errorf("create shipment: %w", err)
 			}
 
 			result[checkoutItem.SkuID] = checkoutShipmentEntry{
@@ -238,7 +238,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		return b.promotion.CalculatePromotedPrices(ctx, requestOrderPrices, spuMap)
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to calculate promoted prices: %w", err)
+		return zero, fmt.Errorf("calculate promoted prices: %w", err)
 	}
 
 	// Step 6: Create payment + call payment provider
@@ -262,12 +262,12 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 		})
 		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("failed to create payment: %w", err)
+			return checkoutPaymentResult{}, fmt.Errorf("create payment: %w", err)
 		}
 
 		paymentProvider, err := b.getPaymentClient(params.PaymentOption)
 		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("failed to get payment provider: %w", err)
+			return checkoutPaymentResult{}, fmt.Errorf("get payment provider: %w", err)
 		}
 
 		createdOrder, err := paymentProvider.CreateOrder(ctx, payment.CreateOrderParams{
@@ -276,7 +276,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			Info:   fmt.Sprintf("Order %d", dbPayment.ID),
 		})
 		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("failed to create payment order: %w", err)
+			return checkoutPaymentResult{}, fmt.Errorf("create payment order: %w", err)
 		}
 
 		return checkoutPaymentResult{
@@ -311,7 +311,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				Data:            checkoutItem.Data,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to create order base: %w", err)
+				return nil, fmt.Errorf("create order base: %w", err)
 			}
 			ids = append(ids, order.ID)
 
@@ -320,7 +320,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			if sku.CanCombine {
 				jsonSerialIDs, err := sonic.Marshal(serialIDs)
 				if err != nil {
-					return nil, fmt.Errorf("failed to marshal serial ids: %w", err)
+					return nil, fmt.Errorf("marshal serial ids: %w", err)
 				}
 
 				createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
@@ -336,7 +336,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				for _, serialID := range serialIDs {
 					jsonSerialIDs, err := sonic.Marshal([]string{serialID})
 					if err != nil {
-						return nil, fmt.Errorf("failed to marshal serial ids: %w", err)
+						return nil, fmt.Errorf("marshal serial ids: %w", err)
 					}
 
 					createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
@@ -352,7 +352,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 			}
 
 			if _, err := b.storage.Querier().CreateCopyItem(ctx, createOrderItemArgs); err != nil {
-				return nil, fmt.Errorf("failed to create order items: %w", err)
+				return nil, fmt.Errorf("create order items: %w", err)
 			}
 		}
 		return ids, nil
@@ -366,7 +366,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		ID: orderIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to fetch created orders: %w", err)
+		return zero, fmt.Errorf("fetch created orders: %w", err)
 	}
 
 	// Step 9: Track purchase interactions
@@ -399,14 +399,14 @@ func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) er
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch order: %w", err)
+		return fmt.Errorf("fetch order: %w", err)
 	}
 
 	// Fetch shipment status
 	shipmentStatus, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderShipmentStatus, error) {
 		s, err := b.storage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})
 		if err != nil {
-			return "", fmt.Errorf("failed to fetch shipment: %w", err)
+			return "", fmt.Errorf("fetch shipment: %w", err)
 		}
 		return s.Status, nil
 	})
@@ -431,21 +431,21 @@ func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) er
 			ID:     order.Payment.ID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("failed to update payment status: %w", err)
+			return fmt.Errorf("update payment status: %w", err)
 		}
 
 		if _, err := b.storage.Querier().UpdateShipment(ctx, orderdb.UpdateShipmentParams{
 			ID:     order.ShipmentID,
 			Status: orderdb.NullOrderShipmentStatus{OrderShipmentStatus: orderdb.OrderShipmentStatusCancelled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("failed to update shipment status: %w", err)
+			return fmt.Errorf("update shipment status: %w", err)
 		}
 
 		if _, err := b.storage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
 			ID:     order.ID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("failed to update order status: %w", err)
+			return fmt.Errorf("update order status: %w", err)
 		}
 
 		return nil

@@ -49,14 +49,14 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 			IsStaleMetadata: null.BoolFrom(true),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to sync product data: %w", err)
+			return fmt.Errorf("sync product data: %w", err)
 		}
 
 		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       metadataStales,
 			MetadataOnly: true,
 		}); err != nil {
-			return fmt.Errorf("failed to sync product data: %w", err)
+			return fmt.Errorf("sync product data: %w", err)
 		}
 	} else {
 		embeddingStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
@@ -65,14 +65,14 @@ func (b *CatalogBiz) SyncProductData(ctx context.Context, metadataOnly bool) err
 			IsStaleEmbedding: null.BoolFrom(true),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to sync product data: %w", err)
+			return fmt.Errorf("sync product data: %w", err)
 		}
 
 		if err := b.UpdateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       embeddingStales,
 			MetadataOnly: false,
 		}); err != nil {
-			return fmt.Errorf("failed to sync product data: %w", err)
+			return fmt.Errorf("sync product data: %w", err)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 		updateErr = err
 	})
 	if updateErr != nil {
-		return fmt.Errorf("failed to update batch system search sync: %w", updateErr)
+		return fmt.Errorf("update batch system search sync: %w", updateErr)
 	}
 
 	// Last step: send to search server (cannot be in the transaction)
@@ -134,7 +134,7 @@ func (b *CatalogBiz) UpdateStaleProducts(ctx context.Context, params UpdateStale
 		Products:     productDetails,
 		MetadataOnly: params.MetadataOnly,
 	}); err != nil {
-		return fmt.Errorf("failed to update products: %w", err)
+		return fmt.Errorf("update products: %w", err)
 	}
 
 	return nil

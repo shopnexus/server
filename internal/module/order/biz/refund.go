@@ -95,7 +95,7 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 			ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to get order: %w", err)
+			return zero, fmt.Errorf("get order: %w", err)
 		}
 		_ = order
 		// TODO: check if the order is refundable
@@ -108,7 +108,7 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 			Address:   params.Address,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to create refund: %w", err)
+			return zero, fmt.Errorf("create refund: %w", err)
 		}
 
 		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
@@ -120,7 +120,7 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 			DeleteResources: false,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to update refund resources: %w", err)
+			return zero, fmt.Errorf("update refund resources: %w", err)
 		}
 
 		m := dbToRefund(dbRefund)
@@ -167,7 +167,7 @@ func (b *OrderBiz) UpdateRefund(ctx restate.Context, params UpdateRefundParams) 
 	return restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
 		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
-			return zero, fmt.Errorf("failed to get refund: %w", err)
+			return zero, fmt.Errorf("get refund: %w", err)
 		}
 
 		if refund.Status != orderdb.OrderStatusPending {
@@ -186,7 +186,7 @@ func (b *OrderBiz) UpdateRefund(ctx restate.Context, params UpdateRefundParams) 
 			ConfirmedByID: params.ConfirmedByID,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to update refund: %w", err)
+			return zero, fmt.Errorf("update refund: %w", err)
 		}
 
 		//TODO: use message queue instead of sequential processing
@@ -198,7 +198,7 @@ func (b *OrderBiz) UpdateRefund(ctx restate.Context, params UpdateRefundParams) 
 			DeleteResources: true,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("failed to update refund resources: %w", err)
+			return zero, fmt.Errorf("update refund resources: %w", err)
 		}
 
 		m := dbToRefund(refund)
@@ -239,7 +239,7 @@ func (b *OrderBiz) CancelRefund(ctx restate.Context, params CancelRefundParams) 
 			ID:     params.RefundID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("failed to cancel refund %s: %w", params.RefundID, err)
+			return fmt.Errorf("cancel refund %s: %w", params.RefundID, err)
 		}
 		return nil
 	})
