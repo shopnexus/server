@@ -1,17 +1,16 @@
 -- name: GetAvailableSerials :many
-SELECT id, ref_type, ref_id
+SELECT id, stock_id
 FROM "inventory"."serial"
-WHERE ref_type = sqlc.arg('ref_type') AND ref_id = sqlc.arg('ref_id') AND "status" = 'Active'
+WHERE stock_id = sqlc.arg('stock_id') AND "status" = 'Active'
 ORDER BY date_created DESC
-FOR UPDATE SKIP LOCKED -- Lock the selected, but skip those already locked
+FOR UPDATE SKIP LOCKED
 LIMIT sqlc.arg('amount');
 
--- name: AdjustInventory :exec
+-- name: AdjustInventory :execrows
 UPDATE inventory.stock
 SET stock = stock - sqlc.arg('amount'),
     taken = taken + sqlc.arg('amount')
-WHERE ref_type = sqlc.arg('ref_type')
-  AND ref_id = sqlc.arg('ref_id')
+WHERE id = sqlc.arg('stock_id')
   AND stock >= sqlc.arg('amount');
 
 -- name: UpdateSerialStatus :exec
