@@ -5,6 +5,7 @@ import (
 
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // InventoryClient is the client interface for InventoryBiz, which is used by other modules to call InventoryBiz methods.
@@ -31,4 +32,14 @@ type InventoryClient interface {
 
 	// Most Taken
 	ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error)
+}
+
+type InventoryStorage = pgsqlc.Storage[*inventorydb.Queries]
+
+type InventoryBiz struct {
+	storage InventoryStorage
+}
+
+func NewInventoryBiz(storage InventoryStorage) *InventoryBiz {
+	return &InventoryBiz{storage: storage}
 }

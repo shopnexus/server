@@ -32,12 +32,12 @@ func SetupRestate(
 
 	srv := server.NewRestate().
 		Bind(restate.Reflect(orderBiz)).
-		Bind(restate.Reflect(accountbiz.NewAccountBizService(accountBiz))).
-		Bind(restate.Reflect(catalogbiz.NewCatalogBizService(catalogBiz))).
-		Bind(restate.Reflect(inventorybiz.NewInventoryBizService(inventoryBiz))).
-		Bind(restate.Reflect(promotionbiz.NewPromotionBizService(promotionBiz))).
-		Bind(restate.Reflect(analyticbiz.NewAnalyticBizService(analyticBiz))).
-		Bind(restate.Reflect(chatbiz.NewChatBizService(chatBiz)))
+		Bind(restate.Reflect(accountBiz)).
+		Bind(restate.Reflect(catalogBiz)).
+		Bind(restate.Reflect(inventoryBiz)).
+		Bind(restate.Reflect(promotionBiz)).
+		Bind(restate.Reflect(analyticBiz)).
+		Bind(restate.Reflect(chatBiz))
 
 	// Start the Restate server in a separate goroutine
 

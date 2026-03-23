@@ -8,41 +8,10 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 )
-
-type ChatStorage = pgsqlc.Storage[*chatdb.Queries]
-
-type ChatBiz struct {
-	storage ChatStorage
-}
-
-func NewChatBiz(storage ChatStorage) *ChatBiz {
-	return &ChatBiz{storage: storage}
-}
-
-func (b *ChatBiz) WithTx(ctx context.Context, fn func(context.Context, *ChatBiz) error) error {
-	storage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer storage.Rollback(ctx)
-
-	biz := NewChatBiz(storage)
-
-	if err = fn(ctx, biz); err != nil {
-		return fmt.Errorf("failed to execute function with transaction: %w", err)
-	}
-
-	if err = storage.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
-}
 
 type CreateConversationParams struct {
 	Account  accountmodel.AuthenticatedAccount

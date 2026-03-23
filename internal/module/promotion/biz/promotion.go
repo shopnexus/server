@@ -15,39 +15,8 @@ import (
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
 	commonmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/pgsqlc"
 	"shopnexus-server/internal/shared/validator"
 )
-
-type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]
-
-type PromotionBiz struct {
-	storage PromotionStorage
-}
-
-func NewPromotionBiz(storage PromotionStorage) *PromotionBiz {
-	return &PromotionBiz{storage: storage}
-}
-
-func (b *PromotionBiz) WithTx(ctx context.Context, fn func(context.Context, *PromotionBiz) error) error {
-	storage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer storage.Rollback(ctx)
-
-	biz := NewPromotionBiz(storage)
-
-	if err = fn(ctx, biz); err != nil {
-		return fmt.Errorf("failed to execute function with transaction: %w", err)
-	}
-
-	if err = storage.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
-}
 
 // --- Get ---
 

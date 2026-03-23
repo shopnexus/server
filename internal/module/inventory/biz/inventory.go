@@ -3,48 +3,16 @@ package inventorybiz
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/pgsqlc"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
-
-type InventoryStorage = pgsqlc.Storage[*inventorydb.Queries]
-
-type InventoryBiz struct {
-	storage InventoryStorage
-}
-
-func NewInventoryBiz(storage InventoryStorage) *InventoryBiz {
-	return &InventoryBiz{storage: storage}
-}
-
-func (b *InventoryBiz) WithTx(ctx context.Context, fn func(context.Context, *InventoryBiz) error) error {
-	storage, err := b.storage.BeginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer storage.Rollback(ctx)
-
-	biz := NewInventoryBiz(storage)
-
-	if err = fn(ctx, biz); err != nil {
-		return fmt.Errorf("failed to execute function with transaction: %w", err)
-	}
-
-	if err = storage.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
-}
 
 // getStockByRef is a shared helper to look up stock by (ref_type, ref_id).
 func (b *InventoryBiz) getStockByRef(ctx context.Context, q inventorydb.Querier, refType inventorydb.InventoryStockRefType, refID uuid.UUID) (inventorydb.InventoryStock, error) {

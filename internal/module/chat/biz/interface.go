@@ -5,6 +5,7 @@ import (
 
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 )
@@ -19,4 +20,14 @@ type ChatClient interface {
 	SendMessage(ctx context.Context, params SendMessageParams) (chatdb.ChatMessage, error)
 	ListMessage(ctx context.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error)
 	MarkRead(ctx context.Context, params MarkReadParams) error
+}
+
+type ChatStorage = pgsqlc.Storage[*chatdb.Queries]
+
+type ChatBiz struct {
+	storage ChatStorage
+}
+
+func NewChatBiz(storage ChatStorage) *ChatBiz {
+	return &ChatBiz{storage: storage}
 }

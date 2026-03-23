@@ -1,7 +1,6 @@
 package orderbiz
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -151,20 +150,16 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 
 	// Step 3: Reserve inventory
 	serialIDsMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID][]string, error) {
-		var inventories []inventorybiz.ReserveInventoryResult
-		if err := b.inventory.WithTx(ctx, func(ctx context.Context, ob *inventorybiz.InventoryBiz) error {
-			var err error
-			inventories, err = ob.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
-				Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
-					return inventorybiz.ReserveInventoryItem{
-						RefType: inventorydb.InventoryStockRefTypeProductSku,
-						RefID:   item.SkuID,
-						Amount:  checkoutItemMap[item.SkuID].Quantity,
-					}
-				}),
-			})
-			return err
-		}); err != nil {
+		inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
+			Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
+				return inventorybiz.ReserveInventoryItem{
+					RefType: inventorydb.InventoryStockRefTypeProductSku,
+					RefID:   item.SkuID,
+					Amount:  checkoutItemMap[item.SkuID].Quantity,
+				}
+			}),
+		})
+		if err != nil {
 			return nil, fmt.Errorf("failed to reserve inventory: %w", err)
 		}
 

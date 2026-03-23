@@ -2,10 +2,24 @@ package catalogbiz
 
 import (
 	"context"
+	"log/slog"
+	"sync"
 
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/cachestruct"
+	"shopnexus-server/internal/infras/embedding"
+	"shopnexus-server/internal/infras/milvus"
+	"shopnexus-server/internal/infras/pubsub"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // CatalogClient is the client interface for CatalogBiz, which is used by other modules to call CatalogBiz methods.
@@ -52,4 +66,71 @@ type CatalogClient interface {
 	// Search
 	Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error)
 	GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error)
+}
+
+type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
+
+type CatalogBiz struct {
+	cache     cachestruct.Client
+	pubsub    pubsub.Client
+	storage   CatalogStorage
+	common    *commonbiz.CommonBiz
+	account   *accountbiz.AccountBiz
+	inventory *inventorybiz.InventoryBiz
+	promotion *promotionbiz.PromotionBiz
+	analytic  *analyticbiz.AnalyticBiz
+
+	// Vector search (replaces searchClient)
+	milvus       *milvus.Client
+	embedding    *embedding.Client
+	denseWeight  float32
+	sparseWeight float32
+	batchSize    int
+
+	// Event buffering (moved from SearchClient)
+	mu       sync.Mutex
+	buffer   []analyticmodel.Interaction
+	syncLock sync.Mutex
+}
+
+func NewCatalogBiz(
+	cfg *config.Config,
+	storage CatalogStorage,
+	cache cachestruct.Client,
+	pubsub pubsub.Client,
+	common *commonbiz.CommonBiz,
+	account *accountbiz.AccountBiz,
+	inventory *inventorybiz.InventoryBiz,
+	promotion *promotionbiz.PromotionBiz,
+	analytic *analyticbiz.AnalyticBiz,
+	milvusClient *milvus.Client,
+	embeddingClient *embedding.Client,
+) *CatalogBiz {
+
+	b := &CatalogBiz{
+		cache:     cache,
+		pubsub:    pubsub.Group("catalog"),
+		storage:   storage,
+		common:    common,
+		account:   account,
+		inventory: inventory,
+		promotion: promotion,
+		analytic:  analytic,
+
+		milvus:       milvusClient,
+		embedding:    embeddingClient,
+		denseWeight:  cfg.App.Search.DenseWeight,
+		sparseWeight: cfg.App.Search.SparseWeight,
+		batchSize:    cfg.App.Search.InteractionBatchSize,
+	}
+
+	// Setup Milvus collections
+	if err := b.SetupMilvusCollections(context.Background()); err != nil {
+		slog.Error("Failed to setup Milvus collections", "error", err)
+	}
+
+	b.InitPubsub()
+	b.SetupCron()
+
+	return b
 }

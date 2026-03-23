@@ -3,8 +3,10 @@ package promotionbiz
 import (
 	"context"
 
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // PromotionClient is the client interface for PromotionBiz, which is used by other modules to call PromotionBiz methods.
@@ -16,4 +18,14 @@ type PromotionClient interface {
 	CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error)
 	UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error)
 	DeletePromotion(ctx context.Context, params DeletePromotionParams) error
+}
+
+type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]
+
+type PromotionBiz struct {
+	storage PromotionStorage
+}
+
+func NewPromotionBiz(storage PromotionStorage) *PromotionBiz {
+	return &PromotionBiz{storage: storage}
 }

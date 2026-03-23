@@ -5,43 +5,13 @@ import (
 	"log/slog"
 	"time"
 
-	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/pubsub"
-
 	accountmodel "shopnexus-server/internal/module/account/model"
-	analyticconfig "shopnexus-server/internal/module/analytic/config"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
-	promotionbiz "shopnexus-server/internal/module/promotion/biz"
-	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
-
-type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
-
-type AnalyticBiz struct {
-	storage           AnalyticStorage
-	pubsub            pubsub.Client
-	promotion         *promotionbiz.PromotionBiz
-	popularityWeights map[string]float64
-}
-
-// NewAnalyticBiz creates a new instance of AnalyticBiz.
-func NewAnalyticBiz(
-	config *config.Config,
-	storage AnalyticStorage,
-	pubsub pubsub.Client,
-	promotionBiz *promotionbiz.PromotionBiz,
-) *AnalyticBiz {
-	return &AnalyticBiz{
-		storage:           storage,
-		pubsub:            pubsub,
-		promotion:         promotionBiz,
-		popularityWeights: analyticconfig.DefaultPopularityWeights().WeightMap(),
-	}
-}
 
 type CreateInteraction struct {
 	Account   accountmodel.AuthenticatedAccount
