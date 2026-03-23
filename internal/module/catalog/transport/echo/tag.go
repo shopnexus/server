@@ -5,7 +5,7 @@ import (
 
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/guregu/null/v6"
@@ -13,7 +13,7 @@ import (
 )
 
 type ListTagRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	Search null.String `query:"search" validate:"omitnil,max=100"`
 }
 

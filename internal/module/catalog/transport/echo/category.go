@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -13,7 +13,7 @@ import (
 )
 
 type ListCategoryRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	ID     []uuid.UUID `query:"id" validate:"omitempty,dive,gt=0"`
 	Search null.String `query:"search" validate:"omitnil"`
 }
@@ -52,7 +52,7 @@ func (h *Handler) GetCategory(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListCategory(c.Request().Context(), catalogbiz.ListCategoryParams{
-		PaginationParams: commonmodel.PaginationParams{
+		PaginationParams: sharedmodel.PaginationParams{
 			Limit: null.Int32From(1),
 		}.Constrain(),
 		ID: []uuid.UUID{req.ID},

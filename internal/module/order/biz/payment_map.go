@@ -9,11 +9,11 @@ import (
 	"shopnexus-server/internal/infras/payment/vnpay"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupPaymentMap() error {
-	var configs []commonmodel.OptionConfig
+	var configs []sharedmodel.OptionConfig
 
 	b.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
 

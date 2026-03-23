@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
@@ -15,7 +15,7 @@ import (
 
 type UpdateServiceOptionsParams struct {
 	Category string                     `validate:"required,oneof=objectstore payment shipment"`
-	Configs  []commonmodel.OptionConfig `validate:"required,dive"`
+	Configs  []sharedmodel.OptionConfig `validate:"required,dive"`
 }
 
 // UpdateServiceOptions creates or updates service option configurations for a given category.
@@ -73,7 +73,7 @@ type ListServiceOptionParams struct {
 }
 
 // ListServiceOption returns active service options filtered by category.
-func (b *CommonBiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]commonmodel.OptionConfig, error) {
+func (b *CommonBiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
 	if validator.Validate(params) != nil {
 		return nil, validator.Validate(params)
 	}
@@ -86,14 +86,14 @@ func (b *CommonBiz) ListServiceOption(ctx context.Context, params ListServiceOpt
 		return nil, err
 	}
 
-	var result []commonmodel.OptionConfig
+	var result []sharedmodel.OptionConfig
 	for _, dbOpt := range dbOptions {
-		opt := commonmodel.OptionConfig{
+		opt := sharedmodel.OptionConfig{
 			ID:          dbOpt.ID,
 			Name:        dbOpt.Name,
 			Description: dbOpt.Description,
 			Provider:    dbOpt.Provider,
-			Method:      commonmodel.OptionMethod(dbOpt.Method),
+			Method:      sharedmodel.OptionMethod(dbOpt.Method),
 		}
 		result = append(result, opt)
 	}

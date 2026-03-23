@@ -17,12 +17,12 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	catalogutil "shopnexus-server/internal/module/catalog/util"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
 
 type SearchParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	Collection string
 	Query      string
 }
@@ -331,10 +331,8 @@ func mapToSparseEmbedding(m map[uint32]float32) entity.SparseEmbedding {
 	return emb
 }
 
-type AddInteractionParams = analyticmodel.Interaction
-
 // AddInteraction buffers an analytic interaction event and flushes the batch when full.
-func (b *CatalogBiz) AddInteraction(ctx restate.Context, params AddInteractionParams) error {
+func (b *CatalogBiz) AddInteraction(ctx restate.Context, params analyticmodel.Interaction) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

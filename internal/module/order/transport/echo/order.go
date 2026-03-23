@@ -7,7 +7,7 @@ import (
 
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -80,7 +80,7 @@ func (h *Handler) GetOrder(c echo.Context) error {
 }
 
 type ListOrdersRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 }
 
 func (h *Handler) ListOrders(c echo.Context) error {

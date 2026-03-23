@@ -10,7 +10,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -20,12 +20,12 @@ import (
 
 type ListVendorOrderParams struct {
 	Account accountmodel.AuthenticatedAccount
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 }
 
 // ListVendorOrder returns paginated orders belonging to the authenticated vendor.
-func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
-	var zero commonmodel.PaginateResult[ordermodel.Order]
+func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountVendorOrderRow, error) {
 		return b.storage.Querier().ListCountVendorOrder(ctx, orderdb.ListCountVendorOrderParams{
@@ -50,7 +50,7 @@ func (b *OrderBiz) ListVendorOrder(ctx restate.Context, params ListVendorOrderPa
 		return zero, err
 	}
 
-	return commonmodel.PaginateResult[ordermodel.Order]{
+	return sharedmodel.PaginateResult[ordermodel.Order]{
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data:       orders,

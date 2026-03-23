@@ -4,7 +4,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -13,14 +13,14 @@ import (
 )
 
 type ListBrandParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	ID     []uuid.UUID `validate:"omitempty"`
 	Search null.String `validate:"omitnil"`
 }
 
 // ListBrand returns paginated brands with optional ID filter and text search.
-func (b *CatalogBiz) ListBrand(ctx restate.Context, params ListBrandParams) (commonmodel.PaginateResult[catalogdb.CatalogBrand], error) {
-	var zero commonmodel.PaginateResult[catalogdb.CatalogBrand]
+func (b *CatalogBiz) ListBrand(ctx restate.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
+	var zero sharedmodel.PaginateResult[catalogdb.CatalogBrand]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -42,7 +42,7 @@ func (b *CatalogBiz) ListBrand(ctx restate.Context, params ListBrandParams) (com
 		total.SetValid(dbBrands[0].TotalCount)
 	}
 
-	return commonmodel.PaginateResult[catalogdb.CatalogBrand]{
+	return sharedmodel.PaginateResult[catalogdb.CatalogBrand]{
 		PageParams: params.PaginationParams,
 		Data:       lo.Map(dbBrands, func(dbBrand catalogdb.SearchBrandRow, _ int) catalogdb.CatalogBrand { return dbBrand.CatalogBrand }),
 		Total:      total,

@@ -9,12 +9,12 @@ import (
 
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 )
 
 type ListProductCardRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	VendorID uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
 	Search   null.String   `query:"search" validate:"omitnil"`
 }

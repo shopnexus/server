@@ -12,7 +12,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
@@ -39,13 +39,13 @@ func (b *OrderBiz) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.
 }
 
 type ListOrdersParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	ID []uuid.UUID `validate:"dive"`
 }
 
 // ListOrders returns paginated orders with hydrated items, payments, and product resources.
-func (b *OrderBiz) ListOrders(ctx restate.Context, params ListOrdersParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
-	var zero commonmodel.PaginateResult[ordermodel.Order]
+func (b *OrderBiz) ListOrders(ctx restate.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -75,7 +75,7 @@ func (b *OrderBiz) ListOrders(ctx restate.Context, params ListOrdersParams) (com
 		return zero, err
 	}
 
-	return commonmodel.PaginateResult[ordermodel.Order]{
+	return sharedmodel.PaginateResult[ordermodel.Order]{
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data:       data,
@@ -181,7 +181,7 @@ func (b *OrderBiz) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrde
 				AccountID:   payment.AccountID,
 				Option:      payment.Option,
 				Status:      payment.Status,
-				Amount:      commonmodel.Concurrency(payment.Amount),
+				Amount:      sharedmodel.Concurrency(payment.Amount),
 				Data:        payment.Data,
 				DateCreated: payment.DateCreated,
 				DatePaid:    payment.DatePaid,
@@ -189,11 +189,11 @@ func (b *OrderBiz) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrde
 			},
 			Status:          o.Status,
 			Address:         o.Address,
-			ProductCost:     commonmodel.Concurrency(o.ProductCost),
-			ShipCost:        commonmodel.Concurrency(o.ShipCost),
-			ProductDiscount: commonmodel.Concurrency(o.ProductDiscount),
-			ShipDiscount:    commonmodel.Concurrency(o.ShipDiscount),
-			Total:           commonmodel.Concurrency(o.Total),
+			ProductCost:     sharedmodel.Concurrency(o.ProductCost),
+			ShipCost:        sharedmodel.Concurrency(o.ShipCost),
+			ProductDiscount: sharedmodel.Concurrency(o.ProductDiscount),
+			ShipDiscount:    sharedmodel.Concurrency(o.ShipDiscount),
+			Total:           sharedmodel.Concurrency(o.Total),
 			Note:            o.Note,
 			Data:            o.Data,
 			DateCreated:     o.DateCreated,
@@ -254,9 +254,9 @@ type QuoteOrderParams struct {
 	Items   []CheckoutItem `validate:"required,min=1,dive"`
 }
 type QuoteOrderResult struct {
-	ProductCost commonmodel.Concurrency `json:"product_cost"`
-	ShipCost    commonmodel.Concurrency `json:"ship_cost"`
-	Total       commonmodel.Concurrency `json:"total"`
+	ProductCost sharedmodel.Concurrency `json:"product_cost"`
+	ShipCost    sharedmodel.Concurrency `json:"ship_cost"`
+	Total       sharedmodel.Concurrency `json:"total"`
 }
 
 // QuoteOrder calculates the estimated total cost including shipping and promotions without placing an order.
@@ -298,7 +298,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 
 	return restate.Run(ctx, func(ctx restate.RunContext) (QuoteOrderResult, error) {
 		// Quote shipping per checkout item
-		shippingCostMap := make(map[uuid.UUID]commonmodel.Concurrency, len(params.Items))
+		shippingCostMap := make(map[uuid.UUID]sharedmodel.Concurrency, len(params.Items))
 		for _, checkoutItem := range params.Items {
 			shipmentClient, err := b.getShipmentClient(checkoutItem.ShipmentOption)
 			if err != nil {
@@ -322,7 +322,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 				return zero, fmt.Errorf("quote shipment: %w", err)
 			}
 
-			shippingCostMap[checkoutItem.SkuID] = commonmodel.Concurrency(shipmentQuote.Costs)
+			shippingCostMap[checkoutItem.SkuID] = sharedmodel.Concurrency(shipmentQuote.Costs)
 		}
 
 		// Calculate promoted prices with quoted shipping

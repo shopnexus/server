@@ -19,11 +19,11 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogBiz) productCardsFromSpuIDs(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogBiz) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -61,7 +61,7 @@ func (b *CatalogBiz) productCardsFromSpuIDs(ctx restate.Context, spuIDs []uuid.U
 		requestPrices = append(requestPrices, catalogmodel.RequestOrderPrice{
 			SkuID:     sku.ID,
 			SpuID:     sku.SpuID,
-			UnitPrice: commonmodel.Concurrency(sku.Price),
+			UnitPrice: sharedmodel.Concurrency(sku.Price),
 			Quantity:  1,
 			ShipCost:  0,
 		})
@@ -114,8 +114,8 @@ func (b *CatalogBiz) productCardsFromSpuIDs(ctx restate.Context, spuIDs []uuid.U
 		rating := ratingMap[spu.ID]
 		resources := resourcesMap[spu.ID]
 
-		priceValue := commonmodel.Concurrency(featured.Price)
-		originalPrice := commonmodel.Concurrency(featured.Price)
+		priceValue := sharedmodel.Concurrency(featured.Price)
+		originalPrice := sharedmodel.Concurrency(featured.Price)
 		if priceInfo := priceMap[featured.ID]; priceInfo != nil {
 			originalPrice = priceInfo.Request.UnitPrice
 			if priceInfo.ProductCost != 0 {
@@ -161,7 +161,7 @@ func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardPa
 		return nil, err
 	}
 
-	productCardMap, err := b.productCardsFromSpuIDs(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
+	productCardMap, err := b.buildProductCards(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,15 +175,15 @@ func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardPa
 }
 
 type ListProductCardParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	AccountID *uuid.UUID    // optional, for is_favorite
 	VendorID  uuid.NullUUID `validate:"omitnil"`
 	Search    null.String   `validate:"omitnil,min=1,max=100"`
 }
 
 // ListProductCard returns paginated product cards with optional search and vendor filter.
-func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCardParams) (commonmodel.PaginateResult[catalogmodel.ProductCard], error) {
-	var zero commonmodel.PaginateResult[catalogmodel.ProductCard]
+func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
 	var err error
 
@@ -240,7 +240,7 @@ func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCard
 	}
 	// TODO: handle total from search result
 
-	productCardMap, err := b.productCardsFromSpuIDs(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
+	productCardMap, err := b.buildProductCards(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
 	if err != nil {
 		return zero, err
 	}
@@ -258,7 +258,7 @@ func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCard
 	}
 
 	// List some attributes for compact data
-	return commonmodel.PaginateResult[catalogmodel.ProductCard]{
+	return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
 		PageParams: params.PaginationParams,
 		Data:       products,
 		Total:      null.IntFrom(total),
@@ -334,7 +334,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx restate.Context, params List
 	amount := int32(params.Limit - len(rcmProducts))
 	if amount > 0 {
 		mostSolds, err := b.inventory.ListMostTakenSku(ctx, inventorybiz.ListMostTakenSkuParams{
-			PaginationParams: commonmodel.PaginationParams{
+			PaginationParams: sharedmodel.PaginationParams{
 				Limit: null.Int32From(int32(amount * 100)),
 			},
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
@@ -365,7 +365,7 @@ func (b *CatalogBiz) ListRecommendedProductCard(ctx restate.Context, params List
 		})...)
 	}
 
-	productCardMap, err := b.productCardsFromSpuIDs(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
+	productCardMap, err := b.buildProductCards(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
 	if err != nil {
 		return zero, err
 	}

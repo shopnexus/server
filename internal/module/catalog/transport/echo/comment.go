@@ -6,7 +6,7 @@ import (
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 )
 
 type ListCommentRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	RefType   catalogdb.CatalogCommentRefType `query:"ref_type" validate:"required"`
 	RefID     uuid.UUID                       `query:"ref_id" validate:"required"`
 	ID        []uuid.UUID                     `query:"id" validate:"omitempty"`

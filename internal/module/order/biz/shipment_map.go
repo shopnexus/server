@@ -7,11 +7,11 @@ import (
 	"shopnexus-server/internal/infras/shipment/ghtk"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 func (b *OrderBiz) SetupShipmentMap() error {
-	var options []commonmodel.OptionConfig
+	var options []sharedmodel.OptionConfig
 	b.shipmentMap = make(map[string]shipment.Client)
 
 	// Setup GHTK clients

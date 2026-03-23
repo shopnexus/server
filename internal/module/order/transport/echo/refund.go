@@ -6,7 +6,7 @@ import (
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -52,7 +52,7 @@ func (h *Handler) CreateRefund(c echo.Context) error {
 }
 
 type ListRefundsRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 }
 
 func (h *Handler) ListRefunds(c echo.Context) error {

@@ -1,7 +1,7 @@
 package catalogmodel
 
 import (
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 )
@@ -16,30 +16,30 @@ const (
 type OrderPrice struct {
 	Request RequestOrderPrice
 
-	ProductCost commonmodel.Concurrency
-	ShipCost    commonmodel.Concurrency
+	ProductCost sharedmodel.Concurrency
+	ShipCost    sharedmodel.Concurrency
 
 	PromotionCodes []string
 }
 
-func (o *OrderPrice) Total() commonmodel.Concurrency {
+func (o *OrderPrice) Total() sharedmodel.Concurrency {
 	return o.ProductCost.Add(o.ShipCost)
 }
 
 type RequestOrderPrice struct {
 	SkuID          uuid.UUID
 	SpuID          uuid.UUID
-	UnitPrice      commonmodel.Concurrency
+	UnitPrice      sharedmodel.Concurrency
 	Quantity       int64
-	ShipCost       commonmodel.Concurrency
+	ShipCost       sharedmodel.Concurrency
 	PromotionCodes []string
 }
 
-func (ro RequestOrderPrice) ProductCost() commonmodel.Concurrency {
+func (ro RequestOrderPrice) ProductCost() sharedmodel.Concurrency {
 	return ro.UnitPrice.Mul(ro.Quantity)
 }
 
-func (ro RequestOrderPrice) Total() commonmodel.Concurrency {
+func (ro RequestOrderPrice) Total() sharedmodel.Concurrency {
 	return ro.ProductCost().Add(ro.ShipCost)
 }
 

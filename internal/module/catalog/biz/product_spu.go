@@ -21,7 +21,7 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-func (b *CatalogBiz) mustGetTagsMap(ctx restate.Context, spuID []uuid.UUID) map[uuid.UUID][]string { // map[spuID][]tag
+func (b *CatalogBiz) getTagsMap(ctx restate.Context, spuID []uuid.UUID) map[uuid.UUID][]string { // map[spuID][]tag
 	tags, err := b.storage.Querier().ListProductSpuTag(ctx, catalogdb.ListProductSpuTagParams{
 		SpuID: spuID,
 	})
@@ -36,7 +36,7 @@ func (b *CatalogBiz) mustGetTagsMap(ctx restate.Context, spuID []uuid.UUID) map[
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetCategory(ctx restate.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
+func (b *CatalogBiz) getCategory(ctx restate.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
 	category, _ := b.storage.Querier().GetCategory(ctx, catalogdb.GetCategoryParams{
 		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
 	})
@@ -44,7 +44,7 @@ func (b *CatalogBiz) mustGetCategory(ctx restate.Context, categoryID uuid.UUID) 
 }
 
 // TODO: use join instead of spamming N+1 queries
-func (b *CatalogBiz) mustGetBrand(ctx restate.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
+func (b *CatalogBiz) getBrand(ctx restate.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
 	brand, _ := b.storage.Querier().GetBrand(ctx, catalogdb.GetBrandParams{
 		ID: uuid.NullUUID{UUID: brandID, Valid: true},
 	})
@@ -137,7 +137,7 @@ func (b *CatalogBiz) ListProductSpu(ctx restate.Context, params ListProductSpuPa
 	}
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
-	tagsMap := b.mustGetTagsMap(ctx, spuIDs)
+	tagsMap := b.getTagsMap(ctx, spuIDs)
 
 	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
 	if err != nil {
@@ -234,7 +234,7 @@ func (b *CatalogBiz) CreateProductSpu(ctx restate.Context, params CreateProductS
 		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
-	tagsMap := b.mustGetTagsMap(ctx, []uuid.UUID{spu.ID})
+	tagsMap := b.getTagsMap(ctx, []uuid.UUID{spu.ID})
 
 	m := b.dbToProductSpu(ctx, spu)
 	m.Tags = tagsMap[spu.ID]
@@ -437,8 +437,8 @@ func (b *CatalogBiz) dbToProductSpu(ctx restate.Context, spu catalogdb.CatalogPr
 		ID:            spu.ID,
 		AccountID:     spu.AccountID,
 		Slug:          spu.Slug,
-		Category:      b.mustGetCategory(ctx, spu.CategoryID),
-		Brand:         b.mustGetBrand(ctx, spu.BrandID),
+		Category:      b.getCategory(ctx, spu.CategoryID),
+		Brand:         b.getBrand(ctx, spu.BrandID),
 		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,

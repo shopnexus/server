@@ -5,7 +5,7 @@ import (
 
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/guregu/null/v6"
@@ -13,13 +13,13 @@ import (
 )
 
 type ListTagParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	Search null.String `validate:"omitnil,max=100"`
 }
 
 // ListTag returns paginated tags with optional text search.
-func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (commonmodel.PaginateResult[catalogdb.CatalogTag], error) {
-	var zero commonmodel.PaginateResult[catalogdb.CatalogTag]
+func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
+	var zero sharedmodel.PaginateResult[catalogdb.CatalogTag]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -39,7 +39,7 @@ func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (commonm
 		total.SetValid(listTag[0].TotalCount)
 	}
 
-	return commonmodel.PaginateResult[catalogdb.CatalogTag]{
+	return sharedmodel.PaginateResult[catalogdb.CatalogTag]{
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data:       lo.Map(listTag, func(row catalogdb.SearchTagRow, _ int) catalogdb.CatalogTag { return row.CatalogTag }),

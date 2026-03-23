@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -26,7 +26,7 @@ func (h *Handler) GetBrand(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListBrand(c.Request().Context(), catalogbiz.ListBrandParams{
-		PaginationParams: commonmodel.PaginationParams{
+		PaginationParams: sharedmodel.PaginationParams{
 			Limit: null.Int32From(1),
 		}.Constrain(),
 		ID: []uuid.UUID{req.ID},
@@ -39,7 +39,7 @@ func (h *Handler) GetBrand(c echo.Context) error {
 }
 
 type ListBrandRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	Search null.String `query:"search" validate:"omitnil"`
 }
 

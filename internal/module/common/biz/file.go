@@ -13,7 +13,7 @@ import (
 	objs3 "shopnexus-server/internal/infras/objectstore/s3"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -21,7 +21,7 @@ import (
 
 func (b *CommonBiz) SetupObjectStore() error {
 	var err error
-	var configs []commonmodel.OptionConfig
+	var configs []sharedmodel.OptionConfig
 	b.objectstoreMap = make(map[string]objectstore.Client)
 
 	// setup local

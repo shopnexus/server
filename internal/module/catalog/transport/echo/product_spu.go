@@ -6,7 +6,7 @@ import (
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -15,8 +15,8 @@ import (
 )
 
 type ListProductSpuRequest struct {
-	commonmodel.PaginationParams
-	Code       []string    `query:"code" comma_separated:"true" validate:"omitempty"`
+	sharedmodel.PaginationParams
+	Slug       []string    `query:"slug" comma_separated:"true" validate:"omitempty"`
 	CategoryID []uuid.UUID `query:"category_id" comma_separated:"true" validate:"omitempty"`
 	BrandID    []uuid.UUID `query:"brand_id" comma_separated:"true" validate:"omitempty"`
 	IsActive   []bool      `query:"is_active" comma_separated:"true" validate:"omitempty"`
@@ -38,7 +38,7 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
 		PaginationParams: req.PaginationParams.Constrain(),
-		Slug:             req.Code,
+		Slug:             req.Slug,
 		CategoryID:       req.CategoryID,
 		BrandID:          req.BrandID,
 		IsActive:         req.IsActive,

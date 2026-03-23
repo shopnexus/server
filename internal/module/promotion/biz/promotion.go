@@ -16,7 +16,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
 
@@ -50,13 +50,13 @@ func (s *PromotionBiz) GetPromotion(ctx restate.Context, params GetPromotionPara
 // --- List ---
 
 type ListPromotionParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	ID []uuid.UUID `validate:"omitempty,dive,required"`
 }
 
 // ListPromotion returns a paginated list of promotions with their refs.
-func (s *PromotionBiz) ListPromotion(ctx restate.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.Promotion], error) {
-	var zero commonmodel.PaginateResult[promotionmodel.Promotion]
+func (s *PromotionBiz) ListPromotion(ctx restate.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
+	var zero sharedmodel.PaginateResult[promotionmodel.Promotion]
 
 	rows, err := s.storage.Querier().ListCountPromotion(ctx, promotiondb.ListCountPromotionParams{
 		Limit:  params.Limit,
@@ -84,7 +84,7 @@ func (s *PromotionBiz) ListPromotion(ctx restate.Context, params ListPromotionPa
 		total.SetValid(rows[0].TotalCount)
 	}
 
-	return commonmodel.PaginateResult[promotionmodel.Promotion]{
+	return sharedmodel.PaginateResult[promotionmodel.Promotion]{
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data: lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) promotionmodel.Promotion {

@@ -4,7 +4,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -13,14 +13,14 @@ import (
 )
 
 type ListCategoryParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 	ID     []uuid.UUID `validate:"omitempty,dive,gt=0"`
 	Search null.String `validate:"omitnil"`
 }
 
 // ListCategory returns paginated categories with optional ID filter and text search.
-func (b *CatalogBiz) ListCategory(ctx restate.Context, params ListCategoryParams) (commonmodel.PaginateResult[catalogdb.CatalogCategory], error) {
-	var zero commonmodel.PaginateResult[catalogdb.CatalogCategory]
+func (b *CatalogBiz) ListCategory(ctx restate.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
+	var zero sharedmodel.PaginateResult[catalogdb.CatalogCategory]
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -41,7 +41,7 @@ func (b *CatalogBiz) ListCategory(ctx restate.Context, params ListCategoryParams
 		total.SetValid(dbCategories[0].TotalCount)
 	}
 
-	return commonmodel.PaginateResult[catalogdb.CatalogCategory]{
+	return sharedmodel.PaginateResult[catalogdb.CatalogCategory]{
 		PageParams: params.PaginationParams,
 		Data: lo.Map(dbCategories, func(dbCategory catalogdb.SearchCategoryRow, _ int) catalogdb.CatalogCategory {
 			return dbCategory.CatalogCategory

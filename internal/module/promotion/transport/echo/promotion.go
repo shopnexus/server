@@ -14,7 +14,7 @@ import (
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
 	authclaims "shopnexus-server/internal/shared/claims"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 )
 
@@ -81,7 +81,7 @@ func (h *Handler) GetPromotion(c echo.Context) error {
 // --- List ---
 
 type ListPromotionRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
 }
 
 func (h *Handler) ListPromotion(c echo.Context) error {
