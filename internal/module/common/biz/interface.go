@@ -48,15 +48,15 @@ type GetResourcesParams struct {
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
 
-// CommonBizImpl implements shared business logic used across modules.
-type CommonBizImpl struct {
+// CommonBizHandler implements shared business logic used across modules.
+type CommonBizHandler struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 }
 
-// NewcommonBiz creates a new CommonBizImpl with the given dependencies.
-func NewcommonBiz(storage CommonStorage) (*CommonBizImpl, error) {
-	b := &CommonBizImpl{
+// NewcommonBiz creates a new CommonBizHandler with the given dependencies.
+func NewcommonBiz(storage CommonStorage) (*CommonBizHandler, error) {
+	b := &CommonBizHandler{
 		storage: storage,
 	}
 

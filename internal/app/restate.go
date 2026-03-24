@@ -29,7 +29,7 @@ func SetupRestate(
 	orderBiz *orderbiz.OrderBizHandler,
 	accountBiz *accountbiz.AccountBizHandler,
 	catalogBiz *catalogbiz.CatalogBizHandler,
-	commonBiz *commonbiz.CommonBizImpl,
+	commonBiz *commonbiz.CommonBizHandler,
 	inventoryBiz *inventorybiz.InventoryBizHandler,
 	promotionBiz *promotionbiz.PromotionBizHandler,
 	analyticBiz *analyticbiz.AnalyticBizHandler,
