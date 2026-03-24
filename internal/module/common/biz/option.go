@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	restate "github.com/restatedev/sdk-go"
+
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
@@ -19,7 +21,13 @@ type UpdateServiceOptionsParams struct {
 }
 
 // UpdateServiceOptions creates or updates service option configurations for a given category.
-func (b *CommonBizImpl) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
+func (b *CommonBizImpl) UpdateServiceOptions(ctx restate.Context, params UpdateServiceOptionsParams) error {
+	return b.updateServiceOptions(ctx, params)
+}
+
+// updateServiceOptions is an internal helper that accepts context.Context,
+// used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
+func (b *CommonBizImpl) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -73,7 +81,7 @@ type ListServiceOptionParams struct {
 }
 
 // ListServiceOption returns active service options filtered by category.
-func (b *CommonBizImpl) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+func (b *CommonBizImpl) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
 	if validator.Validate(params) != nil {
 		return nil, validator.Validate(params)
 	}

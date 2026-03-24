@@ -34,7 +34,7 @@ type ListCommentParams struct {
 }
 
 // ListComment returns paginated comments with author profiles and attached resources.
-func (b *CatalogBizImpl) ListComment(ctx restate.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
+func (b *CatalogBizHandler) ListComment(ctx restate.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
@@ -83,7 +83,10 @@ func (b *CatalogBizImpl) ListComment(ctx restate.Context, params ListCommentPara
 	profileMap := lo.KeyBy(listProfile.Data, func(a accountmodel.Profile) uuid.UUID { return a.ID })
 
 	// Map resources to comments
-	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeComment, commentIDs)
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeComment,
+		RefIDs:  commentIDs,
+	})
 	if err != nil {
 		return zero, err
 	}
@@ -122,7 +125,7 @@ type CreateCommentParams struct {
 }
 
 // CreateComment creates a new comment with resources and tracks review analytics.
-func (b *CatalogBizImpl) CreateComment(ctx restate.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
+func (b *CatalogBizHandler) CreateComment(ctx restate.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
@@ -206,7 +209,7 @@ type UpdateCommentParams struct {
 }
 
 // UpdateComment updates a comment's body, score, votes, and attached resources.
-func (b *CatalogBizImpl) UpdateComment(ctx restate.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
+func (b *CatalogBizHandler) UpdateComment(ctx restate.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
@@ -275,7 +278,7 @@ type DeleteCommentParams struct {
 }
 
 // DeleteComment deletes comments and their associated resources.
-func (b *CatalogBizImpl) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
+func (b *CatalogBizHandler) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}

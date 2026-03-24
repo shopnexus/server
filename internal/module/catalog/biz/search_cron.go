@@ -24,7 +24,7 @@ const (
 )
 
 // SetupCron starts background cron jobs for syncing product metadata and embeddings.
-func (b *CatalogBizImpl) SetupCron() error {
+func (b *CatalogBizHandler) SetupCron() error {
 	cfg := config.GetConfig()
 
 	metadataInterval := cfg.App.Search.ProductMetadataSyncInterval
@@ -43,7 +43,7 @@ func (b *CatalogBizImpl) SetupCron() error {
 }
 
 // syncProductData fetches stale products and syncs them via Restate ingress
-func (b *CatalogBizImpl) syncProductData(ctx context.Context, metadataOnly bool) error {
+func (b *CatalogBizHandler) syncProductData(ctx context.Context, metadataOnly bool) error {
 	if metadataOnly {
 		metadataStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
 			RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
@@ -87,7 +87,7 @@ type UpdateStaleProductsParams struct {
 }
 
 // updateStaleProducts fetches product details via Restate and syncs to search engine
-func (b *CatalogBizImpl) updateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
+func (b *CatalogBizHandler) updateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
 	if len(params.Stales) == 0 {
 		return nil
 	}
@@ -100,7 +100,7 @@ func (b *CatalogBizImpl) updateStaleProducts(ctx context.Context, params UpdateS
 	// Fetch product details via Restate ingress
 	var productDetails []catalogmodel.ProductDetail
 	for _, stale := range params.Stales {
-		detail, err := restateclient.Call[catalogmodel.ProductDetail](ctx, b.restateClient, "CatalogBizImpl", "GetProductDetail", GetProductDetailParams{
+		detail, err := restateclient.Call[catalogmodel.ProductDetail](ctx, b.restateClient, "CatalogBizHandler", "GetProductDetail", GetProductDetailParams{
 			ID: uuid.NullUUID{UUID: stale.RefID, Valid: true},
 		})
 		if err != nil {
@@ -133,7 +133,7 @@ func (b *CatalogBizImpl) updateStaleProducts(ctx context.Context, params UpdateS
 	}
 
 	// Last step: send to search server via Restate ingress
-	if err := restateclient.Send(ctx, b.restateClient, "CatalogBizImpl", "UpdateProducts", UpdateProductsParams{
+	if err := restateclient.Send(ctx, b.restateClient, "CatalogBizHandler", "UpdateProducts", UpdateProductsParams{
 		Products:     productDetails,
 		MetadataOnly: params.MetadataOnly,
 	}); err != nil {
@@ -144,7 +144,7 @@ func (b *CatalogBizImpl) updateStaleProducts(ctx context.Context, params UpdateS
 }
 
 // startProductSyncCron starts the cron job for product data sync
-func (b *CatalogBizImpl) startProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
+func (b *CatalogBizHandler) startProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
 	log.Println("Starting product sync cron job...")
 
 	// Run immediately on startup

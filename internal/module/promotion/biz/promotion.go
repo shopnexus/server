@@ -27,7 +27,7 @@ type GetPromotionParams struct {
 }
 
 // GetPromotion returns a promotion by ID, including its refs.
-func (s *PromotionBizImpl) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionBizHandler) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	promo, err := s.storage.Querier().GetPromotion(ctx, promotiondb.GetPromotionParams{
@@ -55,7 +55,7 @@ type ListPromotionParams struct {
 }
 
 // ListPromotion returns a paginated list of promotions with their refs.
-func (s *PromotionBizImpl) ListPromotion(ctx restate.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
+func (s *PromotionBizHandler) ListPromotion(ctx restate.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
 	var zero sharedmodel.PaginateResult[promotionmodel.Promotion]
 
 	rows, err := s.storage.Querier().ListCountPromotion(ctx, promotiondb.ListCountPromotionParams{
@@ -113,7 +113,7 @@ type CreatePromotionParams struct {
 }
 
 // CreatePromotion creates a new promotion with the given parameters and refs.
-func (b *PromotionBizImpl) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
+func (b *PromotionBizHandler) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -169,7 +169,7 @@ type UpdatePromotionParams struct {
 }
 
 // UpdatePromotion updates the specified promotion fields and optionally replaces its refs.
-func (s *PromotionBizImpl) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionBizHandler) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -220,7 +220,7 @@ type DeletePromotionParams struct {
 }
 
 // DeletePromotion deletes the promotion with the given ID.
-func (s *PromotionBizImpl) DeletePromotion(ctx restate.Context, params DeletePromotionParams) error {
+func (s *PromotionBizHandler) DeletePromotion(ctx restate.Context, params DeletePromotionParams) error {
 	return s.storage.Querier().DeletePromotion(ctx, promotiondb.DeletePromotionParams{
 		ID: []uuid.UUID{params.ID},
 	})

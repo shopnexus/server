@@ -14,7 +14,7 @@ import (
 )
 
 // HandlePopularityEvent updates product popularity scores based on an interaction event.
-func (b *AnalyticBizImpl) HandlePopularityEvent(ctx restate.Context, event analyticmodel.Interaction) error {
+func (b *AnalyticBizHandler) HandlePopularityEvent(ctx restate.Context, event analyticmodel.Interaction) error {
 	if event.RefType != analyticdb.AnalyticInteractionRefTypeProduct {
 		return nil
 	}
@@ -60,12 +60,12 @@ func (b *AnalyticBizImpl) HandlePopularityEvent(ctx restate.Context, event analy
 }
 
 // GetProductPopularity returns the popularity metrics for the given product SPU.
-func (b *AnalyticBizImpl) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticBizHandler) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
 	return b.storage.Querier().GetProductPopularityByID(ctx, spuID)
 }
 
 // ListTopProductPopularity returns the top products ranked by popularity score.
-func (b *AnalyticBizImpl) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticBizHandler) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	params = params.Constrain()
 	return b.storage.Querier().ListTopProductPopularity(ctx, analyticdb.ListTopProductPopularityParams{
 		Limit:  params.Limit,

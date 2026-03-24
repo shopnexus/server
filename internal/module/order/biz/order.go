@@ -9,6 +9,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
@@ -23,7 +24,7 @@ import (
 )
 
 // GetOrder returns a single order by ID with all items and payment details.
-func (b *OrderBizImpl) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
+func (b *OrderBizHandler) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
 	orders, err := b.ListOrders(ctx, ListOrdersParams{
@@ -45,7 +46,7 @@ type ListOrdersParams struct {
 }
 
 // ListOrders returns paginated orders with hydrated items, payments, and product resources.
-func (b *OrderBizImpl) ListOrders(ctx restate.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderBizHandler) ListOrders(ctx restate.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
@@ -83,7 +84,7 @@ func (b *OrderBizImpl) ListOrders(ctx restate.Context, params ListOrdersParams) 
 	}, nil
 }
 
-func (b *OrderBizImpl) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrder) ([]ordermodel.Order, error) {
+func (b *OrderBizHandler) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrder) ([]ordermodel.Order, error) {
 	if len(orders) == 0 {
 		return []ordermodel.Order{}, nil
 	}
@@ -137,7 +138,10 @@ func (b *OrderBizImpl) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	spuIDs := lo.Uniq(lo.Values(skuToSpuMap))
 
 	// GetResources uses context.Context, safe to call with restate.Context (which embeds it)
-	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  spuIDs,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +215,7 @@ type VerifyPaymentParams struct {
 }
 
 // VerifyPayment verifies a payment callback from the payment gateway and updates the payment status.
-func (b *OrderBizImpl) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
+func (b *OrderBizHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -259,7 +263,7 @@ type QuoteOrderResult struct {
 }
 
 // QuoteOrder calculates the estimated total cost including shipping and promotions without placing an order.
-func (b *OrderBizImpl) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
+func (b *OrderBizHandler) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
 	var zero QuoteOrderResult
 
 	if err := validator.Validate(params); err != nil {

@@ -21,7 +21,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// CatalogBiz is the client interface for CatalogBizImpl, which is used by other modules to call CatalogBizImpl methods.
+// CatalogBiz is the client interface for CatalogBizHandler, which is used by other modules to call CatalogBizHandler methods.
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface CatalogBiz -service CatalogBiz
 type CatalogBiz interface {
@@ -69,8 +69,8 @@ type CatalogBiz interface {
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
-// CatalogBizImpl implements the core business logic for the catalog module.
-type CatalogBizImpl struct {
+// CatalogBizHandler implements the core business logic for the catalog module.
+type CatalogBizHandler struct {
 	cache         cachestruct.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
@@ -92,7 +92,7 @@ type CatalogBizImpl struct {
 	syncLock sync.Mutex
 }
 
-// NewCatalogBiz creates a new CatalogBizImpl with the given dependencies.
+// NewCatalogBiz creates a new CatalogBizHandler with the given dependencies.
 func NewCatalogBiz(
 	cfg *config.Config,
 	storage CatalogStorage,
@@ -104,9 +104,9 @@ func NewCatalogBiz(
 	promotion promotionbiz.PromotionBiz,
 	milvusClient *milvus.Client,
 	embeddingClient *embedding.Client,
-) *CatalogBizImpl {
+) *CatalogBizHandler {
 
-	b := &CatalogBizImpl{
+	b := &CatalogBizHandler{
 		cache:         cache,
 		restateClient: restateClient,
 		storage:       storage,

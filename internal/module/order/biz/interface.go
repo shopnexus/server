@@ -19,7 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// OrderBiz is the client interface for OrderBizImpl, which is used by other modules to call OrderBizImpl methods.
+// OrderBiz is the client interface for OrderBizHandler, which is used by other modules to call OrderBizHandler methods.
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface OrderBiz -service OrderBiz
 type OrderBiz interface {
@@ -51,8 +51,8 @@ type OrderBiz interface {
 
 type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 
-// OrderBizImpl implements the core business logic for the order module.
-type OrderBizImpl struct {
+// OrderBizHandler implements the core business logic for the order module.
+type OrderBizHandler struct {
 	storage     OrderStorage
 	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
 	shipmentMap map[string]shipment.Client // map[shipmentOption]shipment.Client
@@ -63,7 +63,7 @@ type OrderBizImpl struct {
 	common      commonbiz.CommonBiz
 }
 
-// NewOrderBiz creates a new OrderBizImpl with the given dependencies.
+// NewOrderBiz creates a new OrderBizHandler with the given dependencies.
 func NewOrderBiz(
 	storage OrderStorage,
 	account accountbiz.AccountBiz,
@@ -71,8 +71,8 @@ func NewOrderBiz(
 	inventory inventorybiz.InventoryBiz,
 	promotion promotionbiz.PromotionBiz,
 	common commonbiz.CommonBiz,
-) (*OrderBizImpl, error) {
-	b := &OrderBizImpl{
+) (*OrderBizHandler, error) {
+	b := &OrderBizHandler{
 		storage:   storage,
 		account:   account,
 		catalog:   catalog,

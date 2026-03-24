@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 
+	restate "github.com/restatedev/sdk-go"
+
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
@@ -25,7 +27,7 @@ type UpdateResourcesParams struct {
 }
 
 // UpdateResources replaces all resource references for a given entity and returns the updated list.
-func (b *CommonBizImpl) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
+func (b *CommonBizImpl) UpdateResources(ctx restate.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -70,7 +72,10 @@ func (b *CommonBizImpl) UpdateResources(ctx context.Context, params UpdateResour
 		}
 	}
 
-	resourcesMap, err := b.GetResources(ctx, params.RefType, []uuid.UUID{params.RefID})
+	resourcesMap, err := b.GetResources(ctx, GetResourcesParams{
+		RefType: params.RefType,
+		RefIDs:  []uuid.UUID{params.RefID},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("update resources: %w", err)
 	}
@@ -86,7 +91,7 @@ type DeleteResourcesParams struct {
 }
 
 // DeleteResources removes resource references and optionally deletes the underlying resource records.
-func (b *CommonBizImpl) DeleteResources(ctx context.Context, params DeleteResourcesParams) error {
+func (b *CommonBizImpl) DeleteResources(ctx restate.Context, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -126,12 +131,12 @@ func (b *CommonBizImpl) DeleteResources(ctx context.Context, params DeleteResour
 }
 
 // GetResources returns resources grouped by reference ID for the given ref type and IDs.
-func (b *CommonBizImpl) GetResources(ctx context.Context, refType commondb.CommonResourceRefType, refIDs []uuid.UUID) (map[uuid.UUID][]commonmodel.Resource, error) {
+func (b *CommonBizImpl) GetResources(ctx restate.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error) {
 	var err error
 
 	resources, err := b.storage.Querier().ListSortedResources(ctx, commondb.ListSortedResourcesParams{
-		RefType: refType,
-		RefID:   refIDs,
+		RefType: params.RefType,
+		RefID:   params.RefIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -140,7 +145,7 @@ func (b *CommonBizImpl) GetResources(ctx context.Context, refType commondb.Commo
 	return lo.GroupByMap(resources, func(rs commondb.ListSortedResourcesRow) (uuid.UUID, commonmodel.Resource) {
 		return rs.RefID, commonmodel.Resource{
 			ID:       rs.ID,
-			Url:      b.MustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
+			Url:      b.mustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
 			Mime:     rs.Mime,
 			Size:     rs.Size,
 			Checksum: rs.Checksum,
@@ -149,7 +154,7 @@ func (b *CommonBizImpl) GetResources(ctx context.Context, refType commondb.Commo
 }
 
 // GetResourcesByIDs returns a map of resources keyed by their IDs, falling back to placeholder URLs on error.
-func (b *CommonBizImpl) GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) map[uuid.UUID]commonmodel.Resource {
+func (b *CommonBizImpl) GetResourcesByIDs(ctx restate.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error) {
 	result := make(map[uuid.UUID]commonmodel.Resource)
 	for _, rsID := range resourceIDs {
 		result[rsID] = commonmodel.Resource{
@@ -161,34 +166,34 @@ func (b *CommonBizImpl) GetResourcesByIDs(ctx context.Context, resourceIDs []uui
 		ID: resourceIDs,
 	})
 	if err != nil {
-		return result
+		return result, nil
 	}
 
 	for _, rs := range resources {
 		result[rs.ID] = commonmodel.Resource{
 			ID:       rs.ID,
-			Url:      b.MustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
+			Url:      b.mustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
 			Mime:     rs.Mime,
 			Size:     rs.Size,
 			Checksum: rs.Checksum,
 		}
 	}
 
-	return result
+	return result, nil
 }
 
-func (b *CommonBizImpl) GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) null.String {
+func (b *CommonBizImpl) GetResourceURLByID(ctx restate.Context, resourceID uuid.UUID) (null.String, error) {
 	resource, err := b.storage.Querier().GetResource(ctx, commondb.GetResourceParams{
 		ID: uuid.NullUUID{UUID: resourceID, Valid: true},
 	})
 	if err != nil {
-		return null.String{}
+		return null.String{}, nil
 	}
 
 	url, err := b.mustGetObjectStore(resource.Provider).GetURL(ctx, resource.ObjectKey)
 	if err != nil {
-		return null.String{}
+		return null.String{}, nil
 	}
 
-	return null.StringFrom(url)
+	return null.StringFrom(url), nil
 }

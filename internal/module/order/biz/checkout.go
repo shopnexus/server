@@ -18,9 +18,9 @@ import (
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
-	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -72,7 +72,7 @@ type checkoutPaymentResult struct {
 }
 
 // Checkout processes a purchase order with payment creation, inventory reservation, and shipment booking.
-func (b *OrderBizImpl) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
+func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
 	var zero CheckoutResult
 
 	if err := validator.Validate(params); err != nil {
@@ -387,7 +387,7 @@ type CancelOrderParams = struct {
 }
 
 // CancelOrder cancels a pending order along with its payment and shipment.
-func (b *OrderBizImpl) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
+func (b *OrderBizHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {

@@ -19,7 +19,7 @@ type ListBrandParams struct {
 }
 
 // ListBrand returns paginated brands with optional ID filter and text search.
-func (b *CatalogBizImpl) ListBrand(ctx restate.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
+func (b *CatalogBizHandler) ListBrand(ctx restate.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
 	var zero sharedmodel.PaginateResult[catalogdb.CatalogBrand]
 
 	if err := validator.Validate(params); err != nil {

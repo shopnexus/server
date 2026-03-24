@@ -16,6 +16,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
@@ -24,7 +25,7 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogBizImpl) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogBizHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -84,7 +85,10 @@ func (b *CatalogBizImpl) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
 	// Get first image of the product
-	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, spuIDs)
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  spuIDs,
+	})
 	if err != nil {
 		return zero, err
 	}
@@ -157,7 +161,7 @@ type GetProductCardParams struct {
 }
 
 // GetProductCard returns a single product card by SPU ID.
-func (b *CatalogBizImpl) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+func (b *CatalogBizHandler) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -183,7 +187,7 @@ type ListProductCardParams struct {
 }
 
 // ListProductCard returns paginated product cards with optional search and vendor filter.
-func (b *CatalogBizImpl) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (b *CatalogBizHandler) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
 	var err error
@@ -272,7 +276,7 @@ type ListRecommendedProductCardParams struct {
 }
 
 // ListRecommendedProductCard returns personalized product card recommendations for the authenticated user.
-func (b *CatalogBizImpl) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
+func (b *CatalogBizHandler) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
 	var zero []catalogmodel.ProductCard
 	var rcmProducts []catalogmodel.ProductRecommend
 	var err error

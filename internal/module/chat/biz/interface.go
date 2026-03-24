@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ChatBiz is the client interface for ChatBizImpl, which is used by other modules to call ChatBizImpl methods.
+// ChatBiz is the client interface for ChatBizHandler, which is used by other modules to call ChatBizHandler methods.
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface ChatBiz -service ChatBiz
 type ChatBiz interface {
@@ -27,12 +27,12 @@ type ChatBiz interface {
 
 type ChatStorage = pgsqlc.Storage[*chatdb.Queries]
 
-// ChatBizImpl implements the core business logic for the chat module.
-type ChatBizImpl struct {
+// ChatBizHandler implements the core business logic for the chat module.
+type ChatBizHandler struct {
 	storage ChatStorage
 }
 
-// NewChatBiz creates a new ChatBizImpl with the given dependencies.
-func NewChatBiz(storage ChatStorage) *ChatBizImpl {
-	return &ChatBizImpl{storage: storage}
+// NewChatBiz creates a new ChatBizHandler with the given dependencies.
+func NewChatBiz(storage ChatStorage) *ChatBizHandler {
+	return &ChatBizHandler{storage: storage}
 }

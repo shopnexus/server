@@ -13,6 +13,7 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
@@ -31,7 +32,7 @@ type GetProductDetailParams struct {
 }
 
 // GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
-func (b *CatalogBizImpl) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogBizHandler) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
 	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
@@ -105,7 +106,10 @@ func (b *CatalogBizImpl) GetProductDetail(ctx restate.Context, params GetProduct
 	}
 
 	// Get images
-	resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, []uuid.UUID{spu.ID})
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  []uuid.UUID{spu.ID},
+	})
 	if err != nil {
 		return zero, err
 	}

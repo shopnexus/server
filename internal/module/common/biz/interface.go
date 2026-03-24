@@ -14,18 +14,36 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-// CommonBiz is the interface for CommonBizImpl used by other modules.
+// CommonBiz is the interface for common module, used by other modules.
+//
+//go:generate go run shopnexus-server/cmd/genrestate -interface CommonBiz -service CommonBiz
 type CommonBiz interface {
+	// File
 	UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error)
-	GetFileURL(ctx context.Context, provider string, objectKey string) (string, error)
-	MustGetFileURL(ctx context.Context, provider string, objectKey string) string
+	GetFileURL(ctx context.Context, params GetFileURLParams) (string, error)
+
+	// Option
 	UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error
 	ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error)
+
+	// Resource
 	UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error)
 	DeleteResources(ctx context.Context, params DeleteResourcesParams) error
-	GetResources(ctx context.Context, refType commondb.CommonResourceRefType, refIDs []uuid.UUID) (map[uuid.UUID][]commonmodel.Resource, error)
-	GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) map[uuid.UUID]commonmodel.Resource
-	GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) null.String
+	GetResources(ctx context.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error)
+	GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error)
+	GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) (null.String, error)
+}
+
+// Param structs for multi-param methods
+
+type GetFileURLParams struct {
+	Provider  string
+	ObjectKey string
+}
+
+type GetResourcesParams struct {
+	RefType commondb.CommonResourceRefType
+	RefIDs  []uuid.UUID
 }
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]

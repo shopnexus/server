@@ -24,7 +24,7 @@ type ListVendorOrderParams struct {
 }
 
 // ListVendorOrder returns paginated orders belonging to the authenticated vendor.
-func (b *OrderBizImpl) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderBizHandler) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountVendorOrderRow, error) {
@@ -68,7 +68,7 @@ type ConfirmOrderParams struct {
 }
 
 // ConfirmOrder confirms a paid pending order and optionally updates its shipment details.
-func (b *OrderBizImpl) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
+func (b *OrderBizHandler) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}

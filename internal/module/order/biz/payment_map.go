@@ -12,7 +12,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-func (b *OrderBizImpl) SetupPaymentMap() error {
+func (b *OrderBizHandler) SetupPaymentMap() error {
 	var configs []sharedmodel.OptionConfig
 
 	b.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
@@ -44,7 +44,7 @@ func (b *OrderBizImpl) SetupPaymentMap() error {
 	return nil
 }
 
-func (b *OrderBizImpl) getPaymentClient(option string) (payment.Client, error) {
+func (b *OrderBizHandler) getPaymentClient(option string) (payment.Client, error) {
 	client, ok := b.paymentMap[option]
 	if !ok {
 		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option).Terminal()

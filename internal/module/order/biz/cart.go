@@ -12,6 +12,7 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -28,7 +29,7 @@ type GetCartParams struct {
 }
 
 // GetCart returns all cart items for the given account with SKU details and product images.
-func (b *OrderBizImpl) GetCart(ctx restate.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
+func (b *OrderBizHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
 	cartItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderCartItem, error) {
 		return b.storage.Querier().ListCartItem(ctx, orderdb.ListCartItemParams{
 			AccountID: []uuid.UUID{params.AccountID},
@@ -54,7 +55,10 @@ func (b *OrderBizImpl) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 			sku := skuMap[cartItem.SkuID]
 
 			var resource *commonmodel.Resource
-			resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, []uuid.UUID{sku.SpuID})
+			resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+				RefType: commondb.CommonResourceRefTypeProductSpu,
+				RefIDs:  []uuid.UUID{sku.SpuID},
+			})
 			if err != nil {
 				continue
 			}
@@ -83,7 +87,7 @@ type UpdateCartParams struct {
 }
 
 // UpdateCart adds, updates, or removes a cart item and tracks the interaction.
-func (b *OrderBizImpl) UpdateCart(ctx restate.Context, params UpdateCartParams) error {
+func (b *OrderBizHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -147,7 +151,7 @@ type ClearCartParams struct {
 }
 
 // ClearCart removes all items from the account's cart.
-func (b *OrderBizImpl) ClearCart(ctx restate.Context, params ClearCartParams) error {
+func (b *OrderBizHandler) ClearCart(ctx restate.Context, params ClearCartParams) error {
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		return b.storage.Querier().DeleteCartItem(ctx, orderdb.DeleteCartItemParams{
 			AccountID: []uuid.UUID{params.Account.ID},
@@ -163,7 +167,7 @@ type ListCheckoutCartParams struct {
 }
 
 // ListCheckoutCart returns cart items selected for checkout, or a single item for buy-now flow.
-func (b *OrderBizImpl) ListCheckoutCart(ctx restate.Context, params ListCheckoutCartParams) ([]ordermodel.CartItem, error) {
+func (b *OrderBizHandler) ListCheckoutCart(ctx restate.Context, params ListCheckoutCartParams) ([]ordermodel.CartItem, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -184,7 +188,10 @@ func (b *OrderBizImpl) ListCheckoutCart(ctx restate.Context, params ListCheckout
 			if len(skus) > 0 {
 				sku := skus[0]
 				var resource *commonmodel.Resource
-				if resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeProductSpu, []uuid.UUID{sku.SpuID}); err == nil {
+				if resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+					RefType: commondb.CommonResourceRefTypeProductSpu,
+					RefIDs:  []uuid.UUID{sku.SpuID},
+				}); err == nil {
 					if res, exists := resourcesMap[sku.SpuID]; exists && len(res) > 0 {
 						resource = &res[0]
 					}

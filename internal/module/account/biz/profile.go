@@ -23,7 +23,7 @@ type ListProfileParams struct {
 }
 
 // ListProfile returns a paginated list of profiles for the given account IDs.
-func (b *AccountBizImpl) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
+func (b *AccountBizHandler) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	var result sharedmodel.PaginateResult[accountmodel.Profile]
 	if err := validator.Validate(params); err != nil {
 		return result, err
@@ -77,7 +77,7 @@ type GetProfileParams struct {
 }
 
 // GetProfile returns the profile for the given account ID.
-func (b *AccountBizImpl) GetProfile(ctx restate.Context, params GetProfileParams) (accountmodel.Profile, error) {
+func (b *AccountBizHandler) GetProfile(ctx restate.Context, params GetProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
 		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
@@ -129,7 +129,7 @@ type UpdateProfileParams struct {
 }
 
 // UpdateProfile updates the account and profile fields for the given account.
-func (b *AccountBizImpl) UpdateProfile(ctx restate.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
+func (b *AccountBizHandler) UpdateProfile(ctx restate.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 
 	if err := validator.Validate(params); err != nil {
@@ -182,7 +182,9 @@ func (b *AccountBizImpl) UpdateProfile(ctx restate.Context, params UpdateProfile
 
 // dbToProfile maps DB account + profile rows to the model type.
 // Callers should set Description as needed (only relevant for vendor accounts).
-func (b *AccountBizImpl) dbToProfile(ctx restate.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
+func (b *AccountBizHandler) dbToProfile(ctx restate.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
+	avatarURL, _ := b.common.GetResourceURLByID(ctx, profile.AvatarRsID.UUID)
+
 	return accountmodel.Profile{
 		ID:          account.ID,
 		DateCreated: account.DateCreated,
@@ -200,6 +202,6 @@ func (b *AccountBizImpl) dbToProfile(ctx restate.Context, account accountdb.Acco
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: profile.DefaultContactID,
-		AvatarURL:        b.common.GetResourceURLByID(ctx, profile.AvatarRsID.UUID),
+		AvatarURL:        avatarURL,
 	}
 }

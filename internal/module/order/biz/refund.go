@@ -26,7 +26,7 @@ type ListRefundsParams struct {
 }
 
 // ListRefunds returns paginated refund requests with attached resources.
-func (b *OrderBizImpl) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+func (b *OrderBizHandler) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
@@ -51,7 +51,10 @@ func (b *OrderBizImpl) ListRefunds(ctx restate.Context, params ListRefundsParams
 			return refund.OrderRefund.ID
 		})
 
-		resourcesMap, err := b.common.GetResources(ctx, commondb.CommonResourceRefTypeRefund, ids)
+		resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+			RefType: commondb.CommonResourceRefTypeRefund,
+			RefIDs:  ids,
+		})
 		if err != nil {
 			return zero, err
 		}
@@ -78,7 +81,7 @@ type CreateRefundParams struct {
 }
 
 // CreateRefund creates a new refund request for an order and tracks refund analytics.
-func (b *OrderBizImpl) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBizHandler) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -165,7 +168,7 @@ type UpdateRefundParams struct {
 }
 
 // UpdateRefund updates a pending refund's method, reason, address, or status.
-func (b *OrderBizImpl) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBizHandler) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -238,7 +241,7 @@ type CancelRefundParams struct {
 }
 
 // CancelRefund cancels a refund request by setting its status to canceled.
-func (b *OrderBizImpl) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
+func (b *OrderBizHandler) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -260,7 +263,7 @@ type ConfirmRefundParams struct {
 }
 
 // ConfirmRefund marks a refund as confirmed by the vendor and transitions it to processing.
-func (b *OrderBizImpl) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
+func (b *OrderBizHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {

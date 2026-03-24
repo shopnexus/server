@@ -3,6 +3,7 @@ package common
 import (
 	"go.uber.org/fx"
 
+	"shopnexus-server/config"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonecho "shopnexus-server/internal/module/common/transport/echo"
@@ -13,6 +14,7 @@ import (
 var Module = fx.Module("common",
 	fx.Provide(
 		NewCommonStorage,
+		commonbiz.NewcommonBiz,
 		NewCommonBiz,
 		commonecho.NewHandler,
 	),
@@ -26,7 +28,7 @@ func NewCommonStorage(pool pgsqlc.TxBeginner) commonbiz.CommonStorage {
 	return pgsqlc.NewStorage(pool, commondb.New(pool))
 }
 
-// NewCommonBiz creates a CommonBiz and provides it as the interface.
-func NewCommonBiz(storage commonbiz.CommonStorage) (commonbiz.CommonBiz, error) {
-	return commonbiz.NewcommonBiz(storage)
+// NewCommonBiz creates a Restate-backed client for the common module.
+func NewCommonBiz(cfg *config.Config) commonbiz.CommonBiz {
+	return commonbiz.NewCommonBizRestateClient(cfg.Restate.IngressAddress)
 }

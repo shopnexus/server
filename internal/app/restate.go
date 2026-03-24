@@ -15,6 +15,7 @@ import (
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	chatbiz "shopnexus-server/internal/module/chat/biz"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
@@ -25,13 +26,14 @@ import (
 
 func SetupRestate(
 	cfg *config.Config,
-	orderBiz *orderbiz.OrderBizImpl,
-	accountBiz *accountbiz.AccountBizImpl,
-	catalogBiz *catalogbiz.CatalogBizImpl,
-	inventoryBiz *inventorybiz.InventoryBizImpl,
-	promotionBiz *promotionbiz.PromotionBizImpl,
-	analyticBiz *analyticbiz.AnalyticBizImpl,
-	chatBiz *chatbiz.ChatBizImpl,
+	orderBiz *orderbiz.OrderBizHandler,
+	accountBiz *accountbiz.AccountBizHandler,
+	catalogBiz *catalogbiz.CatalogBizHandler,
+	commonBiz *commonbiz.CommonBizImpl,
+	inventoryBiz *inventorybiz.InventoryBizHandler,
+	promotionBiz *promotionbiz.PromotionBizHandler,
+	analyticBiz *analyticbiz.AnalyticBizHandler,
+	chatBiz *chatbiz.ChatBizHandler,
 ) {
 	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
 
@@ -39,6 +41,7 @@ func SetupRestate(
 		Bind(restate.Reflect(orderBiz)).
 		Bind(restate.Reflect(accountBiz)).
 		Bind(restate.Reflect(catalogBiz)).
+		Bind(restate.Reflect(commonBiz)).
 		Bind(restate.Reflect(inventoryBiz)).
 		Bind(restate.Reflect(promotionBiz)).
 		Bind(restate.Reflect(analyticBiz)).

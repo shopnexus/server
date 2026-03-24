@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 
+	restate "github.com/restatedev/sdk-go"
+
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/objectstore"
 	objlocal "shopnexus-server/internal/infras/objectstore/local"
@@ -51,7 +53,7 @@ func (b *CommonBizImpl) SetupObjectStore() error {
 	b.objectstoreMap[remote.Config().ID] = remote
 	configs = append(configs, remote.Config())
 
-	if err := b.UpdateServiceOptions(context.Background(), UpdateServiceOptionsParams{
+	if err := b.updateServiceOptions(context.Background(), UpdateServiceOptionsParams{
 		Category: "objectstore",
 		Configs:  configs,
 	}); err != nil {
@@ -92,7 +94,7 @@ type UploadFileResult struct {
 
 // UploadFile stores a single uploaded file to the configured object store
 // and creates a corresponding resource record.
-func (b *CommonBizImpl) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
+func (b *CommonBizImpl) UploadFile(ctx restate.Context, params UploadFileParams) (UploadFileResult, error) {
 	var zero UploadFileResult
 
 	if err := validator.Validate(params); err != nil {
@@ -134,8 +136,8 @@ func (b *CommonBizImpl) UploadFile(ctx context.Context, params UploadFileParams)
 	}, nil
 }
 
-func (b *CommonBizImpl) GetFileURL(ctx context.Context, provider string, objectKey string) (string, error) {
-	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
+func (b *CommonBizImpl) GetFileURL(ctx restate.Context, params GetFileURLParams) (string, error) {
+	url, err := b.mustGetObjectStore(params.Provider).GetURL(ctx, params.ObjectKey)
 	if err != nil {
 		return "", err
 	}
@@ -143,8 +145,8 @@ func (b *CommonBizImpl) GetFileURL(ctx context.Context, provider string, objectK
 	return url, nil
 }
 
-// MustGetFileURL returns the URL for an object key, falling back to a placeholder on error.
-func (b *CommonBizImpl) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
+// mustGetFileURL returns the URL for an object key, falling back to a placeholder on error.
+func (b *CommonBizImpl) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
 		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))
