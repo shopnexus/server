@@ -38,14 +38,14 @@ func SetupRestate(
 	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
 
 	srv := server.NewRestate().
-		Bind(restate.Reflect(orderBiz)).
 		Bind(restate.Reflect(accountBiz)).
+		Bind(restate.Reflect(analyticBiz)).
 		Bind(restate.Reflect(catalogBiz)).
+		Bind(restate.Reflect(chatBiz)).
 		Bind(restate.Reflect(commonBiz)).
 		Bind(restate.Reflect(inventoryBiz)).
-		Bind(restate.Reflect(promotionBiz)).
-		Bind(restate.Reflect(analyticBiz)).
-		Bind(restate.Reflect(chatBiz))
+		Bind(restate.Reflect(orderBiz)).
+		Bind(restate.Reflect(promotionBiz))
 
 	go func() {
 		slog.Info("Starting Restate service endpoint", "address", bindAddress)
