@@ -30,5 +30,5 @@ func NewChatStorage(pool pgsqlc.TxBeginner) chatbiz.ChatStorage {
 
 // NewChatClient creates a Restate-backed client for the chat module.
 func NewChatClient(cfg *config.Config) chatbiz.ChatClient {
-	return chatbiz.NewChatBizProxy(cfg.Restate.IngressAddress)
+	return chatbiz.NewChatBizRestateClient(cfg.Restate.IngressAddress)
 }

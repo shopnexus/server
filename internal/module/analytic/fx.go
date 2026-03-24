@@ -30,5 +30,5 @@ func NewAnalyticStorage(pool pgsqlc.TxBeginner) analyticbiz.AnalyticStorage {
 
 // NewAnalyticClient creates a Restate-backed client for the analytic module.
 func NewAnalyticClient(cfg *config.Config) analyticbiz.AnalyticClient {
-	return analyticbiz.NewAnalyticBizProxy(cfg.Restate.IngressAddress)
+	return analyticbiz.NewAnalyticBizRestateClient(cfg.Restate.IngressAddress)
 }

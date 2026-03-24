@@ -11,49 +11,49 @@ import (
 
 const serviceName = "InventoryBiz"
 
-// InventoryBizProxy implements InventoryClient via Restate HTTP ingress.
-type InventoryBizProxy struct {
+// InventoryBizRestateClient implements InventoryClient via Restate HTTP ingress.
+type InventoryBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ InventoryClient = (*InventoryBizProxy)(nil)
+var _ InventoryClient = (*InventoryBizRestateClient)(nil)
 
-func NewInventoryBizProxy(restateIngressURL string) *InventoryBizProxy {
-	return &InventoryBizProxy{client: restateclient.NewClient(restateIngressURL)}
+func NewInventoryBizRestateClient(restateIngressURL string) *InventoryBizRestateClient {
+	return &InventoryBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *InventoryBizProxy) GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
+func (p *InventoryBizRestateClient) GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
 	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "GetStock", params)
 }
 
-func (p *InventoryBizProxy) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
+func (p *InventoryBizRestateClient) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventoryStock]](ctx, p.client, serviceName, "ListStock", params)
 }
 
-func (p *InventoryBizProxy) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
+func (p *InventoryBizRestateClient) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
 	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "CreateStock", params)
 }
 
-func (p *InventoryBizProxy) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
+func (p *InventoryBizRestateClient) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventoryStockHistory]](ctx, p.client, serviceName, "ListStockHistory", params)
 }
 
-func (p *InventoryBizProxy) ImportStock(ctx context.Context, params ImportStockParams) error {
+func (p *InventoryBizRestateClient) ImportStock(ctx context.Context, params ImportStockParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "ImportStock", params)
 }
 
-func (p *InventoryBizProxy) ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
+func (p *InventoryBizRestateClient) ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
 	return restateclient.Call[[]ReserveInventoryResult](ctx, p.client, serviceName, "ReserveInventory", params)
 }
 
-func (p *InventoryBizProxy) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
+func (p *InventoryBizRestateClient) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "UpdateSerial", params)
 }
 
-func (p *InventoryBizProxy) ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
+func (p *InventoryBizRestateClient) ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventorySerial]](ctx, p.client, serviceName, "ListSerial", params)
 }
 
-func (p *InventoryBizProxy) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
+func (p *InventoryBizRestateClient) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
 	return restateclient.Call[[]inventorydb.InventoryStock](ctx, p.client, serviceName, "ListMostTakenSku", params)
 }

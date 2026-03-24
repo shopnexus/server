@@ -4,39 +4,38 @@ package analyticbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
 )
 
 const serviceName = "AnalyticBiz"
 
-// AnalyticBizProxy implements AnalyticClient via Restate HTTP ingress.
-type AnalyticBizProxy struct {
+// AnalyticBizRestateClient implements AnalyticClient via Restate HTTP ingress.
+type AnalyticBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ AnalyticClient = (*AnalyticBizProxy)(nil)
+var _ AnalyticClient = (*AnalyticBizRestateClient)(nil)
 
-func NewAnalyticBizProxy(restateIngressURL string) *AnalyticBizProxy {
-	return &AnalyticBizProxy{client: restateclient.NewClient(restateIngressURL)}
+func NewAnalyticBizRestateClient(restateIngressURL string) *AnalyticBizRestateClient {
+	return &AnalyticBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *AnalyticBizProxy) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
+func (p *AnalyticBizRestateClient) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "CreateInteraction", params)
 }
 
-func (p *AnalyticBizProxy) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {
+func (p *AnalyticBizRestateClient) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {
 	return restateclient.Send(ctx, p.client, serviceName, "HandlePopularityEvent", event)
 }
 
-func (p *AnalyticBizProxy) GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
+func (p *AnalyticBizRestateClient) GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
 	return restateclient.Call[analyticdb.AnalyticProductPopularity](ctx, p.client, serviceName, "GetProductPopularity", spuID)
 }
 
-func (p *AnalyticBizProxy) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
+func (p *AnalyticBizRestateClient) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	return restateclient.Call[[]analyticdb.AnalyticProductPopularity](ctx, p.client, serviceName, "ListTopProductPopularity", params)
 }

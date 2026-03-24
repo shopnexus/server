@@ -30,5 +30,5 @@ func NewCatalogStorage(pool pgsqlc.TxBeginner) catalogbiz.CatalogStorage {
 
 // NewCatalogClient creates a Restate-backed client for the catalog module.
 func NewCatalogClient(cfg *config.Config) catalogbiz.CatalogClient {
-	return catalogbiz.NewCatalogBizProxy(cfg.Restate.IngressAddress)
+	return catalogbiz.NewCatalogBizRestateClient(cfg.Restate.IngressAddress)
 }

@@ -12,7 +12,7 @@
 //	-src         source file (default: interface.go)
 //	-interface   interface name to implement (required)
 //	-service     Restate service name (required)
-//	-type        proxy struct name (default: <service>Proxy, e.g. OrderBizProxy)
+//	-type        restate client struct name (default: <service>RestateClient, e.g. OrderBizProxy)
 //	-out         output file (default: restate_gen.go)
 //	-pkg         output package name (default: read from source file)
 //	-srcpkg      source package alias (default: same as pkg)
@@ -47,7 +47,7 @@ func main() {
 	srcFile := flag.String("src", "interface.go", "source file containing the interface")
 	ifaceName := flag.String("interface", "", "interface name to implement (required)")
 	serviceName := flag.String("service", "", "Restate service name (required)")
-	proxyType := flag.String("type", "", "proxy struct name (default: <service>Proxy)")
+	proxyType := flag.String("type", "", "restate client struct name (default: <service>RestateClient)")
 	pkgName := flag.String("pkg", "", "output package name (default: from source file)")
 	srcPkg := flag.String("srcpkg", "", "source package alias (default: same as pkg)")
 	srcPkgPath := flag.String("srcpkgpath", "", "source package import path (cross-package only)")
@@ -73,7 +73,7 @@ func main() {
 		*srcPkg = f.Name.Name
 	}
 	if *proxyType == "" {
-		*proxyType = *serviceName + "Proxy"
+		*proxyType = *serviceName + "RestateClient"
 	}
 
 	samePackage := *pkgName == *srcPkg

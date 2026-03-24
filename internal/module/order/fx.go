@@ -30,5 +30,5 @@ func NewOrderStorage(pool pgsqlc.TxBeginner) orderbiz.OrderStorage {
 
 // NewOrderClient creates a Restate-backed client for the order module.
 func NewOrderClient(cfg *config.Config) orderbiz.OrderClient {
-	return orderbiz.NewOrderBizProxy(cfg.Restate.IngressAddress)
+	return orderbiz.NewOrderBizRestateClient(cfg.Restate.IngressAddress)
 }

@@ -29,5 +29,5 @@ func NewInventoryStorage(pool pgsqlc.TxBeginner) inventorybiz.InventoryStorage {
 
 // NewInventoryClient creates a Restate-backed client for the inventory module.
 func NewInventoryClient(cfg *config.Config) inventorybiz.InventoryClient {
-	return inventorybiz.NewInventoryBizProxy(cfg.Restate.IngressAddress)
+	return inventorybiz.NewInventoryBizRestateClient(cfg.Restate.IngressAddress)
 }

@@ -4,46 +4,45 @@ package chatbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
 )
 
 const serviceName = "ChatBiz"
 
-// ChatBizProxy implements ChatClient via Restate HTTP ingress.
-type ChatBizProxy struct {
+// ChatBizRestateClient implements ChatClient via Restate HTTP ingress.
+type ChatBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ ChatClient = (*ChatBizProxy)(nil)
+var _ ChatClient = (*ChatBizRestateClient)(nil)
 
-func NewChatBizProxy(restateIngressURL string) *ChatBizProxy {
-	return &ChatBizProxy{client: restateclient.NewClient(restateIngressURL)}
+func NewChatBizRestateClient(restateIngressURL string) *ChatBizRestateClient {
+	return &ChatBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *ChatBizProxy) CreateConversation(ctx context.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
+func (p *ChatBizRestateClient) CreateConversation(ctx context.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
 	return restateclient.Call[chatdb.ChatConversation](ctx, p.client, serviceName, "CreateConversation", params)
 }
 
-func (p *ChatBizProxy) GetConversation(ctx context.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
+func (p *ChatBizRestateClient) GetConversation(ctx context.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
 	return restateclient.Call[chatdb.ChatConversation](ctx, p.client, serviceName, "GetConversation", id)
 }
 
-func (p *ChatBizProxy) ListConversation(ctx context.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
+func (p *ChatBizRestateClient) ListConversation(ctx context.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[chatdb.ChatConversation]](ctx, p.client, serviceName, "ListConversation", params)
 }
 
-func (p *ChatBizProxy) SendMessage(ctx context.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
+func (p *ChatBizRestateClient) SendMessage(ctx context.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
 	return restateclient.Call[chatdb.ChatMessage](ctx, p.client, serviceName, "SendMessage", params)
 }
 
-func (p *ChatBizProxy) ListMessage(ctx context.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
+func (p *ChatBizRestateClient) ListMessage(ctx context.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[chatdb.ChatMessage]](ctx, p.client, serviceName, "ListMessage", params)
 }
 
-func (p *ChatBizProxy) MarkRead(ctx context.Context, params MarkReadParams) error {
+func (p *ChatBizRestateClient) MarkRead(ctx context.Context, params MarkReadParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "MarkRead", params)
 }

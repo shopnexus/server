@@ -30,5 +30,5 @@ func NewAccountStorage(pool pgsqlc.TxBeginner) accountbiz.AccountStorage {
 
 // NewAccountClient creates a Restate-backed client for the account module.
 func NewAccountClient(cfg *config.Config) accountbiz.AccountClient {
-	return accountbiz.NewAccountBizProxy(cfg.Restate.IngressAddress)
+	return accountbiz.NewAccountBizRestateClient(cfg.Restate.IngressAddress)
 }
