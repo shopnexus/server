@@ -73,7 +73,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 			return valErr
 		}
 
-		return commonmodel.ErrValidation.Fmt(string(text))
+		return commonmodel.ErrValidation.Fmt(string(text)).Terminal()
 	}
 
 	return err

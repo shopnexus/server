@@ -21,7 +21,7 @@ var (
 )
 
 const createBatchInteraction = `-- name: CreateBatchInteraction :batchone
-INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
+INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
@@ -34,7 +34,6 @@ type CreateBatchInteractionBatchResults struct {
 
 type CreateBatchInteractionParams struct {
 	AccountID     uuid.NullUUID              `json:"account_id"`
-	AccountNumber int64                      `json:"account_number"`
 	SessionID     null.String                `json:"session_id"`
 	EventType     string                     `json:"event_type"`
 	RefType       AnalyticInteractionRefType `json:"ref_type"`
@@ -43,6 +42,7 @@ type CreateBatchInteractionParams struct {
 	UserAgent     null.String                `json:"user_agent"`
 	IpAddress     null.String                `json:"ip_address"`
 	DateCreated   time.Time                  `json:"date_created"`
+	AccountNumber int64                      `json:"account_number"`
 }
 
 func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchInteractionParams) *CreateBatchInteractionBatchResults {
@@ -50,7 +50,6 @@ func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchI
 	for _, a := range arg {
 		vals := []interface{}{
 			a.AccountID,
-			a.AccountNumber,
 			a.SessionID,
 			a.EventType,
 			a.RefType,
@@ -59,6 +58,7 @@ func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchI
 			a.UserAgent,
 			a.IpAddress,
 			a.DateCreated,
+			a.AccountNumber,
 		}
 		batch.Queue(createBatchInteraction, vals...)
 	}
@@ -97,6 +97,80 @@ func (b *CreateBatchInteractionBatchResults) QueryRow(f func(int, AnalyticIntera
 }
 
 func (b *CreateBatchInteractionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchProductPopularity = `-- name: CreateBatchProductPopularity :batchone
+INSERT INTO "analytic"."product_popularity" ("id", "score", "view_count", "purchase_count", "favorite_count", "cart_count", "review_count", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, score, view_count, purchase_count, favorite_count, cart_count, review_count, date_updated
+`
+
+type CreateBatchProductPopularityBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchProductPopularityParams struct {
+	ID            uuid.UUID `json:"id"`
+	Score         float64   `json:"score"`
+	ViewCount     int64     `json:"view_count"`
+	PurchaseCount int64     `json:"purchase_count"`
+	FavoriteCount int64     `json:"favorite_count"`
+	CartCount     int64     `json:"cart_count"`
+	ReviewCount   int64     `json:"review_count"`
+	DateUpdated   time.Time `json:"date_updated"`
+}
+
+func (q *Queries) CreateBatchProductPopularity(ctx context.Context, arg []CreateBatchProductPopularityParams) *CreateBatchProductPopularityBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.Score,
+			a.ViewCount,
+			a.PurchaseCount,
+			a.FavoriteCount,
+			a.CartCount,
+			a.ReviewCount,
+			a.DateUpdated,
+		}
+		batch.Queue(createBatchProductPopularity, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchProductPopularityBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchProductPopularityBatchResults) QueryRow(f func(int, AnalyticProductPopularity, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i AnalyticProductPopularity
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Score,
+			&i.ViewCount,
+			&i.PurchaseCount,
+			&i.FavoriteCount,
+			&i.CartCount,
+			&i.ReviewCount,
+			&i.DateUpdated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchProductPopularityBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

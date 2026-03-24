@@ -11,7 +11,6 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 )
 
 // HandlePopularityEvent updates product popularity scores based on an interaction event.
@@ -46,7 +45,7 @@ func (b *AnalyticBiz) HandlePopularityEvent(ctx restate.Context, event analyticm
 	}
 
 	if _, err := b.storage.Querier().UpsertProductPopularity(ctx, analyticdb.UpsertProductPopularityParams{
-		SpuID:         spuID,
+		ID:            spuID,
 		Score:         weight,
 		ViewCount:     viewCount,
 		PurchaseCount: purchaseCount,
@@ -62,14 +61,14 @@ func (b *AnalyticBiz) HandlePopularityEvent(ctx restate.Context, event analyticm
 
 // GetProductPopularity returns the popularity metrics for the given product SPU.
 func (b *AnalyticBiz) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
-	return b.storage.Querier().GetProductPopularity(ctx, spuID)
+	return b.storage.Querier().GetProductPopularityByID(ctx, spuID)
 }
 
 // ListTopProductPopularity returns the top products ranked by popularity score.
 func (b *AnalyticBiz) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	params = params.Constrain()
 	return b.storage.Querier().ListTopProductPopularity(ctx, analyticdb.ListTopProductPopularityParams{
-		Limit:  null.Int32From(params.Limit.Int32),
+		Limit:  params.Limit,
 		Offset: params.Offset(),
 	})
 }

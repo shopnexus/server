@@ -3,10 +3,13 @@ package promotionbiz
 import (
 	"context"
 
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
+
+	"github.com/google/uuid"
 )
 
 // PromotionClient is the client interface for PromotionBiz, which is used by other modules to call PromotionBiz methods.
@@ -19,6 +22,7 @@ type PromotionClient interface {
 	CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error)
 	UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error)
 	DeletePromotion(ctx context.Context, params DeletePromotionParams) error
+	CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error)
 }
 
 type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]

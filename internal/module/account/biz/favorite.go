@@ -24,8 +24,8 @@ func (b *AccountBiz) AddFavorite(ctx restate.Context, params AddFavoriteParams) 
 
 	// Check if already favorited
 	existing, err := b.storage.Querier().GetFavorite(ctx, accountdb.GetFavoriteParams{
-		AccountID: params.Account.ID,
-		SpuID:     params.SpuID,
+		AccountID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		SpuID:     uuid.NullUUID{UUID: params.SpuID, Valid: true},
 	})
 	if err == nil {
 		return existing, nil // Already favorited
@@ -50,8 +50,8 @@ type RemoveFavoriteParams struct {
 // RemoveFavorite removes a product SPU from the account's favorites list.
 func (b *AccountBiz) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
 	return b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
-		AccountID: params.Account.ID,
-		SpuID:     params.SpuID,
+		AccountID: []uuid.UUID{params.Account.ID},
+		SpuID:     []uuid.UUID{params.SpuID},
 	})
 }
 

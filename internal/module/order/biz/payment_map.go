@@ -47,7 +47,7 @@ func (b *OrderBiz) SetupPaymentMap() error {
 func (b *OrderBiz) getPaymentClient(option string) (payment.Client, error) {
 	client, ok := b.paymentMap[option]
 	if !ok {
-		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option)
+		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option).Terminal()
 	}
 	return client, nil
 }

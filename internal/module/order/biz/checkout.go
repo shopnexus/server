@@ -18,6 +18,7 @@ import (
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -78,7 +79,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		return zero, err
 	}
 	if params.BuyNow && len(params.Items) != 1 {
-		return zero, ordermodel.ErrBuyNowSingleSkuOnly
+		return zero, ordermodel.ErrBuyNowSingleSkuOnly.Terminal()
 	}
 
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
@@ -92,7 +93,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 		return zero, fmt.Errorf("list catalog product skus: %w", err)
 	}
 	if len(skus) != len(skuIDs) {
-		return zero, ordermodel.ErrOrderItemNotFound
+		return zero, ordermodel.ErrOrderItemNotFound.Terminal()
 	}
 
 	listSpu, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
@@ -136,7 +137,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 				return fmt.Errorf("remove checkout items: %w", err)
 			}
 			if len(cartItems) != len(skuIDs) {
-				return ordermodel.ErrSkuNotFoundInCart
+				return ordermodel.ErrSkuNotFoundInCart.Terminal()
 			}
 			return nil
 		}); err != nil {
@@ -226,7 +227,7 @@ func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (Checkou
 	})
 
 	priceMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
-		return b.promotion.CalculatePromotedPrices(ctx, requestOrderPrices, spuMap)
+		return b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestOrderPrices, SpuMap: spuMap})
 	})
 	if err != nil {
 		return zero, fmt.Errorf("calculate promoted prices: %w", err)
@@ -407,13 +408,13 @@ func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) er
 
 	// Validate cancellation (pure checks)
 	if order.Payment.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrPaymentCannotCancel
+		return ordermodel.ErrPaymentCannotCancel.Terminal()
 	}
 	if shipmentStatus != orderdb.OrderShipmentStatusPending {
-		return ordermodel.ErrShipmentCannotCancel
+		return ordermodel.ErrShipmentCannotCancel.Terminal()
 	}
 	if order.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrOrderCannotCancel
+		return ordermodel.ErrOrderCannotCancel.Terminal()
 	}
 
 	// Cancel payment, shipment, and order

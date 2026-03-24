@@ -56,21 +56,21 @@ type OrderBiz struct {
 	storage     OrderStorage
 	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
 	shipmentMap map[string]shipment.Client // map[shipmentOption]shipment.Client
-	account     *accountbiz.AccountBiz
-	catalog     *catalogbiz.CatalogBiz
-	inventory   *inventorybiz.InventoryBiz
-	promotion   *promotionbiz.PromotionBiz
-	common      *commonbiz.CommonBiz
+	account     accountbiz.AccountClient
+	catalog     catalogbiz.CatalogClient
+	inventory   inventorybiz.InventoryClient
+	promotion   promotionbiz.PromotionClient
+	common      commonbiz.CommonClient
 }
 
 // NewOrderBiz creates a new OrderBiz with the given dependencies.
 func NewOrderBiz(
 	storage OrderStorage,
-	account *accountbiz.AccountBiz,
-	catalog *catalogbiz.CatalogBiz,
-	inventory *inventorybiz.InventoryBiz,
-	promotion *promotionbiz.PromotionBiz,
-	common *commonbiz.CommonBiz,
+	account accountbiz.AccountClient,
+	catalog catalogbiz.CatalogClient,
+	inventory inventorybiz.InventoryClient,
+	promotion promotionbiz.PromotionClient,
+	common commonbiz.CommonClient,
 ) (*OrderBiz, error) {
 	b := &OrderBiz{
 		storage:   storage,

@@ -44,6 +44,7 @@ type AccountClient interface {
 	AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error)
 	RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error
 	ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error)
+	CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error)
 
 	// Payment Method
 	CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
@@ -64,7 +65,7 @@ type AccountBiz struct {
 
 	storage AccountStorage
 	pubsub  pubsub.Client
-	common  *commonbiz.CommonBiz
+	common  commonbiz.CommonClient
 }
 
 // NewAccountBiz creates a new AccountBiz with the given dependencies.
@@ -72,7 +73,7 @@ func NewAccountBiz(
 	config *config.Config,
 	storage AccountStorage,
 	pubsub pubsub.Client,
-	common *commonbiz.CommonBiz,
+	common commonbiz.CommonClient,
 ) *AccountBiz {
 	return &AccountBiz{
 		tokenDuration:        time.Duration(config.App.JWT.AccessTokenDuration * int64(time.Second)),

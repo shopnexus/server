@@ -15,11 +15,11 @@ import (
 
 const detailRating = `-- name: DetailRating :one
 SELECT ref_id, AVG(score) as score, COUNT(*) as count,
-    COUNT(CASE WHEN score = 100 THEN 1 END) as five_count,
-    COUNT(CASE WHEN score BETWEEN 80 AND 100 THEN 1 END) as four_count,
-    COUNT(CASE WHEN score BETWEEN 60 AND 80 THEN 1 END) as three_count,
-    COUNT(CASE WHEN score BETWEEN 40 AND 60 THEN 1 END) as two_count,
-    COUNT(CASE WHEN score BETWEEN 0 AND 40 THEN 1 END) as one_count
+    COUNT(CASE WHEN score > 0.8 THEN 1 END) as five_count,
+    COUNT(CASE WHEN score > 0.6 AND score <= 0.8 THEN 1 END) as four_count,
+    COUNT(CASE WHEN score > 0.4 AND score <= 0.6 THEN 1 END) as three_count,
+    COUNT(CASE WHEN score > 0.2 AND score <= 0.4 THEN 1 END) as two_count,
+    COUNT(CASE WHEN score > 0 AND score <= 0.2 THEN 1 END) as one_count
 FROM "catalog"."comment"
 WHERE (
     ref_type = $1 AND

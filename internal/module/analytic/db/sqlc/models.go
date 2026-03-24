@@ -90,7 +90,7 @@ type AnalyticInteraction struct {
 }
 
 type AnalyticProductPopularity struct {
-	SpuID         uuid.UUID `json:"spu_id"`
+	ID            uuid.UUID `json:"id"`
 	Score         float64   `json:"score"`
 	ViewCount     int64     `json:"view_count"`
 	PurchaseCount int64     `json:"purchase_count"`

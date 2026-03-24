@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime"
-	"strconv"
 	"strings"
 
 	commonmodel "shopnexus-server/internal/shared/model"
@@ -21,14 +20,14 @@ const (
 // writeError writes an error response with proper error handling
 func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	// Default code and message
-	errCode := strconv.Itoa(httpCode)
+	errCode := uint16(httpCode)
 	message := http.StatusText(httpCode)
 
-	// Use the error's message if it implements ErrorWithCode (domain errors)
-	var errWithCode commonmodel.Error
-	if errors.As(err, &errWithCode) {
-		errCode = errWithCode.Code()
-		message = errWithCode.Error()
+	// Use the error's code and message if it's a domain error
+	if domainErr, ok := errors.AsType[commonmodel.Error](err); ok {
+		errCode = domainErr.Code()
+		httpCode = int(errCode)
+		message = domainErr.Error()
 	}
 	// debug.PrintStack()
 	// traceError(err)
@@ -97,7 +96,6 @@ func FromHTTPCode(w http.ResponseWriter, httpCode int) error {
 		httpCode = http.StatusInternalServerError
 	}
 
-	statusCode := strconv.Itoa(httpCode)
 	statusText := http.StatusText(httpCode)
 
 	// Use generic message if status text is empty
@@ -107,7 +105,7 @@ func FromHTTPCode(w http.ResponseWriter, httpCode int) error {
 
 	response := CommonResponse{
 		Data:  nil,
-		Error: &commonmodel.Error{ErrCode: statusCode, Message: statusText},
+		Error: &commonmodel.Error{ErrCode: uint16(httpCode), Message: statusText},
 	}
 
 	return writeResponse(w, httpCode, response)

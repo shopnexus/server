@@ -19,6 +19,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
@@ -67,7 +68,7 @@ func (b *CatalogBiz) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, 
 		})
 	}
 
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, requestPrices, spuMap)
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: spuMap})
 	if err != nil {
 		return zero, err
 	}
@@ -168,7 +169,7 @@ func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardPa
 
 	card, ok := productCardMap[params.SpuID]
 	if !ok || card == nil {
-		return nil, catalogmodel.ErrProductNotFound
+		return nil, catalogmodel.ErrProductNotFound.Terminal()
 	}
 
 	return card, nil

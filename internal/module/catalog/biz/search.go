@@ -35,7 +35,7 @@ func (b *CatalogBiz) Search(ctx restate.Context, params SearchParams) ([]catalog
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
 	if len(embeddings) == 0 {
-		return nil, catalogmodel.ErrNoEmbeddingsResult
+		return nil, catalogmodel.ErrNoEmbeddingsResult.Terminal()
 	}
 	emb := embeddings[0]
 

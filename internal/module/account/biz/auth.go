@@ -115,7 +115,7 @@ func (a *AccountBiz) Login(ctx restate.Context, params LoginParams) (LoginResult
 	}
 
 	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
-		return zero, accountmodel.ErrMissingIdentifier
+		return zero, accountmodel.ErrMissingIdentifier.Terminal()
 	}
 
 	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
@@ -125,7 +125,7 @@ func (a *AccountBiz) Login(ctx restate.Context, params LoginParams) (LoginResult
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return zero, accountmodel.ErrAccountNotFound
+			return zero, accountmodel.ErrAccountNotFound.Terminal()
 		}
 		return zero, err
 	}
@@ -133,10 +133,10 @@ func (a *AccountBiz) Login(ctx restate.Context, params LoginParams) (LoginResult
 	// If the account has a password, require it for login
 	if account.Password.Valid {
 		if !params.Password.Valid {
-			return zero, accountmodel.ErrInvalidCredentials
+			return zero, accountmodel.ErrInvalidCredentials.Terminal()
 		}
 		if !a.ComparePassword(account.Password.String, params.Password.String) {
-			return zero, accountmodel.ErrInvalidCredentials
+			return zero, accountmodel.ErrInvalidCredentials.Terminal()
 		}
 	}
 
@@ -180,13 +180,13 @@ func (a *AccountBiz) Register(ctx restate.Context, params RegisterParams) (Regis
 	}
 
 	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
-		return zero, accountmodel.ErrMissingIdentifier
+		return zero, accountmodel.ErrMissingIdentifier.Terminal()
 	}
 
 	// If register via Google OAuth, password can be nil => password is nil, email is required
 	//! More oauth providers can be added in the future
 	if !params.Password.Valid && !params.Email.Valid {
-		return zero, accountmodel.ErrEmailRequiredForOAuth
+		return zero, accountmodel.ErrEmailRequiredForOAuth.Terminal()
 	}
 
 	// Hash the password if provided
@@ -225,7 +225,7 @@ func (a *AccountBiz) Register(ctx restate.Context, params RegisterParams) (Regis
 	case accountdb.AccountTypeVendor:
 		_, err = a.storage.Querier().CreateDefaultVendor(ctx, account.ID)
 	default:
-		return zero, accountmodel.ErrUnsupportedAccountType
+		return zero, accountmodel.ErrUnsupportedAccountType.Terminal()
 	}
 	if err != nil {
 		return zero, fmt.Errorf("register account: %w", err)

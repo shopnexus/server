@@ -33,7 +33,7 @@ func SetupRestate(
 	analyticBiz *analyticbiz.AnalyticBiz,
 	chatBiz *chatbiz.ChatBiz,
 ) {
-	bindAddress := fmt.Sprintf("localhost:%s", cfg.Restate.ServicePort)
+	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
 
 	srv := server.NewRestate().
 		Bind(restate.Reflect(orderBiz)).

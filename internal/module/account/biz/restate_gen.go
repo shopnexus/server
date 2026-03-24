@@ -4,12 +4,11 @@ package accountbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
 )
 
 const serviceName = "AccountBiz"
@@ -87,6 +86,10 @@ func (p *AccountBizProxy) RemoveFavorite(ctx context.Context, params RemoveFavor
 
 func (p *AccountBizProxy) ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[accountdb.AccountFavorite]](ctx, p.client, serviceName, "ListFavorite", params)
+}
+
+func (p *AccountBizProxy) CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
+	return restateclient.Call[map[uuid.UUID]bool](ctx, p.client, serviceName, "CheckFavorites", params)
 }
 
 func (p *AccountBizProxy) CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {

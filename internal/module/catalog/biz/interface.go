@@ -74,10 +74,10 @@ type CatalogBiz struct {
 	cache         cachestruct.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
-	common        *commonbiz.CommonBiz
-	account       *accountbiz.AccountBiz
-	inventory     *inventorybiz.InventoryBiz
-	promotion     *promotionbiz.PromotionBiz
+	common        commonbiz.CommonClient
+	account       accountbiz.AccountClient
+	inventory     inventorybiz.InventoryClient
+	promotion     promotionbiz.PromotionClient
 
 	// Vector search (replaces searchClient)
 	milvus       *milvus.Client
@@ -98,10 +98,10 @@ func NewCatalogBiz(
 	storage CatalogStorage,
 	cache cachestruct.Client,
 	restateClient *restateclient.Client,
-	common *commonbiz.CommonBiz,
-	account *accountbiz.AccountBiz,
-	inventory *inventorybiz.InventoryBiz,
-	promotion *promotionbiz.PromotionBiz,
+	common commonbiz.CommonClient,
+	account accountbiz.AccountClient,
+	inventory inventorybiz.InventoryClient,
+	promotion promotionbiz.PromotionClient,
 	milvusClient *milvus.Client,
 	embeddingClient *embedding.Client,
 ) *CatalogBiz {

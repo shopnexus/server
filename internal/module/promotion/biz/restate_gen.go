@@ -4,7 +4,9 @@ package promotionbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
@@ -40,4 +42,8 @@ func (p *PromotionBizProxy) UpdatePromotion(ctx context.Context, params UpdatePr
 
 func (p *PromotionBizProxy) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeletePromotion", params)
+}
+
+func (p *PromotionBizProxy) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+	return restateclient.Call[map[uuid.UUID]*catalogmodel.OrderPrice](ctx, p.client, serviceName, "CalculatePromotedPrices", params)
 }

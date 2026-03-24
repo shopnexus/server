@@ -27,43 +27,51 @@ WHERE (
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
-    ("date_started" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" > $11 OR $11 IS NULL) AND
-    ("date_started" < $12 OR $12 IS NULL) AND
-    ("date_ended" = ANY($13) OR $13 IS NULL) AND
-    ("date_ended" > $14 OR $14 IS NULL) AND
-    ("date_ended" < $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" > $17 OR $17 IS NULL) AND
-    ("date_created" < $18 OR $18 IS NULL) AND
-    ("date_updated" = ANY($19) OR $19 IS NULL) AND
-    ("date_updated" > $20 OR $20 IS NULL) AND
-    ("date_updated" < $21 OR $21 IS NULL)
+    ("priority" = ANY($10) OR $10 IS NULL) AND
+    ("priority" > $11 OR $11 IS NULL) AND
+    ("priority" < $12 OR $12 IS NULL) AND
+    ("data" = ANY($13) OR $13 IS NULL) AND
+    ("date_started" = ANY($14) OR $14 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_ended" = ANY($17) OR $17 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
 type CountPromotionParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Code            []string        `json:"code"`
-	OwnerID         []uuid.NullUUID `json:"owner_id"`
-	Type            []PromotionType `json:"type"`
-	Title           []string        `json:"title"`
-	Description     []null.String   `json:"description"`
-	IsActive        []bool          `json:"is_active"`
-	AutoApply       []bool          `json:"auto_apply"`
-	Group           []string        `json:"group"`
-	DateStarted     []time.Time     `json:"date_started"`
-	DateStartedFrom null.Time       `json:"date_started_from"`
-	DateStartedTo   null.Time       `json:"date_started_to"`
-	DateEnded       []null.Time     `json:"date_ended"`
-	DateEndedFrom   null.Time       `json:"date_ended_from"`
-	DateEndedTo     null.Time       `json:"date_ended_to"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
+	ID              []uuid.UUID       `json:"id"`
+	Code            []string          `json:"code"`
+	OwnerID         []uuid.NullUUID   `json:"owner_id"`
+	Type            []PromotionType   `json:"type"`
+	Title           []string          `json:"title"`
+	Description     []null.String     `json:"description"`
+	IsActive        []bool            `json:"is_active"`
+	AutoApply       []bool            `json:"auto_apply"`
+	Group           []string          `json:"group"`
+	Priority        []int32           `json:"priority"`
+	PriorityFrom    null.Int32        `json:"priority_from"`
+	PriorityTo      null.Int32        `json:"priority_to"`
+	Data            []json.RawMessage `json:"data"`
+	DateStarted     []time.Time       `json:"date_started"`
+	DateStartedFrom null.Time         `json:"date_started_from"`
+	DateStartedTo   null.Time         `json:"date_started_to"`
+	DateEnded       []null.Time       `json:"date_ended"`
+	DateEndedFrom   null.Time         `json:"date_ended_from"`
+	DateEndedTo     null.Time         `json:"date_ended_to"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
 }
 
 func (q *Queries) CountPromotion(ctx context.Context, arg CountPromotionParams) (int64, error) {
@@ -77,6 +85,10 @@ func (q *Queries) CountPromotion(ctx context.Context, arg CountPromotionParams) 
 		arg.IsActive,
 		arg.AutoApply,
 		arg.Group,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
 		arg.DateStartedTo,
@@ -104,7 +116,6 @@ type CreateCopyDefaultPromotionParams struct {
 	IsActive    bool            `json:"is_active"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`
@@ -129,8 +140,8 @@ type CreateCopyPromotionParams struct {
 }
 
 const createDefaultPromotion = `-- name: CreateDefaultPromotion :one
-INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "data", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 `
 
@@ -143,7 +154,6 @@ type CreateDefaultPromotionParams struct {
 	IsActive    bool            `json:"is_active"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`
@@ -159,7 +169,6 @@ func (q *Queries) CreateDefaultPromotion(ctx context.Context, arg CreateDefaultP
 		arg.IsActive,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateEnded,
@@ -260,43 +269,51 @@ WHERE (
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
-    ("date_started" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" > $11 OR $11 IS NULL) AND
-    ("date_started" < $12 OR $12 IS NULL) AND
-    ("date_ended" = ANY($13) OR $13 IS NULL) AND
-    ("date_ended" > $14 OR $14 IS NULL) AND
-    ("date_ended" < $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" > $17 OR $17 IS NULL) AND
-    ("date_created" < $18 OR $18 IS NULL) AND
-    ("date_updated" = ANY($19) OR $19 IS NULL) AND
-    ("date_updated" > $20 OR $20 IS NULL) AND
-    ("date_updated" < $21 OR $21 IS NULL)
+    ("priority" = ANY($10) OR $10 IS NULL) AND
+    ("priority" > $11 OR $11 IS NULL) AND
+    ("priority" < $12 OR $12 IS NULL) AND
+    ("data" = ANY($13) OR $13 IS NULL) AND
+    ("date_started" = ANY($14) OR $14 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_ended" = ANY($17) OR $17 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 `
 
 type DeletePromotionParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Code            []string        `json:"code"`
-	OwnerID         []uuid.NullUUID `json:"owner_id"`
-	Type            []PromotionType `json:"type"`
-	Title           []string        `json:"title"`
-	Description     []null.String   `json:"description"`
-	IsActive        []bool          `json:"is_active"`
-	AutoApply       []bool          `json:"auto_apply"`
-	Group           []string        `json:"group"`
-	DateStarted     []time.Time     `json:"date_started"`
-	DateStartedFrom null.Time       `json:"date_started_from"`
-	DateStartedTo   null.Time       `json:"date_started_to"`
-	DateEnded       []null.Time     `json:"date_ended"`
-	DateEndedFrom   null.Time       `json:"date_ended_from"`
-	DateEndedTo     null.Time       `json:"date_ended_to"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
+	ID              []uuid.UUID       `json:"id"`
+	Code            []string          `json:"code"`
+	OwnerID         []uuid.NullUUID   `json:"owner_id"`
+	Type            []PromotionType   `json:"type"`
+	Title           []string          `json:"title"`
+	Description     []null.String     `json:"description"`
+	IsActive        []bool            `json:"is_active"`
+	AutoApply       []bool            `json:"auto_apply"`
+	Group           []string          `json:"group"`
+	Priority        []int32           `json:"priority"`
+	PriorityFrom    null.Int32        `json:"priority_from"`
+	PriorityTo      null.Int32        `json:"priority_to"`
+	Data            []json.RawMessage `json:"data"`
+	DateStarted     []time.Time       `json:"date_started"`
+	DateStartedFrom null.Time         `json:"date_started_from"`
+	DateStartedTo   null.Time         `json:"date_started_to"`
+	DateEnded       []null.Time       `json:"date_ended"`
+	DateEndedFrom   null.Time         `json:"date_ended_from"`
+	DateEndedTo     null.Time         `json:"date_ended_to"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
 }
 
 func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams) error {
@@ -310,6 +327,10 @@ func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams
 		arg.IsActive,
 		arg.AutoApply,
 		arg.Group,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
 		arg.DateStartedTo,
@@ -327,6 +348,7 @@ func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams
 }
 
 const getPromotion = `-- name: GetPromotion :one
+
 SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 FROM "promotion"."promotion"
 WHERE ("id" = $1) OR ("code" = $2)
@@ -337,6 +359,8 @@ type GetPromotionParams struct {
 	Code null.String   `json:"code"`
 }
 
+// Code generated by pgtempl. DO NOT EDIT.
+// Queries for table: promotion.promotion
 func (q *Queries) GetPromotion(ctx context.Context, arg GetPromotionParams) (PromotionPromotion, error) {
 	row := q.db.QueryRow(ctx, getPromotion, arg.ID, arg.Code)
 	var i PromotionPromotion
@@ -373,48 +397,56 @@ WHERE (
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
-    ("date_started" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" > $11 OR $11 IS NULL) AND
-    ("date_started" < $12 OR $12 IS NULL) AND
-    ("date_ended" = ANY($13) OR $13 IS NULL) AND
-    ("date_ended" > $14 OR $14 IS NULL) AND
-    ("date_ended" < $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" > $17 OR $17 IS NULL) AND
-    ("date_created" < $18 OR $18 IS NULL) AND
-    ("date_updated" = ANY($19) OR $19 IS NULL) AND
-    ("date_updated" > $20 OR $20 IS NULL) AND
-    ("date_updated" < $21 OR $21 IS NULL)
+    ("priority" = ANY($10) OR $10 IS NULL) AND
+    ("priority" > $11 OR $11 IS NULL) AND
+    ("priority" < $12 OR $12 IS NULL) AND
+    ("data" = ANY($13) OR $13 IS NULL) AND
+    ("date_started" = ANY($14) OR $14 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_ended" = ANY($17) OR $17 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $23::int
-OFFSET $22::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListCountPromotionParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Code            []string        `json:"code"`
-	OwnerID         []uuid.NullUUID `json:"owner_id"`
-	Type            []PromotionType `json:"type"`
-	Title           []string        `json:"title"`
-	Description     []null.String   `json:"description"`
-	IsActive        []bool          `json:"is_active"`
-	AutoApply       []bool          `json:"auto_apply"`
-	Group           []string        `json:"group"`
-	DateStarted     []time.Time     `json:"date_started"`
-	DateStartedFrom null.Time       `json:"date_started_from"`
-	DateStartedTo   null.Time       `json:"date_started_to"`
-	DateEnded       []null.Time     `json:"date_ended"`
-	DateEndedFrom   null.Time       `json:"date_ended_from"`
-	DateEndedTo     null.Time       `json:"date_ended_to"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
-	Offset          null.Int32      `json:"offset"`
-	Limit           null.Int32      `json:"limit"`
+	ID              []uuid.UUID       `json:"id"`
+	Code            []string          `json:"code"`
+	OwnerID         []uuid.NullUUID   `json:"owner_id"`
+	Type            []PromotionType   `json:"type"`
+	Title           []string          `json:"title"`
+	Description     []null.String     `json:"description"`
+	IsActive        []bool            `json:"is_active"`
+	AutoApply       []bool            `json:"auto_apply"`
+	Group           []string          `json:"group"`
+	Priority        []int32           `json:"priority"`
+	PriorityFrom    null.Int32        `json:"priority_from"`
+	PriorityTo      null.Int32        `json:"priority_to"`
+	Data            []json.RawMessage `json:"data"`
+	DateStarted     []time.Time       `json:"date_started"`
+	DateStartedFrom null.Time         `json:"date_started_from"`
+	DateStartedTo   null.Time         `json:"date_started_to"`
+	DateEnded       []null.Time       `json:"date_ended"`
+	DateEndedFrom   null.Time         `json:"date_ended_from"`
+	DateEndedTo     null.Time         `json:"date_ended_to"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 type ListCountPromotionRow struct {
@@ -433,6 +465,10 @@ func (q *Queries) ListCountPromotion(ctx context.Context, arg ListCountPromotion
 		arg.IsActive,
 		arg.AutoApply,
 		arg.Group,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
 		arg.DateStartedTo,
@@ -496,48 +532,56 @@ WHERE (
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
-    ("date_started" = ANY($10) OR $10 IS NULL) AND
-    ("date_started" > $11 OR $11 IS NULL) AND
-    ("date_started" < $12 OR $12 IS NULL) AND
-    ("date_ended" = ANY($13) OR $13 IS NULL) AND
-    ("date_ended" > $14 OR $14 IS NULL) AND
-    ("date_ended" < $15 OR $15 IS NULL) AND
-    ("date_created" = ANY($16) OR $16 IS NULL) AND
-    ("date_created" > $17 OR $17 IS NULL) AND
-    ("date_created" < $18 OR $18 IS NULL) AND
-    ("date_updated" = ANY($19) OR $19 IS NULL) AND
-    ("date_updated" > $20 OR $20 IS NULL) AND
-    ("date_updated" < $21 OR $21 IS NULL)
+    ("priority" = ANY($10) OR $10 IS NULL) AND
+    ("priority" > $11 OR $11 IS NULL) AND
+    ("priority" < $12 OR $12 IS NULL) AND
+    ("data" = ANY($13) OR $13 IS NULL) AND
+    ("date_started" = ANY($14) OR $14 IS NULL) AND
+    ("date_started" > $15 OR $15 IS NULL) AND
+    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_ended" = ANY($17) OR $17 IS NULL) AND
+    ("date_ended" > $18 OR $18 IS NULL) AND
+    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" > $21 OR $21 IS NULL) AND
+    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_updated" = ANY($23) OR $23 IS NULL) AND
+    ("date_updated" > $24 OR $24 IS NULL) AND
+    ("date_updated" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $23::int
-OFFSET $22::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListPromotionParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Code            []string        `json:"code"`
-	OwnerID         []uuid.NullUUID `json:"owner_id"`
-	Type            []PromotionType `json:"type"`
-	Title           []string        `json:"title"`
-	Description     []null.String   `json:"description"`
-	IsActive        []bool          `json:"is_active"`
-	AutoApply       []bool          `json:"auto_apply"`
-	Group           []string        `json:"group"`
-	DateStarted     []time.Time     `json:"date_started"`
-	DateStartedFrom null.Time       `json:"date_started_from"`
-	DateStartedTo   null.Time       `json:"date_started_to"`
-	DateEnded       []null.Time     `json:"date_ended"`
-	DateEndedFrom   null.Time       `json:"date_ended_from"`
-	DateEndedTo     null.Time       `json:"date_ended_to"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
-	Offset          null.Int32      `json:"offset"`
-	Limit           null.Int32      `json:"limit"`
+	ID              []uuid.UUID       `json:"id"`
+	Code            []string          `json:"code"`
+	OwnerID         []uuid.NullUUID   `json:"owner_id"`
+	Type            []PromotionType   `json:"type"`
+	Title           []string          `json:"title"`
+	Description     []null.String     `json:"description"`
+	IsActive        []bool            `json:"is_active"`
+	AutoApply       []bool            `json:"auto_apply"`
+	Group           []string          `json:"group"`
+	Priority        []int32           `json:"priority"`
+	PriorityFrom    null.Int32        `json:"priority_from"`
+	PriorityTo      null.Int32        `json:"priority_to"`
+	Data            []json.RawMessage `json:"data"`
+	DateStarted     []time.Time       `json:"date_started"`
+	DateStartedFrom null.Time         `json:"date_started_from"`
+	DateStartedTo   null.Time         `json:"date_started_to"`
+	DateEnded       []null.Time       `json:"date_ended"`
+	DateEndedFrom   null.Time         `json:"date_ended_from"`
+	DateEndedTo     null.Time         `json:"date_ended_to"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([]PromotionPromotion, error) {
@@ -551,6 +595,10 @@ func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([
 		arg.IsActive,
 		arg.AutoApply,
 		arg.Group,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
 		arg.DateStartedTo,

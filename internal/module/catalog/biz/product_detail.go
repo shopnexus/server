@@ -16,6 +16,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -72,9 +73,9 @@ func (b *CatalogBiz) GetProductDetail(ctx restate.Context, params GetProductDeta
 		})
 	}
 
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, requestPrices, map[uuid.UUID]catalogmodel.ProductSpu{
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: map[uuid.UUID]catalogmodel.ProductSpu{
 		spu.ID: spu,
-	})
+	}})
 	if err != nil {
 		return zero, err
 	}

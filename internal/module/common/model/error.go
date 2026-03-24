@@ -1,8 +1,12 @@
 package commonmodel
 
-import sharedmodel "shopnexus-server/internal/shared/model"
+import (
+	"net/http"
+
+	sharedmodel "shopnexus-server/internal/shared/model"
+)
 
 // Sentinel errors for the common module.
 var (
-	ErrResourceNotFound = sharedmodel.NewError("resource.not_found", "Resource not found")
+	ErrResourceNotFound = sharedmodel.NewError(http.StatusNotFound, "Resource not found")
 )

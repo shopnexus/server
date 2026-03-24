@@ -86,7 +86,7 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 	}
 
 	if params.Method == orderdb.OrderRefundMethodPickUp && !params.Address.Valid {
-		return zero, ordermodel.ErrRefundAddressRequired
+		return zero, ordermodel.ErrRefundAddressRequired.Terminal()
 	}
 
 	// Create refund + update resources in one durable step
@@ -94,9 +94,7 @@ func (b *OrderBiz) CreateRefund(ctx restate.Context, params CreateRefundParams) 
 		// TODO: check if the order item belongs to the account
 		// TODO: check if the order item is refundable (not refunded yet, within time limit, etc)
 
-		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
-			ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
-		})
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: params.OrderID, Valid: true})
 		if err != nil {
 			return zero, fmt.Errorf("get order: %w", err)
 		}
@@ -181,7 +179,7 @@ func (b *OrderBiz) UpdateRefund(ctx restate.Context, params UpdateRefundParams) 
 		}
 
 		if refund.Status != orderdb.OrderStatusPending {
-			return zero, ordermodel.ErrRefundCannotBeUpdated
+			return zero, ordermodel.ErrRefundCannotBeUpdated.Terminal()
 		}
 
 		nullAddress := params.Method == orderdb.OrderRefundMethodDropOff

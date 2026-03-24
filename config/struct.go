@@ -41,7 +41,6 @@ type Vnpay struct {
 }
 
 type Search struct {
-	Url                  string  `yaml:"url" mapstructure:"url" validate:"required,url"`
 	DenseWeight          float32 `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
 	SparseWeight         float32 `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
 	InteractionBatchSize int     `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`

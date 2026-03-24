@@ -229,6 +229,39 @@ func (q *Queries) CreateCopyDefaultCustomer(ctx context.Context, id []uuid.UUID)
 	return q.db.CopyFrom(ctx, []string{"account", "customer"}, []string{"id"}, &iteratorForCreateCopyDefaultCustomer{rows: id})
 }
 
+// iteratorForCreateCopyDefaultFavorite implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultFavorite struct {
+	rows                 []CreateCopyDefaultFavoriteParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultFavorite) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultFavorite) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].AccountID,
+		r.rows[0].SpuID,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultFavorite) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultFavorite(ctx context.Context, arg []CreateCopyDefaultFavoriteParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "favorite"}, []string{"account_id", "spu_id"}, &iteratorForCreateCopyDefaultFavorite{rows: arg})
+}
+
 // iteratorForCreateCopyDefaultIncomeHistory implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultIncomeHistory struct {
 	rows                 []CreateCopyDefaultIncomeHistoryParams
@@ -302,6 +335,41 @@ func (q *Queries) CreateCopyDefaultNotification(ctx context.Context, arg []Creat
 	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "date_sent", "date_scheduled"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
 }
 
+// iteratorForCreateCopyDefaultPaymentMethod implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultPaymentMethod struct {
+	rows                 []CreateCopyDefaultPaymentMethodParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultPaymentMethod) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultPaymentMethod) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].AccountID,
+		r.rows[0].Type,
+		r.rows[0].Label,
+		r.rows[0].Data,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultPaymentMethod) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultPaymentMethod(ctx context.Context, arg []CreateCopyDefaultPaymentMethodParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"account_id", "type", "label", "data"}, &iteratorForCreateCopyDefaultPaymentMethod{rows: arg})
+}
+
 // iteratorForCreateCopyDefaultProfile implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultProfile struct {
 	rows                 []CreateCopyDefaultProfileParams
@@ -369,6 +437,40 @@ func (r iteratorForCreateCopyDefaultVendor) Err() error {
 
 func (q *Queries) CreateCopyDefaultVendor(ctx context.Context, id []uuid.UUID) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"account", "vendor"}, []string{"id"}, &iteratorForCreateCopyDefaultVendor{rows: id})
+}
+
+// iteratorForCreateCopyFavorite implements pgx.CopyFromSource.
+type iteratorForCreateCopyFavorite struct {
+	rows                 []CreateCopyFavoriteParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyFavorite) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyFavorite) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].AccountID,
+		r.rows[0].SpuID,
+		r.rows[0].DateCreated,
+	}, nil
+}
+
+func (r iteratorForCreateCopyFavorite) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyFavorite(ctx context.Context, arg []CreateCopyFavoriteParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "favorite"}, []string{"account_id", "spu_id", "date_created"}, &iteratorForCreateCopyFavorite{rows: arg})
 }
 
 // iteratorForCreateCopyIncomeHistory implements pgx.CopyFromSource.
@@ -446,6 +548,45 @@ func (r iteratorForCreateCopyNotification) Err() error {
 
 func (q *Queries) CreateCopyNotification(ctx context.Context, arg []CreateCopyNotificationParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "is_read", "content", "date_created", "date_updated", "date_sent", "date_scheduled"}, &iteratorForCreateCopyNotification{rows: arg})
+}
+
+// iteratorForCreateCopyPaymentMethod implements pgx.CopyFromSource.
+type iteratorForCreateCopyPaymentMethod struct {
+	rows                 []CreateCopyPaymentMethodParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyPaymentMethod) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyPaymentMethod) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].ID,
+		r.rows[0].AccountID,
+		r.rows[0].Type,
+		r.rows[0].Label,
+		r.rows[0].Data,
+		r.rows[0].IsDefault,
+		r.rows[0].DateCreated,
+		r.rows[0].DateUpdated,
+	}, nil
+}
+
+func (r iteratorForCreateCopyPaymentMethod) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyPaymentMethod(ctx context.Context, arg []CreateCopyPaymentMethodParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated"}, &iteratorForCreateCopyPaymentMethod{rows: arg})
 }
 
 // iteratorForCreateCopyProfile implements pgx.CopyFromSource.

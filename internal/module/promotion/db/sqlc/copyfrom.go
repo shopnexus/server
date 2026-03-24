@@ -37,7 +37,6 @@ func (r iteratorForCreateCopyDefaultPromotion) Values() ([]interface{}, error) {
 		r.rows[0].IsActive,
 		r.rows[0].AutoApply,
 		r.rows[0].Group,
-		r.rows[0].Priority,
 		r.rows[0].Data,
 		r.rows[0].DateStarted,
 		r.rows[0].DateEnded,
@@ -49,7 +48,7 @@ func (r iteratorForCreateCopyDefaultPromotion) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPromotion(ctx context.Context, arg []CreateCopyDefaultPromotionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"promotion", "promotion"}, []string{"code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotion{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"promotion", "promotion"}, []string{"code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "data", "date_started", "date_ended"}, &iteratorForCreateCopyDefaultPromotion{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultRef implements pgx.CopyFromSource.

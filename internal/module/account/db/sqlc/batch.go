@@ -7,6 +7,7 @@ package accountdb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -229,6 +230,66 @@ func (b *CreateBatchCustomerBatchResults) Close() error {
 	return b.br.Close()
 }
 
+const createBatchFavorite = `-- name: CreateBatchFavorite :batchone
+INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3)
+RETURNING id, account_id, spu_id, date_created
+`
+
+type CreateBatchFavoriteBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchFavoriteParams struct {
+	AccountID   uuid.UUID `json:"account_id"`
+	SpuID       uuid.UUID `json:"spu_id"`
+	DateCreated time.Time `json:"date_created"`
+}
+
+func (q *Queries) CreateBatchFavorite(ctx context.Context, arg []CreateBatchFavoriteParams) *CreateBatchFavoriteBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.AccountID,
+			a.SpuID,
+			a.DateCreated,
+		}
+		batch.Queue(createBatchFavorite, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchFavoriteBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchFavoriteBatchResults) QueryRow(f func(int, AccountFavorite, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i AccountFavorite
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.SpuID,
+			&i.DateCreated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchFavoriteBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const createBatchIncomeHistory = `-- name: CreateBatchIncomeHistory :batchone
 INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -372,6 +433,80 @@ func (b *CreateBatchNotificationBatchResults) QueryRow(f func(int, AccountNotifi
 }
 
 func (b *CreateBatchNotificationBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchPaymentMethod = `-- name: CreateBatchPaymentMethod :batchone
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, account_id, type, label, data, is_default, date_created, date_updated
+`
+
+type CreateBatchPaymentMethodBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchPaymentMethodParams struct {
+	ID          uuid.UUID       `json:"id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	Type        string          `json:"type"`
+	Label       string          `json:"label"`
+	Data        json.RawMessage `json:"data"`
+	IsDefault   bool            `json:"is_default"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
+}
+
+func (q *Queries) CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatchPaymentMethodParams) *CreateBatchPaymentMethodBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.AccountID,
+			a.Type,
+			a.Label,
+			a.Data,
+			a.IsDefault,
+			a.DateCreated,
+			a.DateUpdated,
+		}
+		batch.Queue(createBatchPaymentMethod, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchPaymentMethodBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchPaymentMethodBatchResults) QueryRow(f func(int, AccountPaymentMethod, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i AccountPaymentMethod
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Type,
+			&i.Label,
+			&i.Data,
+			&i.IsDefault,
+			&i.DateCreated,
+			&i.DateUpdated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchPaymentMethodBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

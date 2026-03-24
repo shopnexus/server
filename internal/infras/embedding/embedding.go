@@ -15,7 +15,8 @@ import (
 
 // Config holds configuration for the embedding service HTTP client.
 type Config struct {
-	URL string `yaml:"url"` // e.g. "http://localhost:8000"
+	URL     string        `yaml:"url"`     // e.g. "http://localhost:8000"
+	Timeout time.Duration `yaml:"timeout"` // request timeout (default: 5 minutes)
 }
 
 // Client is an HTTP client for the Python embedding service.
@@ -26,10 +27,14 @@ type Client struct {
 
 // NewClient creates a new embedding service client.
 func NewClient(cfg Config) *Client {
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
 	return &Client{
 		baseURL: strings.TrimRight(cfg.URL, "/"),
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }

@@ -104,7 +104,7 @@ func (b *OrderBiz) UpdateCart(ctx restate.Context, params UpdateCartParams) erro
 		} else if params.Quantity.Valid {
 			newQuantity = params.Quantity.Int64
 		} else {
-			return "", ordermodel.ErrQuantityParamRequired
+			return "", ordermodel.ErrQuantityParamRequired.Terminal()
 		}
 
 		// If quantity = 0, remove cart item and return early
@@ -171,7 +171,7 @@ func (b *OrderBiz) ListCheckoutCart(ctx restate.Context, params ListCheckoutCart
 	// Handle Buy Now case
 	if params.BuyNowSkuID.Valid {
 		if !params.BuyNowQuantity.Valid {
-			return nil, ordermodel.ErrBuyNowQuantityRequired
+			return nil, ordermodel.ErrBuyNowQuantityRequired.Terminal()
 		}
 
 		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{ID: []uuid.UUID{params.BuyNowSkuID.UUID}})

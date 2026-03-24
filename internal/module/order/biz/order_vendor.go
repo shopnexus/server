@@ -79,7 +79,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 		return err
 	}
 	if order.Payment.Status != orderdb.OrderStatusSuccess || order.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrOrderNotConfirmable
+		return ordermodel.ErrOrderNotConfirmable.Terminal()
 	}
 
 	// Update order + shipment in one durable step
@@ -100,7 +100,7 @@ func (b *OrderBiz) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) 
 
 		shipmentClient, ok := b.shipmentMap[dbShipment.Option]
 		if !ok {
-			return ordermodel.ErrUnknownShipmentOption.Fmt(dbShipment.Option)
+			return ordermodel.ErrUnknownShipmentOption.Fmt(dbShipment.Option).Terminal()
 		}
 
 		var (

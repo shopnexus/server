@@ -53,7 +53,7 @@ func (b *CommonBiz) UpdateResources(ctx context.Context, params UpdateResourcesP
 		}
 		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
-			return nil, commonmodel.ErrResourceNotFound
+			return nil, commonmodel.ErrResourceNotFound.Terminal()
 		}
 
 		for order, rsID := range params.ResourceIDs {

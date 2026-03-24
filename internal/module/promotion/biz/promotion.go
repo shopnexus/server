@@ -129,7 +129,6 @@ func (b *PromotionBiz) CreatePromotion(ctx restate.Context, params CreatePromoti
 		IsActive:    params.IsActive,
 		AutoApply:   params.AutoApply,
 		Group:       params.Group,
-		Priority:    params.Priority,
 		Data:        params.Data,
 		DateStarted: params.DateStarted,
 		DateEnded:   params.DateEnded,

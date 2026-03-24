@@ -26,21 +26,27 @@ type CreatePaymentMethodParams struct {
 func (b *AccountBiz) CreatePaymentMethod(ctx restate.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
-	if params.IsDefault {
-		if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-			return zero, fmt.Errorf("create payment method: %w", err)
-		}
-	}
-
 	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
 		AccountID: params.Account.ID,
 		Type:      params.Type,
 		Label:     params.Label,
 		Data:      params.Data,
-		IsDefault: params.IsDefault,
 	})
 	if err != nil {
 		return zero, fmt.Errorf("create payment method: %w", err)
+	}
+
+	if params.IsDefault {
+		if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
+			return zero, fmt.Errorf("create payment method: %w", err)
+		}
+		result, err = b.storage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
+			ID:        result.ID,
+			AccountID: params.Account.ID,
+		})
+		if err != nil {
+			return zero, fmt.Errorf("create payment method: %w", err)
+		}
 	}
 
 	return result, nil
@@ -93,7 +99,7 @@ func (b *AccountBiz) UpdatePaymentMethod(ctx restate.Context, params UpdatePayme
 
 	result, err := b.storage.Querier().UpdatePaymentMethod(ctx, accountdb.UpdatePaymentMethodParams{
 		ID:        params.ID,
-		AccountID: params.Account.ID,
+		AccountID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		Type:      params.Type,
 		Label:     params.Label,
 		Data:      params.Data,
@@ -113,8 +119,8 @@ type DeletePaymentMethodParams struct {
 // DeletePaymentMethod removes a payment method belonging to the authenticated account.
 func (b *AccountBiz) DeletePaymentMethod(ctx restate.Context, params DeletePaymentMethodParams) error {
 	return b.storage.Querier().DeletePaymentMethod(ctx, accountdb.DeletePaymentMethodParams{
-		ID:        params.ID,
-		AccountID: params.Account.ID,
+		ID:        []uuid.UUID{params.ID},
+		AccountID: []uuid.UUID{params.Account.ID},
 	})
 }
 

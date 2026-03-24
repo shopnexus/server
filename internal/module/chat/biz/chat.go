@@ -28,6 +28,7 @@ func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversat
 		CustomerID: params.Account.ID,
 		VendorID:   params.VendorID,
 	})
+
 	if err == nil {
 		return existing, nil
 	}
@@ -45,7 +46,7 @@ func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversat
 
 // GetConversation returns a conversation by its ID.
 func (b *ChatBiz) GetConversation(ctx restate.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
-	return b.storage.Querier().GetConversation(ctx, id)
+	return b.storage.Querier().GetConversationByID(ctx, id)
 }
 
 type ListConversationParams struct {
@@ -60,8 +61,8 @@ func (b *ChatBiz) ListConversation(ctx restate.Context, params ListConversationP
 
 	conversations, err := b.storage.Querier().ListConversationByAccount(ctx, chatdb.ListConversationByAccountParams{
 		AccountID: params.Account.ID,
-		Limit:     null.Int32From(params.Limit.Int32),
-		Offset:    params.Offset(),
+		Limit:  int32(params.Limit.Int32),
+		Offset: int32(params.Offset().Int32),
 	})
 	if err != nil {
 		return zero, fmt.Errorf("list conversations: %w", err)
@@ -91,16 +92,16 @@ type SendMessageParams struct {
 func (b *ChatBiz) SendMessage(ctx restate.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
 	var zero chatdb.ChatMessage
 
-	conv, err := b.storage.Querier().GetConversation(ctx, params.ConversationID)
+	conv, err := b.storage.Querier().GetConversationByID(ctx, params.ConversationID)
 	if err != nil {
-		return zero, chatmodel.ErrConversationNotFound
+		return zero, chatmodel.ErrConversationNotFound.Terminal()
 	}
 
 	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
-		return zero, chatmodel.ErrNotParticipant
+		return zero, chatmodel.ErrNotParticipant.Terminal()
 	}
 
-	msg, err := b.storage.Querier().CreateMessage(ctx, chatdb.CreateMessageParams{
+	msg, err := b.storage.Querier().CreateChatMessage(ctx, chatdb.CreateChatMessageParams{
 		ConversationID: params.ConversationID,
 		SenderID:       params.Account.ID,
 		Type:           params.Type,
@@ -129,19 +130,19 @@ func (b *ChatBiz) ListMessage(ctx restate.Context, params ListMessageParams) (sh
 	var zero sharedmodel.PaginateResult[chatdb.ChatMessage]
 	params.PaginationParams = params.Constrain()
 
-	conv, err := b.storage.Querier().GetConversation(ctx, params.ConversationID)
+	conv, err := b.storage.Querier().GetConversationByID(ctx, params.ConversationID)
 	if err != nil {
-		return zero, chatmodel.ErrConversationNotFound
+		return zero, chatmodel.ErrConversationNotFound.Terminal()
 	}
 
 	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
-		return zero, chatmodel.ErrNotParticipant
+		return zero, chatmodel.ErrNotParticipant.Terminal()
 	}
 
 	messages, err := b.storage.Querier().ListMessageByConversation(ctx, chatdb.ListMessageByConversationParams{
 		ConversationID: params.ConversationID,
-		Limit:          null.Int32From(params.Limit.Int32),
-		Offset:         params.Offset(),
+		Limit:  int32(params.Limit.Int32),
+		Offset: int32(params.Offset().Int32),
 	})
 	if err != nil {
 		return zero, fmt.Errorf("list messages: %w", err)

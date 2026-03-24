@@ -32,7 +32,7 @@ type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 // AnalyticBiz implements the core business logic for the analytic module.
 type AnalyticBiz struct {
 	storage           AnalyticStorage
-	promotion         *promotionbiz.PromotionBiz
+	promotion         promotionbiz.PromotionClient
 	popularityWeights map[string]float64
 }
 
@@ -40,7 +40,7 @@ type AnalyticBiz struct {
 func NewAnalyticBiz(
 	config *config.Config,
 	storage AnalyticStorage,
-	promotionBiz *promotionbiz.PromotionBiz,
+	promotionBiz promotionbiz.PromotionClient,
 ) *AnalyticBiz {
 	return &AnalyticBiz{
 		storage:           storage,

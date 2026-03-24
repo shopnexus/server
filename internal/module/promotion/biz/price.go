@@ -36,13 +36,16 @@ type groupWinner struct {
 	shipCost    sharedmodel.Concurrency
 }
 
+type CalculatePromotedPricesParams struct {
+	Prices []catalogmodel.RequestOrderPrice
+	SpuMap map[uuid.UUID]catalogmodel.ProductSpu
+}
+
 // CalculatePromotedPrices calculates promoted prices for the given SKUs.
 // Group-based stacking: different groups stack, same group picks the best.
-func (s *PromotionBiz) CalculatePromotedPrices(
-	ctx context.Context,
-	prices []catalogmodel.RequestOrderPrice,
-	spuMap map[uuid.UUID]catalogmodel.ProductSpu,
-) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+func (s *PromotionBiz) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+	prices := params.Prices
+	spuMap := params.SpuMap
 	// Collect all manually-entered promotion codes
 	var codes []string
 	for _, p := range prices {

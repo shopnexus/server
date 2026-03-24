@@ -176,7 +176,7 @@ func (b *InventoryBiz) ImportStock(ctx restate.Context, params ImportStockParams
 
 		if len(params.SerialIDs) != 0 {
 			if len(params.SerialIDs) != int(params.Change) {
-				return inventorymodel.ErrSerialCountMismatch
+				return inventorymodel.ErrSerialCountMismatch.Terminal()
 			}
 			for _, id := range params.SerialIDs {
 				args = append(args, inventorydb.CreateCopyDefaultSerialParams{
@@ -234,7 +234,7 @@ func (b *InventoryBiz) ReserveInventory(ctx restate.Context, params ReserveInven
 		}
 
 		if stock.Stock < item.Amount {
-			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String())
+			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
 		}
 
 		// Adjust inventory and check rows affected
@@ -246,7 +246,7 @@ func (b *InventoryBiz) ReserveInventory(ctx restate.Context, params ReserveInven
 			return nil, err
 		}
 		if rowsAffected == 0 {
-			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String())
+			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
 		}
 
 		result := ReserveInventoryResult{
@@ -265,7 +265,7 @@ func (b *InventoryBiz) ReserveInventory(ctx restate.Context, params ReserveInven
 			}
 
 			if len(serials) != int(item.Amount) {
-				return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String())
+				return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
 			}
 
 			serialIDs := lo.Map(serials, func(s inventorydb.GetAvailableSerialsRow, _ int) string {

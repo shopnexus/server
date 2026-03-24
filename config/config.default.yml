@@ -69,9 +69,9 @@ milvus:
   address: "localhost:19530"
 
 embedding:
-  url: "http://localhost:8000"
+  url: "http://localhost:5007"
 
 restate:
   ingressAddress: "http://localhost:8080"
   adminAddress: "http://localhost:9470"
-  servicePort: "8081"
+  servicePort: "8082"

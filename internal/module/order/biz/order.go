@@ -12,6 +12,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -32,7 +33,7 @@ func (b *OrderBiz) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.
 		return zero, err
 	}
 	if len(orders.Data) == 0 {
-		return zero, ordermodel.ErrOrderNotFound
+		return zero, ordermodel.ErrOrderNotFound.Terminal()
 	}
 
 	return orders.Data[0], nil
@@ -168,7 +169,7 @@ func (b *OrderBiz) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrde
 	for _, o := range orders {
 		payment, ok := paymentMap[o.PaymentID]
 		if !ok {
-			return nil, ordermodel.ErrMissingPayment
+			return nil, ordermodel.ErrMissingPayment.Terminal()
 		}
 
 		result = append(result, ordermodel.Order{
@@ -219,7 +220,7 @@ func (b *OrderBiz) VerifyPayment(ctx restate.Context, params VerifyPaymentParams
 	refID, err := restate.Run(ctx, func(ctx restate.RunContext) (uuid.UUID, error) {
 		gateway, ok := b.paymentMap[params.PaymentGateway]
 		if !ok {
-			return uuid.UUID{}, ordermodel.ErrPaymentGatewayNotFound
+			return uuid.UUID{}, ordermodel.ErrPaymentGatewayNotFound.Terminal()
 		}
 		result, err := gateway.VerifyPayment(ctx, params.Data)
 		if err != nil {
@@ -233,9 +234,7 @@ func (b *OrderBiz) VerifyPayment(ctx restate.Context, params VerifyPaymentParams
 
 	// Update payment status
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
-			ID: uuid.NullUUID{UUID: refID, Valid: true},
-		})
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refID, Valid: true})
 		if err != nil {
 			return err
 		}
@@ -277,7 +276,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		return zero, fmt.Errorf("list catalog product skus: %w", err)
 	}
 	if len(quoteSkus) != len(skuIDs) {
-		return zero, ordermodel.ErrOrderItemNotFound
+		return zero, ordermodel.ErrOrderItemNotFound.Terminal()
 	}
 	skuMap := lo.KeyBy(quoteSkus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
 
@@ -330,7 +329,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		for _, orderItem := range params.Items {
 			shipCost, ok := shippingCostMap[orderItem.SkuID]
 			if !ok {
-				return zero, ordermodel.ErrMissingShippingQuote
+				return zero, ordermodel.ErrMissingShippingQuote.Terminal()
 			}
 
 			requestOrderPrices = append(requestOrderPrices, catalogmodel.RequestOrderPrice{
@@ -343,7 +342,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 			})
 		}
 
-		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, requestOrderPrices, spuMap)
+		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestOrderPrices, SpuMap: spuMap})
 		if err != nil {
 			return zero, fmt.Errorf("calculate promoted prices: %w", err)
 		}
@@ -352,7 +351,7 @@ func (b *OrderBiz) QuoteOrder(ctx restate.Context, params QuoteOrderParams) (Quo
 		for _, checkoutItem := range params.Items {
 			price, ok := priceMap[checkoutItem.SkuID]
 			if !ok {
-				return zero, ordermodel.ErrMissingPromotedPrice
+				return zero, ordermodel.ErrMissingPromotedPrice.Terminal()
 			}
 
 			result.ProductCost = result.ProductCost.Add(price.ProductCost)

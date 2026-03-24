@@ -7,6 +7,8 @@ package analyticdb
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 // iteratorForCreateCopyDefaultInteraction implements pgx.CopyFromSource.
@@ -37,6 +39,7 @@ func (r iteratorForCreateCopyDefaultInteraction) Values() ([]interface{}, error)
 		r.rows[0].Metadata,
 		r.rows[0].UserAgent,
 		r.rows[0].IpAddress,
+		r.rows[0].AccountNumber,
 	}, nil
 }
 
@@ -45,7 +48,39 @@ func (r iteratorForCreateCopyDefaultInteraction) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultInteraction(ctx context.Context, arg []CreateCopyDefaultInteractionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address"}, &iteratorForCreateCopyDefaultInteraction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "account_number"}, &iteratorForCreateCopyDefaultInteraction{rows: arg})
+}
+
+// iteratorForCreateCopyDefaultProductPopularity implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultProductPopularity struct {
+	rows                 []uuid.UUID
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultProductPopularity) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultProductPopularity) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0],
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultProductPopularity) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultProductPopularity(ctx context.Context, id []uuid.UUID) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"analytic", "product_popularity"}, []string{"id"}, &iteratorForCreateCopyDefaultProductPopularity{rows: id})
 }
 
 // iteratorForCreateCopyInteraction implements pgx.CopyFromSource.
@@ -77,6 +112,7 @@ func (r iteratorForCreateCopyInteraction) Values() ([]interface{}, error) {
 		r.rows[0].UserAgent,
 		r.rows[0].IpAddress,
 		r.rows[0].DateCreated,
+		r.rows[0].AccountNumber,
 	}, nil
 }
 
@@ -85,5 +121,44 @@ func (r iteratorForCreateCopyInteraction) Err() error {
 }
 
 func (q *Queries) CreateCopyInteraction(ctx context.Context, arg []CreateCopyInteractionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created"}, &iteratorForCreateCopyInteraction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number"}, &iteratorForCreateCopyInteraction{rows: arg})
+}
+
+// iteratorForCreateCopyProductPopularity implements pgx.CopyFromSource.
+type iteratorForCreateCopyProductPopularity struct {
+	rows                 []CreateCopyProductPopularityParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyProductPopularity) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyProductPopularity) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].ID,
+		r.rows[0].Score,
+		r.rows[0].ViewCount,
+		r.rows[0].PurchaseCount,
+		r.rows[0].FavoriteCount,
+		r.rows[0].CartCount,
+		r.rows[0].ReviewCount,
+		r.rows[0].DateUpdated,
+	}, nil
+}
+
+func (r iteratorForCreateCopyProductPopularity) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyProductPopularity(ctx context.Context, arg []CreateCopyProductPopularityParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"analytic", "product_popularity"}, []string{"id", "score", "view_count", "purchase_count", "favorite_count", "cart_count", "review_count", "date_updated"}, &iteratorForCreateCopyProductPopularity{rows: arg})
 }

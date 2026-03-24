@@ -37,7 +37,7 @@ func (b *OrderBiz) SetupShipmentMap() error {
 func (b *OrderBiz) getShipmentClient(option string) (shipment.Client, error) {
 	client, ok := b.shipmentMap[option]
 	if !ok {
-		return nil, ordermodel.ErrUnknownShipmentOption.Fmt(option)
+		return nil, ordermodel.ErrUnknownShipmentOption.Fmt(option).Terminal()
 	}
 	return client, nil
 }

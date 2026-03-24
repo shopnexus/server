@@ -32,25 +32,31 @@ WHERE (
     ("ip_address" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL)
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("account_number" = ANY($15) OR $15 IS NULL) AND
+    ("account_number" > $16 OR $16 IS NULL) AND
+    ("account_number" < $17 OR $17 IS NULL)
 )
 `
 
 type CountInteractionParams struct {
-	ID              []int64                        `json:"id"`
-	AccountID       []uuid.NullUUID                `json:"account_id"`
-	SessionID       []null.String                  `json:"session_id"`
-	EventType       []string                       `json:"event_type"`
-	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
-	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
-	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
-	RefID           []string                       `json:"ref_id"`
-	Metadata        []json.RawMessage              `json:"metadata"`
-	UserAgent       []null.String                  `json:"user_agent"`
-	IpAddress       []null.String                  `json:"ip_address"`
-	DateCreated     []time.Time                    `json:"date_created"`
-	DateCreatedFrom null.Time                      `json:"date_created_from"`
-	DateCreatedTo   null.Time                      `json:"date_created_to"`
+	ID                []int64                        `json:"id"`
+	AccountID         []uuid.NullUUID                `json:"account_id"`
+	SessionID         []null.String                  `json:"session_id"`
+	EventType         []string                       `json:"event_type"`
+	RefType           []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom       NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo         NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID             []string                       `json:"ref_id"`
+	Metadata          []json.RawMessage              `json:"metadata"`
+	UserAgent         []null.String                  `json:"user_agent"`
+	IpAddress         []null.String                  `json:"ip_address"`
+	DateCreated       []time.Time                    `json:"date_created"`
+	DateCreatedFrom   null.Time                      `json:"date_created_from"`
+	DateCreatedTo     null.Time                      `json:"date_created_to"`
+	AccountNumber     []int64                        `json:"account_number"`
+	AccountNumberFrom null.Int                       `json:"account_number_from"`
+	AccountNumberTo   null.Int                       `json:"account_number_to"`
 }
 
 func (q *Queries) CountInteraction(ctx context.Context, arg CountInteractionParams) (int64, error) {
@@ -69,6 +75,9 @@ func (q *Queries) CountInteraction(ctx context.Context, arg CountInteractionPara
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.AccountNumber,
+		arg.AccountNumberFrom,
+		arg.AccountNumberTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -76,43 +85,46 @@ func (q *Queries) CountInteraction(ctx context.Context, arg CountInteractionPara
 }
 
 type CreateCopyDefaultInteractionParams struct {
-	AccountID uuid.NullUUID              `json:"account_id"`
-	SessionID null.String                `json:"session_id"`
-	EventType string                     `json:"event_type"`
-	RefType   AnalyticInteractionRefType `json:"ref_type"`
-	RefID     string                     `json:"ref_id"`
-	Metadata  json.RawMessage            `json:"metadata"`
-	UserAgent null.String                `json:"user_agent"`
-	IpAddress null.String                `json:"ip_address"`
+	AccountID     uuid.NullUUID              `json:"account_id"`
+	SessionID     null.String                `json:"session_id"`
+	EventType     string                     `json:"event_type"`
+	RefType       AnalyticInteractionRefType `json:"ref_type"`
+	RefID         string                     `json:"ref_id"`
+	Metadata      json.RawMessage            `json:"metadata"`
+	UserAgent     null.String                `json:"user_agent"`
+	IpAddress     null.String                `json:"ip_address"`
+	AccountNumber int64                      `json:"account_number"`
 }
 
 type CreateCopyInteractionParams struct {
-	AccountID   uuid.NullUUID              `json:"account_id"`
-	SessionID   null.String                `json:"session_id"`
-	EventType   string                     `json:"event_type"`
-	RefType     AnalyticInteractionRefType `json:"ref_type"`
-	RefID       string                     `json:"ref_id"`
-	Metadata    json.RawMessage            `json:"metadata"`
-	UserAgent   null.String                `json:"user_agent"`
-	IpAddress   null.String                `json:"ip_address"`
-	DateCreated time.Time                  `json:"date_created"`
+	AccountID     uuid.NullUUID              `json:"account_id"`
+	SessionID     null.String                `json:"session_id"`
+	EventType     string                     `json:"event_type"`
+	RefType       AnalyticInteractionRefType `json:"ref_type"`
+	RefID         string                     `json:"ref_id"`
+	Metadata      json.RawMessage            `json:"metadata"`
+	UserAgent     null.String                `json:"user_agent"`
+	IpAddress     null.String                `json:"ip_address"`
+	DateCreated   time.Time                  `json:"date_created"`
+	AccountNumber int64                      `json:"account_number"`
 }
 
 const createDefaultInteraction = `-- name: CreateDefaultInteraction :one
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "account_number")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
 type CreateDefaultInteractionParams struct {
-	AccountID uuid.NullUUID              `json:"account_id"`
-	SessionID null.String                `json:"session_id"`
-	EventType string                     `json:"event_type"`
-	RefType   AnalyticInteractionRefType `json:"ref_type"`
-	RefID     string                     `json:"ref_id"`
-	Metadata  json.RawMessage            `json:"metadata"`
-	UserAgent null.String                `json:"user_agent"`
-	IpAddress null.String                `json:"ip_address"`
+	AccountID     uuid.NullUUID              `json:"account_id"`
+	SessionID     null.String                `json:"session_id"`
+	EventType     string                     `json:"event_type"`
+	RefType       AnalyticInteractionRefType `json:"ref_type"`
+	RefID         string                     `json:"ref_id"`
+	Metadata      json.RawMessage            `json:"metadata"`
+	UserAgent     null.String                `json:"user_agent"`
+	IpAddress     null.String                `json:"ip_address"`
+	AccountNumber int64                      `json:"account_number"`
 }
 
 func (q *Queries) CreateDefaultInteraction(ctx context.Context, arg CreateDefaultInteractionParams) (AnalyticInteraction, error) {
@@ -125,6 +137,7 @@ func (q *Queries) CreateDefaultInteraction(ctx context.Context, arg CreateDefaul
 		arg.Metadata,
 		arg.UserAgent,
 		arg.IpAddress,
+		arg.AccountNumber,
 	)
 	var i AnalyticInteraction
 	err := row.Scan(
@@ -144,21 +157,22 @@ func (q *Queries) CreateDefaultInteraction(ctx context.Context, arg CreateDefaul
 }
 
 const createInteraction = `-- name: CreateInteraction :one
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
 type CreateInteractionParams struct {
-	AccountID   uuid.NullUUID              `json:"account_id"`
-	SessionID   null.String                `json:"session_id"`
-	EventType   string                     `json:"event_type"`
-	RefType     AnalyticInteractionRefType `json:"ref_type"`
-	RefID       string                     `json:"ref_id"`
-	Metadata    json.RawMessage            `json:"metadata"`
-	UserAgent   null.String                `json:"user_agent"`
-	IpAddress   null.String                `json:"ip_address"`
-	DateCreated time.Time                  `json:"date_created"`
+	AccountID     uuid.NullUUID              `json:"account_id"`
+	SessionID     null.String                `json:"session_id"`
+	EventType     string                     `json:"event_type"`
+	RefType       AnalyticInteractionRefType `json:"ref_type"`
+	RefID         string                     `json:"ref_id"`
+	Metadata      json.RawMessage            `json:"metadata"`
+	UserAgent     null.String                `json:"user_agent"`
+	IpAddress     null.String                `json:"ip_address"`
+	DateCreated   time.Time                  `json:"date_created"`
+	AccountNumber int64                      `json:"account_number"`
 }
 
 func (q *Queries) CreateInteraction(ctx context.Context, arg CreateInteractionParams) (AnalyticInteraction, error) {
@@ -172,6 +186,7 @@ func (q *Queries) CreateInteraction(ctx context.Context, arg CreateInteractionPa
 		arg.UserAgent,
 		arg.IpAddress,
 		arg.DateCreated,
+		arg.AccountNumber,
 	)
 	var i AnalyticInteraction
 	err := row.Scan(
@@ -206,25 +221,31 @@ WHERE (
     ("ip_address" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL)
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("account_number" = ANY($15) OR $15 IS NULL) AND
+    ("account_number" > $16 OR $16 IS NULL) AND
+    ("account_number" < $17 OR $17 IS NULL)
 )
 `
 
 type DeleteInteractionParams struct {
-	ID              []int64                        `json:"id"`
-	AccountID       []uuid.NullUUID                `json:"account_id"`
-	SessionID       []null.String                  `json:"session_id"`
-	EventType       []string                       `json:"event_type"`
-	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
-	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
-	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
-	RefID           []string                       `json:"ref_id"`
-	Metadata        []json.RawMessage              `json:"metadata"`
-	UserAgent       []null.String                  `json:"user_agent"`
-	IpAddress       []null.String                  `json:"ip_address"`
-	DateCreated     []time.Time                    `json:"date_created"`
-	DateCreatedFrom null.Time                      `json:"date_created_from"`
-	DateCreatedTo   null.Time                      `json:"date_created_to"`
+	ID                []int64                        `json:"id"`
+	AccountID         []uuid.NullUUID                `json:"account_id"`
+	SessionID         []null.String                  `json:"session_id"`
+	EventType         []string                       `json:"event_type"`
+	RefType           []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom       NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo         NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID             []string                       `json:"ref_id"`
+	Metadata          []json.RawMessage              `json:"metadata"`
+	UserAgent         []null.String                  `json:"user_agent"`
+	IpAddress         []null.String                  `json:"ip_address"`
+	DateCreated       []time.Time                    `json:"date_created"`
+	DateCreatedFrom   null.Time                      `json:"date_created_from"`
+	DateCreatedTo     null.Time                      `json:"date_created_to"`
+	AccountNumber     []int64                        `json:"account_number"`
+	AccountNumberFrom null.Int                       `json:"account_number_from"`
+	AccountNumberTo   null.Int                       `json:"account_number_to"`
 }
 
 func (q *Queries) DeleteInteraction(ctx context.Context, arg DeleteInteractionParams) error {
@@ -243,16 +264,22 @@ func (q *Queries) DeleteInteraction(ctx context.Context, arg DeleteInteractionPa
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.AccountNumber,
+		arg.AccountNumberFrom,
+		arg.AccountNumberTo,
 	)
 	return err
 }
 
 const getInteraction = `-- name: GetInteraction :one
+
 SELECT id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 FROM "analytic"."interaction"
 WHERE ("id" = $1)
 `
 
+// Code generated by pgtempl. DO NOT EDIT.
+// Queries for table: analytic.interaction
 func (q *Queries) GetInteraction(ctx context.Context, id pgtype.Int8) (AnalyticInteraction, error) {
 	row := q.db.QueryRow(ctx, getInteraction, id)
 	var i AnalyticInteraction
@@ -289,30 +316,36 @@ WHERE (
     ("ip_address" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL)
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("account_number" = ANY($15) OR $15 IS NULL) AND
+    ("account_number" > $16 OR $16 IS NULL) AND
+    ("account_number" < $17 OR $17 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $19::int
+OFFSET $18::int
 `
 
 type ListCountInteractionParams struct {
-	ID              []int64                        `json:"id"`
-	AccountID       []uuid.NullUUID                `json:"account_id"`
-	SessionID       []null.String                  `json:"session_id"`
-	EventType       []string                       `json:"event_type"`
-	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
-	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
-	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
-	RefID           []string                       `json:"ref_id"`
-	Metadata        []json.RawMessage              `json:"metadata"`
-	UserAgent       []null.String                  `json:"user_agent"`
-	IpAddress       []null.String                  `json:"ip_address"`
-	DateCreated     []time.Time                    `json:"date_created"`
-	DateCreatedFrom null.Time                      `json:"date_created_from"`
-	DateCreatedTo   null.Time                      `json:"date_created_to"`
-	Offset          null.Int32                     `json:"offset"`
-	Limit           null.Int32                     `json:"limit"`
+	ID                []int64                        `json:"id"`
+	AccountID         []uuid.NullUUID                `json:"account_id"`
+	SessionID         []null.String                  `json:"session_id"`
+	EventType         []string                       `json:"event_type"`
+	RefType           []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom       NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo         NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID             []string                       `json:"ref_id"`
+	Metadata          []json.RawMessage              `json:"metadata"`
+	UserAgent         []null.String                  `json:"user_agent"`
+	IpAddress         []null.String                  `json:"ip_address"`
+	DateCreated       []time.Time                    `json:"date_created"`
+	DateCreatedFrom   null.Time                      `json:"date_created_from"`
+	DateCreatedTo     null.Time                      `json:"date_created_to"`
+	AccountNumber     []int64                        `json:"account_number"`
+	AccountNumberFrom null.Int                       `json:"account_number_from"`
+	AccountNumberTo   null.Int                       `json:"account_number_to"`
+	Offset            null.Int32                     `json:"offset"`
+	Limit             null.Int32                     `json:"limit"`
 }
 
 type ListCountInteractionRow struct {
@@ -336,6 +369,9 @@ func (q *Queries) ListCountInteraction(ctx context.Context, arg ListCountInterac
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.AccountNumber,
+		arg.AccountNumberFrom,
+		arg.AccountNumberTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -387,30 +423,36 @@ WHERE (
     ("ip_address" = ANY($11) OR $11 IS NULL) AND
     ("date_created" = ANY($12) OR $12 IS NULL) AND
     ("date_created" > $13 OR $13 IS NULL) AND
-    ("date_created" < $14 OR $14 IS NULL)
+    ("date_created" < $14 OR $14 IS NULL) AND
+    ("account_number" = ANY($15) OR $15 IS NULL) AND
+    ("account_number" > $16 OR $16 IS NULL) AND
+    ("account_number" < $17 OR $17 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $19::int
+OFFSET $18::int
 `
 
 type ListInteractionParams struct {
-	ID              []int64                        `json:"id"`
-	AccountID       []uuid.NullUUID                `json:"account_id"`
-	SessionID       []null.String                  `json:"session_id"`
-	EventType       []string                       `json:"event_type"`
-	RefType         []AnalyticInteractionRefType   `json:"ref_type"`
-	RefTypeFrom     NullAnalyticInteractionRefType `json:"ref_type_from"`
-	RefTypeTo       NullAnalyticInteractionRefType `json:"ref_type_to"`
-	RefID           []string                       `json:"ref_id"`
-	Metadata        []json.RawMessage              `json:"metadata"`
-	UserAgent       []null.String                  `json:"user_agent"`
-	IpAddress       []null.String                  `json:"ip_address"`
-	DateCreated     []time.Time                    `json:"date_created"`
-	DateCreatedFrom null.Time                      `json:"date_created_from"`
-	DateCreatedTo   null.Time                      `json:"date_created_to"`
-	Offset          null.Int32                     `json:"offset"`
-	Limit           null.Int32                     `json:"limit"`
+	ID                []int64                        `json:"id"`
+	AccountID         []uuid.NullUUID                `json:"account_id"`
+	SessionID         []null.String                  `json:"session_id"`
+	EventType         []string                       `json:"event_type"`
+	RefType           []AnalyticInteractionRefType   `json:"ref_type"`
+	RefTypeFrom       NullAnalyticInteractionRefType `json:"ref_type_from"`
+	RefTypeTo         NullAnalyticInteractionRefType `json:"ref_type_to"`
+	RefID             []string                       `json:"ref_id"`
+	Metadata          []json.RawMessage              `json:"metadata"`
+	UserAgent         []null.String                  `json:"user_agent"`
+	IpAddress         []null.String                  `json:"ip_address"`
+	DateCreated       []time.Time                    `json:"date_created"`
+	DateCreatedFrom   null.Time                      `json:"date_created_from"`
+	DateCreatedTo     null.Time                      `json:"date_created_to"`
+	AccountNumber     []int64                        `json:"account_number"`
+	AccountNumberFrom null.Int                       `json:"account_number_from"`
+	AccountNumberTo   null.Int                       `json:"account_number_to"`
+	Offset            null.Int32                     `json:"offset"`
+	Limit             null.Int32                     `json:"limit"`
 }
 
 func (q *Queries) ListInteraction(ctx context.Context, arg ListInteractionParams) ([]AnalyticInteraction, error) {
@@ -429,6 +471,9 @@ func (q *Queries) ListInteraction(ctx context.Context, arg ListInteractionParams
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.AccountNumber,
+		arg.AccountNumberFrom,
+		arg.AccountNumberTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -472,8 +517,9 @@ SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "accoun
     "metadata" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "metadata") END,
     "user_agent" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "user_agent") END,
     "ip_address" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "ip_address") END,
-    "date_created" = COALESCE($14, "date_created")
-WHERE id = $15
+    "date_created" = COALESCE($14, "date_created"),
+    "account_number" = COALESCE($15, "account_number")
+WHERE id = $16
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
 `
 
@@ -492,6 +538,7 @@ type UpdateInteractionParams struct {
 	NullIpAddress bool                           `json:"null_ip_address"`
 	IpAddress     null.String                    `json:"ip_address"`
 	DateCreated   null.Time                      `json:"date_created"`
+	AccountNumber null.Int                       `json:"account_number"`
 	ID            int64                          `json:"id"`
 }
 
@@ -511,6 +558,7 @@ func (q *Queries) UpdateInteraction(ctx context.Context, arg UpdateInteractionPa
 		arg.NullIpAddress,
 		arg.IpAddress,
 		arg.DateCreated,
+		arg.AccountNumber,
 		arg.ID,
 	)
 	var i AnalyticInteraction

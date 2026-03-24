@@ -80,7 +80,7 @@ func (b *CatalogBiz) GetProductSpu(ctx restate.Context, params GetProductSpuPara
 	}
 
 	if len(listSpu.Data) == 0 {
-		return catalogmodel.ProductSpu{}, sharedmodel.ErrEntityNotFound.Fmt("ProductSpu")
+		return catalogmodel.ProductSpu{}, sharedmodel.ErrEntityNotFound.Fmt("ProductSpu").Terminal()
 	}
 	return listSpu.Data[0], nil
 }
@@ -274,7 +274,7 @@ func (b *CatalogBiz) UpdateProductSpu(ctx restate.Context, params UpdateProductS
 			return zero, fmt.Errorf("validate featured sku: %w", err)
 		}
 		if len(skus) == 0 || skus[0].SpuID != params.ID {
-			return zero, catalogmodel.ErrSkuNotBelongToSpu
+			return zero, catalogmodel.ErrSkuNotBelongToSpu.Terminal()
 		}
 	}
 
