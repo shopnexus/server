@@ -20,7 +20,7 @@ type ListContactParams struct {
 }
 
 // ListContact returns contacts matching the given account and contact IDs.
-func (b *AccountBiz) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
+func (b *AccountBizImpl) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ type GetContactParams struct {
 }
 
 // GetContact returns a single contact by ID for the authenticated account.
-func (b *AccountBiz) GetContact(ctx restate.Context, params GetContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBizImpl) GetContact(ctx restate.Context, params GetContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -73,7 +73,7 @@ type CreateContactParams struct {
 }
 
 // CreateContact creates a new contact for the authenticated account.
-func (b *AccountBiz) CreateContact(ctx restate.Context, params CreateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBizImpl) CreateContact(ctx restate.Context, params CreateContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -121,7 +121,7 @@ type UpdateContactParams struct {
 }
 
 // UpdateContact updates the specified contact fields.
-func (b *AccountBiz) UpdateContact(ctx restate.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountBizImpl) UpdateContact(ctx restate.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -150,7 +150,7 @@ type DeleteContactParams struct {
 }
 
 // DeleteContact removes a contact belonging to the authenticated account.
-func (b *AccountBiz) DeleteContact(ctx restate.Context, params DeleteContactParams) error {
+func (b *AccountBizImpl) DeleteContact(ctx restate.Context, params DeleteContactParams) error {
 	return b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
 		ID:        []uuid.UUID{params.ContactID},
 		AccountID: []uuid.UUID{params.Account.ID},
@@ -158,7 +158,7 @@ func (b *AccountBiz) DeleteContact(ctx restate.Context, params DeleteContactPara
 }
 
 // GetDefaultContact returns the default contact for each of the given account IDs.
-func (b *AccountBiz) GetDefaultContact(ctx restate.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
+func (b *AccountBizImpl) GetDefaultContact(ctx restate.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
 	contacts, err := b.storage.Querier().ListDefaultContact(ctx, accountIDs)
 	if err != nil {
 		return nil, err

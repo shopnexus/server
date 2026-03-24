@@ -8,11 +8,11 @@ import (
 
 // Handler handles HTTP requests for the catalog module.
 type Handler struct {
-	biz catalogbiz.CatalogClient
+	biz catalogbiz.CatalogBiz
 }
 
 // NewHandler registers catalog module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz catalogbiz.CatalogClient) *Handler {
+func NewHandler(e *echo.Echo, biz catalogbiz.CatalogBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/catalog")
 

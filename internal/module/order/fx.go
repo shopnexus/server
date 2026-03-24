@@ -15,7 +15,7 @@ var Module = fx.Module("order",
 	fx.Provide(
 		NewOrderStorage,
 		orderbiz.NewOrderBiz,
-		NewOrderClient,
+		NewOrderBiz,
 		orderecho.NewHandler,
 	),
 	fx.Invoke(
@@ -28,7 +28,7 @@ func NewOrderStorage(pool pgsqlc.TxBeginner) orderbiz.OrderStorage {
 	return pgsqlc.NewStorage(pool, orderdb.New(pool))
 }
 
-// NewOrderClient creates a Restate-backed client for the order module.
-func NewOrderClient(cfg *config.Config) orderbiz.OrderClient {
+// NewOrderBiz creates a Restate-backed client for the order module.
+func NewOrderBiz(cfg *config.Config) orderbiz.OrderBiz {
 	return orderbiz.NewOrderBizRestateClient(cfg.Restate.IngressAddress)
 }

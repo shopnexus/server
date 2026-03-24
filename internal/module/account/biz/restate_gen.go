@@ -13,12 +13,12 @@ import (
 
 const serviceName = "AccountBiz"
 
-// AccountBizRestateClient implements AccountClient via Restate HTTP ingress.
+// AccountBizRestateClient implements AccountBiz via Restate HTTP ingress.
 type AccountBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ AccountClient = (*AccountBizRestateClient)(nil)
+var _ AccountBiz = (*AccountBizRestateClient)(nil)
 
 func NewAccountBizRestateClient(restateIngressURL string) *AccountBizRestateClient {
 	return &AccountBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

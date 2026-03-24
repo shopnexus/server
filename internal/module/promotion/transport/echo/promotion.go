@@ -20,11 +20,11 @@ import (
 
 // Handler handles HTTP requests for the promotion module.
 type Handler struct {
-	biz promotionbiz.PromotionClient
+	biz promotionbiz.PromotionBiz
 }
 
 // NewHandler registers promotion module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz promotionbiz.PromotionClient) *Handler {
+func NewHandler(e *echo.Echo, biz promotionbiz.PromotionBiz) *Handler {
 	h := &Handler{biz: biz}
 
 	api := e.Group("/api/v1/catalog/promotion")

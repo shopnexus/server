@@ -72,7 +72,7 @@ type checkoutPaymentResult struct {
 }
 
 // Checkout processes a purchase order with payment creation, inventory reservation, and shipment booking.
-func (b *OrderBiz) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
+func (b *OrderBizImpl) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
 	var zero CheckoutResult
 
 	if err := validator.Validate(params); err != nil {
@@ -387,7 +387,7 @@ type CancelOrderParams = struct {
 }
 
 // CancelOrder cancels a pending order along with its payment and shipment.
-func (b *OrderBiz) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
+func (b *OrderBizImpl) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {

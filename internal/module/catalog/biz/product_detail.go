@@ -31,7 +31,7 @@ type GetProductDetailParams struct {
 }
 
 // GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
-func (b *CatalogBiz) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogBizImpl) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
 	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{

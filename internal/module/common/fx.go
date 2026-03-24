@@ -13,7 +13,7 @@ import (
 var Module = fx.Module("common",
 	fx.Provide(
 		NewCommonStorage,
-		commonbiz.NewcommonBiz,
+		NewCommonBiz,
 		commonecho.NewHandler,
 	),
 	fx.Invoke(
@@ -24,4 +24,9 @@ var Module = fx.Module("common",
 // NewCommonStorage creates a new common storage backed by PostgreSQL.
 func NewCommonStorage(pool pgsqlc.TxBeginner) commonbiz.CommonStorage {
 	return pgsqlc.NewStorage(pool, commondb.New(pool))
+}
+
+// NewCommonBiz creates a CommonBiz and provides it as the interface.
+func NewCommonBiz(storage commonbiz.CommonStorage) (commonbiz.CommonBiz, error) {
+	return commonbiz.NewcommonBiz(storage)
 }

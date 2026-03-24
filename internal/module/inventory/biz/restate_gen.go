@@ -11,12 +11,12 @@ import (
 
 const serviceName = "InventoryBiz"
 
-// InventoryBizRestateClient implements InventoryClient via Restate HTTP ingress.
+// InventoryBizRestateClient implements InventoryBiz via Restate HTTP ingress.
 type InventoryBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ InventoryClient = (*InventoryBizRestateClient)(nil)
+var _ InventoryBiz = (*InventoryBizRestateClient)(nil)
 
 func NewInventoryBizRestateClient(restateIngressURL string) *InventoryBizRestateClient {
 	return &InventoryBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

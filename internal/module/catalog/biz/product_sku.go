@@ -30,7 +30,7 @@ type ListProductSkuParams struct {
 }
 
 // ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
-func (b *CatalogBiz) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+func (b *CatalogBizImpl) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
@@ -82,7 +82,7 @@ type CreateProductSkuParams struct {
 }
 
 // CreateProductSku creates a new product SKU and initializes its inventory stock.
-func (b *CatalogBiz) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogBizImpl) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
@@ -131,7 +131,7 @@ type UpdateProductSkuParams struct {
 }
 
 // UpdateProductSku updates a product SKU and invalidates the parent SPU search index.
-func (b *CatalogBiz) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogBizImpl) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
@@ -201,7 +201,7 @@ type DeleteProductSkuParams struct {
 }
 
 // DeleteProductSku deletes a product SKU by ID.
-func (b *CatalogBiz) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
+func (b *CatalogBizImpl) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}

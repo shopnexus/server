@@ -24,7 +24,7 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogBiz) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogBizImpl) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -157,7 +157,7 @@ type GetProductCardParams struct {
 }
 
 // GetProductCard returns a single product card by SPU ID.
-func (b *CatalogBiz) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+func (b *CatalogBizImpl) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ type ListProductCardParams struct {
 }
 
 // ListProductCard returns paginated product cards with optional search and vendor filter.
-func (b *CatalogBiz) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (b *CatalogBizImpl) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
 	var products []catalogmodel.ProductCard
 	var err error
@@ -272,7 +272,7 @@ type ListRecommendedProductCardParams struct {
 }
 
 // ListRecommendedProductCard returns personalized product card recommendations for the authenticated user.
-func (b *CatalogBiz) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
+func (b *CatalogBizImpl) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
 	var zero []catalogmodel.ProductCard
 	var rcmProducts []catalogmodel.ProductRecommend
 	var err error

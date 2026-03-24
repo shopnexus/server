@@ -13,12 +13,12 @@ import (
 
 const serviceName = "AnalyticBiz"
 
-// AnalyticBizRestateClient implements AnalyticClient via Restate HTTP ingress.
+// AnalyticBizRestateClient implements AnalyticBiz via Restate HTTP ingress.
 type AnalyticBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ AnalyticClient = (*AnalyticBizRestateClient)(nil)
+var _ AnalyticBiz = (*AnalyticBizRestateClient)(nil)
 
 func NewAnalyticBizRestateClient(restateIngressURL string) *AnalyticBizRestateClient {
 	return &AnalyticBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

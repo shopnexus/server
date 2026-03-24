@@ -19,7 +19,7 @@ type AddFavoriteParams struct {
 }
 
 // AddFavorite adds a product SPU to the account's favorites list.
-func (b *AccountBiz) AddFavorite(ctx restate.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
+func (b *AccountBizImpl) AddFavorite(ctx restate.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
 	var zero accountdb.AccountFavorite
 
 	// Check if already favorited
@@ -48,7 +48,7 @@ type RemoveFavoriteParams struct {
 }
 
 // RemoveFavorite removes a product SPU from the account's favorites list.
-func (b *AccountBiz) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
+func (b *AccountBizImpl) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
 	return b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 		SpuID:     []uuid.UUID{params.SpuID},
@@ -61,7 +61,7 @@ type ListFavoriteParams struct {
 }
 
 // ListFavorite returns a paginated list of the account's favorited products.
-func (b *AccountBiz) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
+func (b *AccountBizImpl) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountFavorite]
 	params.PaginationParams = params.Constrain()
 
@@ -94,7 +94,7 @@ type CheckFavoritesParams struct {
 }
 
 // CheckFavorites checks which SPU IDs are favorited by the given account.
-func (b *AccountBiz) CheckFavorites(ctx restate.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
+func (b *AccountBizImpl) CheckFavorites(ctx restate.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
 	accountID := params.AccountID
 	spuIDs := params.SpuIDs
 	if len(spuIDs) == 0 {

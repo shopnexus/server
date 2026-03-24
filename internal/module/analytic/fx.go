@@ -15,7 +15,7 @@ var Module = fx.Module("analytic",
 	fx.Provide(
 		NewAnalyticStorage,
 		analyticbiz.NewAnalyticBiz,
-		NewAnalyticClient,
+		NewAnalyticBiz,
 		analyticecho.NewHandler,
 	),
 	fx.Invoke(
@@ -28,7 +28,7 @@ func NewAnalyticStorage(pool pgsqlc.TxBeginner) analyticbiz.AnalyticStorage {
 	return pgsqlc.NewStorage(pool, analyticdb.New(pool))
 }
 
-// NewAnalyticClient creates a Restate-backed client for the analytic module.
-func NewAnalyticClient(cfg *config.Config) analyticbiz.AnalyticClient {
+// NewAnalyticBiz creates a Restate-backed client for the analytic module.
+func NewAnalyticBiz(cfg *config.Config) analyticbiz.AnalyticBiz {
 	return analyticbiz.NewAnalyticBizRestateClient(cfg.Restate.IngressAddress)
 }

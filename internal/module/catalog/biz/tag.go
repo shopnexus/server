@@ -18,7 +18,7 @@ type ListTagParams struct {
 }
 
 // ListTag returns paginated tags with optional text search.
-func (b *CatalogBiz) ListTag(ctx restate.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
+func (b *CatalogBizImpl) ListTag(ctx restate.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
 	var zero sharedmodel.PaginateResult[catalogdb.CatalogTag]
 
 	if err := validator.Validate(params); err != nil {
@@ -52,7 +52,7 @@ type GetTagParams struct {
 }
 
 // GetTag returns a single tag by its name.
-func (b *CatalogBiz) GetTag(ctx restate.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
+func (b *CatalogBizImpl) GetTag(ctx restate.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
 	var zero catalogdb.CatalogTag
 
 	if err := validator.Validate(params); err != nil {

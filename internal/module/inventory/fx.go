@@ -15,7 +15,7 @@ var Module = fx.Module("inventory",
 	fx.Provide(
 		NewInventoryStorage,
 		inventorybiz.NewInventoryBiz,
-		NewInventoryClient,
+		NewInventoryBiz,
 	),
 	fx.Invoke(
 		inventoryecho.NewHandler,
@@ -27,7 +27,7 @@ func NewInventoryStorage(pool pgsqlc.TxBeginner) inventorybiz.InventoryStorage {
 	return pgsqlc.NewStorage(pool, inventorydb.New(pool))
 }
 
-// NewInventoryClient creates a Restate-backed client for the inventory module.
-func NewInventoryClient(cfg *config.Config) inventorybiz.InventoryClient {
+// NewInventoryBiz creates a Restate-backed client for the inventory module.
+func NewInventoryBiz(cfg *config.Config) inventorybiz.InventoryBiz {
 	return inventorybiz.NewInventoryBizRestateClient(cfg.Restate.IngressAddress)
 }

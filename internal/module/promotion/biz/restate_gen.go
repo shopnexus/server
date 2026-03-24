@@ -13,12 +13,12 @@ import (
 
 const serviceName = "PromotionBiz"
 
-// PromotionBizRestateClient implements PromotionClient via Restate HTTP ingress.
+// PromotionBizRestateClient implements PromotionBiz via Restate HTTP ingress.
 type PromotionBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ PromotionClient = (*PromotionBizRestateClient)(nil)
+var _ PromotionBiz = (*PromotionBizRestateClient)(nil)
 
 func NewPromotionBizRestateClient(restateIngressURL string) *PromotionBizRestateClient {
 	return &PromotionBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

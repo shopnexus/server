@@ -26,7 +26,7 @@ type CreateInteractionParams struct {
 }
 
 // CreateInteraction records a batch of user interactions and fans out popularity events.
-func (b *AnalyticBiz) CreateInteraction(ctx restate.Context, params CreateInteractionParams) error {
+func (b *AnalyticBizImpl) CreateInteraction(ctx restate.Context, params CreateInteractionParams) error {
 	args := lo.Map(params.Interactions, func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
 		return analyticdb.CreateBatchInteractionParams{
 			AccountID:     uuid.NullUUID{UUID: interaction.Account.ID, Valid: true},
@@ -52,7 +52,7 @@ func (b *AnalyticBiz) CreateInteraction(ctx restate.Context, params CreateIntera
 				Metadata:      ai.Metadata,
 				DateCreated:   ai.DateCreated,
 			}
-			restate.ServiceSend(ctx, "AnalyticBiz", "HandlePopularityEvent").Send(event)
+			restate.ServiceSend(ctx, "AnalyticBizImpl", "HandlePopularityEvent").Send(event)
 			restate.ServiceSend(ctx, "CatalogBiz", "AddInteraction").Send(event)
 		} else {
 			slog.Error("create analytic interaction: %w", "error", err)

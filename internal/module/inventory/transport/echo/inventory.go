@@ -14,11 +14,11 @@ import (
 
 // Handler handles HTTP requests for the inventory module.
 type Handler struct {
-	biz inventorybiz.InventoryClient
+	biz inventorybiz.InventoryBiz
 }
 
 // NewHandler registers inventory module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz inventorybiz.InventoryClient) *Handler {
+func NewHandler(e *echo.Echo, biz inventorybiz.InventoryBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/inventory")
 

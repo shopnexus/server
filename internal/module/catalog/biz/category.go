@@ -19,7 +19,7 @@ type ListCategoryParams struct {
 }
 
 // ListCategory returns paginated categories with optional ID filter and text search.
-func (b *CatalogBiz) ListCategory(ctx restate.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
+func (b *CatalogBizImpl) ListCategory(ctx restate.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
 	var zero sharedmodel.PaginateResult[catalogdb.CatalogCategory]
 
 	if err := validator.Validate(params); err != nil {

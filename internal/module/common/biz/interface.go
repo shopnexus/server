@@ -14,8 +14,8 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-// CommonClient is the interface for CommonBiz used by other modules.
-type CommonClient interface {
+// CommonBiz is the interface for CommonBizImpl used by other modules.
+type CommonBiz interface {
 	UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error)
 	GetFileURL(ctx context.Context, provider string, objectKey string) (string, error)
 	MustGetFileURL(ctx context.Context, provider string, objectKey string) string
@@ -30,15 +30,15 @@ type CommonClient interface {
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
 
-// CommonBiz implements shared business logic used across modules.
-type CommonBiz struct {
+// CommonBizImpl implements shared business logic used across modules.
+type CommonBizImpl struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 }
 
-// NewcommonBiz creates a new CommonBiz with the given dependencies.
-func NewcommonBiz(storage CommonStorage) (*CommonBiz, error) {
-	b := &CommonBiz{
+// NewcommonBiz creates a new CommonBizImpl with the given dependencies.
+func NewcommonBiz(storage CommonStorage) (*CommonBizImpl, error) {
+	b := &CommonBizImpl{
 		storage: storage,
 	}
 

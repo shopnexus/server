@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// AnalyticClient is the client interface for AnalyticBiz, which is used by other modules to call AnalyticBiz methods.
+// AnalyticBiz is the client interface for AnalyticBizImpl, which is used by other modules to call AnalyticBizImpl methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface AnalyticClient -service AnalyticBiz
-type AnalyticClient interface {
+//go:generate go run shopnexus-server/cmd/genrestate -interface AnalyticBiz -service AnalyticBiz
+type AnalyticBiz interface {
 	// Interaction
 	CreateInteraction(ctx context.Context, params CreateInteractionParams) error
 
@@ -29,20 +29,20 @@ type AnalyticClient interface {
 
 type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
-// AnalyticBiz implements the core business logic for the analytic module.
-type AnalyticBiz struct {
+// AnalyticBizImpl implements the core business logic for the analytic module.
+type AnalyticBizImpl struct {
 	storage           AnalyticStorage
-	promotion         promotionbiz.PromotionClient
+	promotion         promotionbiz.PromotionBiz
 	popularityWeights map[string]float64
 }
 
-// NewAnalyticBiz creates a new AnalyticBiz with the given dependencies.
+// NewAnalyticBiz creates a new AnalyticBizImpl with the given dependencies.
 func NewAnalyticBiz(
 	config *config.Config,
 	storage AnalyticStorage,
-	promotionBiz promotionbiz.PromotionClient,
-) *AnalyticBiz {
-	return &AnalyticBiz{
+	promotionBiz promotionbiz.PromotionBiz,
+) *AnalyticBizImpl {
+	return &AnalyticBizImpl{
 		storage:           storage,
 		promotion:         promotionBiz,
 		popularityWeights: analyticconfig.DefaultPopularityWeights().WeightMap(),

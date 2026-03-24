@@ -12,12 +12,12 @@ import (
 
 const serviceName = "ChatBiz"
 
-// ChatBizRestateClient implements ChatClient via Restate HTTP ingress.
+// ChatBizRestateClient implements ChatBiz via Restate HTTP ingress.
 type ChatBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ ChatClient = (*ChatBizRestateClient)(nil)
+var _ ChatBiz = (*ChatBizRestateClient)(nil)
 
 func NewChatBizRestateClient(restateIngressURL string) *ChatBizRestateClient {
 	return &ChatBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

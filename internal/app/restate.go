@@ -25,13 +25,13 @@ import (
 
 func SetupRestate(
 	cfg *config.Config,
-	orderBiz *orderbiz.OrderBiz,
-	accountBiz *accountbiz.AccountBiz,
-	catalogBiz *catalogbiz.CatalogBiz,
-	inventoryBiz *inventorybiz.InventoryBiz,
-	promotionBiz *promotionbiz.PromotionBiz,
-	analyticBiz *analyticbiz.AnalyticBiz,
-	chatBiz *chatbiz.ChatBiz,
+	orderBiz *orderbiz.OrderBizImpl,
+	accountBiz *accountbiz.AccountBizImpl,
+	catalogBiz *catalogbiz.CatalogBizImpl,
+	inventoryBiz *inventorybiz.InventoryBizImpl,
+	promotionBiz *promotionbiz.PromotionBizImpl,
+	analyticBiz *analyticbiz.AnalyticBizImpl,
+	chatBiz *chatbiz.ChatBizImpl,
 ) {
 	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
 

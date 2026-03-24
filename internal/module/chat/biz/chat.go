@@ -21,7 +21,7 @@ type CreateConversationParams struct {
 }
 
 // CreateConversation creates a new conversation between a customer and vendor, or returns the existing one.
-func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
+func (b *ChatBizImpl) CreateConversation(ctx restate.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
 	var zero chatdb.ChatConversation
 
 	existing, err := b.storage.Querier().GetConversationByParticipants(ctx, chatdb.GetConversationByParticipantsParams{
@@ -45,7 +45,7 @@ func (b *ChatBiz) CreateConversation(ctx restate.Context, params CreateConversat
 }
 
 // GetConversation returns a conversation by its ID.
-func (b *ChatBiz) GetConversation(ctx restate.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
+func (b *ChatBizImpl) GetConversation(ctx restate.Context, id uuid.UUID) (chatdb.ChatConversation, error) {
 	return b.storage.Querier().GetConversationByID(ctx, id)
 }
 
@@ -55,7 +55,7 @@ type ListConversationParams struct {
 }
 
 // ListConversation returns a paginated list of conversations for the authenticated account.
-func (b *ChatBiz) ListConversation(ctx restate.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
+func (b *ChatBizImpl) ListConversation(ctx restate.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatConversation]
 	params.PaginationParams = params.Constrain()
 
@@ -89,7 +89,7 @@ type SendMessageParams struct {
 }
 
 // SendMessage sends a message in a conversation the account participates in.
-func (b *ChatBiz) SendMessage(ctx restate.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
+func (b *ChatBizImpl) SendMessage(ctx restate.Context, params SendMessageParams) (chatdb.ChatMessage, error) {
 	var zero chatdb.ChatMessage
 
 	conv, err := b.storage.Querier().GetConversationByID(ctx, params.ConversationID)
@@ -126,7 +126,7 @@ type ListMessageParams struct {
 }
 
 // ListMessage returns a paginated list of messages in a conversation.
-func (b *ChatBiz) ListMessage(ctx restate.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
+func (b *ChatBizImpl) ListMessage(ctx restate.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatMessage]
 	params.PaginationParams = params.Constrain()
 
@@ -166,7 +166,7 @@ type MarkReadParams struct {
 }
 
 // MarkRead marks all messages in a conversation as read for the authenticated account.
-func (b *ChatBiz) MarkRead(ctx restate.Context, params MarkReadParams) error {
+func (b *ChatBizImpl) MarkRead(ctx restate.Context, params MarkReadParams) error {
 	return b.storage.Querier().MarkMessagesRead(ctx, chatdb.MarkMessagesReadParams{
 		ConversationID: params.ConversationID,
 		ReaderID:       params.Account.ID,

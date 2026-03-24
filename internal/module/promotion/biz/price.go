@@ -43,7 +43,7 @@ type CalculatePromotedPricesParams struct {
 
 // CalculatePromotedPrices calculates promoted prices for the given SKUs.
 // Group-based stacking: different groups stack, same group picks the best.
-func (s *PromotionBiz) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+func (s *PromotionBizImpl) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
 	prices := params.Prices
 	spuMap := params.SpuMap
 	// Collect all manually-entered promotion codes

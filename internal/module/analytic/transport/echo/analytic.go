@@ -16,11 +16,11 @@ import (
 
 // Handler handles HTTP requests for the analytic module.
 type Handler struct {
-	biz analyticbiz.AnalyticClient
+	biz analyticbiz.AnalyticBiz
 }
 
 // NewHandler registers analytic module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz analyticbiz.AnalyticClient) *Handler {
+func NewHandler(e *echo.Echo, biz analyticbiz.AnalyticBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/analytic")
 	api.POST("/interaction", h.CreateInteraction)

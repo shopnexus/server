@@ -12,12 +12,12 @@ import (
 
 const serviceName = "OrderBiz"
 
-// OrderBizRestateClient implements OrderClient via Restate HTTP ingress.
+// OrderBizRestateClient implements OrderBiz via Restate HTTP ingress.
 type OrderBizRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ OrderClient = (*OrderBizRestateClient)(nil)
+var _ OrderBiz = (*OrderBizRestateClient)(nil)
 
 func NewOrderBizRestateClient(restateIngressURL string) *OrderBizRestateClient {
 	return &OrderBizRestateClient{client: restateclient.NewClient(restateIngressURL)}

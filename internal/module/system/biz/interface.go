@@ -9,18 +9,18 @@ import (
 
 type SystemStorage = pgsqlc.Storage[*systemdb.Queries]
 
-// SystemBiz implements the core business logic for the system module.
-type SystemBiz struct {
+// SystemBizImpl implements the core business logic for the system module.
+type SystemBizImpl struct {
 	storage SystemStorage
 	pubsub  pubsub.Client
 }
 
-// NewSystemBiz creates a new SystemBiz with the given dependencies.
+// NewSystemBiz creates a new SystemBizImpl with the given dependencies.
 func NewSystemBiz(
 	storage SystemStorage,
 	pubsub pubsub.Client,
-) (*SystemBiz, error) {
-	b := &SystemBiz{
+) (*SystemBizImpl, error) {
+	b := &SystemBizImpl{
 		storage: storage,
 		pubsub:  pubsub.Group("system"),
 	}

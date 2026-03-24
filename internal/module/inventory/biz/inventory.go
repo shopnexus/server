@@ -14,7 +14,7 @@ import (
 )
 
 // getStockByRef is a shared helper to look up stock by (ref_type, ref_id).
-func (b *InventoryBiz) getStockByRef(ctx restate.Context, q inventorydb.Querier, refType inventorydb.InventoryStockRefType, refID uuid.UUID) (inventorydb.InventoryStock, error) {
+func (b *InventoryBizImpl) getStockByRef(ctx restate.Context, q inventorydb.Querier, refType inventorydb.InventoryStockRefType, refID uuid.UUID) (inventorydb.InventoryStock, error) {
 	return q.GetStock(ctx, inventorydb.GetStockParams{
 		RefID:   uuid.NullUUID{UUID: refID, Valid: true},
 		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: refType, Valid: true},
@@ -29,7 +29,7 @@ type GetStockParams struct {
 }
 
 // GetStock returns stock info for the given reference type and ID.
-func (b *InventoryBiz) GetStock(ctx restate.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
+func (b *InventoryBizImpl) GetStock(ctx restate.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
 	var zero inventorydb.InventoryStock
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -44,7 +44,7 @@ type ListStockParams struct {
 }
 
 // ListStock returns a paginated list of stock records filtered by ref type and ID.
-func (b *InventoryBiz) ListStock(ctx restate.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
+func (b *InventoryBizImpl) ListStock(ctx restate.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventoryStock]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -83,7 +83,7 @@ type CreateStockParams struct {
 }
 
 // CreateStock creates a new stock record for the given reference.
-func (b *InventoryBiz) CreateStock(ctx restate.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
+func (b *InventoryBizImpl) CreateStock(ctx restate.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
 	var zero inventorydb.InventoryStock
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -105,7 +105,7 @@ type ListStockHistoryParams struct {
 }
 
 // ListStockHistory returns a paginated list of stock change history for the given reference.
-func (b *InventoryBiz) ListStockHistory(ctx restate.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
+func (b *InventoryBizImpl) ListStockHistory(ctx restate.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventoryStockHistory]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -151,7 +151,7 @@ type ImportStockParams struct {
 }
 
 // ImportStock adds stock quantity and optionally creates serial records.
-func (b *InventoryBiz) ImportStock(ctx restate.Context, params ImportStockParams) error {
+func (b *InventoryBizImpl) ImportStock(ctx restate.Context, params ImportStockParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ type ReserveInventoryParams struct {
 }
 
 // ReserveInventory reserves stock for the given items and assigns serial IDs when required.
-func (b *InventoryBiz) ReserveInventory(ctx restate.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
+func (b *InventoryBizImpl) ReserveInventory(ctx restate.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
 	var results []ReserveInventoryResult
 	q := b.storage.Querier()
 
@@ -296,7 +296,7 @@ type UpdateSerialParams struct {
 }
 
 // UpdateSerial updates the status of the given serial IDs.
-func (b *InventoryBiz) UpdateSerial(ctx restate.Context, params UpdateSerialParams) error {
+func (b *InventoryBizImpl) UpdateSerial(ctx restate.Context, params UpdateSerialParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ type ListSerialParams struct {
 }
 
 // ListSerial returns a paginated list of serials for the given stock ID.
-func (b *InventoryBiz) ListSerial(ctx restate.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
+func (b *InventoryBizImpl) ListSerial(ctx restate.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
 	var zero sharedmodel.PaginateResult[inventorydb.InventorySerial]
 	if err := validator.Validate(params); err != nil {
 		return zero, err
@@ -352,7 +352,7 @@ type ListMostTakenSkuParams struct {
 }
 
 // ListMostTakenSku returns the most reserved SKUs ordered by taken count.
-func (b *InventoryBiz) ListMostTakenSku(ctx restate.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
+func (b *InventoryBizImpl) ListMostTakenSku(ctx restate.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}

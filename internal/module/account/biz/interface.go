@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// AccountClient is the client interface for AccountBiz, which is used by other modules to call AccountBiz methods.
+// AccountBiz is the client interface for AccountBizImpl, which is used by other modules to call AccountBizImpl methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface AccountClient -service AccountBiz
-type AccountClient interface {
+//go:generate go run shopnexus-server/cmd/genrestate -interface AccountBiz -service AccountBiz
+type AccountBiz interface {
 	// Auth
 	Login(ctx context.Context, params LoginParams) (LoginResult, error)
 	Register(ctx context.Context, params RegisterParams) (RegisterResult, error)
@@ -56,8 +56,8 @@ type AccountClient interface {
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]
 
-// AccountBiz implements the core business logic for the account module.
-type AccountBiz struct {
+// AccountBizImpl implements the core business logic for the account module.
+type AccountBizImpl struct {
 	tokenDuration        time.Duration
 	jwtSecret            []byte
 	refreshTokenDuration time.Duration
@@ -65,17 +65,17 @@ type AccountBiz struct {
 
 	storage AccountStorage
 	pubsub  pubsub.Client
-	common  commonbiz.CommonClient
+	common  commonbiz.CommonBiz
 }
 
-// NewAccountBiz creates a new AccountBiz with the given dependencies.
+// NewAccountBiz creates a new AccountBizImpl with the given dependencies.
 func NewAccountBiz(
 	config *config.Config,
 	storage AccountStorage,
 	pubsub pubsub.Client,
-	common commonbiz.CommonClient,
-) *AccountBiz {
-	return &AccountBiz{
+	common commonbiz.CommonBiz,
+) *AccountBizImpl {
+	return &AccountBizImpl{
 		tokenDuration:        time.Duration(config.App.JWT.AccessTokenDuration * int64(time.Second)),
 		jwtSecret:            []byte(config.App.JWT.Secret),
 		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),

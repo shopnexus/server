@@ -21,10 +21,10 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// CatalogClient is the client interface for CatalogBiz, which is used by other modules to call CatalogBiz methods.
+// CatalogBiz is the client interface for CatalogBizImpl, which is used by other modules to call CatalogBizImpl methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface CatalogClient -service CatalogBiz
-type CatalogClient interface {
+//go:generate go run shopnexus-server/cmd/genrestate -interface CatalogBiz -service CatalogBiz
+type CatalogBiz interface {
 	// Product Detail
 	GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error)
 
@@ -69,15 +69,15 @@ type CatalogClient interface {
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
-// CatalogBiz implements the core business logic for the catalog module.
-type CatalogBiz struct {
+// CatalogBizImpl implements the core business logic for the catalog module.
+type CatalogBizImpl struct {
 	cache         cachestruct.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
-	common        commonbiz.CommonClient
-	account       accountbiz.AccountClient
-	inventory     inventorybiz.InventoryClient
-	promotion     promotionbiz.PromotionClient
+	common        commonbiz.CommonBiz
+	account       accountbiz.AccountBiz
+	inventory     inventorybiz.InventoryBiz
+	promotion     promotionbiz.PromotionBiz
 
 	// Vector search (replaces searchClient)
 	milvus       *milvus.Client
@@ -92,21 +92,21 @@ type CatalogBiz struct {
 	syncLock sync.Mutex
 }
 
-// NewCatalogBiz creates a new CatalogBiz with the given dependencies.
+// NewCatalogBiz creates a new CatalogBizImpl with the given dependencies.
 func NewCatalogBiz(
 	cfg *config.Config,
 	storage CatalogStorage,
 	cache cachestruct.Client,
 	restateClient *restateclient.Client,
-	common commonbiz.CommonClient,
-	account accountbiz.AccountClient,
-	inventory inventorybiz.InventoryClient,
-	promotion promotionbiz.PromotionClient,
+	common commonbiz.CommonBiz,
+	account accountbiz.AccountBiz,
+	inventory inventorybiz.InventoryBiz,
+	promotion promotionbiz.PromotionBiz,
 	milvusClient *milvus.Client,
 	embeddingClient *embedding.Client,
-) *CatalogBiz {
+) *CatalogBizImpl {
 
-	b := &CatalogBiz{
+	b := &CatalogBizImpl{
 		cache:         cache,
 		restateClient: restateClient,
 		storage:       storage,

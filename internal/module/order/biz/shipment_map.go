@@ -10,7 +10,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-func (b *OrderBiz) SetupShipmentMap() error {
+func (b *OrderBizImpl) SetupShipmentMap() error {
 	var options []sharedmodel.OptionConfig
 	b.shipmentMap = make(map[string]shipment.Client)
 
@@ -34,7 +34,7 @@ func (b *OrderBiz) SetupShipmentMap() error {
 	return nil
 }
 
-func (b *OrderBiz) getShipmentClient(option string) (shipment.Client, error) {
+func (b *OrderBizImpl) getShipmentClient(option string) (shipment.Client, error) {
 	client, ok := b.shipmentMap[option]
 	if !ok {
 		return nil, ordermodel.ErrUnknownShipmentOption.Fmt(option).Terminal()

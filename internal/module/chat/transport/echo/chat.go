@@ -16,14 +16,14 @@ import (
 
 // Handler handles HTTP requests for the chat module.
 type Handler struct {
-	biz       chatbiz.ChatClient
+	biz       chatbiz.ChatBiz
 	upgrader  websocket.Upgrader
 	clients   map[uuid.UUID]*websocket.Conn
 	clientsMu sync.RWMutex
 }
 
 // NewHandler registers chat module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz chatbiz.ChatClient) *Handler {
+func NewHandler(e *echo.Echo, biz chatbiz.ChatBiz) *Handler {
 	h := &Handler{
 		biz: biz,
 		upgrader: websocket.Upgrader{
