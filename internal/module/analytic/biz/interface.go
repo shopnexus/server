@@ -16,7 +16,7 @@ import (
 
 // AnalyticBiz is the client interface for AnalyticBizHandler, which is used by other modules to call AnalyticBizHandler methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface AnalyticBiz -service AnalyticBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface AnalyticBiz -service Analytic
 type AnalyticBiz interface {
 	// Interaction
 	CreateInteraction(ctx context.Context, params CreateInteractionParams) error
@@ -29,20 +29,24 @@ type AnalyticBiz interface {
 
 type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
-// AnalyticBizHandler implements the core business logic for the analytic module.
-type AnalyticBizHandler struct {
+// AnalyticHandler implements the core business logic for the analytic module.
+type AnalyticHandler struct {
 	storage           AnalyticStorage
 	promotion         promotionbiz.PromotionBiz
 	popularityWeights map[string]float64
 }
 
-// NewAnalyticBiz creates a new AnalyticBizHandler with the given dependencies.
-func NewAnalyticBiz(
+func (b *AnalyticHandler) ServiceName() string {
+	return "Analytic"
+}
+
+// NewAnalyticHandler creates a new AnalyticHandler with the given dependencies.
+func NewAnalyticHandler(
 	config *config.Config,
 	storage AnalyticStorage,
 	promotionBiz promotionbiz.PromotionBiz,
-) *AnalyticBizHandler {
-	return &AnalyticBizHandler{
+) *AnalyticHandler {
+	return &AnalyticHandler{
 		storage:           storage,
 		promotion:         promotionBiz,
 		popularityWeights: analyticconfig.DefaultPopularityWeights().WeightMap(),

@@ -57,6 +57,13 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	paymentApi.DELETE("", h.DeletePaymentMethod)
 	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
 
+	// Notification endpoints
+	notifApi := api.Group("/notification")
+	notifApi.GET("", h.ListNotification)
+	notifApi.GET("/unread-count", h.CountUnread)
+	notifApi.POST("/read", h.MarkRead)
+	notifApi.POST("/read-all", h.MarkAllRead)
+
 	return h
 }
 

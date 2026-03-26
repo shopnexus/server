@@ -11,103 +11,123 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-const serviceName = "AccountBiz"
+const serviceName = "Account"
 
-// AccountBizRestateClient implements AccountBiz via Restate HTTP ingress.
-type AccountBizRestateClient struct {
+// AccountRestateClient implements AccountBiz via Restate HTTP ingress.
+type AccountRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ AccountBiz = (*AccountBizRestateClient)(nil)
+var _ AccountBiz = (*AccountRestateClient)(nil)
 
-func NewAccountBizRestateClient(restateIngressURL string) *AccountBizRestateClient {
-	return &AccountBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewAccountRestateClient(restateIngressURL string) *AccountRestateClient {
+	return &AccountRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *AccountBizRestateClient) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
+func (p *AccountRestateClient) Login(ctx context.Context, params LoginParams) (LoginResult, error) {
 	return restateclient.Call[LoginResult](ctx, p.client, serviceName, "Login", params)
 }
 
-func (p *AccountBizRestateClient) Register(ctx context.Context, params RegisterParams) (RegisterResult, error) {
+func (p *AccountRestateClient) Register(ctx context.Context, params RegisterParams) (RegisterResult, error) {
 	return restateclient.Call[RegisterResult](ctx, p.client, serviceName, "Register", params)
 }
 
-func (p *AccountBizRestateClient) Refresh(ctx context.Context, refreshToken string) (RefreshResult, error) {
+func (p *AccountRestateClient) Refresh(ctx context.Context, refreshToken string) (RefreshResult, error) {
 	return restateclient.Call[RefreshResult](ctx, p.client, serviceName, "Refresh", refreshToken)
 }
 
-func (p *AccountBizRestateClient) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
+func (p *AccountRestateClient) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "GetProfile", params)
 }
 
-func (p *AccountBizRestateClient) ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
+func (p *AccountRestateClient) ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[accountmodel.Profile]](ctx, p.client, serviceName, "ListProfile", params)
 }
 
-func (p *AccountBizRestateClient) UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
+func (p *AccountRestateClient) UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "UpdateProfile", params)
 }
 
-func (p *AccountBizRestateClient) DeleteAccount(ctx context.Context, params DeleteAccountParams) error {
+func (p *AccountRestateClient) DeleteAccount(ctx context.Context, params DeleteAccountParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteAccount", params)
 }
 
-func (p *AccountBizRestateClient) ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
+func (p *AccountRestateClient) ListContact(ctx context.Context, params ListAccountContactParams) ([]accountdb.AccountContact, error) {
 	return restateclient.Call[[]accountdb.AccountContact](ctx, p.client, serviceName, "ListContact", params)
 }
 
-func (p *AccountBizRestateClient) GetContact(ctx context.Context, params GetContactParams) (accountdb.AccountContact, error) {
+func (p *AccountRestateClient) GetContact(ctx context.Context, params GetAccountContactParams) (accountdb.AccountContact, error) {
 	return restateclient.Call[accountdb.AccountContact](ctx, p.client, serviceName, "GetContact", params)
 }
 
-func (p *AccountBizRestateClient) CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error) {
+func (p *AccountRestateClient) CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error) {
 	return restateclient.Call[accountdb.AccountContact](ctx, p.client, serviceName, "CreateContact", params)
 }
 
-func (p *AccountBizRestateClient) UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
+func (p *AccountRestateClient) UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
 	return restateclient.Call[accountdb.AccountContact](ctx, p.client, serviceName, "UpdateContact", params)
 }
 
-func (p *AccountBizRestateClient) DeleteContact(ctx context.Context, params DeleteContactParams) error {
+func (p *AccountRestateClient) DeleteContact(ctx context.Context, params DeleteAccountContactParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteContact", params)
 }
 
-func (p *AccountBizRestateClient) GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
+func (p *AccountRestateClient) GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
 	return restateclient.Call[map[uuid.UUID]accountdb.AccountContact](ctx, p.client, serviceName, "GetDefaultContact", accountIDs)
 }
 
-func (p *AccountBizRestateClient) AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
+func (p *AccountRestateClient) AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
 	return restateclient.Call[accountdb.AccountFavorite](ctx, p.client, serviceName, "AddFavorite", params)
 }
 
-func (p *AccountBizRestateClient) RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error {
+func (p *AccountRestateClient) RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "RemoveFavorite", params)
 }
 
-func (p *AccountBizRestateClient) ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
+func (p *AccountRestateClient) ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[accountdb.AccountFavorite]](ctx, p.client, serviceName, "ListFavorite", params)
 }
 
-func (p *AccountBizRestateClient) CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
+func (p *AccountRestateClient) CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
 	return restateclient.Call[map[uuid.UUID]bool](ctx, p.client, serviceName, "CheckFavorites", params)
 }
 
-func (p *AccountBizRestateClient) CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (p *AccountRestateClient) ListNotification(ctx context.Context, params ListNotificationParams) (sharedmodel.PaginateResult[accountdb.AccountNotification], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[accountdb.AccountNotification]](ctx, p.client, serviceName, "ListNotification", params)
+}
+
+func (p *AccountRestateClient) CountUnread(ctx context.Context, params CountUnreadParams) (int64, error) {
+	return restateclient.Call[int64](ctx, p.client, serviceName, "CountUnread", params)
+}
+
+func (p *AccountRestateClient) MarkRead(ctx context.Context, params MarkReadParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "MarkRead", params)
+}
+
+func (p *AccountRestateClient) MarkAllRead(ctx context.Context, params MarkAllReadParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "MarkAllRead", params)
+}
+
+func (p *AccountRestateClient) CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
+	return restateclient.Call[accountdb.AccountNotification](ctx, p.client, serviceName, "CreateNotification", params)
+}
+
+func (p *AccountRestateClient) CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "CreatePaymentMethod", params)
 }
 
-func (p *AccountBizRestateClient) ListPaymentMethod(ctx context.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
+func (p *AccountRestateClient) ListPaymentMethod(ctx context.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[accountdb.AccountPaymentMethod]](ctx, p.client, serviceName, "ListPaymentMethod", params)
 }
 
-func (p *AccountBizRestateClient) UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (p *AccountRestateClient) UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "UpdatePaymentMethod", params)
 }
 
-func (p *AccountBizRestateClient) DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error {
+func (p *AccountRestateClient) DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeletePaymentMethod", params)
 }
 
-func (p *AccountBizRestateClient) SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (p *AccountRestateClient) SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "SetDefaultPaymentMethod", params)
 }

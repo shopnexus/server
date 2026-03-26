@@ -10,6 +10,7 @@ import (
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/payment"
 	"shopnexus-server/internal/infras/shipment"
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
@@ -72,11 +73,11 @@ type checkoutPaymentResult struct {
 }
 
 // Checkout processes a purchase order with payment creation, inventory reservation, and shipment booking.
-func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
+func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
 	var zero CheckoutResult
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate checkout", err)
 	}
 	if params.BuyNow && len(params.Items) != 1 {
 		return zero, ordermodel.ErrBuyNowSingleSkuOnly.Terminal()
@@ -90,7 +91,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		ID: skuIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list catalog product skus: %w", err)
+		return zero, sharedmodel.WrapErr("fetch product skus", err)
 	}
 	if len(skus) != len(skuIDs) {
 		return zero, ordermodel.ErrOrderItemNotFound.Terminal()
@@ -101,13 +102,13 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		ID:      lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list catalog product spu: %w", err)
+		return zero, sharedmodel.WrapErr("fetch product spus", err)
 	}
 
 	vendorIDs := lo.Map(listSpu.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
 	contactMapRaw, err := b.account.GetDefaultContact(ctx, vendorIDs)
 	if err != nil {
-		return zero, fmt.Errorf("get default contact map: %w", err)
+		return zero, sharedmodel.WrapErr("get vendor contacts", err)
 	}
 
 	// Simplify to just addresses for serialization safety
@@ -141,7 +142,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 			}
 			return nil
 		}); err != nil {
-			return zero, err
+			return zero, sharedmodel.WrapErr("remove cart items", err)
 		}
 	}
 
@@ -156,7 +157,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		}),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("reserve inventory: %w", err)
+		return zero, sharedmodel.WrapErr("reserve inventory", err)
 	}
 
 	serialIDsMap := lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) {
@@ -211,7 +212,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		return result, nil
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("create shipments", err)
 	}
 
 	// Step 5: Calculate promoted prices
@@ -230,7 +231,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		return b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestOrderPrices, SpuMap: spuMap})
 	})
 	if err != nil {
-		return zero, fmt.Errorf("calculate promoted prices: %w", err)
+		return zero, sharedmodel.WrapErr("calculate prices", err)
 	}
 
 	// Step 6: Create payment + call payment provider
@@ -277,7 +278,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		}, nil
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("create payment", err)
 	}
 
 	// Step 7: Create orders and order items
@@ -309,7 +310,8 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 
 			// Create order items
 			var createOrderItemArgs []orderdb.CreateCopyItemParams
-			if sku.CanCombine {
+			if sku.CanCombine || len(serialIDs) == 0 {
+				// Combined item: one row with total quantity
 				jsonSerialIDs, err := sonic.Marshal(serialIDs)
 				if err != nil {
 					return nil, fmt.Errorf("marshal serial ids: %w", err)
@@ -325,6 +327,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 					SerialIds: jsonSerialIDs,
 				})
 			} else {
+				// Serialized item: one row per serial ID
 				for _, serialID := range serialIDs {
 					jsonSerialIDs, err := sonic.Marshal([]string{serialID})
 					if err != nil {
@@ -350,7 +353,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 		return ids, nil
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("create orders", err)
 	}
 
 	// Step 8: Fetch created orders (ListOrders has its own Run internally)
@@ -371,7 +374,7 @@ func (b *OrderBizHandler) Checkout(ctx restate.Context, params CheckoutParams) (
 			RefID:     item.SkuID.String(),
 		})
 	}
-	restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 		Interactions: purchaseInteractions,
 	})
 
@@ -387,7 +390,7 @@ type CancelOrderParams = struct {
 }
 
 // CancelOrder cancels a pending order along with its payment and shipment.
-func (b *OrderBizHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
+func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {
@@ -445,6 +448,16 @@ func (b *OrderBizHandler) CancelOrder(ctx restate.Context, params CancelOrderPar
 		return err
 	}
 
+	// Notify customer: order cancelled
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+		AccountID: order.CustomerID,
+		Type:      "order_cancelled",
+		Channel:   "in_app",
+		Title:     "Order cancelled",
+		Content:   fmt.Sprintf("Your order %s has been cancelled.", order.ID),
+		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
+	})
+
 	// Track cancel_order interactions
 	var cancelInteractions []analyticbiz.CreateInteraction
 	for _, item := range order.Items {
@@ -455,7 +468,7 @@ func (b *OrderBizHandler) CancelOrder(ctx restate.Context, params CancelOrderPar
 			RefID:     item.SkuID.String(),
 		})
 	}
-	restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 		Interactions: cancelInteractions,
 	})
 

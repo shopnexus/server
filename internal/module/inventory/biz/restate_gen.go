@@ -9,51 +9,51 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-const serviceName = "InventoryBiz"
+const serviceName = "Inventory"
 
-// InventoryBizRestateClient implements InventoryBiz via Restate HTTP ingress.
-type InventoryBizRestateClient struct {
+// InventoryRestateClient implements InventoryBiz via Restate HTTP ingress.
+type InventoryRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ InventoryBiz = (*InventoryBizRestateClient)(nil)
+var _ InventoryBiz = (*InventoryRestateClient)(nil)
 
-func NewInventoryBizRestateClient(restateIngressURL string) *InventoryBizRestateClient {
-	return &InventoryBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewInventoryRestateClient(restateIngressURL string) *InventoryRestateClient {
+	return &InventoryRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *InventoryBizRestateClient) GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
+func (p *InventoryRestateClient) GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error) {
 	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "GetStock", params)
 }
 
-func (p *InventoryBizRestateClient) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
+func (p *InventoryRestateClient) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventoryStock]](ctx, p.client, serviceName, "ListStock", params)
 }
 
-func (p *InventoryBizRestateClient) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
+func (p *InventoryRestateClient) CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error) {
 	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "CreateStock", params)
 }
 
-func (p *InventoryBizRestateClient) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
+func (p *InventoryRestateClient) ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventoryStockHistory]](ctx, p.client, serviceName, "ListStockHistory", params)
 }
 
-func (p *InventoryBizRestateClient) ImportStock(ctx context.Context, params ImportStockParams) error {
+func (p *InventoryRestateClient) ImportStock(ctx context.Context, params ImportStockParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "ImportStock", params)
 }
 
-func (p *InventoryBizRestateClient) ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
+func (p *InventoryRestateClient) ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
 	return restateclient.Call[[]ReserveInventoryResult](ctx, p.client, serviceName, "ReserveInventory", params)
 }
 
-func (p *InventoryBizRestateClient) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
+func (p *InventoryRestateClient) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "UpdateSerial", params)
 }
 
-func (p *InventoryBizRestateClient) ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
+func (p *InventoryRestateClient) ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventorySerial]](ctx, p.client, serviceName, "ListSerial", params)
 }
 
-func (p *InventoryBizRestateClient) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
+func (p *InventoryRestateClient) ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error) {
 	return restateclient.Call[[]inventorydb.InventoryStock](ctx, p.client, serviceName, "ListMostTakenSku", params)
 }

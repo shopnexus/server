@@ -1,8 +1,6 @@
 package promotionbiz
 
 import (
-	"context"
-
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	restate "github.com/restatedev/sdk-go"
 	"github.com/samber/lo"
 )
 
@@ -43,7 +42,7 @@ type CalculatePromotedPricesParams struct {
 
 // CalculatePromotedPrices calculates promoted prices for the given SKUs.
 // Group-based stacking: different groups stack, same group picks the best.
-func (s *PromotionBizHandler) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+func (s *PromotionHandler) CalculatePromotedPrices(ctx restate.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
 	prices := params.Prices
 	spuMap := params.SpuMap
 	// Collect all manually-entered promotion codes

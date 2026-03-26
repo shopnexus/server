@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"context"
+	"log/slog"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/payment"
@@ -12,7 +13,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-func (b *OrderBizHandler) SetupPaymentMap() error {
+func (b *OrderHandler) SetupPaymentMap() error {
 	var configs []sharedmodel.OptionConfig
 
 	b.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
@@ -33,18 +34,20 @@ func (b *OrderBizHandler) SetupPaymentMap() error {
 		configs = append(configs, c.Config())
 	}
 
-	// TODO: use message queue to update
-	if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
-		Category: "payment",
-		Configs:  configs,
-	}); err != nil {
-		return err
-	}
+	// Register payment options in background — Restate may not be ready at init time
+	go func() {
+		if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
+			Category: "payment",
+			Configs:  configs,
+		}); err != nil {
+			slog.Warn("register payment options: %v", slog.Any("error", err))
+		}
+	}()
 
 	return nil
 }
 
-func (b *OrderBizHandler) getPaymentClient(option string) (payment.Client, error) {
+func (b *OrderHandler) getPaymentClient(option string) (payment.Client, error) {
 	client, ok := b.paymentMap[option]
 	if !ok {
 		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option).Terminal()

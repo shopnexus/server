@@ -9,18 +9,18 @@ import (
 
 type SystemStorage = pgsqlc.Storage[*systemdb.Queries]
 
-// SystemBizHandler implements the core business logic for the system module.
-type SystemBizHandler struct {
+// SystemHandler implements the core business logic for the system module.
+type SystemHandler struct {
 	storage SystemStorage
 	pubsub  pubsub.Client
 }
 
-// NewSystemBiz creates a new SystemBizHandler with the given dependencies.
-func NewSystemBiz(
+// NewSystemHandler creates a new SystemHandler with the given dependencies.
+func NewSystemHandler(
 	storage SystemStorage,
 	pubsub pubsub.Client,
-) (*SystemBizHandler, error) {
-	b := &SystemBizHandler{
+) (*SystemHandler, error) {
+	b := &SystemHandler{
 		storage: storage,
 		pubsub:  pubsub.Group("system"),
 	}

@@ -30,5 +30,5 @@ func NewCommonStorage(pool pgsqlc.TxBeginner) commonbiz.CommonStorage {
 
 // NewCommonBiz creates a Restate-backed client for the common module.
 func NewCommonBiz(cfg *config.Config) commonbiz.CommonBiz {
-	return commonbiz.NewCommonBizRestateClient(cfg.Restate.IngressAddress)
+	return commonbiz.NewCommonRestateClient(cfg.Restate.IngressAddress)
 }

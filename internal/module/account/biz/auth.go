@@ -20,7 +20,7 @@ import (
 )
 
 // CreateClaims generates JWT claims for the given account.
-func (a *AccountBizHandler) CreateClaims(account accountdb.AccountAccount) accountmodel.Claims {
+func (a *AccountHandler) CreateClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
 			Type:   account.Type,
@@ -39,7 +39,7 @@ func (a *AccountBizHandler) CreateClaims(account accountdb.AccountAccount) accou
 }
 
 // GenerateAccessToken creates a JWT access token for the given account.
-func (a *AccountBizHandler) GenerateAccessToken(account accountdb.AccountAccount) (string, error) {
+func (a *AccountHandler) GenerateAccessToken(account accountdb.AccountAccount) (string, error) {
 	claims := a.CreateClaims(account)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 
@@ -52,7 +52,7 @@ func (a *AccountBizHandler) GenerateAccessToken(account accountdb.AccountAccount
 }
 
 // CreateRefreshClaims generates JWT claims for a refresh token.
-func (a *AccountBizHandler) CreateRefreshClaims(account accountdb.AccountAccount) accountmodel.Claims {
+func (a *AccountHandler) CreateRefreshClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
 			Type:   account.Type,
@@ -68,7 +68,7 @@ func (a *AccountBizHandler) CreateRefreshClaims(account accountdb.AccountAccount
 }
 
 // GenerateRefreshToken creates a signed JWT refresh token for the given account.
-func (a *AccountBizHandler) GenerateRefreshToken(account accountdb.AccountAccount) (string, error) {
+func (a *AccountHandler) GenerateRefreshToken(account accountdb.AccountAccount) (string, error) {
 	claims := a.CreateRefreshClaims(account)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	signedToken, err := token.SignedString(a.refreshSecret)
@@ -79,13 +79,13 @@ func (a *AccountBizHandler) GenerateRefreshToken(account accountdb.AccountAccoun
 }
 
 // ComparePassword checks if the provided password matches the hashed password.
-func (a *AccountBizHandler) ComparePassword(hashedPassword, password string) bool {
+func (a *AccountHandler) ComparePassword(hashedPassword, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return err == nil
 }
 
 // CreateHash generates a hashed password (currently using bcrypt).
-func (a *AccountBizHandler) CreateHash(password string) (string, error) {
+func (a *AccountHandler) CreateHash(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return "", err
@@ -107,7 +107,7 @@ type LoginResult struct {
 }
 
 // Login authenticates a user and returns access and refresh tokens.
-func (a *AccountBizHandler) Login(ctx restate.Context, params LoginParams) (LoginResult, error) {
+func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginResult, error) {
 	var zero LoginResult
 
 	if err := validator.Validate(params); err != nil {
@@ -172,7 +172,7 @@ type RegisterResult struct {
 }
 
 // Register creates a new account with the given credentials and returns tokens.
-func (a *AccountBizHandler) Register(ctx restate.Context, params RegisterParams) (RegisterResult, error) {
+func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (RegisterResult, error) {
 	var zero RegisterResult
 
 	if err := validator.Validate(params); err != nil {
@@ -254,7 +254,7 @@ type RefreshResult struct {
 }
 
 // Refresh validates a refresh token and issues new access and refresh tokens.
-func (a *AccountBizHandler) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
+func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
 	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
 	if err != nil {

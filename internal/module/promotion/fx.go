@@ -14,7 +14,7 @@ import (
 var Module = fx.Module("promotion",
 	fx.Provide(
 		NewPromotionStorage,
-		promotionbiz.NewPromotionBiz,
+		promotionbiz.NewPromotionHandler,
 		NewPromotionBiz,
 		promotionecho.NewHandler,
 	),
@@ -30,5 +30,5 @@ func NewPromotionStorage(pool pgsqlc.TxBeginner) promotionbiz.PromotionStorage {
 
 // NewPromotionBiz creates a Restate-backed client for the promotion module.
 func NewPromotionBiz(cfg *config.Config) promotionbiz.PromotionBiz {
-	return promotionbiz.NewPromotionBizRestateClient(cfg.Restate.IngressAddress)
+	return promotionbiz.NewPromotionRestateClient(cfg.Restate.IngressAddress)
 }

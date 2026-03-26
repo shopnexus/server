@@ -21,7 +21,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (b *CommonBizHandler) SetupObjectStore() error {
+func (b *CommonHandler) SetupObjectStore() error {
 	var err error
 	var configs []sharedmodel.OptionConfig
 	b.objectstoreMap = make(map[string]objectstore.Client)
@@ -64,11 +64,11 @@ func (b *CommonBizHandler) SetupObjectStore() error {
 }
 
 // getPlaceholderURL returns the configured 404 placeholder image URL, if any.
-func (b *CommonBizHandler) getPlaceholderURL() string {
+func (b *CommonHandler) getPlaceholderURL() string {
 	return config.GetConfig().Filestore.Placeholder404Url
 }
 
-func (b *CommonBizHandler) mustGetObjectStore(provider string) objectstore.Client {
+func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
 	client, ok := b.objectstoreMap[provider]
 	if !ok {
 		return b.objectstoreMap["local"]
@@ -94,7 +94,7 @@ type UploadFileResult struct {
 
 // UploadFile stores a single uploaded file to the configured object store
 // and creates a corresponding resource record.
-func (b *CommonBizHandler) UploadFile(ctx restate.Context, params UploadFileParams) (UploadFileResult, error) {
+func (b *CommonHandler) UploadFile(ctx restate.Context, params UploadFileParams) (UploadFileResult, error) {
 	var zero UploadFileResult
 
 	if err := validator.Validate(params); err != nil {
@@ -136,7 +136,12 @@ func (b *CommonBizHandler) UploadFile(ctx restate.Context, params UploadFilePara
 	}, nil
 }
 
-func (b *CommonBizHandler) GetFileURL(ctx restate.Context, params GetFileURLParams) (string, error) {
+type GetFileURLParams struct {
+	Provider  string
+	ObjectKey string
+}
+
+func (b *CommonHandler) GetFileURL(ctx restate.Context, params GetFileURLParams) (string, error) {
 	url, err := b.mustGetObjectStore(params.Provider).GetURL(ctx, params.ObjectKey)
 	if err != nil {
 		return "", err
@@ -146,7 +151,7 @@ func (b *CommonBizHandler) GetFileURL(ctx restate.Context, params GetFileURLPara
 }
 
 // mustGetFileURL returns the URL for an object key, falling back to a placeholder on error.
-func (b *CommonBizHandler) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
+func (b *CommonHandler) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
 		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))

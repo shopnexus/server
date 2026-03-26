@@ -14,7 +14,7 @@ type DeleteAccountParams struct {
 }
 
 // DeleteAccount suspends the account with the given ID.
-func (b *AccountBizHandler) DeleteAccount(ctx restate.Context, params DeleteAccountParams) error {
+func (b *AccountHandler) DeleteAccount(ctx restate.Context, params DeleteAccountParams) error {
 	if _, err := b.storage.Querier().UpdateAccount(ctx, accountdb.UpdateAccountParams{
 		ID:     params.AccountID,
 		Status: accountdb.NullAccountStatus{AccountStatus: accountdb.AccountStatusSuspended, Valid: true},

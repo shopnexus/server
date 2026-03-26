@@ -21,13 +21,13 @@ type UpdateServiceOptionsParams struct {
 }
 
 // UpdateServiceOptions creates or updates service option configurations for a given category.
-func (b *CommonBizHandler) UpdateServiceOptions(ctx restate.Context, params UpdateServiceOptionsParams) error {
+func (b *CommonHandler) UpdateServiceOptions(ctx restate.Context, params UpdateServiceOptionsParams) error {
 	return b.updateServiceOptions(ctx, params)
 }
 
 // updateServiceOptions is an internal helper that accepts context.Context,
 // used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
-func (b *CommonBizHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
+func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ type ListServiceOptionParams struct {
 }
 
 // ListServiceOption returns active service options filtered by category.
-func (b *CommonBizHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
 	if validator.Validate(params) != nil {
 		return nil, validator.Validate(params)
 	}

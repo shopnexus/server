@@ -1,10 +1,12 @@
 package orderbiz
 
 import (
+	"encoding/json"
 	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
@@ -26,7 +28,7 @@ type ListRefundsParams struct {
 }
 
 // ListRefunds returns paginated refund requests with attached resources.
-func (b *OrderBizHandler) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
@@ -81,7 +83,7 @@ type CreateRefundParams struct {
 }
 
 // CreateRefund creates a new refund request for an order and tracks refund analytics.
-func (b *OrderBizHandler) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -146,7 +148,7 @@ func (b *OrderBizHandler) CreateRefund(ctx restate.Context, params CreateRefundP
 				RefID:     item.SkuID.String(),
 			})
 		}
-		restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 			Interactions: refundInteractions,
 		})
 	}
@@ -168,7 +170,7 @@ type UpdateRefundParams struct {
 }
 
 // UpdateRefund updates a pending refund's method, reason, address, or status.
-func (b *OrderBizHandler) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -241,7 +243,7 @@ type CancelRefundParams struct {
 }
 
 // CancelRefund cancels a refund request by setting its status to canceled.
-func (b *OrderBizHandler) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
+func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -263,7 +265,7 @@ type ConfirmRefundParams struct {
 }
 
 // ConfirmRefund marks a refund as confirmed by the vendor and transitions it to processing.
-func (b *OrderBizHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -272,10 +274,25 @@ func (b *OrderBizHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefun
 
 	// TODO: tell the shipment to take the refund package if method is pick-up, skip if drop-off
 
-	return b.UpdateRefund(ctx, UpdateRefundParams{
+	refund, err := b.UpdateRefund(ctx, UpdateRefundParams{
 		Account:       params.Account,
 		RefundID:      params.RefundID,
 		Status:        orderdb.OrderStatusProcessing,
 		ConfirmedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 	})
+	if err != nil {
+		return zero, err
+	}
+
+	// Notify customer: refund confirmed
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+		AccountID: refund.AccountID,
+		Type:      "refund_approved",
+		Channel:   "in_app",
+		Title:     "Refund approved",
+		Content:   fmt.Sprintf("Your refund request %s has been approved.", refund.ID),
+		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
+	})
+
+	return refund, nil
 }

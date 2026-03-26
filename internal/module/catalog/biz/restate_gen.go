@@ -10,107 +10,107 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-const serviceName = "CatalogBiz"
+const serviceName = "Catalog"
 
-// CatalogBizRestateClient implements CatalogBiz via Restate HTTP ingress.
-type CatalogBizRestateClient struct {
+// CatalogRestateClient implements CatalogBiz via Restate HTTP ingress.
+type CatalogRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ CatalogBiz = (*CatalogBizRestateClient)(nil)
+var _ CatalogBiz = (*CatalogRestateClient)(nil)
 
-func NewCatalogBizRestateClient(restateIngressURL string) *CatalogBizRestateClient {
-	return &CatalogBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewCatalogRestateClient(restateIngressURL string) *CatalogRestateClient {
+	return &CatalogRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *CatalogBizRestateClient) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (p *CatalogRestateClient) GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	return restateclient.Call[catalogmodel.ProductDetail](ctx, p.client, serviceName, "GetProductDetail", params)
 }
 
-func (p *CatalogBizRestateClient) GetProductCard(ctx context.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+func (p *CatalogRestateClient) GetProductCard(ctx context.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	return restateclient.Call[*catalogmodel.ProductCard](ctx, p.client, serviceName, "GetProductCard", params)
 }
 
-func (p *CatalogBizRestateClient) ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (p *CatalogRestateClient) ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogmodel.ProductCard]](ctx, p.client, serviceName, "ListProductCard", params)
 }
 
-func (p *CatalogBizRestateClient) ListRecommendedProductCard(ctx context.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
+func (p *CatalogRestateClient) ListRecommendedProductCard(ctx context.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
 	return restateclient.Call[[]catalogmodel.ProductCard](ctx, p.client, serviceName, "ListRecommendedProductCard", params)
 }
 
-func (p *CatalogBizRestateClient) GetProductSpu(ctx context.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (p *CatalogRestateClient) GetProductSpu(ctx context.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
 	return restateclient.Call[catalogmodel.ProductSpu](ctx, p.client, serviceName, "GetProductSpu", params)
 }
 
-func (p *CatalogBizRestateClient) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
+func (p *CatalogRestateClient) ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogmodel.ProductSpu]](ctx, p.client, serviceName, "ListProductSpu", params)
 }
 
-func (p *CatalogBizRestateClient) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (p *CatalogRestateClient) CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	return restateclient.Call[catalogmodel.ProductSpu](ctx, p.client, serviceName, "CreateProductSpu", params)
 }
 
-func (p *CatalogBizRestateClient) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (p *CatalogRestateClient) UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
 	return restateclient.Call[catalogmodel.ProductSpu](ctx, p.client, serviceName, "UpdateProductSpu", params)
 }
 
-func (p *CatalogBizRestateClient) DeleteProductSpu(ctx context.Context, params DeleteProductSpuParams) error {
+func (p *CatalogRestateClient) DeleteProductSpu(ctx context.Context, params DeleteProductSpuParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteProductSpu", params)
 }
 
-func (p *CatalogBizRestateClient) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+func (p *CatalogRestateClient) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
 	return restateclient.Call[[]catalogmodel.ProductSku](ctx, p.client, serviceName, "ListProductSku", params)
 }
 
-func (p *CatalogBizRestateClient) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (p *CatalogRestateClient) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	return restateclient.Call[catalogmodel.ProductSku](ctx, p.client, serviceName, "CreateProductSku", params)
 }
 
-func (p *CatalogBizRestateClient) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (p *CatalogRestateClient) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
 	return restateclient.Call[catalogmodel.ProductSku](ctx, p.client, serviceName, "UpdateProductSku", params)
 }
 
-func (p *CatalogBizRestateClient) DeleteProductSku(ctx context.Context, params DeleteProductSkuParams) error {
+func (p *CatalogRestateClient) DeleteProductSku(ctx context.Context, params DeleteProductSkuParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteProductSku", params)
 }
 
-func (p *CatalogBizRestateClient) ListComment(ctx context.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
+func (p *CatalogRestateClient) ListComment(ctx context.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogmodel.Comment]](ctx, p.client, serviceName, "ListComment", params)
 }
 
-func (p *CatalogBizRestateClient) CreateComment(ctx context.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
+func (p *CatalogRestateClient) CreateComment(ctx context.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
 	return restateclient.Call[catalogmodel.Comment](ctx, p.client, serviceName, "CreateComment", params)
 }
 
-func (p *CatalogBizRestateClient) UpdateComment(ctx context.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
+func (p *CatalogRestateClient) UpdateComment(ctx context.Context, params UpdateCommentParams) (catalogmodel.Comment, error) {
 	return restateclient.Call[catalogmodel.Comment](ctx, p.client, serviceName, "UpdateComment", params)
 }
 
-func (p *CatalogBizRestateClient) DeleteComment(ctx context.Context, params DeleteCommentParams) error {
+func (p *CatalogRestateClient) DeleteComment(ctx context.Context, params DeleteCommentParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteComment", params)
 }
 
-func (p *CatalogBizRestateClient) ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
+func (p *CatalogRestateClient) ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogTag]](ctx, p.client, serviceName, "ListTag", params)
 }
 
-func (p *CatalogBizRestateClient) GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
+func (p *CatalogRestateClient) GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error) {
 	return restateclient.Call[catalogdb.CatalogTag](ctx, p.client, serviceName, "GetTag", params)
 }
 
-func (p *CatalogBizRestateClient) ListBrand(ctx context.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
+func (p *CatalogRestateClient) ListBrand(ctx context.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogBrand]](ctx, p.client, serviceName, "ListBrand", params)
 }
 
-func (p *CatalogBizRestateClient) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
+func (p *CatalogRestateClient) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogCategory]](ctx, p.client, serviceName, "ListCategory", params)
 }
 
-func (p *CatalogBizRestateClient) Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
+func (p *CatalogRestateClient) Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
 	return restateclient.Call[[]catalogmodel.ProductRecommend](ctx, p.client, serviceName, "Search", params)
 }
 
-func (p *CatalogBizRestateClient) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
+func (p *CatalogRestateClient) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	return restateclient.Call[[]catalogmodel.ProductRecommend](ctx, p.client, serviceName, "GetRecommendations", params)
 }

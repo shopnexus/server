@@ -14,7 +14,7 @@ import (
 var Module = fx.Module("account",
 	fx.Provide(
 		NewAccountStorage,
-		accountbiz.NewAccountBiz,
+		accountbiz.NewAccountHandler,
 		NewAccountBiz,
 		accountecho.NewHandler,
 	),
@@ -30,5 +30,5 @@ func NewAccountStorage(pool pgsqlc.TxBeginner) accountbiz.AccountStorage {
 
 // NewAccountBiz creates a Restate-backed client for the account module.
 func NewAccountBiz(cfg *config.Config) accountbiz.AccountBiz {
-	return accountbiz.NewAccountBizRestateClient(cfg.Restate.IngressAddress)
+	return accountbiz.NewAccountRestateClient(cfg.Restate.IngressAddress)
 }

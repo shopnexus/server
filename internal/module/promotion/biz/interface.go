@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// PromotionBiz is the client interface for PromotionBizHandler, which is used by other modules to call PromotionBizHandler methods.
+// PromotionBiz is the client interface for PromotionHandler, which is used by other modules to call PromotionHandler methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface PromotionBiz -service PromotionBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface PromotionBiz -service Promotion
 type PromotionBiz interface {
 	// Promotion
 	GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error)
@@ -27,12 +27,16 @@ type PromotionBiz interface {
 
 type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]
 
-// PromotionBizHandler implements the core business logic for the promotion module.
-type PromotionBizHandler struct {
+// PromotionHandler implements the core business logic for the promotion module.
+type PromotionHandler struct {
 	storage PromotionStorage
 }
 
-// NewPromotionBiz creates a new PromotionBizHandler with the given dependencies.
-func NewPromotionBiz(storage PromotionStorage) *PromotionBizHandler {
-	return &PromotionBizHandler{storage: storage}
+func (b *PromotionHandler) ServiceName() string {
+	return "Promotion"
+}
+
+// NewPromotionHandler creates a new PromotionHandler with the given dependencies.
+func NewPromotionHandler(storage PromotionStorage) *PromotionHandler {
+	return &PromotionHandler{storage: storage}
 }

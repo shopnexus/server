@@ -23,7 +23,7 @@ type CreatePaymentMethodParams struct {
 }
 
 // CreatePaymentMethod creates a new payment method for the authenticated account.
-func (b *AccountBizHandler) CreatePaymentMethod(ctx restate.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
@@ -58,7 +58,7 @@ type ListPaymentMethodParams struct {
 }
 
 // ListPaymentMethod returns a paginated list of payment methods for the account.
-func (b *AccountBizHandler) ListPaymentMethod(ctx restate.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
+func (b *AccountHandler) ListPaymentMethod(ctx restate.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountPaymentMethod]
 	params.PaginationParams = params.Constrain()
 
@@ -94,7 +94,7 @@ type UpdatePaymentMethodParams struct {
 }
 
 // UpdatePaymentMethod updates the specified payment method fields.
-func (b *AccountBizHandler) UpdatePaymentMethod(ctx restate.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) UpdatePaymentMethod(ctx restate.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().UpdatePaymentMethod(ctx, accountdb.UpdatePaymentMethodParams{
@@ -117,7 +117,7 @@ type DeletePaymentMethodParams struct {
 }
 
 // DeletePaymentMethod removes a payment method belonging to the authenticated account.
-func (b *AccountBizHandler) DeletePaymentMethod(ctx restate.Context, params DeletePaymentMethodParams) error {
+func (b *AccountHandler) DeletePaymentMethod(ctx restate.Context, params DeletePaymentMethodParams) error {
 	return b.storage.Querier().DeletePaymentMethod(ctx, accountdb.DeletePaymentMethodParams{
 		ID:        []uuid.UUID{params.ID},
 		AccountID: []uuid.UUID{params.Account.ID},
@@ -130,7 +130,7 @@ type SetDefaultPaymentMethodParams struct {
 }
 
 // SetDefaultPaymentMethod marks the given payment method as the account's default.
-func (b *AccountBizHandler) SetDefaultPaymentMethod(ctx restate.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) SetDefaultPaymentMethod(ctx restate.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {

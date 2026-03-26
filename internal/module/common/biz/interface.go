@@ -11,12 +11,11 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 )
 
 // CommonBiz is the interface for common module, used by other modules.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface CommonBiz -service CommonBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface CommonBiz -service Common
 type CommonBiz interface {
 	// File
 	UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error)
@@ -31,32 +30,24 @@ type CommonBiz interface {
 	DeleteResources(ctx context.Context, params DeleteResourcesParams) error
 	GetResources(ctx context.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error)
 	GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error)
-	GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) (null.String, error)
-}
-
-// Param structs for multi-param methods
-
-type GetFileURLParams struct {
-	Provider  string
-	ObjectKey string
-}
-
-type GetResourcesParams struct {
-	RefType commondb.CommonResourceRefType
-	RefIDs  []uuid.UUID
+	GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*commonmodel.Resource, error)
 }
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
 
-// CommonBizHandler implements shared business logic used across modules.
-type CommonBizHandler struct {
+// CommonHandler implements shared business logic used across modules.
+type CommonHandler struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 }
 
-// NewcommonBiz creates a new CommonBizHandler with the given dependencies.
-func NewcommonBiz(storage CommonStorage) (*CommonBizHandler, error) {
-	b := &CommonBizHandler{
+func (b *CommonHandler) ServiceName() string {
+	return "Common"
+}
+
+// NewcommonBiz creates a new CommonHandler with the given dependencies.
+func NewcommonBiz(storage CommonStorage) (*CommonHandler, error) {
+	b := &CommonHandler{
 		storage: storage,
 	}
 

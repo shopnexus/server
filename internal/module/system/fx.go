@@ -13,7 +13,7 @@ import (
 var Module = fx.Module("system",
 	fx.Provide(
 		NewSystemStorage,
-		systembiz.NewSystemBiz,
+		systembiz.NewSystemHandler,
 		systemecho.NewHandler,
 	),
 	fx.Invoke(

@@ -17,7 +17,7 @@ import (
 
 // AccountBiz is the client interface for AccountBizHandler, which is used by other modules to call AccountBizHandler methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface AccountBiz -service AccountBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface AccountBiz -service Account
 type AccountBiz interface {
 	// Auth
 	Login(ctx context.Context, params LoginParams) (LoginResult, error)
@@ -33,11 +33,11 @@ type AccountBiz interface {
 	DeleteAccount(ctx context.Context, params DeleteAccountParams) error
 
 	// Contact
-	ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error)
-	GetContact(ctx context.Context, params GetContactParams) (accountdb.AccountContact, error)
+	ListContact(ctx context.Context, params ListAccountContactParams) ([]accountdb.AccountContact, error)
+	GetContact(ctx context.Context, params GetAccountContactParams) (accountdb.AccountContact, error)
 	CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error)
 	UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error)
-	DeleteContact(ctx context.Context, params DeleteContactParams) error
+	DeleteContact(ctx context.Context, params DeleteAccountContactParams) error
 	GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error)
 
 	// Favorite
@@ -45,6 +45,13 @@ type AccountBiz interface {
 	RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error
 	ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error)
 	CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error)
+
+	// Notification
+	ListNotification(ctx context.Context, params ListNotificationParams) (sharedmodel.PaginateResult[accountdb.AccountNotification], error)
+	CountUnread(ctx context.Context, params CountUnreadParams) (int64, error)
+	MarkRead(ctx context.Context, params MarkReadParams) error
+	MarkAllRead(ctx context.Context, params MarkAllReadParams) error
+	CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error)
 
 	// Payment Method
 	CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
@@ -56,8 +63,8 @@ type AccountBiz interface {
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]
 
-// AccountBizHandler implements the core business logic for the account module.
-type AccountBizHandler struct {
+// AccountHandler implements the core business logic for the account module.
+type AccountHandler struct {
 	tokenDuration        time.Duration
 	jwtSecret            []byte
 	refreshTokenDuration time.Duration
@@ -68,14 +75,18 @@ type AccountBizHandler struct {
 	common  commonbiz.CommonBiz
 }
 
-// NewAccountBiz creates a new AccountBizHandler with the given dependencies.
-func NewAccountBiz(
+func (b *AccountHandler) ServiceName() string {
+	return "Account"
+}
+
+// NewAccountHandler creates a new AccountHandler with the given dependencies.
+func NewAccountHandler(
 	config *config.Config,
 	storage AccountStorage,
 	pubsub pubsub.Client,
 	common commonbiz.CommonBiz,
-) *AccountBizHandler {
-	return &AccountBizHandler{
+) *AccountHandler {
+	return &AccountHandler{
 		tokenDuration:        time.Duration(config.App.JWT.AccessTokenDuration * int64(time.Second)),
 		jwtSecret:            []byte(config.App.JWT.Secret),
 		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),

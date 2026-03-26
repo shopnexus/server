@@ -7,6 +7,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	"shopnexus-server/internal/infras/shipment"
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
@@ -24,7 +25,7 @@ type ListVendorOrderParams struct {
 }
 
 // ListVendorOrder returns paginated orders belonging to the authenticated vendor.
-func (b *OrderBizHandler) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderHandler) ListVendorOrder(ctx restate.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountVendorOrderRow, error) {
@@ -68,7 +69,7 @@ type ConfirmOrderParams struct {
 }
 
 // ConfirmOrder confirms a paid pending order and optionally updates its shipment details.
-func (b *OrderBizHandler) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
+func (b *OrderHandler) ConfirmOrder(ctx restate.Context, params ConfirmOrderParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -152,6 +153,16 @@ func (b *OrderBizHandler) ConfirmOrder(ctx restate.Context, params ConfirmOrderP
 	}); err != nil {
 		return err
 	}
+
+	// Notify customer: order confirmed
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+		AccountID: order.CustomerID,
+		Type:      "order_confirmed",
+		Channel:   "in_app",
+		Title:     "Order confirmed",
+		Content:   fmt.Sprintf("Your order %s has been confirmed and is being prepared.", order.ID),
+		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
+	})
 
 	return nil
 }

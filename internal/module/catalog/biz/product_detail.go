@@ -32,7 +32,7 @@ type GetProductDetailParams struct {
 }
 
 // GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
-func (b *CatalogBizHandler) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
 	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
@@ -155,7 +155,7 @@ func (b *CatalogBizHandler) GetProductDetail(ctx restate.Context, params GetProd
 
 	// Track view interaction for authenticated users
 	if params.Account != nil {
-		restate.ServiceSend(ctx, "AnalyticBiz", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 			Interactions: []analyticbiz.CreateInteraction{{
 				Account:   *params.Account,
 				EventType: analyticmodel.EventView,

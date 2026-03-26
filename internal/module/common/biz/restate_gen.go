@@ -4,59 +4,57 @@ package commonbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 )
 
-const serviceName = "CommonBiz"
+const serviceName = "Common"
 
-// CommonBizRestateClient implements CommonBiz via Restate HTTP ingress.
-type CommonBizRestateClient struct {
+// CommonRestateClient implements CommonBiz via Restate HTTP ingress.
+type CommonRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ CommonBiz = (*CommonBizRestateClient)(nil)
+var _ CommonBiz = (*CommonRestateClient)(nil)
 
-func NewCommonBizRestateClient(restateIngressURL string) *CommonBizRestateClient {
-	return &CommonBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewCommonRestateClient(restateIngressURL string) *CommonRestateClient {
+	return &CommonRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *CommonBizRestateClient) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
+func (p *CommonRestateClient) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
 	return restateclient.Call[UploadFileResult](ctx, p.client, serviceName, "UploadFile", params)
 }
 
-func (p *CommonBizRestateClient) GetFileURL(ctx context.Context, params GetFileURLParams) (string, error) {
+func (p *CommonRestateClient) GetFileURL(ctx context.Context, params GetFileURLParams) (string, error) {
 	return restateclient.Call[string](ctx, p.client, serviceName, "GetFileURL", params)
 }
 
-func (p *CommonBizRestateClient) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
+func (p *CommonRestateClient) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "UpdateServiceOptions", params)
 }
 
-func (p *CommonBizRestateClient) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+func (p *CommonRestateClient) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
 	return restateclient.Call[[]sharedmodel.OptionConfig](ctx, p.client, serviceName, "ListServiceOption", params)
 }
 
-func (p *CommonBizRestateClient) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
+func (p *CommonRestateClient) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	return restateclient.Call[[]commonmodel.Resource](ctx, p.client, serviceName, "UpdateResources", params)
 }
 
-func (p *CommonBizRestateClient) DeleteResources(ctx context.Context, params DeleteResourcesParams) error {
+func (p *CommonRestateClient) DeleteResources(ctx context.Context, params DeleteResourcesParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteResources", params)
 }
 
-func (p *CommonBizRestateClient) GetResources(ctx context.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error) {
+func (p *CommonRestateClient) GetResources(ctx context.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error) {
 	return restateclient.Call[map[uuid.UUID][]commonmodel.Resource](ctx, p.client, serviceName, "GetResources", params)
 }
 
-func (p *CommonBizRestateClient) GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error) {
+func (p *CommonRestateClient) GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error) {
 	return restateclient.Call[map[uuid.UUID]commonmodel.Resource](ctx, p.client, serviceName, "GetResourcesByIDs", resourceIDs)
 }
 
-func (p *CommonBizRestateClient) GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) (null.String, error) {
-	return restateclient.Call[null.String](ctx, p.client, serviceName, "GetResourceURLByID", resourceID)
+func (p *CommonRestateClient) GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*commonmodel.Resource, error) {
+	return restateclient.Call[*commonmodel.Resource](ctx, p.client, serviceName, "GetResourceByID", resourceID)
 }

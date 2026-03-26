@@ -8,11 +8,11 @@ import (
 
 // Handler handles HTTP requests for the system module.
 type Handler struct {
-	biz *systembiz.SystemBizHandler
+	biz *systembiz.SystemHandler
 }
 
 // NewHandler registers system module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz *systembiz.SystemBizHandler) *Handler {
+func NewHandler(e *echo.Echo, biz *systembiz.SystemHandler) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/system")
 	_ = api

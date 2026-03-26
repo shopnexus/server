@@ -11,31 +11,31 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-const serviceName = "AnalyticBiz"
+const serviceName = "Analytic"
 
-// AnalyticBizRestateClient implements AnalyticBiz via Restate HTTP ingress.
-type AnalyticBizRestateClient struct {
+// AnalyticRestateClient implements AnalyticBiz via Restate HTTP ingress.
+type AnalyticRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ AnalyticBiz = (*AnalyticBizRestateClient)(nil)
+var _ AnalyticBiz = (*AnalyticRestateClient)(nil)
 
-func NewAnalyticBizRestateClient(restateIngressURL string) *AnalyticBizRestateClient {
-	return &AnalyticBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewAnalyticRestateClient(restateIngressURL string) *AnalyticRestateClient {
+	return &AnalyticRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *AnalyticBizRestateClient) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
+func (p *AnalyticRestateClient) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "CreateInteraction", params)
 }
 
-func (p *AnalyticBizRestateClient) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {
+func (p *AnalyticRestateClient) HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error {
 	return restateclient.Send(ctx, p.client, serviceName, "HandlePopularityEvent", event)
 }
 
-func (p *AnalyticBizRestateClient) GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
+func (p *AnalyticRestateClient) GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
 	return restateclient.Call[analyticdb.AnalyticProductPopularity](ctx, p.client, serviceName, "GetProductPopularity", spuID)
 }
 
-func (p *AnalyticBizRestateClient) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
+func (p *AnalyticRestateClient) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	return restateclient.Call[[]analyticdb.AnalyticProductPopularity](ctx, p.client, serviceName, "ListTopProductPopularity", params)
 }

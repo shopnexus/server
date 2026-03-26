@@ -11,39 +11,39 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-const serviceName = "PromotionBiz"
+const serviceName = "Promotion"
 
-// PromotionBizRestateClient implements PromotionBiz via Restate HTTP ingress.
-type PromotionBizRestateClient struct {
+// PromotionRestateClient implements PromotionBiz via Restate HTTP ingress.
+type PromotionRestateClient struct {
 	client *restateclient.Client
 }
 
-var _ PromotionBiz = (*PromotionBizRestateClient)(nil)
+var _ PromotionBiz = (*PromotionRestateClient)(nil)
 
-func NewPromotionBizRestateClient(restateIngressURL string) *PromotionBizRestateClient {
-	return &PromotionBizRestateClient{client: restateclient.NewClient(restateIngressURL)}
+func NewPromotionRestateClient(restateIngressURL string) *PromotionRestateClient {
+	return &PromotionRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *PromotionBizRestateClient) GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
+func (p *PromotionRestateClient) GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
 	return restateclient.Call[promotionmodel.Promotion](ctx, p.client, serviceName, "GetPromotion", params)
 }
 
-func (p *PromotionBizRestateClient) ListPromotion(ctx context.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
+func (p *PromotionRestateClient) ListPromotion(ctx context.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[promotionmodel.Promotion]](ctx, p.client, serviceName, "ListPromotion", params)
 }
 
-func (p *PromotionBizRestateClient) CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
+func (p *PromotionRestateClient) CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
 	return restateclient.Call[promotionmodel.Promotion](ctx, p.client, serviceName, "CreatePromotion", params)
 }
 
-func (p *PromotionBizRestateClient) UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
+func (p *PromotionRestateClient) UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
 	return restateclient.Call[promotionmodel.Promotion](ctx, p.client, serviceName, "UpdatePromotion", params)
 }
 
-func (p *PromotionBizRestateClient) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
+func (p *PromotionRestateClient) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "DeletePromotion", params)
 }
 
-func (p *PromotionBizRestateClient) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+func (p *PromotionRestateClient) CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
 	return restateclient.Call[map[uuid.UUID]*catalogmodel.OrderPrice](ctx, p.client, serviceName, "CalculatePromotedPrices", params)
 }

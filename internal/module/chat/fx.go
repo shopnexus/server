@@ -14,7 +14,7 @@ import (
 var Module = fx.Module("chat",
 	fx.Provide(
 		NewChatStorage,
-		chatbiz.NewChatBiz,
+		chatbiz.NewChatHandler,
 		NewChatBiz,
 		chatecho.NewHandler,
 	),
@@ -30,5 +30,5 @@ func NewChatStorage(pool pgsqlc.TxBeginner) chatbiz.ChatStorage {
 
 // NewChatBiz creates a Restate-backed client for the chat module.
 func NewChatBiz(cfg *config.Config) chatbiz.ChatBiz {
-	return chatbiz.NewChatBizRestateClient(cfg.Restate.IngressAddress)
+	return chatbiz.NewChatRestateClient(cfg.Restate.IngressAddress)
 }

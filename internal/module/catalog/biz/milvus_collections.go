@@ -64,7 +64,7 @@ func accountsIndexes() []milvus.IndexDef {
 }
 
 // SetupMilvusCollections creates the products and accounts collections if they don't exist.
-func (b *CatalogBizHandler) SetupMilvusCollections(ctx context.Context) error {
+func (b *CatalogHandler) SetupMilvusCollections(ctx context.Context) error {
 	if err := b.milvus.EnsureCollection(ctx, CollectionProducts, productsSchema(), productsIndexes()); err != nil {
 		return fmt.Errorf("setup products collection: %w", err)
 	}

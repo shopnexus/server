@@ -10,7 +10,7 @@ import (
 
 // InventoryBiz is the client interface for InventoryBizHandler, which is used by other modules to call InventoryBizHandler methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface InventoryBiz -service InventoryBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface InventoryBiz -service Inventory
 type InventoryBiz interface {
 	// Stock
 	GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error)
@@ -36,12 +36,16 @@ type InventoryBiz interface {
 
 type InventoryStorage = pgsqlc.Storage[*inventorydb.Queries]
 
-// InventoryBizHandler implements the core business logic for the inventory module.
-type InventoryBizHandler struct {
+// InventoryHandler implements the core business logic for the inventory module.
+type InventoryHandler struct {
 	storage InventoryStorage
 }
 
-// NewInventoryBiz creates a new InventoryBizHandler with the given dependencies.
-func NewInventoryBiz(storage InventoryStorage) *InventoryBizHandler {
-	return &InventoryBizHandler{storage: storage}
+func (h *InventoryHandler) ServiceName() string {
+	return "Inventory"
+}
+
+// NewInventoryBiz creates a new InventoryHandler with the given dependencies.
+func NewInventoryBiz(storage InventoryStorage) *InventoryHandler {
+	return &InventoryHandler{storage: storage}
 }
