@@ -51,13 +51,13 @@ func (q *Queries) CreateCopyAccount(ctx context.Context, arg []CreateCopyAccount
 	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"id", "type", "status", "phone", "email", "username", "password", "date_created", "date_updated"}, &iteratorForCreateCopyAccount{rows: arg})
 }
 
-// iteratorForCreateCopyContact implements pgx.CopyFromSource.
-type iteratorForCreateCopyContact struct {
-	rows                 []CreateCopyContactParams
+// iteratorForCreateCopyAccountContact implements pgx.CopyFromSource.
+type iteratorForCreateCopyAccountContact struct {
+	rows                 []CreateCopyAccountContactParams
 	skippedFirstNextCall bool
 }
 
-func (r *iteratorForCreateCopyContact) Next() bool {
+func (r *iteratorForCreateCopyAccountContact) Next() bool {
 	if len(r.rows) == 0 {
 		return false
 	}
@@ -69,7 +69,7 @@ func (r *iteratorForCreateCopyContact) Next() bool {
 	return len(r.rows) > 0
 }
 
-func (r iteratorForCreateCopyContact) Values() ([]interface{}, error) {
+func (r iteratorForCreateCopyAccountContact) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
 		r.rows[0].AccountID,
@@ -80,15 +80,59 @@ func (r iteratorForCreateCopyContact) Values() ([]interface{}, error) {
 		r.rows[0].AddressType,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
+		r.rows[0].Latitude,
+		r.rows[0].Longitude,
 	}, nil
 }
 
-func (r iteratorForCreateCopyContact) Err() error {
+func (r iteratorForCreateCopyAccountContact) Err() error {
 	return nil
 }
 
-func (q *Queries) CreateCopyContact(ctx context.Context, arg []CreateCopyContactParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated"}, &iteratorForCreateCopyContact{rows: arg})
+func (q *Queries) CreateCopyAccountContact(ctx context.Context, arg []CreateCopyAccountContactParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated", "latitude", "longitude"}, &iteratorForCreateCopyAccountContact{rows: arg})
+}
+
+// iteratorForCreateCopyAccountNotification implements pgx.CopyFromSource.
+type iteratorForCreateCopyAccountNotification struct {
+	rows                 []CreateCopyAccountNotificationParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyAccountNotification) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyAccountNotification) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].AccountID,
+		r.rows[0].Type,
+		r.rows[0].Channel,
+		r.rows[0].IsRead,
+		r.rows[0].Content,
+		r.rows[0].DateCreated,
+		r.rows[0].DateUpdated,
+		r.rows[0].DateSent,
+		r.rows[0].DateScheduled,
+		r.rows[0].Title,
+		r.rows[0].Metadata,
+	}, nil
+}
+
+func (r iteratorForCreateCopyAccountNotification) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyAccountNotification(ctx context.Context, arg []CreateCopyAccountNotificationParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "is_read", "content", "date_created", "date_updated", "date_sent", "date_scheduled", "title", "metadata"}, &iteratorForCreateCopyAccountNotification{rows: arg})
 }
 
 // iteratorForCreateCopyCustomer implements pgx.CopyFromSource.
@@ -161,13 +205,13 @@ func (q *Queries) CreateCopyDefaultAccount(ctx context.Context, arg []CreateCopy
 	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"type", "phone", "email", "username", "password"}, &iteratorForCreateCopyDefaultAccount{rows: arg})
 }
 
-// iteratorForCreateCopyDefaultContact implements pgx.CopyFromSource.
-type iteratorForCreateCopyDefaultContact struct {
-	rows                 []CreateCopyDefaultContactParams
+// iteratorForCreateCopyDefaultAccountContact implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultAccountContact struct {
+	rows                 []CreateCopyDefaultAccountContactParams
 	skippedFirstNextCall bool
 }
 
-func (r *iteratorForCreateCopyDefaultContact) Next() bool {
+func (r *iteratorForCreateCopyDefaultAccountContact) Next() bool {
 	if len(r.rows) == 0 {
 		return false
 	}
@@ -179,22 +223,62 @@ func (r *iteratorForCreateCopyDefaultContact) Next() bool {
 	return len(r.rows) > 0
 }
 
-func (r iteratorForCreateCopyDefaultContact) Values() ([]interface{}, error) {
+func (r iteratorForCreateCopyDefaultAccountContact) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
 		r.rows[0].FullName,
 		r.rows[0].Phone,
 		r.rows[0].Address,
 		r.rows[0].AddressType,
+		r.rows[0].Latitude,
+		r.rows[0].Longitude,
 	}, nil
 }
 
-func (r iteratorForCreateCopyDefaultContact) Err() error {
+func (r iteratorForCreateCopyDefaultAccountContact) Err() error {
 	return nil
 }
 
-func (q *Queries) CreateCopyDefaultContact(ctx context.Context, arg []CreateCopyDefaultContactParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"account_id", "full_name", "phone", "address", "address_type"}, &iteratorForCreateCopyDefaultContact{rows: arg})
+func (q *Queries) CreateCopyDefaultAccountContact(ctx context.Context, arg []CreateCopyDefaultAccountContactParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude"}, &iteratorForCreateCopyDefaultAccountContact{rows: arg})
+}
+
+// iteratorForCreateCopyDefaultAccountNotification implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultAccountNotification struct {
+	rows                 []CreateCopyDefaultAccountNotificationParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultAccountNotification) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultAccountNotification) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].AccountID,
+		r.rows[0].Type,
+		r.rows[0].Channel,
+		r.rows[0].Content,
+		r.rows[0].DateSent,
+		r.rows[0].DateScheduled,
+		r.rows[0].Metadata,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultAccountNotification) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultAccountNotification(ctx context.Context, arg []CreateCopyDefaultAccountNotificationParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "date_sent", "date_scheduled", "metadata"}, &iteratorForCreateCopyDefaultAccountNotification{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCustomer implements pgx.CopyFromSource.
@@ -296,43 +380,6 @@ func (r iteratorForCreateCopyDefaultIncomeHistory) Err() error {
 
 func (q *Queries) CreateCopyDefaultIncomeHistory(ctx context.Context, arg []CreateCopyDefaultIncomeHistoryParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"account", "income_history"}, []string{"account_id", "type", "income", "current_balance", "note"}, &iteratorForCreateCopyDefaultIncomeHistory{rows: arg})
-}
-
-// iteratorForCreateCopyDefaultNotification implements pgx.CopyFromSource.
-type iteratorForCreateCopyDefaultNotification struct {
-	rows                 []CreateCopyDefaultNotificationParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyDefaultNotification) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyDefaultNotification) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].AccountID,
-		r.rows[0].Type,
-		r.rows[0].Channel,
-		r.rows[0].Content,
-		r.rows[0].DateSent,
-		r.rows[0].DateScheduled,
-	}, nil
-}
-
-func (r iteratorForCreateCopyDefaultNotification) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyDefaultNotification(ctx context.Context, arg []CreateCopyDefaultNotificationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "date_sent", "date_scheduled"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPaymentMethod implements pgx.CopyFromSource.
@@ -508,46 +555,6 @@ func (r iteratorForCreateCopyIncomeHistory) Err() error {
 
 func (q *Queries) CreateCopyIncomeHistory(ctx context.Context, arg []CreateCopyIncomeHistoryParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"account", "income_history"}, []string{"account_id", "type", "income", "current_balance", "note", "date_created"}, &iteratorForCreateCopyIncomeHistory{rows: arg})
-}
-
-// iteratorForCreateCopyNotification implements pgx.CopyFromSource.
-type iteratorForCreateCopyNotification struct {
-	rows                 []CreateCopyNotificationParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyNotification) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyNotification) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].AccountID,
-		r.rows[0].Type,
-		r.rows[0].Channel,
-		r.rows[0].IsRead,
-		r.rows[0].Content,
-		r.rows[0].DateCreated,
-		r.rows[0].DateUpdated,
-		r.rows[0].DateSent,
-		r.rows[0].DateScheduled,
-	}, nil
-}
-
-func (r iteratorForCreateCopyNotification) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyNotification(ctx context.Context, arg []CreateCopyNotificationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "is_read", "content", "date_created", "date_updated", "date_sent", "date_scheduled"}, &iteratorForCreateCopyNotification{rows: arg})
 }
 
 // iteratorForCreateCopyPaymentMethod implements pgx.CopyFromSource.
