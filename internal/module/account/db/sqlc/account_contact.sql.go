@@ -13,7 +13,7 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const countContact = `-- name: CountContact :one
+const countAccountContact = `-- name: CountAccountContact :one
 SELECT COUNT(*)
 FROM "account"."contact"
 WHERE (
@@ -29,11 +29,17 @@ WHERE (
     ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
     ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("date_updated" < $13 OR $13 IS NULL) AND
+    ("latitude" = ANY($14) OR $14 IS NULL) AND
+    ("latitude" > $15 OR $15 IS NULL) AND
+    ("latitude" < $16 OR $16 IS NULL) AND
+    ("longitude" = ANY($17) OR $17 IS NULL) AND
+    ("longitude" > $18 OR $18 IS NULL) AND
+    ("longitude" < $19 OR $19 IS NULL)
 )
 `
 
-type CountContactParams struct {
+type CountAccountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -47,10 +53,16 @@ type CountContactParams struct {
 	DateUpdated     []time.Time          `json:"date_updated"`
 	DateUpdatedFrom null.Time            `json:"date_updated_from"`
 	DateUpdatedTo   null.Time            `json:"date_updated_to"`
+	Latitude        []null.Float         `json:"latitude"`
+	LatitudeFrom    null.Float           `json:"latitude_from"`
+	LatitudeTo      null.Float           `json:"latitude_to"`
+	Longitude       []null.Float         `json:"longitude"`
+	LongitudeFrom   null.Float           `json:"longitude_from"`
+	LongitudeTo     null.Float           `json:"longitude_to"`
 }
 
-func (q *Queries) CountContact(ctx context.Context, arg CountContactParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countContact,
+func (q *Queries) CountAccountContact(ctx context.Context, arg CountAccountContactParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -64,19 +76,25 @@ func (q *Queries) CountContact(ctx context.Context, arg CountContactParams) (int
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Latitude,
+		arg.LatitudeFrom,
+		arg.LatitudeTo,
+		arg.Longitude,
+		arg.LongitudeFrom,
+		arg.LongitudeTo,
 	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const createContact = `-- name: CreateContact :one
-INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+const createAccountContact = `-- name: CreateAccountContact :one
+INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated", "latitude", "longitude")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type CreateContactParams struct {
+type CreateAccountContactParams struct {
 	ID            uuid.UUID          `json:"id"`
 	AccountID     uuid.UUID          `json:"account_id"`
 	FullName      string             `json:"full_name"`
@@ -86,10 +104,12 @@ type CreateContactParams struct {
 	AddressType   AccountAddressType `json:"address_type"`
 	DateCreated   time.Time          `json:"date_created"`
 	DateUpdated   time.Time          `json:"date_updated"`
+	Latitude      null.Float         `json:"latitude"`
+	Longitude     null.Float         `json:"longitude"`
 }
 
-func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, createContact,
+func (q *Queries) CreateAccountContact(ctx context.Context, arg CreateAccountContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, createAccountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -99,6 +119,8 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (A
 		arg.AddressType,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.Latitude,
+		arg.Longitude,
 	)
 	var i AccountContact
 	err := row.Scan(
@@ -111,11 +133,13 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (A
 		&i.AddressType,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Latitude,
+		&i.Longitude,
 	)
 	return i, err
 }
 
-type CreateCopyContactParams struct {
+type CreateCopyAccountContactParams struct {
 	ID            uuid.UUID          `json:"id"`
 	AccountID     uuid.UUID          `json:"account_id"`
 	FullName      string             `json:"full_name"`
@@ -125,37 +149,45 @@ type CreateCopyContactParams struct {
 	AddressType   AccountAddressType `json:"address_type"`
 	DateCreated   time.Time          `json:"date_created"`
 	DateUpdated   time.Time          `json:"date_updated"`
+	Latitude      null.Float         `json:"latitude"`
+	Longitude     null.Float         `json:"longitude"`
 }
 
-type CreateCopyDefaultContactParams struct {
+type CreateCopyDefaultAccountContactParams struct {
 	AccountID   uuid.UUID          `json:"account_id"`
 	FullName    string             `json:"full_name"`
 	Phone       string             `json:"phone"`
 	Address     string             `json:"address"`
 	AddressType AccountAddressType `json:"address_type"`
+	Latitude    null.Float         `json:"latitude"`
+	Longitude   null.Float         `json:"longitude"`
 }
 
-const createDefaultContact = `-- name: CreateDefaultContact :one
-INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+const createDefaultAccountContact = `-- name: CreateDefaultAccountContact :one
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type CreateDefaultContactParams struct {
+type CreateDefaultAccountContactParams struct {
 	AccountID   uuid.UUID          `json:"account_id"`
 	FullName    string             `json:"full_name"`
 	Phone       string             `json:"phone"`
 	Address     string             `json:"address"`
 	AddressType AccountAddressType `json:"address_type"`
+	Latitude    null.Float         `json:"latitude"`
+	Longitude   null.Float         `json:"longitude"`
 }
 
-func (q *Queries) CreateDefaultContact(ctx context.Context, arg CreateDefaultContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, createDefaultContact,
+func (q *Queries) CreateDefaultAccountContact(ctx context.Context, arg CreateDefaultAccountContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, createDefaultAccountContact,
 		arg.AccountID,
 		arg.FullName,
 		arg.Phone,
 		arg.Address,
 		arg.AddressType,
+		arg.Latitude,
+		arg.Longitude,
 	)
 	var i AccountContact
 	err := row.Scan(
@@ -168,11 +200,13 @@ func (q *Queries) CreateDefaultContact(ctx context.Context, arg CreateDefaultCon
 		&i.AddressType,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Latitude,
+		&i.Longitude,
 	)
 	return i, err
 }
 
-const deleteContact = `-- name: DeleteContact :exec
+const deleteAccountContact = `-- name: DeleteAccountContact :exec
 DELETE FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -187,11 +221,17 @@ WHERE (
     ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
     ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("date_updated" < $13 OR $13 IS NULL) AND
+    ("latitude" = ANY($14) OR $14 IS NULL) AND
+    ("latitude" > $15 OR $15 IS NULL) AND
+    ("latitude" < $16 OR $16 IS NULL) AND
+    ("longitude" = ANY($17) OR $17 IS NULL) AND
+    ("longitude" > $18 OR $18 IS NULL) AND
+    ("longitude" < $19 OR $19 IS NULL)
 )
 `
 
-type DeleteContactParams struct {
+type DeleteAccountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -205,10 +245,16 @@ type DeleteContactParams struct {
 	DateUpdated     []time.Time          `json:"date_updated"`
 	DateUpdatedFrom null.Time            `json:"date_updated_from"`
 	DateUpdatedTo   null.Time            `json:"date_updated_to"`
+	Latitude        []null.Float         `json:"latitude"`
+	LatitudeFrom    null.Float           `json:"latitude_from"`
+	LatitudeTo      null.Float           `json:"latitude_to"`
+	Longitude       []null.Float         `json:"longitude"`
+	LongitudeFrom   null.Float           `json:"longitude_from"`
+	LongitudeTo     null.Float           `json:"longitude_to"`
 }
 
-func (q *Queries) DeleteContact(ctx context.Context, arg DeleteContactParams) error {
-	_, err := q.db.Exec(ctx, deleteContact,
+func (q *Queries) DeleteAccountContact(ctx context.Context, arg DeleteAccountContactParams) error {
+	_, err := q.db.Exec(ctx, deleteAccountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -222,21 +268,27 @@ func (q *Queries) DeleteContact(ctx context.Context, arg DeleteContactParams) er
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Latitude,
+		arg.LatitudeFrom,
+		arg.LatitudeTo,
+		arg.Longitude,
+		arg.LongitudeFrom,
+		arg.LongitudeTo,
 	)
 	return err
 }
 
-const getContact = `-- name: GetContact :one
+const getAccountContact = `-- name: GetAccountContact :one
 
-SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 FROM "account"."contact"
 WHERE ("id" = $1)
 `
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.contact
-func (q *Queries) GetContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, getContact, id)
+func (q *Queries) GetAccountContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, getAccountContact, id)
 	var i AccountContact
 	err := row.Scan(
 		&i.ID,
@@ -248,12 +300,14 @@ func (q *Queries) GetContact(ctx context.Context, id uuid.NullUUID) (AccountCont
 		&i.AddressType,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Latitude,
+		&i.Longitude,
 	)
 	return i, err
 }
 
-const listContact = `-- name: ListContact :many
-SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+const listAccountContact = `-- name: ListAccountContact :many
+SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -268,14 +322,20 @@ WHERE (
     ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
     ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("date_updated" < $13 OR $13 IS NULL) AND
+    ("latitude" = ANY($14) OR $14 IS NULL) AND
+    ("latitude" > $15 OR $15 IS NULL) AND
+    ("latitude" < $16 OR $16 IS NULL) AND
+    ("longitude" = ANY($17) OR $17 IS NULL) AND
+    ("longitude" > $18 OR $18 IS NULL) AND
+    ("longitude" < $19 OR $19 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15::int
-OFFSET $14::int
+LIMIT $21::int
+OFFSET $20::int
 `
 
-type ListContactParams struct {
+type ListAccountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -289,12 +349,18 @@ type ListContactParams struct {
 	DateUpdated     []time.Time          `json:"date_updated"`
 	DateUpdatedFrom null.Time            `json:"date_updated_from"`
 	DateUpdatedTo   null.Time            `json:"date_updated_to"`
+	Latitude        []null.Float         `json:"latitude"`
+	LatitudeFrom    null.Float           `json:"latitude_from"`
+	LatitudeTo      null.Float           `json:"latitude_to"`
+	Longitude       []null.Float         `json:"longitude"`
+	LongitudeFrom   null.Float           `json:"longitude_from"`
+	LongitudeTo     null.Float           `json:"longitude_to"`
 	Offset          null.Int32           `json:"offset"`
 	Limit           null.Int32           `json:"limit"`
 }
 
-func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]AccountContact, error) {
-	rows, err := q.db.Query(ctx, listContact,
+func (q *Queries) ListAccountContact(ctx context.Context, arg ListAccountContactParams) ([]AccountContact, error) {
+	rows, err := q.db.Query(ctx, listAccountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -308,6 +374,12 @@ func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]Acc
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Latitude,
+		arg.LatitudeFrom,
+		arg.LatitudeTo,
+		arg.Longitude,
+		arg.LongitudeFrom,
+		arg.LongitudeTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -328,6 +400,8 @@ func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]Acc
 			&i.AddressType,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Latitude,
+			&i.Longitude,
 		); err != nil {
 			return nil, err
 		}
@@ -339,8 +413,8 @@ func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]Acc
 	return items, nil
 }
 
-const listCountContact = `-- name: ListCountContact :many
-SELECT embed_contact.id, embed_contact.account_id, embed_contact.full_name, embed_contact.phone, embed_contact.phone_verified, embed_contact.address, embed_contact.address_type, embed_contact.date_created, embed_contact.date_updated, COUNT(*) OVER() as total_count
+const listCountAccountContact = `-- name: ListCountAccountContact :many
+SELECT embed_contact.id, embed_contact.account_id, embed_contact.full_name, embed_contact.phone, embed_contact.phone_verified, embed_contact.address, embed_contact.address_type, embed_contact.date_created, embed_contact.date_updated, embed_contact.latitude, embed_contact.longitude, COUNT(*) OVER() as total_count
 FROM "account"."contact" embed_contact
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -355,14 +429,20 @@ WHERE (
     ("date_created" < $10 OR $10 IS NULL) AND
     ("date_updated" = ANY($11) OR $11 IS NULL) AND
     ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL)
+    ("date_updated" < $13 OR $13 IS NULL) AND
+    ("latitude" = ANY($14) OR $14 IS NULL) AND
+    ("latitude" > $15 OR $15 IS NULL) AND
+    ("latitude" < $16 OR $16 IS NULL) AND
+    ("longitude" = ANY($17) OR $17 IS NULL) AND
+    ("longitude" > $18 OR $18 IS NULL) AND
+    ("longitude" < $19 OR $19 IS NULL)
 )
 ORDER BY "id"
-LIMIT $15::int
-OFFSET $14::int
+LIMIT $21::int
+OFFSET $20::int
 `
 
-type ListCountContactParams struct {
+type ListCountAccountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -376,17 +456,23 @@ type ListCountContactParams struct {
 	DateUpdated     []time.Time          `json:"date_updated"`
 	DateUpdatedFrom null.Time            `json:"date_updated_from"`
 	DateUpdatedTo   null.Time            `json:"date_updated_to"`
+	Latitude        []null.Float         `json:"latitude"`
+	LatitudeFrom    null.Float           `json:"latitude_from"`
+	LatitudeTo      null.Float           `json:"latitude_to"`
+	Longitude       []null.Float         `json:"longitude"`
+	LongitudeFrom   null.Float           `json:"longitude_from"`
+	LongitudeTo     null.Float           `json:"longitude_to"`
 	Offset          null.Int32           `json:"offset"`
 	Limit           null.Int32           `json:"limit"`
 }
 
-type ListCountContactRow struct {
+type ListCountAccountContactRow struct {
 	AccountContact AccountContact `json:"account_contact"`
 	TotalCount     int64          `json:"total_count"`
 }
 
-func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactParams) ([]ListCountContactRow, error) {
-	rows, err := q.db.Query(ctx, listCountContact,
+func (q *Queries) ListCountAccountContact(ctx context.Context, arg ListCountAccountContactParams) ([]ListCountAccountContactRow, error) {
+	rows, err := q.db.Query(ctx, listCountAccountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -400,6 +486,12 @@ func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactPara
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Latitude,
+		arg.LatitudeFrom,
+		arg.LatitudeTo,
+		arg.Longitude,
+		arg.LongitudeFrom,
+		arg.LongitudeTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -407,9 +499,9 @@ func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactPara
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountContactRow{}
+	items := []ListCountAccountContactRow{}
 	for rows.Next() {
-		var i ListCountContactRow
+		var i ListCountAccountContactRow
 		if err := rows.Scan(
 			&i.AccountContact.ID,
 			&i.AccountContact.AccountID,
@@ -420,6 +512,8 @@ func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactPara
 			&i.AccountContact.AddressType,
 			&i.AccountContact.DateCreated,
 			&i.AccountContact.DateUpdated,
+			&i.AccountContact.Latitude,
+			&i.AccountContact.Longitude,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -432,7 +526,7 @@ func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactPara
 	return items, nil
 }
 
-const updateContact = `-- name: UpdateContact :one
+const updateAccountContact = `-- name: UpdateAccountContact :one
 UPDATE "account"."contact"
 SET "account_id" = COALESCE($1, "account_id"),
     "full_name" = COALESCE($2, "full_name"),
@@ -441,12 +535,14 @@ SET "account_id" = COALESCE($1, "account_id"),
     "address" = COALESCE($5, "address"),
     "address_type" = COALESCE($6, "address_type"),
     "date_created" = COALESCE($7, "date_created"),
-    "date_updated" = COALESCE($8, "date_updated")
-WHERE id = $9
-RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated
+    "date_updated" = COALESCE($8, "date_updated"),
+    "latitude" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "latitude") END,
+    "longitude" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "longitude") END
+WHERE id = $13
+RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type UpdateContactParams struct {
+type UpdateAccountContactParams struct {
 	AccountID     uuid.NullUUID          `json:"account_id"`
 	FullName      null.String            `json:"full_name"`
 	Phone         null.String            `json:"phone"`
@@ -455,11 +551,15 @@ type UpdateContactParams struct {
 	AddressType   NullAccountAddressType `json:"address_type"`
 	DateCreated   null.Time              `json:"date_created"`
 	DateUpdated   null.Time              `json:"date_updated"`
+	NullLatitude  bool                   `json:"null_latitude"`
+	Latitude      null.Float             `json:"latitude"`
+	NullLongitude bool                   `json:"null_longitude"`
+	Longitude     null.Float             `json:"longitude"`
 	ID            uuid.UUID              `json:"id"`
 }
 
-func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, updateContact,
+func (q *Queries) UpdateAccountContact(ctx context.Context, arg UpdateAccountContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, updateAccountContact,
 		arg.AccountID,
 		arg.FullName,
 		arg.Phone,
@@ -468,6 +568,10 @@ func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (A
 		arg.AddressType,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.NullLatitude,
+		arg.Latitude,
+		arg.NullLongitude,
+		arg.Longitude,
 		arg.ID,
 	)
 	var i AccountContact
@@ -481,6 +585,8 @@ func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (A
 		&i.AddressType,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Latitude,
+		&i.Longitude,
 	)
 	return i, err
 }

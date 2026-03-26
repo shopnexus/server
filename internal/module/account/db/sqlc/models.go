@@ -272,6 +272,8 @@ type AccountContact struct {
 	AddressType   AccountAddressType `json:"address_type"`
 	DateCreated   time.Time          `json:"date_created"`
 	DateUpdated   time.Time          `json:"date_updated"`
+	Latitude      null.Float         `json:"latitude"`
+	Longitude     null.Float         `json:"longitude"`
 }
 
 type AccountCustomer struct {
@@ -298,16 +300,18 @@ type AccountIncomeHistory struct {
 }
 
 type AccountNotification struct {
-	ID            int64     `json:"id"`
-	AccountID     uuid.UUID `json:"account_id"`
-	Type          string    `json:"type"`
-	Channel       string    `json:"channel"`
-	IsRead        bool      `json:"is_read"`
-	Content       string    `json:"content"`
-	DateCreated   time.Time `json:"date_created"`
-	DateUpdated   time.Time `json:"date_updated"`
-	DateSent      null.Time `json:"date_sent"`
-	DateScheduled null.Time `json:"date_scheduled"`
+	ID            int64           `json:"id"`
+	AccountID     uuid.UUID       `json:"account_id"`
+	Type          string          `json:"type"`
+	Channel       string          `json:"channel"`
+	IsRead        bool            `json:"is_read"`
+	Content       string          `json:"content"`
+	DateCreated   time.Time       `json:"date_created"`
+	DateUpdated   time.Time       `json:"date_updated"`
+	DateSent      null.Time       `json:"date_sent"`
+	DateScheduled null.Time       `json:"date_scheduled"`
+	Title         string          `json:"title"`
+	Metadata      json.RawMessage `json:"metadata"`
 }
 
 type AccountPaymentMethod struct {

@@ -150,7 +150,7 @@ func main() {
 	}
 
 	// Create default contact
-	contact, err := accountStore.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
+	contact, err := accountStore.CreateDefaultAccountContact(ctx, accountdb.CreateDefaultAccountContactParams{
 		AccountID:   account.ID,
 		FullName:    "Vendor User",
 		Phone:       "+1234567890",

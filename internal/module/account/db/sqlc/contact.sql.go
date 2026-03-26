@@ -12,7 +12,7 @@ import (
 )
 
 const listDefaultContact = `-- name: ListDefaultContact :many
-SELECT c.id, c.account_id, c.full_name, c.phone, c.phone_verified, c.address, c.address_type, c.date_created, c.date_updated FROM "account"."contact" c
+SELECT c.id, c.account_id, c.full_name, c.phone, c.phone_verified, c.address, c.address_type, c.date_created, c.date_updated, c.latitude, c.longitude FROM "account"."contact" c
 JOIN "account"."profile" p ON c."id" = p."default_contact_id" AND p."id" = ANY($1)
 ORDER BY c."date_created" DESC
 `
@@ -36,6 +36,8 @@ func (q *Queries) ListDefaultContact(ctx context.Context, accountID []uuid.UUID)
 			&i.AddressType,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Latitude,
+			&i.Longitude,
 		); err != nil {
 			return nil, err
 		}
