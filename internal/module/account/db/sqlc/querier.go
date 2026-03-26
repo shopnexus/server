@@ -12,70 +12,63 @@ import (
 )
 
 type Querier interface {
-	CountAccountAccount(ctx context.Context, arg CountAccountAccountParams) (int64, error)
-	CountAccountContact(ctx context.Context, arg CountAccountContactParams) (int64, error)
-	CountAccountNotification(ctx context.Context, arg CountAccountNotificationParams) (int64, error)
-	CountAccountProfile(ctx context.Context, arg CountAccountProfileParams) (int64, error)
+	CountAccount(ctx context.Context, arg CountAccountParams) (int64, error)
+	CountContact(ctx context.Context, arg CountContactParams) (int64, error)
 	CountFavorite(ctx context.Context, arg CountFavoriteParams) (int64, error)
 	CountIncomeHistory(ctx context.Context, arg CountIncomeHistoryParams) (int64, error)
+	CountNotification(ctx context.Context, arg CountNotificationParams) (int64, error)
 	CountPaymentMethod(ctx context.Context, arg CountPaymentMethodParams) (int64, error)
+	CountProfile(ctx context.Context, arg CountProfileParams) (int64, error)
 	CountUnreadByAccount(ctx context.Context, accountID uuid.UUID) (int64, error)
-	CreateAccountAccount(ctx context.Context, arg CreateAccountAccountParams) (AccountAccount, error)
-	CreateAccountContact(ctx context.Context, arg CreateAccountContactParams) (AccountContact, error)
-	CreateAccountNotification(ctx context.Context, arg CreateAccountNotificationParams) (AccountNotification, error)
-	CreateAccountProfile(ctx context.Context, arg CreateAccountProfileParams) (AccountProfile, error)
-	CreateBatchAccountAccount(ctx context.Context, arg []CreateBatchAccountAccountParams) *CreateBatchAccountAccountBatchResults
-	CreateBatchAccountContact(ctx context.Context, arg []CreateBatchAccountContactParams) *CreateBatchAccountContactBatchResults
-	CreateBatchAccountNotification(ctx context.Context, arg []CreateBatchAccountNotificationParams) *CreateBatchAccountNotificationBatchResults
-	CreateBatchAccountProfile(ctx context.Context, arg []CreateBatchAccountProfileParams) *CreateBatchAccountProfileBatchResults
+	CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error)
+	CreateBatchAccount(ctx context.Context, arg []CreateBatchAccountParams) *CreateBatchAccountBatchResults
+	CreateBatchContact(ctx context.Context, arg []CreateBatchContactParams) *CreateBatchContactBatchResults
 	CreateBatchFavorite(ctx context.Context, arg []CreateBatchFavoriteParams) *CreateBatchFavoriteBatchResults
 	CreateBatchIncomeHistory(ctx context.Context, arg []CreateBatchIncomeHistoryParams) *CreateBatchIncomeHistoryBatchResults
+	CreateBatchNotification(ctx context.Context, arg []CreateBatchNotificationParams) *CreateBatchNotificationBatchResults
 	CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatchPaymentMethodParams) *CreateBatchPaymentMethodBatchResults
-	CreateCopyAccountAccount(ctx context.Context, arg []CreateCopyAccountAccountParams) (int64, error)
-	CreateCopyAccountContact(ctx context.Context, arg []CreateCopyAccountContactParams) (int64, error)
-	CreateCopyAccountNotification(ctx context.Context, arg []CreateCopyAccountNotificationParams) (int64, error)
-	CreateCopyAccountProfile(ctx context.Context, arg []CreateCopyAccountProfileParams) (int64, error)
-	CreateCopyDefaultAccountAccount(ctx context.Context, arg []CreateCopyDefaultAccountAccountParams) (int64, error)
-	CreateCopyDefaultAccountContact(ctx context.Context, arg []CreateCopyDefaultAccountContactParams) (int64, error)
-	CreateCopyDefaultAccountNotification(ctx context.Context, arg []CreateCopyDefaultAccountNotificationParams) (int64, error)
-	CreateCopyDefaultAccountProfile(ctx context.Context, arg []CreateCopyDefaultAccountProfileParams) (int64, error)
+	CreateBatchProfile(ctx context.Context, arg []CreateBatchProfileParams) *CreateBatchProfileBatchResults
+	CreateContact(ctx context.Context, arg CreateContactParams) (AccountContact, error)
+	CreateCopyAccount(ctx context.Context, arg []CreateCopyAccountParams) (int64, error)
+	CreateCopyContact(ctx context.Context, arg []CreateCopyContactParams) (int64, error)
+	CreateCopyDefaultAccount(ctx context.Context, arg []CreateCopyDefaultAccountParams) (int64, error)
+	CreateCopyDefaultContact(ctx context.Context, arg []CreateCopyDefaultContactParams) (int64, error)
 	CreateCopyDefaultFavorite(ctx context.Context, arg []CreateCopyDefaultFavoriteParams) (int64, error)
 	CreateCopyDefaultIncomeHistory(ctx context.Context, arg []CreateCopyDefaultIncomeHistoryParams) (int64, error)
+	CreateCopyDefaultNotification(ctx context.Context, arg []CreateCopyDefaultNotificationParams) (int64, error)
 	CreateCopyDefaultPaymentMethod(ctx context.Context, arg []CreateCopyDefaultPaymentMethodParams) (int64, error)
+	CreateCopyDefaultProfile(ctx context.Context, arg []CreateCopyDefaultProfileParams) (int64, error)
 	CreateCopyFavorite(ctx context.Context, arg []CreateCopyFavoriteParams) (int64, error)
 	CreateCopyIncomeHistory(ctx context.Context, arg []CreateCopyIncomeHistoryParams) (int64, error)
+	CreateCopyNotification(ctx context.Context, arg []CreateCopyNotificationParams) (int64, error)
 	CreateCopyPaymentMethod(ctx context.Context, arg []CreateCopyPaymentMethodParams) (int64, error)
-	CreateDefaultAccountAccount(ctx context.Context, arg CreateDefaultAccountAccountParams) (AccountAccount, error)
-	CreateDefaultAccountContact(ctx context.Context, arg CreateDefaultAccountContactParams) (AccountContact, error)
-	CreateDefaultAccountNotification(ctx context.Context, arg CreateDefaultAccountNotificationParams) (AccountNotification, error)
-	CreateDefaultAccountProfile(ctx context.Context, arg CreateDefaultAccountProfileParams) (AccountProfile, error)
+	CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error)
+	CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error)
+	CreateDefaultContact(ctx context.Context, arg CreateDefaultContactParams) (AccountContact, error)
 	CreateDefaultFavorite(ctx context.Context, arg CreateDefaultFavoriteParams) (AccountFavorite, error)
 	CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefaultIncomeHistoryParams) (AccountIncomeHistory, error)
+	CreateDefaultNotification(ctx context.Context, arg CreateDefaultNotificationParams) (AccountNotification, error)
 	CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefaultPaymentMethodParams) (AccountPaymentMethod, error)
+	CreateDefaultProfile(ctx context.Context, arg CreateDefaultProfileParams) (AccountProfile, error)
 	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (AccountFavorite, error)
 	CreateIncomeHistory(ctx context.Context, arg CreateIncomeHistoryParams) (AccountIncomeHistory, error)
 	// Custom notification queries (hand-written, not generated by pgtempl)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
 	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (AccountPaymentMethod, error)
-	DeleteAccountAccount(ctx context.Context, arg DeleteAccountAccountParams) error
-	DeleteAccountContact(ctx context.Context, arg DeleteAccountContactParams) error
-	DeleteAccountNotification(ctx context.Context, arg DeleteAccountNotificationParams) error
-	DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error
+	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
+	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
+	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error
 	DeleteIncomeHistory(ctx context.Context, arg DeleteIncomeHistoryParams) error
+	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
 	DeletePaymentMethod(ctx context.Context, arg DeletePaymentMethodParams) error
+	DeleteProfile(ctx context.Context, arg DeleteProfileParams) error
 	// Code generated by pgtempl. DO NOT EDIT.
 	// Queries for table: account.account
-	GetAccountAccount(ctx context.Context, arg GetAccountAccountParams) (AccountAccount, error)
+	GetAccount(ctx context.Context, arg GetAccountParams) (AccountAccount, error)
 	// Code generated by pgtempl. DO NOT EDIT.
 	// Queries for table: account.contact
-	GetAccountContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error)
-	// Code generated by pgtempl. DO NOT EDIT.
-	// Queries for table: account.notification
-	GetAccountNotification(ctx context.Context, id pgtype.Int8) (AccountNotification, error)
-	// Code generated by pgtempl. DO NOT EDIT.
-	// Queries for table: account.profile
-	GetAccountProfile(ctx context.Context, arg GetAccountProfileParams) (AccountProfile, error)
+	GetContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error)
 	// Code generated by pgtempl. DO NOT EDIT.
 	// Queries for table: account.favorite
 	GetFavorite(ctx context.Context, arg GetFavoriteParams) (AccountFavorite, error)
@@ -83,35 +76,43 @@ type Querier interface {
 	// Queries for table: account.income_history
 	GetIncomeHistory(ctx context.Context, id pgtype.Int8) (AccountIncomeHistory, error)
 	// Code generated by pgtempl. DO NOT EDIT.
+	// Queries for table: account.notification
+	GetNotification(ctx context.Context, id pgtype.Int8) (AccountNotification, error)
+	// Code generated by pgtempl. DO NOT EDIT.
 	// Queries for table: account.payment_method
 	GetPaymentMethod(ctx context.Context, arg GetPaymentMethodParams) (AccountPaymentMethod, error)
-	ListAccountAccount(ctx context.Context, arg ListAccountAccountParams) ([]AccountAccount, error)
-	ListAccountContact(ctx context.Context, arg ListAccountContactParams) ([]AccountContact, error)
-	ListAccountNotification(ctx context.Context, arg ListAccountNotificationParams) ([]AccountNotification, error)
-	ListAccountProfile(ctx context.Context, arg ListAccountProfileParams) ([]AccountProfile, error)
-	ListCountAccountAccount(ctx context.Context, arg ListCountAccountAccountParams) ([]ListCountAccountAccountRow, error)
-	ListCountAccountContact(ctx context.Context, arg ListCountAccountContactParams) ([]ListCountAccountContactRow, error)
-	ListCountAccountNotification(ctx context.Context, arg ListCountAccountNotificationParams) ([]ListCountAccountNotificationRow, error)
-	ListCountAccountProfile(ctx context.Context, arg ListCountAccountProfileParams) ([]ListCountAccountProfileRow, error)
+	// Code generated by pgtempl. DO NOT EDIT.
+	// Queries for table: account.profile
+	GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error)
+	ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error)
+	ListContact(ctx context.Context, arg ListContactParams) ([]AccountContact, error)
+	ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error)
+	ListCountContact(ctx context.Context, arg ListCountContactParams) ([]ListCountContactRow, error)
 	ListCountFavorite(ctx context.Context, arg ListCountFavoriteParams) ([]ListCountFavoriteRow, error)
 	ListCountIncomeHistory(ctx context.Context, arg ListCountIncomeHistoryParams) ([]ListCountIncomeHistoryRow, error)
+	ListCountNotification(ctx context.Context, arg ListCountNotificationParams) ([]ListCountNotificationRow, error)
 	ListCountPaymentMethod(ctx context.Context, arg ListCountPaymentMethodParams) ([]ListCountPaymentMethodRow, error)
+	ListCountProfile(ctx context.Context, arg ListCountProfileParams) ([]ListCountProfileRow, error)
+	// Custom contact queries
 	ListDefaultContact(ctx context.Context, accountID []uuid.UUID) ([]AccountContact, error)
 	ListFavorite(ctx context.Context, arg ListFavoriteParams) ([]AccountFavorite, error)
 	ListIncomeHistory(ctx context.Context, arg ListIncomeHistoryParams) ([]AccountIncomeHistory, error)
+	ListNotification(ctx context.Context, arg ListNotificationParams) ([]AccountNotification, error)
 	ListNotificationByAccount(ctx context.Context, arg ListNotificationByAccountParams) ([]ListNotificationByAccountRow, error)
 	ListPaymentMethod(ctx context.Context, arg ListPaymentMethodParams) ([]AccountPaymentMethod, error)
+	ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error)
 	MarkAllNotificationRead(ctx context.Context, accountID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (AccountPaymentMethod, error)
+	// Custom payment method queries
 	UnsetDefaultPaymentMethod(ctx context.Context, accountID uuid.UUID) error
-	UpdateAccountAccount(ctx context.Context, arg UpdateAccountAccountParams) (AccountAccount, error)
-	UpdateAccountContact(ctx context.Context, arg UpdateAccountContactParams) (AccountContact, error)
-	UpdateAccountNotification(ctx context.Context, arg UpdateAccountNotificationParams) (AccountNotification, error)
-	UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (AccountProfile, error)
+	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error)
+	UpdateContact(ctx context.Context, arg UpdateContactParams) (AccountContact, error)
 	UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) (AccountFavorite, error)
 	UpdateIncomeHistory(ctx context.Context, arg UpdateIncomeHistoryParams) (AccountIncomeHistory, error)
+	UpdateNotification(ctx context.Context, arg UpdateNotificationParams) (AccountNotification, error)
 	UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMethodParams) (AccountPaymentMethod, error)
+	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error)
 }
 
 var _ Querier = (*Queries)(nil)

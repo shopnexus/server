@@ -19,7 +19,7 @@ func (h *Handler) ListContact(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.ListContact(c.Request().Context(), accountbiz.ListAccountContactParams{
+	result, err := h.biz.ListContact(c.Request().Context(), accountbiz.ListContactParams{
 		AccountID: []uuid.UUID{claims.Account.ID},
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func (h *Handler) GetContact(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.GetContact(c.Request().Context(), accountbiz.GetAccountContactParams{
+	result, err := h.biz.GetContact(c.Request().Context(), accountbiz.GetContactParams{
 		Account:   claims.Account,
 		ContactID: req.ContactID,
 	})
@@ -150,7 +150,7 @@ func (h *Handler) DeleteContact(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := h.biz.DeleteContact(c.Request().Context(), accountbiz.DeleteAccountContactParams{
+	if err := h.biz.DeleteContact(c.Request().Context(), accountbiz.DeleteContactParams{
 		Account:   claims.Account,
 		ContactID: req.ContactID,
 	}); err != nil {

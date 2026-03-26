@@ -14,18 +14,18 @@ import (
 	"github.com/samber/lo"
 )
 
-type ListAccountContactParams struct {
+type ListContactParams struct {
 	AccountID []uuid.UUID `validate:"dive,required"`
 	ID        []uuid.UUID `validate:"omitempty,dive"`
 }
 
 // ListContact returns contacts matching the given account and contact IDs.
-func (b *AccountHandler) ListContact(ctx restate.Context, params ListAccountContactParams) ([]accountdb.AccountContact, error) {
+func (b *AccountHandler) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, err
 	}
 
-	contacts, err := b.storage.Querier().ListAccountContact(ctx, accountdb.ListAccountContactParams{
+	contacts, err := b.storage.Querier().ListContact(ctx, accountdb.ListContactParams{
 		AccountID: params.AccountID,
 		ID:        params.ID,
 	})
@@ -36,20 +36,20 @@ func (b *AccountHandler) ListContact(ctx restate.Context, params ListAccountCont
 	return contacts, nil
 }
 
-type GetAccountContactParams struct {
+type GetContactParams struct {
 	Account   accountmodel.AuthenticatedAccount
 	ContactID uuid.UUID `validate:"required"`
 }
 
 // GetContact returns a single contact by ID for the authenticated account.
-func (b *AccountHandler) GetContact(ctx restate.Context, params GetAccountContactParams) (accountdb.AccountContact, error) {
+func (b *AccountHandler) GetContact(ctx restate.Context, params GetContactParams) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	result, err := b.ListContact(ctx, ListAccountContactParams{
+	result, err := b.ListContact(ctx, ListContactParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 		ID:        []uuid.UUID{params.ContactID},
 	})
@@ -82,7 +82,7 @@ func (b *AccountHandler) CreateContact(ctx restate.Context, params CreateContact
 		return zero, err
 	}
 
-	dbContact, err := b.storage.Querier().CreateDefaultAccountContact(ctx, accountdb.CreateDefaultAccountContactParams{
+	dbContact, err := b.storage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 		AccountID:   params.Account.ID,
 		FullName:    params.FullName,
 		Phone:       params.Phone,
@@ -95,14 +95,14 @@ func (b *AccountHandler) CreateContact(ctx restate.Context, params CreateContact
 		return zero, fmt.Errorf("create contact: %w", err)
 	}
 
-	total, err := b.storage.Querier().CountAccountContact(ctx, accountdb.CountAccountContactParams{
+	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 	if err != nil {
 		return zero, fmt.Errorf("create contact: %w", err)
 	}
 	if total == 1 {
-		if _, err := b.storage.Querier().UpdateAccountProfile(ctx, accountdb.UpdateAccountProfileParams{
+		if _, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
 			ID:               params.Account.ID,
 			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
 		}); err != nil {
@@ -134,7 +134,7 @@ func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContact
 		return zero, err
 	}
 
-	updatedContact, err := b.storage.Querier().UpdateAccountContact(ctx, accountdb.UpdateAccountContactParams{
+	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
 		ID:          params.ContactID,
 		FullName:    params.FullName,
 		Phone:       params.Phone,
@@ -152,7 +152,7 @@ func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContact
 	return updatedContact, nil
 }
 
-type DeleteAccountContactParams struct {
+type DeleteContactParams struct {
 	Account   accountmodel.AuthenticatedAccount
 	ContactID uuid.UUID
 }
@@ -160,8 +160,8 @@ type DeleteAccountContactParams struct {
 // DeleteContact removes a contact belonging to the authenticated account.
 // Cannot delete the last remaining contact. If the default contact is deleted,
 // the most recently created remaining contact becomes the new default.
-func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteAccountContactParams) error {
-	total, err := b.storage.Querier().CountAccountContact(ctx, accountdb.CountAccountContactParams{
+func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContactParams) error {
+	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 	if err != nil {
@@ -172,11 +172,11 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteAccount
 	}
 
 	// Check if we're deleting the default contact
-	profile, err := b.storage.Querier().GetAccountProfile(ctx, accountdb.GetAccountProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
+	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
 	isDefault := err == nil && profile.DefaultContactID.Valid && profile.DefaultContactID.UUID == params.ContactID
 
 	// Delete the contact
-	if err := b.storage.Querier().DeleteAccountContact(ctx, accountdb.DeleteAccountContactParams{
+	if err := b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
 		ID:        []uuid.UUID{params.ContactID},
 		AccountID: []uuid.UUID{params.Account.ID},
 	}); err != nil {
@@ -185,11 +185,11 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteAccount
 
 	// If we deleted the default, reassign to the most recent remaining contact
 	if isDefault {
-		remaining, err := b.storage.Querier().ListAccountContact(ctx, accountdb.ListAccountContactParams{
+		remaining, err := b.storage.Querier().ListContact(ctx, accountdb.ListContactParams{
 			AccountID: []uuid.UUID{params.Account.ID},
 		})
 		if err == nil && len(remaining) > 0 {
-			b.storage.Querier().UpdateAccountProfile(ctx, accountdb.UpdateAccountProfileParams{
+			b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
 				ID:               params.Account.ID,
 				DefaultContactID: uuid.NullUUID{UUID: remaining[0].ID, Valid: true},
 			})

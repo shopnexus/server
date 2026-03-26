@@ -13,7 +13,7 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const countAccountProfile = `-- name: CountAccountProfile :one
+const countProfile = `-- name: CountProfile :one
 SELECT COUNT(*)
 FROM "account"."profile"
 WHERE (
@@ -37,7 +37,7 @@ WHERE (
 )
 `
 
-type CountAccountProfileParams struct {
+type CountProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
@@ -57,8 +57,8 @@ type CountAccountProfileParams struct {
 	Description      []string            `json:"description"`
 }
 
-func (q *Queries) CountAccountProfile(ctx context.Context, arg CountAccountProfileParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccountProfile,
+func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countProfile,
 		arg.ID,
 		arg.Gender,
 		arg.Name,
@@ -82,13 +82,16 @@ func (q *Queries) CountAccountProfile(ctx context.Context, arg CountAccountProfi
 	return count, err
 }
 
-const createAccountProfile = `-- name: CreateAccountProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
-`
+type CreateCopyDefaultProfileParams struct {
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             null.String       `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+}
 
-type CreateAccountProfileParams struct {
+type CreateCopyProfileParams struct {
 	ID               uuid.UUID         `json:"id"`
 	Gender           NullAccountGender `json:"gender"`
 	Name             null.String       `json:"name"`
@@ -102,8 +105,69 @@ type CreateAccountProfileParams struct {
 	Description      string            `json:"description"`
 }
 
-func (q *Queries) CreateAccountProfile(ctx context.Context, arg CreateAccountProfileParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, createAccountProfile,
+const createDefaultProfile = `-- name: CreateDefaultProfile :one
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "default_contact_id")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+`
+
+type CreateDefaultProfileParams struct {
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             null.String       `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+}
+
+func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultProfileParams) (AccountProfile, error) {
+	row := q.db.QueryRow(ctx, createDefaultProfile,
+		arg.ID,
+		arg.Gender,
+		arg.Name,
+		arg.DateOfBirth,
+		arg.AvatarRsID,
+		arg.DefaultContactID,
+	)
+	var i AccountProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Gender,
+		&i.Name,
+		&i.DateOfBirth,
+		&i.AvatarRsID,
+		&i.EmailVerified,
+		&i.PhoneVerified,
+		&i.DefaultContactID,
+		&i.DateCreated,
+		&i.DateUpdated,
+		&i.Description,
+	)
+	return i, err
+}
+
+const createProfile = `-- name: CreateProfile :one
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+`
+
+type CreateProfileParams struct {
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             null.String       `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    bool              `json:"email_verified"`
+	PhoneVerified    bool              `json:"phone_verified"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DateCreated      time.Time         `json:"date_created"`
+	DateUpdated      time.Time         `json:"date_updated"`
+	Description      string            `json:"description"`
+}
+
+func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error) {
+	row := q.db.QueryRow(ctx, createProfile,
 		arg.ID,
 		arg.Gender,
 		arg.Name,
@@ -133,71 +197,7 @@ func (q *Queries) CreateAccountProfile(ctx context.Context, arg CreateAccountPro
 	return i, err
 }
 
-type CreateCopyAccountProfileParams struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified    bool              `json:"email_verified"`
-	PhoneVerified    bool              `json:"phone_verified"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-	DateCreated      time.Time         `json:"date_created"`
-	DateUpdated      time.Time         `json:"date_updated"`
-	Description      string            `json:"description"`
-}
-
-type CreateCopyDefaultAccountProfileParams struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-}
-
-const createDefaultAccountProfile = `-- name: CreateDefaultAccountProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "default_contact_id")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
-`
-
-type CreateDefaultAccountProfileParams struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-}
-
-func (q *Queries) CreateDefaultAccountProfile(ctx context.Context, arg CreateDefaultAccountProfileParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, createDefaultAccountProfile,
-		arg.ID,
-		arg.Gender,
-		arg.Name,
-		arg.DateOfBirth,
-		arg.AvatarRsID,
-		arg.DefaultContactID,
-	)
-	var i AccountProfile
-	err := row.Scan(
-		&i.ID,
-		&i.Gender,
-		&i.Name,
-		&i.DateOfBirth,
-		&i.AvatarRsID,
-		&i.EmailVerified,
-		&i.PhoneVerified,
-		&i.DefaultContactID,
-		&i.DateCreated,
-		&i.DateUpdated,
-		&i.Description,
-	)
-	return i, err
-}
-
-const deleteAccountProfile = `-- name: DeleteAccountProfile :exec
+const deleteProfile = `-- name: DeleteProfile :exec
 DELETE FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -220,7 +220,7 @@ WHERE (
 )
 `
 
-type DeleteAccountProfileParams struct {
+type DeleteProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
@@ -240,8 +240,8 @@ type DeleteAccountProfileParams struct {
 	Description      []string            `json:"description"`
 }
 
-func (q *Queries) DeleteAccountProfile(ctx context.Context, arg DeleteAccountProfileParams) error {
-	_, err := q.db.Exec(ctx, deleteAccountProfile,
+func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) error {
+	_, err := q.db.Exec(ctx, deleteProfile,
 		arg.ID,
 		arg.Gender,
 		arg.Name,
@@ -263,14 +263,14 @@ func (q *Queries) DeleteAccountProfile(ctx context.Context, arg DeleteAccountPro
 	return err
 }
 
-const getAccountProfile = `-- name: GetAccountProfile :one
+const getProfile = `-- name: GetProfile :one
 
 SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
 FROM "account"."profile"
 WHERE ("id" = $1) OR ("avatar_rs_id" = $2) OR ("default_contact_id" = $3)
 `
 
-type GetAccountProfileParams struct {
+type GetProfileParams struct {
 	ID               uuid.NullUUID `json:"id"`
 	AvatarRsID       uuid.NullUUID `json:"avatar_rs_id"`
 	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
@@ -278,8 +278,8 @@ type GetAccountProfileParams struct {
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.profile
-func (q *Queries) GetAccountProfile(ctx context.Context, arg GetAccountProfileParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, getAccountProfile, arg.ID, arg.AvatarRsID, arg.DefaultContactID)
+func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error) {
+	row := q.db.QueryRow(ctx, getProfile, arg.ID, arg.AvatarRsID, arg.DefaultContactID)
 	var i AccountProfile
 	err := row.Scan(
 		&i.ID,
@@ -297,7 +297,114 @@ func (q *Queries) GetAccountProfile(ctx context.Context, arg GetAccountProfilePa
 	return i, err
 }
 
-const listAccountProfile = `-- name: ListAccountProfile :many
+const listCountProfile = `-- name: ListCountProfile :many
+SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.default_contact_id, embed_profile.date_created, embed_profile.date_updated, embed_profile.description, COUNT(*) OVER() as total_count
+FROM "account"."profile" embed_profile
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("gender" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" > $5 OR $5 IS NULL) AND
+    ("date_of_birth" < $6 OR $6 IS NULL) AND
+    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
+    ("email_verified" = ANY($8) OR $8 IS NULL) AND
+    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
+    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" > $12 OR $12 IS NULL) AND
+    ("date_created" < $13 OR $13 IS NULL) AND
+    ("date_updated" = ANY($14) OR $14 IS NULL) AND
+    ("date_updated" > $15 OR $15 IS NULL) AND
+    ("date_updated" < $16 OR $16 IS NULL) AND
+    ("description" = ANY($17) OR $17 IS NULL)
+)
+ORDER BY "id"
+LIMIT $19::int
+OFFSET $18::int
+`
+
+type ListCountProfileParams struct {
+	ID               []uuid.UUID         `json:"id"`
+	Gender           []NullAccountGender `json:"gender"`
+	Name             []null.String       `json:"name"`
+	DateOfBirth      []null.Time         `json:"date_of_birth"`
+	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
+	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
+	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    []bool              `json:"email_verified"`
+	PhoneVerified    []bool              `json:"phone_verified"`
+	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
+	DateCreated      []time.Time         `json:"date_created"`
+	DateCreatedFrom  null.Time           `json:"date_created_from"`
+	DateCreatedTo    null.Time           `json:"date_created_to"`
+	DateUpdated      []time.Time         `json:"date_updated"`
+	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
+	DateUpdatedTo    null.Time           `json:"date_updated_to"`
+	Description      []string            `json:"description"`
+	Offset           null.Int32          `json:"offset"`
+	Limit            null.Int32          `json:"limit"`
+}
+
+type ListCountProfileRow struct {
+	AccountProfile AccountProfile `json:"account_profile"`
+	TotalCount     int64          `json:"total_count"`
+}
+
+func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfileParams) ([]ListCountProfileRow, error) {
+	rows, err := q.db.Query(ctx, listCountProfile,
+		arg.ID,
+		arg.Gender,
+		arg.Name,
+		arg.DateOfBirth,
+		arg.DateOfBirthFrom,
+		arg.DateOfBirthTo,
+		arg.AvatarRsID,
+		arg.EmailVerified,
+		arg.PhoneVerified,
+		arg.DefaultContactID,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+		arg.Description,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountProfileRow{}
+	for rows.Next() {
+		var i ListCountProfileRow
+		if err := rows.Scan(
+			&i.AccountProfile.ID,
+			&i.AccountProfile.Gender,
+			&i.AccountProfile.Name,
+			&i.AccountProfile.DateOfBirth,
+			&i.AccountProfile.AvatarRsID,
+			&i.AccountProfile.EmailVerified,
+			&i.AccountProfile.PhoneVerified,
+			&i.AccountProfile.DefaultContactID,
+			&i.AccountProfile.DateCreated,
+			&i.AccountProfile.DateUpdated,
+			&i.AccountProfile.Description,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfile = `-- name: ListProfile :many
 SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
 FROM "account"."profile"
 WHERE (
@@ -324,7 +431,7 @@ LIMIT $19::int
 OFFSET $18::int
 `
 
-type ListAccountProfileParams struct {
+type ListProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
@@ -346,8 +453,8 @@ type ListAccountProfileParams struct {
 	Limit            null.Int32          `json:"limit"`
 }
 
-func (q *Queries) ListAccountProfile(ctx context.Context, arg ListAccountProfileParams) ([]AccountProfile, error) {
-	rows, err := q.db.Query(ctx, listAccountProfile,
+func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error) {
+	rows, err := q.db.Query(ctx, listProfile,
 		arg.ID,
 		arg.Gender,
 		arg.Name,
@@ -398,114 +505,7 @@ func (q *Queries) ListAccountProfile(ctx context.Context, arg ListAccountProfile
 	return items, nil
 }
 
-const listCountAccountProfile = `-- name: ListCountAccountProfile :many
-SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.default_contact_id, embed_profile.date_created, embed_profile.date_updated, embed_profile.description, COUNT(*) OVER() as total_count
-FROM "account"."profile" embed_profile
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("gender" = ANY($2) OR $2 IS NULL) AND
-    ("name" = ANY($3) OR $3 IS NULL) AND
-    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
-    ("date_of_birth" > $5 OR $5 IS NULL) AND
-    ("date_of_birth" < $6 OR $6 IS NULL) AND
-    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
-    ("email_verified" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("description" = ANY($17) OR $17 IS NULL)
-)
-ORDER BY "id"
-LIMIT $19::int
-OFFSET $18::int
-`
-
-type ListCountAccountProfileParams struct {
-	ID               []uuid.UUID         `json:"id"`
-	Gender           []NullAccountGender `json:"gender"`
-	Name             []null.String       `json:"name"`
-	DateOfBirth      []null.Time         `json:"date_of_birth"`
-	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
-	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
-	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified    []bool              `json:"email_verified"`
-	PhoneVerified    []bool              `json:"phone_verified"`
-	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
-	DateCreated      []time.Time         `json:"date_created"`
-	DateCreatedFrom  null.Time           `json:"date_created_from"`
-	DateCreatedTo    null.Time           `json:"date_created_to"`
-	DateUpdated      []time.Time         `json:"date_updated"`
-	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
-	DateUpdatedTo    null.Time           `json:"date_updated_to"`
-	Description      []string            `json:"description"`
-	Offset           null.Int32          `json:"offset"`
-	Limit            null.Int32          `json:"limit"`
-}
-
-type ListCountAccountProfileRow struct {
-	AccountProfile AccountProfile `json:"account_profile"`
-	TotalCount     int64          `json:"total_count"`
-}
-
-func (q *Queries) ListCountAccountProfile(ctx context.Context, arg ListCountAccountProfileParams) ([]ListCountAccountProfileRow, error) {
-	rows, err := q.db.Query(ctx, listCountAccountProfile,
-		arg.ID,
-		arg.Gender,
-		arg.Name,
-		arg.DateOfBirth,
-		arg.DateOfBirthFrom,
-		arg.DateOfBirthTo,
-		arg.AvatarRsID,
-		arg.EmailVerified,
-		arg.PhoneVerified,
-		arg.DefaultContactID,
-		arg.DateCreated,
-		arg.DateCreatedFrom,
-		arg.DateCreatedTo,
-		arg.DateUpdated,
-		arg.DateUpdatedFrom,
-		arg.DateUpdatedTo,
-		arg.Description,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListCountAccountProfileRow{}
-	for rows.Next() {
-		var i ListCountAccountProfileRow
-		if err := rows.Scan(
-			&i.AccountProfile.ID,
-			&i.AccountProfile.Gender,
-			&i.AccountProfile.Name,
-			&i.AccountProfile.DateOfBirth,
-			&i.AccountProfile.AvatarRsID,
-			&i.AccountProfile.EmailVerified,
-			&i.AccountProfile.PhoneVerified,
-			&i.AccountProfile.DefaultContactID,
-			&i.AccountProfile.DateCreated,
-			&i.AccountProfile.DateUpdated,
-			&i.AccountProfile.Description,
-			&i.TotalCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateAccountProfile = `-- name: UpdateAccountProfile :one
+const updateProfile = `-- name: UpdateProfile :one
 UPDATE "account"."profile"
 SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") END,
     "name" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "name") END,
@@ -521,7 +521,7 @@ WHERE id = $16
 RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
 `
 
-type UpdateAccountProfileParams struct {
+type UpdateProfileParams struct {
 	NullGender           bool              `json:"null_gender"`
 	Gender               NullAccountGender `json:"gender"`
 	NullName             bool              `json:"null_name"`
@@ -540,8 +540,8 @@ type UpdateAccountProfileParams struct {
 	ID                   uuid.UUID         `json:"id"`
 }
 
-func (q *Queries) UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, updateAccountProfile,
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
 		arg.NullGender,
 		arg.Gender,
 		arg.NullName,

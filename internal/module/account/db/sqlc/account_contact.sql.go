@@ -13,7 +13,7 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const countAccountContact = `-- name: CountAccountContact :one
+const countContact = `-- name: CountContact :one
 SELECT COUNT(*)
 FROM "account"."contact"
 WHERE (
@@ -39,7 +39,7 @@ WHERE (
 )
 `
 
-type CountAccountContactParams struct {
+type CountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -61,8 +61,8 @@ type CountAccountContactParams struct {
 	LongitudeTo     null.Float           `json:"longitude_to"`
 }
 
-func (q *Queries) CountAccountContact(ctx context.Context, arg CountAccountContactParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccountContact,
+func (q *Queries) CountContact(ctx context.Context, arg CountContactParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -88,13 +88,13 @@ func (q *Queries) CountAccountContact(ctx context.Context, arg CountAccountConta
 	return count, err
 }
 
-const createAccountContact = `-- name: CreateAccountContact :one
+const createContact = `-- name: CreateContact :one
 INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated", "latitude", "longitude")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type CreateAccountContactParams struct {
+type CreateContactParams struct {
 	ID            uuid.UUID          `json:"id"`
 	AccountID     uuid.UUID          `json:"account_id"`
 	FullName      string             `json:"full_name"`
@@ -108,8 +108,8 @@ type CreateAccountContactParams struct {
 	Longitude     null.Float         `json:"longitude"`
 }
 
-func (q *Queries) CreateAccountContact(ctx context.Context, arg CreateAccountContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, createAccountContact,
+func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, createContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -139,7 +139,7 @@ func (q *Queries) CreateAccountContact(ctx context.Context, arg CreateAccountCon
 	return i, err
 }
 
-type CreateCopyAccountContactParams struct {
+type CreateCopyContactParams struct {
 	ID            uuid.UUID          `json:"id"`
 	AccountID     uuid.UUID          `json:"account_id"`
 	FullName      string             `json:"full_name"`
@@ -153,7 +153,7 @@ type CreateCopyAccountContactParams struct {
 	Longitude     null.Float         `json:"longitude"`
 }
 
-type CreateCopyDefaultAccountContactParams struct {
+type CreateCopyDefaultContactParams struct {
 	AccountID   uuid.UUID          `json:"account_id"`
 	FullName    string             `json:"full_name"`
 	Phone       string             `json:"phone"`
@@ -163,13 +163,13 @@ type CreateCopyDefaultAccountContactParams struct {
 	Longitude   null.Float         `json:"longitude"`
 }
 
-const createDefaultAccountContact = `-- name: CreateDefaultAccountContact :one
+const createDefaultContact = `-- name: CreateDefaultContact :one
 INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type CreateDefaultAccountContactParams struct {
+type CreateDefaultContactParams struct {
 	AccountID   uuid.UUID          `json:"account_id"`
 	FullName    string             `json:"full_name"`
 	Phone       string             `json:"phone"`
@@ -179,8 +179,8 @@ type CreateDefaultAccountContactParams struct {
 	Longitude   null.Float         `json:"longitude"`
 }
 
-func (q *Queries) CreateDefaultAccountContact(ctx context.Context, arg CreateDefaultAccountContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, createDefaultAccountContact,
+func (q *Queries) CreateDefaultContact(ctx context.Context, arg CreateDefaultContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, createDefaultContact,
 		arg.AccountID,
 		arg.FullName,
 		arg.Phone,
@@ -206,7 +206,7 @@ func (q *Queries) CreateDefaultAccountContact(ctx context.Context, arg CreateDef
 	return i, err
 }
 
-const deleteAccountContact = `-- name: DeleteAccountContact :exec
+const deleteContact = `-- name: DeleteContact :exec
 DELETE FROM "account"."contact"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -231,7 +231,7 @@ WHERE (
 )
 `
 
-type DeleteAccountContactParams struct {
+type DeleteContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -253,8 +253,8 @@ type DeleteAccountContactParams struct {
 	LongitudeTo     null.Float           `json:"longitude_to"`
 }
 
-func (q *Queries) DeleteAccountContact(ctx context.Context, arg DeleteAccountContactParams) error {
-	_, err := q.db.Exec(ctx, deleteAccountContact,
+func (q *Queries) DeleteContact(ctx context.Context, arg DeleteContactParams) error {
+	_, err := q.db.Exec(ctx, deleteContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -278,7 +278,7 @@ func (q *Queries) DeleteAccountContact(ctx context.Context, arg DeleteAccountCon
 	return err
 }
 
-const getAccountContact = `-- name: GetAccountContact :one
+const getContact = `-- name: GetContact :one
 
 SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 FROM "account"."contact"
@@ -287,8 +287,8 @@ WHERE ("id" = $1)
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.contact
-func (q *Queries) GetAccountContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, getAccountContact, id)
+func (q *Queries) GetContact(ctx context.Context, id uuid.NullUUID) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, getContact, id)
 	var i AccountContact
 	err := row.Scan(
 		&i.ID,
@@ -306,7 +306,7 @@ func (q *Queries) GetAccountContact(ctx context.Context, id uuid.NullUUID) (Acco
 	return i, err
 }
 
-const listAccountContact = `-- name: ListAccountContact :many
+const listContact = `-- name: ListContact :many
 SELECT id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 FROM "account"."contact"
 WHERE (
@@ -335,7 +335,7 @@ LIMIT $21::int
 OFFSET $20::int
 `
 
-type ListAccountContactParams struct {
+type ListContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -359,8 +359,8 @@ type ListAccountContactParams struct {
 	Limit           null.Int32           `json:"limit"`
 }
 
-func (q *Queries) ListAccountContact(ctx context.Context, arg ListAccountContactParams) ([]AccountContact, error) {
-	rows, err := q.db.Query(ctx, listAccountContact,
+func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]AccountContact, error) {
+	rows, err := q.db.Query(ctx, listContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -413,7 +413,7 @@ func (q *Queries) ListAccountContact(ctx context.Context, arg ListAccountContact
 	return items, nil
 }
 
-const listCountAccountContact = `-- name: ListCountAccountContact :many
+const listCountContact = `-- name: ListCountContact :many
 SELECT embed_contact.id, embed_contact.account_id, embed_contact.full_name, embed_contact.phone, embed_contact.phone_verified, embed_contact.address, embed_contact.address_type, embed_contact.date_created, embed_contact.date_updated, embed_contact.latitude, embed_contact.longitude, COUNT(*) OVER() as total_count
 FROM "account"."contact" embed_contact
 WHERE (
@@ -442,7 +442,7 @@ LIMIT $21::int
 OFFSET $20::int
 `
 
-type ListCountAccountContactParams struct {
+type ListCountContactParams struct {
 	ID              []uuid.UUID          `json:"id"`
 	AccountID       []uuid.UUID          `json:"account_id"`
 	FullName        []string             `json:"full_name"`
@@ -466,13 +466,13 @@ type ListCountAccountContactParams struct {
 	Limit           null.Int32           `json:"limit"`
 }
 
-type ListCountAccountContactRow struct {
+type ListCountContactRow struct {
 	AccountContact AccountContact `json:"account_contact"`
 	TotalCount     int64          `json:"total_count"`
 }
 
-func (q *Queries) ListCountAccountContact(ctx context.Context, arg ListCountAccountContactParams) ([]ListCountAccountContactRow, error) {
-	rows, err := q.db.Query(ctx, listCountAccountContact,
+func (q *Queries) ListCountContact(ctx context.Context, arg ListCountContactParams) ([]ListCountContactRow, error) {
+	rows, err := q.db.Query(ctx, listCountContact,
 		arg.ID,
 		arg.AccountID,
 		arg.FullName,
@@ -499,9 +499,9 @@ func (q *Queries) ListCountAccountContact(ctx context.Context, arg ListCountAcco
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountAccountContactRow{}
+	items := []ListCountContactRow{}
 	for rows.Next() {
-		var i ListCountAccountContactRow
+		var i ListCountContactRow
 		if err := rows.Scan(
 			&i.AccountContact.ID,
 			&i.AccountContact.AccountID,
@@ -526,7 +526,7 @@ func (q *Queries) ListCountAccountContact(ctx context.Context, arg ListCountAcco
 	return items, nil
 }
 
-const updateAccountContact = `-- name: UpdateAccountContact :one
+const updateContact = `-- name: UpdateContact :one
 UPDATE "account"."contact"
 SET "account_id" = COALESCE($1, "account_id"),
     "full_name" = COALESCE($2, "full_name"),
@@ -542,7 +542,7 @@ WHERE id = $13
 RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, date_created, date_updated, latitude, longitude
 `
 
-type UpdateAccountContactParams struct {
+type UpdateContactParams struct {
 	AccountID     uuid.NullUUID          `json:"account_id"`
 	FullName      null.String            `json:"full_name"`
 	Phone         null.String            `json:"phone"`
@@ -558,8 +558,8 @@ type UpdateAccountContactParams struct {
 	ID            uuid.UUID              `json:"id"`
 }
 
-func (q *Queries) UpdateAccountContact(ctx context.Context, arg UpdateAccountContactParams) (AccountContact, error) {
-	row := q.db.QueryRow(ctx, updateAccountContact,
+func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (AccountContact, error) {
+	row := q.db.QueryRow(ctx, updateContact,
 		arg.AccountID,
 		arg.FullName,
 		arg.Phone,

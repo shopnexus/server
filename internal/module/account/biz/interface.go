@@ -25,19 +25,19 @@ type AccountBiz interface {
 	Refresh(ctx context.Context, refreshToken string) (RefreshResult, error)
 
 	// Profile
-	GetProfile(ctx context.Context, params GetAccountProfileParams) (accountmodel.Profile, error)
+	GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error)
 	ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error)
-	UpdateProfile(ctx context.Context, params UpdateAccountProfileParams) (accountmodel.Profile, error)
+	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
 
 	// Account
 	DeleteAccount(ctx context.Context, params DeleteAccountParams) error
 
 	// Contact
-	ListContact(ctx context.Context, params ListAccountContactParams) ([]accountdb.AccountContact, error)
-	GetContact(ctx context.Context, params GetAccountContactParams) (accountdb.AccountContact, error)
+	ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error)
+	GetContact(ctx context.Context, params GetContactParams) (accountdb.AccountContact, error)
 	CreateContact(ctx context.Context, params CreateContactParams) (accountdb.AccountContact, error)
 	UpdateContact(ctx context.Context, params UpdateContactParams) (accountdb.AccountContact, error)
-	DeleteContact(ctx context.Context, params DeleteAccountContactParams) error
+	DeleteContact(ctx context.Context, params DeleteContactParams) error
 	GetDefaultContact(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error)
 
 	// Favorite

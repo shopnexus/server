@@ -135,7 +135,7 @@ func main() {
 
 	// Create vendor account
 	accountID := uuid.New()
-	account, err := accountStore.CreateAccountAccount(ctx, accountdb.CreateAccountAccountParams{
+	account, err := accountStore.CreateAccount(ctx, accountdb.CreateAccountParams{
 		ID:          accountID,
 		Status:      "Active",
 		Email:       null.StringFrom(fmt.Sprintf("vendor+%s@example.com", uuid.New().String())),
@@ -149,7 +149,7 @@ func main() {
 	}
 
 	// Create default contact
-	contact, err := accountStore.CreateDefaultAccountContact(ctx, accountdb.CreateDefaultAccountContactParams{
+	contact, err := accountStore.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 		AccountID:   account.ID,
 		FullName:    "Vendor User",
 		Phone:       "+1234567890",
@@ -160,7 +160,7 @@ func main() {
 	}
 
 	// Create profile for the account
-	_, err = accountStore.CreateDefaultAccountProfile(ctx, accountdb.CreateDefaultAccountProfileParams{
+	_, err = accountStore.CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
 		ID:               accountID,
 		Gender:           accountdb.NullAccountGender{AccountGender: accountdb.AccountGenderMale, Valid: true},
 		Name:             null.StringFrom("Vendor User"),
@@ -870,7 +870,7 @@ func createComments(
 	}
 
 	// Get an account to use as comment author
-	accounts, err := accountStore.ListAccountAccount(ctx, accountdb.ListAccountAccountParams{
+	accounts, err := accountStore.ListAccount(ctx, accountdb.ListAccountParams{
 		Limit: null.Int32From(1),
 	})
 	if err != nil || len(accounts) == 0 {

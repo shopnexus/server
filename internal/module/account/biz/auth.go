@@ -116,7 +116,7 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 		return zero, accountmodel.ErrMissingIdentifier.Terminal()
 	}
 
-	account, err := a.storage.Querier().GetAccountAccount(ctx, accountdb.GetAccountAccountParams{
+	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
 		Phone:    params.Phone,
 		Email:    params.Email,
 		Username: params.Username,
@@ -197,7 +197,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	}
 
 	// Create account base
-	account, err := a.storage.Querier().CreateDefaultAccountAccount(ctx, accountdb.CreateDefaultAccountAccountParams{
+	account, err := a.storage.Querier().CreateDefaultAccount(ctx, accountdb.CreateDefaultAccountParams{
 		Phone:    params.Phone,
 		Email:    params.Email,
 		Username: params.Username,
@@ -208,7 +208,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	}
 
 	// Create empty profile
-	if _, err = a.storage.Querier().CreateDefaultAccountProfile(ctx, accountdb.CreateDefaultAccountProfileParams{
+	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
 		ID: account.ID,
 	}); err != nil {
 		return zero, fmt.Errorf("register account: %w", err)
@@ -244,7 +244,7 @@ func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (Refr
 		return zero, err
 	}
 
-	account, err := a.storage.Querier().GetAccountAccount(ctx, accountdb.GetAccountAccountParams{
+	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
 		ID: uuid.NullUUID{UUID: claims.Account.ID, Valid: true},
 	})
 	if err != nil {

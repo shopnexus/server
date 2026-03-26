@@ -13,7 +13,7 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const countAccountAccount = `-- name: CountAccountAccount :one
+const countAccount = `-- name: CountAccount :one
 SELECT COUNT(*)
 FROM "account"."account"
 WHERE (
@@ -35,7 +35,7 @@ WHERE (
 )
 `
 
-type CountAccountAccountParams struct {
+type CountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
@@ -53,8 +53,8 @@ type CountAccountAccountParams struct {
 	NumberTo        null.Int        `json:"number_to"`
 }
 
-func (q *Queries) CountAccountAccount(ctx context.Context, arg CountAccountAccountParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccountAccount,
+func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccount,
 		arg.ID,
 		arg.Status,
 		arg.Phone,
@@ -76,13 +76,13 @@ func (q *Queries) CountAccountAccount(ctx context.Context, arg CountAccountAccou
 	return count, err
 }
 
-const createAccountAccount = `-- name: CreateAccountAccount :one
+const createAccount = `-- name: CreateAccount :one
 INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type CreateAccountAccountParams struct {
+type CreateAccountParams struct {
 	ID          uuid.UUID     `json:"id"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
@@ -93,8 +93,8 @@ type CreateAccountAccountParams struct {
 	DateUpdated time.Time     `json:"date_updated"`
 }
 
-func (q *Queries) CreateAccountAccount(ctx context.Context, arg CreateAccountAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, createAccountAccount,
+func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, createAccount,
 		arg.ID,
 		arg.Status,
 		arg.Phone,
@@ -119,7 +119,7 @@ func (q *Queries) CreateAccountAccount(ctx context.Context, arg CreateAccountAcc
 	return i, err
 }
 
-type CreateCopyAccountAccountParams struct {
+type CreateCopyAccountParams struct {
 	ID          uuid.UUID     `json:"id"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
@@ -130,28 +130,28 @@ type CreateCopyAccountAccountParams struct {
 	DateUpdated time.Time     `json:"date_updated"`
 }
 
-type CreateCopyDefaultAccountAccountParams struct {
+type CreateCopyDefaultAccountParams struct {
 	Phone    null.String `json:"phone"`
 	Email    null.String `json:"email"`
 	Username null.String `json:"username"`
 	Password null.String `json:"password"`
 }
 
-const createDefaultAccountAccount = `-- name: CreateDefaultAccountAccount :one
+const createDefaultAccount = `-- name: CreateDefaultAccount :one
 INSERT INTO "account"."account" ("phone", "email", "username", "password")
 VALUES ($1, $2, $3, $4)
 RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type CreateDefaultAccountAccountParams struct {
+type CreateDefaultAccountParams struct {
 	Phone    null.String `json:"phone"`
 	Email    null.String `json:"email"`
 	Username null.String `json:"username"`
 	Password null.String `json:"password"`
 }
 
-func (q *Queries) CreateDefaultAccountAccount(ctx context.Context, arg CreateDefaultAccountAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, createDefaultAccountAccount,
+func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, createDefaultAccount,
 		arg.Phone,
 		arg.Email,
 		arg.Username,
@@ -172,7 +172,7 @@ func (q *Queries) CreateDefaultAccountAccount(ctx context.Context, arg CreateDef
 	return i, err
 }
 
-const deleteAccountAccount = `-- name: DeleteAccountAccount :exec
+const deleteAccount = `-- name: DeleteAccount :exec
 DELETE FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -193,7 +193,7 @@ WHERE (
 )
 `
 
-type DeleteAccountAccountParams struct {
+type DeleteAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
@@ -211,8 +211,8 @@ type DeleteAccountAccountParams struct {
 	NumberTo        null.Int        `json:"number_to"`
 }
 
-func (q *Queries) DeleteAccountAccount(ctx context.Context, arg DeleteAccountAccountParams) error {
-	_, err := q.db.Exec(ctx, deleteAccountAccount,
+func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) error {
+	_, err := q.db.Exec(ctx, deleteAccount,
 		arg.ID,
 		arg.Status,
 		arg.Phone,
@@ -232,14 +232,14 @@ func (q *Queries) DeleteAccountAccount(ctx context.Context, arg DeleteAccountAcc
 	return err
 }
 
-const getAccountAccount = `-- name: GetAccountAccount :one
+const getAccount = `-- name: GetAccount :one
 
 SELECT id, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE ("id" = $1) OR ("phone" = $2) OR ("email" = $3) OR ("username" = $4)
 `
 
-type GetAccountAccountParams struct {
+type GetAccountParams struct {
 	ID       uuid.NullUUID `json:"id"`
 	Phone    null.String   `json:"phone"`
 	Email    null.String   `json:"email"`
@@ -248,8 +248,8 @@ type GetAccountAccountParams struct {
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.account
-func (q *Queries) GetAccountAccount(ctx context.Context, arg GetAccountAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, getAccountAccount,
+func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, getAccount,
 		arg.ID,
 		arg.Phone,
 		arg.Email,
@@ -270,7 +270,7 @@ func (q *Queries) GetAccountAccount(ctx context.Context, arg GetAccountAccountPa
 	return i, err
 }
 
-const listAccountAccount = `-- name: ListAccountAccount :many
+const listAccount = `-- name: ListAccount :many
 SELECT id, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE (
@@ -295,7 +295,7 @@ LIMIT $17::int
 OFFSET $16::int
 `
 
-type ListAccountAccountParams struct {
+type ListAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
@@ -315,8 +315,8 @@ type ListAccountAccountParams struct {
 	Limit           null.Int32      `json:"limit"`
 }
 
-func (q *Queries) ListAccountAccount(ctx context.Context, arg ListAccountAccountParams) ([]AccountAccount, error) {
-	rows, err := q.db.Query(ctx, listAccountAccount,
+func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error) {
+	rows, err := q.db.Query(ctx, listAccount,
 		arg.ID,
 		arg.Status,
 		arg.Phone,
@@ -363,7 +363,7 @@ func (q *Queries) ListAccountAccount(ctx context.Context, arg ListAccountAccount
 	return items, nil
 }
 
-const listCountAccountAccount = `-- name: ListCountAccountAccount :many
+const listCountAccount = `-- name: ListCountAccount :many
 SELECT embed_account.id, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, embed_account.number, COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
@@ -388,7 +388,7 @@ LIMIT $17::int
 OFFSET $16::int
 `
 
-type ListCountAccountAccountParams struct {
+type ListCountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
@@ -408,13 +408,13 @@ type ListCountAccountAccountParams struct {
 	Limit           null.Int32      `json:"limit"`
 }
 
-type ListCountAccountAccountRow struct {
+type ListCountAccountRow struct {
 	AccountAccount AccountAccount `json:"account_account"`
 	TotalCount     int64          `json:"total_count"`
 }
 
-func (q *Queries) ListCountAccountAccount(ctx context.Context, arg ListCountAccountAccountParams) ([]ListCountAccountAccountRow, error) {
-	rows, err := q.db.Query(ctx, listCountAccountAccount,
+func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error) {
+	rows, err := q.db.Query(ctx, listCountAccount,
 		arg.ID,
 		arg.Status,
 		arg.Phone,
@@ -437,9 +437,9 @@ func (q *Queries) ListCountAccountAccount(ctx context.Context, arg ListCountAcco
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountAccountAccountRow{}
+	items := []ListCountAccountRow{}
 	for rows.Next() {
-		var i ListCountAccountAccountRow
+		var i ListCountAccountRow
 		if err := rows.Scan(
 			&i.AccountAccount.ID,
 			&i.AccountAccount.Status,
@@ -462,9 +462,9 @@ func (q *Queries) ListCountAccountAccount(ctx context.Context, arg ListCountAcco
 	return items, nil
 }
 
-const updateAccountAccount = `-- name: UpdateAccountAccount :one
+const updateAccount = `-- name: UpdateAccount :one
 UPDATE "account"."account"
-SET "status" = COALESCE($1, "status"),
+SET     "status" = COALESCE($1, "status"),
     "phone" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "phone") END,
     "email" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "email") END,
     "username" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "username") END,
@@ -475,7 +475,7 @@ WHERE id = $12
 RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type UpdateAccountAccountParams struct {
+type UpdateAccountParams struct {
 	Status       NullAccountStatus `json:"status"`
 	NullPhone    bool              `json:"null_phone"`
 	Phone        null.String       `json:"phone"`
@@ -490,8 +490,8 @@ type UpdateAccountAccountParams struct {
 	ID           uuid.UUID         `json:"id"`
 }
 
-func (q *Queries) UpdateAccountAccount(ctx context.Context, arg UpdateAccountAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, updateAccountAccount,
+func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, updateAccount,
 		arg.Status,
 		arg.NullPhone,
 		arg.Phone,
