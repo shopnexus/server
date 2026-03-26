@@ -14,7 +14,7 @@ type Config struct {
 	Nats      Nats      `yaml:"nats" mapstructure:"nats" validate:"required"`
 	Filestore Filestore `yaml:"filestore" mapstructure:"filestore" validate:"required"`
 	Milvus    Milvus    `yaml:"milvus" mapstructure:"milvus" validate:"required"`
-	Embedding Embedding `yaml:"embedding" mapstructure:"embedding" validate:"required"`
+	LLM LLM `yaml:"llm" mapstructure:"llm" validate:"required"`
 	Restate   Restate   `yaml:"restate" mapstructure:"restate" validate:"required"`
 }
 
@@ -94,8 +94,28 @@ type Milvus struct {
 	Address string `yaml:"address" mapstructure:"address" validate:"required"`
 }
 
-type Embedding struct {
-	URL string `yaml:"url" mapstructure:"url" validate:"required,url"`
+type LLM struct {
+	Provider string    `yaml:"provider" mapstructure:"provider" validate:"required,oneof=python openai bedrock"`
+	Python   LLMPython `yaml:"python" mapstructure:"python"`
+	OpenAI   LLMOpenAI `yaml:"openai" mapstructure:"openai"`
+	Bedrock  LLMBedrock `yaml:"bedrock" mapstructure:"bedrock"`
+}
+
+type LLMPython struct {
+	URL string `yaml:"url" mapstructure:"url" validate:"omitempty,url"`
+}
+
+type LLMOpenAI struct {
+	APIKey     string `yaml:"apiKey" mapstructure:"apiKey"`
+	BaseURL    string `yaml:"baseURL" mapstructure:"baseURL" validate:"omitempty,url"`
+	EmbedModel string `yaml:"embedModel" mapstructure:"embedModel"`
+	ChatModel  string `yaml:"chatModel" mapstructure:"chatModel"`
+}
+
+type LLMBedrock struct {
+	Region       string `yaml:"region" mapstructure:"region"`
+	EmbedModelID string `yaml:"embedModelId" mapstructure:"embedModelId"`
+	ChatModelID  string `yaml:"chatModelId" mapstructure:"chatModelId"`
 }
 
 type Restate struct {
