@@ -124,6 +124,13 @@ The `genrestate` tool reads `interface.go`, finds the interface, and generates a
 | Geocoding | `internal/infras/geocoding` | Reverse/forward geocoding + search |
 | LLM | `internal/infras/llm` | Embedding + chat (Python/OpenAI/Bedrock) |
 
+## Commit Rules
+
+- **Short messages, no description body, no Co-Authored-By**.
+- Imperative mood: `add`, `fix`, `refactor`, `rename`, `update`, `remove` — not `added`, `fixes`, `updating`.
+- Examples: `add notifications feature`, `fix checkout item creation`, `rename structs to XxxHandler`.
+- When recommitting (squash/rebase), group logically: one commit per feature/refactor, not per file.
+
 ## Frontend
 
 Located at `../shopnexus-website-v3/`. Next.js 16 + React 19 + TanStack Query + shadcn/ui.
