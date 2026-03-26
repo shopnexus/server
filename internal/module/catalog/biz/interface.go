@@ -7,7 +7,7 @@ import (
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cachestruct"
-	"shopnexus-server/internal/infras/embedding"
+	"shopnexus-server/internal/infras/llm"
 	"shopnexus-server/internal/infras/milvus"
 	restateclient "shopnexus-server/internal/infras/restate"
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -21,9 +21,9 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// CatalogBiz is the client interface for CatalogBizHandler, which is used by other modules to call CatalogBizHandler methods.
+// CatalogBiz is the client interface for CatalogHandler, which is used by other modules to call CatalogHandler methods.
 //
-//go:generate go run shopnexus-server/cmd/genrestate -interface CatalogBiz -service CatalogBiz
+//go:generate go run shopnexus-server/cmd/genrestate -interface CatalogBiz -service Catalog
 type CatalogBiz interface {
 	// Product Detail
 	GetProductDetail(ctx context.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error)
@@ -69,8 +69,8 @@ type CatalogBiz interface {
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
-// CatalogBizHandler implements the core business logic for the catalog module.
-type CatalogBizHandler struct {
+// CatalogHandler implements the core business logic for the catalog module.
+type CatalogHandler struct {
 	cache         cachestruct.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
@@ -81,7 +81,7 @@ type CatalogBizHandler struct {
 
 	// Vector search (replaces searchClient)
 	milvus       *milvus.Client
-	embedding    *embedding.Client
+	llm          llm.Client
 	denseWeight  float32
 	sparseWeight float32
 	batchSize    int
@@ -92,8 +92,12 @@ type CatalogBizHandler struct {
 	syncLock sync.Mutex
 }
 
-// NewCatalogBiz creates a new CatalogBizHandler with the given dependencies.
-func NewCatalogBiz(
+func (h *CatalogHandler) ServiceName() string {
+	return "Catalog"
+}
+
+// NewCatalogHandler creates a new CatalogHandler with the given dependencies.
+func NewCatalogHandler(
 	cfg *config.Config,
 	storage CatalogStorage,
 	cache cachestruct.Client,
@@ -103,10 +107,10 @@ func NewCatalogBiz(
 	inventory inventorybiz.InventoryBiz,
 	promotion promotionbiz.PromotionBiz,
 	milvusClient *milvus.Client,
-	embeddingClient *embedding.Client,
-) *CatalogBizHandler {
+	llmClient llm.Client,
+) *CatalogHandler {
 
-	b := &CatalogBizHandler{
+	b := &CatalogHandler{
 		cache:         cache,
 		restateClient: restateClient,
 		storage:       storage,
@@ -116,7 +120,7 @@ func NewCatalogBiz(
 		promotion:     promotion,
 
 		milvus:       milvusClient,
-		embedding:    embeddingClient,
+		llm:          llmClient,
 		denseWeight:  cfg.App.Search.DenseWeight,
 		sparseWeight: cfg.App.Search.SparseWeight,
 		batchSize:    cfg.App.Search.InteractionBatchSize,

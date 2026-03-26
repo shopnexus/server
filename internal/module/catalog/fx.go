@@ -14,7 +14,7 @@ import (
 var Module = fx.Module("catalog",
 	fx.Provide(
 		NewCatalogStorage,
-		catalogbiz.NewCatalogBiz,
+		catalogbiz.NewCatalogHandler,
 		NewCatalogBiz,
 		catalogecho.NewHandler,
 	),
@@ -30,5 +30,5 @@ func NewCatalogStorage(pool pgsqlc.TxBeginner) catalogbiz.CatalogStorage {
 
 // NewCatalogBiz creates a Restate-backed client for the catalog module.
 func NewCatalogBiz(cfg *config.Config) catalogbiz.CatalogBiz {
-	return catalogbiz.NewCatalogBizRestateClient(cfg.Restate.IngressAddress)
+	return catalogbiz.NewCatalogRestateClient(cfg.Restate.IngressAddress)
 }

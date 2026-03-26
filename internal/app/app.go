@@ -12,10 +12,11 @@ import (
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cachestruct"
-	restateclient "shopnexus-server/internal/infras/restate"
-	"shopnexus-server/internal/infras/embedding"
+	"shopnexus-server/internal/infras/geocoding"
+	"shopnexus-server/internal/infras/llm"
 	"shopnexus-server/internal/infras/milvus"
 	"shopnexus-server/internal/infras/pubsub"
+	restateclient "shopnexus-server/internal/infras/restate"
 	"shopnexus-server/internal/module/account"
 	"shopnexus-server/internal/module/analytic"
 	"shopnexus-server/internal/module/catalog"
@@ -37,8 +38,9 @@ var Module = fx.Module("main",
 		NewCacheStruct,
 		NewPubsubClient,
 		NewMilvusClient,
-		NewEmbeddingClient,
+		NewLLMClient,
 		NewRestateClient,
+		NewGeocodingProvider,
 	),
 
 	// Business modules
@@ -106,6 +108,10 @@ func NewRestateClient(cfg *config.Config) *restateclient.Client {
 	return restateclient.NewClient(cfg.Restate.IngressAddress)
 }
 
+func NewGeocodingProvider() geocoding.Client {
+	return geocoding.NewNominatimProvider()
+}
+
 func NewPubsubClient(cfg *config.Config) (pubsub.Client, error) {
 	return pubsub.NewNatsClient(pubsub.NatsConfig{
 		Config: pubsub.Config{
@@ -135,8 +141,26 @@ func NewMilvusClient(lc fx.Lifecycle, cfg *config.Config) (*milvus.Client, error
 	return client, nil
 }
 
-func NewEmbeddingClient(cfg *config.Config) *embedding.Client {
-	return embedding.NewClient(embedding.Config{
-		URL: cfg.Embedding.URL,
-	})
+func NewLLMClient(cfg *config.Config) (llm.Client, error) {
+	switch cfg.LLM.Provider {
+	case "python":
+		return llm.NewPythonClient(llm.PythonConfig{
+			URL: cfg.LLM.Python.URL,
+		}), nil
+	case "openai":
+		return llm.NewOpenAIClient(llm.OpenAIConfig{
+			APIKey:     cfg.LLM.OpenAI.APIKey,
+			BaseURL:    cfg.LLM.OpenAI.BaseURL,
+			EmbedModel: cfg.LLM.OpenAI.EmbedModel,
+			ChatModel:  cfg.LLM.OpenAI.ChatModel,
+		}), nil
+	case "bedrock":
+		return llm.NewBedrockClient(context.Background(), llm.BedrockConfig{
+			Region:       cfg.LLM.Bedrock.Region,
+			EmbedModelID: cfg.LLM.Bedrock.EmbedModelID,
+			ChatModelID:  cfg.LLM.Bedrock.ChatModelID,
+		})
+	default:
+		return nil, fmt.Errorf("unknown LLM provider: %s", cfg.LLM.Provider)
+	}
 }

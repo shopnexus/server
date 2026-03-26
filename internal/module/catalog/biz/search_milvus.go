@@ -16,7 +16,7 @@ import (
 )
 
 // getProductVectors fetches content_vector for the given product IDs from Milvus.
-func (b *CatalogBizHandler) getProductVectors(ctx restate.Context, ids []string) (map[string][]float32, error) {
+func (b *CatalogHandler) getProductVectors(ctx restate.Context, ids []string) (map[string][]float32, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -51,7 +51,7 @@ func (b *CatalogBizHandler) getProductVectors(ctx restate.Context, ids []string)
 }
 
 // getAccountInterests fetches interest vectors and strengths for the given account IDs.
-func (b *CatalogBizHandler) getAccountInterests(ctx restate.Context, ids []string) (map[string]accountInterests, error) {
+func (b *CatalogHandler) getAccountInterests(ctx restate.Context, ids []string) (map[string]accountInterests, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -105,7 +105,7 @@ func (b *CatalogBizHandler) getAccountInterests(ctx restate.Context, ids []strin
 }
 
 // upsertAccountInterests upserts an account's interest vectors and strengths to Milvus.
-func (b *CatalogBizHandler) upsertAccountInterests(ctx restate.Context, accountID string, accountNumber int64, interests [][]float32, strengths []float32) error {
+func (b *CatalogHandler) upsertAccountInterests(ctx restate.Context, accountID string, accountNumber int64, interests [][]float32, strengths []float32) error {
 	cols := []column.Column{
 		column.NewColumnVarChar("id", []string{accountID}),
 		column.NewColumnInt64("number", []int64{accountNumber}),
@@ -120,7 +120,7 @@ func (b *CatalogBizHandler) upsertAccountInterests(ctx restate.Context, accountI
 }
 
 // getProductAllVectors fetches content_vector and sparse_vector for the given product IDs from Milvus.
-func (b *CatalogBizHandler) getProductAllVectors(ctx restate.Context, ids []string) (map[string]existingVectors, error) {
+func (b *CatalogHandler) getProductAllVectors(ctx restate.Context, ids []string) (map[string]existingVectors, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -170,7 +170,7 @@ type existingVectors struct {
 }
 
 // upsertProducts upserts product data (and optionally vectors) to Milvus.
-func (b *CatalogBizHandler) upsertProducts(ctx restate.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
+func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
 	if len(products) == 0 {
 		return nil
 	}
@@ -236,7 +236,13 @@ func (b *CatalogBizHandler) upsertProducts(ctx restate.Context, products []catal
 		} else {
 			emb := embeddings[pid]
 			denseVecs = append(denseVecs, emb.dense)
-			sparseVecs = append(sparseVecs, mapToSparseEmbedding(emb.sparse))
+			if emb.sparse != nil {
+				sparseVecs = append(sparseVecs, mapToSparseEmbedding(emb.sparse))
+			} else {
+				// Provider does not return sparse vectors; use empty embedding
+				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+				sparseVecs = append(sparseVecs, emptyEmb)
+			}
 		}
 	}
 

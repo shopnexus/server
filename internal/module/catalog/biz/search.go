@@ -13,6 +13,7 @@ import (
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 
+	"shopnexus-server/internal/infras/milvus"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
@@ -28,9 +29,9 @@ type SearchParams struct {
 }
 
 // Search performs hybrid dense+sparse vector search against the product collection.
-func (b *CatalogBizHandler) Search(ctx restate.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
+func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
 	// 1. Get embeddings from embedding service
-	embeddings, err := b.embedding.Embed(ctx, []string{params.Query})
+	embeddings, err := b.llm.Embed(ctx, []string{params.Query})
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
@@ -46,26 +47,36 @@ func (b *CatalogBizHandler) Search(ctx restate.Context, params SearchParams) ([]
 		offset = int(pag.Offset().Int32)
 	}
 
-	// 2. Build hybrid search requests
+	// 2. Build search requests
 	denseReq := milvusclient.NewAnnRequest("content_vector", limit, entity.FloatVector(emb.Dense)).
 		WithOffset(offset)
 
-	sparseVec := mapToSparseEmbedding(emb.Sparse)
-	sparseReq := milvusclient.NewAnnRequest("sparse_vector", limit, sparseVec).
-		WithOffset(offset)
+	var results []milvus.SearchResult
 
-	// 3. Hybrid search with weighted ranker
-	reranker := milvusclient.NewWeightedReranker([]float64{
-		float64(b.denseWeight),
-		float64(b.sparseWeight),
-	})
+	if emb.Sparse != nil {
+		// Hybrid dense+sparse search
+		sparseVec := mapToSparseEmbedding(emb.Sparse)
+		sparseReq := milvusclient.NewAnnRequest("sparse_vector", limit, sparseVec).
+			WithOffset(offset)
 
-	results, err := b.milvus.HybridSearch(ctx, CollectionProducts,
-		limit, reranker, []string{"id"},
-		denseReq, sparseReq,
-	)
+		reranker := milvusclient.NewWeightedReranker([]float64{
+			float64(b.denseWeight),
+			float64(b.sparseWeight),
+		})
+
+		results, err = b.milvus.HybridSearch(ctx, CollectionProducts,
+			limit, reranker, []string{"id"},
+			denseReq, sparseReq,
+		)
+	} else {
+		// Dense-only search (provider does not return sparse vectors)
+		results, err = b.milvus.Search(ctx, CollectionProducts,
+			limit, []entity.Vector{entity.FloatVector(emb.Dense)},
+			"content_vector", []string{"id"},
+		)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("hybrid search: %w", err)
+		return nil, fmt.Errorf("search: %w", err)
 	}
 
 	// 4. Convert results
@@ -86,7 +97,7 @@ type GetRecommendationsParams struct {
 }
 
 // GetRecommendations returns product recommendations based on the user's interest vectors.
-func (b *CatalogBizHandler) GetRecommendations(ctx restate.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
+func (b *CatalogHandler) GetRecommendations(ctx restate.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	accountID := params.Account.ID.String()
 
 	// 1. Query account interest vectors from Milvus
@@ -173,7 +184,7 @@ func (b *CatalogBizHandler) GetRecommendations(ctx restate.Context, params GetRe
 }
 
 // ProcessEvents updates account interest vectors in Milvus based on analytic interaction events.
-func (b *CatalogBizHandler) ProcessEvents(ctx restate.Context, events []analyticmodel.Interaction) error {
+func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmodel.Interaction) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -254,7 +265,7 @@ type UpdateProductsParams struct {
 }
 
 // UpdateProducts upserts product data and embeddings into the Milvus search index.
-func (b *CatalogBizHandler) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
+func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return err
 	}
@@ -266,7 +277,7 @@ func (b *CatalogBizHandler) UpdateProducts(ctx restate.Context, params UpdatePro
 		for i, p := range params.Products {
 			texts[i] = p.Name + " " + p.Description
 		}
-		embeddings, err := b.embedding.Embed(ctx, texts)
+		embeddings, err := b.llm.Embed(ctx, texts)
 		if err != nil {
 			return fmt.Errorf("embed products: %w", err)
 		}
@@ -332,7 +343,7 @@ func mapToSparseEmbedding(m map[uint32]float32) entity.SparseEmbedding {
 }
 
 // AddInteraction buffers an analytic interaction event and flushes the batch when full.
-func (b *CatalogBizHandler) AddInteraction(ctx restate.Context, params analyticmodel.Interaction) error {
+func (b *CatalogHandler) AddInteraction(ctx restate.Context, params analyticmodel.Interaction) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
