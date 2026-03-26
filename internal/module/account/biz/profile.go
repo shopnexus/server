@@ -29,7 +29,7 @@ func (b *AccountHandler) ListProfile(ctx restate.Context, params ListProfilePara
 		return result, err
 	}
 
-	listProfile, err := b.storage.Querier().ListCountProfile(ctx, accountdb.ListCountProfileParams{
+	listProfile, err := b.storage.Querier().ListCountAccountProfile(ctx, accountdb.ListCountAccountProfileParams{
 		ID:     params.AccountIDs,
 		Limit:  params.Limit,
 		Offset: params.Offset(),
@@ -43,11 +43,11 @@ func (b *AccountHandler) ListProfile(ctx restate.Context, params ListProfilePara
 		total.SetValid(listProfile[0].TotalCount)
 	}
 
-	dbProfiles := lo.Map(listProfile, func(row accountdb.ListCountProfileRow, _ int) accountdb.AccountProfile {
+	dbProfiles := lo.Map(listProfile, func(row accountdb.ListCountAccountProfileRow, _ int) accountdb.AccountProfile {
 		return row.AccountProfile
 	})
 
-	listAccount, err := b.storage.Querier().ListAccount(ctx, accountdb.ListAccountParams{
+	listAccount, err := b.storage.Querier().ListAccountAccount(ctx, accountdb.ListAccountAccountParams{
 		ID: lo.Map(params.AccountIDs, func(id uuid.UUID, _ int) uuid.UUID { return id }),
 	})
 	if err != nil {
@@ -71,43 +71,33 @@ func (b *AccountHandler) ListProfile(ctx restate.Context, params ListProfilePara
 	}, nil
 }
 
-type GetProfileParams struct {
+type GetAccountProfileParams struct {
 	Issuer    accountmodel.AuthenticatedAccount // Who is requesting the profile
 	AccountID uuid.UUID
 }
 
 // GetProfile returns the profile for the given account ID.
-func (b *AccountHandler) GetProfile(ctx restate.Context, params GetProfileParams) (accountmodel.Profile, error) {
+func (b *AccountHandler) GetProfile(ctx restate.Context, params GetAccountProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
-	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
+	profile, err := b.storage.Querier().GetAccountProfile(ctx, accountdb.GetAccountProfileParams{
 		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	account, err := b.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
+	account, err := b.storage.Querier().GetAccountAccount(ctx, accountdb.GetAccountAccountParams{
 		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
 	})
 	if err != nil {
 		return zero, err
-	}
-
-	var description null.String
-	if account.Type == accountdb.AccountTypeVendor {
-		vendor, err := b.storage.Querier().GetVendor(ctx, uuid.NullUUID{UUID: params.AccountID, Valid: true})
-		if err != nil {
-			return zero, err
-		}
-		description.SetValid(vendor.Description)
 	}
 
 	m := b.dbToProfile(ctx, account, profile)
-	m.Description = description
 	return m, nil
 }
 
-type UpdateProfileParams struct {
+type UpdateAccountProfileParams struct {
 	Issuer    accountmodel.AuthenticatedAccount // Who is performing the update
 	AccountID uuid.UUID                         // Whose profile to be updated
 
@@ -124,19 +114,19 @@ type UpdateProfileParams struct {
 	AvatarRsID       uuid.NullUUID
 	DefaultContactID uuid.NullUUID
 
-	// Vendor fields
+	// Description
 	Description null.String
 }
 
 // UpdateProfile updates the account and profile fields for the given account.
-func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
+func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateAccountProfileParams) (accountmodel.Profile, error) {
 	var zero accountmodel.Profile
 
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
 
-	account, err := b.storage.Querier().UpdateAccount(ctx, accountdb.UpdateAccountParams{
+	account, err := b.storage.Querier().UpdateAccountAccount(ctx, accountdb.UpdateAccountAccountParams{
 		ID:       params.AccountID,
 		Status:   accountdb.NullAccountStatus{AccountStatus: params.Status, Valid: params.Status != ""},
 		Username: params.Username,
@@ -147,7 +137,7 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 		return zero, fmt.Errorf("update profile: %w", err)
 	}
 
-	profile, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
+	profile, err := b.storage.Querier().UpdateAccountProfile(ctx, accountdb.UpdateAccountProfileParams{
 		ID:               params.AccountID,
 		Gender:           accountdb.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
 		Name:             params.Name,
@@ -159,29 +149,11 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 		return zero, fmt.Errorf("update profile: %w", err)
 	}
 
-	// Update customer/vendor additional profile
-	switch account.Type {
-	case accountdb.AccountTypeCustomer:
-		_, err = b.storage.Querier().UpdateCustomer(ctx, accountdb.UpdateCustomerParams{
-			ID: params.AccountID,
-		})
-	case accountdb.AccountTypeVendor:
-		_, err = b.storage.Querier().UpdateVendor(ctx, accountdb.UpdateVendorParams{
-			ID:          params.AccountID,
-			Description: params.Description,
-		})
-	}
-	if err != nil {
-		return zero, fmt.Errorf("update profile: %w", err)
-	}
-
 	m := b.dbToProfile(ctx, account, profile)
-	m.Description = params.Description
 	return m, nil
 }
 
 // dbToProfile maps DB account + profile rows to the model type.
-// Callers should set Description as needed (only relevant for vendor accounts).
 func (b *AccountHandler) dbToProfile(ctx restate.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
 	avatar, _ := b.common.GetResourceByID(ctx, profile.AvatarRsID.UUID)
 	var url null.String
@@ -194,7 +166,6 @@ func (b *AccountHandler) dbToProfile(ctx restate.Context, account accountdb.Acco
 		DateCreated: account.DateCreated,
 		DateUpdated: account.DateUpdated,
 
-		Type:     account.Type,
 		Status:   account.Status,
 		Phone:    account.Phone,
 		Email:    account.Email,

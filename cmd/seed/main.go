@@ -135,9 +135,8 @@ func main() {
 
 	// Create vendor account
 	accountID := uuid.New()
-	account, err := accountStore.CreateAccount(ctx, accountdb.CreateAccountParams{
+	account, err := accountStore.CreateAccountAccount(ctx, accountdb.CreateAccountAccountParams{
 		ID:          accountID,
-		Type:        "Vendor",
 		Status:      "Active",
 		Email:       null.StringFrom(fmt.Sprintf("vendor+%s@example.com", uuid.New().String())),
 		Username:    null.StringFrom(fmt.Sprintf("vendor_%s", uuid.New().String()[:8])),
@@ -155,14 +154,13 @@ func main() {
 		FullName:    "Vendor User",
 		Phone:       "+1234567890",
 		Address:     "123 Vendor St, Commerce City",
-		AddressType: accountdb.AccountAddressTypeHome,
 	})
 	if err != nil {
 		log.Fatalf("failed to create default contact: %v", err)
 	}
 
 	// Create profile for the account
-	_, err = accountStore.CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
+	_, err = accountStore.CreateDefaultAccountProfile(ctx, accountdb.CreateDefaultAccountProfileParams{
 		ID:               accountID,
 		Gender:           accountdb.NullAccountGender{AccountGender: accountdb.AccountGenderMale, Valid: true},
 		Name:             null.StringFrom("Vendor User"),
@@ -173,7 +171,6 @@ func main() {
 	}
 
 	// Create vendor profile
-	_, err = accountStore.CreateDefaultVendor(ctx, account.ID)
 	if err != nil {
 		log.Fatalf("failed to create vendor: %v", err)
 	}
@@ -324,7 +321,6 @@ func processProduct(
 
 		// Create stock for this SKU
 		stock, err := inventoryStore.CreateDefaultStock(ctx, inventorydb.CreateDefaultStockParams{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
 			RefID:   sku.ID,
 			Stock:   stockPerSku,
 		})
@@ -399,7 +395,6 @@ func processProduct(
 		// Create resource reference
 		_, err = commonStore.CreateDefaultResourceReference(ctx, commondb.CreateDefaultResourceReferenceParams{
 			RsID:    resource.ID,
-			RefType: commondb.CommonResourceRefTypeProductSpu,
 			RefID:   spu.ID,
 			Order:   int32(order),
 		})
@@ -410,7 +405,6 @@ func processProduct(
 
 	// Create search sync
 	_, err = catalogStore.CreateSearchSync(ctx, catalogdb.CreateSearchSyncParams{
-		RefType:          "ProductSpu",
 		RefID:            spu.ID,
 		IsStaleEmbedding: true,
 		IsStaleMetadata:  true,
@@ -767,7 +761,6 @@ func createPromotionsFromVouchers(
 			ID:          uuid.New(),
 			Code:        promotionCode,
 			OwnerID:     uuid.NullUUID{UUID: accountID, Valid: true},
-			Type:        "Discount",
 			Title:       voucher.ShopVoucher,
 			Description: null.StringFrom(fmt.Sprintf("Promotion code: %s", voucher.TextInfo)),
 			IsActive:    true,
@@ -787,7 +780,6 @@ func createPromotionsFromVouchers(
 		// Create promotion ref
 		_, err = store.CreateRef(ctx, promotiondb.CreateRefParams{
 			PromotionID: promotion.ID,
-			RefType:     "ProductSpu",
 			RefID:       spuID,
 		})
 		if err != nil {
@@ -878,7 +870,7 @@ func createComments(
 	}
 
 	// Get an account to use as comment author
-	accounts, err := accountStore.ListAccount(ctx, accountdb.ListAccountParams{
+	accounts, err := accountStore.ListAccountAccount(ctx, accountdb.ListAccountAccountParams{
 		Limit: null.Int32From(1),
 	})
 	if err != nil || len(accounts) == 0 {
@@ -915,7 +907,6 @@ func createComments(
 		_, err := catalogStore.CreateComment(ctx, catalogdb.CreateCommentParams{
 			ID:          uuid.New(),
 			AccountID:   accountID,
-			RefType:     catalogdb.CatalogCommentRefTypeProductSpu,
 			RefID:       spuID,
 			Body:        body,
 			Upvote:      int64(rand.Intn(50)),

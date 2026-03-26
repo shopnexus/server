@@ -23,7 +23,6 @@ import (
 func (a *AccountHandler) CreateClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
-			Type:   account.Type,
 			ID:     account.ID,
 			Number: account.Number,
 		},
@@ -55,7 +54,6 @@ func (a *AccountHandler) GenerateAccessToken(account accountdb.AccountAccount) (
 func (a *AccountHandler) CreateRefreshClaims(account accountdb.AccountAccount) accountmodel.Claims {
 	return accountmodel.Claims{
 		Account: accountmodel.AuthenticatedAccount{
-			Type:   account.Type,
 			ID:     account.ID,
 			Number: account.Number,
 		},
@@ -118,7 +116,7 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 		return zero, accountmodel.ErrMissingIdentifier.Terminal()
 	}
 
-	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
+	account, err := a.storage.Querier().GetAccountAccount(ctx, accountdb.GetAccountAccountParams{
 		Phone:    params.Phone,
 		Email:    params.Email,
 		Username: params.Username,
@@ -158,7 +156,6 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 }
 
 type RegisterParams struct {
-	Type     accountdb.AccountType `validate:"required,validateFn=Valid"`
 	Username null.String           `validate:"omitnil,min=1,max=255"`
 	Email    null.String           `validate:"omitnil,email"`
 	Phone    null.String           `validate:"omitnil,e164"`
@@ -200,8 +197,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	}
 
 	// Create account base
-	account, err := a.storage.Querier().CreateDefaultAccount(ctx, accountdb.CreateDefaultAccountParams{
-		Type:     params.Type,
+	account, err := a.storage.Querier().CreateDefaultAccountAccount(ctx, accountdb.CreateDefaultAccountAccountParams{
 		Phone:    params.Phone,
 		Email:    params.Email,
 		Username: params.Username,
@@ -212,22 +208,9 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	}
 
 	// Create empty profile
-	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
+	if _, err = a.storage.Querier().CreateDefaultAccountProfile(ctx, accountdb.CreateDefaultAccountProfileParams{
 		ID: account.ID,
 	}); err != nil {
-		return zero, fmt.Errorf("register account: %w", err)
-	}
-
-	// Create empty customer/vendor additional profile
-	switch account.Type {
-	case accountdb.AccountTypeCustomer:
-		_, err = a.storage.Querier().CreateDefaultCustomer(ctx, account.ID)
-	case accountdb.AccountTypeVendor:
-		_, err = a.storage.Querier().CreateDefaultVendor(ctx, account.ID)
-	default:
-		return zero, accountmodel.ErrUnsupportedAccountType.Terminal()
-	}
-	if err != nil {
 		return zero, fmt.Errorf("register account: %w", err)
 	}
 
@@ -261,7 +244,7 @@ func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (Refr
 		return zero, err
 	}
 
-	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
+	account, err := a.storage.Querier().GetAccountAccount(ctx, accountdb.GetAccountAccountParams{
 		ID: uuid.NullUUID{UUID: claims.Account.ID, Valid: true},
 	})
 	if err != nil {

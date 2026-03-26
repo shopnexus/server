@@ -102,7 +102,7 @@ func (b *AccountHandler) CreateContact(ctx restate.Context, params CreateContact
 		return zero, fmt.Errorf("create contact: %w", err)
 	}
 	if total == 1 {
-		if _, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
+		if _, err := b.storage.Querier().UpdateAccountProfile(ctx, accountdb.UpdateAccountProfileParams{
 			ID:               params.Account.ID,
 			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
 		}); err != nil {
@@ -172,7 +172,7 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteAccount
 	}
 
 	// Check if we're deleting the default contact
-	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
+	profile, err := b.storage.Querier().GetAccountProfile(ctx, accountdb.GetAccountProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
 	isDefault := err == nil && profile.DefaultContactID.Valid && profile.DefaultContactID.UUID == params.ContactID
 
 	// Delete the contact
@@ -189,7 +189,7 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteAccount
 			AccountID: []uuid.UUID{params.Account.ID},
 		})
 		if err == nil && len(remaining) > 0 {
-			b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
+			b.storage.Querier().UpdateAccountProfile(ctx, accountdb.UpdateAccountProfileParams{
 				ID:               params.Account.ID,
 				DefaultContactID: uuid.NullUUID{UUID: remaining[0].ID, Valid: true},
 			})

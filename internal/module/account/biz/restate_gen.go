@@ -36,7 +36,7 @@ func (p *AccountRestateClient) Refresh(ctx context.Context, refreshToken string)
 	return restateclient.Call[RefreshResult](ctx, p.client, serviceName, "Refresh", refreshToken)
 }
 
-func (p *AccountRestateClient) GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error) {
+func (p *AccountRestateClient) GetProfile(ctx context.Context, params GetAccountProfileParams) (accountmodel.Profile, error) {
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "GetProfile", params)
 }
 
@@ -44,7 +44,7 @@ func (p *AccountRestateClient) ListProfile(ctx context.Context, params ListProfi
 	return restateclient.Call[sharedmodel.PaginateResult[accountmodel.Profile]](ctx, p.client, serviceName, "ListProfile", params)
 }
 
-func (p *AccountRestateClient) UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
+func (p *AccountRestateClient) UpdateProfile(ctx context.Context, params UpdateAccountProfileParams) (accountmodel.Profile, error) {
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "UpdateProfile", params)
 }
 

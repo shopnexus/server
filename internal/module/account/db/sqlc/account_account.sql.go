@@ -13,32 +13,30 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const countAccount = `-- name: CountAccount :one
+const countAccountAccount = `-- name: CountAccountAccount :one
 SELECT COUNT(*)
 FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("type" = ANY($2) OR $2 IS NULL) AND
-    ("status" = ANY($3) OR $3 IS NULL) AND
-    ("phone" = ANY($4) OR $4 IS NULL) AND
-    ("email" = ANY($5) OR $5 IS NULL) AND
-    ("username" = ANY($6) OR $6 IS NULL) AND
-    ("password" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL) AND
-    ("number" = ANY($14) OR $14 IS NULL) AND
-    ("number" > $15 OR $15 IS NULL) AND
-    ("number" < $16 OR $16 IS NULL)
+    ("status" = ANY($2) OR $2 IS NULL) AND
+    ("phone" = ANY($3) OR $3 IS NULL) AND
+    ("email" = ANY($4) OR $4 IS NULL) AND
+    ("username" = ANY($5) OR $5 IS NULL) AND
+    ("password" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("number" = ANY($13) OR $13 IS NULL) AND
+    ("number" > $14 OR $14 IS NULL) AND
+    ("number" < $15 OR $15 IS NULL)
 )
 `
 
-type CountAccountParams struct {
+type CountAccountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
-	Type            []AccountType   `json:"type"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
 	Email           []null.String   `json:"email"`
@@ -55,10 +53,9 @@ type CountAccountParams struct {
 	NumberTo        null.Int        `json:"number_to"`
 }
 
-func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countAccount,
+func (q *Queries) CountAccountAccount(ctx context.Context, arg CountAccountAccountParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccountAccount,
 		arg.ID,
-		arg.Type,
 		arg.Status,
 		arg.Phone,
 		arg.Email,
@@ -79,15 +76,14 @@ func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int
 	return count, err
 }
 
-const createAccount = `-- name: CreateAccount :one
-INSERT INTO "account"."account" ("id", "type", "status", "phone", "email", "username", "password", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
+const createAccountAccount = `-- name: CreateAccountAccount :one
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type CreateAccountParams struct {
+type CreateAccountAccountParams struct {
 	ID          uuid.UUID     `json:"id"`
-	Type        AccountType   `json:"type"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
 	Email       null.String   `json:"email"`
@@ -97,10 +93,9 @@ type CreateAccountParams struct {
 	DateUpdated time.Time     `json:"date_updated"`
 }
 
-func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, createAccount,
+func (q *Queries) CreateAccountAccount(ctx context.Context, arg CreateAccountAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, createAccountAccount,
 		arg.ID,
-		arg.Type,
 		arg.Status,
 		arg.Phone,
 		arg.Email,
@@ -112,7 +107,6 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	var i AccountAccount
 	err := row.Scan(
 		&i.ID,
-		&i.Type,
 		&i.Status,
 		&i.Phone,
 		&i.Email,
@@ -125,9 +119,8 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	return i, err
 }
 
-type CreateCopyAccountParams struct {
+type CreateCopyAccountAccountParams struct {
 	ID          uuid.UUID     `json:"id"`
-	Type        AccountType   `json:"type"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
 	Email       null.String   `json:"email"`
@@ -137,31 +130,28 @@ type CreateCopyAccountParams struct {
 	DateUpdated time.Time     `json:"date_updated"`
 }
 
-type CreateCopyDefaultAccountParams struct {
-	Type     AccountType `json:"type"`
+type CreateCopyDefaultAccountAccountParams struct {
 	Phone    null.String `json:"phone"`
 	Email    null.String `json:"email"`
 	Username null.String `json:"username"`
 	Password null.String `json:"password"`
 }
 
-const createDefaultAccount = `-- name: CreateDefaultAccount :one
-INSERT INTO "account"."account" ("type", "phone", "email", "username", "password")
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
+const createDefaultAccountAccount = `-- name: CreateDefaultAccountAccount :one
+INSERT INTO "account"."account" ("phone", "email", "username", "password")
+VALUES ($1, $2, $3, $4)
+RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type CreateDefaultAccountParams struct {
-	Type     AccountType `json:"type"`
+type CreateDefaultAccountAccountParams struct {
 	Phone    null.String `json:"phone"`
 	Email    null.String `json:"email"`
 	Username null.String `json:"username"`
 	Password null.String `json:"password"`
 }
 
-func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, createDefaultAccount,
-		arg.Type,
+func (q *Queries) CreateDefaultAccountAccount(ctx context.Context, arg CreateDefaultAccountAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, createDefaultAccountAccount,
 		arg.Phone,
 		arg.Email,
 		arg.Username,
@@ -170,7 +160,6 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 	var i AccountAccount
 	err := row.Scan(
 		&i.ID,
-		&i.Type,
 		&i.Status,
 		&i.Phone,
 		&i.Email,
@@ -183,31 +172,29 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 	return i, err
 }
 
-const deleteAccount = `-- name: DeleteAccount :exec
+const deleteAccountAccount = `-- name: DeleteAccountAccount :exec
 DELETE FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("type" = ANY($2) OR $2 IS NULL) AND
-    ("status" = ANY($3) OR $3 IS NULL) AND
-    ("phone" = ANY($4) OR $4 IS NULL) AND
-    ("email" = ANY($5) OR $5 IS NULL) AND
-    ("username" = ANY($6) OR $6 IS NULL) AND
-    ("password" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL) AND
-    ("number" = ANY($14) OR $14 IS NULL) AND
-    ("number" > $15 OR $15 IS NULL) AND
-    ("number" < $16 OR $16 IS NULL)
+    ("status" = ANY($2) OR $2 IS NULL) AND
+    ("phone" = ANY($3) OR $3 IS NULL) AND
+    ("email" = ANY($4) OR $4 IS NULL) AND
+    ("username" = ANY($5) OR $5 IS NULL) AND
+    ("password" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("number" = ANY($13) OR $13 IS NULL) AND
+    ("number" > $14 OR $14 IS NULL) AND
+    ("number" < $15 OR $15 IS NULL)
 )
 `
 
-type DeleteAccountParams struct {
+type DeleteAccountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
-	Type            []AccountType   `json:"type"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
 	Email           []null.String   `json:"email"`
@@ -224,10 +211,9 @@ type DeleteAccountParams struct {
 	NumberTo        null.Int        `json:"number_to"`
 }
 
-func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) error {
-	_, err := q.db.Exec(ctx, deleteAccount,
+func (q *Queries) DeleteAccountAccount(ctx context.Context, arg DeleteAccountAccountParams) error {
+	_, err := q.db.Exec(ctx, deleteAccountAccount,
 		arg.ID,
-		arg.Type,
 		arg.Status,
 		arg.Phone,
 		arg.Email,
@@ -246,14 +232,14 @@ func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) er
 	return err
 }
 
-const getAccount = `-- name: GetAccount :one
+const getAccountAccount = `-- name: GetAccountAccount :one
 
-SELECT id, type, status, phone, email, username, password, date_created, date_updated, number
+SELECT id, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE ("id" = $1) OR ("phone" = $2) OR ("email" = $3) OR ("username" = $4)
 `
 
-type GetAccountParams struct {
+type GetAccountAccountParams struct {
 	ID       uuid.NullUUID `json:"id"`
 	Phone    null.String   `json:"phone"`
 	Email    null.String   `json:"email"`
@@ -262,8 +248,8 @@ type GetAccountParams struct {
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.account
-func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, getAccount,
+func (q *Queries) GetAccountAccount(ctx context.Context, arg GetAccountAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, getAccountAccount,
 		arg.ID,
 		arg.Phone,
 		arg.Email,
@@ -272,7 +258,6 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 	var i AccountAccount
 	err := row.Scan(
 		&i.ID,
-		&i.Type,
 		&i.Status,
 		&i.Phone,
 		&i.Email,
@@ -285,35 +270,33 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 	return i, err
 }
 
-const listAccount = `-- name: ListAccount :many
-SELECT id, type, status, phone, email, username, password, date_created, date_updated, number
+const listAccountAccount = `-- name: ListAccountAccount :many
+SELECT id, status, phone, email, username, password, date_created, date_updated, number
 FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("type" = ANY($2) OR $2 IS NULL) AND
-    ("status" = ANY($3) OR $3 IS NULL) AND
-    ("phone" = ANY($4) OR $4 IS NULL) AND
-    ("email" = ANY($5) OR $5 IS NULL) AND
-    ("username" = ANY($6) OR $6 IS NULL) AND
-    ("password" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL) AND
-    ("number" = ANY($14) OR $14 IS NULL) AND
-    ("number" > $15 OR $15 IS NULL) AND
-    ("number" < $16 OR $16 IS NULL)
+    ("status" = ANY($2) OR $2 IS NULL) AND
+    ("phone" = ANY($3) OR $3 IS NULL) AND
+    ("email" = ANY($4) OR $4 IS NULL) AND
+    ("username" = ANY($5) OR $5 IS NULL) AND
+    ("password" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("number" = ANY($13) OR $13 IS NULL) AND
+    ("number" > $14 OR $14 IS NULL) AND
+    ("number" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18::int
-OFFSET $17::int
+LIMIT $17::int
+OFFSET $16::int
 `
 
-type ListAccountParams struct {
+type ListAccountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
-	Type            []AccountType   `json:"type"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
 	Email           []null.String   `json:"email"`
@@ -332,10 +315,9 @@ type ListAccountParams struct {
 	Limit           null.Int32      `json:"limit"`
 }
 
-func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error) {
-	rows, err := q.db.Query(ctx, listAccount,
+func (q *Queries) ListAccountAccount(ctx context.Context, arg ListAccountAccountParams) ([]AccountAccount, error) {
+	rows, err := q.db.Query(ctx, listAccountAccount,
 		arg.ID,
-		arg.Type,
 		arg.Status,
 		arg.Phone,
 		arg.Email,
@@ -362,7 +344,6 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 		var i AccountAccount
 		if err := rows.Scan(
 			&i.ID,
-			&i.Type,
 			&i.Status,
 			&i.Phone,
 			&i.Email,
@@ -382,35 +363,33 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 	return items, nil
 }
 
-const listCountAccount = `-- name: ListCountAccount :many
-SELECT embed_account.id, embed_account.type, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, embed_account.number, COUNT(*) OVER() as total_count
+const listCountAccountAccount = `-- name: ListCountAccountAccount :many
+SELECT embed_account.id, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, embed_account.number, COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("type" = ANY($2) OR $2 IS NULL) AND
-    ("status" = ANY($3) OR $3 IS NULL) AND
-    ("phone" = ANY($4) OR $4 IS NULL) AND
-    ("email" = ANY($5) OR $5 IS NULL) AND
-    ("username" = ANY($6) OR $6 IS NULL) AND
-    ("password" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL) AND
-    ("date_updated" = ANY($11) OR $11 IS NULL) AND
-    ("date_updated" > $12 OR $12 IS NULL) AND
-    ("date_updated" < $13 OR $13 IS NULL) AND
-    ("number" = ANY($14) OR $14 IS NULL) AND
-    ("number" > $15 OR $15 IS NULL) AND
-    ("number" < $16 OR $16 IS NULL)
+    ("status" = ANY($2) OR $2 IS NULL) AND
+    ("phone" = ANY($3) OR $3 IS NULL) AND
+    ("email" = ANY($4) OR $4 IS NULL) AND
+    ("username" = ANY($5) OR $5 IS NULL) AND
+    ("password" = ANY($6) OR $6 IS NULL) AND
+    ("date_created" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" > $8 OR $8 IS NULL) AND
+    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" > $11 OR $11 IS NULL) AND
+    ("date_updated" < $12 OR $12 IS NULL) AND
+    ("number" = ANY($13) OR $13 IS NULL) AND
+    ("number" > $14 OR $14 IS NULL) AND
+    ("number" < $15 OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $18::int
-OFFSET $17::int
+LIMIT $17::int
+OFFSET $16::int
 `
 
-type ListCountAccountParams struct {
+type ListCountAccountAccountParams struct {
 	ID              []uuid.UUID     `json:"id"`
-	Type            []AccountType   `json:"type"`
 	Status          []AccountStatus `json:"status"`
 	Phone           []null.String   `json:"phone"`
 	Email           []null.String   `json:"email"`
@@ -429,15 +408,14 @@ type ListCountAccountParams struct {
 	Limit           null.Int32      `json:"limit"`
 }
 
-type ListCountAccountRow struct {
+type ListCountAccountAccountRow struct {
 	AccountAccount AccountAccount `json:"account_account"`
 	TotalCount     int64          `json:"total_count"`
 }
 
-func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error) {
-	rows, err := q.db.Query(ctx, listCountAccount,
+func (q *Queries) ListCountAccountAccount(ctx context.Context, arg ListCountAccountAccountParams) ([]ListCountAccountAccountRow, error) {
+	rows, err := q.db.Query(ctx, listCountAccountAccount,
 		arg.ID,
-		arg.Type,
 		arg.Status,
 		arg.Phone,
 		arg.Email,
@@ -459,12 +437,11 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountAccountRow{}
+	items := []ListCountAccountAccountRow{}
 	for rows.Next() {
-		var i ListCountAccountRow
+		var i ListCountAccountAccountRow
 		if err := rows.Scan(
 			&i.AccountAccount.ID,
-			&i.AccountAccount.Type,
 			&i.AccountAccount.Status,
 			&i.AccountAccount.Phone,
 			&i.AccountAccount.Email,
@@ -485,22 +462,20 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 	return items, nil
 }
 
-const updateAccount = `-- name: UpdateAccount :one
+const updateAccountAccount = `-- name: UpdateAccountAccount :one
 UPDATE "account"."account"
-SET "type" = COALESCE($1, "type"),
-    "status" = COALESCE($2, "status"),
-    "phone" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "phone") END,
-    "email" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "email") END,
-    "username" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "username") END,
-    "password" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "password") END,
-    "date_created" = COALESCE($11, "date_created"),
-    "date_updated" = COALESCE($12, "date_updated")
-WHERE id = $13
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
+SET "status" = COALESCE($1, "status"),
+    "phone" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "phone") END,
+    "email" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "email") END,
+    "username" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "username") END,
+    "password" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "password") END,
+    "date_created" = COALESCE($10, "date_created"),
+    "date_updated" = COALESCE($11, "date_updated")
+WHERE id = $12
+RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type UpdateAccountParams struct {
-	Type         NullAccountType   `json:"type"`
+type UpdateAccountAccountParams struct {
 	Status       NullAccountStatus `json:"status"`
 	NullPhone    bool              `json:"null_phone"`
 	Phone        null.String       `json:"phone"`
@@ -515,9 +490,8 @@ type UpdateAccountParams struct {
 	ID           uuid.UUID         `json:"id"`
 }
 
-func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error) {
-	row := q.db.QueryRow(ctx, updateAccount,
-		arg.Type,
+func (q *Queries) UpdateAccountAccount(ctx context.Context, arg UpdateAccountAccountParams) (AccountAccount, error) {
+	row := q.db.QueryRow(ctx, updateAccountAccount,
 		arg.Status,
 		arg.NullPhone,
 		arg.Phone,
@@ -534,7 +508,6 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 	var i AccountAccount
 	err := row.Scan(
 		&i.ID,
-		&i.Type,
 		&i.Status,
 		&i.Phone,
 		&i.Email,

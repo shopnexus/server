@@ -77,7 +77,7 @@ func main() {
 	catalogStore := catalogdb.New(pool)
 
 	// Get the first available account to use as comment author
-	accounts, err := accountStore.ListAccount(ctx, accountdb.ListAccountParams{
+	accounts, err := accountStore.ListAccountAccount(ctx, accountdb.ListAccountAccountParams{
 		Limit: null.Int32From(1),
 	})
 	if err != nil || len(accounts) == 0 {

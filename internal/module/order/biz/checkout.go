@@ -287,7 +287,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 		for _, checkoutItem := range params.Items {
 			sku := skuMap[checkoutItem.SkuID]
 			price := priceMap[checkoutItem.SkuID]
-			serialIDs := serialIDsMap[checkoutItem.SkuID]
+			serialIDs := serialIDsMap[checkoutItem.SkuID] // empty when serial_required = false
 
 			order, err := b.storage.Querier().CreateDefaultOrder(ctx, orderdb.CreateDefaultOrderParams{
 				CustomerID:      params.Account.ID,
@@ -311,7 +311,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 			// Create order items
 			var createOrderItemArgs []orderdb.CreateCopyItemParams
 			if sku.CanCombine || len(serialIDs) == 0 {
-				// Combined item: one row with total quantity
+				// Combined item or serial_required = false: one row with total quantity
 				jsonSerialIDs, err := sonic.Marshal(serialIDs)
 				if err != nil {
 					return nil, fmt.Errorf("marshal serial ids: %w", err)

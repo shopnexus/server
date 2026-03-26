@@ -25,9 +25,9 @@ type AccountBiz interface {
 	Refresh(ctx context.Context, refreshToken string) (RefreshResult, error)
 
 	// Profile
-	GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error)
+	GetProfile(ctx context.Context, params GetAccountProfileParams) (accountmodel.Profile, error)
 	ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error)
-	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
+	UpdateProfile(ctx context.Context, params UpdateAccountProfileParams) (accountmodel.Profile, error)
 
 	// Account
 	DeleteAccount(ctx context.Context, params DeleteAccountParams) error

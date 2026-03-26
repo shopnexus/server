@@ -155,7 +155,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		return zero, fmt.Errorf("create comment: %w", err)
 	}
 
-	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+	profile, err := b.account.GetProfile(ctx, accountbiz.GetAccountProfileParams{
 		Issuer:    params.Account,
 		AccountID: comment.AccountID,
 	})
@@ -250,7 +250,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		return zero, fmt.Errorf("update comment: %w", err)
 	}
 
-	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+	profile, err := b.account.GetProfile(ctx, accountbiz.GetAccountProfileParams{
 		Issuer:    params.Account,
 		AccountID: comment.AccountID,
 	})

@@ -20,21 +20,20 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const createBatchAccount = `-- name: CreateBatchAccount :batchone
-INSERT INTO "account"."account" ("id", "type", "status", "phone", "email", "username", "password", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, type, status, phone, email, username, password, date_created, date_updated, number
+const createBatchAccountAccount = `-- name: CreateBatchAccountAccount :batchone
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, status, phone, email, username, password, date_created, date_updated, number
 `
 
-type CreateBatchAccountBatchResults struct {
+type CreateBatchAccountAccountBatchResults struct {
 	br     pgx.BatchResults
 	tot    int
 	closed bool
 }
 
-type CreateBatchAccountParams struct {
+type CreateBatchAccountAccountParams struct {
 	ID          uuid.UUID     `json:"id"`
-	Type        AccountType   `json:"type"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
 	Email       null.String   `json:"email"`
@@ -44,12 +43,11 @@ type CreateBatchAccountParams struct {
 	DateUpdated time.Time     `json:"date_updated"`
 }
 
-func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccountParams) *CreateBatchAccountBatchResults {
+func (q *Queries) CreateBatchAccountAccount(ctx context.Context, arg []CreateBatchAccountAccountParams) *CreateBatchAccountAccountBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
-			a.Type,
 			a.Status,
 			a.Phone,
 			a.Email,
@@ -58,13 +56,13 @@ func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccou
 			a.DateCreated,
 			a.DateUpdated,
 		}
-		batch.Queue(createBatchAccount, vals...)
+		batch.Queue(createBatchAccountAccount, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchAccountBatchResults{br, len(arg), false}
+	return &CreateBatchAccountAccountBatchResults{br, len(arg), false}
 }
 
-func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, error)) {
+func (b *CreateBatchAccountAccountBatchResults) QueryRow(f func(int, AccountAccount, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
 		var i AccountAccount
@@ -77,7 +75,6 @@ func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, er
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.Type,
 			&i.Status,
 			&i.Phone,
 			&i.Email,
@@ -93,7 +90,7 @@ func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, er
 	}
 }
 
-func (b *CreateBatchAccountBatchResults) Close() error {
+func (b *CreateBatchAccountAccountBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -265,42 +262,58 @@ func (b *CreateBatchAccountNotificationBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchCustomer = `-- name: CreateBatchCustomer :batchone
-INSERT INTO "account"."customer" ("id", "date_created", "date_updated")
-VALUES ($1, $2, $3)
-RETURNING id, date_created, date_updated
+const createBatchAccountProfile = `-- name: CreateBatchAccountProfile :batchone
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
 `
 
-type CreateBatchCustomerBatchResults struct {
+type CreateBatchAccountProfileBatchResults struct {
 	br     pgx.BatchResults
 	tot    int
 	closed bool
 }
 
-type CreateBatchCustomerParams struct {
-	ID          uuid.UUID `json:"id"`
-	DateCreated time.Time `json:"date_created"`
-	DateUpdated time.Time `json:"date_updated"`
+type CreateBatchAccountProfileParams struct {
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             null.String       `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    bool              `json:"email_verified"`
+	PhoneVerified    bool              `json:"phone_verified"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DateCreated      time.Time         `json:"date_created"`
+	DateUpdated      time.Time         `json:"date_updated"`
+	Description      string            `json:"description"`
 }
 
-func (q *Queries) CreateBatchCustomer(ctx context.Context, arg []CreateBatchCustomerParams) *CreateBatchCustomerBatchResults {
+func (q *Queries) CreateBatchAccountProfile(ctx context.Context, arg []CreateBatchAccountProfileParams) *CreateBatchAccountProfileBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
+			a.Gender,
+			a.Name,
+			a.DateOfBirth,
+			a.AvatarRsID,
+			a.EmailVerified,
+			a.PhoneVerified,
+			a.DefaultContactID,
 			a.DateCreated,
 			a.DateUpdated,
+			a.Description,
 		}
-		batch.Queue(createBatchCustomer, vals...)
+		batch.Queue(createBatchAccountProfile, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchCustomerBatchResults{br, len(arg), false}
+	return &CreateBatchAccountProfileBatchResults{br, len(arg), false}
 }
 
-func (b *CreateBatchCustomerBatchResults) QueryRow(f func(int, AccountCustomer, error)) {
+func (b *CreateBatchAccountProfileBatchResults) QueryRow(f func(int, AccountProfile, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
-		var i AccountCustomer
+		var i AccountProfile
 		if b.closed {
 			if f != nil {
 				f(t, i, ErrBatchAlreadyClosed)
@@ -308,14 +321,26 @@ func (b *CreateBatchCustomerBatchResults) QueryRow(f func(int, AccountCustomer, 
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.DateCreated, &i.DateUpdated)
+		err := row.Scan(
+			&i.ID,
+			&i.Gender,
+			&i.Name,
+			&i.DateOfBirth,
+			&i.AvatarRsID,
+			&i.EmailVerified,
+			&i.PhoneVerified,
+			&i.DefaultContactID,
+			&i.DateCreated,
+			&i.DateUpdated,
+			&i.Description,
+		)
 		if f != nil {
 			f(t, i, err)
 		}
 	}
 }
 
-func (b *CreateBatchCustomerBatchResults) Close() error {
+func (b *CreateBatchAccountProfileBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -519,139 +544,6 @@ func (b *CreateBatchPaymentMethodBatchResults) QueryRow(f func(int, AccountPayme
 }
 
 func (b *CreateBatchPaymentMethodBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchProfile = `-- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
-`
-
-type CreateBatchProfileBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchProfileParams struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified    bool              `json:"email_verified"`
-	PhoneVerified    bool              `json:"phone_verified"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-	DateCreated      time.Time         `json:"date_created"`
-	DateUpdated      time.Time         `json:"date_updated"`
-}
-
-func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfileParams) *CreateBatchProfileBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Gender,
-			a.Name,
-			a.DateOfBirth,
-			a.AvatarRsID,
-			a.EmailVerified,
-			a.PhoneVerified,
-			a.DefaultContactID,
-			a.DateCreated,
-			a.DateUpdated,
-		}
-		batch.Queue(createBatchProfile, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchProfileBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountProfile
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.Gender,
-			&i.Name,
-			&i.DateOfBirth,
-			&i.AvatarRsID,
-			&i.EmailVerified,
-			&i.PhoneVerified,
-			&i.DefaultContactID,
-			&i.DateCreated,
-			&i.DateUpdated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchProfileBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchVendor = `-- name: CreateBatchVendor :batchone
-INSERT INTO "account"."vendor" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
-`
-
-type CreateBatchVendorBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchVendorParams struct {
-	ID          uuid.UUID `json:"id"`
-	Description string    `json:"description"`
-}
-
-func (q *Queries) CreateBatchVendor(ctx context.Context, arg []CreateBatchVendorParams) *CreateBatchVendorBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Description,
-		}
-		batch.Queue(createBatchVendor, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchVendorBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchVendorBatchResults) QueryRow(f func(int, AccountVendor, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountVendor
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.Description)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchVendorBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

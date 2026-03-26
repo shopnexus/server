@@ -191,67 +191,8 @@ func AllAccountStatusValues() []AccountStatus {
 	}
 }
 
-type AccountType string
-
-const (
-	AccountTypeCustomer AccountType = "Customer"
-	AccountTypeVendor   AccountType = "Vendor"
-)
-
-func (e *AccountType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AccountType(s)
-	case string:
-		*e = AccountType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AccountType: %T", src)
-	}
-	return nil
-}
-
-type NullAccountType struct {
-	AccountType AccountType `json:"account_type"`
-	Valid       bool        `json:"valid"` // Valid is true if AccountType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAccountType) Scan(value interface{}) error {
-	if value == nil {
-		ns.AccountType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AccountType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAccountType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AccountType), nil
-}
-
-func (e AccountType) Valid() bool {
-	switch e {
-	case AccountTypeCustomer,
-		AccountTypeVendor:
-		return true
-	}
-	return false
-}
-
-func AllAccountTypeValues() []AccountType {
-	return []AccountType{
-		AccountTypeCustomer,
-		AccountTypeVendor,
-	}
-}
-
 type AccountAccount struct {
 	ID          uuid.UUID     `json:"id"`
-	Type        AccountType   `json:"type"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
 	Email       null.String   `json:"email"`
@@ -274,12 +215,6 @@ type AccountContact struct {
 	DateUpdated   time.Time          `json:"date_updated"`
 	Latitude      null.Float         `json:"latitude"`
 	Longitude     null.Float         `json:"longitude"`
-}
-
-type AccountCustomer struct {
-	ID          uuid.UUID `json:"id"`
-	DateCreated time.Time `json:"date_created"`
-	DateUpdated time.Time `json:"date_updated"`
 }
 
 type AccountFavorite struct {
@@ -336,9 +271,5 @@ type AccountProfile struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
-}
-
-type AccountVendor struct {
-	ID          uuid.UUID `json:"id"`
-	Description string    `json:"description"`
+	Description      string            `json:"description"`
 }

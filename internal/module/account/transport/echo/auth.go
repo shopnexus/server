@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
-	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/guregu/null/v6"
@@ -47,11 +46,10 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 }
 
 type RegisterBasicRequest struct {
-	Type     accountdb.AccountType `json:"type" validate:"required"`
-	Username null.String           `json:"username" validate:"omitnil"`
-	Email    null.String           `json:"email" validate:"omitnil"`
-	Phone    null.String           `json:"phone" validate:"omitnil"`
-	Password string                `json:"password" validate:"required"`
+	Username null.String `json:"username" validate:"omitnil"`
+	Email    null.String `json:"email" validate:"omitnil"`
+	Phone    null.String `json:"phone" validate:"omitnil"`
+	Password string      `json:"password" validate:"required"`
 }
 
 func (h *Handler) RegisterBasic(c echo.Context) error {
@@ -64,7 +62,6 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 	}
 
 	result, err := h.biz.Register(c.Request().Context(), accountbiz.RegisterParams{
-		Type:     req.Type,
 		Username: req.Username,
 		Email:    req.Email,
 		Phone:    req.Phone,

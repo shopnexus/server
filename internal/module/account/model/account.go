@@ -14,7 +14,6 @@ type Profile struct {
 	DateUpdated time.Time `json:"date_updated"`
 
 	// Account base
-	Type     accountdb.AccountType   `json:"type"`
 	Status   accountdb.AccountStatus `json:"status"`
 	Phone    null.String             `json:"phone"`
 	Email    null.String             `json:"email"`
@@ -29,6 +28,6 @@ type Profile struct {
 	DefaultContactID uuid.NullUUID            `json:"default_contact_id"`
 	AvatarURL        null.String              `json:"avatar_url"`
 
-	// Vendor fields
+	// Description
 	Description null.String `json:"description"`
 }
