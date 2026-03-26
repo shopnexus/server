@@ -15,4 +15,5 @@ var (
 	ErrUnsupportedAccountType = sharedmodel.NewError(http.StatusBadRequest, "The account type is not supported")
 	ErrContactNotFound        = sharedmodel.NewError(http.StatusNotFound, "The contact could not be found")
 	ErrNoDefaultContact       = sharedmodel.NewError(http.StatusNotFound, "Some accounts do not have a default contact address")
+	ErrCannotDeleteLastContact = sharedmodel.NewError(http.StatusConflict, "Cannot delete the only contact address")
 )

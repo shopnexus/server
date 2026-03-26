@@ -74,12 +74,13 @@ func getCustomDataTypes(ctx context.Context, pool *pgxpool.Pool) ([]*pgtype.Type
 
 	// Find all custom types in your schemas
 	query := `
-		SELECT n.nspname || '.' || t.typname AS type_name
-		FROM pg_type t
-		JOIN pg_namespace n ON t.typnamespace = n.oid
-		WHERE n.nspname IN ('account', 'catalog', 'inventory', 'order', 'promotion', 'common', 'system')
-		AND t.typtype IN ('e')  -- enums only (e for enum, c for composite)
-		ORDER BY type_name
+	SELECT n.nspname || '.' || t.typname AS type_name
+	FROM pg_type t
+	JOIN pg_namespace n ON t.typnamespace = n.oid
+	WHERE n.nspname !~ '^pg_'
+	AND n.nspname != 'information_schema'
+	AND t.typtype IN ('e')
+	ORDER BY type_name;
 	`
 
 	rows, err := conn.Query(ctx, query)
