@@ -7,7 +7,6 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-// PaginationParams represents the pagination parameters
 type PaginationParams struct {
 	Page   null.Int32  `query:"page" validate:"omitnil,gt=0"`
 	Cursor null.String `query:"cursor" validate:"omitnil"`
@@ -45,19 +44,18 @@ func (p PaginationParams) DecodeCursor(dst any) error {
 	if !p.Cursor.Valid {
 		return nil
 	}
-	encoded, err := base64.StdEncoding.DecodeString(p.Cursor.String)
+	decoded, err := base64.StdEncoding.DecodeString(p.Cursor.String)
 	if err != nil {
 		return err
 	}
-	return sonic.Unmarshal(encoded, dst)
+	return sonic.Unmarshal(decoded, dst)
 }
 
-// PaginateResult represents a paginated result set
 type PaginateResult[T any] struct {
 	PageParams PaginationParams
 	Data       []T
-	Total      null.Int64 // Only valid when using "page" pagination, "cursor" pagination will not
-	NextCursor any        // Filter conditions for the next page
+	Total      null.Int64 // Only valid for page-based pagination, not cursor-based.
+	NextCursor any
 }
 
 func (p PaginateResult[T]) NextPage() null.Int32 {
@@ -66,31 +64,23 @@ func (p PaginateResult[T]) NextPage() null.Int32 {
 			return null.Int32{}
 		}
 
-		// Default to page 1 if not set
 		page := max(p.PageParams.Page.Int32, 1)
 		if int64(page*p.PageParams.Limit.Int32) < p.Total.Int64 {
-			return null.Int32From(p.PageParams.Page.Int32 + 1)
+			return null.Int32From(page + 1)
 		}
 	}
 	return null.Int32{}
 }
 
 func (p PaginateResult[T]) EncodeNextCursor() null.String {
-	var zero null.String
-
 	if p.NextCursor == nil {
-		return zero
+		return null.String{}
 	}
 
 	marshalled, err := sonic.Marshal(p.NextCursor)
 	if err != nil {
-		return zero
+		return null.String{}
 	}
 
-	encoded, err := base64.StdEncoding.DecodeString(string(marshalled))
-	if err != nil {
-		return zero
-	}
-
-	return null.StringFrom(string(encoded))
+	return null.StringFrom(base64.StdEncoding.EncodeToString(marshalled))
 }

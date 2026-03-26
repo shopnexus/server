@@ -20,7 +20,6 @@ func (e Error) Code() uint16 {
 	return e.ErrCode
 }
 
-// Fmt creates a new error from the base error template with provided arguments.
 func (e Error) Fmt(args ...any) Error {
 	return Error{
 		ErrCode: e.ErrCode,
@@ -28,7 +27,7 @@ func (e Error) Fmt(args ...any) Error {
 	}
 }
 
-// Terminal wraps this error as a Restate terminal error, stopping retries.
+// Terminal wraps as a Restate terminal error, preventing retries.
 func (e Error) Terminal() error {
 	return restate.TerminalError(e, restate.Code(e.ErrCode))
 }
@@ -38,6 +37,15 @@ func NewError(code uint16, message string) Error {
 		ErrCode: code,
 		Message: message,
 	}
+}
+
+// WrapErr wraps an error with context while preserving Restate terminal status.
+// Use this instead of fmt.Errorf when the error might be a terminal error.
+func WrapErr(msg string, err error) error {
+	if restate.IsTerminalError(err) {
+		return restate.TerminalErrorf("%s: %w", msg, err)
+	}
+	return fmt.Errorf("%s: %w", msg, err)
 }
 
 var (

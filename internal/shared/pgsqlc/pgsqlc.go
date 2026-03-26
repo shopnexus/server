@@ -36,8 +36,6 @@ type Storage[T Querier] interface {
 	Querier() T
 	// BeginTx starts a new transaction
 	BeginTx(ctx context.Context) (*TxStorage[T], error)
-	// WithTx executes the given function within a transaction, automatically commit/rollback
-	WithTx(ctx context.Context, fn func(txStorage Storage[T]) error) error
 }
 
 // Storage provides database queries with transaction support
@@ -80,20 +78,6 @@ func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 			allowNestedTx: s.allowNestedTx,
 		},
 	}, nil
-}
-
-func (s *storage[T]) WithTx(ctx context.Context, fn func(txStorage Storage[T]) error) error {
-	txStorage, err := s.BeginTx(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer txStorage.Rollback(ctx)
-
-	if err := fn(txStorage); err != nil {
-		return fmt.Errorf("failed to execute transaction: %w", err)
-	}
-
-	return txStorage.Commit(ctx)
 }
 
 // TxStorage provides database queries within an active transaction

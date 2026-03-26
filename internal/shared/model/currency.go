@@ -22,16 +22,13 @@ func (c Concurrency) Mul(factor int64) Concurrency {
 	return c * Concurrency(factor)
 }
 
-func (c Concurrency) Div(divisor int64) Concurrency {
-	return c / Concurrency(divisor)
-}
-
 func (c Concurrency) String() string {
 	return strconv.FormatFloat(float64(c)/FloatingPointPrecision, 'f', -1, 64)
 }
 
 func (c Concurrency) MarshalJSON() ([]byte, error) {
-	return []byte(c.String()), nil
+	buf := strconv.AppendFloat(nil, float64(c)/FloatingPointPrecision, 'f', -1, 64)
+	return buf, nil
 }
 
 func (c *Concurrency) UnmarshalJSON(data []byte) error {
@@ -43,7 +40,6 @@ func (c *Concurrency) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Float64 returns the Concurrency value as a float64 but scaled by FloatingPointPrecision.
 func (c Concurrency) Float64() float64 {
 	return float64(c) / FloatingPointPrecision
 }
@@ -65,7 +61,7 @@ func (nc NullConcurrency) MarshalJSON() ([]byte, error) {
 	if !nc.Valid {
 		return []byte("null"), nil
 	}
-	return []byte(nc.Concurrency.String()), nil
+	return nc.Concurrency.MarshalJSON()
 }
 
 func (nc *NullConcurrency) UnmarshalJSON(data []byte) error {
@@ -73,11 +69,9 @@ func (nc *NullConcurrency) UnmarshalJSON(data []byte) error {
 		nc.Valid = false
 		return nil
 	}
-	value, err := strconv.ParseFloat(string(data), 64)
-	if err != nil {
+	if err := nc.Concurrency.UnmarshalJSON(data); err != nil {
 		return err
 	}
-	nc.Concurrency = FloatToConcurrency(value)
 	nc.Valid = true
 	return nil
 }
@@ -89,12 +83,13 @@ func (nc NullConcurrency) ToNullInt64() null.Int {
 	return null.IntFrom(int64(nc.Concurrency))
 }
 
+// NullConcurrencyFromNullInt64 converts a null.Int (already in scaled representation) to NullConcurrency.
 func NullConcurrencyFromNullInt64(nInt null.Int) NullConcurrency {
 	if !nInt.Valid {
 		return NullConcurrency{Valid: false}
 	}
 	return NullConcurrency{
-		Concurrency: Concurrency(nInt.Int64 * FloatingPointPrecision),
+		Concurrency: Concurrency(nInt.Int64),
 		Valid:       true,
 	}
 }
