@@ -81,23 +81,23 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  nats:
-    container_name: shopnexus-nats-dev
-    image: nats:latest
-    ports:
-      - "127.0.0.1:4222:4222"
-      - "127.0.0.1:8222:8222"
-    command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
-    volumes:
-      - nats-data:/data
-    healthcheck:
-      test:
-        ["CMD", "wget", "--spider", "--quiet", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    restart: unless-stopped
+  # nats:
+  #   container_name: shopnexus-nats-dev
+  #   image: nats:latest
+  #   ports:
+  #     - "127.0.0.1:4222:4222"
+  #     - "127.0.0.1:8222:8222"
+  #   command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
+  #   volumes:
+  #     - nats-data:/data
+  #   healthcheck:
+  #     test:
+  #       ["CMD", "wget", "--spider", "--quiet", "http://localhost:8222/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 5s
+  #   restart: unless-stopped
 
   restate-1:
     <<: *restate-defaults

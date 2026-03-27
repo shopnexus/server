@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/pubsub"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
@@ -72,7 +71,6 @@ type AccountHandler struct {
 
 	config  *config.Config
 	storage AccountStorage
-	pubsub  pubsub.Client
 	common  commonbiz.CommonBiz
 }
 
@@ -84,7 +82,6 @@ func (b *AccountHandler) ServiceName() string {
 func NewAccountHandler(
 	config *config.Config,
 	storage AccountStorage,
-	pubsub pubsub.Client,
 	common commonbiz.CommonBiz,
 ) *AccountHandler {
 	return &AccountHandler{
@@ -95,7 +92,6 @@ func NewAccountHandler(
 
 		config:  config,
 		storage: storage,
-		pubsub:  pubsub,
 		common:  common,
 	}
 }
