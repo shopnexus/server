@@ -14,6 +14,67 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+type OrderItemStatus string
+
+const (
+	OrderItemStatusPending   OrderItemStatus = "Pending"
+	OrderItemStatusConfirmed OrderItemStatus = "Confirmed"
+	OrderItemStatusCanceled  OrderItemStatus = "Canceled"
+)
+
+func (e *OrderItemStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderItemStatus(s)
+	case string:
+		*e = OrderItemStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderItemStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderItemStatus struct {
+	OrderItemStatus OrderItemStatus `json:"order_item_status"`
+	Valid           bool            `json:"valid"` // Valid is true if OrderItemStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderItemStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderItemStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderItemStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderItemStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderItemStatus), nil
+}
+
+func (e OrderItemStatus) Valid() bool {
+	switch e {
+	case OrderItemStatusPending,
+		OrderItemStatusConfirmed,
+		OrderItemStatusCanceled:
+		return true
+	}
+	return false
+}
+
+func AllOrderItemStatusValues() []OrderItemStatus {
+	return []OrderItemStatus{
+		OrderItemStatusPending,
+		OrderItemStatusConfirmed,
+		OrderItemStatusCanceled,
+	}
+}
+
 type OrderRefundMethod string
 
 const (
@@ -69,79 +130,6 @@ func AllOrderRefundMethodValues() []OrderRefundMethod {
 	return []OrderRefundMethod{
 		OrderRefundMethodPickUp,
 		OrderRefundMethodDropOff,
-	}
-}
-
-type OrderShipmentStatus string
-
-const (
-	OrderShipmentStatusPending        OrderShipmentStatus = "Pending"
-	OrderShipmentStatusLabelCreated   OrderShipmentStatus = "LabelCreated"
-	OrderShipmentStatusInTransit      OrderShipmentStatus = "InTransit"
-	OrderShipmentStatusOutForDelivery OrderShipmentStatus = "OutForDelivery"
-	OrderShipmentStatusDelivered      OrderShipmentStatus = "Delivered"
-	OrderShipmentStatusFailed         OrderShipmentStatus = "Failed"
-	OrderShipmentStatusCancelled      OrderShipmentStatus = "Cancelled"
-)
-
-func (e *OrderShipmentStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OrderShipmentStatus(s)
-	case string:
-		*e = OrderShipmentStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OrderShipmentStatus: %T", src)
-	}
-	return nil
-}
-
-type NullOrderShipmentStatus struct {
-	OrderShipmentStatus OrderShipmentStatus `json:"order_shipment_status"`
-	Valid               bool                `json:"valid"` // Valid is true if OrderShipmentStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOrderShipmentStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.OrderShipmentStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OrderShipmentStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOrderShipmentStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OrderShipmentStatus), nil
-}
-
-func (e OrderShipmentStatus) Valid() bool {
-	switch e {
-	case OrderShipmentStatusPending,
-		OrderShipmentStatusLabelCreated,
-		OrderShipmentStatusInTransit,
-		OrderShipmentStatusOutForDelivery,
-		OrderShipmentStatusDelivered,
-		OrderShipmentStatusFailed,
-		OrderShipmentStatusCancelled:
-		return true
-	}
-	return false
-}
-
-func AllOrderShipmentStatusValues() []OrderShipmentStatus {
-	return []OrderShipmentStatus{
-		OrderShipmentStatusPending,
-		OrderShipmentStatusLabelCreated,
-		OrderShipmentStatusInTransit,
-		OrderShipmentStatusOutForDelivery,
-		OrderShipmentStatusDelivered,
-		OrderShipmentStatusFailed,
-		OrderShipmentStatusCancelled,
 	}
 }
 
@@ -212,6 +200,79 @@ func AllOrderStatusValues() []OrderStatus {
 	}
 }
 
+type OrderTransportStatus string
+
+const (
+	OrderTransportStatusPending        OrderTransportStatus = "Pending"
+	OrderTransportStatusLabelCreated   OrderTransportStatus = "LabelCreated"
+	OrderTransportStatusInTransit      OrderTransportStatus = "InTransit"
+	OrderTransportStatusOutForDelivery OrderTransportStatus = "OutForDelivery"
+	OrderTransportStatusDelivered      OrderTransportStatus = "Delivered"
+	OrderTransportStatusFailed         OrderTransportStatus = "Failed"
+	OrderTransportStatusCancelled      OrderTransportStatus = "Cancelled"
+)
+
+func (e *OrderTransportStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderTransportStatus(s)
+	case string:
+		*e = OrderTransportStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderTransportStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderTransportStatus struct {
+	OrderTransportStatus OrderTransportStatus `json:"order_transport_status"`
+	Valid                bool                 `json:"valid"` // Valid is true if OrderTransportStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderTransportStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderTransportStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderTransportStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderTransportStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderTransportStatus), nil
+}
+
+func (e OrderTransportStatus) Valid() bool {
+	switch e {
+	case OrderTransportStatusPending,
+		OrderTransportStatusLabelCreated,
+		OrderTransportStatusInTransit,
+		OrderTransportStatusOutForDelivery,
+		OrderTransportStatusDelivered,
+		OrderTransportStatusFailed,
+		OrderTransportStatusCancelled:
+		return true
+	}
+	return false
+}
+
+func AllOrderTransportStatusValues() []OrderTransportStatus {
+	return []OrderTransportStatus{
+		OrderTransportStatusPending,
+		OrderTransportStatusLabelCreated,
+		OrderTransportStatusInTransit,
+		OrderTransportStatusOutForDelivery,
+		OrderTransportStatusDelivered,
+		OrderTransportStatusFailed,
+		OrderTransportStatusCancelled,
+	}
+}
+
 type OrderCartItem struct {
 	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
@@ -220,29 +281,35 @@ type OrderCartItem struct {
 }
 
 type OrderItem struct {
-	ID        int64           `json:"id"`
-	OrderID   uuid.UUID       `json:"order_id"`
-	SkuID     uuid.UUID       `json:"sku_id"`
-	SkuName   string          `json:"sku_name"`
-	Quantity  int64           `json:"quantity"`
-	UnitPrice int64           `json:"unit_price"`
-	Note      null.String     `json:"note"`
-	SerialIds json.RawMessage `json:"serial_ids"`
+	ID          int64           `json:"id"`
+	OrderID     uuid.NullUUID   `json:"order_id"`
+	SkuID       uuid.UUID       `json:"sku_id"`
+	SkuName     string          `json:"sku_name"`
+	Quantity    int64           `json:"quantity"`
+	UnitPrice   int64           `json:"unit_price"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
+	Address     string          `json:"address"`
+	Status      OrderItemStatus `json:"status"`
+	PaidAmount  int64           `json:"paid_amount"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 type OrderOrder struct {
 	ID              uuid.UUID       `json:"id"`
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
+	PaymentID       null.Int        `json:"payment_id"`
+	TransportID     uuid.UUID       `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -266,7 +333,7 @@ type OrderRefund struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
@@ -284,20 +351,11 @@ type OrderRefundDispute struct {
 	DateUpdated time.Time   `json:"date_updated"`
 }
 
-type OrderShipment struct {
-	ID           uuid.UUID           `json:"id"`
-	Option       string              `json:"option"`
-	TrackingCode null.String         `json:"tracking_code"`
-	Status       OrderShipmentStatus `json:"status"`
-	LabelUrl     null.String         `json:"label_url"`
-	Cost         int64               `json:"cost"`
-	NewCost      int64               `json:"new_cost"`
-	DateEta      time.Time           `json:"date_eta"`
-	FromAddress  string              `json:"from_address"`
-	ToAddress    string              `json:"to_address"`
-	WeightGrams  int32               `json:"weight_grams"`
-	LengthCm     int32               `json:"length_cm"`
-	WidthCm      int32               `json:"width_cm"`
-	HeightCm     int32               `json:"height_cm"`
-	DateCreated  time.Time           `json:"date_created"`
+type OrderTransport struct {
+	ID          uuid.UUID                `json:"id"`
+	Option      string                   `json:"option"`
+	Status      NullOrderTransportStatus `json:"status"`
+	Cost        int64                    `json:"cost"`
+	Data        json.RawMessage          `json:"data"`
+	DateCreated null.Time                `json:"date_created"`
 }

@@ -14,7 +14,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
+    ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -32,7 +32,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
+    ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -53,7 +53,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
+    ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -67,26 +67,26 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyRefund :copyfrom
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "reason", "address")
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultRefund :copyfrom
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "reason", "address")
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateRefund :one
@@ -94,7 +94,7 @@ UPDATE "order"."refund"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
-    "shipment_id" = CASE WHEN sqlc.arg('null_shipment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('shipment_id'), "shipment_id") END,
+    "transport_id" = CASE WHEN sqlc.arg('null_transport_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('transport_id'), "transport_id") END,
     "method" = COALESCE(sqlc.narg('method'), "method"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
@@ -110,7 +110,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
-    ("shipment_id" = ANY(sqlc.slice('shipment_id')) OR sqlc.slice('shipment_id') IS NULL) AND
+    ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND

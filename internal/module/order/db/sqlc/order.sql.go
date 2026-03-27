@@ -12,49 +12,60 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const listCountVendorOrder = `-- name: ListCountVendorOrder :many
-SELECT embed_order.id, embed_order.customer_id, embed_order.vendor_id, embed_order.payment_id, embed_order.shipment_id, embed_order.confirmed_by_id, embed_order.status, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.ship_cost, embed_order.ship_discount, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
+const listCountSellerOrder = `-- name: ListCountSellerOrder :many
+
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.payment_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.status, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
-INNER JOIN "order"."payment" payment ON embed_order."payment_id" = payment."id"
-WHERE payment.status = 'Success' AND (embed_order."vendor_id" = ANY($1) OR $1 IS NULL) 
-ORDER BY embed_order."date_created" ASC
-LIMIT $3::int
-OFFSET $2::int
+LEFT JOIN "order"."payment" p ON embed_order."payment_id" = p."id"
+WHERE embed_order."seller_id" = $1
+    AND (p."status" = ANY($2) OR $2 IS NULL)
+    AND (embed_order."status" = ANY($3) OR $3 IS NULL)
+ORDER BY embed_order."date_created" DESC
+LIMIT $5::int
+OFFSET $4::int
 `
 
-type ListCountVendorOrderParams struct {
-	VendorID []uuid.UUID `json:"vendor_id"`
-	Offset   null.Int32  `json:"offset"`
-	Limit    null.Int32  `json:"limit"`
+type ListCountSellerOrderParams struct {
+	SellerID      uuid.UUID     `json:"seller_id"`
+	PaymentStatus []OrderStatus `json:"payment_status"`
+	OrderStatus   []OrderStatus `json:"order_status"`
+	Offset        null.Int32    `json:"offset"`
+	Limit         null.Int32    `json:"limit"`
 }
 
-type ListCountVendorOrderRow struct {
+type ListCountSellerOrderRow struct {
 	OrderOrder OrderOrder `json:"order_order"`
 	TotalCount int64      `json:"total_count"`
 }
 
-func (q *Queries) ListCountVendorOrder(ctx context.Context, arg ListCountVendorOrderParams) ([]ListCountVendorOrderRow, error) {
-	rows, err := q.db.Query(ctx, listCountVendorOrder, arg.VendorID, arg.Offset, arg.Limit)
+// Custom order queries
+func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerOrderParams) ([]ListCountSellerOrderRow, error) {
+	rows, err := q.db.Query(ctx, listCountSellerOrder,
+		arg.SellerID,
+		arg.PaymentStatus,
+		arg.OrderStatus,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountVendorOrderRow{}
+	items := []ListCountSellerOrderRow{}
 	for rows.Next() {
-		var i ListCountVendorOrderRow
+		var i ListCountSellerOrderRow
 		if err := rows.Scan(
 			&i.OrderOrder.ID,
-			&i.OrderOrder.CustomerID,
-			&i.OrderOrder.VendorID,
+			&i.OrderOrder.BuyerID,
+			&i.OrderOrder.SellerID,
 			&i.OrderOrder.PaymentID,
-			&i.OrderOrder.ShipmentID,
+			&i.OrderOrder.TransportID,
 			&i.OrderOrder.ConfirmedByID,
 			&i.OrderOrder.Status,
 			&i.OrderOrder.Address,
 			&i.OrderOrder.ProductCost,
 			&i.OrderOrder.ProductDiscount,
-			&i.OrderOrder.ShipCost,
-			&i.OrderOrder.ShipDiscount,
+			&i.OrderOrder.TransportCost,
 			&i.OrderOrder.Total,
 			&i.OrderOrder.Note,
 			&i.OrderOrder.Data,
@@ -69,4 +80,21 @@ func (q *Queries) ListCountVendorOrder(ctx context.Context, arg ListCountVendorO
 		return nil, err
 	}
 	return items, nil
+}
+
+const setOrderPayment = `-- name: SetOrderPayment :exec
+UPDATE "order"."order"
+SET "payment_id" = $1
+WHERE "id" = ANY($2::uuid[]) AND "buyer_id" = $3 AND "payment_id" IS NULL
+`
+
+type SetOrderPaymentParams struct {
+	PaymentID null.Int    `json:"payment_id"`
+	Ids       []uuid.UUID `json:"ids"`
+	BuyerID   uuid.UUID   `json:"buyer_id"`
+}
+
+func (q *Queries) SetOrderPayment(ctx context.Context, arg SetOrderPaymentParams) error {
+	_, err := q.db.Exec(ctx, setOrderPayment, arg.PaymentID, arg.Ids, arg.BuyerID)
+	return err
 }

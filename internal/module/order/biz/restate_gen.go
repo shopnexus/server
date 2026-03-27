@@ -23,6 +23,30 @@ func NewOrderRestateClient(restateIngressURL string) *OrderRestateClient {
 	return &OrderRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
+func (p *OrderRestateClient) Checkout(ctx context.Context, params CheckoutParams) (CheckoutResult, error) {
+	return restateclient.Call[CheckoutResult](ctx, p.client, serviceName, "Checkout", params)
+}
+
+func (p *OrderRestateClient) ListPendingItems(ctx context.Context, params ListPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListPendingItems", params)
+}
+
+func (p *OrderRestateClient) CancelPendingItem(ctx context.Context, params CancelPendingItemParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "CancelPendingItem", params)
+}
+
+func (p *OrderRestateClient) ListIncomingItems(ctx context.Context, params ListIncomingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListIncomingItems", params)
+}
+
+func (p *OrderRestateClient) ConfirmItems(ctx context.Context, params ConfirmItemsParams) (ordermodel.Order, error) {
+	return restateclient.Call[ordermodel.Order](ctx, p.client, serviceName, "ConfirmItems", params)
+}
+
+func (p *OrderRestateClient) RejectItems(ctx context.Context, params RejectItemsParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "RejectItems", params)
+}
+
 func (p *OrderRestateClient) GetOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	return restateclient.Call[ordermodel.Order](ctx, p.client, serviceName, "GetOrder", orderID)
 }
@@ -31,28 +55,20 @@ func (p *OrderRestateClient) ListOrders(ctx context.Context, params ListOrdersPa
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListOrders", params)
 }
 
-func (p *OrderRestateClient) QuoteOrder(ctx context.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
-	return restateclient.Call[QuoteOrderResult](ctx, p.client, serviceName, "QuoteOrder", params)
-}
-
-func (p *OrderRestateClient) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "VerifyPayment", params)
-}
-
-func (p *OrderRestateClient) Checkout(ctx context.Context, params CheckoutParams) (CheckoutResult, error) {
-	return restateclient.Call[CheckoutResult](ctx, p.client, serviceName, "Checkout", params)
+func (p *OrderRestateClient) ListSellerOrders(ctx context.Context, params ListSellerOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListSellerOrders", params)
 }
 
 func (p *OrderRestateClient) CancelOrder(ctx context.Context, params CancelOrderParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "CancelOrder", params)
 }
 
-func (p *OrderRestateClient) ListVendorOrder(ctx context.Context, params ListVendorOrderParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
-	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListVendorOrder", params)
+func (p *OrderRestateClient) PayOrders(ctx context.Context, params PayOrdersParams) (PayOrdersResult, error) {
+	return restateclient.Call[PayOrdersResult](ctx, p.client, serviceName, "PayOrders", params)
 }
 
-func (p *OrderRestateClient) ConfirmOrder(ctx context.Context, params ConfirmOrderParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "ConfirmOrder", params)
+func (p *OrderRestateClient) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "VerifyPayment", params)
 }
 
 func (p *OrderRestateClient) GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
@@ -65,10 +81,6 @@ func (p *OrderRestateClient) UpdateCart(ctx context.Context, params UpdateCartPa
 
 func (p *OrderRestateClient) ClearCart(ctx context.Context, params ClearCartParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "ClearCart", params)
-}
-
-func (p *OrderRestateClient) ListCheckoutCart(ctx context.Context, params ListCheckoutCartParams) ([]ordermodel.CartItem, error) {
-	return restateclient.Call[[]ordermodel.CartItem](ctx, p.client, serviceName, "ListCheckoutCart", params)
 }
 
 func (p *OrderRestateClient) ListRefunds(ctx context.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {

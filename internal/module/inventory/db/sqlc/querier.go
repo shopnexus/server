@@ -51,6 +51,7 @@ type Querier interface {
 	ListSerial(ctx context.Context, arg ListSerialParams) ([]InventorySerial, error)
 	ListStock(ctx context.Context, arg ListStockParams) ([]InventoryStock, error)
 	ListStockHistory(ctx context.Context, arg ListStockHistoryParams) ([]InventoryStockHistory, error)
+	ReleaseInventory(ctx context.Context, arg ReleaseInventoryParams) (int64, error)
 	UpdateCurrentStock(ctx context.Context, arg UpdateCurrentStockParams) error
 	UpdateSerial(ctx context.Context, arg UpdateSerialParams) (InventorySerial, error)
 	UpdateSerialStatus(ctx context.Context, arg UpdateSerialStatusParams) error

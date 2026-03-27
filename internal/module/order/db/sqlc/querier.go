@@ -12,20 +12,26 @@ import (
 )
 
 type Querier interface {
+	CancelItem(ctx context.Context, arg CancelItemParams) error
+	CancelItemsByOrder(ctx context.Context, orderID uuid.NullUUID) error
+	CancelItemsBySeller(ctx context.Context, arg CancelItemsBySellerParams) error
+	ConfirmItems(ctx context.Context, arg ConfirmItemsParams) error
 	CountCartItem(ctx context.Context, arg CountCartItemParams) (int64, error)
 	CountItem(ctx context.Context, arg CountItemParams) (int64, error)
 	CountOrder(ctx context.Context, arg CountOrderParams) (int64, error)
 	CountPayment(ctx context.Context, arg CountPaymentParams) (int64, error)
+	CountPendingItemsByAccount(ctx context.Context, arg CountPendingItemsByAccountParams) (int64, error)
+	CountPendingItemsBySeller(ctx context.Context, sellerID uuid.UUID) (int64, error)
 	CountRefund(ctx context.Context, arg CountRefundParams) (int64, error)
 	CountRefundDispute(ctx context.Context, arg CountRefundDisputeParams) (int64, error)
-	CountShipment(ctx context.Context, arg CountShipmentParams) (int64, error)
+	CountTransport(ctx context.Context, arg CountTransportParams) (int64, error)
 	CreateBatchCartItem(ctx context.Context, arg []CreateBatchCartItemParams) *CreateBatchCartItemBatchResults
 	CreateBatchItem(ctx context.Context, arg []CreateBatchItemParams) *CreateBatchItemBatchResults
 	CreateBatchOrder(ctx context.Context, arg []CreateBatchOrderParams) *CreateBatchOrderBatchResults
 	CreateBatchPayment(ctx context.Context, arg []CreateBatchPaymentParams) *CreateBatchPaymentBatchResults
 	CreateBatchRefund(ctx context.Context, arg []CreateBatchRefundParams) *CreateBatchRefundBatchResults
 	CreateBatchRefundDispute(ctx context.Context, arg []CreateBatchRefundDisputeParams) *CreateBatchRefundDisputeBatchResults
-	CreateBatchShipment(ctx context.Context, arg []CreateBatchShipmentParams) *CreateBatchShipmentBatchResults
+	CreateBatchTransport(ctx context.Context, arg []CreateBatchTransportParams) *CreateBatchTransportBatchResults
 	CreateCartItem(ctx context.Context, arg CreateCartItemParams) (OrderCartItem, error)
 	CreateCopyCartItem(ctx context.Context, arg []CreateCopyCartItemParams) (int64, error)
 	CreateCopyDefaultCartItem(ctx context.Context, arg []CreateCopyDefaultCartItemParams) (int64, error)
@@ -34,33 +40,34 @@ type Querier interface {
 	CreateCopyDefaultPayment(ctx context.Context, arg []CreateCopyDefaultPaymentParams) (int64, error)
 	CreateCopyDefaultRefund(ctx context.Context, arg []CreateCopyDefaultRefundParams) (int64, error)
 	CreateCopyDefaultRefundDispute(ctx context.Context, arg []CreateCopyDefaultRefundDisputeParams) (int64, error)
-	CreateCopyDefaultShipment(ctx context.Context, arg []CreateCopyDefaultShipmentParams) (int64, error)
+	CreateCopyDefaultTransport(ctx context.Context, option []string) (int64, error)
 	CreateCopyItem(ctx context.Context, arg []CreateCopyItemParams) (int64, error)
 	CreateCopyOrder(ctx context.Context, arg []CreateCopyOrderParams) (int64, error)
 	CreateCopyPayment(ctx context.Context, arg []CreateCopyPaymentParams) (int64, error)
 	CreateCopyRefund(ctx context.Context, arg []CreateCopyRefundParams) (int64, error)
 	CreateCopyRefundDispute(ctx context.Context, arg []CreateCopyRefundDisputeParams) (int64, error)
-	CreateCopyShipment(ctx context.Context, arg []CreateCopyShipmentParams) (int64, error)
+	CreateCopyTransport(ctx context.Context, arg []CreateCopyTransportParams) (int64, error)
 	CreateDefaultCartItem(ctx context.Context, arg CreateDefaultCartItemParams) (OrderCartItem, error)
 	CreateDefaultItem(ctx context.Context, arg CreateDefaultItemParams) (OrderItem, error)
 	CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrderParams) (OrderOrder, error)
 	CreateDefaultPayment(ctx context.Context, arg CreateDefaultPaymentParams) (OrderPayment, error)
 	CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefundParams) (OrderRefund, error)
 	CreateDefaultRefundDispute(ctx context.Context, arg CreateDefaultRefundDisputeParams) (OrderRefundDispute, error)
-	CreateDefaultShipment(ctx context.Context, arg CreateDefaultShipmentParams) (OrderShipment, error)
+	CreateDefaultTransport(ctx context.Context, option string) (OrderTransport, error)
 	CreateItem(ctx context.Context, arg CreateItemParams) (OrderItem, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (OrderOrder, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (OrderPayment, error)
+	CreatePendingItem(ctx context.Context, arg CreatePendingItemParams) (OrderItem, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (OrderRefund, error)
 	CreateRefundDispute(ctx context.Context, arg CreateRefundDisputeParams) (OrderRefundDispute, error)
-	CreateShipment(ctx context.Context, arg CreateShipmentParams) (OrderShipment, error)
+	CreateTransport(ctx context.Context, arg CreateTransportParams) (OrderTransport, error)
 	DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) error
 	DeleteItem(ctx context.Context, arg DeleteItemParams) error
 	DeleteOrder(ctx context.Context, arg DeleteOrderParams) error
 	DeletePayment(ctx context.Context, arg DeletePaymentParams) error
 	DeleteRefund(ctx context.Context, arg DeleteRefundParams) error
 	DeleteRefundDispute(ctx context.Context, arg DeleteRefundDisputeParams) error
-	DeleteShipment(ctx context.Context, arg DeleteShipmentParams) error
+	DeleteTransport(ctx context.Context, arg DeleteTransportParams) error
 	// Code generated by pgtempl. DO NOT EDIT.
 	// Queries for table: order.cart_item
 	GetCartItem(ctx context.Context, arg GetCartItemParams) (OrderCartItem, error)
@@ -80,8 +87,8 @@ type Querier interface {
 	// Queries for table: order.refund_dispute
 	GetRefundDispute(ctx context.Context, id uuid.NullUUID) (OrderRefundDispute, error)
 	// Code generated by pgtempl. DO NOT EDIT.
-	// Queries for table: order.shipment
-	GetShipment(ctx context.Context, id uuid.NullUUID) (OrderShipment, error)
+	// Queries for table: order.transport
+	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	ListCountCartItem(ctx context.Context, arg ListCountCartItemParams) ([]ListCountCartItemRow, error)
 	ListCountItem(ctx context.Context, arg ListCountItemParams) ([]ListCountItemRow, error)
@@ -89,15 +96,20 @@ type Querier interface {
 	ListCountPayment(ctx context.Context, arg ListCountPaymentParams) ([]ListCountPaymentRow, error)
 	ListCountRefund(ctx context.Context, arg ListCountRefundParams) ([]ListCountRefundRow, error)
 	ListCountRefundDispute(ctx context.Context, arg ListCountRefundDisputeParams) ([]ListCountRefundDisputeRow, error)
-	ListCountShipment(ctx context.Context, arg ListCountShipmentParams) ([]ListCountShipmentRow, error)
-	ListCountVendorOrder(ctx context.Context, arg ListCountVendorOrderParams) ([]ListCountVendorOrderRow, error)
+	// Custom order queries
+	ListCountSellerOrder(ctx context.Context, arg ListCountSellerOrderParams) ([]ListCountSellerOrderRow, error)
+	ListCountTransport(ctx context.Context, arg ListCountTransportParams) ([]ListCountTransportRow, error)
 	ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error)
 	ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOrder, error)
 	ListPayment(ctx context.Context, arg ListPaymentParams) ([]OrderPayment, error)
+	ListPendingItemsByAccount(ctx context.Context, arg ListPendingItemsByAccountParams) ([]OrderItem, error)
+	// Custom item queries
+	ListPendingItemsBySeller(ctx context.Context, arg ListPendingItemsBySellerParams) ([]OrderItem, error)
 	ListRefund(ctx context.Context, arg ListRefundParams) ([]OrderRefund, error)
 	ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error)
-	ListShipment(ctx context.Context, arg ListShipmentParams) ([]OrderShipment, error)
+	ListTransport(ctx context.Context, arg ListTransportParams) ([]OrderTransport, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)
+	SetOrderPayment(ctx context.Context, arg SetOrderPaymentParams) error
 	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCartItem(ctx context.Context, arg UpdateCartItemParams) (OrderCartItem, error)
 	UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderItem, error)
@@ -105,7 +117,7 @@ type Querier interface {
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (OrderPayment, error)
 	UpdateRefund(ctx context.Context, arg UpdateRefundParams) (OrderRefund, error)
 	UpdateRefundDispute(ctx context.Context, arg UpdateRefundDisputeParams) (OrderRefundDispute, error)
-	UpdateShipment(ctx context.Context, arg UpdateShipmentParams) (OrderShipment, error)
+	UpdateTransport(ctx context.Context, arg UpdateTransportParams) (OrderTransport, error)
 }
 
 var _ Querier = (*Queries)(nil)

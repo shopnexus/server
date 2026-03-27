@@ -97,36 +97,3 @@ func (h *Handler) ClearCart(c echo.Context) error {
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Clear cart successfully")
 }
-
-type ListCheckoutCartRequest struct {
-	SkuIDs         []uuid.UUID   `query:"sku_ids" validate:"omitempty,dive"`                  // Select items in cart to checkout
-	BuyNowSkuID    uuid.NullUUID `query:"buy_now_sku_id" validate:"omitnil"`                  // Instant checkout
-	BuyNowQuantity null.Int64    `query:"buy_now_quantity" validate:"omitnil,min=1,max=1000"` // Instant checkout quantity
-}
-
-func (h *Handler) ListCheckoutCart(c echo.Context) error {
-	var req ListCheckoutCartRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
-	result, err := h.biz.ListCheckoutCart(c.Request().Context(), orderbiz.ListCheckoutCartParams{
-		Account:        claims.Account,
-		SkuIDs:         req.SkuIDs,
-		BuyNowSkuID:    req.BuyNowSkuID,
-		BuyNowQuantity: req.BuyNowQuantity,
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-}

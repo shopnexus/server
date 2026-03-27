@@ -30,3 +30,8 @@ WHERE ref_type = sqlc.arg('ref_type')
 ORDER BY taken DESC
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
+
+-- name: ReleaseInventory :execrows
+UPDATE "inventory"."stock"
+SET "stock" = "stock" + @amount, "taken" = "taken" - @amount
+WHERE "ref_id" = @ref_id AND "ref_type" = @ref_type AND "taken" >= @amount;

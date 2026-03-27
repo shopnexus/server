@@ -8,6 +8,7 @@ package inventorydb
 import (
 	"context"
 
+	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 )
 
@@ -112,6 +113,26 @@ func (q *Queries) ListMostTakenSku(ctx context.Context, arg ListMostTakenSkuPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const releaseInventory = `-- name: ReleaseInventory :execrows
+UPDATE "inventory"."stock"
+SET "stock" = "stock" + $1, "taken" = "taken" - $1
+WHERE "ref_id" = $2 AND "ref_type" = $3 AND "taken" >= $1
+`
+
+type ReleaseInventoryParams struct {
+	Amount  int64                 `json:"amount"`
+	RefID   uuid.UUID             `json:"ref_id"`
+	RefType InventoryStockRefType `json:"ref_type"`
+}
+
+func (q *Queries) ReleaseInventory(ctx context.Context, arg ReleaseInventoryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, releaseInventory, arg.Amount, arg.RefID, arg.RefType)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateCurrentStock = `-- name: UpdateCurrentStock :exec

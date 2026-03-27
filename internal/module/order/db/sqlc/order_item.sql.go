@@ -8,6 +8,7 @@ package orderdb
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
@@ -29,23 +30,45 @@ WHERE (
     ("unit_price" > $9 OR $9 IS NULL) AND
     ("unit_price" < $10 OR $10 IS NULL) AND
     ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL)
+    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
+    ("account_id" = ANY($13) OR $13 IS NULL) AND
+    ("seller_id" = ANY($14) OR $14 IS NULL) AND
+    ("address" = ANY($15) OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL)
 )
 `
 
 type CountItemParams struct {
-	ID            []int64           `json:"id"`
-	OrderID       []uuid.UUID       `json:"order_id"`
-	SkuID         []uuid.UUID       `json:"sku_id"`
-	SkuName       []string          `json:"sku_name"`
-	Quantity      []int64           `json:"quantity"`
-	QuantityFrom  null.Int          `json:"quantity_from"`
-	QuantityTo    null.Int          `json:"quantity_to"`
-	UnitPrice     []int64           `json:"unit_price"`
-	UnitPriceFrom null.Int          `json:"unit_price_from"`
-	UnitPriceTo   null.Int          `json:"unit_price_to"`
-	Note          []null.String     `json:"note"`
-	SerialIds     []json.RawMessage `json:"serial_ids"`
+	ID              []int64           `json:"id"`
+	OrderID         []uuid.NullUUID   `json:"order_id"`
+	SkuID           []uuid.UUID       `json:"sku_id"`
+	SkuName         []string          `json:"sku_name"`
+	Quantity        []int64           `json:"quantity"`
+	QuantityFrom    null.Int          `json:"quantity_from"`
+	QuantityTo      null.Int          `json:"quantity_to"`
+	UnitPrice       []int64           `json:"unit_price"`
+	UnitPriceFrom   null.Int          `json:"unit_price_from"`
+	UnitPriceTo     null.Int          `json:"unit_price_to"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
+	Address         []string          `json:"address"`
+	Status          []OrderItemStatus `json:"status"`
+	PaidAmount      []int64           `json:"paid_amount"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
 }
 
 func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, error) {
@@ -62,6 +85,17 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 		arg.UnitPriceTo,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -69,39 +103,50 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 }
 
 type CreateCopyDefaultItemParams struct {
-	OrderID   uuid.UUID       `json:"order_id"`
+	OrderID   uuid.NullUUID   `json:"order_id"`
 	SkuID     uuid.UUID       `json:"sku_id"`
 	SkuName   string          `json:"sku_name"`
 	Quantity  int64           `json:"quantity"`
 	UnitPrice int64           `json:"unit_price"`
 	Note      null.String     `json:"note"`
 	SerialIds json.RawMessage `json:"serial_ids"`
+	AccountID uuid.UUID       `json:"account_id"`
+	SellerID  uuid.UUID       `json:"seller_id"`
 }
 
 type CreateCopyItemParams struct {
-	OrderID   uuid.UUID       `json:"order_id"`
-	SkuID     uuid.UUID       `json:"sku_id"`
-	SkuName   string          `json:"sku_name"`
-	Quantity  int64           `json:"quantity"`
-	UnitPrice int64           `json:"unit_price"`
-	Note      null.String     `json:"note"`
-	SerialIds json.RawMessage `json:"serial_ids"`
+	OrderID     uuid.NullUUID   `json:"order_id"`
+	SkuID       uuid.UUID       `json:"sku_id"`
+	SkuName     string          `json:"sku_name"`
+	Quantity    int64           `json:"quantity"`
+	UnitPrice   int64           `json:"unit_price"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
+	Address     string          `json:"address"`
+	Status      OrderItemStatus `json:"status"`
+	PaidAmount  int64           `json:"paid_amount"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 const createDefaultItem = `-- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 `
 
 type CreateDefaultItemParams struct {
-	OrderID   uuid.UUID       `json:"order_id"`
+	OrderID   uuid.NullUUID   `json:"order_id"`
 	SkuID     uuid.UUID       `json:"sku_id"`
 	SkuName   string          `json:"sku_name"`
 	Quantity  int64           `json:"quantity"`
 	UnitPrice int64           `json:"unit_price"`
 	Note      null.String     `json:"note"`
 	SerialIds json.RawMessage `json:"serial_ids"`
+	AccountID uuid.UUID       `json:"account_id"`
+	SellerID  uuid.UUID       `json:"seller_id"`
 }
 
 func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemParams) (OrderItem, error) {
@@ -113,6 +158,8 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 		arg.UnitPrice,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
 	)
 	var i OrderItem
 	err := row.Scan(
@@ -124,24 +171,38 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 		&i.UnitPrice,
 		&i.Note,
 		&i.SerialIds,
+		&i.AccountID,
+		&i.SellerID,
+		&i.Address,
+		&i.Status,
+		&i.PaidAmount,
+		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
 
 const createItem = `-- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 `
 
 type CreateItemParams struct {
-	OrderID   uuid.UUID       `json:"order_id"`
-	SkuID     uuid.UUID       `json:"sku_id"`
-	SkuName   string          `json:"sku_name"`
-	Quantity  int64           `json:"quantity"`
-	UnitPrice int64           `json:"unit_price"`
-	Note      null.String     `json:"note"`
-	SerialIds json.RawMessage `json:"serial_ids"`
+	OrderID     uuid.NullUUID   `json:"order_id"`
+	SkuID       uuid.UUID       `json:"sku_id"`
+	SkuName     string          `json:"sku_name"`
+	Quantity    int64           `json:"quantity"`
+	UnitPrice   int64           `json:"unit_price"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
+	Address     string          `json:"address"`
+	Status      OrderItemStatus `json:"status"`
+	PaidAmount  int64           `json:"paid_amount"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderItem, error) {
@@ -153,6 +214,13 @@ func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderIt
 		arg.UnitPrice,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateUpdated,
 	)
 	var i OrderItem
 	err := row.Scan(
@@ -164,6 +232,13 @@ func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderIt
 		&i.UnitPrice,
 		&i.Note,
 		&i.SerialIds,
+		&i.AccountID,
+		&i.SellerID,
+		&i.Address,
+		&i.Status,
+		&i.PaidAmount,
+		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -182,23 +257,45 @@ WHERE (
     ("unit_price" > $9 OR $9 IS NULL) AND
     ("unit_price" < $10 OR $10 IS NULL) AND
     ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL)
+    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
+    ("account_id" = ANY($13) OR $13 IS NULL) AND
+    ("seller_id" = ANY($14) OR $14 IS NULL) AND
+    ("address" = ANY($15) OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL)
 )
 `
 
 type DeleteItemParams struct {
-	ID            []int64           `json:"id"`
-	OrderID       []uuid.UUID       `json:"order_id"`
-	SkuID         []uuid.UUID       `json:"sku_id"`
-	SkuName       []string          `json:"sku_name"`
-	Quantity      []int64           `json:"quantity"`
-	QuantityFrom  null.Int          `json:"quantity_from"`
-	QuantityTo    null.Int          `json:"quantity_to"`
-	UnitPrice     []int64           `json:"unit_price"`
-	UnitPriceFrom null.Int          `json:"unit_price_from"`
-	UnitPriceTo   null.Int          `json:"unit_price_to"`
-	Note          []null.String     `json:"note"`
-	SerialIds     []json.RawMessage `json:"serial_ids"`
+	ID              []int64           `json:"id"`
+	OrderID         []uuid.NullUUID   `json:"order_id"`
+	SkuID           []uuid.UUID       `json:"sku_id"`
+	SkuName         []string          `json:"sku_name"`
+	Quantity        []int64           `json:"quantity"`
+	QuantityFrom    null.Int          `json:"quantity_from"`
+	QuantityTo      null.Int          `json:"quantity_to"`
+	UnitPrice       []int64           `json:"unit_price"`
+	UnitPriceFrom   null.Int          `json:"unit_price_from"`
+	UnitPriceTo     null.Int          `json:"unit_price_to"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
+	Address         []string          `json:"address"`
+	Status          []OrderItemStatus `json:"status"`
+	PaidAmount      []int64           `json:"paid_amount"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
 }
 
 func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
@@ -215,13 +312,24 @@ func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
 		arg.UnitPriceTo,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 	)
 	return err
 }
 
 const getItem = `-- name: GetItem :one
 
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 FROM "order"."item"
 WHERE ("id" = $1) OR ("order_id" = $2 AND "sku_id" = $3)
 `
@@ -246,12 +354,19 @@ func (q *Queries) GetItem(ctx context.Context, arg GetItemParams) (OrderItem, er
 		&i.UnitPrice,
 		&i.Note,
 		&i.SerialIds,
+		&i.AccountID,
+		&i.SellerID,
+		&i.Address,
+		&i.Status,
+		&i.PaidAmount,
+		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }
 
 const listCountItem = `-- name: ListCountItem :many
-SELECT embed_item.id, embed_item.order_id, embed_item.sku_id, embed_item.sku_name, embed_item.quantity, embed_item.unit_price, embed_item.note, embed_item.serial_ids, COUNT(*) OVER() as total_count
+SELECT embed_item.id, embed_item.order_id, embed_item.sku_id, embed_item.sku_name, embed_item.quantity, embed_item.unit_price, embed_item.note, embed_item.serial_ids, embed_item.account_id, embed_item.seller_id, embed_item.address, embed_item.status, embed_item.paid_amount, embed_item.date_created, embed_item.date_updated, COUNT(*) OVER() as total_count
 FROM "order"."item" embed_item
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -265,28 +380,50 @@ WHERE (
     ("unit_price" > $9 OR $9 IS NULL) AND
     ("unit_price" < $10 OR $10 IS NULL) AND
     ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL)
+    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
+    ("account_id" = ANY($13) OR $13 IS NULL) AND
+    ("seller_id" = ANY($14) OR $14 IS NULL) AND
+    ("address" = ANY($15) OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $25::int
+OFFSET $24::int
 `
 
 type ListCountItemParams struct {
-	ID            []int64           `json:"id"`
-	OrderID       []uuid.UUID       `json:"order_id"`
-	SkuID         []uuid.UUID       `json:"sku_id"`
-	SkuName       []string          `json:"sku_name"`
-	Quantity      []int64           `json:"quantity"`
-	QuantityFrom  null.Int          `json:"quantity_from"`
-	QuantityTo    null.Int          `json:"quantity_to"`
-	UnitPrice     []int64           `json:"unit_price"`
-	UnitPriceFrom null.Int          `json:"unit_price_from"`
-	UnitPriceTo   null.Int          `json:"unit_price_to"`
-	Note          []null.String     `json:"note"`
-	SerialIds     []json.RawMessage `json:"serial_ids"`
-	Offset        null.Int32        `json:"offset"`
-	Limit         null.Int32        `json:"limit"`
+	ID              []int64           `json:"id"`
+	OrderID         []uuid.NullUUID   `json:"order_id"`
+	SkuID           []uuid.UUID       `json:"sku_id"`
+	SkuName         []string          `json:"sku_name"`
+	Quantity        []int64           `json:"quantity"`
+	QuantityFrom    null.Int          `json:"quantity_from"`
+	QuantityTo      null.Int          `json:"quantity_to"`
+	UnitPrice       []int64           `json:"unit_price"`
+	UnitPriceFrom   null.Int          `json:"unit_price_from"`
+	UnitPriceTo     null.Int          `json:"unit_price_to"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
+	Address         []string          `json:"address"`
+	Status          []OrderItemStatus `json:"status"`
+	PaidAmount      []int64           `json:"paid_amount"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 type ListCountItemRow struct {
@@ -308,6 +445,17 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 		arg.UnitPriceTo,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -327,6 +475,13 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 			&i.OrderItem.UnitPrice,
 			&i.OrderItem.Note,
 			&i.OrderItem.SerialIds,
+			&i.OrderItem.AccountID,
+			&i.OrderItem.SellerID,
+			&i.OrderItem.Address,
+			&i.OrderItem.Status,
+			&i.OrderItem.PaidAmount,
+			&i.OrderItem.DateCreated,
+			&i.OrderItem.DateUpdated,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -340,7 +495,7 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 }
 
 const listItem = `-- name: ListItem :many
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -354,28 +509,50 @@ WHERE (
     ("unit_price" > $9 OR $9 IS NULL) AND
     ("unit_price" < $10 OR $10 IS NULL) AND
     ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL)
+    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
+    ("account_id" = ANY($13) OR $13 IS NULL) AND
+    ("seller_id" = ANY($14) OR $14 IS NULL) AND
+    ("address" = ANY($15) OR $15 IS NULL) AND
+    ("status" = ANY($16) OR $16 IS NULL) AND
+    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" = ANY($18) OR $18 IS NULL) AND
+    ("date_created" > $19 OR $19 IS NULL) AND
+    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_updated" = ANY($21) OR $21 IS NULL) AND
+    ("date_updated" > $22 OR $22 IS NULL) AND
+    ("date_updated" < $23 OR $23 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $25::int
+OFFSET $24::int
 `
 
 type ListItemParams struct {
-	ID            []int64           `json:"id"`
-	OrderID       []uuid.UUID       `json:"order_id"`
-	SkuID         []uuid.UUID       `json:"sku_id"`
-	SkuName       []string          `json:"sku_name"`
-	Quantity      []int64           `json:"quantity"`
-	QuantityFrom  null.Int          `json:"quantity_from"`
-	QuantityTo    null.Int          `json:"quantity_to"`
-	UnitPrice     []int64           `json:"unit_price"`
-	UnitPriceFrom null.Int          `json:"unit_price_from"`
-	UnitPriceTo   null.Int          `json:"unit_price_to"`
-	Note          []null.String     `json:"note"`
-	SerialIds     []json.RawMessage `json:"serial_ids"`
-	Offset        null.Int32        `json:"offset"`
-	Limit         null.Int32        `json:"limit"`
+	ID              []int64           `json:"id"`
+	OrderID         []uuid.NullUUID   `json:"order_id"`
+	SkuID           []uuid.UUID       `json:"sku_id"`
+	SkuName         []string          `json:"sku_name"`
+	Quantity        []int64           `json:"quantity"`
+	QuantityFrom    null.Int          `json:"quantity_from"`
+	QuantityTo      null.Int          `json:"quantity_to"`
+	UnitPrice       []int64           `json:"unit_price"`
+	UnitPriceFrom   null.Int          `json:"unit_price_from"`
+	UnitPriceTo     null.Int          `json:"unit_price_to"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
+	Address         []string          `json:"address"`
+	Status          []OrderItemStatus `json:"status"`
+	PaidAmount      []int64           `json:"paid_amount"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error) {
@@ -392,6 +569,17 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 		arg.UnitPriceTo,
 		arg.Note,
 		arg.SerialIds,
+		arg.AccountID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -411,6 +599,13 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 			&i.UnitPrice,
 			&i.Note,
 			&i.SerialIds,
+			&i.AccountID,
+			&i.SellerID,
+			&i.Address,
+			&i.Status,
+			&i.PaidAmount,
+			&i.DateCreated,
+			&i.DateUpdated,
 		); err != nil {
 			return nil, err
 		}
@@ -424,32 +619,50 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 
 const updateItem = `-- name: UpdateItem :one
 UPDATE "order"."item"
-SET "order_id" = COALESCE($1, "order_id"),
-    "sku_id" = COALESCE($2, "sku_id"),
-    "sku_name" = COALESCE($3, "sku_name"),
-    "quantity" = COALESCE($4, "quantity"),
-    "unit_price" = COALESCE($5, "unit_price"),
-    "note" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "note") END,
-    "serial_ids" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "serial_ids") END
-WHERE id = $10
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+SET "order_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "order_id") END,
+    "sku_id" = COALESCE($3, "sku_id"),
+    "sku_name" = COALESCE($4, "sku_name"),
+    "quantity" = COALESCE($5, "quantity"),
+    "unit_price" = COALESCE($6, "unit_price"),
+    "note" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "note") END,
+    "serial_ids" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "serial_ids") END,
+    "account_id" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "account_id") END,
+    "seller_id" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "seller_id") END,
+    "address" = COALESCE($15, "address"),
+    "status" = COALESCE($16, "status"),
+    "paid_amount" = COALESCE($17, "paid_amount"),
+    "date_created" = COALESCE($18, "date_created"),
+    "date_updated" = COALESCE($19, "date_updated")
+WHERE id = $20
+RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 `
 
 type UpdateItemParams struct {
-	OrderID       uuid.NullUUID   `json:"order_id"`
-	SkuID         uuid.NullUUID   `json:"sku_id"`
-	SkuName       null.String     `json:"sku_name"`
-	Quantity      null.Int        `json:"quantity"`
-	UnitPrice     null.Int        `json:"unit_price"`
-	NullNote      bool            `json:"null_note"`
-	Note          null.String     `json:"note"`
-	NullSerialIds bool            `json:"null_serial_ids"`
-	SerialIds     json.RawMessage `json:"serial_ids"`
-	ID            int64           `json:"id"`
+	NullOrderID   bool                `json:"null_order_id"`
+	OrderID       uuid.NullUUID       `json:"order_id"`
+	SkuID         uuid.NullUUID       `json:"sku_id"`
+	SkuName       null.String         `json:"sku_name"`
+	Quantity      null.Int            `json:"quantity"`
+	UnitPrice     null.Int            `json:"unit_price"`
+	NullNote      bool                `json:"null_note"`
+	Note          null.String         `json:"note"`
+	NullSerialIds bool                `json:"null_serial_ids"`
+	SerialIds     json.RawMessage     `json:"serial_ids"`
+	NullAccountID bool                `json:"null_account_id"`
+	AccountID     uuid.NullUUID       `json:"account_id"`
+	NullSellerID  bool                `json:"null_seller_id"`
+	SellerID      uuid.NullUUID       `json:"seller_id"`
+	Address       null.String         `json:"address"`
+	Status        NullOrderItemStatus `json:"status"`
+	PaidAmount    null.Int            `json:"paid_amount"`
+	DateCreated   null.Time           `json:"date_created"`
+	DateUpdated   null.Time           `json:"date_updated"`
+	ID            int64               `json:"id"`
 }
 
 func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, updateItem,
+		arg.NullOrderID,
 		arg.OrderID,
 		arg.SkuID,
 		arg.SkuName,
@@ -459,6 +672,15 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 		arg.Note,
 		arg.NullSerialIds,
 		arg.SerialIds,
+		arg.NullAccountID,
+		arg.AccountID,
+		arg.NullSellerID,
+		arg.SellerID,
+		arg.Address,
+		arg.Status,
+		arg.PaidAmount,
+		arg.DateCreated,
+		arg.DateUpdated,
 		arg.ID,
 	)
 	var i OrderItem
@@ -471,6 +693,13 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 		&i.UnitPrice,
 		&i.Note,
 		&i.SerialIds,
+		&i.AccountID,
+		&i.SellerID,
+		&i.Address,
+		&i.Status,
+		&i.PaidAmount,
+		&i.DateCreated,
+		&i.DateUpdated,
 	)
 	return i, err
 }

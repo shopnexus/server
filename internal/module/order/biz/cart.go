@@ -6,7 +6,6 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -20,13 +19,8 @@ import (
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
-
-type GetCartParams struct {
-	AccountID uuid.UUID `validate:"required"`
-}
 
 // GetCart returns all cart items for the given account with SKU details and product images.
 func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ordermodel.CartItem, error) {
@@ -76,14 +70,6 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 
 		return items, nil
 	})
-}
-
-type UpdateCartParams struct {
-	Account accountmodel.AuthenticatedAccount
-
-	SkuID         uuid.UUID  `validate:"required"`
-	Quantity      null.Int64 `validate:"omitnil,min=0,max=1000"`
-	DeltaQuantity null.Int64 `validate:"omitnil,min=1,max=1000"`
 }
 
 // UpdateCart adds, updates, or removes a cart item and tracks the interaction.
@@ -146,10 +132,6 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 	return nil
 }
 
-type ClearCartParams struct {
-	Account accountmodel.AuthenticatedAccount
-}
-
 // ClearCart removes all items from the account's cart.
 func (b *OrderHandler) ClearCart(ctx restate.Context, params ClearCartParams) error {
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
@@ -157,66 +139,4 @@ func (b *OrderHandler) ClearCart(ctx restate.Context, params ClearCartParams) er
 			AccountID: []uuid.UUID{params.Account.ID},
 		})
 	})
-}
-
-type ListCheckoutCartParams struct {
-	Account        accountmodel.AuthenticatedAccount
-	SkuIDs         []uuid.UUID   `validate:"omitempty,dive"`           // Select items in cart to checkout
-	BuyNowSkuID    uuid.NullUUID `validate:"omitempty"`                // Instant checkout
-	BuyNowQuantity null.Int64    `validate:"omitempty,min=1,max=1000"` // Instant checkout quantity
-}
-
-// ListCheckoutCart returns cart items selected for checkout, or a single item for buy-now flow.
-func (b *OrderHandler) ListCheckoutCart(ctx restate.Context, params ListCheckoutCartParams) ([]ordermodel.CartItem, error) {
-	if err := validator.Validate(params); err != nil {
-		return nil, err
-	}
-
-	// Handle Buy Now case
-	if params.BuyNowSkuID.Valid {
-		if !params.BuyNowQuantity.Valid {
-			return nil, ordermodel.ErrBuyNowQuantityRequired.Terminal()
-		}
-
-		skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{ID: []uuid.UUID{params.BuyNowSkuID.UUID}})
-		if err != nil {
-			return nil, err
-		}
-
-		return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
-			var results []ordermodel.CartItem
-			if len(skus) > 0 {
-				sku := skus[0]
-				var resource *commonmodel.Resource
-				if resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
-					RefType: commondb.CommonResourceRefTypeProductSpu,
-					RefIDs:  []uuid.UUID{sku.SpuID},
-				}); err == nil {
-					if res, exists := resourcesMap[sku.SpuID]; exists && len(res) > 0 {
-						resource = &res[0]
-					}
-				}
-
-				results = append(results, ordermodel.CartItem{
-					SpuID:    sku.SpuID,
-					Sku:      sku,
-					Quantity: params.BuyNowQuantity.Int64,
-					Resource: resource,
-				})
-			}
-			return results, nil
-		})
-	}
-
-	// Regular cart checkout
-	cart, err := b.GetCart(ctx, GetCartParams{AccountID: params.Account.ID})
-	if err != nil {
-		return nil, err
-	}
-
-	results := lo.Filter(cart, func(item ordermodel.CartItem, _ int) bool {
-		return lo.Contains(params.SkuIDs, item.Sku.ID)
-	})
-
-	return results, nil
 }

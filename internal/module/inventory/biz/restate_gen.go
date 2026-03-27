@@ -46,6 +46,10 @@ func (p *InventoryRestateClient) ReserveInventory(ctx context.Context, params Re
 	return restateclient.Call[[]ReserveInventoryResult](ctx, p.client, serviceName, "ReserveInventory", params)
 }
 
+func (p *InventoryRestateClient) ReleaseInventory(ctx context.Context, params ReleaseInventoryParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "ReleaseInventory", params)
+}
+
 func (p *InventoryRestateClient) UpdateSerial(ctx context.Context, params UpdateSerialParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "UpdateSerial", params)
 }

@@ -1,78 +1,33 @@
 package orderbiz
 
 import (
-	"encoding/json"
 	"fmt"
-	"time"
 
 	restate "github.com/restatedev/sdk-go"
 
-	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/payment"
-	"shopnexus-server/internal/infras/shipment"
-	accountbiz "shopnexus-server/internal/module/account/biz"
-	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
 )
 
-type CheckoutParams struct {
-	Account       accountmodel.AuthenticatedAccount
-	Address       string         `validate:"required"`
-	BuyNow        bool           `validate:"omitempty"`
-	PaymentOption string         `validate:"required,min=1,max=100"`
-	Items         []CheckoutItem `validate:"required,min=1,dive"`
-	// Each items is a order, contains one order item (sku), or more than one if having a promotion bundle
-	// TODO: future: add support for wrapping multiple SKUs into one order (only for same vendor)
-}
-
-type CheckoutItem struct {
-	SkuID          uuid.UUID       `json:"sku_id"`
-	Quantity       int64           `json:"quantity"`
-	Note           string          `json:"note"`
-	ShipmentOption string          `json:"shipment_option"`
-	PromotionCodes []string        `json:"promotion_codes"`
-	Data           json.RawMessage `json:"data"` // Additional data for this item
-}
-
-type CheckoutResult struct {
-	Orders      []ordermodel.Order `json:"orders"`
-	RedirectUrl null.String        `json:"url"`
-}
-
-// Intermediate result types for durable steps
-type checkoutProductsResult struct {
-	Skus       []catalogmodel.ProductSku `json:"skus"`
-	SpusData   []catalogmodel.ProductSpu `json:"spus_data"`
-	ContactMap map[uuid.UUID]string      `json:"contact_map"` // accountID → address
-}
-
-type checkoutShipmentEntry struct {
-	ID   uuid.UUID `json:"id"`
-	Cost int64     `json:"cost"`
-}
-
-type checkoutPaymentResult struct {
-	PaymentID   int64  `json:"payment_id"`
-	RedirectURL string `json:"redirect_url"`
-}
-
-// Checkout processes a purchase order with payment creation, inventory reservation, and shipment booking.
+// Checkout creates pending order items (no order, no payment, no transport yet).
+// Inventory is reserved. Items are removed from cart unless BuyNow.
 func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
 	var zero CheckoutResult
 
@@ -86,7 +41,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
 	checkoutItemMap := lo.KeyBy(params.Items, func(s CheckoutItem) uuid.UUID { return s.SkuID })
 
-	// Step 1: Fetch product data (catalog + contacts)
+	// Step 1: Fetch product data (SKUs + SPUs for seller_id and name)
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
 		ID: skuIDs,
 	})
@@ -105,48 +60,10 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 		return zero, sharedmodel.WrapErr("fetch product spus", err)
 	}
 
-	vendorIDs := lo.Map(listSpu.Data, func(s catalogmodel.ProductSpu, _ int) uuid.UUID { return s.AccountID })
-	contactMapRaw, err := b.account.GetDefaultContact(ctx, vendorIDs)
-	if err != nil {
-		return zero, sharedmodel.WrapErr("get vendor contacts", err)
-	}
+	skuMap := lo.KeyBy(skus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
+	spuMap := lo.KeyBy(listSpu.Data, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
 
-	// Simplify to just addresses for serialization safety
-	contactMap := make(map[uuid.UUID]string, len(contactMapRaw))
-	for id, contact := range contactMapRaw {
-		contactMap[id] = contact.Address
-	}
-
-	products := checkoutProductsResult{
-		Skus:       skus,
-		SpusData:   listSpu.Data,
-		ContactMap: contactMap,
-	}
-
-	// Build maps (pure computation)
-	skuMap := lo.KeyBy(products.Skus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
-	spuMap := lo.KeyBy(products.SpusData, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
-
-	// Step 2: Remove checkout items from cart if not buy now
-	if !params.BuyNow {
-		if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-			cartItems, err := b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
-				AccountID: params.Account.ID,
-				SkuID:     skuIDs,
-			})
-			if err != nil {
-				return fmt.Errorf("remove checkout items: %w", err)
-			}
-			if len(cartItems) != len(skuIDs) {
-				return ordermodel.ErrSkuNotFoundInCart.Terminal()
-			}
-			return nil
-		}); err != nil {
-			return zero, sharedmodel.WrapErr("remove cart items", err)
-		}
-	}
-
-	// Step 3: Reserve inventory
+	// Step 2: Reserve inventory
 	inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
 		Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
 			return inventorybiz.ReserveInventoryItem{
@@ -164,207 +81,75 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 		return i.RefID, i.SerialIDs
 	})
 
-	// Step 4: Create shipments
-	shipmentMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID]checkoutShipmentEntry, error) {
-		result := make(map[uuid.UUID]checkoutShipmentEntry, len(params.Items))
-		for _, checkoutItem := range params.Items {
-			shipmentClient, err := b.getShipmentClient(checkoutItem.ShipmentOption)
-			if err != nil {
-				return nil, fmt.Errorf("get shipment client: %w", err)
-			}
-
-			var defaultPackageDetails shipment.PackageDetails
-			if err := sonic.Unmarshal(skuMap[checkoutItem.SkuID].PackageDetails, &defaultPackageDetails); err != nil {
-				return nil, fmt.Errorf("unmarshal package details for sku %s: %w", checkoutItem.SkuID, err)
-			}
-
-			contactAddress := products.ContactMap[spuMap[skuMap[checkoutItem.SkuID].SpuID].AccountID]
-
-			shipmentOrder, err := shipmentClient.Create(ctx, shipment.CreateParams{
-				FromAddress: contactAddress,
-				ToAddress:   params.Address,
-				Package:     defaultPackageDetails,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("create shipment: %w", err)
-			}
-
-			dbShipment, err := b.storage.Querier().CreateDefaultShipment(ctx, orderdb.CreateDefaultShipmentParams{
-				Option:      checkoutItem.ShipmentOption,
-				Cost:        int64(shipmentOrder.Costs),
-				DateEta:     shipmentOrder.ETA,
-				FromAddress: contactAddress,
-				ToAddress:   params.Address,
-				WeightGrams: int32(defaultPackageDetails.WeightGrams),
-				LengthCm:    int32(defaultPackageDetails.LengthCM),
-				WidthCm:     int32(defaultPackageDetails.WidthCM),
-				HeightCm:    int32(defaultPackageDetails.HeightCM),
-			})
-			if err != nil {
-				return nil, fmt.Errorf("create shipment: %w", err)
-			}
-
-			result[checkoutItem.SkuID] = checkoutShipmentEntry{
-				ID:   dbShipment.ID,
-				Cost: dbShipment.Cost,
-			}
-		}
-		return result, nil
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("create shipments", err)
+	// Step 3: Create pending items
+	type createdItemInfo struct {
+		ID          int64     `json:"id"`
+		SkuID       string    `json:"sku_id"`
+		DateCreated string    `json:"date_created"`
 	}
-
-	// Step 5: Calculate promoted prices
-	requestOrderPrices := lo.Map(params.Items, func(item CheckoutItem, _ int) catalogmodel.RequestOrderPrice {
-		return catalogmodel.RequestOrderPrice{
-			SkuID:          item.SkuID,
-			SpuID:          skuMap[item.SkuID].SpuID,
-			UnitPrice:      skuMap[item.SkuID].Price,
-			Quantity:       item.Quantity,
-			ShipCost:       sharedmodel.Concurrency(shipmentMap[item.SkuID].Cost),
-			PromotionCodes: item.PromotionCodes,
-		}
-	})
-
-	priceMap, err := restate.Run(ctx, func(ctx restate.RunContext) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
-		return b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestOrderPrices, SpuMap: spuMap})
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("calculate prices", err)
-	}
-
-	// Step 6: Create payment + call payment provider
-	paymentInfo, err := restate.Run(ctx, func(ctx restate.RunContext) (checkoutPaymentResult, error) {
-		expiryDays := config.GetConfig().App.Order.PaymentExpiryDays
-		if expiryDays <= 0 {
-			expiryDays = 30
-		}
-
-		var totalPrice sharedmodel.Concurrency
-		for _, checkoutItem := range params.Items {
-			price := priceMap[checkoutItem.SkuID]
-			totalPrice += price.Total()
-		}
-
-		dbPayment, err := b.storage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-			AccountID:   params.Account.ID,
-			Option:      params.PaymentOption,
-			Amount:      int64(totalPrice),
-			Data:        []byte("[]"), // TODO: may put some data here idk
-			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
-		})
-		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("create payment: %w", err)
-		}
-
-		paymentProvider, err := b.getPaymentClient(params.PaymentOption)
-		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("get payment provider: %w", err)
-		}
-
-		createdOrder, err := paymentProvider.CreateOrder(ctx, payment.CreateOrderParams{
-			RefID:  dbPayment.ID,
-			Amount: totalPrice,
-			Info:   fmt.Sprintf("Order %d", dbPayment.ID),
-		})
-		if err != nil {
-			return checkoutPaymentResult{}, fmt.Errorf("create payment order: %w", err)
-		}
-
-		return checkoutPaymentResult{
-			PaymentID:   dbPayment.ID,
-			RedirectURL: createdOrder.RedirectURL,
-		}, nil
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("create payment", err)
-	}
-
-	// Step 7: Create orders and order items
-	orderIDs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]uuid.UUID, error) {
-		var ids []uuid.UUID
+	createdItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]createdItemInfo, error) {
+		var items []createdItemInfo
 		for _, checkoutItem := range params.Items {
 			sku := skuMap[checkoutItem.SkuID]
-			price := priceMap[checkoutItem.SkuID]
-			serialIDs := serialIDsMap[checkoutItem.SkuID] // empty when serial_required = false
+			spu := spuMap[sku.SpuID]
+			serialIDs := serialIDsMap[checkoutItem.SkuID]
 
-			order, err := b.storage.Querier().CreateDefaultOrder(ctx, orderdb.CreateDefaultOrderParams{
-				CustomerID:      params.Account.ID,
-				VendorID:        spuMap[sku.SpuID].AccountID,
-				PaymentID:       paymentInfo.PaymentID,
-				ShipmentID:      shipmentMap[checkoutItem.SkuID].ID,
-				Address:         params.Address,
-				ProductCost:     int64(price.ProductCost),
-				ProductDiscount: int64(price.Request.UnitPrice.Mul(price.Request.Quantity).Sub(price.ProductCost)),
-				ShipCost:        int64(price.ShipCost),
-				ShipDiscount:    int64(price.Request.ShipCost.Sub(price.ShipCost)),
-				Total:           int64(price.Total()),
-				Note:            null.StringFrom(checkoutItem.Note),
-				Data:            checkoutItem.Data,
+			jsonSerialIDs, err := sonic.Marshal(serialIDs)
+			if err != nil {
+				return nil, fmt.Errorf("marshal serial ids: %w", err)
+			}
+
+			paidAmount := int64(sku.Price) * checkoutItem.Quantity
+
+			dbItem, err := b.storage.Querier().CreatePendingItem(ctx, orderdb.CreatePendingItemParams{
+				AccountID:  params.Account.ID,
+				SellerID:   spu.AccountID,
+				Address:    checkoutItem.Address,
+				SkuID:      sku.ID,
+				SkuName:    spu.Name,
+				Quantity:   checkoutItem.Quantity,
+				UnitPrice:  int64(sku.Price),
+				PaidAmount: paidAmount,
+				Note:       null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
+				SerialIds:  jsonSerialIDs,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("create order base: %w", err)
-			}
-			ids = append(ids, order.ID)
-
-			// Create order items
-			var createOrderItemArgs []orderdb.CreateCopyItemParams
-			if sku.CanCombine || len(serialIDs) == 0 {
-				// Combined item or serial_required = false: one row with total quantity
-				jsonSerialIDs, err := sonic.Marshal(serialIDs)
-				if err != nil {
-					return nil, fmt.Errorf("marshal serial ids: %w", err)
-				}
-
-				createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
-					OrderID:   order.ID,
-					SkuID:     sku.ID,
-					SkuName:   spuMap[sku.SpuID].Name,
-					Quantity:  checkoutItem.Quantity,
-					UnitPrice: int64(price.Request.UnitPrice),
-					Note:      null.StringFrom(checkoutItem.Note),
-					SerialIds: jsonSerialIDs,
-				})
-			} else {
-				// Serialized item: one row per serial ID
-				for _, serialID := range serialIDs {
-					jsonSerialIDs, err := sonic.Marshal([]string{serialID})
-					if err != nil {
-						return nil, fmt.Errorf("marshal serial ids: %w", err)
-					}
-
-					createOrderItemArgs = append(createOrderItemArgs, orderdb.CreateCopyItemParams{
-						OrderID:   order.ID,
-						SkuID:     sku.ID,
-						SkuName:   spuMap[sku.SpuID].Name,
-						Quantity:  1,
-						UnitPrice: int64(price.Request.UnitPrice),
-						Note:      null.StringFrom(checkoutItem.Note),
-						SerialIds: jsonSerialIDs,
-					})
-				}
+				return nil, fmt.Errorf("create pending item: %w", err)
 			}
 
-			if _, err := b.storage.Querier().CreateCopyItem(ctx, createOrderItemArgs); err != nil {
-				return nil, fmt.Errorf("create order items: %w", err)
-			}
+			items = append(items, createdItemInfo{
+				ID:          dbItem.ID,
+				SkuID:       dbItem.SkuID.String(),
+				DateCreated: dbItem.DateCreated.Format("2006-01-02T15:04:05Z07:00"),
+			})
 		}
-		return ids, nil
+		return items, nil
 	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("create orders", err)
+		return zero, sharedmodel.WrapErr("create pending items", err)
 	}
 
-	// Step 8: Fetch created orders (ListOrders has its own Run internally)
-	orders, err := b.ListOrders(ctx, ListOrdersParams{
-		ID: orderIDs,
-	})
-	if err != nil {
-		return zero, fmt.Errorf("fetch created orders: %w", err)
+	// Step 4: Remove from cart (skip if BuyNow)
+	if !params.BuyNow {
+		if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+			cartItems, err := b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
+				AccountID: params.Account.ID,
+				SkuID:     skuIDs,
+			})
+			if err != nil {
+				return fmt.Errorf("remove checkout items: %w", err)
+			}
+			if len(cartItems) != len(skuIDs) {
+				// Some items may not be in cart (e.g., added via BuyNow previously), that's OK
+				_ = cartItems
+			}
+			return nil
+		}); err != nil {
+			return zero, sharedmodel.WrapErr("remove cart items", err)
+		}
 	}
 
-	// Step 9: Track purchase interactions
+	// Step 5: Track purchase interactions (fire-and-forget)
 	var purchaseInteractions []analyticbiz.CreateInteraction
 	for _, item := range params.Items {
 		purchaseInteractions = append(purchaseInteractions, analyticbiz.CreateInteraction{
@@ -378,99 +163,214 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 		Interactions: purchaseInteractions,
 	})
 
+	// Step 6: Hydrate and return created items
+	itemIDs := lo.Map(createdItems, func(info createdItemInfo, _ int) int64 { return info.ID })
+
+	hydratedItems, err := b.hydrateItems(ctx, itemIDs)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("hydrate created items", err)
+	}
+
 	return CheckoutResult{
-		Orders:      orders.Data,
-		RedirectUrl: null.StringFrom(paymentInfo.RedirectURL),
+		Items: hydratedItems,
 	}, nil
 }
 
-type CancelOrderParams = struct {
-	Account accountmodel.AuthenticatedAccount
-	OrderID uuid.UUID
+// hydrateItems fetches items by IDs and enriches them with product resources.
+func (b *OrderHandler) hydrateItems(ctx restate.Context, itemIDs []int64) ([]ordermodel.OrderItem, error) {
+	if len(itemIDs) == 0 {
+		return []ordermodel.OrderItem{}, nil
+	}
+
+	dbItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
+		return b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
+			ID: itemIDs,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return b.enrichItems(ctx, dbItems)
 }
 
-// CancelOrder cancels a pending order along with its payment and shipment.
-func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
-	// GetOrder has its own Run internally
-	order, err := b.GetOrder(ctx, params.OrderID)
-	if err != nil {
-		return fmt.Errorf("fetch order: %w", err)
+// enrichItems converts DB items to model items with resources.
+func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderItem) ([]ordermodel.OrderItem, error) {
+	if len(dbItems) == 0 {
+		return []ordermodel.OrderItem{}, nil
 	}
 
-	// Fetch shipment status
-	shipmentStatus, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderShipmentStatus, error) {
-		s, err := b.storage.Querier().GetShipment(ctx, uuid.NullUUID{UUID: order.ShipmentID, Valid: true})
-		if err != nil {
-			return "", fmt.Errorf("fetch shipment: %w", err)
-		}
-		return s.Status, nil
+	// Lookup SKU -> SPU for product images
+	skuIDs := lo.Uniq(lo.Map(dbItems, func(oi orderdb.OrderItem, _ int) uuid.UUID { return oi.SkuID }))
+
+	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
+		ID: skuIDs,
 	})
 	if err != nil {
-		return err
+		return nil, err
+	}
+	skuToSpuMap := make(map[uuid.UUID]uuid.UUID, len(skus))
+	for _, sku := range skus {
+		skuToSpuMap[sku.ID] = sku.SpuID
 	}
 
-	// Validate cancellation (pure checks)
-	if order.Payment.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrPaymentCannotCancel.Terminal()
-	}
-	if shipmentStatus != orderdb.OrderShipmentStatusPending {
-		return ordermodel.ErrShipmentCannotCancel.Terminal()
-	}
-	if order.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrOrderCannotCancel.Terminal()
-	}
+	spuIDs := lo.Uniq(lo.Values(skuToSpuMap))
 
-	// Cancel payment, shipment, and order
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		if _, err := b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
-			ID:     order.Payment.ID,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
-		}); err != nil {
-			return fmt.Errorf("update payment status: %w", err)
-		}
-
-		if _, err := b.storage.Querier().UpdateShipment(ctx, orderdb.UpdateShipmentParams{
-			ID:     order.ShipmentID,
-			Status: orderdb.NullOrderShipmentStatus{OrderShipmentStatus: orderdb.OrderShipmentStatusCancelled, Valid: true},
-		}); err != nil {
-			return fmt.Errorf("update shipment status: %w", err)
-		}
-
-		if _, err := b.storage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
-			ID:     order.ID,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
-		}); err != nil {
-			return fmt.Errorf("update order status: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	// Notify customer: order cancelled
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: order.CustomerID,
-		Type:      "order_cancelled",
-		Channel:   "in_app",
-		Title:     "Order cancelled",
-		Content:   fmt.Sprintf("Your order %s has been cancelled.", order.ID),
-		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  spuIDs,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	// Track cancel_order interactions
-	var cancelInteractions []analyticbiz.CreateInteraction
-	for _, item := range order.Items {
-		cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
-			Account:   params.Account,
-			EventType: analyticmodel.EventCancelOrder,
-			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
-			RefID:     item.SkuID.String(),
+	result := make([]ordermodel.OrderItem, 0, len(dbItems))
+	for _, oi := range dbItems {
+		spuID := skuToSpuMap[oi.SkuID]
+
+		var orderID *uuid.UUID
+		if oi.OrderID.Valid {
+			orderID = &oi.OrderID.UUID
+		}
+		var note *string
+		if oi.Note.Valid {
+			note = &oi.Note.String
+		}
+
+		result = append(result, ordermodel.OrderItem{
+			ID:          oi.ID,
+			OrderID:     orderID,
+			AccountID:   oi.AccountID,
+			SellerID:    oi.SellerID,
+			Address:     oi.Address,
+			Status:      oi.Status,
+			SkuID:       oi.SkuID,
+			SkuName:     oi.SkuName,
+			Quantity:    oi.Quantity,
+			UnitPrice:   oi.UnitPrice,
+			PaidAmount:  oi.PaidAmount,
+			Note:        note,
+			SerialIds:   oi.SerialIds,
+			DateCreated: oi.DateCreated,
+			Resources:   resourcesMap[spuID],
 		})
 	}
-	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
-		Interactions: cancelInteractions,
-	})
 
-	return nil
+	return result, nil
 }
+
+// ListPendingItems returns paginated pending items for the buyer.
+func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
+
+	if err := validator.Validate(params); err != nil {
+		return zero, err
+	}
+
+	status := params.Status
+	if len(status) == 0 {
+		status = []orderdb.OrderItemStatus{orderdb.OrderItemStatusPending}
+	}
+
+	type pendingResult struct {
+		Items []orderdb.OrderItem `json:"items"`
+		Total int64               `json:"total"`
+	}
+
+	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (pendingResult, error) {
+		items, err := b.storage.Querier().ListPendingItemsByAccount(ctx, orderdb.ListPendingItemsByAccountParams{
+			AccountID: params.AccountID,
+			Status:    status,
+			Offset:    params.Offset(),
+			Limit:     params.Limit,
+		})
+		if err != nil {
+			return pendingResult{}, err
+		}
+
+		total, err := b.storage.Querier().CountPendingItemsByAccount(ctx, orderdb.CountPendingItemsByAccountParams{
+			AccountID: params.AccountID,
+			Status:    status,
+		})
+		if err != nil {
+			return pendingResult{}, err
+		}
+
+		return pendingResult{Items: items, Total: total}, nil
+	})
+	if err != nil {
+		return zero, err
+	}
+
+	enriched, err := b.enrichItems(ctx, dbResult.Items)
+	if err != nil {
+		return zero, err
+	}
+
+	var total null.Int64
+	total.SetValid(dbResult.Total)
+
+	return sharedmodel.PaginateResult[ordermodel.OrderItem]{
+		PageParams: params.PaginationParams,
+		Total:      total,
+		Data:       enriched,
+	}, nil
+}
+
+// CancelPendingItem cancels a pending item and releases its inventory.
+func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendingItemParams) error {
+	if err := validator.Validate(params); err != nil {
+		return err
+	}
+
+	// Fetch the item first
+	type itemInfo struct {
+		SkuID    string `json:"sku_id"`
+		Quantity int64  `json:"quantity"`
+		Status   string `json:"status"`
+	}
+	info, err := restate.Run(ctx, func(ctx restate.RunContext) (itemInfo, error) {
+		item, err := b.storage.Querier().GetItem(ctx, orderdb.GetItemParams{
+			ID: pgtype.Int8{Int64: params.ItemID, Valid: true},
+		})
+		if err != nil {
+			return itemInfo{}, fmt.Errorf("get item: %w", err)
+		}
+		if item.AccountID != params.AccountID {
+			return itemInfo{}, ordermodel.ErrOrderItemNotFound.Terminal()
+		}
+		if item.Status != orderdb.OrderItemStatusPending {
+			return itemInfo{}, ordermodel.ErrItemNotPending
+		}
+		return itemInfo{
+			SkuID:    item.SkuID.String(),
+			Quantity: item.Quantity,
+			Status:   string(item.Status),
+		}, nil
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("fetch item", err)
+	}
+
+	skuID, _ := uuid.Parse(info.SkuID)
+
+	// Release inventory
+	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+		Items: []inventorybiz.ReleaseInventoryItem{{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   skuID,
+			Amount:  info.Quantity,
+		}},
+	}); err != nil {
+		return sharedmodel.WrapErr("release inventory", err)
+	}
+
+	// Cancel the item
+	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		return b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+			ID:        params.ItemID,
+			AccountID: params.AccountID,
+		})
+	})
+}
+

@@ -25,6 +25,7 @@ type InventoryBiz interface {
 
 	// Reserve
 	ReserveInventory(ctx context.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error)
+	ReleaseInventory(ctx context.Context, params ReleaseInventoryParams) error
 
 	// Serial
 	UpdateSerial(ctx context.Context, params UpdateSerialParams) error

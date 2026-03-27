@@ -7,7 +7,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
-	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -22,10 +21,6 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
-
-type ListRefundsParams struct {
-	sharedmodel.PaginationParams
-}
 
 // ListRefunds returns paginated refund requests with attached resources.
 func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
@@ -73,15 +68,6 @@ func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams
 	})
 }
 
-type CreateRefundParams struct {
-	Account     accountmodel.AuthenticatedAccount
-	OrderID     uuid.UUID                 `validate:"required"`
-	Method      orderdb.OrderRefundMethod `validate:"required,validateFn=Valid"`
-	Reason      string                    `validate:"required,max=500"`
-	Address     null.String               `validate:"omitempty,max=500"`
-	ResourceIDs []uuid.UUID               `validate:"dive"`
-}
-
 // CreateRefund creates a new refund request for an order and tracks refund analytics.
 func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
@@ -96,15 +82,11 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 
 	// Create refund + update resources in one durable step
 	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
-		// TODO: check if the order item belongs to the account
-		// TODO: check if the order item is refundable (not refunded yet, within time limit, etc)
-
 		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: params.OrderID, Valid: true})
 		if err != nil {
 			return zero, fmt.Errorf("get order: %w", err)
 		}
 		_ = order
-		// TODO: check if the order is refundable
 
 		dbRefund, err := b.storage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
 			AccountID: params.Account.ID,
@@ -137,7 +119,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 		return zero, err
 	}
 
-	// Track refund_requested interaction (separate step, uses GetOrder which has its own Run)
+	// Track refund_requested interaction
 	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
 		var refundInteractions []analyticbiz.CreateInteraction
 		for _, item := range order.Items {
@@ -154,19 +136,6 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 	}
 
 	return refund, nil
-}
-
-type UpdateRefundParams struct {
-	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID                 `validate:"required"`
-	Method   orderdb.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
-	Address  null.String               `validate:"omitnil,max=500"`
-	Reason   null.String               `validate:"omitnil,max=500"`
-
-	// Fields below are only updated after vendor confirms
-	Status        orderdb.OrderStatus `validate:"omitempty,validateFn=Valid"`
-	ConfirmedByID uuid.NullUUID       `validate:"omitnil"`
-	ResourceIDs   []uuid.UUID         `validate:"required,dive"`
 }
 
 // UpdateRefund updates a pending refund's method, reason, address, or status.
@@ -202,7 +171,6 @@ func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundPara
 			return zero, fmt.Errorf("update refund: %w", err)
 		}
 
-		//TODO: use message queue instead of sequential processing
 		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
 			Account:         params.Account,
 			RefType:         commondb.CommonResourceRefTypeRefund,
@@ -221,25 +189,32 @@ func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundPara
 }
 
 // dbToRefund maps a DB OrderRefund row to the model type.
-// Callers should set Resources as needed.
 func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
+	var confirmedByID *uuid.UUID
+	if r.ConfirmedByID.Valid {
+		confirmedByID = &r.ConfirmedByID.UUID
+	}
+	var transportID *uuid.UUID
+	if r.TransportID.Valid {
+		transportID = &r.TransportID.UUID
+	}
+	var address *string
+	if r.Address.Valid {
+		address = &r.Address.String
+	}
+
 	return ordermodel.Refund{
 		ID:            r.ID,
 		AccountID:     r.AccountID,
 		OrderID:       r.OrderID,
-		ConfirmedByID: r.ConfirmedByID,
-		ShipmentID:    r.ShipmentID,
+		ConfirmedByID: confirmedByID,
+		TransportID:   transportID,
 		Method:        r.Method,
 		Reason:        r.Reason,
-		Address:       r.Address,
+		Address:       address,
 		Status:        r.Status,
 		DateCreated:   r.DateCreated,
 	}
-}
-
-type CancelRefundParams struct {
-	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID `validate:"required"`
 }
 
 // CancelRefund cancels a refund request by setting its status to canceled.
@@ -259,11 +234,6 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 	})
 }
 
-type ConfirmRefundParams struct {
-	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID `validate:"required"`
-}
-
 // ConfirmRefund marks a refund as confirmed by the vendor and transitions it to processing.
 func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
@@ -271,8 +241,6 @@ func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundPa
 	if err := validator.Validate(params); err != nil {
 		return zero, err
 	}
-
-	// TODO: tell the shipment to take the refund package if method is pick-up, skip if drop-off
 
 	refund, err := b.UpdateRefund(ctx, UpdateRefundParams{
 		Account:       params.Account,

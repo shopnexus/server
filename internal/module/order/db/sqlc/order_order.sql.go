@@ -19,10 +19,10 @@ SELECT COUNT(*)
 FROM "order"."order"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("payment_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("confirmed_by_id" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("address" = ANY($8) OR $8 IS NULL) AND
@@ -32,29 +32,26 @@ WHERE (
     ("product_discount" = ANY($12) OR $12 IS NULL) AND
     ("product_discount" > $13 OR $13 IS NULL) AND
     ("product_discount" < $14 OR $14 IS NULL) AND
-    ("ship_cost" = ANY($15) OR $15 IS NULL) AND
-    ("ship_cost" > $16 OR $16 IS NULL) AND
-    ("ship_cost" < $17 OR $17 IS NULL) AND
-    ("ship_discount" = ANY($18) OR $18 IS NULL) AND
-    ("ship_discount" > $19 OR $19 IS NULL) AND
-    ("ship_discount" < $20 OR $20 IS NULL) AND
-    ("total" = ANY($21) OR $21 IS NULL) AND
-    ("total" > $22 OR $22 IS NULL) AND
-    ("total" < $23 OR $23 IS NULL) AND
-    ("note" = ANY($24) OR $24 IS NULL) AND
-    ("data" = ANY($25) OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("transport_cost" = ANY($15) OR $15 IS NULL) AND
+    ("transport_cost" > $16 OR $16 IS NULL) AND
+    ("transport_cost" < $17 OR $17 IS NULL) AND
+    ("total" = ANY($18) OR $18 IS NULL) AND
+    ("total" > $19 OR $19 IS NULL) AND
+    ("total" < $20 OR $20 IS NULL) AND
+    ("note" = ANY($21) OR $21 IS NULL) AND
+    ("data" = ANY($22) OR $22 IS NULL) AND
+    ("date_created" = ANY($23) OR $23 IS NULL) AND
+    ("date_created" > $24 OR $24 IS NULL) AND
+    ("date_created" < $25 OR $25 IS NULL)
 )
 `
 
 type CountOrderParams struct {
 	ID                  []uuid.UUID       `json:"id"`
-	CustomerID          []uuid.UUID       `json:"customer_id"`
-	VendorID            []uuid.UUID       `json:"vendor_id"`
-	PaymentID           []int64           `json:"payment_id"`
-	ShipmentID          []uuid.UUID       `json:"shipment_id"`
+	BuyerID             []uuid.UUID       `json:"buyer_id"`
+	SellerID            []uuid.UUID       `json:"seller_id"`
+	PaymentID           []null.Int        `json:"payment_id"`
+	TransportID         []uuid.UUID       `json:"transport_id"`
 	ConfirmedByID       []uuid.NullUUID   `json:"confirmed_by_id"`
 	Status              []OrderStatus     `json:"status"`
 	Address             []string          `json:"address"`
@@ -64,12 +61,9 @@ type CountOrderParams struct {
 	ProductDiscount     []int64           `json:"product_discount"`
 	ProductDiscountFrom null.Int          `json:"product_discount_from"`
 	ProductDiscountTo   null.Int          `json:"product_discount_to"`
-	ShipCost            []int64           `json:"ship_cost"`
-	ShipCostFrom        null.Int          `json:"ship_cost_from"`
-	ShipCostTo          null.Int          `json:"ship_cost_to"`
-	ShipDiscount        []int64           `json:"ship_discount"`
-	ShipDiscountFrom    null.Int          `json:"ship_discount_from"`
-	ShipDiscountTo      null.Int          `json:"ship_discount_to"`
+	TransportCost       []int64           `json:"transport_cost"`
+	TransportCostFrom   null.Int          `json:"transport_cost_from"`
+	TransportCostTo     null.Int          `json:"transport_cost_to"`
 	Total               []int64           `json:"total"`
 	TotalFrom           null.Int          `json:"total_from"`
 	TotalTo             null.Int          `json:"total_to"`
@@ -83,10 +77,10 @@ type CountOrderParams struct {
 func (q *Queries) CountOrder(ctx context.Context, arg CountOrderParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countOrder,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
@@ -96,12 +90,9 @@ func (q *Queries) CountOrder(ctx context.Context, arg CountOrderParams) (int64, 
 		arg.ProductDiscount,
 		arg.ProductDiscountFrom,
 		arg.ProductDiscountTo,
-		arg.ShipCost,
-		arg.ShipCostFrom,
-		arg.ShipCostTo,
-		arg.ShipDiscount,
-		arg.ShipDiscountFrom,
-		arg.ShipDiscountTo,
+		arg.TransportCost,
+		arg.TransportCostFrom,
+		arg.TransportCostTo,
 		arg.Total,
 		arg.TotalFrom,
 		arg.TotalTo,
@@ -117,16 +108,13 @@ func (q *Queries) CountOrder(ctx context.Context, arg CountOrderParams) (int64, 
 }
 
 type CreateCopyDefaultOrderParams struct {
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -134,17 +122,16 @@ type CreateCopyDefaultOrderParams struct {
 
 type CreateCopyOrderParams struct {
 	ID              uuid.UUID       `json:"id"`
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
+	PaymentID       null.Int        `json:"payment_id"`
+	TransportID     uuid.UUID       `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -152,22 +139,19 @@ type CreateCopyOrderParams struct {
 }
 
 const createDefaultOrder = `-- name: CreateDefaultOrder :one
-INSERT INTO "order"."order" ("customer_id", "vendor_id", "payment_id", "shipment_id", "confirmed_by_id", "address", "product_cost", "product_discount", "ship_cost", "ship_discount", "total", "note", "data")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+INSERT INTO "order"."order" ("buyer_id", "seller_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 `
 
 type CreateDefaultOrderParams struct {
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -175,16 +159,13 @@ type CreateDefaultOrderParams struct {
 
 func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrderParams) (OrderOrder, error) {
 	row := q.db.QueryRow(ctx, createDefaultOrder,
-		arg.CustomerID,
-		arg.VendorID,
-		arg.PaymentID,
-		arg.ShipmentID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.ConfirmedByID,
 		arg.Address,
 		arg.ProductCost,
 		arg.ProductDiscount,
-		arg.ShipCost,
-		arg.ShipDiscount,
+		arg.TransportCost,
 		arg.Total,
 		arg.Note,
 		arg.Data,
@@ -192,17 +173,16 @@ func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrder
 	var i OrderOrder
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.PaymentID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.ConfirmedByID,
 		&i.Status,
 		&i.Address,
 		&i.ProductCost,
 		&i.ProductDiscount,
-		&i.ShipCost,
-		&i.ShipDiscount,
+		&i.TransportCost,
 		&i.Total,
 		&i.Note,
 		&i.Data,
@@ -212,24 +192,23 @@ func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrder
 }
 
 const createOrder = `-- name: CreateOrder :one
-INSERT INTO "order"."order" ("id", "customer_id", "vendor_id", "payment_id", "shipment_id", "confirmed_by_id", "status", "address", "product_cost", "product_discount", "ship_cost", "ship_discount", "total", "note", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "status", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 `
 
 type CreateOrderParams struct {
 	ID              uuid.UUID       `json:"id"`
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
+	PaymentID       null.Int        `json:"payment_id"`
+	TransportID     uuid.UUID       `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -239,17 +218,16 @@ type CreateOrderParams struct {
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (OrderOrder, error) {
 	row := q.db.QueryRow(ctx, createOrder,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
 		arg.ProductCost,
 		arg.ProductDiscount,
-		arg.ShipCost,
-		arg.ShipDiscount,
+		arg.TransportCost,
 		arg.Total,
 		arg.Note,
 		arg.Data,
@@ -258,17 +236,16 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 	var i OrderOrder
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.PaymentID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.ConfirmedByID,
 		&i.Status,
 		&i.Address,
 		&i.ProductCost,
 		&i.ProductDiscount,
-		&i.ShipCost,
-		&i.ShipDiscount,
+		&i.TransportCost,
 		&i.Total,
 		&i.Note,
 		&i.Data,
@@ -281,10 +258,10 @@ const deleteOrder = `-- name: DeleteOrder :exec
 DELETE FROM "order"."order"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("payment_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("confirmed_by_id" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("address" = ANY($8) OR $8 IS NULL) AND
@@ -294,29 +271,26 @@ WHERE (
     ("product_discount" = ANY($12) OR $12 IS NULL) AND
     ("product_discount" > $13 OR $13 IS NULL) AND
     ("product_discount" < $14 OR $14 IS NULL) AND
-    ("ship_cost" = ANY($15) OR $15 IS NULL) AND
-    ("ship_cost" > $16 OR $16 IS NULL) AND
-    ("ship_cost" < $17 OR $17 IS NULL) AND
-    ("ship_discount" = ANY($18) OR $18 IS NULL) AND
-    ("ship_discount" > $19 OR $19 IS NULL) AND
-    ("ship_discount" < $20 OR $20 IS NULL) AND
-    ("total" = ANY($21) OR $21 IS NULL) AND
-    ("total" > $22 OR $22 IS NULL) AND
-    ("total" < $23 OR $23 IS NULL) AND
-    ("note" = ANY($24) OR $24 IS NULL) AND
-    ("data" = ANY($25) OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("transport_cost" = ANY($15) OR $15 IS NULL) AND
+    ("transport_cost" > $16 OR $16 IS NULL) AND
+    ("transport_cost" < $17 OR $17 IS NULL) AND
+    ("total" = ANY($18) OR $18 IS NULL) AND
+    ("total" > $19 OR $19 IS NULL) AND
+    ("total" < $20 OR $20 IS NULL) AND
+    ("note" = ANY($21) OR $21 IS NULL) AND
+    ("data" = ANY($22) OR $22 IS NULL) AND
+    ("date_created" = ANY($23) OR $23 IS NULL) AND
+    ("date_created" > $24 OR $24 IS NULL) AND
+    ("date_created" < $25 OR $25 IS NULL)
 )
 `
 
 type DeleteOrderParams struct {
 	ID                  []uuid.UUID       `json:"id"`
-	CustomerID          []uuid.UUID       `json:"customer_id"`
-	VendorID            []uuid.UUID       `json:"vendor_id"`
-	PaymentID           []int64           `json:"payment_id"`
-	ShipmentID          []uuid.UUID       `json:"shipment_id"`
+	BuyerID             []uuid.UUID       `json:"buyer_id"`
+	SellerID            []uuid.UUID       `json:"seller_id"`
+	PaymentID           []null.Int        `json:"payment_id"`
+	TransportID         []uuid.UUID       `json:"transport_id"`
 	ConfirmedByID       []uuid.NullUUID   `json:"confirmed_by_id"`
 	Status              []OrderStatus     `json:"status"`
 	Address             []string          `json:"address"`
@@ -326,12 +300,9 @@ type DeleteOrderParams struct {
 	ProductDiscount     []int64           `json:"product_discount"`
 	ProductDiscountFrom null.Int          `json:"product_discount_from"`
 	ProductDiscountTo   null.Int          `json:"product_discount_to"`
-	ShipCost            []int64           `json:"ship_cost"`
-	ShipCostFrom        null.Int          `json:"ship_cost_from"`
-	ShipCostTo          null.Int          `json:"ship_cost_to"`
-	ShipDiscount        []int64           `json:"ship_discount"`
-	ShipDiscountFrom    null.Int          `json:"ship_discount_from"`
-	ShipDiscountTo      null.Int          `json:"ship_discount_to"`
+	TransportCost       []int64           `json:"transport_cost"`
+	TransportCostFrom   null.Int          `json:"transport_cost_from"`
+	TransportCostTo     null.Int          `json:"transport_cost_to"`
 	Total               []int64           `json:"total"`
 	TotalFrom           null.Int          `json:"total_from"`
 	TotalTo             null.Int          `json:"total_to"`
@@ -345,10 +316,10 @@ type DeleteOrderParams struct {
 func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) error {
 	_, err := q.db.Exec(ctx, deleteOrder,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
@@ -358,12 +329,9 @@ func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) error 
 		arg.ProductDiscount,
 		arg.ProductDiscountFrom,
 		arg.ProductDiscountTo,
-		arg.ShipCost,
-		arg.ShipCostFrom,
-		arg.ShipCostTo,
-		arg.ShipDiscount,
-		arg.ShipDiscountFrom,
-		arg.ShipDiscountTo,
+		arg.TransportCost,
+		arg.TransportCostFrom,
+		arg.TransportCostTo,
 		arg.Total,
 		arg.TotalFrom,
 		arg.TotalTo,
@@ -378,7 +346,7 @@ func (q *Queries) DeleteOrder(ctx context.Context, arg DeleteOrderParams) error 
 
 const getOrder = `-- name: GetOrder :one
 
-SELECT id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+SELECT id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 FROM "order"."order"
 WHERE ("id" = $1)
 `
@@ -390,17 +358,16 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.NullUUID) (OrderOrder, e
 	var i OrderOrder
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.PaymentID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.ConfirmedByID,
 		&i.Status,
 		&i.Address,
 		&i.ProductCost,
 		&i.ProductDiscount,
-		&i.ShipCost,
-		&i.ShipDiscount,
+		&i.TransportCost,
 		&i.Total,
 		&i.Note,
 		&i.Data,
@@ -410,14 +377,14 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.NullUUID) (OrderOrder, e
 }
 
 const listCountOrder = `-- name: ListCountOrder :many
-SELECT embed_order.id, embed_order.customer_id, embed_order.vendor_id, embed_order.payment_id, embed_order.shipment_id, embed_order.confirmed_by_id, embed_order.status, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.ship_cost, embed_order.ship_discount, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.payment_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.status, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("payment_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("confirmed_by_id" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("address" = ANY($8) OR $8 IS NULL) AND
@@ -427,32 +394,29 @@ WHERE (
     ("product_discount" = ANY($12) OR $12 IS NULL) AND
     ("product_discount" > $13 OR $13 IS NULL) AND
     ("product_discount" < $14 OR $14 IS NULL) AND
-    ("ship_cost" = ANY($15) OR $15 IS NULL) AND
-    ("ship_cost" > $16 OR $16 IS NULL) AND
-    ("ship_cost" < $17 OR $17 IS NULL) AND
-    ("ship_discount" = ANY($18) OR $18 IS NULL) AND
-    ("ship_discount" > $19 OR $19 IS NULL) AND
-    ("ship_discount" < $20 OR $20 IS NULL) AND
-    ("total" = ANY($21) OR $21 IS NULL) AND
-    ("total" > $22 OR $22 IS NULL) AND
-    ("total" < $23 OR $23 IS NULL) AND
-    ("note" = ANY($24) OR $24 IS NULL) AND
-    ("data" = ANY($25) OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("transport_cost" = ANY($15) OR $15 IS NULL) AND
+    ("transport_cost" > $16 OR $16 IS NULL) AND
+    ("transport_cost" < $17 OR $17 IS NULL) AND
+    ("total" = ANY($18) OR $18 IS NULL) AND
+    ("total" > $19 OR $19 IS NULL) AND
+    ("total" < $20 OR $20 IS NULL) AND
+    ("note" = ANY($21) OR $21 IS NULL) AND
+    ("data" = ANY($22) OR $22 IS NULL) AND
+    ("date_created" = ANY($23) OR $23 IS NULL) AND
+    ("date_created" > $24 OR $24 IS NULL) AND
+    ("date_created" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $30::int
-OFFSET $29::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListCountOrderParams struct {
 	ID                  []uuid.UUID       `json:"id"`
-	CustomerID          []uuid.UUID       `json:"customer_id"`
-	VendorID            []uuid.UUID       `json:"vendor_id"`
-	PaymentID           []int64           `json:"payment_id"`
-	ShipmentID          []uuid.UUID       `json:"shipment_id"`
+	BuyerID             []uuid.UUID       `json:"buyer_id"`
+	SellerID            []uuid.UUID       `json:"seller_id"`
+	PaymentID           []null.Int        `json:"payment_id"`
+	TransportID         []uuid.UUID       `json:"transport_id"`
 	ConfirmedByID       []uuid.NullUUID   `json:"confirmed_by_id"`
 	Status              []OrderStatus     `json:"status"`
 	Address             []string          `json:"address"`
@@ -462,12 +426,9 @@ type ListCountOrderParams struct {
 	ProductDiscount     []int64           `json:"product_discount"`
 	ProductDiscountFrom null.Int          `json:"product_discount_from"`
 	ProductDiscountTo   null.Int          `json:"product_discount_to"`
-	ShipCost            []int64           `json:"ship_cost"`
-	ShipCostFrom        null.Int          `json:"ship_cost_from"`
-	ShipCostTo          null.Int          `json:"ship_cost_to"`
-	ShipDiscount        []int64           `json:"ship_discount"`
-	ShipDiscountFrom    null.Int          `json:"ship_discount_from"`
-	ShipDiscountTo      null.Int          `json:"ship_discount_to"`
+	TransportCost       []int64           `json:"transport_cost"`
+	TransportCostFrom   null.Int          `json:"transport_cost_from"`
+	TransportCostTo     null.Int          `json:"transport_cost_to"`
 	Total               []int64           `json:"total"`
 	TotalFrom           null.Int          `json:"total_from"`
 	TotalTo             null.Int          `json:"total_to"`
@@ -488,10 +449,10 @@ type ListCountOrderRow struct {
 func (q *Queries) ListCountOrder(ctx context.Context, arg ListCountOrderParams) ([]ListCountOrderRow, error) {
 	rows, err := q.db.Query(ctx, listCountOrder,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
@@ -501,12 +462,9 @@ func (q *Queries) ListCountOrder(ctx context.Context, arg ListCountOrderParams) 
 		arg.ProductDiscount,
 		arg.ProductDiscountFrom,
 		arg.ProductDiscountTo,
-		arg.ShipCost,
-		arg.ShipCostFrom,
-		arg.ShipCostTo,
-		arg.ShipDiscount,
-		arg.ShipDiscountFrom,
-		arg.ShipDiscountTo,
+		arg.TransportCost,
+		arg.TransportCostFrom,
+		arg.TransportCostTo,
 		arg.Total,
 		arg.TotalFrom,
 		arg.TotalTo,
@@ -527,17 +485,16 @@ func (q *Queries) ListCountOrder(ctx context.Context, arg ListCountOrderParams) 
 		var i ListCountOrderRow
 		if err := rows.Scan(
 			&i.OrderOrder.ID,
-			&i.OrderOrder.CustomerID,
-			&i.OrderOrder.VendorID,
+			&i.OrderOrder.BuyerID,
+			&i.OrderOrder.SellerID,
 			&i.OrderOrder.PaymentID,
-			&i.OrderOrder.ShipmentID,
+			&i.OrderOrder.TransportID,
 			&i.OrderOrder.ConfirmedByID,
 			&i.OrderOrder.Status,
 			&i.OrderOrder.Address,
 			&i.OrderOrder.ProductCost,
 			&i.OrderOrder.ProductDiscount,
-			&i.OrderOrder.ShipCost,
-			&i.OrderOrder.ShipDiscount,
+			&i.OrderOrder.TransportCost,
 			&i.OrderOrder.Total,
 			&i.OrderOrder.Note,
 			&i.OrderOrder.Data,
@@ -555,14 +512,14 @@ func (q *Queries) ListCountOrder(ctx context.Context, arg ListCountOrderParams) 
 }
 
 const listOrder = `-- name: ListOrder :many
-SELECT id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+SELECT id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 FROM "order"."order"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("payment_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("confirmed_by_id" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("address" = ANY($8) OR $8 IS NULL) AND
@@ -572,32 +529,29 @@ WHERE (
     ("product_discount" = ANY($12) OR $12 IS NULL) AND
     ("product_discount" > $13 OR $13 IS NULL) AND
     ("product_discount" < $14 OR $14 IS NULL) AND
-    ("ship_cost" = ANY($15) OR $15 IS NULL) AND
-    ("ship_cost" > $16 OR $16 IS NULL) AND
-    ("ship_cost" < $17 OR $17 IS NULL) AND
-    ("ship_discount" = ANY($18) OR $18 IS NULL) AND
-    ("ship_discount" > $19 OR $19 IS NULL) AND
-    ("ship_discount" < $20 OR $20 IS NULL) AND
-    ("total" = ANY($21) OR $21 IS NULL) AND
-    ("total" > $22 OR $22 IS NULL) AND
-    ("total" < $23 OR $23 IS NULL) AND
-    ("note" = ANY($24) OR $24 IS NULL) AND
-    ("data" = ANY($25) OR $25 IS NULL) AND
-    ("date_created" = ANY($26) OR $26 IS NULL) AND
-    ("date_created" > $27 OR $27 IS NULL) AND
-    ("date_created" < $28 OR $28 IS NULL)
+    ("transport_cost" = ANY($15) OR $15 IS NULL) AND
+    ("transport_cost" > $16 OR $16 IS NULL) AND
+    ("transport_cost" < $17 OR $17 IS NULL) AND
+    ("total" = ANY($18) OR $18 IS NULL) AND
+    ("total" > $19 OR $19 IS NULL) AND
+    ("total" < $20 OR $20 IS NULL) AND
+    ("note" = ANY($21) OR $21 IS NULL) AND
+    ("data" = ANY($22) OR $22 IS NULL) AND
+    ("date_created" = ANY($23) OR $23 IS NULL) AND
+    ("date_created" > $24 OR $24 IS NULL) AND
+    ("date_created" < $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $30::int
-OFFSET $29::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListOrderParams struct {
 	ID                  []uuid.UUID       `json:"id"`
-	CustomerID          []uuid.UUID       `json:"customer_id"`
-	VendorID            []uuid.UUID       `json:"vendor_id"`
-	PaymentID           []int64           `json:"payment_id"`
-	ShipmentID          []uuid.UUID       `json:"shipment_id"`
+	BuyerID             []uuid.UUID       `json:"buyer_id"`
+	SellerID            []uuid.UUID       `json:"seller_id"`
+	PaymentID           []null.Int        `json:"payment_id"`
+	TransportID         []uuid.UUID       `json:"transport_id"`
 	ConfirmedByID       []uuid.NullUUID   `json:"confirmed_by_id"`
 	Status              []OrderStatus     `json:"status"`
 	Address             []string          `json:"address"`
@@ -607,12 +561,9 @@ type ListOrderParams struct {
 	ProductDiscount     []int64           `json:"product_discount"`
 	ProductDiscountFrom null.Int          `json:"product_discount_from"`
 	ProductDiscountTo   null.Int          `json:"product_discount_to"`
-	ShipCost            []int64           `json:"ship_cost"`
-	ShipCostFrom        null.Int          `json:"ship_cost_from"`
-	ShipCostTo          null.Int          `json:"ship_cost_to"`
-	ShipDiscount        []int64           `json:"ship_discount"`
-	ShipDiscountFrom    null.Int          `json:"ship_discount_from"`
-	ShipDiscountTo      null.Int          `json:"ship_discount_to"`
+	TransportCost       []int64           `json:"transport_cost"`
+	TransportCostFrom   null.Int          `json:"transport_cost_from"`
+	TransportCostTo     null.Int          `json:"transport_cost_to"`
 	Total               []int64           `json:"total"`
 	TotalFrom           null.Int          `json:"total_from"`
 	TotalTo             null.Int          `json:"total_to"`
@@ -628,10 +579,10 @@ type ListOrderParams struct {
 func (q *Queries) ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOrder, error) {
 	rows, err := q.db.Query(ctx, listOrder,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
@@ -641,12 +592,9 @@ func (q *Queries) ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOr
 		arg.ProductDiscount,
 		arg.ProductDiscountFrom,
 		arg.ProductDiscountTo,
-		arg.ShipCost,
-		arg.ShipCostFrom,
-		arg.ShipCostTo,
-		arg.ShipDiscount,
-		arg.ShipDiscountFrom,
-		arg.ShipDiscountTo,
+		arg.TransportCost,
+		arg.TransportCostFrom,
+		arg.TransportCostTo,
 		arg.Total,
 		arg.TotalFrom,
 		arg.TotalTo,
@@ -667,17 +615,16 @@ func (q *Queries) ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOr
 		var i OrderOrder
 		if err := rows.Scan(
 			&i.ID,
-			&i.CustomerID,
-			&i.VendorID,
+			&i.BuyerID,
+			&i.SellerID,
 			&i.PaymentID,
-			&i.ShipmentID,
+			&i.TransportID,
 			&i.ConfirmedByID,
 			&i.Status,
 			&i.Address,
 			&i.ProductCost,
 			&i.ProductDiscount,
-			&i.ShipCost,
-			&i.ShipDiscount,
+			&i.TransportCost,
 			&i.Total,
 			&i.Note,
 			&i.Data,
@@ -695,38 +642,38 @@ func (q *Queries) ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOr
 
 const updateOrder = `-- name: UpdateOrder :one
 UPDATE "order"."order"
-SET "customer_id" = COALESCE($1, "customer_id"),
-    "vendor_id" = COALESCE($2, "vendor_id"),
-    "payment_id" = COALESCE($3, "payment_id"),
-    "shipment_id" = COALESCE($4, "shipment_id"),
-    "confirmed_by_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "confirmed_by_id") END,
-    "status" = COALESCE($7, "status"),
-    "address" = COALESCE($8, "address"),
-    "product_cost" = COALESCE($9, "product_cost"),
-    "product_discount" = COALESCE($10, "product_discount"),
-    "ship_cost" = COALESCE($11, "ship_cost"),
-    "ship_discount" = COALESCE($12, "ship_discount"),
-    "total" = COALESCE($13, "total"),
-    "note" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "note") END,
-    "data" = COALESCE($16, "data"),
-    "date_created" = COALESCE($17, "date_created")
-WHERE id = $18
-RETURNING id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+SET "buyer_id" = COALESCE($1, "buyer_id"),
+    "seller_id" = COALESCE($2, "seller_id"),
+    "payment_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "payment_id") END,
+    "transport_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "transport_id") END,
+    "confirmed_by_id" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "confirmed_by_id") END,
+    "status" = COALESCE($9, "status"),
+    "address" = COALESCE($10, "address"),
+    "product_cost" = COALESCE($11, "product_cost"),
+    "product_discount" = COALESCE($12, "product_discount"),
+    "transport_cost" = COALESCE($13, "transport_cost"),
+    "total" = COALESCE($14, "total"),
+    "note" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "note") END,
+    "data" = COALESCE($17, "data"),
+    "date_created" = COALESCE($18, "date_created")
+WHERE id = $19
+RETURNING id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 `
 
 type UpdateOrderParams struct {
-	CustomerID        uuid.NullUUID   `json:"customer_id"`
-	VendorID          uuid.NullUUID   `json:"vendor_id"`
+	BuyerID           uuid.NullUUID   `json:"buyer_id"`
+	SellerID          uuid.NullUUID   `json:"seller_id"`
+	NullPaymentID     bool            `json:"null_payment_id"`
 	PaymentID         null.Int        `json:"payment_id"`
-	ShipmentID        uuid.NullUUID   `json:"shipment_id"`
+	NullTransportID   bool            `json:"null_transport_id"`
+	TransportID       uuid.NullUUID   `json:"transport_id"`
 	NullConfirmedByID bool            `json:"null_confirmed_by_id"`
 	ConfirmedByID     uuid.NullUUID   `json:"confirmed_by_id"`
 	Status            NullOrderStatus `json:"status"`
 	Address           null.String     `json:"address"`
 	ProductCost       null.Int        `json:"product_cost"`
 	ProductDiscount   null.Int        `json:"product_discount"`
-	ShipCost          null.Int        `json:"ship_cost"`
-	ShipDiscount      null.Int        `json:"ship_discount"`
+	TransportCost     null.Int        `json:"transport_cost"`
 	Total             null.Int        `json:"total"`
 	NullNote          bool            `json:"null_note"`
 	Note              null.String     `json:"note"`
@@ -737,18 +684,19 @@ type UpdateOrderParams struct {
 
 func (q *Queries) UpdateOrder(ctx context.Context, arg UpdateOrderParams) (OrderOrder, error) {
 	row := q.db.QueryRow(ctx, updateOrder,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
+		arg.NullPaymentID,
 		arg.PaymentID,
-		arg.ShipmentID,
+		arg.NullTransportID,
+		arg.TransportID,
 		arg.NullConfirmedByID,
 		arg.ConfirmedByID,
 		arg.Status,
 		arg.Address,
 		arg.ProductCost,
 		arg.ProductDiscount,
-		arg.ShipCost,
-		arg.ShipDiscount,
+		arg.TransportCost,
 		arg.Total,
 		arg.NullNote,
 		arg.Note,
@@ -759,17 +707,16 @@ func (q *Queries) UpdateOrder(ctx context.Context, arg UpdateOrderParams) (Order
 	var i OrderOrder
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.PaymentID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.ConfirmedByID,
 		&i.Status,
 		&i.Address,
 		&i.ProductCost,
 		&i.ProductDiscount,
-		&i.ShipCost,
-		&i.ShipDiscount,
+		&i.TransportCost,
 		&i.Total,
 		&i.Note,
 		&i.Data,

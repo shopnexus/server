@@ -81,9 +81,9 @@ func (b *CreateBatchCartItemBatchResults) Close() error {
 }
 
 const createBatchItem = `-- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
 `
 
 type CreateBatchItemBatchResults struct {
@@ -93,13 +93,20 @@ type CreateBatchItemBatchResults struct {
 }
 
 type CreateBatchItemParams struct {
-	OrderID   uuid.UUID       `json:"order_id"`
-	SkuID     uuid.UUID       `json:"sku_id"`
-	SkuName   string          `json:"sku_name"`
-	Quantity  int64           `json:"quantity"`
-	UnitPrice int64           `json:"unit_price"`
-	Note      null.String     `json:"note"`
-	SerialIds json.RawMessage `json:"serial_ids"`
+	OrderID     uuid.NullUUID   `json:"order_id"`
+	SkuID       uuid.UUID       `json:"sku_id"`
+	SkuName     string          `json:"sku_name"`
+	Quantity    int64           `json:"quantity"`
+	UnitPrice   int64           `json:"unit_price"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
+	Address     string          `json:"address"`
+	Status      OrderItemStatus `json:"status"`
+	PaidAmount  int64           `json:"paid_amount"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchItem(ctx context.Context, arg []CreateBatchItemParams) *CreateBatchItemBatchResults {
@@ -113,6 +120,13 @@ func (q *Queries) CreateBatchItem(ctx context.Context, arg []CreateBatchItemPara
 			a.UnitPrice,
 			a.Note,
 			a.SerialIds,
+			a.AccountID,
+			a.SellerID,
+			a.Address,
+			a.Status,
+			a.PaidAmount,
+			a.DateCreated,
+			a.DateUpdated,
 		}
 		batch.Queue(createBatchItem, vals...)
 	}
@@ -140,6 +154,13 @@ func (b *CreateBatchItemBatchResults) QueryRow(f func(int, OrderItem, error)) {
 			&i.UnitPrice,
 			&i.Note,
 			&i.SerialIds,
+			&i.AccountID,
+			&i.SellerID,
+			&i.Address,
+			&i.Status,
+			&i.PaidAmount,
+			&i.DateCreated,
+			&i.DateUpdated,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -153,9 +174,9 @@ func (b *CreateBatchItemBatchResults) Close() error {
 }
 
 const createBatchOrder = `-- name: CreateBatchOrder :batchone
-INSERT INTO "order"."order" ("id", "customer_id", "vendor_id", "payment_id", "shipment_id", "confirmed_by_id", "status", "address", "product_cost", "product_discount", "ship_cost", "ship_discount", "total", "note", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, customer_id, vendor_id, payment_id, shipment_id, confirmed_by_id, status, address, product_cost, product_discount, ship_cost, ship_discount, total, note, data, date_created
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "status", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, buyer_id, seller_id, payment_id, transport_id, confirmed_by_id, status, address, product_cost, product_discount, transport_cost, total, note, data, date_created
 `
 
 type CreateBatchOrderBatchResults struct {
@@ -166,17 +187,16 @@ type CreateBatchOrderBatchResults struct {
 
 type CreateBatchOrderParams struct {
 	ID              uuid.UUID       `json:"id"`
-	CustomerID      uuid.UUID       `json:"customer_id"`
-	VendorID        uuid.UUID       `json:"vendor_id"`
-	PaymentID       int64           `json:"payment_id"`
-	ShipmentID      uuid.UUID       `json:"shipment_id"`
+	BuyerID         uuid.UUID       `json:"buyer_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
+	PaymentID       null.Int        `json:"payment_id"`
+	TransportID     uuid.UUID       `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`
-	ShipCost        int64           `json:"ship_cost"`
-	ShipDiscount    int64           `json:"ship_discount"`
+	TransportCost   int64           `json:"transport_cost"`
 	Total           int64           `json:"total"`
 	Note            null.String     `json:"note"`
 	Data            json.RawMessage `json:"data"`
@@ -188,17 +208,16 @@ func (q *Queries) CreateBatchOrder(ctx context.Context, arg []CreateBatchOrderPa
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
-			a.CustomerID,
-			a.VendorID,
+			a.BuyerID,
+			a.SellerID,
 			a.PaymentID,
-			a.ShipmentID,
+			a.TransportID,
 			a.ConfirmedByID,
 			a.Status,
 			a.Address,
 			a.ProductCost,
 			a.ProductDiscount,
-			a.ShipCost,
-			a.ShipDiscount,
+			a.TransportCost,
 			a.Total,
 			a.Note,
 			a.Data,
@@ -223,17 +242,16 @@ func (b *CreateBatchOrderBatchResults) QueryRow(f func(int, OrderOrder, error)) 
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.CustomerID,
-			&i.VendorID,
+			&i.BuyerID,
+			&i.SellerID,
 			&i.PaymentID,
-			&i.ShipmentID,
+			&i.TransportID,
 			&i.ConfirmedByID,
 			&i.Status,
 			&i.Address,
 			&i.ProductCost,
 			&i.ProductDiscount,
-			&i.ShipCost,
-			&i.ShipDiscount,
+			&i.TransportCost,
 			&i.Total,
 			&i.Note,
 			&i.Data,
@@ -326,9 +344,9 @@ func (b *CreateBatchPaymentBatchResults) Close() error {
 }
 
 const createBatchRefund = `-- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 `
 
 type CreateBatchRefundBatchResults struct {
@@ -342,7 +360,7 @@ type CreateBatchRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
@@ -358,7 +376,7 @@ func (q *Queries) CreateBatchRefund(ctx context.Context, arg []CreateBatchRefund
 			a.AccountID,
 			a.OrderID,
 			a.ConfirmedByID,
-			a.ShipmentID,
+			a.TransportID,
 			a.Method,
 			a.Status,
 			a.Reason,
@@ -387,7 +405,7 @@ func (b *CreateBatchRefundBatchResults) QueryRow(f func(int, OrderRefund, error)
 			&i.AccountID,
 			&i.OrderID,
 			&i.ConfirmedByID,
-			&i.ShipmentID,
+			&i.TransportID,
 			&i.Method,
 			&i.Status,
 			&i.Reason,
@@ -476,66 +494,48 @@ func (b *CreateBatchRefundDisputeBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchShipment = `-- name: CreateBatchShipment :batchone
-INSERT INTO "order"."shipment" ("id", "option", "tracking_code", "status", "label_url", "cost", "new_cost", "date_eta", "from_address", "to_address", "weight_grams", "length_cm", "width_cm", "height_cm", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, option, tracking_code, status, label_url, cost, new_cost, date_eta, from_address, to_address, weight_grams, length_cm, width_cm, height_cm, date_created
+const createBatchTransport = `-- name: CreateBatchTransport :batchone
+INSERT INTO "order"."transport" ("id", "option", "status", "cost", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, option, status, cost, data, date_created
 `
 
-type CreateBatchShipmentBatchResults struct {
+type CreateBatchTransportBatchResults struct {
 	br     pgx.BatchResults
 	tot    int
 	closed bool
 }
 
-type CreateBatchShipmentParams struct {
-	ID           uuid.UUID           `json:"id"`
-	Option       string              `json:"option"`
-	TrackingCode null.String         `json:"tracking_code"`
-	Status       OrderShipmentStatus `json:"status"`
-	LabelUrl     null.String         `json:"label_url"`
-	Cost         int64               `json:"cost"`
-	NewCost      int64               `json:"new_cost"`
-	DateEta      time.Time           `json:"date_eta"`
-	FromAddress  string              `json:"from_address"`
-	ToAddress    string              `json:"to_address"`
-	WeightGrams  int32               `json:"weight_grams"`
-	LengthCm     int32               `json:"length_cm"`
-	WidthCm      int32               `json:"width_cm"`
-	HeightCm     int32               `json:"height_cm"`
-	DateCreated  time.Time           `json:"date_created"`
+type CreateBatchTransportParams struct {
+	ID          uuid.UUID                `json:"id"`
+	Option      string                   `json:"option"`
+	Status      NullOrderTransportStatus `json:"status"`
+	Cost        int64                    `json:"cost"`
+	Data        json.RawMessage          `json:"data"`
+	DateCreated null.Time                `json:"date_created"`
 }
 
-func (q *Queries) CreateBatchShipment(ctx context.Context, arg []CreateBatchShipmentParams) *CreateBatchShipmentBatchResults {
+func (q *Queries) CreateBatchTransport(ctx context.Context, arg []CreateBatchTransportParams) *CreateBatchTransportBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
 			a.Option,
-			a.TrackingCode,
 			a.Status,
-			a.LabelUrl,
 			a.Cost,
-			a.NewCost,
-			a.DateEta,
-			a.FromAddress,
-			a.ToAddress,
-			a.WeightGrams,
-			a.LengthCm,
-			a.WidthCm,
-			a.HeightCm,
+			a.Data,
 			a.DateCreated,
 		}
-		batch.Queue(createBatchShipment, vals...)
+		batch.Queue(createBatchTransport, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchShipmentBatchResults{br, len(arg), false}
+	return &CreateBatchTransportBatchResults{br, len(arg), false}
 }
 
-func (b *CreateBatchShipmentBatchResults) QueryRow(f func(int, OrderShipment, error)) {
+func (b *CreateBatchTransportBatchResults) QueryRow(f func(int, OrderTransport, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
-		var i OrderShipment
+		var i OrderTransport
 		if b.closed {
 			if f != nil {
 				f(t, i, ErrBatchAlreadyClosed)
@@ -546,18 +546,9 @@ func (b *CreateBatchShipmentBatchResults) QueryRow(f func(int, OrderShipment, er
 		err := row.Scan(
 			&i.ID,
 			&i.Option,
-			&i.TrackingCode,
 			&i.Status,
-			&i.LabelUrl,
 			&i.Cost,
-			&i.NewCost,
-			&i.DateEta,
-			&i.FromAddress,
-			&i.ToAddress,
-			&i.WeightGrams,
-			&i.LengthCm,
-			&i.WidthCm,
-			&i.HeightCm,
+			&i.Data,
 			&i.DateCreated,
 		)
 		if f != nil {
@@ -566,7 +557,7 @@ func (b *CreateBatchShipmentBatchResults) QueryRow(f func(int, OrderShipment, er
 	}
 }
 
-func (b *CreateBatchShipmentBatchResults) Close() error {
+func (b *CreateBatchTransportBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

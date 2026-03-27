@@ -21,7 +21,7 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("confirmed_by_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("reason" = ANY($8) OR $8 IS NULL) AND
@@ -37,7 +37,7 @@ type CountRefundParams struct {
 	AccountID       []uuid.UUID         `json:"account_id"`
 	OrderID         []uuid.UUID         `json:"order_id"`
 	ConfirmedByID   []uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID      []uuid.NullUUID     `json:"shipment_id"`
+	TransportID     []uuid.NullUUID     `json:"transport_id"`
 	Method          []OrderRefundMethod `json:"method"`
 	Status          []OrderStatus       `json:"status"`
 	Reason          []string            `json:"reason"`
@@ -53,7 +53,7 @@ func (q *Queries) CountRefund(ctx context.Context, arg CountRefundParams) (int64
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -71,7 +71,7 @@ type CreateCopyDefaultRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
@@ -82,7 +82,7 @@ type CreateCopyRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
@@ -91,16 +91,16 @@ type CreateCopyRefundParams struct {
 }
 
 const createDefaultRefund = `-- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "reason", "address")
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 `
 
 type CreateDefaultRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
@@ -111,7 +111,7 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Reason,
 		arg.Address,
@@ -122,7 +122,7 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 		&i.AccountID,
 		&i.OrderID,
 		&i.ConfirmedByID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -133,9 +133,9 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 }
 
 const createRefund = `-- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "shipment_id", "method", "status", "reason", "address", "date_created")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 `
 
 type CreateRefundParams struct {
@@ -143,7 +143,7 @@ type CreateRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
 	OrderID       uuid.UUID         `json:"order_id"`
 	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID    uuid.NullUUID     `json:"shipment_id"`
+	TransportID   uuid.NullUUID     `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
@@ -157,7 +157,7 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -170,7 +170,7 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 		&i.AccountID,
 		&i.OrderID,
 		&i.ConfirmedByID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -187,7 +187,7 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("confirmed_by_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("reason" = ANY($8) OR $8 IS NULL) AND
@@ -203,7 +203,7 @@ type DeleteRefundParams struct {
 	AccountID       []uuid.UUID         `json:"account_id"`
 	OrderID         []uuid.UUID         `json:"order_id"`
 	ConfirmedByID   []uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID      []uuid.NullUUID     `json:"shipment_id"`
+	TransportID     []uuid.NullUUID     `json:"transport_id"`
 	Method          []OrderRefundMethod `json:"method"`
 	Status          []OrderStatus       `json:"status"`
 	Reason          []string            `json:"reason"`
@@ -219,7 +219,7 @@ func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) erro
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -233,7 +233,7 @@ func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) erro
 
 const getRefund = `-- name: GetRefund :one
 
-SELECT id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE ("id" = $1)
 `
@@ -248,7 +248,7 @@ func (q *Queries) GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund,
 		&i.AccountID,
 		&i.OrderID,
 		&i.ConfirmedByID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,
@@ -259,14 +259,14 @@ func (q *Queries) GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund,
 }
 
 const listCountRefund = `-- name: ListCountRefund :many
-SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_id, embed_refund.confirmed_by_id, embed_refund.shipment_id, embed_refund.method, embed_refund.status, embed_refund.reason, embed_refund.address, embed_refund.date_created, COUNT(*) OVER() as total_count
+SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_id, embed_refund.confirmed_by_id, embed_refund.transport_id, embed_refund.method, embed_refund.status, embed_refund.reason, embed_refund.address, embed_refund.date_created, COUNT(*) OVER() as total_count
 FROM "order"."refund" embed_refund
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("confirmed_by_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("reason" = ANY($8) OR $8 IS NULL) AND
@@ -285,7 +285,7 @@ type ListCountRefundParams struct {
 	AccountID       []uuid.UUID         `json:"account_id"`
 	OrderID         []uuid.UUID         `json:"order_id"`
 	ConfirmedByID   []uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID      []uuid.NullUUID     `json:"shipment_id"`
+	TransportID     []uuid.NullUUID     `json:"transport_id"`
 	Method          []OrderRefundMethod `json:"method"`
 	Status          []OrderStatus       `json:"status"`
 	Reason          []string            `json:"reason"`
@@ -308,7 +308,7 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -331,7 +331,7 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 			&i.OrderRefund.AccountID,
 			&i.OrderRefund.OrderID,
 			&i.OrderRefund.ConfirmedByID,
-			&i.OrderRefund.ShipmentID,
+			&i.OrderRefund.TransportID,
 			&i.OrderRefund.Method,
 			&i.OrderRefund.Status,
 			&i.OrderRefund.Reason,
@@ -350,14 +350,14 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 }
 
 const listRefund = `-- name: ListRefund :many
-SELECT id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("confirmed_by_id" = ANY($4) OR $4 IS NULL) AND
-    ("shipment_id" = ANY($5) OR $5 IS NULL) AND
+    ("transport_id" = ANY($5) OR $5 IS NULL) AND
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("status" = ANY($7) OR $7 IS NULL) AND
     ("reason" = ANY($8) OR $8 IS NULL) AND
@@ -376,7 +376,7 @@ type ListRefundParams struct {
 	AccountID       []uuid.UUID         `json:"account_id"`
 	OrderID         []uuid.UUID         `json:"order_id"`
 	ConfirmedByID   []uuid.NullUUID     `json:"confirmed_by_id"`
-	ShipmentID      []uuid.NullUUID     `json:"shipment_id"`
+	TransportID     []uuid.NullUUID     `json:"transport_id"`
 	Method          []OrderRefundMethod `json:"method"`
 	Status          []OrderStatus       `json:"status"`
 	Reason          []string            `json:"reason"`
@@ -394,7 +394,7 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 		arg.AccountID,
 		arg.OrderID,
 		arg.ConfirmedByID,
-		arg.ShipmentID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -417,7 +417,7 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 			&i.AccountID,
 			&i.OrderID,
 			&i.ConfirmedByID,
-			&i.ShipmentID,
+			&i.TransportID,
 			&i.Method,
 			&i.Status,
 			&i.Reason,
@@ -439,14 +439,14 @@ UPDATE "order"."refund"
 SET "account_id" = COALESCE($1, "account_id"),
     "order_id" = COALESCE($2, "order_id"),
     "confirmed_by_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "confirmed_by_id") END,
-    "shipment_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "shipment_id") END,
+    "transport_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "transport_id") END,
     "method" = COALESCE($7, "method"),
     "status" = COALESCE($8, "status"),
     "reason" = COALESCE($9, "reason"),
     "address" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "address") END,
     "date_created" = COALESCE($12, "date_created")
 WHERE id = $13
-RETURNING id, account_id, order_id, confirmed_by_id, shipment_id, method, status, reason, address, date_created
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
 `
 
 type UpdateRefundParams struct {
@@ -454,8 +454,8 @@ type UpdateRefundParams struct {
 	OrderID           uuid.NullUUID         `json:"order_id"`
 	NullConfirmedByID bool                  `json:"null_confirmed_by_id"`
 	ConfirmedByID     uuid.NullUUID         `json:"confirmed_by_id"`
-	NullShipmentID    bool                  `json:"null_shipment_id"`
-	ShipmentID        uuid.NullUUID         `json:"shipment_id"`
+	NullTransportID   bool                  `json:"null_transport_id"`
+	TransportID       uuid.NullUUID         `json:"transport_id"`
 	Method            NullOrderRefundMethod `json:"method"`
 	Status            NullOrderStatus       `json:"status"`
 	Reason            null.String           `json:"reason"`
@@ -471,8 +471,8 @@ func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (Ord
 		arg.OrderID,
 		arg.NullConfirmedByID,
 		arg.ConfirmedByID,
-		arg.NullShipmentID,
-		arg.ShipmentID,
+		arg.NullTransportID,
+		arg.TransportID,
 		arg.Method,
 		arg.Status,
 		arg.Reason,
@@ -487,7 +487,7 @@ func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (Ord
 		&i.AccountID,
 		&i.OrderID,
 		&i.ConfirmedByID,
-		&i.ShipmentID,
+		&i.TransportID,
 		&i.Method,
 		&i.Status,
 		&i.Reason,

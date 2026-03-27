@@ -21,7 +21,18 @@ WHERE (
     ("unit_price" > sqlc.narg('unit_price_from') OR sqlc.narg('unit_price_from') IS NULL) AND
     ("unit_price" < sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
-    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL)
+    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListItem :many
@@ -39,7 +50,18 @@ WHERE (
     ("unit_price" > sqlc.narg('unit_price_from') OR sqlc.narg('unit_price_from') IS NULL) AND
     ("unit_price" < sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
-    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL)
+    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -60,44 +82,62 @@ WHERE (
     ("unit_price" > sqlc.narg('unit_price_from') OR sqlc.narg('unit_price_from') IS NULL) AND
     ("unit_price" < sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
-    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL)
+    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateCopyItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
 
 -- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateItem :one
 UPDATE "order"."item"
-SET "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
+SET "order_id" = CASE WHEN sqlc.arg('null_order_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('order_id'), "order_id") END,
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "sku_name" = COALESCE(sqlc.narg('sku_name'), "sku_name"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity"),
     "unit_price" = COALESCE(sqlc.narg('unit_price'), "unit_price"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
-    "serial_ids" = CASE WHEN sqlc.arg('null_serial_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('serial_ids'), "serial_ids") END
+    "serial_ids" = CASE WHEN sqlc.arg('null_serial_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('serial_ids'), "serial_ids") END,
+    "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('account_id'), "account_id") END,
+    "seller_id" = CASE WHEN sqlc.arg('null_seller_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('seller_id'), "seller_id") END,
+    "address" = COALESCE(sqlc.narg('address'), "address"),
+    "status" = COALESCE(sqlc.narg('status'), "status"),
+    "paid_amount" = COALESCE(sqlc.narg('paid_amount'), "paid_amount"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -115,5 +155,16 @@ WHERE (
     ("unit_price" > sqlc.narg('unit_price_from') OR sqlc.narg('unit_price_from') IS NULL) AND
     ("unit_price" < sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
-    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL)
+    ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
