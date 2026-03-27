@@ -1,3 +1,0 @@
-ALTER TABLE "account"."notification"
-    ADD COLUMN IF NOT EXISTS "title" VARCHAR(200) NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS "metadata" JSONB;
