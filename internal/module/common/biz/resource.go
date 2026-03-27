@@ -28,7 +28,7 @@ type UpdateResourcesParams struct {
 // UpdateResources replaces all resource references for a given entity and returns the updated list.
 func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, err
+		return nil, restate.TerminalErrorf("validate update resources: %w", err)
 	}
 
 	// Update resources (delete all and re-attach)
@@ -92,7 +92,7 @@ type DeleteResourcesParams struct {
 // DeleteResources removes resource references and optionally deletes the underlying resource records.
 func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate delete resources: %w", err)
 	}
 
 	deletedResources, err := b.storage.Querier().ListResourceReference(ctx, commondb.ListResourceReferenceParams{
@@ -143,7 +143,7 @@ func (b *CommonHandler) GetResources(ctx restate.Context, params GetResourcesPar
 		RefID:   params.RefIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list resources: %w", err)
 	}
 
 	return lo.GroupByMap(resources, func(rs commondb.ListSortedResourcesRow) (uuid.UUID, commonmodel.Resource) {

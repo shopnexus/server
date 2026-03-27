@@ -92,7 +92,7 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 		return nil
 	}
 	if err := validator.Validate(params); err != nil {
-		return err
+		return fmt.Errorf("validate update stale products: %w", err)
 	}
 
 	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(params.Stales), params.MetadataOnly)

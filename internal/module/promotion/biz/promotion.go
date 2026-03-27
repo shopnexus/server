@@ -34,14 +34,14 @@ func (s *PromotionHandler) GetPromotion(ctx restate.Context, params GetPromotion
 		ID: uuid.NullUUID{UUID: params.ID, Valid: true},
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("get promotion: %w", err)
 	}
 
 	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{
 		PromotionID: []uuid.UUID{promo.ID},
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list promotion refs: %w", err)
 	}
 
 	return dbToPromotion(promo, refs), nil
@@ -64,7 +64,7 @@ func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromoti
 		ID:     params.ID,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list promotions: %w", err)
 	}
 
 	promoIDs := lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) uuid.UUID {
@@ -75,7 +75,7 @@ func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromoti
 		PromotionID: promoIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list promotion refs: %w", err)
 	}
 	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID { return r.PromotionID })
 
@@ -117,7 +117,7 @@ func (b *PromotionHandler) CreatePromotion(ctx restate.Context, params CreatePro
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate create promotion: %w", err)
 	}
 
 	dbPromo, err := b.storage.Querier().CreateDefaultPromotion(ctx, promotiondb.CreateDefaultPromotionParams{
@@ -173,7 +173,7 @@ func (s *PromotionHandler) UpdatePromotion(ctx restate.Context, params UpdatePro
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate update promotion: %w", err)
 	}
 
 	dbPromo, err := s.storage.Querier().UpdatePromotion(ctx, promotiondb.UpdatePromotionParams{
@@ -240,7 +240,10 @@ func createRefs(ctx context.Context, storage PromotionStorage, promoID uuid.UUID
 			RefID:       r.RefID,
 		}
 	}))
-	return err
+	if err != nil {
+		return fmt.Errorf("create promotion refs: %w", err)
+	}
+	return nil
 }
 
 // dbToPromotion maps a DB row + refs to the domain model.

@@ -33,7 +33,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		ID: spuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list product spus", err)
 	}
 	spus := listSpu.Data
 	spuMap := lo.KeyBy(spus, func(spu catalogmodel.ProductSpu) uuid.UUID { return spu.ID })
@@ -51,7 +51,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		ID: featuredIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list product skus", err)
 	}
 
 	// map[spuID]FeaturedSKU
@@ -71,7 +71,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 
 	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: spuMap})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("calculate promoted prices", err)
 	}
 
 	// Calculate rating score
@@ -80,7 +80,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		RefID:   spuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list rating: %w", err)
 	}
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
@@ -90,7 +90,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		RefIDs:  spuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("get product resources", err)
 	}
 
 	// Map promotion codes to ProductCardPromo per SPU
@@ -163,12 +163,12 @@ type GetProductCardParams struct {
 // GetProductCard returns a single product card by SPU ID.
 func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, err
+		return nil, restate.TerminalErrorf("validate get product card: %w", err)
 	}
 
 	productCardMap, err := b.buildProductCards(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
 	if err != nil {
-		return nil, err
+		return nil, sharedmodel.WrapErr("build product card", err)
 	}
 
 	card, ok := productCardMap[params.SpuID]
@@ -193,7 +193,7 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 	var err error
 
 	if err = validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list product card: %w", err)
 	}
 
 	var total int64
@@ -235,19 +235,19 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 	} else {
 		total, err = b.storage.Querier().CountProductSpu(ctx, catalogdb.CountProductSpuParams{})
 		if err != nil {
-			return zero, err
+			return zero, fmt.Errorf("count product spu: %w", err)
 		}
 	}
 
 	searchCountSpu, err := b.storage.Querier().SearchCountProductSpu(ctx, searchArg)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("search product spu: %w", err)
 	}
 	// TODO: handle total from search result
 
 	productCardMap, err := b.buildProductCards(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("build product cards", err)
 	}
 
 	// respect the order from search result, else use the order from DB query
@@ -282,7 +282,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 	var err error
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list recommended: %w", err)
 	}
 
 	// Get current feed offset
@@ -298,7 +298,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		Offset: null.IntFrom(feedOffset),
 		Limit:  null.IntFrom(int64(params.Limit)),
 	}); err != nil {
-		return zero, err
+		return zero, fmt.Errorf("get recommended products: %w", err)
 	}
 	feedOffset += int64(len(rcmProducts))
 
@@ -325,7 +325,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		// Adding new feed
 		for _, p := range recommendations {
 			if err = b.cache.ZAdd(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), p, float64(p.Score)); err != nil {
-				return zero, err
+				return zero, fmt.Errorf("cache recommended product: %w", err)
 			}
 		}
 	}
@@ -345,7 +345,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
 		})
 		if err != nil {
-			return zero, err
+			return zero, sharedmodel.WrapErr("list most taken sku", err)
 		}
 		// Take random amount of shuffled most sold products
 		mutable.Shuffle(mostSolds)
@@ -358,7 +358,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 			ID: skuIDs,
 		})
 		if err != nil {
-			return zero, err
+			return zero, fmt.Errorf("list product sku: %w", err)
 		}
 
 		uniqueSpuIDs := lo.UniqMap(skus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.SpuID })
@@ -372,7 +372,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 
 	productCardMap, err := b.buildProductCards(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("build product cards", err)
 	}
 
 	products := []catalogmodel.ProductCard{}

@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -16,6 +17,7 @@ import (
 	commonmodel "shopnexus-server/internal/module/common/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -30,14 +32,14 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 		})
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list cart items: %w", err)
 	}
 
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
 		ID: lo.Map(cartItems, func(c orderdb.OrderCartItem, _ int) uuid.UUID { return c.SkuID }),
 	})
 	if err != nil {
-		return nil, err
+		return nil, sharedmodel.WrapErr("list cart skus", err)
 	}
 	skuMap := lo.SliceToMap(skus, func(s catalogmodel.ProductSku) (uuid.UUID, catalogmodel.ProductSku) {
 		return s.ID, s
@@ -75,7 +77,7 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 // UpdateCart adds, updates, or removes a cart item and tracks the interaction.
 func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate update cart: %w", err)
 	}
 
 	// Track which event type to send after the durable step
@@ -118,7 +120,7 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 		return analyticmodel.EventAddToCart, nil
 	})
 	if err != nil {
-		return err
+		return sharedmodel.WrapErr("update cart", err)
 	}
 
 	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{

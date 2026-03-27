@@ -267,7 +267,7 @@ type UpdateProductsParams struct {
 // UpdateProducts upserts product data and embeddings into the Milvus search index.
 func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate update products: %w", err)
 	}
 
 	// 1. Get embeddings if needed

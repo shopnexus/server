@@ -34,7 +34,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list product sku: %w", err)
 	}
 
 	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
@@ -45,7 +45,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 		CanCombine: pgutil.NullBoolToSlice(params.CanCombine),
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list product sku: %w", err)
 	}
 
 	stocks, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
@@ -53,7 +53,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 		RefID:   lo.Map(dbSkus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.ID }),
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list stock", err)
 	}
 	stockMap := lo.KeyBy(stocks.Data, func(s inventorydb.InventoryStock) uuid.UUID { return s.RefID })
 
@@ -61,7 +61,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 	for _, dbSku := range dbSkus {
 		var attributes []catalogmodel.ProductAttribute
 		if err := sonic.Unmarshal(dbSku.Attributes, &attributes); err != nil {
-			return zero, err
+			return zero, fmt.Errorf("unmarshal sku attributes: %w", err)
 		}
 		m := dbToProductSku(dbSku)
 		m.Stock = stockMap[dbSku.ID].Stock
@@ -106,7 +106,6 @@ func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProd
 		return zero, fmt.Errorf("create product sku: %w", err)
 	}
 
-	// TODO: use message queue
 	if _, err := b.inventory.CreateStock(ctx, inventorybiz.CreateStockParams{
 		RefID:   sku.ID,
 		RefType: inventorydb.InventoryStockRefTypeProductSku,
@@ -135,7 +134,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate update product sku: %w", err)
 	}
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
@@ -203,7 +202,7 @@ type DeleteProductSkuParams struct {
 // DeleteProductSku deletes a product SKU by ID.
 func (b *CatalogHandler) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate delete product sku: %w", err)
 	}
 
 	// Delete sku

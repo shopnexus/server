@@ -24,7 +24,7 @@ func (b *CatalogHandler) getProductVectors(ctx restate.Context, ids []string) (m
 	expr := fmt.Sprintf("id in %s", toMilvusStringList(ids))
 	rs, err := b.milvus.Query(ctx, CollectionProducts, expr, []string{"id", "content_vector"})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query product vectors: %w", err)
 	}
 
 	idCol := rs.GetColumn("id")
@@ -59,7 +59,7 @@ func (b *CatalogHandler) getAccountInterests(ctx restate.Context, ids []string) 
 	expr := fmt.Sprintf("id in %s", toMilvusStringList(ids))
 	rs, err := b.milvus.Query(ctx, CollectionAccounts, expr, accountOutputFields())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query account interests: %w", err)
 	}
 
 	idCol := rs.GetColumn("id")
@@ -116,7 +116,10 @@ func (b *CatalogHandler) upsertAccountInterests(ctx restate.Context, accountID s
 	}
 
 	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionAccounts, cols...))
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert account interests: %w", err)
+	}
+	return nil
 }
 
 // getProductAllVectors fetches content_vector and sparse_vector for the given product IDs from Milvus.
@@ -128,7 +131,7 @@ func (b *CatalogHandler) getProductAllVectors(ctx restate.Context, ids []string)
 	expr := fmt.Sprintf("id in %s", toMilvusStringList(ids))
 	rs, err := b.milvus.Query(ctx, CollectionProducts, expr, []string{"id", "content_vector", "sparse_vector"})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query product vectors: %w", err)
 	}
 
 	idCol := rs.GetColumn("id")
@@ -262,7 +265,10 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 	}
 
 	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionProducts, cols...))
-	return err
+	if err != nil {
+		return fmt.Errorf("upsert products: %w", err)
+	}
+	return nil
 }
 
 // toMilvusStringList formats a string slice as a Milvus filter expression list: ['a','b']

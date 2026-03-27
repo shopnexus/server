@@ -29,7 +29,7 @@ func (b *CommonHandler) UpdateServiceOptions(ctx restate.Context, params UpdateS
 // used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
 func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return fmt.Errorf("validate service options: %w", err)
 	}
 
 	for index, cfg := range params.Configs {
@@ -82,8 +82,8 @@ type ListServiceOptionParams struct {
 
 // ListServiceOption returns active service options filtered by category.
 func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
-	if validator.Validate(params) != nil {
-		return nil, validator.Validate(params)
+	if err := validator.Validate(params); err != nil {
+		return nil, restate.TerminalErrorf("validate list service option: %w", err)
 	}
 
 	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
@@ -91,7 +91,7 @@ func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServic
 		IsActive: params.IsActive,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list service option: %w", err)
 	}
 
 	var result []sharedmodel.OptionConfig

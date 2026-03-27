@@ -264,7 +264,7 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list pending items: %w", err)
 	}
 
 	status := params.Status
@@ -299,12 +299,12 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 		return pendingResult{Items: items, Total: total}, nil
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list pending items: %w", err)
 	}
 
 	enriched, err := b.enrichItems(ctx, dbResult.Items)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("enrich pending items", err)
 	}
 
 	var total null.Int64
@@ -320,7 +320,7 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 // CancelPendingItem cancels a pending item and releases its inventory.
 func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendingItemParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate cancel pending item: %w", err)
 	}
 
 	// Fetch the item first

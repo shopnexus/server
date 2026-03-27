@@ -7,6 +7,7 @@ import (
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ type ListContactParams struct {
 // ListContact returns contacts matching the given account and contact IDs.
 func (b *AccountHandler) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, err
+		return nil, restate.TerminalErrorf("validate list contact: %w", err)
 	}
 
 	contacts, err := b.storage.Querier().ListContact(ctx, accountdb.ListContactParams{
@@ -30,7 +31,7 @@ func (b *AccountHandler) ListContact(ctx restate.Context, params ListContactPara
 		ID:        params.ID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list contact: %w", err)
 	}
 
 	return contacts, nil
@@ -46,7 +47,7 @@ func (b *AccountHandler) GetContact(ctx restate.Context, params GetContactParams
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate get contact: %w", err)
 	}
 
 	result, err := b.ListContact(ctx, ListContactParams{
@@ -54,7 +55,7 @@ func (b *AccountHandler) GetContact(ctx restate.Context, params GetContactParams
 		ID:        []uuid.UUID{params.ContactID},
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("get contact", err)
 	}
 
 	if len(result) == 0 {
@@ -79,7 +80,7 @@ func (b *AccountHandler) CreateContact(ctx restate.Context, params CreateContact
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate create contact: %w", err)
 	}
 
 	dbContact, err := b.storage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
@@ -131,7 +132,7 @@ func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContact
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate update contact: %w", err)
 	}
 
 	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
@@ -146,7 +147,7 @@ func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContact
 		PhoneVerified: params.PhoneVerified,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("update contact: %w", err)
 	}
 
 	return updatedContact, nil
@@ -165,7 +166,7 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("count contact: %w", err)
 	}
 	if total <= 1 {
 		return accountmodel.ErrCannotDeleteLastContact.Terminal()
@@ -180,7 +181,7 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 		ID:        []uuid.UUID{params.ContactID},
 		AccountID: []uuid.UUID{params.Account.ID},
 	}); err != nil {
-		return err
+		return fmt.Errorf("delete contact: %w", err)
 	}
 
 	// If we deleted the default, reassign to the most recent remaining contact
@@ -203,7 +204,7 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 func (b *AccountHandler) GetDefaultContact(ctx restate.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
 	contacts, err := b.storage.Querier().ListDefaultContact(ctx, accountIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list default contact: %w", err)
 	}
 	if len(contacts) != len(lo.Uniq(accountIDs)) {
 		return nil, accountmodel.ErrNoDefaultContact.Terminal()

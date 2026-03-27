@@ -35,7 +35,6 @@ func (b *CatalogHandler) getTagsMap(ctx restate.Context, spuID []uuid.UUID) map[
 	return lo.GroupByMap(tags, func(tag catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return tag.SpuID, tag.Tag })
 }
 
-// TODO: use join instead of spamming N+1 queries
 func (b *CatalogHandler) getCategory(ctx restate.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
 	category, _ := b.storage.Querier().GetCategory(ctx, catalogdb.GetCategoryParams{
 		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
@@ -43,7 +42,6 @@ func (b *CatalogHandler) getCategory(ctx restate.Context, categoryID uuid.UUID) 
 	return category
 }
 
-// TODO: use join instead of spamming N+1 queries
 func (b *CatalogHandler) getBrand(ctx restate.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
 	brand, _ := b.storage.Querier().GetBrand(ctx, catalogdb.GetBrandParams{
 		ID: uuid.NullUUID{UUID: brandID, Valid: true},
@@ -100,7 +98,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list product spu: %w", err)
 	}
 
 	listCountSpu, err := b.storage.Querier().ListCountProductSpu(ctx, catalogdb.ListCountProductSpuParams{
@@ -114,7 +112,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		IsActive:   params.IsActive,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list product spu: %w", err)
 	}
 
 	var total null.Int64
@@ -133,7 +131,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		RefID:   spuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list rating: %w", err)
 	}
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
@@ -144,7 +142,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		RefIDs:  spuIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("get product resources", err)
 	}
 
 	var spus []catalogmodel.ProductSpu
@@ -187,7 +185,7 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate create product spu: %w", err)
 	}
 
 	specsBytes, err := sonic.Marshal(params.Specifications)
@@ -219,7 +217,6 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 
 	// Create resources
 	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-		// TODO: use message queue instead of sequential processing
 		Account:     params.Account,
 		RefType:     commondb.CommonResourceRefTypeProductSpu,
 		RefID:       spu.ID,
@@ -229,7 +226,6 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 		return zero, fmt.Errorf("create product spu: %w", err)
 	}
 
-	// Create system search sync (TODO: should move to event)
 	if _, err := b.storage.Querier().CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
 		RefType: catalogdb.CatalogSearchSyncRefTypeProductSpu,
 		RefID:   spu.ID,
@@ -265,7 +261,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate update product spu: %w", err)
 	}
 
 	// Ensure the featured SKU (if provided) belongs to the current SPU.
@@ -334,7 +330,6 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 	}
 
 	// LAST STEP: Update resources
-	// TODO: use message queue instead of sequential processing
 	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
 		Account:     params.Account,
 		RefType:     commondb.CommonResourceRefTypeProductSpu,
@@ -360,7 +355,7 @@ type DeleteProductSpuParams struct {
 // DeleteProductSpu deletes a product SPU by ID.
 func (b *CatalogHandler) DeleteProductSpu(ctx restate.Context, params DeleteProductSpuParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate delete product spu: %w", err)
 	}
 
 	if err := b.storage.Querier().DeleteProductSpu(ctx, catalogdb.DeleteProductSpuParams{

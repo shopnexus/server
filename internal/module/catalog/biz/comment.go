@@ -38,7 +38,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list comment: %w", err)
 	}
 
 	listComment, err := b.storage.Querier().ListCountComment(ctx, catalogdb.ListCountCommentParams{
@@ -52,7 +52,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		ScoreTo:   params.ScoreTo,
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list comment: %w", err)
 	}
 
 	var total null.Int64
@@ -77,7 +77,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		AccountIDs: accountIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list comment profiles", err)
 	}
 	// map[accountID]catalogdb.AccountProfile
 	profileMap := lo.KeyBy(listProfile.Data, func(a accountmodel.Profile) uuid.UUID { return a.ID })
@@ -88,7 +88,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		RefIDs:  commentIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list comment resources", err)
 	}
 
 	var comments []catalogmodel.Comment
@@ -129,7 +129,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate create comment: %w", err)
 	}
 
 	comment, err := b.storage.Querier().CreateDefaultComment(ctx, catalogdb.CreateDefaultCommentParams{
@@ -145,7 +145,6 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 
 	// Attach resources
 	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-		// TODO: use message queue instead sequential calls
 		Account:     params.Account,
 		RefType:     commondb.CommonResourceRefTypeComment,
 		RefID:       comment.ID,
@@ -213,7 +212,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate update comment: %w", err)
 	}
 
 	// Update base comment info
@@ -280,7 +279,7 @@ type DeleteCommentParams struct {
 // DeleteComment deletes comments and their associated resources.
 func (b *CatalogHandler) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate delete comment: %w", err)
 	}
 
 	// Delete base comments
@@ -292,7 +291,6 @@ func (b *CatalogHandler) DeleteComment(ctx restate.Context, params DeleteComment
 
 	// Remove associated resources
 	if err := b.common.DeleteResources(ctx, commonbiz.DeleteResourcesParams{
-		// TODO: use message queue instead sequential calls
 		RefType:         commondb.CommonResourceRefTypeComment,
 		RefID:           params.CommentIDs,
 		DeleteResources: true,

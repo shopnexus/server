@@ -29,7 +29,7 @@ func (b *CommonHandler) SetupObjectStore() error {
 	// setup local
 	local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
 	if err != nil {
-		return err
+		return fmt.Errorf("setup local objectstore: %w", err)
 	}
 	b.objectstoreMap[local.Config().ID] = local
 	configs = append(configs, local.Config())
@@ -43,7 +43,7 @@ func (b *CommonHandler) SetupObjectStore() error {
 		CloudfrontURL:   config.GetConfig().Filestore.S3.CloudfrontURL,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("setup s3 objectstore: %w", err)
 	}
 	b.objectstoreMap[s3.Config().ID] = s3
 	configs = append(configs, s3.Config())
@@ -57,7 +57,7 @@ func (b *CommonHandler) SetupObjectStore() error {
 		Category: "objectstore",
 		Configs:  configs,
 	}); err != nil {
-		return err
+		return fmt.Errorf("setup objectstore options: %w", err)
 	}
 
 	return nil
@@ -144,7 +144,7 @@ type GetFileURLParams struct {
 func (b *CommonHandler) GetFileURL(ctx restate.Context, params GetFileURLParams) (string, error) {
 	url, err := b.mustGetObjectStore(params.Provider).GetURL(ctx, params.ObjectKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get file url: %w", err)
 	}
 
 	return url, nil

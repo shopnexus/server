@@ -31,7 +31,7 @@ func (b *OrderHandler) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermo
 		ID: []uuid.UUID{orderID},
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("get order", err)
 	}
 	if len(orders.Data) == 0 {
 		return zero, ordermodel.ErrOrderNotFound.Terminal()
@@ -45,7 +45,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list orders: %w", err)
 	}
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountOrderRow, error) {
@@ -56,7 +56,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 		})
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list orders: %w", err)
 	}
 
 	var total null.Int64
@@ -69,7 +69,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 	})
 	data, err := b.hydrateOrders(ctx, orders)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("hydrate orders", err)
 	}
 
 	return sharedmodel.PaginateResult[ordermodel.Order]{
@@ -84,7 +84,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, restate.TerminalErrorf("validate list seller orders: %w", err)
 	}
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountSellerOrderRow, error) {
@@ -97,7 +97,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 		})
 	})
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("list seller orders: %w", err)
 	}
 
 	var total null.Int64
@@ -109,7 +109,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 		return item.OrderOrder
 	}))
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("hydrate seller orders", err)
 	}
 
 	return sharedmodel.PaginateResult[ordermodel.Order]{
@@ -162,7 +162,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		return dbResults{OrderItems: orderItems, Payments: payments}, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch order data: %w", err)
 	}
 
 	// Group items by order_id
@@ -178,7 +178,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	for orderID, items := range orderItemsMap {
 		enriched, err := b.enrichItems(ctx, items)
 		if err != nil {
-			return nil, err
+			return nil, sharedmodel.WrapErr("enrich order items", err)
 		}
 		enrichedItemsMap[orderID] = enriched
 	}
@@ -244,7 +244,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 // VerifyPayment verifies a payment callback from the payment gateway and updates the payment status.
 func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return restate.TerminalErrorf("validate verify payment: %w", err)
 	}
 
 	// Verify payment via payment gateway
@@ -260,7 +260,7 @@ func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentPa
 		return result.RefID, nil
 	})
 	if err != nil {
-		return err
+		return sharedmodel.WrapErr("verify payment", err)
 	}
 
 	refUUID, err := uuid.Parse(refID)
@@ -337,7 +337,7 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 
 		return nil
 	}); err != nil {
-		return err
+		return sharedmodel.WrapErr("cancel order", err)
 	}
 
 	// Release inventory for all items
