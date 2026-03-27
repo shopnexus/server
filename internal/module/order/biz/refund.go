@@ -27,7 +27,7 @@ func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list refunds: %w", err)
+		return zero, sharedmodel.WrapErr("validate list refunds", err)
 	}
 
 	return restate.Run(ctx, func(ctx restate.RunContext) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
@@ -73,7 +73,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate create refund: %w", err)
+		return zero, sharedmodel.WrapErr("validate create refund", err)
 	}
 
 	if params.Method == orderdb.OrderRefundMethodPickUp && !params.Address.Valid {
@@ -84,7 +84,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
 		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: params.OrderID, Valid: true})
 		if err != nil {
-			return zero, fmt.Errorf("get order: %w", err)
+			return zero, sharedmodel.WrapErr("db get order", err)
 		}
 		_ = order
 
@@ -96,7 +96,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 			Address:   params.Address,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("create refund: %w", err)
+			return zero, sharedmodel.WrapErr("db create refund", err)
 		}
 
 		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
@@ -108,7 +108,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 			DeleteResources: false,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("update refund resources: %w", err)
+			return zero, sharedmodel.WrapErr("update refund resources", err)
 		}
 
 		m := dbToRefund(dbRefund)
@@ -143,13 +143,13 @@ func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundPara
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate update refund: %w", err)
+		return zero, sharedmodel.WrapErr("validate update refund", err)
 	}
 
 	return restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
 		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
-			return zero, fmt.Errorf("get refund: %w", err)
+			return zero, sharedmodel.WrapErr("db get refund", err)
 		}
 
 		if refund.Status != orderdb.OrderStatusPending {
@@ -168,7 +168,7 @@ func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundPara
 			ConfirmedByID: params.ConfirmedByID,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("update refund: %w", err)
+			return zero, sharedmodel.WrapErr("db update refund", err)
 		}
 
 		resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
@@ -179,7 +179,7 @@ func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundPara
 			DeleteResources: true,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("update refund resources: %w", err)
+			return zero, sharedmodel.WrapErr("update refund resources", err)
 		}
 
 		m := dbToRefund(refund)
@@ -220,7 +220,7 @@ func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 // CancelRefund cancels a refund request by setting its status to canceled.
 func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate cancel refund: %w", err)
+		return sharedmodel.WrapErr("validate cancel refund", err)
 	}
 
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
@@ -228,7 +228,7 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 			ID:     params.RefundID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("cancel refund %s: %w", params.RefundID, err)
+			return sharedmodel.WrapErr(fmt.Sprintf("db cancel refund %s", params.RefundID), err)
 		}
 		return nil
 	})
@@ -239,7 +239,7 @@ func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundPa
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate confirm refund: %w", err)
+		return zero, sharedmodel.WrapErr("validate confirm refund", err)
 	}
 
 	refund, err := b.UpdateRefund(ctx, UpdateRefundParams{

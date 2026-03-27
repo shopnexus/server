@@ -2,7 +2,6 @@ package accountbiz
 
 import (
 	"encoding/json"
-	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -33,19 +32,19 @@ func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreateP
 		Data:      params.Data,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create payment method: %w", err)
+		return zero, sharedmodel.WrapErr("create payment method", err)
 	}
 
 	if params.IsDefault {
 		if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-			return zero, fmt.Errorf("create payment method: %w", err)
+			return zero, sharedmodel.WrapErr("create payment method", err)
 		}
 		result, err = b.storage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
 			ID:        result.ID,
 			AccountID: params.Account.ID,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("create payment method: %w", err)
+			return zero, sharedmodel.WrapErr("create payment method", err)
 		}
 	}
 
@@ -68,7 +67,7 @@ func (b *AccountHandler) ListPaymentMethod(ctx restate.Context, params ListPayme
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list payment methods: %w", err)
+		return zero, sharedmodel.WrapErr("list payment methods", err)
 	}
 
 	methods := make([]accountdb.AccountPaymentMethod, len(rows))
@@ -105,7 +104,7 @@ func (b *AccountHandler) UpdatePaymentMethod(ctx restate.Context, params UpdateP
 		Data:      params.Data,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update payment method: %w", err)
+		return zero, sharedmodel.WrapErr("update payment method", err)
 	}
 
 	return result, nil
@@ -118,10 +117,14 @@ type DeletePaymentMethodParams struct {
 
 // DeletePaymentMethod removes a payment method belonging to the authenticated account.
 func (b *AccountHandler) DeletePaymentMethod(ctx restate.Context, params DeletePaymentMethodParams) error {
-	return b.storage.Querier().DeletePaymentMethod(ctx, accountdb.DeletePaymentMethodParams{
+	if err := b.storage.Querier().DeletePaymentMethod(ctx, accountdb.DeletePaymentMethodParams{
 		ID:        []uuid.UUID{params.ID},
 		AccountID: []uuid.UUID{params.Account.ID},
-	})
+	}); err != nil {
+		return sharedmodel.WrapErr("delete payment method", err)
+	}
+
+	return nil
 }
 
 type SetDefaultPaymentMethodParams struct {
@@ -134,7 +137,7 @@ func (b *AccountHandler) SetDefaultPaymentMethod(ctx restate.Context, params Set
 	var zero accountdb.AccountPaymentMethod
 
 	if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
-		return zero, fmt.Errorf("set default payment method: %w", err)
+		return zero, sharedmodel.WrapErr("set default payment method", err)
 	}
 
 	result, err := b.storage.Querier().SetDefaultPaymentMethod(ctx, accountdb.SetDefaultPaymentMethodParams{
@@ -142,7 +145,7 @@ func (b *AccountHandler) SetDefaultPaymentMethod(ctx restate.Context, params Set
 		AccountID: params.Account.ID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("set default payment method: %w", err)
+		return zero, sharedmodel.WrapErr("set default payment method", err)
 	}
 
 	return result, nil

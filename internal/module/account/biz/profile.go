@@ -1,14 +1,12 @@
 package accountbiz
 
 import (
-	"fmt"
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/pgutil"
+	"shopnexus-server/internal/shared/ptrutil"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -26,7 +24,7 @@ type ListProfileParams struct {
 func (b *AccountHandler) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	var result sharedmodel.PaginateResult[accountmodel.Profile]
 	if err := validator.Validate(params); err != nil {
-		return result, err
+		return result, sharedmodel.WrapErr("list profiles", err)
 	}
 
 	listProfile, err := b.storage.Querier().ListCountProfile(ctx, accountdb.ListCountProfileParams{
@@ -134,7 +132,7 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 		Email:    params.Email,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update profile: %w", err)
+		return zero, sharedmodel.WrapErr("update profile", err)
 	}
 
 	profile, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
@@ -146,7 +144,7 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 		DefaultContactID: params.DefaultContactID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update profile: %w", err)
+		return zero, sharedmodel.WrapErr("update profile", err)
 	}
 
 	m := b.dbToProfile(ctx, account, profile)
@@ -171,7 +169,7 @@ func (b *AccountHandler) dbToProfile(ctx restate.Context, account accountdb.Acco
 		Email:    account.Email,
 		Username: account.Username,
 
-		Gender:           pgutil.NullToPtr(profile.Gender.AccountGender, profile.Gender.Valid),
+		Gender:           ptrutil.PtrIf(profile.Gender.AccountGender, profile.Gender.Valid),
 		Name:             profile.Name,
 		DateOfBirth:      profile.DateOfBirth,
 		EmailVerified:    profile.EmailVerified,

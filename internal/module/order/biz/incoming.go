@@ -7,11 +7,11 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
-	"shopnexus-server/internal/infras/transport"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -79,15 +79,15 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 
 	// Step 1: Fetch items and validate
 	type fetchedItem struct {
-		ID        int64  `json:"id"`
-		AccountID string `json:"account_id"`
-		SellerID  string `json:"seller_id"`
-		Address   string `json:"address"`
-		SkuID     string `json:"sku_id"`
-		Quantity  int64  `json:"quantity"`
-		UnitPrice int64  `json:"unit_price"`
+		ID         int64  `json:"id"`
+		AccountID  string `json:"account_id"`
+		SellerID   string `json:"seller_id"`
+		Address    string `json:"address"`
+		SkuID      string `json:"sku_id"`
+		Quantity   int64  `json:"quantity"`
+		UnitPrice  int64  `json:"unit_price"`
 		PaidAmount int64  `json:"paid_amount"`
-		Status    string `json:"status"`
+		Status     string `json:"status"`
 	}
 	type fetchResult struct {
 		Items []fetchedItem `json:"items"`
@@ -98,7 +98,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			ID: params.ItemIDs,
 		})
 		if err != nil {
-			return fetchResult{}, fmt.Errorf("list items: %w", err)
+			return fetchResult{}, sharedmodel.WrapErr("db list items", err)
 		}
 		if len(items) != len(params.ItemIDs) {
 			return fetchResult{}, ordermodel.ErrOrderItemNotFound.Terminal()
@@ -107,15 +107,15 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 		result := make([]fetchedItem, 0, len(items))
 		for _, item := range items {
 			result = append(result, fetchedItem{
-				ID:        item.ID,
-				AccountID: item.AccountID.String(),
-				SellerID:  item.SellerID.String(),
-				Address:   item.Address,
-				SkuID:     item.SkuID.String(),
-				Quantity:  item.Quantity,
-				UnitPrice: item.UnitPrice,
+				ID:         item.ID,
+				AccountID:  item.AccountID.String(),
+				SellerID:   item.SellerID.String(),
+				Address:    item.Address,
+				SkuID:      item.SkuID.String(),
+				Quantity:   item.Quantity,
+				UnitPrice:  item.UnitPrice,
 				PaidAmount: item.PaidAmount,
-				Status:    string(item.Status),
+				Status:     string(item.Status),
 			})
 		}
 		return fetchResult{Items: result}, nil
@@ -185,7 +185,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			Option:      params.TransportOption,
 		})
 		if err != nil {
-			return transportResult{}, fmt.Errorf("create transport: %w", err)
+			return transportResult{}, sharedmodel.WrapErr("create transport", err)
 		}
 
 		// Store transport in DB
@@ -196,7 +196,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			Data:   created.Data,
 		})
 		if err != nil {
-			return transportResult{}, fmt.Errorf("save transport: %w", err)
+			return transportResult{}, sharedmodel.WrapErr("db save transport", err)
 		}
 
 		return transportResult{
@@ -244,7 +244,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			Data:            json.RawMessage("{}"),
 		})
 		if err != nil {
-			return orderResult{}, fmt.Errorf("create order: %w", err)
+			return orderResult{}, sharedmodel.WrapErr("db create order", err)
 		}
 
 		// Confirm items (set order_id, status=Confirmed)
@@ -252,7 +252,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			OrderID: uuid.NullUUID{UUID: order.ID, Valid: true},
 			Ids:     params.ItemIDs,
 		}); err != nil {
-			return orderResult{}, fmt.Errorf("confirm items: %w", err)
+			return orderResult{}, sharedmodel.WrapErr("db confirm items", err)
 		}
 
 		return orderResult{OrderID: order.ID.String()}, nil
@@ -297,7 +297,7 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 			ID: params.ItemIDs,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("list items: %w", err)
+			return nil, sharedmodel.WrapErr("db list items", err)
 		}
 		if len(dbItems) != len(params.ItemIDs) {
 			return nil, ordermodel.ErrOrderItemNotFound.Terminal()
@@ -346,7 +346,7 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 			SellerID: sellerID,
 		})
 	}); err != nil {
-		return sharedmodel.WrapErr("cancel items", err)
+		return sharedmodel.WrapErr("db cancel items", err)
 	}
 
 	// Notify buyer (fire-and-forget)

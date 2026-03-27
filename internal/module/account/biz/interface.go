@@ -70,6 +70,7 @@ type AccountHandler struct {
 	refreshTokenDuration time.Duration
 	refreshSecret        []byte
 
+	config  *config.Config
 	storage AccountStorage
 	pubsub  pubsub.Client
 	common  commonbiz.CommonBiz
@@ -92,6 +93,7 @@ func NewAccountHandler(
 		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),
 		refreshSecret:        []byte(config.App.JWT.RefreshSecret),
 
+		config:  config,
 		storage: storage,
 		pubsub:  pubsub,
 		common:  common,

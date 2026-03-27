@@ -14,8 +14,6 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-// --- List ---
-
 type ListNotificationParams struct {
 	Account accountmodel.AuthenticatedAccount
 	sharedmodel.PaginationParams
@@ -32,7 +30,7 @@ func (b *AccountHandler) ListNotification(ctx restate.Context, params ListNotifi
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list notifications", err)
 	}
 
 	var total null.Int64
@@ -49,18 +47,18 @@ func (b *AccountHandler) ListNotification(ctx restate.Context, params ListNotifi
 	}, nil
 }
 
-// --- Count Unread ---
-
 type CountUnreadParams struct {
 	AccountID uuid.UUID
 }
 
 // CountUnread returns the number of unread notifications for the given account.
 func (b *AccountHandler) CountUnread(ctx restate.Context, params CountUnreadParams) (int64, error) {
-	return b.storage.Querier().CountUnreadByAccount(ctx, params.AccountID)
+	count, err := b.storage.Querier().CountUnreadByAccount(ctx, params.AccountID)
+	if err != nil {
+		return 0, sharedmodel.WrapErr("count unread notifications", err)
+	}
+	return count, nil
 }
-
-// --- Mark Read ---
 
 type MarkReadParams struct {
 	Account accountmodel.AuthenticatedAccount
@@ -69,13 +67,15 @@ type MarkReadParams struct {
 
 // MarkRead marks the specified notification IDs as read.
 func (b *AccountHandler) MarkRead(ctx restate.Context, params MarkReadParams) error {
-	return b.storage.Querier().MarkNotificationRead(ctx, accountdb.MarkNotificationReadParams{
+	if err := b.storage.Querier().MarkNotificationRead(ctx, accountdb.MarkNotificationReadParams{
 		ID:        params.IDs,
 		AccountID: params.Account.ID,
-	})
-}
+	}); err != nil {
+		return sharedmodel.WrapErr("mark notification read", err)
+	}
 
-// --- Mark All Read ---
+	return nil
+}
 
 type MarkAllReadParams struct {
 	AccountID uuid.UUID
@@ -83,10 +83,12 @@ type MarkAllReadParams struct {
 
 // MarkAllRead marks all unread notifications as read for the given account.
 func (b *AccountHandler) MarkAllRead(ctx restate.Context, params MarkAllReadParams) error {
-	return b.storage.Querier().MarkAllNotificationRead(ctx, params.AccountID)
-}
+	if err := b.storage.Querier().MarkAllNotificationRead(ctx, params.AccountID); err != nil {
+		return sharedmodel.WrapErr("mark all notifications read", err)
+	}
 
-// --- Create ---
+	return nil
+}
 
 type CreateNotificationParams struct {
 	AccountID uuid.UUID
@@ -99,7 +101,7 @@ type CreateNotificationParams struct {
 
 // CreateNotification creates a new notification for the given account.
 func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
-	return b.storage.Querier().CreateNotification(ctx, accountdb.CreateNotificationParams{
+	noti, err := b.storage.Querier().CreateNotification(ctx, accountdb.CreateNotificationParams{
 		AccountID: params.AccountID,
 		Type:      params.Type,
 		Channel:   params.Channel,
@@ -107,4 +109,9 @@ func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNo
 		Content:   params.Content,
 		Metadata:  params.Metadata,
 	})
+	if err != nil {
+		return accountdb.AccountNotification{}, sharedmodel.WrapErr("create notification", err)
+	}
+
+	return noti, nil
 }

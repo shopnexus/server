@@ -1,4 +1,4 @@
-package cachestruct
+package cache
 
 import (
 	"context"

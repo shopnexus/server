@@ -11,7 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 
-	"shopnexus-server/internal/infras/cachestruct"
+	"shopnexus-server/internal/infras/cache"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
@@ -80,7 +80,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		RefID:   spuIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list rating: %w", err)
+		return zero, sharedmodel.WrapErr("db list rating", err)
 	}
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
@@ -163,7 +163,7 @@ type GetProductCardParams struct {
 // GetProductCard returns a single product card by SPU ID.
 func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, restate.TerminalErrorf("validate get product card: %w", err)
+		return nil, sharedmodel.WrapErr("validate get product card", err)
 	}
 
 	productCardMap, err := b.buildProductCards(ctx, []uuid.UUID{params.SpuID}, params.AccountID)
@@ -193,7 +193,7 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 	var err error
 
 	if err = validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list product card: %w", err)
+		return zero, sharedmodel.WrapErr("validate list product card", err)
 	}
 
 	var total int64
@@ -235,13 +235,13 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 	} else {
 		total, err = b.storage.Querier().CountProductSpu(ctx, catalogdb.CountProductSpuParams{})
 		if err != nil {
-			return zero, fmt.Errorf("count product spu: %w", err)
+			return zero, sharedmodel.WrapErr("db count product spu", err)
 		}
 	}
 
 	searchCountSpu, err := b.storage.Querier().SearchCountProductSpu(ctx, searchArg)
 	if err != nil {
-		return zero, fmt.Errorf("search product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db search product spu", err)
 	}
 	// TODO: handle total from search result
 
@@ -282,7 +282,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 	var err error
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list recommended: %w", err)
+		return zero, sharedmodel.WrapErr("validate list recommended", err)
 	}
 
 	// Get current feed offset
@@ -294,11 +294,11 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		)
 	}
 	// Retrieve all recommended products from cache
-	if err := b.cache.ZRevRangeByScore(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), &rcmProducts, cachestruct.ZRangeOptions{
+	if err := b.cache.ZRevRangeByScore(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), &rcmProducts, cache.ZRangeOptions{
 		Offset: null.IntFrom(feedOffset),
 		Limit:  null.IntFrom(int64(params.Limit)),
 	}); err != nil {
-		return zero, fmt.Errorf("get recommended products: %w", err)
+		return zero, sharedmodel.WrapErr("get recommended products", err)
 	}
 	feedOffset += int64(len(rcmProducts))
 
@@ -325,7 +325,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		// Adding new feed
 		for _, p := range recommendations {
 			if err = b.cache.ZAdd(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), p, float64(p.Score)); err != nil {
-				return zero, fmt.Errorf("cache recommended product: %w", err)
+				return zero, sharedmodel.WrapErr("cache recommended product", err)
 			}
 		}
 	}
@@ -358,7 +358,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 			ID: skuIDs,
 		})
 		if err != nil {
-			return zero, fmt.Errorf("list product sku: %w", err)
+			return zero, sharedmodel.WrapErr("db list product sku", err)
 		}
 
 		uniqueSpuIDs := lo.UniqMap(skus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.SpuID })

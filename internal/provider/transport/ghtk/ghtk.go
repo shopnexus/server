@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"shopnexus-server/internal/infras/transport"
+	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/google/uuid"
 )
 
 const (

@@ -2,7 +2,6 @@ package chatbiz
 
 import (
 	"encoding/json"
-	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -38,7 +37,7 @@ func (b *ChatHandler) CreateConversation(ctx restate.Context, params CreateConve
 		VendorID:   params.VendorID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create conversation: %w", err)
+		return zero, sharedmodel.WrapErr("create conversation", err)
 	}
 
 	return result, nil
@@ -65,12 +64,12 @@ func (b *ChatHandler) ListConversation(ctx restate.Context, params ListConversat
 		Offset:    int32(params.Offset().Int32),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list conversations: %w", err)
+		return zero, sharedmodel.WrapErr("list conversations", err)
 	}
 
 	total, err := b.storage.Querier().CountConversationByAccount(ctx, params.Account.ID)
 	if err != nil {
-		return zero, fmt.Errorf("count conversations: %w", err)
+		return zero, sharedmodel.WrapErr("count conversations", err)
 	}
 
 	return sharedmodel.PaginateResult[chatdb.ChatConversation]{
@@ -109,11 +108,11 @@ func (b *ChatHandler) SendMessage(ctx restate.Context, params SendMessageParams)
 		Metadata:       params.Metadata,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create message: %w", err)
+		return zero, sharedmodel.WrapErr("create message", err)
 	}
 
 	if err := b.storage.Querier().UpdateConversationLastMessage(ctx, params.ConversationID); err != nil {
-		return zero, fmt.Errorf("update conversation last message: %w", err)
+		return zero, sharedmodel.WrapErr("update conversation last message", err)
 	}
 
 	return msg, nil
@@ -145,12 +144,12 @@ func (b *ChatHandler) ListMessage(ctx restate.Context, params ListMessageParams)
 		Offset:         int32(params.Offset().Int32),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list messages: %w", err)
+		return zero, sharedmodel.WrapErr("list messages", err)
 	}
 
 	total, err := b.storage.Querier().CountMessageByConversation(ctx, params.ConversationID)
 	if err != nil {
-		return zero, fmt.Errorf("count messages: %w", err)
+		return zero, sharedmodel.WrapErr("count messages", err)
 	}
 
 	return sharedmodel.PaginateResult[chatdb.ChatMessage]{

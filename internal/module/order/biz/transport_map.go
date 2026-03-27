@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"shopnexus-server/internal/infras/transport"
-	"shopnexus-server/internal/infras/transport/ghtk"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/transport"
+	"shopnexus-server/internal/provider/transport/ghtk"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 

@@ -5,11 +5,11 @@ import (
 	"log/slog"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/payment"
-	"shopnexus-server/internal/infras/payment/cod"
-	"shopnexus-server/internal/infras/payment/vnpay"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
+	"shopnexus-server/internal/provider/payment/cod"
+	"shopnexus-server/internal/provider/payment/vnpay"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 

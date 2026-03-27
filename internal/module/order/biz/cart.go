@@ -3,7 +3,6 @@ package orderbiz
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -32,7 +31,7 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 		})
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list cart items: %w", err)
+		return nil, sharedmodel.WrapErr("db list cart items", err)
 	}
 
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
@@ -77,7 +76,7 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 // UpdateCart adds, updates, or removes a cart item and tracks the interaction.
 func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate update cart: %w", err)
+		return sharedmodel.WrapErr("validate update cart", err)
 	}
 
 	// Track which event type to send after the durable step
@@ -120,7 +119,7 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 		return analyticmodel.EventAddToCart, nil
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("update cart", err)
+		return sharedmodel.WrapErr("db update cart", err)
 	}
 
 	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{

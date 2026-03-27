@@ -2,11 +2,11 @@ package accountbiz
 
 import (
 	"errors"
-	"fmt"
 	"shopnexus-server/config"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 	"time"
 
@@ -28,9 +28,9 @@ func (a *AccountHandler) CreateClaims(account accountdb.AccountAccount) accountm
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewString(),
-			Issuer:    "shopnexus",
+			Issuer:    a.config.App.Name,
 			Subject:   account.ID.String(),
-			Audience:  []string{"shopnexus"},
+			Audience:  []string{a.config.App.Name},
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.tokenDuration)),
 		},
@@ -44,7 +44,7 @@ func (a *AccountHandler) GenerateAccessToken(account accountdb.AccountAccount) (
 
 	signedToken, err := token.SignedString(a.jwtSecret)
 	if err != nil {
-		return "", err
+		return "", sharedmodel.WrapErr("signed access token", err)
 	}
 
 	return signedToken, nil
@@ -58,7 +58,9 @@ func (a *AccountHandler) CreateRefreshClaims(account accountdb.AccountAccount) a
 			Number: account.Number,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    a.config.App.Name,
 			Subject:   account.ID.String(),
+			Audience:  []string{a.config.App.Name},
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.refreshTokenDuration)),
 		},
@@ -71,7 +73,7 @@ func (a *AccountHandler) GenerateRefreshToken(account accountdb.AccountAccount) 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	signedToken, err := token.SignedString(a.refreshSecret)
 	if err != nil {
-		return "", err
+		return "", sharedmodel.WrapErr("signed refresh token", err)
 	}
 	return signedToken, nil
 }
@@ -86,7 +88,7 @@ func (a *AccountHandler) ComparePassword(hashedPassword, password string) bool {
 func (a *AccountHandler) CreateHash(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
-		return "", err
+		return "", sharedmodel.WrapErr("hash password", err)
 	}
 	return string(hashedPassword), nil
 }
@@ -109,7 +111,7 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 	var zero LoginResult
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate login params", err)
 	}
 
 	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
@@ -125,7 +127,7 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 		if errors.Is(err, pgx.ErrNoRows) {
 			return zero, accountmodel.ErrAccountNotFound.Terminal()
 		}
-		return zero, err
+		return zero, sharedmodel.WrapErr("db get account", err)
 	}
 
 	// If the account has a password, require it for login
@@ -140,12 +142,12 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 
 	accessToken, err := a.GenerateAccessToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate access token", err)
 	}
 
 	refreshToken, err := a.GenerateRefreshToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate refresh token", err)
 	}
 
 	return LoginResult{
@@ -156,10 +158,10 @@ func (a *AccountHandler) Login(ctx restate.Context, params LoginParams) (LoginRe
 }
 
 type RegisterParams struct {
-	Username null.String           `validate:"omitnil,min=1,max=255"`
-	Email    null.String           `validate:"omitnil,email"`
-	Phone    null.String           `validate:"omitnil,e164"`
-	Password null.String           `validate:"required,min=8,max=72"`
+	Username null.String `validate:"omitnil,min=1,max=255"`
+	Email    null.String `validate:"omitnil,email"`
+	Phone    null.String `validate:"omitnil,e164"`
+	Password null.String `validate:"required,min=8,max=72"`
 }
 
 type RegisterResult struct {
@@ -173,7 +175,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	var zero RegisterResult
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate register params", err)
 	}
 
 	if !params.Username.Valid && !params.Email.Valid && !params.Phone.Valid {
@@ -191,7 +193,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	if params.Password.Valid {
 		hashed, err := a.CreateHash(params.Password.String)
 		if err != nil {
-			return zero, err
+			return zero, sharedmodel.WrapErr("create hash", err)
 		}
 		hashedPassword.SetValid(hashed)
 	}
@@ -204,24 +206,24 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 		Password: hashedPassword,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("register account: %w", err)
+		return zero, sharedmodel.WrapErr("db create account", err)
 	}
 
 	// Create empty profile
 	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
 		ID: account.ID,
 	}); err != nil {
-		return zero, fmt.Errorf("register account: %w", err)
+		return zero, sharedmodel.WrapErr("db create profile", err)
 	}
 
 	accessToken, err := a.GenerateAccessToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate access token", err)
 	}
 
 	refreshToken, err := a.GenerateRefreshToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate refresh token", err)
 	}
 
 	return RegisterResult{
@@ -241,23 +243,23 @@ func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (Refr
 	var zero RefreshResult
 	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate refresh token", err)
 	}
 
 	account, err := a.storage.Querier().GetAccount(ctx, accountdb.GetAccountParams{
 		ID: uuid.NullUUID{UUID: claims.Account.ID, Valid: true},
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("db get account", err)
 	}
 
 	access, err := a.GenerateAccessToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate access token", err)
 	}
 	nextRefresh, err := a.GenerateRefreshToken(account)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("generate refresh token", err)
 	}
 
 	return RefreshResult{

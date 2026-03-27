@@ -1,7 +1,6 @@
 package analyticbiz
 
 import (
-	"fmt"
 	"log/slog"
 
 	restate "github.com/restatedev/sdk-go"
@@ -53,7 +52,7 @@ func (b *AnalyticHandler) HandlePopularityEvent(ctx restate.Context, event analy
 		CartCount:     cartCount,
 		ReviewCount:   reviewCount,
 	}); err != nil {
-		return fmt.Errorf("upsert product popularity: %w", err)
+		return sharedmodel.WrapErr("upsert product popularity", err)
 	}
 
 	return nil

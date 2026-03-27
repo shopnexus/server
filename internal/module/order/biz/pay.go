@@ -7,9 +7,9 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/payment"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -44,7 +44,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			ID: params.OrderIDs,
 		})
 		if err != nil {
-			return fetchResult{}, fmt.Errorf("list orders: %w", err)
+			return fetchResult{}, sharedmodel.WrapErr("db list orders", err)
 		}
 		if len(orders) != len(params.OrderIDs) {
 			return fetchResult{}, ordermodel.ErrOrderNotFound.Terminal()
@@ -98,7 +98,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 		})
 		if err != nil {
-			return paymentResult{}, fmt.Errorf("create payment: %w", err)
+			return paymentResult{}, sharedmodel.WrapErr("db create payment", err)
 		}
 
 		createdOrder, err := paymentClient.CreateOrder(ctx, payment.CreateOrderParams{
@@ -107,7 +107,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			Info:   fmt.Sprintf("Payment %d", dbPayment.ID),
 		})
 		if err != nil {
-			return paymentResult{}, fmt.Errorf("create payment order: %w", err)
+			return paymentResult{}, sharedmodel.WrapErr("create payment order", err)
 		}
 
 		return paymentResult{
@@ -127,7 +127,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			BuyerID:   params.Account.ID,
 		})
 	}); err != nil {
-		return zero, sharedmodel.WrapErr("set order payment", err)
+		return zero, sharedmodel.WrapErr("db set order payment", err)
 	}
 
 	// Fetch created payment for response
@@ -136,7 +136,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			ID: []int64{payInfo.PaymentID},
 		})
 		if err != nil || len(dbPay) == 0 {
-			return ordermodel.Payment{}, fmt.Errorf("fetch payment: %w", err)
+			return ordermodel.Payment{}, sharedmodel.WrapErr("db fetch payment", err)
 		}
 		p := dbPay[0]
 		var datePaid *time.Time

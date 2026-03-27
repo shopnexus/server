@@ -2,151 +2,188 @@ package cache
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"reflect"
 	"sync"
 	"time"
 )
 
-// cacheItem represents a cached value with expiration time
+// cacheItem holds the cached value and its expiration time
 type cacheItem struct {
-	value      string
+	value      any
 	expiration time.Time
-	hasExpiry  bool
 }
 
 // isExpired checks if the item has expired
 func (item *cacheItem) isExpired() bool {
-	if !item.hasExpiry {
-		return false
-	}
-	return time.Now().After(item.expiration)
+	return !item.expiration.IsZero() && time.Now().After(item.expiration)
 }
 
-// InMemoryCache implements the Client interface with an in-memory store
+// InMemoryCache implements the Client interface using a simple map
 type InMemoryCache struct {
-	store   map[string]*cacheItem
-	mutex   sync.RWMutex
-	cleanup *time.Ticker
-	stop    chan struct{}
+	mu    sync.RWMutex
+	items map[string]*cacheItem
+
+	// Optional: cleanup ticker for expired items
+	cleanupTicker *time.Ticker
+	stopCleanup   chan struct{}
 }
 
-// NewInMemoryClient creates a new in-memory cache with optional cleanup interval
+// NewInMemoryClient creates a new in-memory cache instance
 func NewInMemoryClient() *InMemoryCache {
 	cache := &InMemoryCache{
-		store: make(map[string]*cacheItem),
-		stop:  make(chan struct{}),
+		items:       make(map[string]*cacheItem),
+		stopCleanup: make(chan struct{}),
 	}
 
-	// Start cleanup goroutine
-	cache.cleanup = time.NewTicker(30 * time.Second)
+	// Start background cleanup routine (runs every 5 minutes)
+	cache.cleanupTicker = time.NewTicker(5 * time.Minute)
 	go cache.cleanupExpired()
 
 	return cache
 }
 
-// cleanupExpired removes expired items from the cache
-func (c *InMemoryCache) cleanupExpired() {
-	for {
-		select {
-		case <-c.cleanup.C:
-			c.mutex.Lock()
-			for key, item := range c.store {
-				if item.isExpired() {
-					delete(c.store, key)
-				}
-			}
-			c.mutex.Unlock()
-		case <-c.stop:
-			return
-		}
-	}
-}
-
-// Get retrieves a value from the cache
-func (c *InMemoryCache) Get(ctx context.Context, key string) (string, error) {
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	default:
-	}
-
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	item, exists := c.store[key]
-	if !exists {
-		return "", fmt.Errorf("key not found: %s", key)
-	}
-
-	if item.isExpired() {
-		// Remove expired item
-		delete(c.store, key)
-		return "", fmt.Errorf("key expired: %s", key)
-	}
-
-	return item.value, nil
-}
-
-// Set stores a value in the cache with optional expiration
-func (c *InMemoryCache) Set(ctx context.Context, key string, value string, expiration time.Duration) error {
+// Get retrieves a value from cache and copies it to dest
+func (c *InMemoryCache) Get(ctx context.Context, key string, dest any) error {
+	// Check if context is cancelled
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mu.RLock()
+	item, exists := c.items[key]
+	c.mu.RUnlock()
+
+	if !exists {
+		return errors.New("key not found")
+	}
+
+	// Check if item is expired
+	if item.isExpired() {
+		// Remove expired item
+		c.mu.Lock()
+		delete(c.items, key)
+		c.mu.Unlock()
+		return errors.New("key not found")
+	}
+
+	// Copy value to destination using reflection
+	return c.copyValue(item.value, dest)
+}
+
+// Set stores a value in cache with expiration
+func (c *InMemoryCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
+	// Check if context is cancelled
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 
 	item := &cacheItem{
 		value: value,
 	}
 
+	// Set expiration time if duration is positive
 	if expiration > 0 {
 		item.expiration = time.Now().Add(expiration)
-		item.hasExpiry = true
 	}
 
-	c.store[key] = item
+	c.mu.Lock()
+	c.items[key] = item
+	c.mu.Unlock()
+
 	return nil
 }
 
-// Delete removes a key from the cache
+// Delete removes a key from cache
 func (c *InMemoryCache) Delete(ctx context.Context, key string) error {
+	// Check if context is cancelled
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mu.Lock()
+	delete(c.items, key)
+	c.mu.Unlock()
 
-	delete(c.store, key)
 	return nil
 }
 
 // Exists checks if a key exists and is not expired
 func (c *InMemoryCache) Exists(ctx context.Context, key string) (bool, error) {
+	// Check if context is cancelled
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
 	default:
 	}
 
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mu.RLock()
+	item, exists := c.items[key]
+	c.mu.RUnlock()
 
-	item, exists := c.store[key]
 	if !exists {
 		return false, nil
 	}
 
+	// Check if item is expired
 	if item.isExpired() {
 		// Remove expired item
-		delete(c.store, key)
+		c.mu.Lock()
+		delete(c.items, key)
+		c.mu.Unlock()
 		return false, nil
 	}
 
 	return true, nil
+}
+
+// cleanupExpired runs in background to remove expired items
+func (c *InMemoryCache) cleanupExpired() {
+	for {
+		select {
+		case <-c.cleanupTicker.C:
+			c.removeExpiredItems()
+		case <-c.stopCleanup:
+			return
+		}
+	}
+}
+
+// removeExpiredItems removes all expired items from cache
+func (c *InMemoryCache) removeExpiredItems() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for key, item := range c.items {
+		if item.isExpired() {
+			delete(c.items, key)
+		}
+	}
+}
+
+// copyValue copies source value to destination using reflection
+func (c *InMemoryCache) copyValue(src, dest any) error {
+	destVal := reflect.ValueOf(dest)
+	if destVal.Kind() != reflect.Ptr {
+		return errors.New("destination must be a pointer")
+	}
+
+	destVal = destVal.Elem()
+	if !destVal.CanSet() {
+		return errors.New("destination cannot be set")
+	}
+
+	srcVal := reflect.ValueOf(src)
+	if !srcVal.Type().AssignableTo(destVal.Type()) {
+		return errors.New("source type cannot be assigned to destination type")
+	}
+
+	destVal.Set(srcVal)
+	return nil
 }

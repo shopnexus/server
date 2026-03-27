@@ -1,8 +1,6 @@
 package catalogbiz
 
 import (
-	"fmt"
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -38,7 +36,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list comment: %w", err)
+		return zero, sharedmodel.WrapErr("validate list comment", err)
 	}
 
 	listComment, err := b.storage.Querier().ListCountComment(ctx, catalogdb.ListCountCommentParams{
@@ -52,7 +50,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		ScoreTo:   params.ScoreTo,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list comment: %w", err)
+		return zero, sharedmodel.WrapErr("db list comment", err)
 	}
 
 	var total null.Int64
@@ -129,7 +127,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate create comment: %w", err)
+		return zero, sharedmodel.WrapErr("validate create comment", err)
 	}
 
 	comment, err := b.storage.Querier().CreateDefaultComment(ctx, catalogdb.CreateDefaultCommentParams{
@@ -140,7 +138,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		Score:     params.Score,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create comment: %w", err)
+		return zero, sharedmodel.WrapErr("db create comment", err)
 	}
 
 	// Attach resources
@@ -151,7 +149,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create comment: %w", err)
+		return zero, sharedmodel.WrapErr("create comment", err)
 	}
 
 	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
@@ -159,7 +157,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		AccountID: comment.AccountID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("get comment profile: %w", err)
+		return zero, sharedmodel.WrapErr("get comment profile", err)
 	}
 
 	// Track analytic interactions for product reviews
@@ -212,7 +210,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate update comment: %w", err)
+		return zero, sharedmodel.WrapErr("validate update comment", err)
 	}
 
 	// Update base comment info
@@ -222,7 +220,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		Score: params.Score,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update comment: %w", err)
+		return zero, sharedmodel.WrapErr("db update comment", err)
 	}
 
 	// Update upvote/downvote count
@@ -232,7 +230,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 			UpvoteDelta:   params.UpvoteDelta,
 			DownvoteDelta: params.DownvoteDelta,
 		}); err != nil {
-			return zero, fmt.Errorf("update comment: %w", err)
+			return zero, sharedmodel.WrapErr("db update comment upvote/downvote", err)
 		}
 	}
 
@@ -246,7 +244,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		DeleteResources: true,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update comment: %w", err)
+		return zero, sharedmodel.WrapErr("update comment", err)
 	}
 
 	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
@@ -254,7 +252,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		AccountID: comment.AccountID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("get comment profile: %w", err)
+		return zero, sharedmodel.WrapErr("get comment profile", err)
 	}
 
 	return catalogmodel.Comment{
@@ -279,14 +277,14 @@ type DeleteCommentParams struct {
 // DeleteComment deletes comments and their associated resources.
 func (b *CatalogHandler) DeleteComment(ctx restate.Context, params DeleteCommentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate delete comment: %w", err)
+		return sharedmodel.WrapErr("validate delete comment", err)
 	}
 
 	// Delete base comments
 	if err := b.storage.Querier().DeleteComment(ctx, catalogdb.DeleteCommentParams{
 		ID: params.CommentIDs,
 	}); err != nil {
-		return fmt.Errorf("delete comment: %w", err)
+		return sharedmodel.WrapErr("db delete comment", err)
 	}
 
 	// Remove associated resources
@@ -295,7 +293,7 @@ func (b *CatalogHandler) DeleteComment(ctx restate.Context, params DeleteComment
 		RefID:           params.CommentIDs,
 		DeleteResources: true,
 	}); err != nil {
-		return fmt.Errorf("delete comment: %w", err)
+		return sharedmodel.WrapErr("delete comment", err)
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/cachestruct"
+	"shopnexus-server/internal/infras/cache"
 	accountmodel "shopnexus-server/internal/module/account/model"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -21,7 +21,7 @@ const (
 	tokenCacheDuration = 5 * 60 * time.Second
 )
 
-var claimsCache = cachestruct.NewInMemoryClient()
+var claimsCache = cache.NewInMemoryClient()
 
 // GetClaimsByHeader retrieves and validates JWT claims from the token, using an in-memory cache
 func GetClaimsByHeader(header http.Header) (accountmodel.Claims, error) {

@@ -1,8 +1,6 @@
 package accountbiz
 
 import (
-	"fmt"
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
@@ -36,7 +34,7 @@ func (b *AccountHandler) AddFavorite(ctx restate.Context, params AddFavoritePara
 		SpuID:     params.SpuID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("add favorite: %w", err)
+		return zero, sharedmodel.WrapErr("add favorite", err)
 	}
 
 	return result, nil
@@ -49,10 +47,14 @@ type RemoveFavoriteParams struct {
 
 // RemoveFavorite removes a product SPU from the account's favorites list.
 func (b *AccountHandler) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
-	return b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
+	if err := b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 		SpuID:     []uuid.UUID{params.SpuID},
-	})
+	}); err != nil {
+		return sharedmodel.WrapErr("remove favorite", err)
+	}
+
+	return nil
 }
 
 type ListFavoriteParams struct {
@@ -71,7 +73,7 @@ func (b *AccountHandler) ListFavorite(ctx restate.Context, params ListFavoritePa
 		Offset:    params.Offset(),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list favorites: %w", err)
+		return zero, sharedmodel.WrapErr("list favorites", err)
 	}
 
 	favorites := make([]accountdb.AccountFavorite, len(rows))
@@ -106,7 +108,7 @@ func (b *AccountHandler) CheckFavorites(ctx restate.Context, params CheckFavorit
 		SpuID:     spuIDs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("check favorites: %w", err)
+		return nil, sharedmodel.WrapErr("check favorites", err)
 	}
 
 	result := make(map[uuid.UUID]bool, len(rows))

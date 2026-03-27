@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"shopnexus-server/internal/infras/payment"
+	"shopnexus-server/internal/provider/payment"
 	commonmodel "shopnexus-server/internal/shared/model"
 )
 

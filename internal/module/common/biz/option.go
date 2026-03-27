@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -29,7 +28,7 @@ func (b *CommonHandler) UpdateServiceOptions(ctx restate.Context, params UpdateS
 // used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
 func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
-		return fmt.Errorf("validate service options: %w", err)
+		return sharedmodel.WrapErr("validate service options", err)
 	}
 
 	for index, cfg := range params.Configs {
@@ -47,13 +46,13 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 					Order:       int32(index),
 				})
 				if err != nil {
-					return fmt.Errorf("update service options: %w", err)
+					return sharedmodel.WrapErr("db update service options", err)
 				}
 				continue
 			}
 
 			// other db error
-			return fmt.Errorf("update service options: %w", err)
+			return sharedmodel.WrapErr("db update service options", err)
 		} else {
 			// update existing
 			_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
@@ -67,7 +66,7 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 				Order:       null.Int32From(int32(index)),
 			})
 			if err != nil {
-				return fmt.Errorf("update service options: %w", err)
+				return sharedmodel.WrapErr("db update service options", err)
 			}
 		}
 	}
@@ -83,7 +82,7 @@ type ListServiceOptionParams struct {
 // ListServiceOption returns active service options filtered by category.
 func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, restate.TerminalErrorf("validate list service option: %w", err)
+		return nil, sharedmodel.WrapErr("validate list service option", err)
 	}
 
 	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
@@ -91,7 +90,7 @@ func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServic
 		IsActive: params.IsActive,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list service option: %w", err)
+		return nil, sharedmodel.WrapErr("db list service option", err)
 	}
 
 	var result []sharedmodel.OptionConfig

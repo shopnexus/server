@@ -7,6 +7,7 @@ import (
 	"shopnexus-server/internal/infras/objectstore"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
+	"shopnexus-server/internal/provider/geocoding"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -31,6 +32,11 @@ type CommonBiz interface {
 	GetResources(ctx context.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error)
 	GetResourcesByIDs(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error)
 	GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*commonmodel.Resource, error)
+
+	// Geocoding
+	ReverseGeocode(ctx context.Context, params ReverseGeocodeParams) (geocoding.Result, error)
+	ForwardGeocode(ctx context.Context, params ForwardGeocodeParams) (geocoding.Result, error)
+	SearchGeocode(ctx context.Context, params SearchGeocodeParams) ([]geocoding.Result, error)
 }
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
@@ -39,6 +45,7 @@ type CommonStorage = pgsqlc.Storage[*commondb.Queries]
 type CommonHandler struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
+	geocoder       geocoding.Client
 }
 
 func (b *CommonHandler) ServiceName() string {
@@ -46,9 +53,10 @@ func (b *CommonHandler) ServiceName() string {
 }
 
 // NewcommonBiz creates a new CommonHandler with the given dependencies.
-func NewcommonBiz(storage CommonStorage) (*CommonHandler, error) {
+func NewcommonBiz(storage CommonStorage, geocoder geocoding.Client) (*CommonHandler, error) {
 	b := &CommonHandler{
-		storage: storage,
+		storage:  storage,
+		geocoder: geocoder,
 	}
 
 	return b, errors.Join(

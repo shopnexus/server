@@ -45,7 +45,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list orders: %w", err)
+		return zero, sharedmodel.WrapErr("validate list orders", err)
 	}
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountOrderRow, error) {
@@ -56,7 +56,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 		})
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list orders: %w", err)
+		return zero, sharedmodel.WrapErr("db list orders", err)
 	}
 
 	var total null.Int64
@@ -84,7 +84,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list seller orders: %w", err)
+		return zero, sharedmodel.WrapErr("validate list seller orders", err)
 	}
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountSellerOrderRow, error) {
@@ -97,7 +97,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 		})
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list seller orders: %w", err)
+		return zero, sharedmodel.WrapErr("db list seller orders", err)
 	}
 
 	var total null.Int64
@@ -162,7 +162,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		return dbResults{OrderItems: orderItems, Payments: payments}, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("fetch order data: %w", err)
+		return nil, sharedmodel.WrapErr("db fetch order data", err)
 	}
 
 	// Group items by order_id
@@ -244,7 +244,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 // VerifyPayment verifies a payment callback from the payment gateway and updates the payment status.
 func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate verify payment: %w", err)
+		return sharedmodel.WrapErr("validate verify payment", err)
 	}
 
 	// Verify payment via payment gateway
@@ -265,7 +265,7 @@ func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentPa
 
 	refUUID, err := uuid.Parse(refID)
 	if err != nil {
-		return fmt.Errorf("parse ref id: %w", err)
+		return sharedmodel.WrapErr("parse ref id", err)
 	}
 
 	// Update payment status
@@ -294,7 +294,7 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 	// GetOrder has its own Run internally
 	order, err := b.GetOrder(ctx, params.OrderID)
 	if err != nil {
-		return fmt.Errorf("fetch order: %w", err)
+		return sharedmodel.WrapErr("fetch order", err)
 	}
 
 	if order.BuyerID != params.Account.ID {
@@ -318,7 +318,7 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 				ID:     order.Payment.ID,
 				Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 			}); err != nil {
-				return fmt.Errorf("update payment status: %w", err)
+				return sharedmodel.WrapErr("db update payment status", err)
 			}
 		}
 
@@ -327,12 +327,12 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 			ID:     order.ID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
 		}); err != nil {
-			return fmt.Errorf("update order status: %w", err)
+			return sharedmodel.WrapErr("db update order status", err)
 		}
 
 		// Cancel items
 		if err := b.storage.Querier().CancelItemsByOrder(ctx, uuid.NullUUID{UUID: order.ID, Valid: true}); err != nil {
-			return fmt.Errorf("cancel items: %w", err)
+			return sharedmodel.WrapErr("db cancel items", err)
 		}
 
 		return nil

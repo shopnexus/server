@@ -2,7 +2,6 @@ package catalogbiz
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"time"
@@ -15,6 +14,7 @@ import (
 	restateclient "shopnexus-server/internal/infras/restate"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
 
@@ -51,14 +51,14 @@ func (b *CatalogHandler) syncProductData(ctx context.Context, metadataOnly bool)
 			IsStaleMetadata: null.BoolFrom(true),
 		})
 		if err != nil {
-			return fmt.Errorf("sync product data: %w", err)
+			return sharedmodel.WrapErr("sync product data", err)
 		}
 
 		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       metadataStales,
 			MetadataOnly: true,
 		}); err != nil {
-			return fmt.Errorf("sync product data: %w", err)
+			return sharedmodel.WrapErr("sync product data", err)
 		}
 	} else {
 		embeddingStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
@@ -67,14 +67,14 @@ func (b *CatalogHandler) syncProductData(ctx context.Context, metadataOnly bool)
 			IsStaleEmbedding: null.BoolFrom(true),
 		})
 		if err != nil {
-			return fmt.Errorf("sync product data: %w", err)
+			return sharedmodel.WrapErr("sync product data", err)
 		}
 
 		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
 			Stales:       embeddingStales,
 			MetadataOnly: false,
 		}); err != nil {
-			return fmt.Errorf("sync product data: %w", err)
+			return sharedmodel.WrapErr("sync product data", err)
 		}
 	}
 
@@ -92,7 +92,7 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 		return nil
 	}
 	if err := validator.Validate(params); err != nil {
-		return fmt.Errorf("validate update stale products: %w", err)
+		return sharedmodel.WrapErr("validate update stale products", err)
 	}
 
 	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(params.Stales), params.MetadataOnly)
@@ -129,7 +129,7 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 		updateErr = err
 	})
 	if updateErr != nil {
-		return fmt.Errorf("update batch system search sync: %w", updateErr)
+		return sharedmodel.WrapErr("update batch system search sync", updateErr)
 	}
 
 	// Last step: send to search server via Restate ingress
@@ -137,7 +137,7 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 		Products:     productDetails,
 		MetadataOnly: params.MetadataOnly,
 	}); err != nil {
-		return fmt.Errorf("update products: %w", err)
+		return sharedmodel.WrapErr("update products", err)
 	}
 
 	return nil

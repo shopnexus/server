@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	commonmodel "shopnexus-server/internal/module/common/model"
+	"shopnexus-server/internal/provider/geocoding"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -57,4 +58,16 @@ func (p *CommonRestateClient) GetResourcesByIDs(ctx context.Context, resourceIDs
 
 func (p *CommonRestateClient) GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*commonmodel.Resource, error) {
 	return restateclient.Call[*commonmodel.Resource](ctx, p.client, serviceName, "GetResourceByID", resourceID)
+}
+
+func (p *CommonRestateClient) ReverseGeocode(ctx context.Context, params ReverseGeocodeParams) (geocoding.Result, error) {
+	return restateclient.Call[geocoding.Result](ctx, p.client, serviceName, "ReverseGeocode", params)
+}
+
+func (p *CommonRestateClient) ForwardGeocode(ctx context.Context, params ForwardGeocodeParams) (geocoding.Result, error) {
+	return restateclient.Call[geocoding.Result](ctx, p.client, serviceName, "ForwardGeocode", params)
+}
+
+func (p *CommonRestateClient) SearchGeocode(ctx context.Context, params SearchGeocodeParams) ([]geocoding.Result, error) {
+	return restateclient.Call[[]geocoding.Result](ctx, p.client, serviceName, "SearchGeocode", params)
 }

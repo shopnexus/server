@@ -3,7 +3,6 @@ package promotionbiz
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -34,14 +33,14 @@ func (s *PromotionHandler) GetPromotion(ctx restate.Context, params GetPromotion
 		ID: uuid.NullUUID{UUID: params.ID, Valid: true},
 	})
 	if err != nil {
-		return zero, fmt.Errorf("get promotion: %w", err)
+		return zero, sharedmodel.WrapErr("db get promotion", err)
 	}
 
 	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{
 		PromotionID: []uuid.UUID{promo.ID},
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list promotion refs: %w", err)
+		return zero, sharedmodel.WrapErr("db list promotion refs", err)
 	}
 
 	return dbToPromotion(promo, refs), nil
@@ -64,7 +63,7 @@ func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromoti
 		ID:     params.ID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list promotions: %w", err)
+		return zero, sharedmodel.WrapErr("db list promotions", err)
 	}
 
 	promoIDs := lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) uuid.UUID {
@@ -75,7 +74,7 @@ func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromoti
 		PromotionID: promoIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list promotion refs: %w", err)
+		return zero, sharedmodel.WrapErr("db list promotion refs", err)
 	}
 	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID { return r.PromotionID })
 
@@ -117,7 +116,7 @@ func (b *PromotionHandler) CreatePromotion(ctx restate.Context, params CreatePro
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate create promotion: %w", err)
+		return zero, sharedmodel.WrapErr("validate create promotion", err)
 	}
 
 	dbPromo, err := b.storage.Querier().CreateDefaultPromotion(ctx, promotiondb.CreateDefaultPromotionParams{
@@ -134,11 +133,11 @@ func (b *PromotionHandler) CreatePromotion(ctx restate.Context, params CreatePro
 		DateEnded:   params.DateEnded,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create promotion: %w", err)
+		return zero, sharedmodel.WrapErr("db create promotion", err)
 	}
 
 	if err := createRefs(ctx, b.storage, dbPromo.ID, params.Refs); err != nil {
-		return zero, fmt.Errorf("create promotion: %w", err)
+		return zero, sharedmodel.WrapErr("db create promotion", err)
 	}
 
 	return dbToPromotion(dbPromo, nil), nil
@@ -173,7 +172,7 @@ func (s *PromotionHandler) UpdatePromotion(ctx restate.Context, params UpdatePro
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate update promotion: %w", err)
+		return zero, sharedmodel.WrapErr("validate update promotion", err)
 	}
 
 	dbPromo, err := s.storage.Querier().UpdatePromotion(ctx, promotiondb.UpdatePromotionParams{
@@ -195,17 +194,17 @@ func (s *PromotionHandler) UpdatePromotion(ctx restate.Context, params UpdatePro
 		NullDateEnded:   params.NullDateEnded,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update promotion: %w", err)
+		return zero, sharedmodel.WrapErr("db update promotion", err)
 	}
 
 	if params.Refs != nil {
 		if err := s.storage.Querier().DeleteRef(ctx, promotiondb.DeleteRefParams{
 			PromotionID: []uuid.UUID{params.ID},
 		}); err != nil {
-			return zero, fmt.Errorf("update promotion: %w", err)
+			return zero, sharedmodel.WrapErr("db update promotion", err)
 		}
 		if err := createRefs(ctx, s.storage, dbPromo.ID, *params.Refs); err != nil {
-			return zero, fmt.Errorf("update promotion: %w", err)
+			return zero, sharedmodel.WrapErr("db update promotion", err)
 		}
 	}
 
@@ -241,7 +240,7 @@ func createRefs(ctx context.Context, storage PromotionStorage, promoID uuid.UUID
 		}
 	}))
 	if err != nil {
-		return fmt.Errorf("create promotion refs: %w", err)
+		return sharedmodel.WrapErr("db create promotion refs", err)
 	}
 	return nil
 }

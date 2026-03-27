@@ -1,8 +1,6 @@
 package orderbiz
 
 import (
-	"fmt"
-
 	restate "github.com/restatedev/sdk-go"
 
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
@@ -96,7 +94,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 
 			jsonSerialIDs, err := sonic.Marshal(serialIDs)
 			if err != nil {
-				return nil, fmt.Errorf("marshal serial ids: %w", err)
+				return nil, sharedmodel.WrapErr("marshal serial ids", err)
 			}
 
 			paidAmount := int64(sku.Price) * checkoutItem.Quantity
@@ -114,7 +112,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 				SerialIds:  jsonSerialIDs,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("create pending item: %w", err)
+				return nil, sharedmodel.WrapErr("db create pending item", err)
 			}
 
 			items = append(items, createdItemInfo{
@@ -137,7 +135,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 				SkuID:     skuIDs,
 			})
 			if err != nil {
-				return fmt.Errorf("remove checkout items: %w", err)
+				return sharedmodel.WrapErr("db remove checkout items", err)
 			}
 			if len(cartItems) != len(skuIDs) {
 				// Some items may not be in cart (e.g., added via BuyNow previously), that's OK
@@ -264,7 +262,7 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list pending items: %w", err)
+		return zero, sharedmodel.WrapErr("validate list pending items", err)
 	}
 
 	status := params.Status
@@ -299,7 +297,7 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 		return pendingResult{Items: items, Total: total}, nil
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list pending items: %w", err)
+		return zero, sharedmodel.WrapErr("db list pending items", err)
 	}
 
 	enriched, err := b.enrichItems(ctx, dbResult.Items)
@@ -320,7 +318,7 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 // CancelPendingItem cancels a pending item and releases its inventory.
 func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendingItemParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate cancel pending item: %w", err)
+		return sharedmodel.WrapErr("validate cancel pending item", err)
 	}
 
 	// Fetch the item first
@@ -334,7 +332,7 @@ func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendi
 			ID: pgtype.Int8{Int64: params.ItemID, Valid: true},
 		})
 		if err != nil {
-			return itemInfo{}, fmt.Errorf("get item: %w", err)
+			return itemInfo{}, sharedmodel.WrapErr("db get item", err)
 		}
 		if item.AccountID != params.AccountID {
 			return itemInfo{}, ordermodel.ErrOrderItemNotFound.Terminal()

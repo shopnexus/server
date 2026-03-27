@@ -11,9 +11,7 @@ import (
 	"go.uber.org/fx"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/cachestruct"
-	"shopnexus-server/internal/infras/geocoding"
-	"shopnexus-server/internal/infras/llm"
+	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/milvus"
 	"shopnexus-server/internal/infras/pubsub"
 	restateclient "shopnexus-server/internal/infras/restate"
@@ -26,6 +24,8 @@ import (
 	"shopnexus-server/internal/module/order"
 	"shopnexus-server/internal/module/promotion"
 	"shopnexus-server/internal/module/system"
+	"shopnexus-server/internal/provider/geocoding"
+	"shopnexus-server/internal/provider/llm"
 )
 
 // Module combines all internal modules
@@ -68,10 +68,10 @@ func NewConfig() *config.Config {
 	return config.GetConfig()
 }
 
-func NewCacheStruct() (cachestruct.Client, error) {
+func NewCacheStruct() (cache.Client, error) {
 	addr := fmt.Sprintf("%s:%s", config.GetConfig().Redis.Host, config.GetConfig().Redis.Port)
-	return cachestruct.NewRedisStructClient(cachestruct.RedisConfig{
-		Config: cachestruct.Config{
+	return cache.NewRedisStructClient(cache.RedisConfig{
+		Config: cache.Config{
 			Decoder: sonic.Unmarshal,
 			Encoder: sonic.Marshal,
 		},

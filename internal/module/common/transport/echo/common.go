@@ -1,7 +1,6 @@
 package commonecho
 
 import (
-	"shopnexus-server/internal/infras/geocoding"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 
 	"github.com/labstack/echo/v4"
@@ -9,13 +8,12 @@ import (
 
 // Handler handles HTTP requests for the common module.
 type Handler struct {
-	biz      commonbiz.CommonBiz
-	geocoder geocoding.Client
+	biz commonbiz.CommonBiz
 }
 
 // NewHandler registers common module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz commonbiz.CommonBiz, geocoder geocoding.Client) (*Handler, error) {
-	h := &Handler{biz: biz, geocoder: geocoder}
+func NewHandler(e *echo.Echo, biz commonbiz.CommonBiz) (*Handler, error) {
+	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/common")
 
 	api.POST("/files", h.UploadFile)

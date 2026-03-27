@@ -33,7 +33,7 @@ func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]cat
 	// 1. Get embeddings from embedding service
 	embeddings, err := b.llm.Embed(ctx, []string{params.Query})
 	if err != nil {
-		return nil, fmt.Errorf("embed query: %w", err)
+		return nil, sharedmodel.WrapErr("embed query", err)
 	}
 	if len(embeddings) == 0 {
 		return nil, catalogmodel.ErrNoEmbeddingsResult.Terminal()
@@ -76,7 +76,7 @@ func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]cat
 		)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("search: %w", err)
+		return nil, sharedmodel.WrapErr("search", err)
 	}
 
 	// 4. Convert results
@@ -106,7 +106,7 @@ func (b *CatalogHandler) GetRecommendations(ctx restate.Context, params GetRecom
 		accountOutputFields(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("query account: %w", err)
+		return nil, sharedmodel.WrapErr("query account", err)
 	}
 	if rs.ResultCount == 0 {
 		return nil, nil
@@ -169,7 +169,7 @@ func (b *CatalogHandler) GetRecommendations(ctx restate.Context, params GetRecom
 		searchReqs...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("recommend search: %w", err)
+		return nil, sharedmodel.WrapErr("recommend search", err)
 	}
 
 	products := make([]catalogmodel.ProductRecommend, 0, len(results))
@@ -204,7 +204,7 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 	// 2. Fetch product content vectors from Milvus
 	itemVectors, err := b.getProductVectors(ctx, itemIDs)
 	if err != nil {
-		return fmt.Errorf("get product vectors: %w", err)
+		return sharedmodel.WrapErr("get product vectors", err)
 	}
 
 	// 3. Group events by account
@@ -224,7 +224,7 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 	}
 	existingAccounts, err := b.getAccountInterests(ctx, accountIDs)
 	if err != nil {
-		return fmt.Errorf("get account interests: %w", err)
+		return sharedmodel.WrapErr("get account interests", err)
 	}
 
 	// 5. Process each account's events
@@ -252,7 +252,7 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 
 		// 6. Upsert updated account
 		if err := b.upsertAccountInterests(ctx, accountID, acctEvents[0].AccountNumber, interests, strengths); err != nil {
-			return fmt.Errorf("upsert account %s: %w", accountID, err)
+			return sharedmodel.WrapErr(fmt.Sprintf("upsert account %s", accountID), err)
 		}
 	}
 
@@ -267,7 +267,7 @@ type UpdateProductsParams struct {
 // UpdateProducts upserts product data and embeddings into the Milvus search index.
 func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate update products: %w", err)
+		return sharedmodel.WrapErr("validate update products", err)
 	}
 
 	// 1. Get embeddings if needed
@@ -279,7 +279,7 @@ func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProduc
 		}
 		embeddings, err := b.llm.Embed(ctx, texts)
 		if err != nil {
-			return fmt.Errorf("embed products: %w", err)
+			return sharedmodel.WrapErr("embed products", err)
 		}
 		embeddingMap = make(map[string]embeddingResult, len(params.Products))
 		for i, p := range params.Products {
@@ -292,7 +292,7 @@ func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProduc
 
 	// 2. Upsert to Milvus
 	if err := b.upsertProducts(ctx, params.Products, embeddingMap, params.MetadataOnly); err != nil {
-		return fmt.Errorf("upsert products: %w", err)
+		return sharedmodel.WrapErr("upsert products", err)
 	}
 
 	return nil

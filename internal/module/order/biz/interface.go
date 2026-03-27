@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"shopnexus-server/internal/infras/payment"
-	"shopnexus-server/internal/infras/transport"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
@@ -14,6 +12,8 @@ import (
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+	"shopnexus-server/internal/provider/payment"
+	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -122,7 +122,7 @@ type CheckoutResult struct {
 }
 
 type ListPendingItemsParams struct {
-	AccountID uuid.UUID               `validate:"required"`
+	AccountID uuid.UUID                 `validate:"required"`
 	Status    []orderdb.OrderItemStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams
 }
@@ -155,7 +155,7 @@ type ListOrdersParams struct {
 }
 
 type ListSellerOrdersParams struct {
-	SellerID      uuid.UUID           `validate:"required"`
+	SellerID      uuid.UUID             `validate:"required"`
 	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
 	OrderStatus   []orderdb.OrderStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams

@@ -1,8 +1,6 @@
 package promotionbiz
 
 import (
-	"fmt"
-
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	promotionmodel "shopnexus-server/internal/module/promotion/model"
@@ -65,7 +63,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(ctx restate.Context, params C
 		Code:      codes,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list active promotions: %w", err)
+		return nil, sharedmodel.WrapErr("db list active promotions", err)
 	}
 	if len(dbPromos) == 0 {
 		// No active promotions — set original prices and return early
@@ -81,7 +79,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(ctx restate.Context, params C
 	promoIDs := lo.Map(dbPromos, func(p promotiondb.PromotionPromotion, _ int) uuid.UUID { return p.ID })
 	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{PromotionID: promoIDs})
 	if err != nil {
-		return nil, fmt.Errorf("list promotion refs: %w", err)
+		return nil, sharedmodel.WrapErr("db list promotion refs", err)
 	}
 	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID { return r.PromotionID })
 

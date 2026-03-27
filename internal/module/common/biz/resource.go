@@ -2,7 +2,6 @@ package commonbiz
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	restate "github.com/restatedev/sdk-go"
@@ -10,6 +9,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -28,7 +28,7 @@ type UpdateResourcesParams struct {
 // UpdateResources replaces all resource references for a given entity and returns the updated list.
 func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, restate.TerminalErrorf("validate update resources: %w", err)
+		return nil, sharedmodel.WrapErr("validate update resources", err)
 	}
 
 	// Update resources (delete all and re-attach)
@@ -40,7 +40,7 @@ func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResour
 			DeleteResources:     params.DeleteResources,
 			SkipDeleteResources: params.ResourceIDs,
 		}); err != nil {
-			return nil, fmt.Errorf("update resources: %w", err)
+			return nil, sharedmodel.WrapErr("update resources", err)
 		}
 
 		// Next step: Attach resources
@@ -50,7 +50,7 @@ func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResour
 			ID: params.ResourceIDs,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("update resources: %w", err)
+			return nil, sharedmodel.WrapErr("db update resources", err)
 		}
 		if len(resources) != len(params.ResourceIDs) {
 			// Some resources not found or not belong to the user
@@ -67,7 +67,7 @@ func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResour
 		}
 
 		if _, err = b.storage.Querier().CreateCopyDefaultResourceReference(ctx, createResourceArgs); err != nil {
-			return nil, fmt.Errorf("update resources: %w", err)
+			return nil, sharedmodel.WrapErr("db update resources", err)
 		}
 	}
 
@@ -76,7 +76,7 @@ func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResour
 		RefIDs:  []uuid.UUID{params.RefID},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("update resources: %w", err)
+		return nil, sharedmodel.WrapErr("update resources", err)
 	}
 
 	return resourcesMap[params.RefID], nil
@@ -92,7 +92,7 @@ type DeleteResourcesParams struct {
 // DeleteResources removes resource references and optionally deletes the underlying resource records.
 func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate delete resources: %w", err)
+		return sharedmodel.WrapErr("validate delete resources", err)
 	}
 
 	deletedResources, err := b.storage.Querier().ListResourceReference(ctx, commondb.ListResourceReferenceParams{
@@ -100,7 +100,7 @@ func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResour
 		RefID:   params.RefID,
 	})
 	if err != nil {
-		return fmt.Errorf("delete resources: %w", err)
+		return sharedmodel.WrapErr("db delete resources", err)
 	}
 
 	var deletedIDs []uuid.UUID
@@ -115,14 +115,14 @@ func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResour
 		RefType: []commondb.CommonResourceRefType{params.RefType}, // just for clarity
 		RsID:    deletedIDs,
 	}); err != nil {
-		return fmt.Errorf("delete resources: %w", err)
+		return sharedmodel.WrapErr("db delete resources", err)
 	}
 
 	if params.DeleteResources {
 		if err := b.storage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
 			ID: deletedIDs,
 		}); err != nil {
-			return fmt.Errorf("delete resources: %w", err)
+			return sharedmodel.WrapErr("db delete resources", err)
 		}
 	}
 
@@ -143,7 +143,7 @@ func (b *CommonHandler) GetResources(ctx restate.Context, params GetResourcesPar
 		RefID:   params.RefIDs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list resources: %w", err)
+		return nil, sharedmodel.WrapErr("db list resources", err)
 	}
 
 	return lo.GroupByMap(resources, func(rs commondb.ListSortedResourcesRow) (uuid.UUID, commonmodel.Resource) {

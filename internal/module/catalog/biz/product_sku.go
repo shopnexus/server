@@ -2,7 +2,6 @@ package catalogbiz
 
 import (
 	"encoding/json"
-	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -12,7 +11,7 @@ import (
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/pgutil"
+	"shopnexus-server/internal/shared/nullutil"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
@@ -34,7 +33,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list product sku: %w", err)
+		return zero, sharedmodel.WrapErr("validate list product sku", err)
 	}
 
 	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
@@ -42,10 +41,10 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 		SpuID:      params.SpuID,
 		PriceFrom:  params.PriceFrom,
 		PriceTo:    params.PriceTo,
-		CanCombine: pgutil.NullBoolToSlice(params.CanCombine),
+		CanCombine: nullutil.NullBoolToSlice(params.CanCombine),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list product sku: %w", err)
+		return zero, sharedmodel.WrapErr("db list product sku", err)
 	}
 
 	stocks, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
@@ -61,7 +60,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 	for _, dbSku := range dbSkus {
 		var attributes []catalogmodel.ProductAttribute
 		if err := sonic.Unmarshal(dbSku.Attributes, &attributes); err != nil {
-			return zero, fmt.Errorf("unmarshal sku attributes: %w", err)
+			return zero, sharedmodel.WrapErr("unmarshal sku attributes", err)
 		}
 		m := dbToProductSku(dbSku)
 		m.Stock = stockMap[dbSku.ID].Stock
@@ -87,11 +86,11 @@ func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProd
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
 	if err != nil {
-		return zero, fmt.Errorf("create product sku: %w", err)
+		return zero, sharedmodel.WrapErr("create product sku", err)
 	}
 	packagedetailsBytes, err := sonic.Marshal(params.PackageDetails)
 	if err != nil {
-		return zero, fmt.Errorf("create product sku: %w", err)
+		return zero, sharedmodel.WrapErr("create product sku", err)
 	}
 
 	// Create sku
@@ -103,7 +102,7 @@ func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProd
 		PackageDetails: packagedetailsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create product sku: %w", err)
+		return zero, sharedmodel.WrapErr("db create product sku", err)
 	}
 
 	if _, err := b.inventory.CreateStock(ctx, inventorybiz.CreateStockParams{
@@ -111,7 +110,7 @@ func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProd
 		RefType: inventorydb.InventoryStockRefTypeProductSku,
 		Stock:   0,
 	}); err != nil {
-		return zero, fmt.Errorf("create product sku: %w", err)
+		return zero, sharedmodel.WrapErr("create product sku", err)
 	}
 
 	m := dbToProductSku(sku)
@@ -134,16 +133,16 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("validate update product sku", err)
 	}
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
 	if err != nil {
-		return zero, fmt.Errorf("update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("update product sku", err)
 	}
 	packageDetailsBytes, err := sonic.Marshal(params.PackageDetails)
 	if err != nil {
-		return zero, fmt.Errorf("update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("update product sku", err)
 	}
 	// TODO: check biz logic of attribute update
 
@@ -155,7 +154,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 		PackageDetails: packageDetailsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("db update product sku", err)
 	}
 
 	stock, err := b.inventory.GetStock(ctx, inventorybiz.GetStockParams{
@@ -163,7 +162,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 		RefID:   sku.ID,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("update product sku", err)
 	}
 
 	// Invalidate search index for the parent product (spu)
@@ -172,7 +171,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 		RefID:           sku.SpuID,
 		IsStaleMetadata: null.BoolFrom(true),
 	}); err != nil {
-		return zero, fmt.Errorf("update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("db update search sync", err)
 	}
 
 	m := dbToProductSku(sku)
@@ -202,14 +201,14 @@ type DeleteProductSkuParams struct {
 // DeleteProductSku deletes a product SKU by ID.
 func (b *CatalogHandler) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate delete product sku: %w", err)
+		return sharedmodel.WrapErr("validate delete product sku", err)
 	}
 
 	// Delete sku
 	if err := b.storage.Querier().DeleteProductSku(ctx, catalogdb.DeleteProductSkuParams{
 		ID: []uuid.UUID{params.ID},
 	}); err != nil {
-		return fmt.Errorf("delete product sku: %w", err)
+		return sharedmodel.WrapErr("db delete product sku", err)
 	}
 
 	// TODO: should delete via message queue instead

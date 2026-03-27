@@ -66,14 +66,14 @@ func (b *CatalogHandler) GetProductSpu(ctx restate.Context, params GetProductSpu
 			ID: []uuid.UUID{params.ID.UUID},
 		})
 		if err != nil {
-			return catalogmodel.ProductSpu{}, fmt.Errorf("get product spu: %w", err)
+			return catalogmodel.ProductSpu{}, sharedmodel.WrapErr("get product spu", err)
 		}
 	} else if params.Slug.Valid {
 		listSpu, err = b.ListProductSpu(ctx, ListProductSpuParams{
 			Slug: []string{params.Slug.String},
 		})
 		if err != nil {
-			return catalogmodel.ProductSpu{}, fmt.Errorf("get product spu by slug: %w", err)
+			return catalogmodel.ProductSpu{}, sharedmodel.WrapErr("get product spu by slug", err)
 		}
 	}
 
@@ -98,7 +98,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate list product spu: %w", err)
+		return zero, sharedmodel.WrapErr("validate list product spu", err)
 	}
 
 	listCountSpu, err := b.storage.Querier().ListCountProductSpu(ctx, catalogdb.ListCountProductSpuParams{
@@ -112,7 +112,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		IsActive:   params.IsActive,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db list product spu", err)
 	}
 
 	var total null.Int64
@@ -131,7 +131,7 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		RefID:   spuIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("list rating: %w", err)
+		return zero, sharedmodel.WrapErr("db list rating", err)
 	}
 	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
@@ -185,12 +185,12 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("validate create product spu", err)
 	}
 
 	specsBytes, err := sonic.Marshal(params.Specifications)
 	if err != nil {
-		return zero, fmt.Errorf("create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("create product spu", err)
 	}
 
 	spu, err := b.storage.Querier().CreateDefaultProductSpu(ctx, catalogdb.CreateDefaultProductSpuParams{
@@ -204,7 +204,7 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 		Specifications: specsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db create product spu", err)
 	}
 
 	// Create tags
@@ -212,7 +212,7 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 		SpuID: spu.ID,
 		Tags:  params.Tags,
 	}); err != nil {
-		return zero, fmt.Errorf("create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("create product spu", err)
 	}
 
 	// Create resources
@@ -223,14 +223,14 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("create product spu", err)
 	}
 
 	if _, err := b.storage.Querier().CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
 		RefType: catalogdb.CatalogSearchSyncRefTypeProductSpu,
 		RefID:   spu.ID,
 	}); err != nil {
-		return zero, fmt.Errorf("create product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db create search sync", err)
 	}
 
 	tagsMap := b.getTagsMap(ctx, []uuid.UUID{spu.ID})
@@ -261,7 +261,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
-		return zero, restate.TerminalErrorf("validate update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("validate update product spu", err)
 	}
 
 	// Ensure the featured SKU (if provided) belongs to the current SPU.
@@ -270,7 +270,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 			ID: []uuid.UUID{params.FeaturedSkuID.UUID},
 		})
 		if err != nil {
-			return zero, fmt.Errorf("validate featured sku: %w", err)
+			return zero, sharedmodel.WrapErr("db validate featured sku", err)
 		}
 		if len(skus) == 0 || skus[0].SpuID != params.ID {
 			return zero, catalogmodel.ErrSkuNotBelongToSpu.Terminal()
@@ -284,7 +284,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 
 	specsBytes, err := sonic.Marshal(params.Specifications)
 	if err != nil {
-		return zero, fmt.Errorf("update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("update product spu", err)
 	}
 
 	// FIRST STEP: Update the product spu
@@ -302,7 +302,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 		Specifications: specsBytes,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db update product spu", err)
 	}
 
 	// NEXT STEP: Update tags
@@ -310,7 +310,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 		SpuID: spu.ID,
 		Tags:  params.Tags,
 	}); err != nil {
-		return zero, fmt.Errorf("update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("update product spu", err)
 	}
 
 	// NEXT STEP: Mark the search sync as stale
@@ -326,7 +326,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 	}
 
 	if err := b.storage.Querier().UpdateStaleSearchSync(ctx, updateSearchSyncArg); err != nil {
-		return zero, fmt.Errorf("update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("db update search sync", err)
 	}
 
 	// LAST STEP: Update resources
@@ -337,7 +337,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 		ResourceIDs: params.ResourceIDs,
 	})
 	if err != nil {
-		return zero, fmt.Errorf("update product spu: %w", err)
+		return zero, sharedmodel.WrapErr("update product spu", err)
 	}
 
 	m := b.dbToProductSpu(ctx, spu)
@@ -355,13 +355,13 @@ type DeleteProductSpuParams struct {
 // DeleteProductSpu deletes a product SPU by ID.
 func (b *CatalogHandler) DeleteProductSpu(ctx restate.Context, params DeleteProductSpuParams) error {
 	if err := validator.Validate(params); err != nil {
-		return restate.TerminalErrorf("validate delete product spu: %w", err)
+		return sharedmodel.WrapErr("validate delete product spu", err)
 	}
 
 	if err := b.storage.Querier().DeleteProductSpu(ctx, catalogdb.DeleteProductSpuParams{
 		ID: []uuid.UUID{params.ID},
 	}); err != nil {
-		return fmt.Errorf("delete product spu: %w", err)
+		return sharedmodel.WrapErr("db delete product spu", err)
 	}
 
 	return nil
@@ -377,7 +377,7 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 	if err := q.DeleteProductSpuTag(ctx, catalogdb.DeleteProductSpuTagParams{
 		SpuID: []uuid.UUID{params.SpuID},
 	}); err != nil {
-		return fmt.Errorf("delete existing tags for spu %s: %w", params.SpuID, err)
+		return sharedmodel.WrapErr(fmt.Sprintf("db delete existing tags for spu %s", params.SpuID), err)
 	}
 
 	if len(params.Tags) == 0 {
@@ -388,7 +388,7 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 		ID: params.Tags,
 	})
 	if err != nil {
-		return fmt.Errorf("list tags: %w", err)
+		return sharedmodel.WrapErr("db list tags", err)
 	}
 
 	var nonExistingTags []string
@@ -410,7 +410,7 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 			})
 		}
 		if _, err := q.CreateCopyDefaultTag(ctx, args); err != nil {
-			return fmt.Errorf("create tags: %w", err)
+			return sharedmodel.WrapErr("db create tags", err)
 		}
 	}
 
@@ -422,7 +422,7 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 		})
 	}
 	if _, err := q.CreateCopyDefaultProductSpuTag(ctx, args); err != nil {
-		return fmt.Errorf("create product spu tags: %w", err)
+		return sharedmodel.WrapErr("db create product spu tags", err)
 	}
 
 	return nil
