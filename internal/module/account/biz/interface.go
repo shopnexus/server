@@ -30,7 +30,7 @@ type AccountBiz interface {
 	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
 
 	// Account
-	DeleteAccount(ctx context.Context, params DeleteAccountParams) error
+	SuspendAccount(ctx context.Context, params SuspendAccountParams) error
 
 	// Contact
 	ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error)

@@ -48,8 +48,8 @@ func (p *AccountRestateClient) UpdateProfile(ctx context.Context, params UpdateP
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "UpdateProfile", params)
 }
 
-func (p *AccountRestateClient) DeleteAccount(ctx context.Context, params DeleteAccountParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "DeleteAccount", params)
+func (p *AccountRestateClient) SuspendAccount(ctx context.Context, params SuspendAccountParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "SuspendAccount", params)
 }
 
 func (p *AccountRestateClient) ListContact(ctx context.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
