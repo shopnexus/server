@@ -10,11 +10,15 @@ A social marketplace backend in Go, built as a **modular monolith** designed for
 
 ## Unified Account Model
 
+[`account`](internal/module/account/)
+
 There are no separate customer/vendor account types. Any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction, not per account.
 
 ---
 
 ## Order Lifecycle
+
+[`order`](internal/module/order/)
 
 The order flow is split into three phases with clear responsibility boundaries:
 
@@ -55,6 +59,8 @@ Buyer sees confirmed orders with exact totals (product + transport). Buyer selec
 
 ## Product Model (SPU/SKU)
 
+[`catalog`](internal/module/catalog/)
+
 Products follow the industry-standard two-level hierarchy:
 
 - **SPU (Standard Product Unit)**: the abstract product concept — name, description, category, brand, specifications, tags, resources (images). Owned by the seller's account.
@@ -65,6 +71,8 @@ A **featured SKU** per SPU determines the display price on product cards.
 ---
 
 ## Hybrid Search & Recommendations
+
+[`catalog`](internal/module/catalog/)
 
 Product search combines **dense vector similarity** (embedding-based) and **sparse BM25** (keyword-based) scoring via Milvus. If Milvus is unavailable, falls back to PostgreSQL `ILIKE` matching.
 
@@ -77,6 +85,8 @@ Personalized recommendations use a Redis-cached feed per user, refreshed from Mi
 ---
 
 ## Promotion Engine
+
+[`promotion`](internal/module/promotion/)
 
 Promotions use **group-based stacking**:
 - Promotions in **different groups** stack with each other
@@ -92,6 +102,8 @@ Types defined: Discount, ShipDiscount, Bundle, BuyXGetY, Cashback. Currently imp
 ---
 
 ## Inventory & Serial Tracking
+
+[`inventory`](internal/module/inventory/)
 
 Stock uses a polymorphic `(ref_type, ref_id)` design supporting both ProductSKU and Promotion references.
 
@@ -115,6 +127,8 @@ Cross-module dependencies use the `XxxBiz` interface (resolved to Restate proxy 
 
 ## Payment & Transport Providers
 
+[`payment`](internal/provider/payment/) | [`transport`](internal/provider/transport/)
+
 Both systems use a **pluggable provider pattern** — a `map[string]Client` keyed by option ID, registered at startup.
 
 **Payment providers:**
@@ -124,10 +138,20 @@ Both systems use a **pluggable provider pattern** — a `map[string]Client` keye
 **Transport providers:**
 - GHTK (Express, Standard, Economy) — mock implementation with weight-based cost calculation
 
-Providers are discoverable at runtime via the `common.service_option` registry.
+Providers are discoverable at runtime via the [`common`](internal/module/common/) service option registry.
+
+---
+
+## Analytics
+
+[`analytic`](internal/module/analytic/)
+
+Fire-and-forget interaction tracking via Restate durable calls. Weighted popularity scoring with atomic upsert accumulation. Feeds into product search recommendations.
 
 ---
 
 ## Real-time Chat
+
+[`chat`](internal/module/chat/)
 
 WebSocket-based messaging between any two accounts. One conversation per account pair (idempotent creation). Supports text, image, and system messages with read receipt tracking. Messages are persisted to PostgreSQL; offline users retrieve history via REST pagination.
