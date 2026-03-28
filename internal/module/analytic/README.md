@@ -69,3 +69,32 @@ All routes prefixed with `/api/v1/analytic`.
 | POST | `/interaction` | Yes | Record one or more interaction events |
 | GET | `/popularity/top` | No | List top products by popularity score (paginated) |
 | GET | `/popularity/:spu_id` | No | Get popularity data for a specific product |
+
+## ER Diagram
+
+```mermaid
+erDiagram
+"analytic.interaction" {
+  bigint id
+  uuid account_id
+  text session_id
+  text event_type
+  ref_type ref_type
+  text ref_id
+  jsonb metadata
+  text user_agent
+  text ip_address
+  timestamptz date_created
+  bigint account_number
+}
+"analytic.product_popularity" {
+  uuid id
+  float8 score
+  bigint view_count
+  bigint purchase_count
+  bigint favorite_count
+  bigint cart_count
+  bigint review_count
+  timestamptz date_updated
+}
+```

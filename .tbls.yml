@@ -1,0 +1,10 @@
+dsn: postgres://shopnexus:peakshopnexuspassword@localhost:5433/shopnexus?sslmode=disable
+
+docPath: docs/schema
+
+er:
+  format: mermaid
+
+exclude:
+  - public.schema_migrations_*
+  - public._test_*

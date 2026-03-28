@@ -46,3 +46,39 @@ All under `/api/v1/common`.
 | POST | `/geocode/reverse` | No | Convert lat/lng to address (`latitude`, `longitude` body) |
 | POST | `/geocode/forward` | No | Convert address to lat/lng (`address` body) |
 | GET | `/geocode/search` | No | Location suggestions for partial query (`q`, `limit` params) |
+
+## ER Diagram
+
+```mermaid
+erDiagram
+"common.resource_reference" }o--|| "common.resource" : "rs_id"
+
+"common.resource" {
+  uuid id
+  uuid uploaded_by
+  text provider
+  varchar(2048) object_key
+  varchar(100) mime
+  bigint size
+  jsonb metadata
+  text checksum
+  timestamptz created_at
+}
+"common.resource_reference" {
+  bigint id
+  uuid rs_id FK
+  common_resource_ref_type ref_type
+  uuid ref_id
+  integer order
+}
+"common.service_option" {
+  varchar(100) id
+  text category
+  text name
+  text description
+  text provider
+  text method
+  boolean is_active
+  integer order
+}
+```

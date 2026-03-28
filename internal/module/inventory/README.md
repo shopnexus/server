@@ -40,3 +40,33 @@ Serial reservation uses `FOR UPDATE SKIP LOCKED` so concurrent checkouts never b
 |--------|------|---------|-------------|
 | GET | `/api/v1/inventory/serial` | ListSerial | Paginated serial list by stock_id |
 | PATCH | `/api/v1/inventory/serial` | UpdateSerial | Batch-update serial status |
+
+## ER Diagram
+
+```mermaid
+erDiagram
+"inventory.stock_history" }o--|| "inventory.stock" : "stock_id"
+
+"inventory.serial" {
+  text id
+  ref_type ref_type
+  uuid ref_id
+  status status
+  timestamptz date_created
+}
+"inventory.stock" {
+  bigint id
+  ref_type ref_type
+  uuid ref_id
+  bigint stock
+  bigint taken
+  boolean serial_required
+  timestamptz date_created
+}
+"inventory.stock_history" {
+  bigint id
+  bigint stock_id FK
+  bigint change
+  timestamptz date_created
+}
+```

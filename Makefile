@@ -1,4 +1,4 @@
-.PHONY: run dev generate pgtempl migrate seed seedcmt build register
+.PHONY: run dev generate pgtempl migrate seed seedcmt build register schema
 
 # Downgrade protobuf registration conflict to warning (restate-sdk vs milvus share "internal.proto")
 export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
@@ -36,3 +36,6 @@ register:
 	curl -s $(RESTATE_ADMIN)/deployments -H 'content-type: application/json' \
 		-d '{"uri": "$(RESTATE_SERVICE)"}' | jq .
 	@echo "Services registered with Restate"
+
+schema:
+	tbls doc --force

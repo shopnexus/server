@@ -19,3 +19,17 @@ Events are stored with `BIGSERIAL` IDs and relayed in insertion order, preservin
 ## No HTTP Endpoints
 
 This module is internal infrastructure only. No routes are exposed.
+
+## ER Diagram
+
+```mermaid
+erDiagram
+"system.outbox_event" {
+  bigint id
+  varchar(100) topic
+  jsonb data
+  boolean processed
+  timestamptz date_processed
+  timestamptz date_created
+}
+```

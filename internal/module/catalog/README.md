@@ -99,3 +99,83 @@ All under `/api/v1/catalog`.
 | inventory | Stock creation for new SKUs, sold counts |
 | promotion | Price calculation with active promotions |
 | analytic | Interaction tracking (views, reviews, ratings) via fire-and-forget |
+
+## ER Diagram
+
+```mermaid
+erDiagram
+"catalog.product_spu" }o--|| "catalog.brand" : "brand_id"
+"catalog.product_spu" }o--|| "catalog.category" : "category_id"
+"catalog.product_sku" }o--|| "catalog.product_spu" : "spu_id"
+"catalog.product_spu_tag" }o--|| "catalog.product_spu" : "spu_id"
+"catalog.product_spu_tag" }o--|| "catalog.tag" : "tag"
+
+"catalog.brand" {
+  uuid id
+  text code
+  text name
+  text description
+}
+"catalog.category" {
+  uuid id
+  varchar(100) name
+  text description
+  bigint parent_id
+}
+"catalog.comment" {
+  uuid id
+  uuid account_id
+  ref_type ref_type
+  uuid ref_id
+  text body
+  bigint upvote
+  bigint downvote
+  float8 score
+  timestamptz date_created
+  timestamptz date_updated
+}
+"catalog.product_sku" {
+  uuid id
+  uuid spu_id FK
+  bigint price
+  boolean can_combine
+  jsonb attributes
+  jsonb package_details
+  timestamptz date_created
+  timestamptz date_deleted
+}
+"catalog.product_spu" {
+  uuid id
+  text slug
+  uuid account_id
+  uuid category_id FK
+  uuid brand_id FK
+  uuid featured_sku_id
+  text name
+  text description
+  boolean is_active
+  jsonb specifications
+  timestamptz date_created
+  timestamptz date_updated
+  timestamptz date_deleted
+  bigint number
+}
+"catalog.product_spu_tag" {
+  bigint id
+  uuid spu_id FK
+  varchar(100) tag FK
+}
+"catalog.search_sync" {
+  bigint id
+  ref_type ref_type
+  uuid ref_id
+  boolean is_stale_embedding
+  boolean is_stale_metadata
+  timestamptz date_created
+  timestamptz date_updated
+}
+"catalog.tag" {
+  varchar(100) id
+  varchar(255) description
+}
+```
