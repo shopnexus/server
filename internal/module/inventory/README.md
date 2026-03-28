@@ -4,6 +4,38 @@ Stock management with serial number tracking and audit trail.
 
 **Struct:** `InventoryHandler` | **Interface:** `InventoryBiz` | **Restate service:** `Inventory`
 
+## ER Diagram
+
+<!--START_SECTION:mermaid-->
+```mermaid
+erDiagram
+"inventory.stock_history" }o--|| "inventory.stock" : "stock_id"
+
+"inventory.serial" {
+  text id
+  stock_ref_type ref_type
+  uuid ref_id
+  status status
+  timestamptz date_created
+}
+"inventory.stock" {
+  bigint id
+  stock_ref_type ref_type
+  uuid ref_id
+  bigint stock
+  bigint taken
+  boolean serial_required
+  timestamptz date_created
+}
+"inventory.stock_history" {
+  bigint id
+  bigint stock_id
+  bigint change
+  timestamptz date_created
+}
+```
+<!--END_SECTION:mermaid-->
+
 ## Key Concepts
 
 - **Polymorphic references** -- `(ref_type, ref_id)` associates stock/serials with `ProductSku` or `Promotion` entities without separate tables per type.
@@ -40,33 +72,3 @@ Serial reservation uses `FOR UPDATE SKIP LOCKED` so concurrent checkouts never b
 |--------|------|---------|-------------|
 | GET | `/api/v1/inventory/serial` | ListSerial | Paginated serial list by stock_id |
 | PATCH | `/api/v1/inventory/serial` | UpdateSerial | Batch-update serial status |
-
-## ER Diagram
-
-```mermaid
-erDiagram
-"inventory.stock_history" }o--|| "inventory.stock" : "stock_id"
-
-"inventory.serial" {
-  text id
-  ref_type ref_type
-  uuid ref_id
-  status status
-  timestamptz date_created
-}
-"inventory.stock" {
-  bigint id
-  ref_type ref_type
-  uuid ref_id
-  bigint stock
-  bigint taken
-  boolean serial_required
-  timestamptz date_created
-}
-"inventory.stock_history" {
-  bigint id
-  bigint stock_id FK
-  bigint change
-  timestamptz date_created
-}
-```

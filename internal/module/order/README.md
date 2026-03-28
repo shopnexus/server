@@ -4,6 +4,102 @@ Manages the full order lifecycle: cart, checkout, seller confirmation, payment, 
 
 **Struct:** `OrderHandler` | **Interface:** `OrderBiz` | **Restate service:** `Order`
 
+## ER Diagram
+
+<!--START_SECTION:mermaid-->
+```mermaid
+erDiagram
+"order.order" }o--|o "order.payment" : "payment_id"
+"order.order" }o--|o "order.transport" : "transport_id"
+"order.item" }o--|o "order.order" : "order_id"
+"order.refund" }o--|o "order.transport" : "transport_id"
+"order.refund" }o--|| "order.order" : "order_id"
+"order.refund_dispute" }o--|| "order.refund" : "refund_id"
+
+"order.cart_item" {
+  bigint id
+  uuid account_id
+  uuid sku_id
+  bigint quantity
+}
+"order.item" {
+  bigint id
+  uuid order_id
+  uuid account_id
+  uuid seller_id
+  uuid sku_id
+  text sku_name
+  bigint quantity
+  bigint unit_price
+  bigint paid_amount
+  text address
+  item_status status
+  text note
+  jsonb serial_ids
+  timestamptz date_created
+  timestamptz date_updated
+}
+"order.order" {
+  uuid id
+  uuid buyer_id
+  uuid seller_id
+  bigint payment_id
+  uuid transport_id
+  uuid confirmed_by_id
+  status status
+  text address
+  bigint product_cost
+  bigint product_discount
+  bigint transport_cost
+  bigint total
+  text note
+  jsonb data
+  timestamptz date_created
+}
+"order.payment" {
+  bigint id
+  uuid account_id
+  text option
+  status status
+  bigint amount
+  jsonb data
+  timestamptz date_created
+  timestamptz date_paid
+  timestamptz date_expired
+}
+"order.refund" {
+  uuid id
+  uuid account_id
+  uuid order_id
+  uuid confirmed_by_id
+  uuid transport_id
+  refund_method method
+  status status
+  text reason
+  text address
+  timestamptz date_created
+}
+"order.refund_dispute" {
+  uuid id
+  uuid refund_id
+  uuid issued_by_id
+  text reason
+  status status
+  timestamptz date_created
+  timestamptz date_updated
+}
+"order.transport" {
+  uuid id
+  text option
+  transport_status status
+  bigint cost
+  jsonb data
+  timestamptz date_created
+}
+```
+<!--END_SECTION:mermaid-->
+
+
 ## Key Concepts
 
 - **No customer/vendor distinction** -- any account can buy and sell. Orders track `buyer_id` and `seller_id` per transaction.
@@ -92,95 +188,3 @@ Cart -> Checkout (pending items) -> Seller confirms (creates order + transport)
 | `promotion` | Price calculation with promotion codes |
 | `common` | Resource management (refund images) |
 
-## ER Diagram
-
-```mermaid
-erDiagram
-"order.order" }o--o| "order.payment" : "payment_id"
-"order.order" }o--o| "order.transport" : "transport_id"
-"order.item" }o--o| "order.order" : "order_id"
-"order.refund" }o--o| "order.transport" : "transport_id"
-"order.refund" }o--|| "order.order" : "order_id"
-"order.refund_dispute" }o--|| "order.refund" : "refund_id"
-
-"order.cart_item" {
-  bigint id
-  uuid account_id
-  uuid sku_id
-  bigint quantity
-}
-"order.item" {
-  bigint id
-  uuid order_id FK
-  uuid account_id
-  uuid seller_id
-  uuid sku_id
-  text sku_name
-  bigint quantity
-  bigint unit_price
-  bigint paid_amount
-  text address
-  item_status status
-  text note
-  jsonb serial_ids
-  timestamptz date_created
-  timestamptz date_updated
-}
-"order.order" {
-  uuid id
-  uuid buyer_id
-  uuid seller_id
-  bigint payment_id FK
-  uuid transport_id FK
-  uuid confirmed_by_id
-  status status
-  text address
-  bigint product_cost
-  bigint product_discount
-  bigint transport_cost
-  bigint total
-  text note
-  jsonb data
-  timestamptz date_created
-}
-"order.payment" {
-  bigint id
-  uuid account_id
-  text option
-  status status
-  bigint amount
-  jsonb data
-  timestamptz date_created
-  timestamptz date_paid
-  timestamptz date_expired
-}
-"order.refund" {
-  uuid id
-  uuid account_id
-  uuid order_id FK
-  uuid confirmed_by_id
-  uuid transport_id FK
-  refund_method method
-  status status
-  text reason
-  text address
-  timestamptz date_created
-}
-"order.refund_dispute" {
-  uuid id
-  uuid refund_id FK
-  uuid issued_by_id
-  text reason
-  status status
-  timestamptz date_created
-  timestamptz date_updated
-}
-"order.transport" {
-  uuid id
-  text option
-  transport_status status
-  bigint cost
-  jsonb data
-  timestamptz date_created
-}
-```

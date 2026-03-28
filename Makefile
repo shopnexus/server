@@ -1,4 +1,4 @@
-.PHONY: run dev generate pgtempl migrate seed seedcmt build register schema
+.PHONY: run dev generate pgtempl migrate seed seedcmt build register schema erdiagram
 
 # Downgrade protobuf registration conflict to warning (restate-sdk vs milvus share "internal.proto")
 export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
@@ -38,4 +38,4 @@ register:
 	@echo "Services registered with Restate"
 
 schema:
-	tbls doc --force
+	go run ./cmd/erdiagram/

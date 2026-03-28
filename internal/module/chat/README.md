@@ -5,6 +5,35 @@ Real-time messaging between any two accounts. REST API for conversation manageme
 - **Struct**: `ChatHandler` | **Interface**: `ChatBiz` | **Service**: `"Chat"`
 - **Schema**: `chat.*` in PostgreSQL
 
+## ER Diagram
+
+<!--START_SECTION:mermaid-->
+```mermaid
+erDiagram
+"chat.conversation" }o--|| "account.account" : "customer_id"
+"chat.message" }o--|| "account.account" : "sender_id"
+"chat.message" }o--|| "chat.conversation" : "conversation_id"
+
+"chat.conversation" {
+  uuid id
+  uuid customer_id
+  uuid vendor_id
+  timestamptz last_message_at
+  timestamptz date_created
+}
+"chat.message" {
+  bigint id
+  uuid conversation_id
+  uuid sender_id
+  message_type type
+  text content
+  message_status status
+  jsonb metadata
+  timestamptz date_created
+}
+```
+<!--END_SECTION:mermaid-->
+
 ## Data Model
 
 - **conversation** -- one per account pair, idempotent creation. Tracks `last_message_at` for recency ordering.
@@ -53,30 +82,3 @@ Connected clients are tracked in an in-memory map keyed by account UUID with `sy
 ## Offline Handling
 
 No offline queue. Messages are always persisted to PostgreSQL. Clients retrieve missed messages via the paginated REST endpoint on reconnect.
-
-## ER Diagram
-
-```mermaid
-erDiagram
-"chat.conversation" }o--|| "account.account" : "customer_id"
-"chat.message" }o--|| "account.account" : "sender_id"
-"chat.message" }o--|| "chat.conversation" : "conversation_id"
-
-"chat.conversation" {
-  uuid id
-  uuid customer_id FK
-  uuid vendor_id
-  timestamptz last_message_at
-  timestamptz date_created
-}
-"chat.message" {
-  bigint id
-  uuid conversation_id FK
-  uuid sender_id FK
-  message_type type
-  text content
-  message_status status
-  jsonb metadata
-  timestamptz date_created
-}
-```

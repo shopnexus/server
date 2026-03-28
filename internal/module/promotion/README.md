@@ -4,6 +4,57 @@ Manages promotional campaigns and computes promoted prices for the order/checkou
 
 **Struct:** `PromotionHandler` | **Interface:** `PromotionBiz` | **Restate service:** `Promotion`
 
+## ER Diagram
+
+<!--START_SECTION:mermaid-->
+```mermaid
+erDiagram
+"promotion.ref" }o--|| "promotion.promotion" : "promotion_id"
+"promotion.schedule" }o--|| "promotion.promotion" : "promotion_id"
+"promotion.discount" |o--|| "promotion.promotion" : "id"
+
+"promotion.discount" {
+  uuid id
+  bigint min_spend
+  bigint max_discount
+  float8 discount_percent
+  bigint discount_price
+}
+"promotion.promotion" {
+  uuid id
+  text code
+  uuid owner_id
+  type type
+  text title
+  text description
+  boolean is_active
+  boolean auto_apply
+  timestamptz date_started
+  timestamptz date_ended
+  timestamptz date_created
+  timestamptz date_updated
+  text group
+  integer priority
+  jsonb data
+}
+"promotion.ref" {
+  bigint id
+  uuid promotion_id
+  ref_type ref_type
+  uuid ref_id
+}
+"promotion.schedule" {
+  bigint id
+  uuid promotion_id
+  text timezone
+  text cron_rule
+  integer duration
+  timestamptz next_run_at
+  timestamptz last_run_at
+}
+```
+<!--END_SECTION:mermaid-->
+
 ## Key Concepts
 
 - **Unified promotion table** -- all types share one `promotion.promotion` table. Type-specific data (min_spend, max_discount, discount_percent/discount_price) is stored as JSONB in the `data` column.
@@ -44,52 +95,3 @@ Manages promotional campaigns and computes promoted prices for the order/checkou
 | POST | `/api/v1/catalog/promotion` | CreatePromotion | Yes | Create promotion (any type) |
 | PATCH | `/api/v1/catalog/promotion` | UpdatePromotion | Yes | Update promotion fields and refs |
 | DELETE | `/api/v1/catalog/promotion/:id` | DeletePromotion | Yes | Delete promotion (cascades refs) |
-
-## ER Diagram
-
-```mermaid
-erDiagram
-"promotion.ref" }o--|| "promotion.promotion" : "promotion_id"
-"promotion.schedule" }o--|| "promotion.promotion" : "promotion_id"
-"promotion.discount" |o--|| "promotion.promotion" : "id"
-
-"promotion.discount" {
-  uuid id FK
-  bigint min_spend
-  bigint max_discount
-  float8 discount_percent
-  bigint discount_price
-}
-"promotion.promotion" {
-  uuid id
-  text code
-  uuid owner_id
-  type type
-  text title
-  text description
-  boolean is_active
-  boolean auto_apply
-  timestamptz date_started
-  timestamptz date_ended
-  timestamptz date_created
-  timestamptz date_updated
-  text group
-  integer priority
-  jsonb data
-}
-"promotion.ref" {
-  bigint id
-  uuid promotion_id FK
-  ref_type ref_type
-  uuid ref_id
-}
-"promotion.schedule" {
-  bigint id
-  uuid promotion_id FK
-  text timezone
-  text cron_rule
-  integer duration
-  timestamptz next_run_at
-  timestamptz last_run_at
-}
-```
