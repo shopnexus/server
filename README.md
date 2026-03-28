@@ -8,9 +8,23 @@ A social marketplace backend in Go, built as a **modular monolith** designed for
 
 ---
 
-## Unified Account Model
+## Modules
 
-[`account`](internal/module/account/)
+| Module | Path | Description |
+|--------|------|-------------|
+| **account** | [`internal/module/account`](internal/module/account/) | Auth, profiles, contacts, favorites, payment methods, notifications |
+| **catalog** | [`internal/module/catalog`](internal/module/catalog/) | Products (SPU/SKU), categories, brands, tags, comments, hybrid search, recommendations |
+| **order** | [`internal/module/order`](internal/module/order/) | Cart, checkout, pending items, seller confirmation, payment, refunds |
+| **inventory** | [`internal/module/inventory`](internal/module/inventory/) | Stock management, serial tracking, audit history |
+| **promotion** | [`internal/module/promotion`](internal/module/promotion/) | Discounts, ship discounts, scheduling, group-based price stacking |
+| **analytic** | [`internal/module/analytic`](internal/module/analytic/) | Interaction tracking, weighted product popularity scoring |
+| **chat** | [`internal/module/chat`](internal/module/chat/) | Real-time WebSocket messaging, conversations, read receipts |
+| **common** | [`internal/module/common`](internal/module/common/) | Resource/file management, object storage, service options, geocoding |
+| **system** | [`internal/module/system`](internal/module/system/) | Transactional outbox for reliable event publishing |
+
+---
+
+## Unified Account Model
 
 There are no separate customer/vendor account types. Any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction, not per account.
 
