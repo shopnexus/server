@@ -2,11 +2,14 @@ package accountbiz
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -16,6 +19,7 @@ import (
 type CreatePaymentMethodParams struct {
 	Account   accountmodel.AuthenticatedAccount
 	Type      string          `validate:"required"`
+	Provider  string          `validate:"required"`
 	Label     string          `validate:"required"`
 	Data      json.RawMessage `validate:"required"`
 	IsDefault bool
@@ -28,6 +32,7 @@ func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreateP
 	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
 		AccountID: params.Account.ID,
 		Type:      params.Type,
+		Provider:  params.Provider,
 		Label:     params.Label,
 		Data:      params.Data,
 	})
@@ -149,4 +154,20 @@ func (b *AccountHandler) SetDefaultPaymentMethod(ctx restate.Context, params Set
 	}
 
 	return result, nil
+}
+
+type TokenizeCardParams struct {
+	Account   accountmodel.AuthenticatedAccount
+	ReturnURL string
+}
+
+// TokenizeCard returns the client configuration needed to tokenize a card.
+func (b *AccountHandler) TokenizeCard(ctx restate.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
+	cardCfg := b.config.App.CardPayment
+	if cardCfg.Provider == "" {
+		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card payment not configured").Terminal()
+	}
+	return payment.TokenizeResult{
+		ClientConfig: json.RawMessage(fmt.Sprintf(`{"provider":"%s","public_key":"%s"}`, cardCfg.Provider, cardCfg.PublicKey)),
+	}, nil
 }

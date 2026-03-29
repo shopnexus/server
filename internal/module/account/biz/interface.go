@@ -8,6 +8,7 @@ import (
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -58,6 +59,7 @@ type AccountBiz interface {
 	UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
 	DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error
 	SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error)
+	TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error)
 }
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]

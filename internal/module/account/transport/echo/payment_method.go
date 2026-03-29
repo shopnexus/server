@@ -16,6 +16,7 @@ import (
 
 type CreatePaymentMethodRequest struct {
 	Type      string          `json:"type" validate:"required"`
+	Provider  string          `json:"provider" validate:"required"`
 	Label     string          `json:"label" validate:"required"`
 	Data      json.RawMessage `json:"data" validate:"required"`
 	IsDefault bool            `json:"is_default"`
@@ -38,6 +39,7 @@ func (h *Handler) CreatePaymentMethod(c echo.Context) error {
 	result, err := h.biz.CreatePaymentMethod(c.Request().Context(), accountbiz.CreatePaymentMethodParams{
 		Account:   claims.Account,
 		Type:      req.Type,
+		Provider:  req.Provider,
 		Label:     req.Label,
 		Data:      req.Data,
 		IsDefault: req.IsDefault,
@@ -162,6 +164,31 @@ func (h *Handler) SetDefaultPaymentMethod(c echo.Context) error {
 	result, err := h.biz.SetDefaultPaymentMethod(c.Request().Context(), accountbiz.SetDefaultPaymentMethodParams{
 		Account: claims.Account,
 		ID:      req.ID,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+func (h *Handler) TokenizeCard(c echo.Context) error {
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	type TokenizeRequest struct {
+		ReturnURL string `json:"return_url"`
+	}
+	var req TokenizeRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.TokenizeCard(c.Request().Context(), accountbiz.TokenizeCardParams{
+		Account:   claims.Account,
+		ReturnURL: req.ReturnURL,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

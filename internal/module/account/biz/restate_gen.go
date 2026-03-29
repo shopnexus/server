@@ -8,6 +8,7 @@ import (
 	restateclient "shopnexus-server/internal/infras/restate"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -130,4 +131,8 @@ func (p *AccountRestateClient) DeletePaymentMethod(ctx context.Context, params D
 
 func (p *AccountRestateClient) SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
 	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "SetDefaultPaymentMethod", params)
+}
+
+func (p *AccountRestateClient) TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
+	return restateclient.Call[payment.TokenizeResult](ctx, p.client, serviceName, "TokenizeCard", params)
 }

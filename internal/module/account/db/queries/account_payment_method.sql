@@ -84,13 +84,13 @@ INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", 
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultPaymentMethod :one
-INSERT INTO "account"."payment_method" ("account_id", "type", "label", "data")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "account"."payment_method" ("account_id", "type", "provider", "label", "data")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultPaymentMethod :copyfrom
-INSERT INTO "account"."payment_method" ("account_id", "type", "label", "data")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "account"."payment_method" ("account_id", "type", "provider", "label", "data")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdatePaymentMethod :one
 UPDATE "account"."payment_method"

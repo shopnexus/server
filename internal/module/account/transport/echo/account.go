@@ -56,6 +56,7 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	paymentApi.PATCH("", h.UpdatePaymentMethod)
 	paymentApi.DELETE("", h.DeletePaymentMethod)
 	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
+	paymentApi.POST("/tokenize", h.TokenizeCard)
 
 	// Notification endpoints
 	notifApi := api.Group("/notification")

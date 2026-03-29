@@ -292,6 +292,7 @@ func (r iteratorForCreateCopyDefaultPaymentMethod) Values() ([]interface{}, erro
 	return []interface{}{
 		r.rows[0].AccountID,
 		r.rows[0].Type,
+		r.rows[0].Provider,
 		r.rows[0].Label,
 		r.rows[0].Data,
 	}, nil
@@ -302,7 +303,7 @@ func (r iteratorForCreateCopyDefaultPaymentMethod) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPaymentMethod(ctx context.Context, arg []CreateCopyDefaultPaymentMethodParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"account_id", "type", "label", "data"}, &iteratorForCreateCopyDefaultPaymentMethod{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"account_id", "type", "provider", "label", "data"}, &iteratorForCreateCopyDefaultPaymentMethod{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultProfile implements pgx.CopyFromSource.

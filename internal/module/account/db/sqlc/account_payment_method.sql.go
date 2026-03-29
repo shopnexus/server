@@ -74,6 +74,7 @@ func (q *Queries) CountPaymentMethod(ctx context.Context, arg CountPaymentMethod
 type CreateCopyDefaultPaymentMethodParams struct {
 	AccountID uuid.UUID       `json:"account_id"`
 	Type      string          `json:"type"`
+	Provider  string          `json:"provider"`
 	Label     string          `json:"label"`
 	Data      json.RawMessage `json:"data"`
 }
@@ -91,14 +92,15 @@ type CreateCopyPaymentMethodParams struct {
 }
 
 const createDefaultPaymentMethod = `-- name: CreateDefaultPaymentMethod :one
-INSERT INTO "account"."payment_method" ("account_id", "type", "label", "data")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "account"."payment_method" ("account_id", "type", "provider", "label", "data")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
 `
 
 type CreateDefaultPaymentMethodParams struct {
 	AccountID uuid.UUID       `json:"account_id"`
 	Type      string          `json:"type"`
+	Provider  string          `json:"provider"`
 	Label     string          `json:"label"`
 	Data      json.RawMessage `json:"data"`
 }
@@ -107,6 +109,7 @@ func (q *Queries) CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefa
 	row := q.db.QueryRow(ctx, createDefaultPaymentMethod,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 	)
