@@ -92,8 +92,10 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		}
 
 		var taken int64
+		var stockCount int64
 		if stock, ok := stockMap[sku.ID]; ok {
 			taken = stock.Taken
+			stockCount = stock.Stock
 		}
 
 		skusDetail = append(skusDetail, catalogmodel.ProductDetailSku{
@@ -102,6 +104,7 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 			OriginalPrice: originalPrice,
 			Attributes:    sku.Attributes,
 			Taken:         taken,
+			Stock:         stockCount,
 		})
 	}
 
@@ -153,6 +156,9 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		isFavorite = favoriteSet[spu.ID]
 	}
 
+	// Get tags
+	tagsMap := b.getTagsMap(ctx, []uuid.UUID{spu.ID})
+
 	// Track view interaction for authenticated users
 	if params.Account != nil {
 		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
@@ -171,7 +177,6 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		VendorID:    spu.AccountID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Brand:       spu.Brand,
 		IsActive:    spu.IsActive,
 		Category:    spu.Category,
 		Rating: catalogmodel.ProductRating{
@@ -184,5 +189,6 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		Promotions:     promotions,
 		Skus:           skusDetail,
 		Specifications: spu.Specifications,
+		Tags:           tagsMap[spu.ID],
 	}, nil
 }

@@ -12,67 +12,6 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-const searchBrand = `-- name: SearchBrand :many
-SELECT 
-    brand.id, brand.code, brand.name, brand.description,
-    COUNT(*) OVER() as total_count
-FROM "catalog"."brand" brand
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    (
-        "name" ILIKE '%' || $2 || '%' OR
-        "description" ILIKE '%' || $2 || '%'  OR
-        $2 IS NULL 
-    )
-)
-ORDER BY "id"
-LIMIT $4::int
-OFFSET $3::int
-`
-
-type SearchBrandParams struct {
-	ID     []uuid.UUID `json:"id"`
-	Search null.String `json:"search"`
-	Offset null.Int32  `json:"offset"`
-	Limit  null.Int32  `json:"limit"`
-}
-
-type SearchBrandRow struct {
-	CatalogBrand CatalogBrand `json:"catalog_brand"`
-	TotalCount   int64        `json:"total_count"`
-}
-
-func (q *Queries) SearchBrand(ctx context.Context, arg SearchBrandParams) ([]SearchBrandRow, error) {
-	rows, err := q.db.Query(ctx, searchBrand,
-		arg.ID,
-		arg.Search,
-		arg.Offset,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SearchBrandRow{}
-	for rows.Next() {
-		var i SearchBrandRow
-		if err := rows.Scan(
-			&i.CatalogBrand.ID,
-			&i.CatalogBrand.Code,
-			&i.CatalogBrand.Name,
-			&i.CatalogBrand.Description,
-			&i.TotalCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const searchCategory = `-- name: SearchCategory :many
 SELECT 
     category.id, category.name, category.description, category.parent_id,

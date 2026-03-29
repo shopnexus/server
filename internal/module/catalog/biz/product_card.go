@@ -57,6 +57,24 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 	// map[spuID]FeaturedSKU
 	featuredMap := lo.KeyBy(featuredSkus, func(row catalogmodel.ProductSku) uuid.UUID { return row.SpuID })
 
+	// Get stock (taken/sold) for featured SKUs
+	featuredStocks, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
+		RefType: []inventorydb.InventoryStockRefType{inventorydb.InventoryStockRefTypeProductSku},
+		RefID:   featuredIDs,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list featured stock", err)
+	}
+	// map[refID (skuID)] -> taken
+	stockTakenMap := lo.KeyBy(featuredStocks.Data, func(s inventorydb.InventoryStock) uuid.UUID { return s.RefID })
+	// map[spuID] -> taken (through featured sku)
+	soldMap := make(map[uuid.UUID]int64)
+	for spuID, featured := range featuredMap {
+		if stock, ok := stockTakenMap[featured.ID]; ok {
+			soldMap[spuID] = stock.Taken
+		}
+	}
+
 	// Build price request inputs for featured SKUs
 	requestPrices := make([]catalogmodel.RequestOrderPrice, 0, len(featuredSkus))
 	for _, sku := range featuredSkus {
@@ -133,7 +151,6 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 			Slug:        spu.Slug,
 			VendorID:    spu.AccountID,
 			CategoryID:  spu.Category.ID,
-			BrandID:     spu.Brand.ID,
 			Name:        spu.Name,
 			Description: spu.Description,
 			IsActive:    spu.IsActive,
@@ -149,6 +166,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 			},
 			IsFavorite: favoriteSet[spu.ID],
 			Resources:  resources,
+			Sold:       soldMap[spu.ID],
 		}
 	}
 

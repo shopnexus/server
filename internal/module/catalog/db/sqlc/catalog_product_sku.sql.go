@@ -21,17 +21,17 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("spu_id" = ANY($2) OR $2 IS NULL) AND
     ("price" = ANY($3) OR $3 IS NULL) AND
-    ("price" > $4 OR $4 IS NULL) AND
-    ("price" < $5 OR $5 IS NULL) AND
+    ("price" >= $4 OR $4 IS NULL) AND
+    ("price" <= $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
-    ("date_deleted" > $13 OR $13 IS NULL) AND
-    ("date_deleted" < $14 OR $14 IS NULL)
+    ("date_deleted" >= $13 OR $13 IS NULL) AND
+    ("date_deleted" <= $14 OR $14 IS NULL)
 )
 `
 
@@ -180,17 +180,17 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("spu_id" = ANY($2) OR $2 IS NULL) AND
     ("price" = ANY($3) OR $3 IS NULL) AND
-    ("price" > $4 OR $4 IS NULL) AND
-    ("price" < $5 OR $5 IS NULL) AND
+    ("price" >= $4 OR $4 IS NULL) AND
+    ("price" <= $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
-    ("date_deleted" > $13 OR $13 IS NULL) AND
-    ("date_deleted" < $14 OR $14 IS NULL)
+    ("date_deleted" >= $13 OR $13 IS NULL) AND
+    ("date_deleted" <= $14 OR $14 IS NULL)
 )
 `
 
@@ -263,17 +263,17 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("spu_id" = ANY($2) OR $2 IS NULL) AND
     ("price" = ANY($3) OR $3 IS NULL) AND
-    ("price" > $4 OR $4 IS NULL) AND
-    ("price" < $5 OR $5 IS NULL) AND
+    ("price" >= $4 OR $4 IS NULL) AND
+    ("price" <= $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
-    ("date_deleted" > $13 OR $13 IS NULL) AND
-    ("date_deleted" < $14 OR $14 IS NULL)
+    ("date_deleted" >= $13 OR $13 IS NULL) AND
+    ("date_deleted" <= $14 OR $14 IS NULL)
 )
 ORDER BY "id"
 LIMIT $16::int
@@ -358,17 +358,17 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("spu_id" = ANY($2) OR $2 IS NULL) AND
     ("price" = ANY($3) OR $3 IS NULL) AND
-    ("price" > $4 OR $4 IS NULL) AND
-    ("price" < $5 OR $5 IS NULL) AND
+    ("price" >= $4 OR $4 IS NULL) AND
+    ("price" <= $5 OR $5 IS NULL) AND
     ("can_combine" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" > $10 OR $10 IS NULL) AND
-    ("date_created" < $11 OR $11 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
-    ("date_deleted" > $13 OR $13 IS NULL) AND
-    ("date_deleted" < $14 OR $14 IS NULL)
+    ("date_deleted" >= $13 OR $13 IS NULL) AND
+    ("date_deleted" <= $14 OR $14 IS NULL)
 )
 ORDER BY "id"
 LIMIT $16::int

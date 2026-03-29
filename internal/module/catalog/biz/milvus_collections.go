@@ -24,7 +24,6 @@ func productsSchema() *entity.Schema {
 		WithField(entity.NewField().WithName("number").WithDataType(entity.FieldTypeInt64)).
 		WithField(entity.NewField().WithName("name").WithDataType(entity.FieldTypeVarChar).WithMaxLength(1024)).
 		WithField(entity.NewField().WithName("description").WithDataType(entity.FieldTypeVarChar).WithMaxLength(10240)).
-		WithField(entity.NewField().WithName("brand").WithDataType(entity.FieldTypeVarChar).WithMaxLength(256)).
 		WithField(entity.NewField().WithName("category").WithDataType(entity.FieldTypeVarChar).WithMaxLength(256)).
 		WithField(entity.NewField().WithName("is_active").WithDataType(entity.FieldTypeBool)).
 		WithField(entity.NewField().WithName("rating").WithDataType(entity.FieldTypeFloat)).

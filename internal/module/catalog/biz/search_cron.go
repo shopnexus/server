@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/samber/lo"
 
 	"shopnexus-server/config"
 	restateclient "shopnexus-server/internal/infras/restate"
@@ -111,28 +110,7 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 		productDetails = append(productDetails, detail)
 	}
 
-	// map[refID]stale
-	staleMap := lo.KeyBy(params.Stales, func(s catalogdb.ListStaleSearchSyncRow) uuid.UUID { return s.RefID })
-	var updateArgs []catalogdb.UpdateBatchStaleSearchSyncParams
-	for _, detail := range productDetails {
-		updateArgs = append(updateArgs, catalogdb.UpdateBatchStaleSearchSyncParams{
-			RefType:          staleMap[detail.ID].RefType,
-			RefID:            detail.ID,
-			IsStaleEmbedding: null.BoolFrom(params.MetadataOnly),
-			IsStaleMetadata:  null.BoolFrom(false),
-		})
-	}
-
-	// Update product stale status
-	var updateErr error
-	b.storage.Querier().UpdateBatchStaleSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
-		updateErr = err
-	})
-	if updateErr != nil {
-		return sharedmodel.WrapErr("update batch system search sync", updateErr)
-	}
-
-	// Last step: send to search server via Restate ingress
+	// Send to search server — UpdateProducts will clear stale flags on success
 	if err := restateclient.Send(ctx, b.restateClient, "Catalog", "UpdateProducts", UpdateProductsParams{
 		Products:     productDetails,
 		MetadataOnly: params.MetadataOnly,

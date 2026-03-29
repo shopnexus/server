@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countSearchSync = `-- name: CountSearchSync :one
@@ -24,11 +23,11 @@ WHERE (
     ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
     ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
     ("date_created" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" > $7 OR $7 IS NULL) AND
-    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_created" >= $7 OR $7 IS NULL) AND
+    ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
-    ("date_updated" > $10 OR $10 IS NULL) AND
-    ("date_updated" < $11 OR $11 IS NULL)
+    ("date_updated" >= $10 OR $10 IS NULL) AND
+    ("date_updated" <= $11 OR $11 IS NULL)
 )
 `
 
@@ -151,11 +150,11 @@ WHERE (
     ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
     ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
     ("date_created" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" > $7 OR $7 IS NULL) AND
-    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_created" >= $7 OR $7 IS NULL) AND
+    ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
-    ("date_updated" > $10 OR $10 IS NULL) AND
-    ("date_updated" < $11 OR $11 IS NULL)
+    ("date_updated" >= $10 OR $10 IS NULL) AND
+    ("date_updated" <= $11 OR $11 IS NULL)
 )
 `
 
@@ -198,7 +197,7 @@ WHERE ("id" = $1) OR ("ref_type" = $2 AND "ref_id" = $3)
 `
 
 type GetSearchSyncParams struct {
-	ID      pgtype.Int8                  `json:"id"`
+	ID      null.Int                     `json:"id"`
 	RefType NullCatalogSearchSyncRefType `json:"ref_type"`
 	RefID   uuid.NullUUID                `json:"ref_id"`
 }
@@ -230,11 +229,11 @@ WHERE (
     ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
     ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
     ("date_created" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" > $7 OR $7 IS NULL) AND
-    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_created" >= $7 OR $7 IS NULL) AND
+    ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
-    ("date_updated" > $10 OR $10 IS NULL) AND
-    ("date_updated" < $11 OR $11 IS NULL)
+    ("date_updated" >= $10 OR $10 IS NULL) AND
+    ("date_updated" <= $11 OR $11 IS NULL)
 )
 ORDER BY "id"
 LIMIT $13::int
@@ -315,11 +314,11 @@ WHERE (
     ("is_stale_embedding" = ANY($4) OR $4 IS NULL) AND
     ("is_stale_metadata" = ANY($5) OR $5 IS NULL) AND
     ("date_created" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" > $7 OR $7 IS NULL) AND
-    ("date_created" < $8 OR $8 IS NULL) AND
+    ("date_created" >= $7 OR $7 IS NULL) AND
+    ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
-    ("date_updated" > $10 OR $10 IS NULL) AND
-    ("date_updated" < $11 OR $11 IS NULL)
+    ("date_updated" >= $10 OR $10 IS NULL) AND
+    ("date_updated" <= $11 OR $11 IS NULL)
 )
 ORDER BY "id"
 LIMIT $13::int

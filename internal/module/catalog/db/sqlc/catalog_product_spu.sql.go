@@ -19,36 +19,37 @@ SELECT COUNT(*)
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("slug" = ANY($2) OR $2 IS NULL) AND
-    ("account_id" = ANY($3) OR $3 IS NULL) AND
-    ("category_id" = ANY($4) OR $4 IS NULL) AND
-    ("brand_id" = ANY($5) OR $5 IS NULL) AND
-    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("description" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("specifications" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("date_deleted" = ANY($17) OR $17 IS NULL) AND
-    ("date_deleted" > $18 OR $18 IS NULL) AND
-    ("date_deleted" < $19 OR $19 IS NULL) AND
-    ("number" = ANY($20) OR $20 IS NULL) AND
-    ("number" > $21 OR $21 IS NULL) AND
-    ("number" < $22 OR $22 IS NULL)
+    ("number" = ANY($2) OR $2 IS NULL) AND
+    ("number" >= $3 OR $3 IS NULL) AND
+    ("number" <= $4 OR $4 IS NULL) AND
+    ("slug" = ANY($5) OR $5 IS NULL) AND
+    ("account_id" = ANY($6) OR $6 IS NULL) AND
+    ("category_id" = ANY($7) OR $7 IS NULL) AND
+    ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
+    ("name" = ANY($9) OR $9 IS NULL) AND
+    ("description" = ANY($10) OR $10 IS NULL) AND
+    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("specifications" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" >= $14 OR $14 IS NULL) AND
+    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_updated" = ANY($16) OR $16 IS NULL) AND
+    ("date_updated" >= $17 OR $17 IS NULL) AND
+    ("date_updated" <= $18 OR $18 IS NULL) AND
+    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
+    ("date_deleted" >= $20 OR $20 IS NULL) AND
+    ("date_deleted" <= $21 OR $21 IS NULL)
 )
 `
 
 type CountProductSpuParams struct {
 	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
 	Slug            []string          `json:"slug"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	CategoryID      []uuid.UUID       `json:"category_id"`
-	BrandID         []uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
@@ -63,18 +64,17 @@ type CountProductSpuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
-	Number          []int64           `json:"number"`
-	NumberFrom      null.Int          `json:"number_from"`
-	NumberTo        null.Int          `json:"number_to"`
 }
 
 func (q *Queries) CountProductSpu(ctx context.Context, arg CountProductSpuParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countProductSpu,
 		arg.ID,
+		arg.Number,
+		arg.NumberFrom,
+		arg.NumberTo,
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -89,9 +89,6 @@ func (q *Queries) CountProductSpu(ctx context.Context, arg CountProductSpuParams
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-		arg.Number,
-		arg.NumberFrom,
-		arg.NumberTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -102,7 +99,6 @@ type CreateCopyDefaultProductSpuParams struct {
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -116,7 +112,6 @@ type CreateCopyProductSpuParams struct {
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -128,16 +123,15 @@ type CreateCopyProductSpuParams struct {
 }
 
 const createDefaultProductSpu = `-- name: CreateDefaultProductSpu :one
-INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateDefaultProductSpuParams struct {
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -151,7 +145,6 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -162,10 +155,10 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 	var i CatalogProductSpu
 	err := row.Scan(
 		&i.ID,
+		&i.Number,
 		&i.Slug,
 		&i.AccountID,
 		&i.CategoryID,
-		&i.BrandID,
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
@@ -174,15 +167,14 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
-		&i.Number,
 	)
 	return i, err
 }
 
 const createProductSpu = `-- name: CreateProductSpu :one
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateProductSpuParams struct {
@@ -190,7 +182,6 @@ type CreateProductSpuParams struct {
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -207,7 +198,6 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -220,10 +210,10 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 	var i CatalogProductSpu
 	err := row.Scan(
 		&i.ID,
+		&i.Number,
 		&i.Slug,
 		&i.AccountID,
 		&i.CategoryID,
-		&i.BrandID,
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
@@ -232,7 +222,6 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
-		&i.Number,
 	)
 	return i, err
 }
@@ -241,36 +230,37 @@ const deleteProductSpu = `-- name: DeleteProductSpu :exec
 DELETE FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("slug" = ANY($2) OR $2 IS NULL) AND
-    ("account_id" = ANY($3) OR $3 IS NULL) AND
-    ("category_id" = ANY($4) OR $4 IS NULL) AND
-    ("brand_id" = ANY($5) OR $5 IS NULL) AND
-    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("description" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("specifications" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("date_deleted" = ANY($17) OR $17 IS NULL) AND
-    ("date_deleted" > $18 OR $18 IS NULL) AND
-    ("date_deleted" < $19 OR $19 IS NULL) AND
-    ("number" = ANY($20) OR $20 IS NULL) AND
-    ("number" > $21 OR $21 IS NULL) AND
-    ("number" < $22 OR $22 IS NULL)
+    ("number" = ANY($2) OR $2 IS NULL) AND
+    ("number" >= $3 OR $3 IS NULL) AND
+    ("number" <= $4 OR $4 IS NULL) AND
+    ("slug" = ANY($5) OR $5 IS NULL) AND
+    ("account_id" = ANY($6) OR $6 IS NULL) AND
+    ("category_id" = ANY($7) OR $7 IS NULL) AND
+    ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
+    ("name" = ANY($9) OR $9 IS NULL) AND
+    ("description" = ANY($10) OR $10 IS NULL) AND
+    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("specifications" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" >= $14 OR $14 IS NULL) AND
+    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_updated" = ANY($16) OR $16 IS NULL) AND
+    ("date_updated" >= $17 OR $17 IS NULL) AND
+    ("date_updated" <= $18 OR $18 IS NULL) AND
+    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
+    ("date_deleted" >= $20 OR $20 IS NULL) AND
+    ("date_deleted" <= $21 OR $21 IS NULL)
 )
 `
 
 type DeleteProductSpuParams struct {
 	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
 	Slug            []string          `json:"slug"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	CategoryID      []uuid.UUID       `json:"category_id"`
-	BrandID         []uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
@@ -285,18 +275,17 @@ type DeleteProductSpuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
-	Number          []int64           `json:"number"`
-	NumberFrom      null.Int          `json:"number_from"`
-	NumberTo        null.Int          `json:"number_to"`
 }
 
 func (q *Queries) DeleteProductSpu(ctx context.Context, arg DeleteProductSpuParams) error {
 	_, err := q.db.Exec(ctx, deleteProductSpu,
 		arg.ID,
+		arg.Number,
+		arg.NumberFrom,
+		arg.NumberTo,
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -311,16 +300,13 @@ func (q *Queries) DeleteProductSpu(ctx context.Context, arg DeleteProductSpuPara
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-		arg.Number,
-		arg.NumberFrom,
-		arg.NumberTo,
 	)
 	return err
 }
 
 const getProductSpu = `-- name: GetProductSpu :one
 
-SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE ("id" = $1) OR ("slug" = $2) OR ("featured_sku_id" = $3)
 `
@@ -338,10 +324,10 @@ func (q *Queries) GetProductSpu(ctx context.Context, arg GetProductSpuParams) (C
 	var i CatalogProductSpu
 	err := row.Scan(
 		&i.ID,
+		&i.Number,
 		&i.Slug,
 		&i.AccountID,
 		&i.CategoryID,
-		&i.BrandID,
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
@@ -350,49 +336,49 @@ func (q *Queries) GetProductSpu(ctx context.Context, arg GetProductSpuParams) (C
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
-		&i.Number,
 	)
 	return i, err
 }
 
 const listCountProductSpu = `-- name: ListCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.brand_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, embed_product_spu.number, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("slug" = ANY($2) OR $2 IS NULL) AND
-    ("account_id" = ANY($3) OR $3 IS NULL) AND
-    ("category_id" = ANY($4) OR $4 IS NULL) AND
-    ("brand_id" = ANY($5) OR $5 IS NULL) AND
-    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("description" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("specifications" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("date_deleted" = ANY($17) OR $17 IS NULL) AND
-    ("date_deleted" > $18 OR $18 IS NULL) AND
-    ("date_deleted" < $19 OR $19 IS NULL) AND
-    ("number" = ANY($20) OR $20 IS NULL) AND
-    ("number" > $21 OR $21 IS NULL) AND
-    ("number" < $22 OR $22 IS NULL)
+    ("number" = ANY($2) OR $2 IS NULL) AND
+    ("number" >= $3 OR $3 IS NULL) AND
+    ("number" <= $4 OR $4 IS NULL) AND
+    ("slug" = ANY($5) OR $5 IS NULL) AND
+    ("account_id" = ANY($6) OR $6 IS NULL) AND
+    ("category_id" = ANY($7) OR $7 IS NULL) AND
+    ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
+    ("name" = ANY($9) OR $9 IS NULL) AND
+    ("description" = ANY($10) OR $10 IS NULL) AND
+    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("specifications" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" >= $14 OR $14 IS NULL) AND
+    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_updated" = ANY($16) OR $16 IS NULL) AND
+    ("date_updated" >= $17 OR $17 IS NULL) AND
+    ("date_updated" <= $18 OR $18 IS NULL) AND
+    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
+    ("date_deleted" >= $20 OR $20 IS NULL) AND
+    ("date_deleted" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
-LIMIT $24::int
-OFFSET $23::int
+LIMIT $23::int
+OFFSET $22::int
 `
 
 type ListCountProductSpuParams struct {
 	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
 	Slug            []string          `json:"slug"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	CategoryID      []uuid.UUID       `json:"category_id"`
-	BrandID         []uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
@@ -407,9 +393,6 @@ type ListCountProductSpuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
-	Number          []int64           `json:"number"`
-	NumberFrom      null.Int          `json:"number_from"`
-	NumberTo        null.Int          `json:"number_to"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -422,10 +405,12 @@ type ListCountProductSpuRow struct {
 func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductSpuParams) ([]ListCountProductSpuRow, error) {
 	rows, err := q.db.Query(ctx, listCountProductSpu,
 		arg.ID,
+		arg.Number,
+		arg.NumberFrom,
+		arg.NumberTo,
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -440,9 +425,6 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-		arg.Number,
-		arg.NumberFrom,
-		arg.NumberTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -455,10 +437,10 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 		var i ListCountProductSpuRow
 		if err := rows.Scan(
 			&i.CatalogProductSpu.ID,
+			&i.CatalogProductSpu.Number,
 			&i.CatalogProductSpu.Slug,
 			&i.CatalogProductSpu.AccountID,
 			&i.CatalogProductSpu.CategoryID,
-			&i.CatalogProductSpu.BrandID,
 			&i.CatalogProductSpu.FeaturedSkuID,
 			&i.CatalogProductSpu.Name,
 			&i.CatalogProductSpu.Description,
@@ -467,7 +449,6 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSpu.DateCreated,
 			&i.CatalogProductSpu.DateUpdated,
 			&i.CatalogProductSpu.DateDeleted,
-			&i.CatalogProductSpu.Number,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -481,43 +462,44 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 }
 
 const listProductSpu = `-- name: ListProductSpu :many
-SELECT id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("slug" = ANY($2) OR $2 IS NULL) AND
-    ("account_id" = ANY($3) OR $3 IS NULL) AND
-    ("category_id" = ANY($4) OR $4 IS NULL) AND
-    ("brand_id" = ANY($5) OR $5 IS NULL) AND
-    ("featured_sku_id" = ANY($6) OR $6 IS NULL) AND
-    ("name" = ANY($7) OR $7 IS NULL) AND
-    ("description" = ANY($8) OR $8 IS NULL) AND
-    ("is_active" = ANY($9) OR $9 IS NULL) AND
-    ("specifications" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("date_deleted" = ANY($17) OR $17 IS NULL) AND
-    ("date_deleted" > $18 OR $18 IS NULL) AND
-    ("date_deleted" < $19 OR $19 IS NULL) AND
-    ("number" = ANY($20) OR $20 IS NULL) AND
-    ("number" > $21 OR $21 IS NULL) AND
-    ("number" < $22 OR $22 IS NULL)
+    ("number" = ANY($2) OR $2 IS NULL) AND
+    ("number" >= $3 OR $3 IS NULL) AND
+    ("number" <= $4 OR $4 IS NULL) AND
+    ("slug" = ANY($5) OR $5 IS NULL) AND
+    ("account_id" = ANY($6) OR $6 IS NULL) AND
+    ("category_id" = ANY($7) OR $7 IS NULL) AND
+    ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
+    ("name" = ANY($9) OR $9 IS NULL) AND
+    ("description" = ANY($10) OR $10 IS NULL) AND
+    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("specifications" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" >= $14 OR $14 IS NULL) AND
+    ("date_created" <= $15 OR $15 IS NULL) AND
+    ("date_updated" = ANY($16) OR $16 IS NULL) AND
+    ("date_updated" >= $17 OR $17 IS NULL) AND
+    ("date_updated" <= $18 OR $18 IS NULL) AND
+    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
+    ("date_deleted" >= $20 OR $20 IS NULL) AND
+    ("date_deleted" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
-LIMIT $24::int
-OFFSET $23::int
+LIMIT $23::int
+OFFSET $22::int
 `
 
 type ListProductSpuParams struct {
 	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
 	Slug            []string          `json:"slug"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	CategoryID      []uuid.UUID       `json:"category_id"`
-	BrandID         []uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
@@ -532,9 +514,6 @@ type ListProductSpuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
-	Number          []int64           `json:"number"`
-	NumberFrom      null.Int          `json:"number_from"`
-	NumberTo        null.Int          `json:"number_to"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -542,10 +521,12 @@ type ListProductSpuParams struct {
 func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) ([]CatalogProductSpu, error) {
 	rows, err := q.db.Query(ctx, listProductSpu,
 		arg.ID,
+		arg.Number,
+		arg.NumberFrom,
+		arg.NumberTo,
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
@@ -560,9 +541,6 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
-		arg.Number,
-		arg.NumberFrom,
-		arg.NumberTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -575,10 +553,10 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 		var i CatalogProductSpu
 		if err := rows.Scan(
 			&i.ID,
+			&i.Number,
 			&i.Slug,
 			&i.AccountID,
 			&i.CategoryID,
-			&i.BrandID,
 			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
@@ -587,7 +565,6 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
-			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -604,24 +581,22 @@ UPDATE "catalog"."product_spu"
 SET "slug" = COALESCE($1, "slug"),
     "account_id" = COALESCE($2, "account_id"),
     "category_id" = COALESCE($3, "category_id"),
-    "brand_id" = COALESCE($4, "brand_id"),
-    "featured_sku_id" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "featured_sku_id") END,
-    "name" = COALESCE($7, "name"),
-    "description" = COALESCE($8, "description"),
-    "is_active" = COALESCE($9, "is_active"),
-    "specifications" = COALESCE($10, "specifications"),
-    "date_created" = COALESCE($11, "date_created"),
-    "date_updated" = COALESCE($12, "date_updated"),
-    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
-WHERE id = $15
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+    "featured_sku_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "featured_sku_id") END,
+    "name" = COALESCE($6, "name"),
+    "description" = COALESCE($7, "description"),
+    "is_active" = COALESCE($8, "is_active"),
+    "specifications" = COALESCE($9, "specifications"),
+    "date_created" = COALESCE($10, "date_created"),
+    "date_updated" = COALESCE($11, "date_updated"),
+    "date_deleted" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_deleted") END
+WHERE id = $14
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 `
 
 type UpdateProductSpuParams struct {
 	Slug              null.String     `json:"slug"`
 	AccountID         uuid.NullUUID   `json:"account_id"`
 	CategoryID        uuid.NullUUID   `json:"category_id"`
-	BrandID           uuid.NullUUID   `json:"brand_id"`
 	NullFeaturedSkuID bool            `json:"null_featured_sku_id"`
 	FeaturedSkuID     uuid.NullUUID   `json:"featured_sku_id"`
 	Name              null.String     `json:"name"`
@@ -640,7 +615,6 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.BrandID,
 		arg.NullFeaturedSkuID,
 		arg.FeaturedSkuID,
 		arg.Name,
@@ -656,10 +630,10 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 	var i CatalogProductSpu
 	err := row.Scan(
 		&i.ID,
+		&i.Number,
 		&i.Slug,
 		&i.AccountID,
 		&i.CategoryID,
-		&i.BrandID,
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
@@ -668,7 +642,6 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateDeleted,
-		&i.Number,
 	)
 	return i, err
 }

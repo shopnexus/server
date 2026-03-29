@@ -127,13 +127,6 @@ func AllCatalogSearchSyncRefTypeValues() []CatalogSearchSyncRefType {
 	}
 }
 
-type CatalogBrand struct {
-	ID          uuid.UUID `json:"id"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-}
-
 type CatalogCategory struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
@@ -167,10 +160,10 @@ type CatalogProductSku struct {
 
 type CatalogProductSpu struct {
 	ID             uuid.UUID       `json:"id"`
+	Number         int64           `json:"number"`
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -179,7 +172,6 @@ type CatalogProductSpu struct {
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`
 	DateDeleted    null.Time       `json:"date_deleted"`
-	Number         int64           `json:"number"`
 }
 
 type CatalogProductSpuTag struct {

@@ -56,15 +56,15 @@ type CatalogBiz interface {
 	ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error)
 	GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error)
 
-	// Brand
-	ListBrand(ctx context.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error)
-
 	// Category
 	ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error)
 
 	// Search
 	Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error)
 	GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error)
+
+	// Vendor Stats
+	GetVendorStats(ctx context.Context, params GetVendorStatsParams) (VendorStats, error)
 }
 
 type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]

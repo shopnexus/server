@@ -167,7 +167,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 
 	// Invalidate search index for the parent product (spu)
 	if err := b.storage.Querier().UpdateStaleSearchSync(ctx, catalogdb.UpdateStaleSearchSyncParams{
-		RefType:         catalogmodel.RefTypeProduct,
+		RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
 		RefID:           sku.SpuID,
 		IsStaleMetadata: null.BoolFrom(true),
 	}); err != nil {

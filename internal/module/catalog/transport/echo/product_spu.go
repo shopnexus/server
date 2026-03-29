@@ -16,9 +16,10 @@ import (
 
 type ListProductSpuRequest struct {
 	sharedmodel.PaginationParams
+	Search     null.String `query:"search" validate:"omitnil"`
 	Slug       []string    `query:"slug" comma_separated:"true" validate:"omitempty"`
+	MyProducts bool        `query:"my_products" validate:"omitempty"`
 	CategoryID []uuid.UUID `query:"category_id" comma_separated:"true" validate:"omitempty"`
-	BrandID    []uuid.UUID `query:"brand_id" comma_separated:"true" validate:"omitempty"`
 	IsActive   []bool      `query:"is_active" comma_separated:"true" validate:"omitempty"`
 }
 
@@ -31,16 +32,21 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	// claims, err := authclaims.GetClaims(c.Request())
-	// if err != nil {
-	// 	return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	// }
+	claims, _ := authclaims.GetClaims(c.Request())
+
+	// Filter by authenticated account when my_products=true
+	var accountID []uuid.UUID
+	if req.MyProducts && claims.Account.ID != uuid.Nil {
+		accountID = []uuid.UUID{claims.Account.ID}
+	}
 
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
 		PaginationParams: req.PaginationParams.Constrain(),
+		Account:          claims.Account,
+		Search:           req.Search,
 		Slug:             req.Slug,
+		AccountID:        accountID,
 		CategoryID:       req.CategoryID,
-		BrandID:          req.BrandID,
 		IsActive:         req.IsActive,
 	})
 	if err != nil {
@@ -74,9 +80,8 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 
 type CreateProductSpuRequest struct {
 	CategoryID     uuid.UUID                           `json:"category_id" validate:"required"`
-	BrandID        uuid.UUID                           `json:"brand_id" validate:"required"`
 	Name           string                              `json:"name" validate:"required,min=1,max=200"`
-	Description    string                              `json:"description" validate:"required,max=100000"`
+	Description    string                              `json:"description" validate:"required,max=1000000"`
 	IsActive       bool                                `json:"is_active" validate:"omitempty"`
 	Tags           []string                            `json:"tags" validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
@@ -100,7 +105,6 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 	spu, err := h.biz.CreateProductSpu(c.Request().Context(), catalogbiz.CreateProductSpuParams{
 		Account:        claims.Account,
 		CategoryID:     req.CategoryID,
-		BrandID:        req.BrandID,
 		Name:           req.Name,
 		Description:    req.Description,
 		IsActive:       req.IsActive,
@@ -118,10 +122,10 @@ type UpdateProductSpuRequest struct {
 	ID             uuid.UUID                           `json:"id" validate:"required"`
 	CategoryID     uuid.NullUUID                       `json:"category_id" validate:"omitnil"`
 	FeaturedSkuID  uuid.NullUUID                       `json:"featured_sku_id" validate:"omitnil"`
-	BrandID        uuid.NullUUID                       `json:"brand_id" validate:"omitnil"`
 	Name           null.String                         `json:"name" validate:"omitnil,min=1,max=200"`
-	Description    null.String                         `json:"description" validate:"omitnil,max=10000"`
+	Description    null.String                         `json:"description" validate:"omitnil,max=100000"`
 	IsActive       null.Bool                           `json:"is_active" validate:"omitnil"`
+	RegenerateSlug bool                                `json:"regenerate_slug"`
 	Tags           []string                            `json:"tags" validate:"omitempty,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
 	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
@@ -142,16 +146,17 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 	}
 
 	spu, err := h.biz.UpdateProductSpu(c.Request().Context(), catalogbiz.UpdateProductSpuParams{
-		Account:       claims.Account,
-		ID:            req.ID,
-		FeaturedSkuID: req.FeaturedSkuID,
-		CategoryID:    req.CategoryID,
-		BrandID:       req.BrandID,
-		Name:          req.Name,
-		Description:   req.Description,
-		IsActive:      req.IsActive,
-		Tags:          req.Tags,
-		ResourceIDs:   req.ResourceIDs,
+		Account:        claims.Account,
+		ID:             req.ID,
+		FeaturedSkuID:  req.FeaturedSkuID,
+		CategoryID:     req.CategoryID,
+		Name:           req.Name,
+		Description:    req.Description,
+		IsActive:       req.IsActive,
+		RegenerateSlug: req.RegenerateSlug,
+		Tags:           req.Tags,
+		ResourceIDs:    req.ResourceIDs,
+		Specifications: req.Specifications,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

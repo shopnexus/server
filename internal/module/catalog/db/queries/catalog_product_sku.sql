@@ -13,17 +13,17 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
-    ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
-    ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
+    ("price" >= sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
+    ("price" <= sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
     ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
-    ("date_deleted" > sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
-    ("date_deleted" < sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
 );
 
 -- name: ListProductSku :many
@@ -33,17 +33,17 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
-    ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
-    ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
+    ("price" >= sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
+    ("price" <= sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
     ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
-    ("date_deleted" > sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
-    ("date_deleted" < sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -56,17 +56,17 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
-    ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
-    ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
+    ("price" >= sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
+    ("price" <= sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
     ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
-    ("date_deleted" > sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
-    ("date_deleted" < sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -113,15 +113,15 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("price" = ANY(sqlc.slice('price')) OR sqlc.slice('price') IS NULL) AND
-    ("price" > sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
-    ("price" < sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
+    ("price" >= sqlc.narg('price_from') OR sqlc.narg('price_from') IS NULL) AND
+    ("price" <= sqlc.narg('price_to') OR sqlc.narg('price_to') IS NULL) AND
     ("can_combine" = ANY(sqlc.slice('can_combine')) OR sqlc.slice('can_combine') IS NULL) AND
     ("attributes" = ANY(sqlc.slice('attributes')) OR sqlc.slice('attributes') IS NULL) AND
     ("package_details" = ANY(sqlc.slice('package_details')) OR sqlc.slice('package_details') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_deleted" = ANY(sqlc.slice('date_deleted')) OR sqlc.slice('date_deleted') IS NULL) AND
-    ("date_deleted" > sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
-    ("date_deleted" < sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
+    ("date_deleted" >= sqlc.narg('date_deleted_from') OR sqlc.narg('date_deleted_from') IS NULL) AND
+    ("date_deleted" <= sqlc.narg('date_deleted_to') OR sqlc.narg('date_deleted_to') IS NULL)
 );

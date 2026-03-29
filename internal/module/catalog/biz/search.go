@@ -10,14 +10,18 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
+	"github.com/samber/lo"
 
 	"shopnexus-server/internal/infras/milvus"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	catalogutil "shopnexus-server/internal/module/catalog/util"
+	"shopnexus-server/internal/shared/htmlutil"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 )
@@ -265,24 +269,51 @@ type UpdateProductsParams struct {
 }
 
 // UpdateProducts upserts product data and embeddings into the Milvus search index.
+// Rechecks stale status before processing to avoid redundant embedding calls on Restate retries.
 func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProductsParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate update products", err)
 	}
 
+	// Recheck stale status — skip products already synced (e.g. on Restate retry)
+	productIDs := lo.Map(params.Products, func(p catalogmodel.ProductDetail, _ int) uuid.UUID { return p.ID })
+	syncStatuses, _ := b.storage.Querier().ListSearchSync(ctx, catalogdb.ListSearchSyncParams{
+		RefID: productIDs,
+	})
+	syncMap := lo.KeyBy(syncStatuses, func(s catalogdb.CatalogSearchSync) uuid.UUID { return s.RefID })
+
+	var products []catalogmodel.ProductDetail
+	for _, p := range params.Products {
+		sync, ok := syncMap[p.ID]
+		if !ok {
+			continue
+		}
+		if params.MetadataOnly && !sync.IsStaleMetadata {
+			continue // already synced
+		}
+		if !params.MetadataOnly && !sync.IsStaleEmbedding {
+			continue // already synced
+		}
+		products = append(products, p)
+	}
+
+	if len(products) == 0 {
+		return nil // nothing to do
+	}
+
 	// 1. Get embeddings if needed
 	var embeddingMap map[string]embeddingResult
 	if !params.MetadataOnly {
-		texts := make([]string, len(params.Products))
-		for i, p := range params.Products {
-			texts[i] = p.Name + " " + p.Description
+		texts := make([]string, len(products))
+		for i, p := range products {
+			texts[i] = p.Name + " " + htmlutil.StripHTML(p.Description) // TODO: add other rich context fields like: sku name, specification, ...
 		}
 		embeddings, err := b.llm.Embed(ctx, texts)
 		if err != nil {
 			return sharedmodel.WrapErr("embed products", err)
 		}
-		embeddingMap = make(map[string]embeddingResult, len(params.Products))
-		for i, p := range params.Products {
+		embeddingMap = make(map[string]embeddingResult, len(products))
+		for i, p := range products {
 			embeddingMap[p.ID.String()] = embeddingResult{
 				dense:  embeddings[i].Dense,
 				sparse: embeddings[i].Sparse,
@@ -291,8 +322,28 @@ func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProduc
 	}
 
 	// 2. Upsert to Milvus
-	if err := b.upsertProducts(ctx, params.Products, embeddingMap, params.MetadataOnly); err != nil {
+	if err := b.upsertProducts(ctx, products, embeddingMap, params.MetadataOnly); err != nil {
 		return sharedmodel.WrapErr("upsert products", err)
+	}
+
+	// 3. Clear stale flags only after everything succeeded
+	var updateArgs []catalogdb.UpdateBatchStaleSearchSyncParams
+	for _, p := range products {
+		updateArgs = append(updateArgs, catalogdb.UpdateBatchStaleSearchSyncParams{
+			RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
+			RefID:            p.ID,
+			IsStaleEmbedding: null.BoolFrom(params.MetadataOnly), // keep stale if metadata-only
+			IsStaleMetadata:  null.BoolFrom(false),
+		})
+	}
+	var updateErr error
+	b.storage.Querier().UpdateBatchStaleSearchSync(ctx, updateArgs).Exec(func(i int, err error) {
+		if err != nil {
+			updateErr = err
+		}
+	})
+	if updateErr != nil {
+		return sharedmodel.WrapErr("clear stale flags", updateErr)
 	}
 
 	return nil

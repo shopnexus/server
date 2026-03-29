@@ -20,68 +20,6 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const createBatchBrand = `-- name: CreateBatchBrand :batchone
-INSERT INTO "catalog"."brand" ("id", "code", "name", "description")
-VALUES ($1, $2, $3, $4)
-RETURNING id, code, name, description
-`
-
-type CreateBatchBrandBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchBrandParams struct {
-	ID          uuid.UUID `json:"id"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-}
-
-func (q *Queries) CreateBatchBrand(ctx context.Context, arg []CreateBatchBrandParams) *CreateBatchBrandBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Code,
-			a.Name,
-			a.Description,
-		}
-		batch.Queue(createBatchBrand, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchBrandBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchBrandBatchResults) QueryRow(f func(int, CatalogBrand, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i CatalogBrand
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.Code,
-			&i.Name,
-			&i.Description,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchBrandBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchCategory = `-- name: CreateBatchCategory :batchone
 INSERT INTO "catalog"."category" ("id", "name", "description", "parent_id")
 VALUES ($1, $2, $3, $4)
@@ -299,9 +237,9 @@ func (b *CreateBatchProductSkuBatchResults) Close() error {
 }
 
 const createBatchProductSpu = `-- name: CreateBatchProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "brand_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, slug, account_id, category_id, brand_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted, number
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateBatchProductSpuBatchResults struct {
@@ -315,7 +253,6 @@ type CreateBatchProductSpuParams struct {
 	Slug           string          `json:"slug"`
 	AccountID      uuid.UUID       `json:"account_id"`
 	CategoryID     uuid.UUID       `json:"category_id"`
-	BrandID        uuid.UUID       `json:"brand_id"`
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
@@ -334,7 +271,6 @@ func (q *Queries) CreateBatchProductSpu(ctx context.Context, arg []CreateBatchPr
 			a.Slug,
 			a.AccountID,
 			a.CategoryID,
-			a.BrandID,
 			a.FeaturedSkuID,
 			a.Name,
 			a.Description,
@@ -363,10 +299,10 @@ func (b *CreateBatchProductSpuBatchResults) QueryRow(f func(int, CatalogProductS
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
+			&i.Number,
 			&i.Slug,
 			&i.AccountID,
 			&i.CategoryID,
-			&i.BrandID,
 			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
@@ -375,7 +311,6 @@ func (b *CreateBatchProductSpuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateDeleted,
-			&i.Number,
 		)
 		if f != nil {
 			f(t, i, err)

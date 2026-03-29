@@ -2,6 +2,7 @@ package catalogbiz
 
 import (
 	"fmt"
+	"strings"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -40,13 +41,6 @@ func (b *CatalogHandler) getCategory(ctx restate.Context, categoryID uuid.UUID) 
 		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
 	})
 	return category
-}
-
-func (b *CatalogHandler) getBrand(ctx restate.Context, brandID uuid.UUID) catalogdb.CatalogBrand {
-	brand, _ := b.storage.Querier().GetBrand(ctx, catalogdb.GetBrandParams{
-		ID: uuid.NullUUID{UUID: brandID, Valid: true},
-	})
-	return brand
 }
 
 type GetProductSpuParams struct {
@@ -88,12 +82,13 @@ type ListProductSpuParams struct {
 	Account    accountmodel.AuthenticatedAccount `validate:"omitempty"`
 	ID         []uuid.UUID                       `validate:"omitempty,dive"`
 	Slug       []string                          `validate:"omitempty,dive"`
+	AccountID  []uuid.UUID                       `validate:"omitempty,dive"`
 	CategoryID []uuid.UUID                       `validate:"omitempty,dive"`
-	BrandID    []uuid.UUID                       `validate:"omitempty,dive"`
 	IsActive   []bool                            `validate:"omitempty,dive"`
+	Search     null.String                       `validate:"omitnil"`
 }
 
-// ListProductSpu returns paginated product SPUs with optional filters for category, brand, and active status.
+// ListProductSpu returns paginated product SPUs with optional filters for category and active status.
 func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
@@ -101,28 +96,50 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		return zero, sharedmodel.WrapErr("validate list product spu", err)
 	}
 
-	listCountSpu, err := b.storage.Querier().ListCountProductSpu(ctx, catalogdb.ListCountProductSpuParams{
-		Limit:  params.Limit,
-		Offset: params.Offset(),
-		ID:     params.ID,
-		Slug:   params.Slug,
-		// AccountID:  []int64{params.Account.ID}, // TODO!: uncomment this (filter by account only for vendor)
-		CategoryID: params.CategoryID,
-		BrandID:    params.BrandID,
-		IsActive:   params.IsActive,
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db list product spu", err)
-	}
-
+	var dbSpus []catalogdb.CatalogProductSpu
 	var total null.Int64
-	if len(listCountSpu) > 0 {
-		total.SetValid(listCountSpu[0].TotalCount)
-	}
 
-	dbSpus := lo.Map(listCountSpu, func(row catalogdb.ListCountProductSpuRow, _ int) catalogdb.CatalogProductSpu {
-		return row.CatalogProductSpu
-	})
+	if params.Search.Valid {
+		params.Search.SetValid(strings.TrimSpace(params.Search.String))
+		rows, err := b.storage.Querier().SearchCountProductSpu(ctx, catalogdb.SearchCountProductSpuParams{
+			Limit:      params.Limit,
+			Offset:     params.Offset(),
+			ID:         params.ID,
+			AccountID:  params.AccountID,
+			CategoryID: params.CategoryID,
+			IsActive:   params.IsActive,
+			Name:       params.Search,
+			Slug:       params.Search,
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("db search product spu", err)
+		}
+		if len(rows) > 0 {
+			total.SetValid(rows[0].TotalCount)
+		}
+		dbSpus = lo.Map(rows, func(row catalogdb.SearchCountProductSpuRow, _ int) catalogdb.CatalogProductSpu {
+			return row.CatalogProductSpu
+		})
+	} else {
+		rows, err := b.storage.Querier().ListCountProductSpuRecent(ctx, catalogdb.ListCountProductSpuRecentParams{
+			Limit:      params.Limit,
+			Offset:     params.Offset(),
+			ID:         params.ID,
+			Slug:       params.Slug,
+			AccountID:  params.AccountID,
+			CategoryID: params.CategoryID,
+			IsActive:   params.IsActive,
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("db list product spu", err)
+		}
+		if len(rows) > 0 {
+			total.SetValid(rows[0].TotalCount)
+		}
+		dbSpus = lo.Map(rows, func(row catalogdb.ListCountProductSpuRecentRow, _ int) catalogdb.CatalogProductSpu {
+			return row.CatalogProductSpu
+		})
+	}
 
 	spuIDs := lo.Map(dbSpus, func(spu catalogdb.CatalogProductSpu, _ int) uuid.UUID { return spu.ID })
 	// Calculate rating score
@@ -145,6 +162,12 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		return zero, sharedmodel.WrapErr("get product resources", err)
 	}
 
+	// Fetch search sync status
+	syncStatuses, _ := b.storage.Querier().ListSearchSync(ctx, catalogdb.ListSearchSyncParams{
+		RefID: spuIDs,
+	})
+	syncMap := lo.KeyBy(syncStatuses, func(s catalogdb.CatalogSearchSync) uuid.UUID { return s.RefID })
+
 	var spus []catalogmodel.ProductSpu
 	for _, spu := range dbSpus {
 		specs := []catalogmodel.ProductSpecification{}
@@ -158,6 +181,10 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 		m.Tags = tagsMap[spu.ID]
 		m.Resources = resourcesMap[spu.ID]
 		m.Specifications = specs
+		if sync, ok := syncMap[spu.ID]; ok {
+			m.IsStaleEmbedding = sync.IsStaleEmbedding
+			m.IsStaleMetadata = sync.IsStaleMetadata
+		}
 		spus = append(spus, m)
 	}
 
@@ -171,9 +198,8 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 type CreateProductSpuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	CategoryID     uuid.UUID                           `validate:"required"`
-	BrandID        uuid.UUID                           `validate:"required"`
 	Name           string                              `validate:"required,min=1,max=200"`
-	Description    string                              `validate:"required,max=10000"`
+	Description    string                              `validate:"required,max=100000"`
 	IsActive       bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
@@ -197,7 +223,6 @@ func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProd
 		Slug:           GenerateSlug(params.Name),
 		AccountID:      params.Account.ID,
 		CategoryID:     params.CategoryID,
-		BrandID:        params.BrandID,
 		Name:           params.Name,
 		Description:    params.Description,
 		IsActive:       params.IsActive,
@@ -247,10 +272,10 @@ type UpdateProductSpuParams struct {
 	ID             uuid.UUID                           `validate:"required"`
 	FeaturedSkuID  uuid.NullUUID                       `validate:"omitnil"`
 	CategoryID     uuid.NullUUID                       `validate:"omitnil"`
-	BrandID        uuid.NullUUID                       `validate:"omitnil"`
 	Name           null.String                         `validate:"omitnil,min=1,max=200"`
-	Description    null.String                         `validate:"omitnil,max=10000"`
+	Description    null.String                         `validate:"omitnil,max=100000"`
 	IsActive       null.Bool                           `validate:"omitnil"`
+	RegenerateSlug bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"omitempty,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
@@ -278,7 +303,7 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 	}
 
 	var slug null.String
-	if params.Name.Valid {
+	if params.RegenerateSlug && params.Name.Valid {
 		slug.SetValid(GenerateSlug(params.Name.String))
 	}
 
@@ -293,11 +318,10 @@ func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProd
 		Slug:          slug,
 		FeaturedSkuID: params.FeaturedSkuID,
 		CategoryID:    params.CategoryID,
-		BrandID:       params.BrandID,
 		Name:          params.Name,
 		Description:   params.Description,
 		IsActive:      params.IsActive,
-		// TODO: add handle update now in tool generate sql
+		// TODO: auto fill the current_timestampt in pgtempl tool
 		// DateUpdated:    time.Now(),
 		Specifications: specsBytes,
 	})
@@ -436,7 +460,6 @@ func (b *CatalogHandler) dbToProductSpu(ctx restate.Context, spu catalogdb.Catal
 		AccountID:     spu.AccountID,
 		Slug:          spu.Slug,
 		Category:      b.getCategory(ctx, spu.CategoryID),
-		Brand:         b.getBrand(ctx, spu.BrandID),
 		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,

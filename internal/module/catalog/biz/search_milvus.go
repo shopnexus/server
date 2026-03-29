@@ -197,7 +197,6 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 	numbers := make([]int64, 0, len(products))
 	names := make([]string, 0, len(products))
 	descriptions := make([]string, 0, len(products))
-	brands := make([]string, 0, len(products))
 	categories := make([]string, 0, len(products))
 	isActives := make([]bool, 0, len(products))
 	ratings := make([]float32, 0, len(products))
@@ -217,7 +216,6 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 			desc = desc[:10240]
 		}
 		descriptions = append(descriptions, desc)
-		brands = append(brands, p.Brand.Name)
 		categories = append(categories, p.Category.Name)
 		isActives = append(isActives, p.IsActive)
 		ratings = append(ratings, float32(p.Rating.Score))
@@ -255,7 +253,6 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 		column.NewColumnInt64("number", numbers),
 		column.NewColumnVarChar("name", names),
 		column.NewColumnVarChar("description", descriptions),
-		column.NewColumnVarChar("brand", brands),
 		column.NewColumnVarChar("category", categories),
 		column.NewColumnBool("is_active", isActives),
 		column.NewColumnFloat("rating", ratings),

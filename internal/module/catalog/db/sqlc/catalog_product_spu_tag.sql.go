@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countProductSpuTag = `-- name: CountProductSpuTag :one
@@ -110,7 +109,7 @@ WHERE ("id" = $1) OR ("spu_id" = $2 AND "tag" = $3)
 `
 
 type GetProductSpuTagParams struct {
-	ID    pgtype.Int8   `json:"id"`
+	ID    null.Int      `json:"id"`
 	SpuID uuid.NullUUID `json:"spu_id"`
 	Tag   null.String   `json:"tag"`
 }

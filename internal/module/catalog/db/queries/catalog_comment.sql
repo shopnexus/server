@@ -16,20 +16,20 @@ WHERE (
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
-    ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
-    ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
+    ("upvote" >= sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
+    ("upvote" <= sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
     ("downvote" = ANY(sqlc.slice('downvote')) OR sqlc.slice('downvote') IS NULL) AND
-    ("downvote" > sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
-    ("downvote" < sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
+    ("downvote" >= sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
+    ("downvote" <= sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListComment :many
@@ -42,20 +42,20 @@ WHERE (
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
-    ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
-    ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
+    ("upvote" >= sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
+    ("upvote" <= sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
     ("downvote" = ANY(sqlc.slice('downvote')) OR sqlc.slice('downvote') IS NULL) AND
-    ("downvote" > sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
-    ("downvote" < sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
+    ("downvote" >= sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
+    ("downvote" <= sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -71,20 +71,20 @@ WHERE (
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
-    ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
-    ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
+    ("upvote" >= sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
+    ("upvote" <= sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
     ("downvote" = ANY(sqlc.slice('downvote')) OR sqlc.slice('downvote') IS NULL) AND
-    ("downvote" > sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
-    ("downvote" < sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
+    ("downvote" >= sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
+    ("downvote" <= sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -136,18 +136,18 @@ WHERE (
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("body" = ANY(sqlc.slice('body')) OR sqlc.slice('body') IS NULL) AND
     ("upvote" = ANY(sqlc.slice('upvote')) OR sqlc.slice('upvote') IS NULL) AND
-    ("upvote" > sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
-    ("upvote" < sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
+    ("upvote" >= sqlc.narg('upvote_from') OR sqlc.narg('upvote_from') IS NULL) AND
+    ("upvote" <= sqlc.narg('upvote_to') OR sqlc.narg('upvote_to') IS NULL) AND
     ("downvote" = ANY(sqlc.slice('downvote')) OR sqlc.slice('downvote') IS NULL) AND
-    ("downvote" > sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
-    ("downvote" < sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
+    ("downvote" >= sqlc.narg('downvote_from') OR sqlc.narg('downvote_from') IS NULL) AND
+    ("downvote" <= sqlc.narg('downvote_to') OR sqlc.narg('downvote_to') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );

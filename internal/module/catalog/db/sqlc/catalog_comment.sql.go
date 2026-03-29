@@ -23,20 +23,20 @@ WHERE (
     ("ref_id" = ANY($4) OR $4 IS NULL) AND
     ("body" = ANY($5) OR $5 IS NULL) AND
     ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" > $7 OR $7 IS NULL) AND
-    ("upvote" < $8 OR $8 IS NULL) AND
+    ("upvote" >= $7 OR $7 IS NULL) AND
+    ("upvote" <= $8 OR $8 IS NULL) AND
     ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" > $10 OR $10 IS NULL) AND
-    ("downvote" < $11 OR $11 IS NULL) AND
+    ("downvote" >= $10 OR $10 IS NULL) AND
+    ("downvote" <= $11 OR $11 IS NULL) AND
     ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" > $13 OR $13 IS NULL) AND
-    ("score" < $14 OR $14 IS NULL) AND
+    ("score" >= $13 OR $13 IS NULL) AND
+    ("score" <= $14 OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("date_updated" >= $19 OR $19 IS NULL) AND
+    ("date_updated" <= $20 OR $20 IS NULL)
 )
 `
 
@@ -207,20 +207,20 @@ WHERE (
     ("ref_id" = ANY($4) OR $4 IS NULL) AND
     ("body" = ANY($5) OR $5 IS NULL) AND
     ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" > $7 OR $7 IS NULL) AND
-    ("upvote" < $8 OR $8 IS NULL) AND
+    ("upvote" >= $7 OR $7 IS NULL) AND
+    ("upvote" <= $8 OR $8 IS NULL) AND
     ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" > $10 OR $10 IS NULL) AND
-    ("downvote" < $11 OR $11 IS NULL) AND
+    ("downvote" >= $10 OR $10 IS NULL) AND
+    ("downvote" <= $11 OR $11 IS NULL) AND
     ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" > $13 OR $13 IS NULL) AND
-    ("score" < $14 OR $14 IS NULL) AND
+    ("score" >= $13 OR $13 IS NULL) AND
+    ("score" <= $14 OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("date_updated" >= $19 OR $19 IS NULL) AND
+    ("date_updated" <= $20 OR $20 IS NULL)
 )
 `
 
@@ -310,20 +310,20 @@ WHERE (
     ("ref_id" = ANY($4) OR $4 IS NULL) AND
     ("body" = ANY($5) OR $5 IS NULL) AND
     ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" > $7 OR $7 IS NULL) AND
-    ("upvote" < $8 OR $8 IS NULL) AND
+    ("upvote" >= $7 OR $7 IS NULL) AND
+    ("upvote" <= $8 OR $8 IS NULL) AND
     ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" > $10 OR $10 IS NULL) AND
-    ("downvote" < $11 OR $11 IS NULL) AND
+    ("downvote" >= $10 OR $10 IS NULL) AND
+    ("downvote" <= $11 OR $11 IS NULL) AND
     ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" > $13 OR $13 IS NULL) AND
-    ("score" < $14 OR $14 IS NULL) AND
+    ("score" >= $13 OR $13 IS NULL) AND
+    ("score" <= $14 OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("date_updated" >= $19 OR $19 IS NULL) AND
+    ("date_updated" <= $20 OR $20 IS NULL)
 )
 ORDER BY "id"
 LIMIT $22::int
@@ -419,20 +419,20 @@ WHERE (
     ("ref_id" = ANY($4) OR $4 IS NULL) AND
     ("body" = ANY($5) OR $5 IS NULL) AND
     ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" > $7 OR $7 IS NULL) AND
-    ("upvote" < $8 OR $8 IS NULL) AND
+    ("upvote" >= $7 OR $7 IS NULL) AND
+    ("upvote" <= $8 OR $8 IS NULL) AND
     ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" > $10 OR $10 IS NULL) AND
-    ("downvote" < $11 OR $11 IS NULL) AND
+    ("downvote" >= $10 OR $10 IS NULL) AND
+    ("downvote" <= $11 OR $11 IS NULL) AND
     ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" > $13 OR $13 IS NULL) AND
-    ("score" < $14 OR $14 IS NULL) AND
+    ("score" >= $13 OR $13 IS NULL) AND
+    ("score" <= $14 OR $14 IS NULL) AND
     ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" > $16 OR $16 IS NULL) AND
-    ("date_created" < $17 OR $17 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
     ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" > $19 OR $19 IS NULL) AND
-    ("date_updated" < $20 OR $20 IS NULL)
+    ("date_updated" >= $19 OR $19 IS NULL) AND
+    ("date_updated" <= $20 OR $20 IS NULL)
 )
 ORDER BY "id"
 LIMIT $22::int

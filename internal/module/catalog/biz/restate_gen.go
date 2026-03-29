@@ -99,10 +99,6 @@ func (p *CatalogRestateClient) GetTag(ctx context.Context, params GetTagParams) 
 	return restateclient.Call[catalogdb.CatalogTag](ctx, p.client, serviceName, "GetTag", params)
 }
 
-func (p *CatalogRestateClient) ListBrand(ctx context.Context, params ListBrandParams) (sharedmodel.PaginateResult[catalogdb.CatalogBrand], error) {
-	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogBrand]](ctx, p.client, serviceName, "ListBrand", params)
-}
-
 func (p *CatalogRestateClient) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogCategory]](ctx, p.client, serviceName, "ListCategory", params)
 }
@@ -113,4 +109,8 @@ func (p *CatalogRestateClient) Search(ctx context.Context, params SearchParams) 
 
 func (p *CatalogRestateClient) GetRecommendations(ctx context.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
 	return restateclient.Call[[]catalogmodel.ProductRecommend](ctx, p.client, serviceName, "GetRecommendations", params)
+}
+
+func (p *CatalogRestateClient) GetVendorStats(ctx context.Context, params GetVendorStatsParams) (VendorStats, error) {
+	return restateclient.Call[VendorStats](ctx, p.client, serviceName, "GetVendorStats", params)
 }
