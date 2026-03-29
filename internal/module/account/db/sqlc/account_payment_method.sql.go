@@ -25,11 +25,11 @@ WHERE (
     ("data" = ANY($5) OR $5 IS NULL) AND
     ("is_default" = ANY($6) OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL)
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
 )
 `
 
@@ -172,11 +172,11 @@ WHERE (
     ("data" = ANY($5) OR $5 IS NULL) AND
     ("is_default" = ANY($6) OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL)
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
 )
 `
 
@@ -254,11 +254,11 @@ WHERE (
     ("data" = ANY($5) OR $5 IS NULL) AND
     ("is_default" = ANY($6) OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL)
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14::int
@@ -343,11 +343,11 @@ WHERE (
     ("data" = ANY($5) OR $5 IS NULL) AND
     ("is_default" = ANY($6) OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL) AND
     ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL)
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14::int

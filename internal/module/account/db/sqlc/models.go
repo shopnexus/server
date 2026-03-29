@@ -193,6 +193,7 @@ func AllAccountStatusValues() []AccountStatus {
 
 type AccountAccount struct {
 	ID          uuid.UUID     `json:"id"`
+	Number      int64         `json:"number"`
 	Status      AccountStatus `json:"status"`
 	Phone       null.String   `json:"phone"`
 	Email       null.String   `json:"email"`
@@ -200,7 +201,6 @@ type AccountAccount struct {
 	Password    null.String   `json:"password"`
 	DateCreated time.Time     `json:"date_created"`
 	DateUpdated time.Time     `json:"date_updated"`
-	Number      int64         `json:"number"`
 }
 
 type AccountContact struct {
@@ -211,10 +211,10 @@ type AccountContact struct {
 	PhoneVerified bool               `json:"phone_verified"`
 	Address       string             `json:"address"`
 	AddressType   AccountAddressType `json:"address_type"`
-	DateCreated   time.Time          `json:"date_created"`
-	DateUpdated   time.Time          `json:"date_updated"`
 	Latitude      null.Float         `json:"latitude"`
 	Longitude     null.Float         `json:"longitude"`
+	DateCreated   time.Time          `json:"date_created"`
+	DateUpdated   time.Time          `json:"date_updated"`
 }
 
 type AccountFavorite struct {
@@ -239,14 +239,14 @@ type AccountNotification struct {
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
+	Title         string          `json:"title"`
 	IsRead        bool            `json:"is_read"`
 	Content       string          `json:"content"`
+	Metadata      json.RawMessage `json:"metadata"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateUpdated   time.Time       `json:"date_updated"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
-	Title         string          `json:"title"`
-	Metadata      json.RawMessage `json:"metadata"`
 }
 
 type AccountPaymentMethod struct {
@@ -264,6 +264,7 @@ type AccountProfile struct {
 	ID               uuid.UUID         `json:"id"`
 	Gender           NullAccountGender `json:"gender"`
 	Name             null.String       `json:"name"`
+	Description      string            `json:"description"`
 	DateOfBirth      null.Time         `json:"date_of_birth"`
 	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
 	EmailVerified    bool              `json:"email_verified"`
@@ -271,5 +272,4 @@ type AccountProfile struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
-	Description      string            `json:"description"`
 }

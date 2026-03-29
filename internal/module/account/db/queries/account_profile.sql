@@ -13,20 +13,20 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListProfile :many
@@ -36,20 +36,20 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -62,37 +62,37 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultProfile :one
@@ -108,14 +108,14 @@ VALUES ($1, $2, $3, $4, $5, $6);
 UPDATE "account"."profile"
 SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('gender'), "gender") END,
     "name" = CASE WHEN sqlc.arg('null_name')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('name'), "name") END,
+    "description" = COALESCE(sqlc.narg('description'), "description"),
     "date_of_birth" = CASE WHEN sqlc.arg('null_date_of_birth')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_of_birth'), "date_of_birth") END,
     "avatar_rs_id" = CASE WHEN sqlc.arg('null_avatar_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('avatar_rs_id'), "avatar_rs_id") END,
     "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
     "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
-    "description" = COALESCE(sqlc.narg('description'), "description")
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -125,18 +125,18 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" > sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" < sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
     ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
     ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
     ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );

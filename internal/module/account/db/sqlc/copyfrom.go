@@ -75,10 +75,10 @@ func (r iteratorForCreateCopyContact) Values() ([]interface{}, error) {
 		r.rows[0].PhoneVerified,
 		r.rows[0].Address,
 		r.rows[0].AddressType,
-		r.rows[0].DateCreated,
-		r.rows[0].DateUpdated,
 		r.rows[0].Latitude,
 		r.rows[0].Longitude,
+		r.rows[0].DateCreated,
+		r.rows[0].DateUpdated,
 	}, nil
 }
 
@@ -87,7 +87,7 @@ func (r iteratorForCreateCopyContact) Err() error {
 }
 
 func (q *Queries) CreateCopyContact(ctx context.Context, arg []CreateCopyContactParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "date_created", "date_updated", "latitude", "longitude"}, &iteratorForCreateCopyContact{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "contact"}, []string{"id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated"}, &iteratorForCreateCopyContact{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultAccount implements pgx.CopyFromSource.
@@ -256,9 +256,9 @@ func (r iteratorForCreateCopyDefaultNotification) Values() ([]interface{}, error
 		r.rows[0].Type,
 		r.rows[0].Channel,
 		r.rows[0].Content,
+		r.rows[0].Metadata,
 		r.rows[0].DateSent,
 		r.rows[0].DateScheduled,
-		r.rows[0].Metadata,
 	}, nil
 }
 
@@ -267,7 +267,7 @@ func (r iteratorForCreateCopyDefaultNotification) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultNotification(ctx context.Context, arg []CreateCopyDefaultNotificationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "date_sent", "date_scheduled", "metadata"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPaymentMethod implements pgx.CopyFromSource.
@@ -436,14 +436,14 @@ func (r iteratorForCreateCopyNotification) Values() ([]interface{}, error) {
 		r.rows[0].AccountID,
 		r.rows[0].Type,
 		r.rows[0].Channel,
+		r.rows[0].Title,
 		r.rows[0].IsRead,
 		r.rows[0].Content,
+		r.rows[0].Metadata,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
 		r.rows[0].DateSent,
 		r.rows[0].DateScheduled,
-		r.rows[0].Title,
-		r.rows[0].Metadata,
 	}, nil
 }
 
@@ -452,7 +452,7 @@ func (r iteratorForCreateCopyNotification) Err() error {
 }
 
 func (q *Queries) CreateCopyNotification(ctx context.Context, arg []CreateCopyNotificationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "is_read", "content", "date_created", "date_updated", "date_sent", "date_scheduled", "title", "metadata"}, &iteratorForCreateCopyNotification{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled"}, &iteratorForCreateCopyNotification{rows: arg})
 }
 
 // iteratorForCreateCopyPaymentMethod implements pgx.CopyFromSource.
@@ -517,6 +517,7 @@ func (r iteratorForCreateCopyProfile) Values() ([]interface{}, error) {
 		r.rows[0].ID,
 		r.rows[0].Gender,
 		r.rows[0].Name,
+		r.rows[0].Description,
 		r.rows[0].DateOfBirth,
 		r.rows[0].AvatarRsID,
 		r.rows[0].EmailVerified,
@@ -524,7 +525,6 @@ func (r iteratorForCreateCopyProfile) Values() ([]interface{}, error) {
 		r.rows[0].DefaultContactID,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
-		r.rows[0].Description,
 	}, nil
 }
 
@@ -533,5 +533,5 @@ func (r iteratorForCreateCopyProfile) Err() error {
 }
 
 func (q *Queries) CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description"}, &iteratorForCreateCopyProfile{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated"}, &iteratorForCreateCopyProfile{rows: arg})
 }

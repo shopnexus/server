@@ -11,20 +11,20 @@ SELECT COUNT(*)
 FROM "account"."account"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
+    ("number" >= sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
+    ("number" <= sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("email" = ANY(sqlc.slice('email')) OR sqlc.slice('email') IS NULL) AND
     ("username" = ANY(sqlc.slice('username')) OR sqlc.slice('username') IS NULL) AND
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
-    ("number" > sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
-    ("number" < sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListAccount :many
@@ -32,20 +32,20 @@ SELECT *
 FROM "account"."account"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
+    ("number" >= sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
+    ("number" <= sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("email" = ANY(sqlc.slice('email')) OR sqlc.slice('email') IS NULL) AND
     ("username" = ANY(sqlc.slice('username')) OR sqlc.slice('username') IS NULL) AND
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
-    ("number" > sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
-    ("number" < sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -56,20 +56,20 @@ SELECT sqlc.embed(embed_account), COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
+    ("number" >= sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
+    ("number" <= sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("email" = ANY(sqlc.slice('email')) OR sqlc.slice('email') IS NULL) AND
     ("username" = ANY(sqlc.slice('username')) OR sqlc.slice('username') IS NULL) AND
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
-    ("number" > sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
-    ("number" < sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -100,7 +100,7 @@ VALUES ($1, $2, $3, $4);
 
 -- name: UpdateAccount :one
 UPDATE "account"."account"
-SET     "status" = COALESCE(sqlc.narg('status'), "status"),
+SET "status" = COALESCE(sqlc.narg('status'), "status"),
     "phone" = CASE WHEN sqlc.arg('null_phone')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('phone'), "phone") END,
     "email" = CASE WHEN sqlc.arg('null_email')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('email'), "email") END,
     "username" = CASE WHEN sqlc.arg('null_username')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('username'), "username") END,
@@ -114,18 +114,18 @@ RETURNING *;
 DELETE FROM "account"."account"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
+    ("number" >= sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
+    ("number" <= sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
     ("email" = ANY(sqlc.slice('email')) OR sqlc.slice('email') IS NULL) AND
     ("username" = ANY(sqlc.slice('username')) OR sqlc.slice('username') IS NULL) AND
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("number" = ANY(sqlc.slice('number')) OR sqlc.slice('number') IS NULL) AND
-    ("number" > sqlc.narg('number_from') OR sqlc.narg('number_from') IS NULL) AND
-    ("number" < sqlc.narg('number_to') OR sqlc.narg('number_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );

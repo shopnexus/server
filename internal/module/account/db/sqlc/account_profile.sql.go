@@ -20,20 +20,20 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("gender" = ANY($2) OR $2 IS NULL) AND
     ("name" = ANY($3) OR $3 IS NULL) AND
-    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
-    ("date_of_birth" > $5 OR $5 IS NULL) AND
-    ("date_of_birth" < $6 OR $6 IS NULL) AND
-    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
-    ("email_verified" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("description" = ANY($17) OR $17 IS NULL)
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" = ANY($5) OR $5 IS NULL) AND
+    ("date_of_birth" >= $6 OR $6 IS NULL) AND
+    ("date_of_birth" <= $7 OR $7 IS NULL) AND
+    ("avatar_rs_id" = ANY($8) OR $8 IS NULL) AND
+    ("email_verified" = ANY($9) OR $9 IS NULL) AND
+    ("phone_verified" = ANY($10) OR $10 IS NULL) AND
+    ("default_contact_id" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" >= $13 OR $13 IS NULL) AND
+    ("date_created" <= $14 OR $14 IS NULL) AND
+    ("date_updated" = ANY($15) OR $15 IS NULL) AND
+    ("date_updated" >= $16 OR $16 IS NULL) AND
+    ("date_updated" <= $17 OR $17 IS NULL)
 )
 `
 
@@ -41,6 +41,7 @@ type CountProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
+	Description      []string            `json:"description"`
 	DateOfBirth      []null.Time         `json:"date_of_birth"`
 	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
 	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
@@ -54,7 +55,6 @@ type CountProfileParams struct {
 	DateUpdated      []time.Time         `json:"date_updated"`
 	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
 	DateUpdatedTo    null.Time           `json:"date_updated_to"`
-	Description      []string            `json:"description"`
 }
 
 func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int64, error) {
@@ -62,6 +62,7 @@ func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int
 		arg.ID,
 		arg.Gender,
 		arg.Name,
+		arg.Description,
 		arg.DateOfBirth,
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
@@ -75,7 +76,6 @@ func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Description,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -95,6 +95,7 @@ type CreateCopyProfileParams struct {
 	ID               uuid.UUID         `json:"id"`
 	Gender           NullAccountGender `json:"gender"`
 	Name             null.String       `json:"name"`
+	Description      string            `json:"description"`
 	DateOfBirth      null.Time         `json:"date_of_birth"`
 	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
 	EmailVerified    bool              `json:"email_verified"`
@@ -102,13 +103,12 @@ type CreateCopyProfileParams struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
-	Description      string            `json:"description"`
 }
 
 const createDefaultProfile = `-- name: CreateDefaultProfile :one
 INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "default_contact_id")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 `
 
 type CreateDefaultProfileParams struct {
@@ -134,6 +134,7 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 		&i.ID,
 		&i.Gender,
 		&i.Name,
+		&i.Description,
 		&i.DateOfBirth,
 		&i.AvatarRsID,
 		&i.EmailVerified,
@@ -141,21 +142,21 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Description,
 	)
 	return i, err
 }
 
 const createProfile = `-- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "description")
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 `
 
 type CreateProfileParams struct {
 	ID               uuid.UUID         `json:"id"`
 	Gender           NullAccountGender `json:"gender"`
 	Name             null.String       `json:"name"`
+	Description      string            `json:"description"`
 	DateOfBirth      null.Time         `json:"date_of_birth"`
 	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
 	EmailVerified    bool              `json:"email_verified"`
@@ -163,7 +164,6 @@ type CreateProfileParams struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
-	Description      string            `json:"description"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error) {
@@ -171,6 +171,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		arg.ID,
 		arg.Gender,
 		arg.Name,
+		arg.Description,
 		arg.DateOfBirth,
 		arg.AvatarRsID,
 		arg.EmailVerified,
@@ -178,13 +179,13 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		arg.DefaultContactID,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.Description,
 	)
 	var i AccountProfile
 	err := row.Scan(
 		&i.ID,
 		&i.Gender,
 		&i.Name,
+		&i.Description,
 		&i.DateOfBirth,
 		&i.AvatarRsID,
 		&i.EmailVerified,
@@ -192,7 +193,6 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Description,
 	)
 	return i, err
 }
@@ -203,20 +203,20 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("gender" = ANY($2) OR $2 IS NULL) AND
     ("name" = ANY($3) OR $3 IS NULL) AND
-    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
-    ("date_of_birth" > $5 OR $5 IS NULL) AND
-    ("date_of_birth" < $6 OR $6 IS NULL) AND
-    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
-    ("email_verified" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("description" = ANY($17) OR $17 IS NULL)
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" = ANY($5) OR $5 IS NULL) AND
+    ("date_of_birth" >= $6 OR $6 IS NULL) AND
+    ("date_of_birth" <= $7 OR $7 IS NULL) AND
+    ("avatar_rs_id" = ANY($8) OR $8 IS NULL) AND
+    ("email_verified" = ANY($9) OR $9 IS NULL) AND
+    ("phone_verified" = ANY($10) OR $10 IS NULL) AND
+    ("default_contact_id" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" >= $13 OR $13 IS NULL) AND
+    ("date_created" <= $14 OR $14 IS NULL) AND
+    ("date_updated" = ANY($15) OR $15 IS NULL) AND
+    ("date_updated" >= $16 OR $16 IS NULL) AND
+    ("date_updated" <= $17 OR $17 IS NULL)
 )
 `
 
@@ -224,6 +224,7 @@ type DeleteProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
+	Description      []string            `json:"description"`
 	DateOfBirth      []null.Time         `json:"date_of_birth"`
 	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
 	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
@@ -237,7 +238,6 @@ type DeleteProfileParams struct {
 	DateUpdated      []time.Time         `json:"date_updated"`
 	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
 	DateUpdatedTo    null.Time           `json:"date_updated_to"`
-	Description      []string            `json:"description"`
 }
 
 func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) error {
@@ -245,6 +245,7 @@ func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) er
 		arg.ID,
 		arg.Gender,
 		arg.Name,
+		arg.Description,
 		arg.DateOfBirth,
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
@@ -258,14 +259,13 @@ func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) er
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Description,
 	)
 	return err
 }
 
 const getProfile = `-- name: GetProfile :one
 
-SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 FROM "account"."profile"
 WHERE ("id" = $1) OR ("avatar_rs_id" = $2) OR ("default_contact_id" = $3)
 `
@@ -285,6 +285,7 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (Account
 		&i.ID,
 		&i.Gender,
 		&i.Name,
+		&i.Description,
 		&i.DateOfBirth,
 		&i.AvatarRsID,
 		&i.EmailVerified,
@@ -292,32 +293,31 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (Account
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Description,
 	)
 	return i, err
 }
 
 const listCountProfile = `-- name: ListCountProfile :many
-SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.default_contact_id, embed_profile.date_created, embed_profile.date_updated, embed_profile.description, COUNT(*) OVER() as total_count
+SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.description, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.default_contact_id, embed_profile.date_created, embed_profile.date_updated, COUNT(*) OVER() as total_count
 FROM "account"."profile" embed_profile
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("gender" = ANY($2) OR $2 IS NULL) AND
     ("name" = ANY($3) OR $3 IS NULL) AND
-    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
-    ("date_of_birth" > $5 OR $5 IS NULL) AND
-    ("date_of_birth" < $6 OR $6 IS NULL) AND
-    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
-    ("email_verified" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("description" = ANY($17) OR $17 IS NULL)
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" = ANY($5) OR $5 IS NULL) AND
+    ("date_of_birth" >= $6 OR $6 IS NULL) AND
+    ("date_of_birth" <= $7 OR $7 IS NULL) AND
+    ("avatar_rs_id" = ANY($8) OR $8 IS NULL) AND
+    ("email_verified" = ANY($9) OR $9 IS NULL) AND
+    ("phone_verified" = ANY($10) OR $10 IS NULL) AND
+    ("default_contact_id" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" >= $13 OR $13 IS NULL) AND
+    ("date_created" <= $14 OR $14 IS NULL) AND
+    ("date_updated" = ANY($15) OR $15 IS NULL) AND
+    ("date_updated" >= $16 OR $16 IS NULL) AND
+    ("date_updated" <= $17 OR $17 IS NULL)
 )
 ORDER BY "id"
 LIMIT $19::int
@@ -328,6 +328,7 @@ type ListCountProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
+	Description      []string            `json:"description"`
 	DateOfBirth      []null.Time         `json:"date_of_birth"`
 	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
 	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
@@ -341,7 +342,6 @@ type ListCountProfileParams struct {
 	DateUpdated      []time.Time         `json:"date_updated"`
 	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
 	DateUpdatedTo    null.Time           `json:"date_updated_to"`
-	Description      []string            `json:"description"`
 	Offset           null.Int32          `json:"offset"`
 	Limit            null.Int32          `json:"limit"`
 }
@@ -356,6 +356,7 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 		arg.ID,
 		arg.Gender,
 		arg.Name,
+		arg.Description,
 		arg.DateOfBirth,
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
@@ -369,7 +370,6 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Description,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -384,6 +384,7 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 			&i.AccountProfile.ID,
 			&i.AccountProfile.Gender,
 			&i.AccountProfile.Name,
+			&i.AccountProfile.Description,
 			&i.AccountProfile.DateOfBirth,
 			&i.AccountProfile.AvatarRsID,
 			&i.AccountProfile.EmailVerified,
@@ -391,7 +392,6 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 			&i.AccountProfile.DefaultContactID,
 			&i.AccountProfile.DateCreated,
 			&i.AccountProfile.DateUpdated,
-			&i.AccountProfile.Description,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -405,26 +405,26 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 }
 
 const listProfile = `-- name: ListProfile :many
-SELECT id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("gender" = ANY($2) OR $2 IS NULL) AND
     ("name" = ANY($3) OR $3 IS NULL) AND
-    ("date_of_birth" = ANY($4) OR $4 IS NULL) AND
-    ("date_of_birth" > $5 OR $5 IS NULL) AND
-    ("date_of_birth" < $6 OR $6 IS NULL) AND
-    ("avatar_rs_id" = ANY($7) OR $7 IS NULL) AND
-    ("email_verified" = ANY($8) OR $8 IS NULL) AND
-    ("phone_verified" = ANY($9) OR $9 IS NULL) AND
-    ("default_contact_id" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL) AND
-    ("date_updated" = ANY($14) OR $14 IS NULL) AND
-    ("date_updated" > $15 OR $15 IS NULL) AND
-    ("date_updated" < $16 OR $16 IS NULL) AND
-    ("description" = ANY($17) OR $17 IS NULL)
+    ("description" = ANY($4) OR $4 IS NULL) AND
+    ("date_of_birth" = ANY($5) OR $5 IS NULL) AND
+    ("date_of_birth" >= $6 OR $6 IS NULL) AND
+    ("date_of_birth" <= $7 OR $7 IS NULL) AND
+    ("avatar_rs_id" = ANY($8) OR $8 IS NULL) AND
+    ("email_verified" = ANY($9) OR $9 IS NULL) AND
+    ("phone_verified" = ANY($10) OR $10 IS NULL) AND
+    ("default_contact_id" = ANY($11) OR $11 IS NULL) AND
+    ("date_created" = ANY($12) OR $12 IS NULL) AND
+    ("date_created" >= $13 OR $13 IS NULL) AND
+    ("date_created" <= $14 OR $14 IS NULL) AND
+    ("date_updated" = ANY($15) OR $15 IS NULL) AND
+    ("date_updated" >= $16 OR $16 IS NULL) AND
+    ("date_updated" <= $17 OR $17 IS NULL)
 )
 ORDER BY "id"
 LIMIT $19::int
@@ -435,6 +435,7 @@ type ListProfileParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	Gender           []NullAccountGender `json:"gender"`
 	Name             []null.String       `json:"name"`
+	Description      []string            `json:"description"`
 	DateOfBirth      []null.Time         `json:"date_of_birth"`
 	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
 	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
@@ -448,7 +449,6 @@ type ListProfileParams struct {
 	DateUpdated      []time.Time         `json:"date_updated"`
 	DateUpdatedFrom  null.Time           `json:"date_updated_from"`
 	DateUpdatedTo    null.Time           `json:"date_updated_to"`
-	Description      []string            `json:"description"`
 	Offset           null.Int32          `json:"offset"`
 	Limit            null.Int32          `json:"limit"`
 }
@@ -458,6 +458,7 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 		arg.ID,
 		arg.Gender,
 		arg.Name,
+		arg.Description,
 		arg.DateOfBirth,
 		arg.DateOfBirthFrom,
 		arg.DateOfBirthTo,
@@ -471,7 +472,6 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Description,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -486,6 +486,7 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 			&i.ID,
 			&i.Gender,
 			&i.Name,
+			&i.Description,
 			&i.DateOfBirth,
 			&i.AvatarRsID,
 			&i.EmailVerified,
@@ -493,7 +494,6 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 			&i.DefaultContactID,
 			&i.DateCreated,
 			&i.DateUpdated,
-			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -509,16 +509,16 @@ const updateProfile = `-- name: UpdateProfile :one
 UPDATE "account"."profile"
 SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") END,
     "name" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "name") END,
-    "date_of_birth" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "date_of_birth") END,
-    "avatar_rs_id" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "avatar_rs_id") END,
-    "email_verified" = COALESCE($9, "email_verified"),
-    "phone_verified" = COALESCE($10, "phone_verified"),
-    "default_contact_id" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "default_contact_id") END,
-    "date_created" = COALESCE($13, "date_created"),
-    "date_updated" = COALESCE($14, "date_updated"),
-    "description" = COALESCE($15, "description")
+    "description" = COALESCE($5, "description"),
+    "date_of_birth" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_of_birth") END,
+    "avatar_rs_id" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "avatar_rs_id") END,
+    "email_verified" = COALESCE($10, "email_verified"),
+    "phone_verified" = COALESCE($11, "phone_verified"),
+    "default_contact_id" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "default_contact_id") END,
+    "date_created" = COALESCE($14, "date_created"),
+    "date_updated" = COALESCE($15, "date_updated")
 WHERE id = $16
-RETURNING id, gender, name, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, description
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
 `
 
 type UpdateProfileParams struct {
@@ -526,6 +526,7 @@ type UpdateProfileParams struct {
 	Gender               NullAccountGender `json:"gender"`
 	NullName             bool              `json:"null_name"`
 	Name                 null.String       `json:"name"`
+	Description          null.String       `json:"description"`
 	NullDateOfBirth      bool              `json:"null_date_of_birth"`
 	DateOfBirth          null.Time         `json:"date_of_birth"`
 	NullAvatarRsID       bool              `json:"null_avatar_rs_id"`
@@ -536,7 +537,6 @@ type UpdateProfileParams struct {
 	DefaultContactID     uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated          null.Time         `json:"date_created"`
 	DateUpdated          null.Time         `json:"date_updated"`
-	Description          null.String       `json:"description"`
 	ID                   uuid.UUID         `json:"id"`
 }
 
@@ -546,6 +546,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		arg.Gender,
 		arg.NullName,
 		arg.Name,
+		arg.Description,
 		arg.NullDateOfBirth,
 		arg.DateOfBirth,
 		arg.NullAvatarRsID,
@@ -556,7 +557,6 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		arg.DefaultContactID,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.Description,
 		arg.ID,
 	)
 	var i AccountProfile
@@ -564,6 +564,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		&i.ID,
 		&i.Gender,
 		&i.Name,
+		&i.Description,
 		&i.DateOfBirth,
 		&i.AvatarRsID,
 		&i.EmailVerified,
@@ -571,7 +572,6 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Description,
 	)
 	return i, err
 }

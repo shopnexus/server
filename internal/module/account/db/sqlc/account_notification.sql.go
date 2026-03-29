@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countNotification = `-- name: CountNotification :one
@@ -23,22 +22,22 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
     ("channel" = ANY($4) OR $4 IS NULL) AND
-    ("is_read" = ANY($5) OR $5 IS NULL) AND
-    ("content" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL) AND
-    ("date_sent" = ANY($13) OR $13 IS NULL) AND
-    ("date_sent" > $14 OR $14 IS NULL) AND
-    ("date_sent" < $15 OR $15 IS NULL) AND
-    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
-    ("date_scheduled" > $17 OR $17 IS NULL) AND
-    ("date_scheduled" < $18 OR $18 IS NULL) AND
-    ("title" = ANY($19) OR $19 IS NULL) AND
-    ("metadata" = ANY($20) OR $20 IS NULL)
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("is_read" = ANY($6) OR $6 IS NULL) AND
+    ("content" = ANY($7) OR $7 IS NULL) AND
+    ("metadata" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_updated" = ANY($12) OR $12 IS NULL) AND
+    ("date_updated" >= $13 OR $13 IS NULL) AND
+    ("date_updated" <= $14 OR $14 IS NULL) AND
+    ("date_sent" = ANY($15) OR $15 IS NULL) AND
+    ("date_sent" >= $16 OR $16 IS NULL) AND
+    ("date_sent" <= $17 OR $17 IS NULL) AND
+    ("date_scheduled" = ANY($18) OR $18 IS NULL) AND
+    ("date_scheduled" >= $19 OR $19 IS NULL) AND
+    ("date_scheduled" <= $20 OR $20 IS NULL)
 )
 `
 
@@ -47,8 +46,10 @@ type CountNotificationParams struct {
 	AccountID         []uuid.UUID       `json:"account_id"`
 	Type              []string          `json:"type"`
 	Channel           []string          `json:"channel"`
+	Title             []string          `json:"title"`
 	IsRead            []bool            `json:"is_read"`
 	Content           []string          `json:"content"`
+	Metadata          []json.RawMessage `json:"metadata"`
 	DateCreated       []time.Time       `json:"date_created"`
 	DateCreatedFrom   null.Time         `json:"date_created_from"`
 	DateCreatedTo     null.Time         `json:"date_created_to"`
@@ -61,8 +62,6 @@ type CountNotificationParams struct {
 	DateScheduled     []null.Time       `json:"date_scheduled"`
 	DateScheduledFrom null.Time         `json:"date_scheduled_from"`
 	DateScheduledTo   null.Time         `json:"date_scheduled_to"`
-	Title             []string          `json:"title"`
-	Metadata          []json.RawMessage `json:"metadata"`
 }
 
 func (q *Queries) CountNotification(ctx context.Context, arg CountNotificationParams) (int64, error) {
@@ -71,8 +70,10 @@ func (q *Queries) CountNotification(ctx context.Context, arg CountNotificationPa
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.IsRead,
 		arg.Content,
+		arg.Metadata,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -85,8 +86,6 @@ func (q *Queries) CountNotification(ctx context.Context, arg CountNotificationPa
 		arg.DateScheduled,
 		arg.DateScheduledFrom,
 		arg.DateScheduledTo,
-		arg.Title,
-		arg.Metadata,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -98,29 +97,29 @@ type CreateCopyDefaultNotificationParams struct {
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
 	Content       string          `json:"content"`
+	Metadata      json.RawMessage `json:"metadata"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
-	Metadata      json.RawMessage `json:"metadata"`
 }
 
 type CreateCopyNotificationParams struct {
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
+	Title         string          `json:"title"`
 	IsRead        bool            `json:"is_read"`
 	Content       string          `json:"content"`
+	Metadata      json.RawMessage `json:"metadata"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateUpdated   time.Time       `json:"date_updated"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
-	Title         string          `json:"title"`
-	Metadata      json.RawMessage `json:"metadata"`
 }
 
 const createDefaultNotification = `-- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "content", "date_sent", "date_scheduled", "metadata")
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, type, channel, is_read, content, date_created, date_updated, date_sent, date_scheduled, title, metadata
+RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
 type CreateDefaultNotificationParams struct {
@@ -128,9 +127,9 @@ type CreateDefaultNotificationParams struct {
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
 	Content       string          `json:"content"`
+	Metadata      json.RawMessage `json:"metadata"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
-	Metadata      json.RawMessage `json:"metadata"`
 }
 
 func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefaultNotificationParams) (AccountNotification, error) {
@@ -139,9 +138,9 @@ func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefau
 		arg.Type,
 		arg.Channel,
 		arg.Content,
+		arg.Metadata,
 		arg.DateSent,
 		arg.DateScheduled,
-		arg.Metadata,
 	)
 	var i AccountNotification
 	err := row.Scan(
@@ -149,14 +148,66 @@ func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefau
 		&i.AccountID,
 		&i.Type,
 		&i.Channel,
+		&i.Title,
 		&i.IsRead,
 		&i.Content,
+		&i.Metadata,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateSent,
 		&i.DateScheduled,
+	)
+	return i, err
+}
+
+const createNotification = `-- name: CreateNotification :one
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
+`
+
+type CreateNotificationParams struct {
+	AccountID     uuid.UUID       `json:"account_id"`
+	Type          string          `json:"type"`
+	Channel       string          `json:"channel"`
+	Title         string          `json:"title"`
+	IsRead        bool            `json:"is_read"`
+	Content       string          `json:"content"`
+	Metadata      json.RawMessage `json:"metadata"`
+	DateCreated   time.Time       `json:"date_created"`
+	DateUpdated   time.Time       `json:"date_updated"`
+	DateSent      null.Time       `json:"date_sent"`
+	DateScheduled null.Time       `json:"date_scheduled"`
+}
+
+func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error) {
+	row := q.db.QueryRow(ctx, createNotification,
+		arg.AccountID,
+		arg.Type,
+		arg.Channel,
+		arg.Title,
+		arg.IsRead,
+		arg.Content,
+		arg.Metadata,
+		arg.DateCreated,
+		arg.DateUpdated,
+		arg.DateSent,
+		arg.DateScheduled,
+	)
+	var i AccountNotification
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.Channel,
 		&i.Title,
+		&i.IsRead,
+		&i.Content,
 		&i.Metadata,
+		&i.DateCreated,
+		&i.DateUpdated,
+		&i.DateSent,
+		&i.DateScheduled,
 	)
 	return i, err
 }
@@ -168,22 +219,22 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
     ("channel" = ANY($4) OR $4 IS NULL) AND
-    ("is_read" = ANY($5) OR $5 IS NULL) AND
-    ("content" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL) AND
-    ("date_sent" = ANY($13) OR $13 IS NULL) AND
-    ("date_sent" > $14 OR $14 IS NULL) AND
-    ("date_sent" < $15 OR $15 IS NULL) AND
-    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
-    ("date_scheduled" > $17 OR $17 IS NULL) AND
-    ("date_scheduled" < $18 OR $18 IS NULL) AND
-    ("title" = ANY($19) OR $19 IS NULL) AND
-    ("metadata" = ANY($20) OR $20 IS NULL)
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("is_read" = ANY($6) OR $6 IS NULL) AND
+    ("content" = ANY($7) OR $7 IS NULL) AND
+    ("metadata" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_updated" = ANY($12) OR $12 IS NULL) AND
+    ("date_updated" >= $13 OR $13 IS NULL) AND
+    ("date_updated" <= $14 OR $14 IS NULL) AND
+    ("date_sent" = ANY($15) OR $15 IS NULL) AND
+    ("date_sent" >= $16 OR $16 IS NULL) AND
+    ("date_sent" <= $17 OR $17 IS NULL) AND
+    ("date_scheduled" = ANY($18) OR $18 IS NULL) AND
+    ("date_scheduled" >= $19 OR $19 IS NULL) AND
+    ("date_scheduled" <= $20 OR $20 IS NULL)
 )
 `
 
@@ -192,8 +243,10 @@ type DeleteNotificationParams struct {
 	AccountID         []uuid.UUID       `json:"account_id"`
 	Type              []string          `json:"type"`
 	Channel           []string          `json:"channel"`
+	Title             []string          `json:"title"`
 	IsRead            []bool            `json:"is_read"`
 	Content           []string          `json:"content"`
+	Metadata          []json.RawMessage `json:"metadata"`
 	DateCreated       []time.Time       `json:"date_created"`
 	DateCreatedFrom   null.Time         `json:"date_created_from"`
 	DateCreatedTo     null.Time         `json:"date_created_to"`
@@ -206,8 +259,6 @@ type DeleteNotificationParams struct {
 	DateScheduled     []null.Time       `json:"date_scheduled"`
 	DateScheduledFrom null.Time         `json:"date_scheduled_from"`
 	DateScheduledTo   null.Time         `json:"date_scheduled_to"`
-	Title             []string          `json:"title"`
-	Metadata          []json.RawMessage `json:"metadata"`
 }
 
 func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error {
@@ -216,8 +267,10 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.IsRead,
 		arg.Content,
+		arg.Metadata,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -230,22 +283,20 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 		arg.DateScheduled,
 		arg.DateScheduledFrom,
 		arg.DateScheduledTo,
-		arg.Title,
-		arg.Metadata,
 	)
 	return err
 }
 
 const getNotification = `-- name: GetNotification :one
 
-SELECT id, account_id, type, channel, is_read, content, date_created, date_updated, date_sent, date_scheduled, title, metadata
+SELECT id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 FROM "account"."notification"
 WHERE ("id" = $1)
 `
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: account.notification
-func (q *Queries) GetNotification(ctx context.Context, id pgtype.Int8) (AccountNotification, error) {
+func (q *Queries) GetNotification(ctx context.Context, id null.Int) (AccountNotification, error) {
 	row := q.db.QueryRow(ctx, getNotification, id)
 	var i AccountNotification
 	err := row.Scan(
@@ -253,42 +304,42 @@ func (q *Queries) GetNotification(ctx context.Context, id pgtype.Int8) (AccountN
 		&i.AccountID,
 		&i.Type,
 		&i.Channel,
+		&i.Title,
 		&i.IsRead,
 		&i.Content,
+		&i.Metadata,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateSent,
 		&i.DateScheduled,
-		&i.Title,
-		&i.Metadata,
 	)
 	return i, err
 }
 
 const listCountNotification = `-- name: ListCountNotification :many
-SELECT embed_notification.id, embed_notification.account_id, embed_notification.type, embed_notification.channel, embed_notification.is_read, embed_notification.content, embed_notification.date_created, embed_notification.date_updated, embed_notification.date_sent, embed_notification.date_scheduled, embed_notification.title, embed_notification.metadata, COUNT(*) OVER() as total_count
+SELECT embed_notification.id, embed_notification.account_id, embed_notification.type, embed_notification.channel, embed_notification.title, embed_notification.is_read, embed_notification.content, embed_notification.metadata, embed_notification.date_created, embed_notification.date_updated, embed_notification.date_sent, embed_notification.date_scheduled, COUNT(*) OVER() as total_count
 FROM "account"."notification" embed_notification
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
     ("channel" = ANY($4) OR $4 IS NULL) AND
-    ("is_read" = ANY($5) OR $5 IS NULL) AND
-    ("content" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL) AND
-    ("date_sent" = ANY($13) OR $13 IS NULL) AND
-    ("date_sent" > $14 OR $14 IS NULL) AND
-    ("date_sent" < $15 OR $15 IS NULL) AND
-    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
-    ("date_scheduled" > $17 OR $17 IS NULL) AND
-    ("date_scheduled" < $18 OR $18 IS NULL) AND
-    ("title" = ANY($19) OR $19 IS NULL) AND
-    ("metadata" = ANY($20) OR $20 IS NULL)
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("is_read" = ANY($6) OR $6 IS NULL) AND
+    ("content" = ANY($7) OR $7 IS NULL) AND
+    ("metadata" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_updated" = ANY($12) OR $12 IS NULL) AND
+    ("date_updated" >= $13 OR $13 IS NULL) AND
+    ("date_updated" <= $14 OR $14 IS NULL) AND
+    ("date_sent" = ANY($15) OR $15 IS NULL) AND
+    ("date_sent" >= $16 OR $16 IS NULL) AND
+    ("date_sent" <= $17 OR $17 IS NULL) AND
+    ("date_scheduled" = ANY($18) OR $18 IS NULL) AND
+    ("date_scheduled" >= $19 OR $19 IS NULL) AND
+    ("date_scheduled" <= $20 OR $20 IS NULL)
 )
 ORDER BY "id"
 LIMIT $22::int
@@ -300,8 +351,10 @@ type ListCountNotificationParams struct {
 	AccountID         []uuid.UUID       `json:"account_id"`
 	Type              []string          `json:"type"`
 	Channel           []string          `json:"channel"`
+	Title             []string          `json:"title"`
 	IsRead            []bool            `json:"is_read"`
 	Content           []string          `json:"content"`
+	Metadata          []json.RawMessage `json:"metadata"`
 	DateCreated       []time.Time       `json:"date_created"`
 	DateCreatedFrom   null.Time         `json:"date_created_from"`
 	DateCreatedTo     null.Time         `json:"date_created_to"`
@@ -314,8 +367,6 @@ type ListCountNotificationParams struct {
 	DateScheduled     []null.Time       `json:"date_scheduled"`
 	DateScheduledFrom null.Time         `json:"date_scheduled_from"`
 	DateScheduledTo   null.Time         `json:"date_scheduled_to"`
-	Title             []string          `json:"title"`
-	Metadata          []json.RawMessage `json:"metadata"`
 	Offset            null.Int32        `json:"offset"`
 	Limit             null.Int32        `json:"limit"`
 }
@@ -331,8 +382,10 @@ func (q *Queries) ListCountNotification(ctx context.Context, arg ListCountNotifi
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.IsRead,
 		arg.Content,
+		arg.Metadata,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -345,8 +398,6 @@ func (q *Queries) ListCountNotification(ctx context.Context, arg ListCountNotifi
 		arg.DateScheduled,
 		arg.DateScheduledFrom,
 		arg.DateScheduledTo,
-		arg.Title,
-		arg.Metadata,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -362,14 +413,14 @@ func (q *Queries) ListCountNotification(ctx context.Context, arg ListCountNotifi
 			&i.AccountNotification.AccountID,
 			&i.AccountNotification.Type,
 			&i.AccountNotification.Channel,
+			&i.AccountNotification.Title,
 			&i.AccountNotification.IsRead,
 			&i.AccountNotification.Content,
+			&i.AccountNotification.Metadata,
 			&i.AccountNotification.DateCreated,
 			&i.AccountNotification.DateUpdated,
 			&i.AccountNotification.DateSent,
 			&i.AccountNotification.DateScheduled,
-			&i.AccountNotification.Title,
-			&i.AccountNotification.Metadata,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -383,29 +434,29 @@ func (q *Queries) ListCountNotification(ctx context.Context, arg ListCountNotifi
 }
 
 const listNotification = `-- name: ListNotification :many
-SELECT id, account_id, type, channel, is_read, content, date_created, date_updated, date_sent, date_scheduled, title, metadata
+SELECT id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 FROM "account"."notification"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
     ("channel" = ANY($4) OR $4 IS NULL) AND
-    ("is_read" = ANY($5) OR $5 IS NULL) AND
-    ("content" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" > $11 OR $11 IS NULL) AND
-    ("date_updated" < $12 OR $12 IS NULL) AND
-    ("date_sent" = ANY($13) OR $13 IS NULL) AND
-    ("date_sent" > $14 OR $14 IS NULL) AND
-    ("date_sent" < $15 OR $15 IS NULL) AND
-    ("date_scheduled" = ANY($16) OR $16 IS NULL) AND
-    ("date_scheduled" > $17 OR $17 IS NULL) AND
-    ("date_scheduled" < $18 OR $18 IS NULL) AND
-    ("title" = ANY($19) OR $19 IS NULL) AND
-    ("metadata" = ANY($20) OR $20 IS NULL)
+    ("title" = ANY($5) OR $5 IS NULL) AND
+    ("is_read" = ANY($6) OR $6 IS NULL) AND
+    ("content" = ANY($7) OR $7 IS NULL) AND
+    ("metadata" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL) AND
+    ("date_updated" = ANY($12) OR $12 IS NULL) AND
+    ("date_updated" >= $13 OR $13 IS NULL) AND
+    ("date_updated" <= $14 OR $14 IS NULL) AND
+    ("date_sent" = ANY($15) OR $15 IS NULL) AND
+    ("date_sent" >= $16 OR $16 IS NULL) AND
+    ("date_sent" <= $17 OR $17 IS NULL) AND
+    ("date_scheduled" = ANY($18) OR $18 IS NULL) AND
+    ("date_scheduled" >= $19 OR $19 IS NULL) AND
+    ("date_scheduled" <= $20 OR $20 IS NULL)
 )
 ORDER BY "id"
 LIMIT $22::int
@@ -417,8 +468,10 @@ type ListNotificationParams struct {
 	AccountID         []uuid.UUID       `json:"account_id"`
 	Type              []string          `json:"type"`
 	Channel           []string          `json:"channel"`
+	Title             []string          `json:"title"`
 	IsRead            []bool            `json:"is_read"`
 	Content           []string          `json:"content"`
+	Metadata          []json.RawMessage `json:"metadata"`
 	DateCreated       []time.Time       `json:"date_created"`
 	DateCreatedFrom   null.Time         `json:"date_created_from"`
 	DateCreatedTo     null.Time         `json:"date_created_to"`
@@ -431,8 +484,6 @@ type ListNotificationParams struct {
 	DateScheduled     []null.Time       `json:"date_scheduled"`
 	DateScheduledFrom null.Time         `json:"date_scheduled_from"`
 	DateScheduledTo   null.Time         `json:"date_scheduled_to"`
-	Title             []string          `json:"title"`
-	Metadata          []json.RawMessage `json:"metadata"`
 	Offset            null.Int32        `json:"offset"`
 	Limit             null.Int32        `json:"limit"`
 }
@@ -443,8 +494,10 @@ func (q *Queries) ListNotification(ctx context.Context, arg ListNotificationPara
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.IsRead,
 		arg.Content,
+		arg.Metadata,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -457,8 +510,6 @@ func (q *Queries) ListNotification(ctx context.Context, arg ListNotificationPara
 		arg.DateScheduled,
 		arg.DateScheduledFrom,
 		arg.DateScheduledTo,
-		arg.Title,
-		arg.Metadata,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -474,14 +525,14 @@ func (q *Queries) ListNotification(ctx context.Context, arg ListNotificationPara
 			&i.AccountID,
 			&i.Type,
 			&i.Channel,
+			&i.Title,
 			&i.IsRead,
 			&i.Content,
+			&i.Metadata,
 			&i.DateCreated,
 			&i.DateUpdated,
 			&i.DateSent,
 			&i.DateScheduled,
-			&i.Title,
-			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -498,33 +549,33 @@ UPDATE "account"."notification"
 SET "account_id" = COALESCE($1, "account_id"),
     "type" = COALESCE($2, "type"),
     "channel" = COALESCE($3, "channel"),
-    "is_read" = COALESCE($4, "is_read"),
-    "content" = COALESCE($5, "content"),
-    "date_created" = COALESCE($6, "date_created"),
-    "date_updated" = COALESCE($7, "date_updated"),
-    "date_sent" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "date_sent") END,
-    "date_scheduled" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "date_scheduled") END,
-    "title" = COALESCE($12, "title"),
-    "metadata" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "metadata") END
+    "title" = COALESCE($4, "title"),
+    "is_read" = COALESCE($5, "is_read"),
+    "content" = COALESCE($6, "content"),
+    "metadata" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "metadata") END,
+    "date_created" = COALESCE($9, "date_created"),
+    "date_updated" = COALESCE($10, "date_updated"),
+    "date_sent" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_sent") END,
+    "date_scheduled" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_scheduled") END
 WHERE id = $15
-RETURNING id, account_id, type, channel, is_read, content, date_created, date_updated, date_sent, date_scheduled, title, metadata
+RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
 type UpdateNotificationParams struct {
 	AccountID         uuid.NullUUID   `json:"account_id"`
 	Type              null.String     `json:"type"`
 	Channel           null.String     `json:"channel"`
+	Title             null.String     `json:"title"`
 	IsRead            null.Bool       `json:"is_read"`
 	Content           null.String     `json:"content"`
+	NullMetadata      bool            `json:"null_metadata"`
+	Metadata          json.RawMessage `json:"metadata"`
 	DateCreated       null.Time       `json:"date_created"`
 	DateUpdated       null.Time       `json:"date_updated"`
 	NullDateSent      bool            `json:"null_date_sent"`
 	DateSent          null.Time       `json:"date_sent"`
 	NullDateScheduled bool            `json:"null_date_scheduled"`
 	DateScheduled     null.Time       `json:"date_scheduled"`
-	Title             null.String     `json:"title"`
-	NullMetadata      bool            `json:"null_metadata"`
-	Metadata          json.RawMessage `json:"metadata"`
 	ID                int64           `json:"id"`
 }
 
@@ -533,17 +584,17 @@ func (q *Queries) UpdateNotification(ctx context.Context, arg UpdateNotification
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.IsRead,
 		arg.Content,
+		arg.NullMetadata,
+		arg.Metadata,
 		arg.DateCreated,
 		arg.DateUpdated,
 		arg.NullDateSent,
 		arg.DateSent,
 		arg.NullDateScheduled,
 		arg.DateScheduled,
-		arg.Title,
-		arg.NullMetadata,
-		arg.Metadata,
 		arg.ID,
 	)
 	var i AccountNotification
@@ -552,14 +603,14 @@ func (q *Queries) UpdateNotification(ctx context.Context, arg UpdateNotification
 		&i.AccountID,
 		&i.Type,
 		&i.Channel,
+		&i.Title,
 		&i.IsRead,
 		&i.Content,
+		&i.Metadata,
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.DateSent,
 		&i.DateScheduled,
-		&i.Title,
-		&i.Metadata,
 	)
 	return i, err
 }
