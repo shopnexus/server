@@ -35,3 +35,6 @@ tmp/
 tmpclaude*
 docs/
 internal/module/embedding
+
+# Compiled tool binaries
+erdiagram
