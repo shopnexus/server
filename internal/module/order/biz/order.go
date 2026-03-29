@@ -91,6 +91,7 @@ func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOr
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountSellerOrderRow, error) {
 		return b.storage.Querier().ListCountSellerOrder(ctx, orderdb.ListCountSellerOrderParams{
 			SellerID:      params.SellerID,
+			Search:        params.Search,
 			PaymentStatus: params.PaymentStatus,
 			OrderStatus:   params.OrderStatus,
 			Offset:        params.Offset(),

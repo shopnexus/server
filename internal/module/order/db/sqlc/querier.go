@@ -21,7 +21,7 @@ type Querier interface {
 	CountOrder(ctx context.Context, arg CountOrderParams) (int64, error)
 	CountPayment(ctx context.Context, arg CountPaymentParams) (int64, error)
 	CountPendingItemsByAccount(ctx context.Context, arg CountPendingItemsByAccountParams) (int64, error)
-	CountPendingItemsBySeller(ctx context.Context, sellerID uuid.UUID) (int64, error)
+	CountPendingItemsBySeller(ctx context.Context, arg CountPendingItemsBySellerParams) (int64, error)
 	CountRefund(ctx context.Context, arg CountRefundParams) (int64, error)
 	CountRefundDispute(ctx context.Context, arg CountRefundDisputeParams) (int64, error)
 	CountTransport(ctx context.Context, arg CountTransportParams) (int64, error)

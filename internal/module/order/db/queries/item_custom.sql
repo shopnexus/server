@@ -4,6 +4,7 @@
 SELECT *
 FROM "order"."item"
 WHERE "seller_id" = @seller_id AND "status" = 'Pending'
+    AND ("sku_name" ILIKE '%' || sqlc.narg('search')::text || '%' OR sqlc.narg('search') IS NULL)
 ORDER BY "date_created" DESC
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
@@ -11,7 +12,8 @@ OFFSET sqlc.narg('offset')::int;
 -- name: CountPendingItemsBySeller :one
 SELECT COUNT(*)
 FROM "order"."item"
-WHERE "seller_id" = @seller_id AND "status" = 'Pending';
+WHERE "seller_id" = @seller_id AND "status" = 'Pending'
+    AND ("sku_name" ILIKE '%' || sqlc.narg('search')::text || '%' OR sqlc.narg('search') IS NULL);
 
 -- name: ListPendingItemsByAccount :many
 SELECT *

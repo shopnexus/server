@@ -36,6 +36,7 @@ func (b *OrderHandler) ListIncomingItems(ctx restate.Context, params ListIncomin
 	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (incomingResult, error) {
 		items, err := b.storage.Querier().ListPendingItemsBySeller(ctx, orderdb.ListPendingItemsBySellerParams{
 			SellerID: params.SellerID,
+			Search:   params.Search,
 			Offset:   params.Offset(),
 			Limit:    params.Limit,
 		})
@@ -43,7 +44,10 @@ func (b *OrderHandler) ListIncomingItems(ctx restate.Context, params ListIncomin
 			return incomingResult{}, err
 		}
 
-		total, err := b.storage.Querier().CountPendingItemsBySeller(ctx, params.SellerID)
+		total, err := b.storage.Querier().CountPendingItemsBySeller(ctx, orderdb.CountPendingItemsBySellerParams{
+			SellerID: params.SellerID,
+			Search:   params.Search,
+		})
 		if err != nil {
 			return incomingResult{}, err
 		}
@@ -357,7 +361,7 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 			Type:      "items_rejected",
 			Channel:   "in_app",
 			Title:     "Items rejected",
-			Content:   fmt.Sprintf("Some of your items have been rejected by the seller."),
+			Content:   "Some of your items have been rejected by the seller.",
 			Metadata:  json.RawMessage(`{}`),
 		})
 	}

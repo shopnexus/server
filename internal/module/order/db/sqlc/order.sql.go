@@ -20,15 +20,17 @@ LEFT JOIN "order"."payment" p ON embed_order."payment_id" = p."id"
 WHERE embed_order."seller_id" = $1
     AND (p."status" = ANY($2) OR $2 IS NULL)
     AND (embed_order."status" = ANY($3) OR $3 IS NULL)
+    AND (embed_order."id"::text ILIKE '%' || $4::text || '%' OR $4 IS NULL)
 ORDER BY embed_order."date_created" DESC
-LIMIT $5::int
-OFFSET $4::int
+LIMIT $6::int
+OFFSET $5::int
 `
 
 type ListCountSellerOrderParams struct {
 	SellerID      uuid.UUID     `json:"seller_id"`
 	PaymentStatus []OrderStatus `json:"payment_status"`
 	OrderStatus   []OrderStatus `json:"order_status"`
+	Search        null.String   `json:"search"`
 	Offset        null.Int32    `json:"offset"`
 	Limit         null.Int32    `json:"limit"`
 }
@@ -44,6 +46,7 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 		arg.SellerID,
 		arg.PaymentStatus,
 		arg.OrderStatus,
+		arg.Search,
 		arg.Offset,
 		arg.Limit,
 	)

@@ -13,6 +13,7 @@ import (
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -121,9 +122,10 @@ func (h *Handler) ListOrders(c echo.Context) error {
 }
 
 type ListSellerOrdersRequest struct {
-	sharedmodel.PaginationParams
+	Search        null.String           `query:"search"`
 	PaymentStatus []orderdb.OrderStatus `query:"payment_status"`
 	OrderStatus   []orderdb.OrderStatus `query:"order_status"`
+	sharedmodel.PaginationParams
 }
 
 func (h *Handler) ListSellerOrders(c echo.Context) error {
@@ -142,6 +144,7 @@ func (h *Handler) ListSellerOrders(c echo.Context) error {
 
 	result, err := h.biz.ListSellerOrders(c.Request().Context(), orderbiz.ListSellerOrdersParams{
 		SellerID:         claims.Account.ID,
+		Search:           req.Search,
 		PaymentStatus:    req.PaymentStatus,
 		OrderStatus:      req.OrderStatus,
 		PaginationParams: req.PaginationParams.Constrain(),

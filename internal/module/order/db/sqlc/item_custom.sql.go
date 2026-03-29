@@ -94,10 +94,16 @@ const countPendingItemsBySeller = `-- name: CountPendingItemsBySeller :one
 SELECT COUNT(*)
 FROM "order"."item"
 WHERE "seller_id" = $1 AND "status" = 'Pending'
+    AND ("sku_name" ILIKE '%' || $2::text || '%' OR $2 IS NULL)
 `
 
-func (q *Queries) CountPendingItemsBySeller(ctx context.Context, sellerID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countPendingItemsBySeller, sellerID)
+type CountPendingItemsBySellerParams struct {
+	SellerID uuid.UUID   `json:"seller_id"`
+	Search   null.String `json:"search"`
+}
+
+func (q *Queries) CountPendingItemsBySeller(ctx context.Context, arg CountPendingItemsBySellerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingItemsBySeller, arg.SellerID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -222,20 +228,27 @@ const listPendingItemsBySeller = `-- name: ListPendingItemsBySeller :many
 SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"
 WHERE "seller_id" = $1 AND "status" = 'Pending'
+    AND ("sku_name" ILIKE '%' || $2::text || '%' OR $2 IS NULL)
 ORDER BY "date_created" DESC
-LIMIT $3::int
-OFFSET $2::int
+LIMIT $4::int
+OFFSET $3::int
 `
 
 type ListPendingItemsBySellerParams struct {
-	SellerID uuid.UUID  `json:"seller_id"`
-	Offset   null.Int32 `json:"offset"`
-	Limit    null.Int32 `json:"limit"`
+	SellerID uuid.UUID   `json:"seller_id"`
+	Search   null.String `json:"search"`
+	Offset   null.Int32  `json:"offset"`
+	Limit    null.Int32  `json:"limit"`
 }
 
 // Custom item queries
 func (q *Queries) ListPendingItemsBySeller(ctx context.Context, arg ListPendingItemsBySellerParams) ([]OrderItem, error) {
-	rows, err := q.db.Query(ctx, listPendingItemsBySeller, arg.SellerID, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, listPendingItemsBySeller,
+		arg.SellerID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

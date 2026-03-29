@@ -138,7 +138,8 @@ type CancelPendingItemParams struct {
 }
 
 type ListIncomingItemsParams struct {
-	SellerID uuid.UUID `validate:"required"`
+	SellerID uuid.UUID   `validate:"required"`
+	Search   null.String `validate:"omitnil"`
 	sharedmodel.PaginationParams
 }
 
@@ -161,6 +162,7 @@ type ListOrdersParams struct {
 
 type ListSellerOrdersParams struct {
 	SellerID      uuid.UUID             `validate:"required"`
+	Search        null.String           `validate:"omitnil"`
 	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
 	OrderStatus   []orderdb.OrderStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams

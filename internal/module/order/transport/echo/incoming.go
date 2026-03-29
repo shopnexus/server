@@ -8,10 +8,12 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type ListIncomingItemsRequest struct {
+	Search null.String `query:"search"`
 	sharedmodel.PaginationParams
 }
 
@@ -31,6 +33,7 @@ func (h *Handler) ListIncomingItems(c echo.Context) error {
 
 	result, err := h.biz.ListIncomingItems(c.Request().Context(), orderbiz.ListIncomingItemsParams{
 		SellerID:         claims.Account.ID,
+		Search:           req.Search,
 		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
