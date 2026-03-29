@@ -53,3 +53,15 @@ func (c *ClientImpl) OnResult(fn payment.ResultHandler) {
 func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
 	// COD has no webhooks
 }
+
+func (c *ClientImpl) Charge(ctx context.Context, params payment.ChargeParams) (payment.ChargeResult, error) {
+	return payment.ChargeResult{}, payment.ErrNotSupported
+}
+
+func (c *ClientImpl) Refund(ctx context.Context, params payment.RefundParams) (payment.RefundResult, error) {
+	return payment.RefundResult{}, payment.ErrNotSupported
+}
+
+func (c *ClientImpl) Tokenize(ctx context.Context, params payment.TokenizeParams) (payment.TokenizeResult, error) {
+	return payment.TokenizeResult{}, payment.ErrNotSupported
+}

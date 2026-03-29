@@ -2,11 +2,16 @@ package payment
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 
 	sharedmodel "shopnexus-server/internal/shared/model"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
+
+var ErrNotSupported = errors.New("operation not supported by this payment provider")
 
 // Status represents the normalized payment status across all providers.
 type Status string
@@ -49,6 +54,37 @@ type WebhookResult struct {
 // ResultHandler is a callback invoked when a webhook is verified.
 type ResultHandler func(ctx context.Context, result WebhookResult) error
 
+type ChargeParams struct {
+	Token       string
+	Amount      sharedmodel.Concurrency
+	Description string
+}
+
+type ChargeResult struct {
+	ProviderChargeID string
+	Status           Status
+}
+
+type RefundParams struct {
+	ProviderChargeID string
+	Amount           sharedmodel.Concurrency
+}
+
+type RefundResult struct {
+	ProviderRefundID string
+	Status           Status
+}
+
+type TokenizeParams struct {
+	AccountID uuid.UUID
+	ReturnURL string
+}
+
+type TokenizeResult struct {
+	FormURL      string          `json:"form_url,omitempty"`
+	ClientConfig json.RawMessage `json:"client_config,omitempty"`
+}
+
 // Client is the interface that all payment providers must implement.
 type Client interface {
 	Config() sharedmodel.OptionConfig
@@ -62,4 +98,8 @@ type Client interface {
 	// InitializeWebhook registers the provider's webhook route on Echo.
 	// Must be called after OnResult handlers are registered.
 	InitializeWebhook(e *echo.Echo)
+
+	Charge(ctx context.Context, params ChargeParams) (ChargeResult, error)
+	Refund(ctx context.Context, params RefundParams) (RefundResult, error)
+	Tokenize(ctx context.Context, params TokenizeParams) (TokenizeResult, error)
 }
