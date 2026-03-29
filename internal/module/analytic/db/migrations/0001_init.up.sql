@@ -10,7 +10,7 @@ CREATE SCHEMA IF NOT EXISTS "analytic";
 -- Enums
 
 -- The kind of entity a user interaction is associated with
-CREATE TYPE "analytic"."interaction_ref_type" AS ENUM ('Product', 'Category', 'Brand');
+CREATE TYPE "analytic"."interaction_ref_type" AS ENUM ('Product', 'Category');
 
 -- Tables
 
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS "analytic"."interaction" (
     -- Event kind (e.g. 'View', 'AddToCart', 'Purchase', 'Favorite')
     "event_type" TEXT NOT NULL,
     "ref_type" "analytic"."interaction_ref_type" NOT NULL,
-    -- ID of the referenced entity (product, category, or brand)
+    -- ID of the referenced entity (product, category)
     "ref_id" TEXT NOT NULL,
     -- Optional extra event data (e.g. source page, referrer, experiment variant)
     "metadata" JSONB,

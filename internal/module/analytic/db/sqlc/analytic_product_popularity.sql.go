@@ -19,26 +19,26 @@ FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("score" = ANY($2) OR $2 IS NULL) AND
-    ("score" > $3 OR $3 IS NULL) AND
-    ("score" < $4 OR $4 IS NULL) AND
+    ("score" >= $3 OR $3 IS NULL) AND
+    ("score" <= $4 OR $4 IS NULL) AND
     ("view_count" = ANY($5) OR $5 IS NULL) AND
-    ("view_count" > $6 OR $6 IS NULL) AND
-    ("view_count" < $7 OR $7 IS NULL) AND
+    ("view_count" >= $6 OR $6 IS NULL) AND
+    ("view_count" <= $7 OR $7 IS NULL) AND
     ("purchase_count" = ANY($8) OR $8 IS NULL) AND
-    ("purchase_count" > $9 OR $9 IS NULL) AND
-    ("purchase_count" < $10 OR $10 IS NULL) AND
+    ("purchase_count" >= $9 OR $9 IS NULL) AND
+    ("purchase_count" <= $10 OR $10 IS NULL) AND
     ("favorite_count" = ANY($11) OR $11 IS NULL) AND
-    ("favorite_count" > $12 OR $12 IS NULL) AND
-    ("favorite_count" < $13 OR $13 IS NULL) AND
+    ("favorite_count" >= $12 OR $12 IS NULL) AND
+    ("favorite_count" <= $13 OR $13 IS NULL) AND
     ("cart_count" = ANY($14) OR $14 IS NULL) AND
-    ("cart_count" > $15 OR $15 IS NULL) AND
-    ("cart_count" < $16 OR $16 IS NULL) AND
+    ("cart_count" >= $15 OR $15 IS NULL) AND
+    ("cart_count" <= $16 OR $16 IS NULL) AND
     ("review_count" = ANY($17) OR $17 IS NULL) AND
-    ("review_count" > $18 OR $18 IS NULL) AND
-    ("review_count" < $19 OR $19 IS NULL) AND
+    ("review_count" >= $18 OR $18 IS NULL) AND
+    ("review_count" <= $19 OR $19 IS NULL) AND
     ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("date_updated" >= $21 OR $21 IS NULL) AND
+    ("date_updated" <= $22 OR $22 IS NULL)
 )
 `
 
@@ -177,26 +177,26 @@ DELETE FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("score" = ANY($2) OR $2 IS NULL) AND
-    ("score" > $3 OR $3 IS NULL) AND
-    ("score" < $4 OR $4 IS NULL) AND
+    ("score" >= $3 OR $3 IS NULL) AND
+    ("score" <= $4 OR $4 IS NULL) AND
     ("view_count" = ANY($5) OR $5 IS NULL) AND
-    ("view_count" > $6 OR $6 IS NULL) AND
-    ("view_count" < $7 OR $7 IS NULL) AND
+    ("view_count" >= $6 OR $6 IS NULL) AND
+    ("view_count" <= $7 OR $7 IS NULL) AND
     ("purchase_count" = ANY($8) OR $8 IS NULL) AND
-    ("purchase_count" > $9 OR $9 IS NULL) AND
-    ("purchase_count" < $10 OR $10 IS NULL) AND
+    ("purchase_count" >= $9 OR $9 IS NULL) AND
+    ("purchase_count" <= $10 OR $10 IS NULL) AND
     ("favorite_count" = ANY($11) OR $11 IS NULL) AND
-    ("favorite_count" > $12 OR $12 IS NULL) AND
-    ("favorite_count" < $13 OR $13 IS NULL) AND
+    ("favorite_count" >= $12 OR $12 IS NULL) AND
+    ("favorite_count" <= $13 OR $13 IS NULL) AND
     ("cart_count" = ANY($14) OR $14 IS NULL) AND
-    ("cart_count" > $15 OR $15 IS NULL) AND
-    ("cart_count" < $16 OR $16 IS NULL) AND
+    ("cart_count" >= $15 OR $15 IS NULL) AND
+    ("cart_count" <= $16 OR $16 IS NULL) AND
     ("review_count" = ANY($17) OR $17 IS NULL) AND
-    ("review_count" > $18 OR $18 IS NULL) AND
-    ("review_count" < $19 OR $19 IS NULL) AND
+    ("review_count" >= $18 OR $18 IS NULL) AND
+    ("review_count" <= $19 OR $19 IS NULL) AND
     ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("date_updated" >= $21 OR $21 IS NULL) AND
+    ("date_updated" <= $22 OR $22 IS NULL)
 )
 `
 
@@ -284,26 +284,26 @@ FROM "analytic"."product_popularity" embed_product_popularity
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("score" = ANY($2) OR $2 IS NULL) AND
-    ("score" > $3 OR $3 IS NULL) AND
-    ("score" < $4 OR $4 IS NULL) AND
+    ("score" >= $3 OR $3 IS NULL) AND
+    ("score" <= $4 OR $4 IS NULL) AND
     ("view_count" = ANY($5) OR $5 IS NULL) AND
-    ("view_count" > $6 OR $6 IS NULL) AND
-    ("view_count" < $7 OR $7 IS NULL) AND
+    ("view_count" >= $6 OR $6 IS NULL) AND
+    ("view_count" <= $7 OR $7 IS NULL) AND
     ("purchase_count" = ANY($8) OR $8 IS NULL) AND
-    ("purchase_count" > $9 OR $9 IS NULL) AND
-    ("purchase_count" < $10 OR $10 IS NULL) AND
+    ("purchase_count" >= $9 OR $9 IS NULL) AND
+    ("purchase_count" <= $10 OR $10 IS NULL) AND
     ("favorite_count" = ANY($11) OR $11 IS NULL) AND
-    ("favorite_count" > $12 OR $12 IS NULL) AND
-    ("favorite_count" < $13 OR $13 IS NULL) AND
+    ("favorite_count" >= $12 OR $12 IS NULL) AND
+    ("favorite_count" <= $13 OR $13 IS NULL) AND
     ("cart_count" = ANY($14) OR $14 IS NULL) AND
-    ("cart_count" > $15 OR $15 IS NULL) AND
-    ("cart_count" < $16 OR $16 IS NULL) AND
+    ("cart_count" >= $15 OR $15 IS NULL) AND
+    ("cart_count" <= $16 OR $16 IS NULL) AND
     ("review_count" = ANY($17) OR $17 IS NULL) AND
-    ("review_count" > $18 OR $18 IS NULL) AND
-    ("review_count" < $19 OR $19 IS NULL) AND
+    ("review_count" >= $18 OR $18 IS NULL) AND
+    ("review_count" <= $19 OR $19 IS NULL) AND
     ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("date_updated" >= $21 OR $21 IS NULL) AND
+    ("date_updated" <= $22 OR $22 IS NULL)
 )
 ORDER BY "id"
 LIMIT $24::int
@@ -403,26 +403,26 @@ FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("score" = ANY($2) OR $2 IS NULL) AND
-    ("score" > $3 OR $3 IS NULL) AND
-    ("score" < $4 OR $4 IS NULL) AND
+    ("score" >= $3 OR $3 IS NULL) AND
+    ("score" <= $4 OR $4 IS NULL) AND
     ("view_count" = ANY($5) OR $5 IS NULL) AND
-    ("view_count" > $6 OR $6 IS NULL) AND
-    ("view_count" < $7 OR $7 IS NULL) AND
+    ("view_count" >= $6 OR $6 IS NULL) AND
+    ("view_count" <= $7 OR $7 IS NULL) AND
     ("purchase_count" = ANY($8) OR $8 IS NULL) AND
-    ("purchase_count" > $9 OR $9 IS NULL) AND
-    ("purchase_count" < $10 OR $10 IS NULL) AND
+    ("purchase_count" >= $9 OR $9 IS NULL) AND
+    ("purchase_count" <= $10 OR $10 IS NULL) AND
     ("favorite_count" = ANY($11) OR $11 IS NULL) AND
-    ("favorite_count" > $12 OR $12 IS NULL) AND
-    ("favorite_count" < $13 OR $13 IS NULL) AND
+    ("favorite_count" >= $12 OR $12 IS NULL) AND
+    ("favorite_count" <= $13 OR $13 IS NULL) AND
     ("cart_count" = ANY($14) OR $14 IS NULL) AND
-    ("cart_count" > $15 OR $15 IS NULL) AND
-    ("cart_count" < $16 OR $16 IS NULL) AND
+    ("cart_count" >= $15 OR $15 IS NULL) AND
+    ("cart_count" <= $16 OR $16 IS NULL) AND
     ("review_count" = ANY($17) OR $17 IS NULL) AND
-    ("review_count" > $18 OR $18 IS NULL) AND
-    ("review_count" < $19 OR $19 IS NULL) AND
+    ("review_count" >= $18 OR $18 IS NULL) AND
+    ("review_count" <= $19 OR $19 IS NULL) AND
     ("date_updated" = ANY($20) OR $20 IS NULL) AND
-    ("date_updated" > $21 OR $21 IS NULL) AND
-    ("date_updated" < $22 OR $22 IS NULL)
+    ("date_updated" >= $21 OR $21 IS NULL) AND
+    ("date_updated" <= $22 OR $22 IS NULL)
 )
 ORDER BY "id"
 LIMIT $24::int

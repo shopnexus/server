@@ -12,21 +12,21 @@ FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
+    ("account_number" >= sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
+    ("account_number" <= sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL) AND
     ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
     ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
-    ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
+    ("ref_type" >= sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
+    ("ref_type" <= sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
     ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
-    ("account_number" > sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
-    ("account_number" < sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListInteraction :many
@@ -35,21 +35,21 @@ FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
+    ("account_number" >= sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
+    ("account_number" <= sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL) AND
     ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
     ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
-    ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
+    ("ref_type" >= sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
+    ("ref_type" <= sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
     ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
-    ("account_number" > sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
-    ("account_number" < sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -61,52 +61,53 @@ FROM "analytic"."interaction" embed_interaction
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
+    ("account_number" >= sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
+    ("account_number" <= sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL) AND
     ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
     ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
-    ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
+    ("ref_type" >= sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
+    ("ref_type" <= sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
     ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
-    ("account_number" > sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
-    ("account_number" < sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateInteraction :one
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchInteraction :batchone
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyInteraction :copyfrom
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultInteraction :one
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultInteraction :copyfrom
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateInteraction :one
 UPDATE "analytic"."interaction"
 SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('account_id'), "account_id") END,
+    "account_number" = COALESCE(sqlc.narg('account_number'), "account_number"),
     "session_id" = CASE WHEN sqlc.arg('null_session_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('session_id'), "session_id") END,
     "event_type" = COALESCE(sqlc.narg('event_type'), "event_type"),
     "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
@@ -114,8 +115,7 @@ SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL 
     "metadata" = CASE WHEN sqlc.arg('null_metadata')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('metadata'), "metadata") END,
     "user_agent" = CASE WHEN sqlc.arg('null_user_agent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('user_agent'), "user_agent") END,
     "ip_address" = CASE WHEN sqlc.arg('null_ip_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('ip_address'), "ip_address") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "account_number" = COALESCE(sqlc.narg('account_number'), "account_number")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -124,19 +124,19 @@ DELETE FROM "analytic"."interaction"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
+    ("account_number" >= sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
+    ("account_number" <= sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL) AND
     ("session_id" = ANY(sqlc.slice('session_id')) OR sqlc.slice('session_id') IS NULL) AND
     ("event_type" = ANY(sqlc.slice('event_type')) OR sqlc.slice('event_type') IS NULL) AND
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
-    ("ref_type" > sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
-    ("ref_type" < sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
+    ("ref_type" >= sqlc.narg('ref_type_from') OR sqlc.narg('ref_type_from') IS NULL) AND
+    ("ref_type" <= sqlc.narg('ref_type_to') OR sqlc.narg('ref_type_to') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("user_agent" = ANY(sqlc.slice('user_agent')) OR sqlc.slice('user_agent') IS NULL) AND
     ("ip_address" = ANY(sqlc.slice('ip_address')) OR sqlc.slice('ip_address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("account_number" = ANY(sqlc.slice('account_number')) OR sqlc.slice('account_number') IS NULL) AND
-    ("account_number" > sqlc.narg('account_number_from') OR sqlc.narg('account_number_from') IS NULL) AND
-    ("account_number" < sqlc.narg('account_number_to') OR sqlc.narg('account_number_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );

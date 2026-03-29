@@ -12,26 +12,26 @@ FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("view_count" = ANY(sqlc.slice('view_count')) OR sqlc.slice('view_count') IS NULL) AND
-    ("view_count" > sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
-    ("view_count" < sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
+    ("view_count" >= sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
+    ("view_count" <= sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
     ("purchase_count" = ANY(sqlc.slice('purchase_count')) OR sqlc.slice('purchase_count') IS NULL) AND
-    ("purchase_count" > sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
-    ("purchase_count" < sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
+    ("purchase_count" >= sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
+    ("purchase_count" <= sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
     ("favorite_count" = ANY(sqlc.slice('favorite_count')) OR sqlc.slice('favorite_count') IS NULL) AND
-    ("favorite_count" > sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
-    ("favorite_count" < sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
+    ("favorite_count" >= sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
+    ("favorite_count" <= sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
     ("cart_count" = ANY(sqlc.slice('cart_count')) OR sqlc.slice('cart_count') IS NULL) AND
-    ("cart_count" > sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
-    ("cart_count" < sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
+    ("cart_count" >= sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
+    ("cart_count" <= sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
     ("review_count" = ANY(sqlc.slice('review_count')) OR sqlc.slice('review_count') IS NULL) AND
-    ("review_count" > sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
-    ("review_count" < sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
+    ("review_count" >= sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
+    ("review_count" <= sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListProductPopularity :many
@@ -40,26 +40,26 @@ FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("view_count" = ANY(sqlc.slice('view_count')) OR sqlc.slice('view_count') IS NULL) AND
-    ("view_count" > sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
-    ("view_count" < sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
+    ("view_count" >= sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
+    ("view_count" <= sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
     ("purchase_count" = ANY(sqlc.slice('purchase_count')) OR sqlc.slice('purchase_count') IS NULL) AND
-    ("purchase_count" > sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
-    ("purchase_count" < sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
+    ("purchase_count" >= sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
+    ("purchase_count" <= sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
     ("favorite_count" = ANY(sqlc.slice('favorite_count')) OR sqlc.slice('favorite_count') IS NULL) AND
-    ("favorite_count" > sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
-    ("favorite_count" < sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
+    ("favorite_count" >= sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
+    ("favorite_count" <= sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
     ("cart_count" = ANY(sqlc.slice('cart_count')) OR sqlc.slice('cart_count') IS NULL) AND
-    ("cart_count" > sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
-    ("cart_count" < sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
+    ("cart_count" >= sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
+    ("cart_count" <= sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
     ("review_count" = ANY(sqlc.slice('review_count')) OR sqlc.slice('review_count') IS NULL) AND
-    ("review_count" > sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
-    ("review_count" < sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
+    ("review_count" >= sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
+    ("review_count" <= sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -71,26 +71,26 @@ FROM "analytic"."product_popularity" embed_product_popularity
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("view_count" = ANY(sqlc.slice('view_count')) OR sqlc.slice('view_count') IS NULL) AND
-    ("view_count" > sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
-    ("view_count" < sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
+    ("view_count" >= sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
+    ("view_count" <= sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
     ("purchase_count" = ANY(sqlc.slice('purchase_count')) OR sqlc.slice('purchase_count') IS NULL) AND
-    ("purchase_count" > sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
-    ("purchase_count" < sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
+    ("purchase_count" >= sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
+    ("purchase_count" <= sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
     ("favorite_count" = ANY(sqlc.slice('favorite_count')) OR sqlc.slice('favorite_count') IS NULL) AND
-    ("favorite_count" > sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
-    ("favorite_count" < sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
+    ("favorite_count" >= sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
+    ("favorite_count" <= sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
     ("cart_count" = ANY(sqlc.slice('cart_count')) OR sqlc.slice('cart_count') IS NULL) AND
-    ("cart_count" > sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
-    ("cart_count" < sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
+    ("cart_count" >= sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
+    ("cart_count" <= sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
     ("review_count" = ANY(sqlc.slice('review_count')) OR sqlc.slice('review_count') IS NULL) AND
-    ("review_count" > sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
-    ("review_count" < sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
+    ("review_count" >= sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
+    ("review_count" <= sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -136,24 +136,24 @@ DELETE FROM "analytic"."product_popularity"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("score" = ANY(sqlc.slice('score')) OR sqlc.slice('score') IS NULL) AND
-    ("score" > sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
-    ("score" < sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
+    ("score" >= sqlc.narg('score_from') OR sqlc.narg('score_from') IS NULL) AND
+    ("score" <= sqlc.narg('score_to') OR sqlc.narg('score_to') IS NULL) AND
     ("view_count" = ANY(sqlc.slice('view_count')) OR sqlc.slice('view_count') IS NULL) AND
-    ("view_count" > sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
-    ("view_count" < sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
+    ("view_count" >= sqlc.narg('view_count_from') OR sqlc.narg('view_count_from') IS NULL) AND
+    ("view_count" <= sqlc.narg('view_count_to') OR sqlc.narg('view_count_to') IS NULL) AND
     ("purchase_count" = ANY(sqlc.slice('purchase_count')) OR sqlc.slice('purchase_count') IS NULL) AND
-    ("purchase_count" > sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
-    ("purchase_count" < sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
+    ("purchase_count" >= sqlc.narg('purchase_count_from') OR sqlc.narg('purchase_count_from') IS NULL) AND
+    ("purchase_count" <= sqlc.narg('purchase_count_to') OR sqlc.narg('purchase_count_to') IS NULL) AND
     ("favorite_count" = ANY(sqlc.slice('favorite_count')) OR sqlc.slice('favorite_count') IS NULL) AND
-    ("favorite_count" > sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
-    ("favorite_count" < sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
+    ("favorite_count" >= sqlc.narg('favorite_count_from') OR sqlc.narg('favorite_count_from') IS NULL) AND
+    ("favorite_count" <= sqlc.narg('favorite_count_to') OR sqlc.narg('favorite_count_to') IS NULL) AND
     ("cart_count" = ANY(sqlc.slice('cart_count')) OR sqlc.slice('cart_count') IS NULL) AND
-    ("cart_count" > sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
-    ("cart_count" < sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
+    ("cart_count" >= sqlc.narg('cart_count_from') OR sqlc.narg('cart_count_from') IS NULL) AND
+    ("cart_count" <= sqlc.narg('cart_count_to') OR sqlc.narg('cart_count_to') IS NULL) AND
     ("review_count" = ANY(sqlc.slice('review_count')) OR sqlc.slice('review_count') IS NULL) AND
-    ("review_count" > sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
-    ("review_count" < sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
+    ("review_count" >= sqlc.narg('review_count_from') OR sqlc.narg('review_count_from') IS NULL) AND
+    ("review_count" <= sqlc.narg('review_count_to') OR sqlc.narg('review_count_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );

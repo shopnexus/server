@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchInteraction = `-- name: CreateBatchInteraction :batchone
-INSERT INTO "analytic"."interaction" ("account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created", "account_number")
+INSERT INTO "analytic"."interaction" ("account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created, account_number
+RETURNING id, account_id, account_number, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
 `
 
 type CreateBatchInteractionBatchResults struct {
@@ -34,6 +34,7 @@ type CreateBatchInteractionBatchResults struct {
 
 type CreateBatchInteractionParams struct {
 	AccountID     uuid.NullUUID              `json:"account_id"`
+	AccountNumber int64                      `json:"account_number"`
 	SessionID     null.String                `json:"session_id"`
 	EventType     string                     `json:"event_type"`
 	RefType       AnalyticInteractionRefType `json:"ref_type"`
@@ -42,7 +43,6 @@ type CreateBatchInteractionParams struct {
 	UserAgent     null.String                `json:"user_agent"`
 	IpAddress     null.String                `json:"ip_address"`
 	DateCreated   time.Time                  `json:"date_created"`
-	AccountNumber int64                      `json:"account_number"`
 }
 
 func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchInteractionParams) *CreateBatchInteractionBatchResults {
@@ -50,6 +50,7 @@ func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchI
 	for _, a := range arg {
 		vals := []interface{}{
 			a.AccountID,
+			a.AccountNumber,
 			a.SessionID,
 			a.EventType,
 			a.RefType,
@@ -58,7 +59,6 @@ func (q *Queries) CreateBatchInteraction(ctx context.Context, arg []CreateBatchI
 			a.UserAgent,
 			a.IpAddress,
 			a.DateCreated,
-			a.AccountNumber,
 		}
 		batch.Queue(createBatchInteraction, vals...)
 	}
@@ -80,6 +80,7 @@ func (b *CreateBatchInteractionBatchResults) QueryRow(f func(int, AnalyticIntera
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
+			&i.AccountNumber,
 			&i.SessionID,
 			&i.EventType,
 			&i.RefType,
@@ -88,7 +89,6 @@ func (b *CreateBatchInteractionBatchResults) QueryRow(f func(int, AnalyticIntera
 			&i.UserAgent,
 			&i.IpAddress,
 			&i.DateCreated,
-			&i.AccountNumber,
 		)
 		if f != nil {
 			f(t, i, err)

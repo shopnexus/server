@@ -19,7 +19,6 @@ type AnalyticInteractionRefType string
 const (
 	AnalyticInteractionRefTypeProduct  AnalyticInteractionRefType = "Product"
 	AnalyticInteractionRefTypeCategory AnalyticInteractionRefType = "Category"
-	AnalyticInteractionRefTypeBrand    AnalyticInteractionRefType = "Brand"
 )
 
 func (e *AnalyticInteractionRefType) Scan(src interface{}) error {
@@ -60,8 +59,7 @@ func (ns NullAnalyticInteractionRefType) Value() (driver.Value, error) {
 func (e AnalyticInteractionRefType) Valid() bool {
 	switch e {
 	case AnalyticInteractionRefTypeProduct,
-		AnalyticInteractionRefTypeCategory,
-		AnalyticInteractionRefTypeBrand:
+		AnalyticInteractionRefTypeCategory:
 		return true
 	}
 	return false
@@ -71,13 +69,13 @@ func AllAnalyticInteractionRefTypeValues() []AnalyticInteractionRefType {
 	return []AnalyticInteractionRefType{
 		AnalyticInteractionRefTypeProduct,
 		AnalyticInteractionRefTypeCategory,
-		AnalyticInteractionRefTypeBrand,
 	}
 }
 
 type AnalyticInteraction struct {
 	ID            int64                      `json:"id"`
 	AccountID     uuid.NullUUID              `json:"account_id"`
+	AccountNumber int64                      `json:"account_number"`
 	SessionID     null.String                `json:"session_id"`
 	EventType     string                     `json:"event_type"`
 	RefType       AnalyticInteractionRefType `json:"ref_type"`
@@ -86,7 +84,6 @@ type AnalyticInteraction struct {
 	UserAgent     null.String                `json:"user_agent"`
 	IpAddress     null.String                `json:"ip_address"`
 	DateCreated   time.Time                  `json:"date_created"`
-	AccountNumber int64                      `json:"account_number"`
 }
 
 type AnalyticProductPopularity struct {
