@@ -1,7 +1,7 @@
 -- =============================================
 -- Module: Catalog
 -- Schema: catalog
--- Description: Product catalog including brands, categories, SPUs (Standard
+-- Description: Product catalog including categories, SPUs (Standard
 --              Product Units), SKUs (Stock Keeping Units), tags, comments,
 --              and search/vector sync state.
 -- =============================================
@@ -16,16 +16,6 @@ CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
 CREATE TYPE "catalog"."search_sync_ref_type" AS ENUM ('ProductSpu');
 
 -- Tables
-
--- Brand registry. code is a stable machine identifier; name is display text.
-CREATE TABLE IF NOT EXISTS "catalog"."brand" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    -- Short unique machine-readable code (e.g. 'NIKE', 'APPLE')
-    "code" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
-    CONSTRAINT "brand_pkey" PRIMARY KEY ("id")
-);
 
 -- Hierarchical product category tree. parent_id = NULL means root category.
 CREATE TABLE IF NOT EXISTS "catalog"."category" (
@@ -50,7 +40,6 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu" (
     -- Seller account that owns this listing
     "account_id" UUID NOT NULL,
     "category_id" UUID NOT NULL,
-    "brand_id" UUID NOT NULL,
     -- The variant displayed in search results and the product card
     "featured_sku_id" UUID,
     "name" TEXT NOT NULL,
@@ -139,14 +128,12 @@ CREATE TABLE IF NOT EXISTS "catalog"."search_sync" (
 
 -- Indexes
 
-CREATE UNIQUE INDEX IF NOT EXISTS "brand_code_key" ON "catalog"."brand" ("code");
 CREATE UNIQUE INDEX IF NOT EXISTS "category_name_key" ON "catalog"."category" ("name");
 CREATE INDEX IF NOT EXISTS "category_parent_id_idx" ON "catalog"."category" ("parent_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "product_spu_slug_key" ON "catalog"."product_spu" ("slug");
 CREATE UNIQUE INDEX IF NOT EXISTS "product_spu_featured_sku_id_key" ON "catalog"."product_spu" ("featured_sku_id");
 CREATE INDEX IF NOT EXISTS "product_spu_account_id_idx" ON "catalog"."product_spu" ("account_id");
 CREATE INDEX IF NOT EXISTS "product_spu_category_id_idx" ON "catalog"."product_spu" ("category_id");
-CREATE INDEX IF NOT EXISTS "product_spu_brand_id_idx" ON "catalog"."product_spu" ("brand_id");
 CREATE INDEX IF NOT EXISTS "product_sku_spu_id_idx" ON "catalog"."product_sku" ("spu_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "product_spu_tag_spu_id_tag_key" ON "catalog"."product_spu_tag" ("spu_id", "tag");
 CREATE INDEX IF NOT EXISTS "search_sync_ref_type_ref_id_idx" ON "catalog"."search_sync" ("ref_type", "ref_id");
@@ -161,10 +148,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "search_sync_ref_type_ref_id_key" ON "catalog"
 ALTER TABLE "catalog"."product_spu"
     ADD CONSTRAINT "product_spu_category_id_fkey"
     FOREIGN KEY ("category_id") REFERENCES "catalog"."category" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "catalog"."product_spu"
-    ADD CONSTRAINT "product_spu_brand_id_fkey"
-    FOREIGN KEY ("brand_id") REFERENCES "catalog"."brand" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "catalog"."product_sku"
     ADD CONSTRAINT "product_sku_spu_id_fkey"

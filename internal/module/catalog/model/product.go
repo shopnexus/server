@@ -2,10 +2,11 @@ package catalogmodel
 
 import (
 	"encoding/json"
-	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
+
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 
 	"github.com/google/uuid"
 )
@@ -15,7 +16,6 @@ type ProductSpu struct {
 	AccountID     uuid.UUID                 `json:"account_id"`
 	Slug          string                    `json:"slug"`
 	Category      catalogdb.CatalogCategory `json:"category"`
-	Brand         catalogdb.CatalogBrand    `json:"brand"`
 	FeaturedSkuID uuid.NullUUID             `json:"featured_sku_id"`
 	Name          string                    `json:"name"`
 	Description   string                    `json:"description"`
@@ -27,6 +27,9 @@ type ProductSpu struct {
 	Tags           []string               `json:"tags"`
 	Resources      []commonmodel.Resource `json:"resources"`
 	Specifications []ProductSpecification `json:"specifications"`
+
+	IsStaleEmbedding bool `json:"is_stale_embedding"`
+	IsStaleMetadata  bool `json:"is_stale_metadata"`
 }
 
 type ProductSku struct {

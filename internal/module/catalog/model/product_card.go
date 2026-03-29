@@ -14,7 +14,6 @@ type ProductCard struct {
 	Slug        string    `json:"slug"`
 	VendorID    uuid.UUID `json:"vendor_id"`
 	CategoryID  uuid.UUID `json:"category_id"`
-	BrandID     uuid.UUID `json:"brand_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	IsActive    bool      `json:"is_active"`
@@ -28,6 +27,7 @@ type ProductCard struct {
 	IsFavorite    bool                    `json:"is_favorite"`
 	Resources     []commonmodel.Resource  `json:"resources"`
 	Promotions    []ProductCardPromo      `json:"promotions"`
+	Sold          int64                   `json:"sold"`
 }
 
 type ProductCardPromo struct {

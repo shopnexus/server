@@ -14,7 +14,6 @@ type ProductDetail struct {
 	VendorID       uuid.UUID                 `json:"vendor_id"`
 	Name           string                    `json:"name"`
 	Description    string                    `json:"description"`
-	Brand          catalogdb.CatalogBrand    `json:"brand"`
 	IsActive       bool                      `json:"is_active"`
 	Category       catalogdb.CatalogCategory `json:"category"`
 	Rating         ProductRating             `json:"rating"`
@@ -23,6 +22,7 @@ type ProductDetail struct {
 	Promotions     []ProductCardPromo        `json:"promotions"`
 	Skus           []ProductDetailSku        `json:"skus"`
 	Specifications []ProductSpecification    `json:"specifications"`
+	Tags           []string                  `json:"tags"`
 }
 
 type ProductRating struct {
@@ -37,4 +37,5 @@ type ProductDetailSku struct {
 	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
 	Attributes    []ProductAttribute      `json:"attributes"`
 	Taken         int64                   `json:"taken"`
+	Stock         int64                   `json:"stock"`
 }
