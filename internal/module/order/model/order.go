@@ -54,15 +54,16 @@ type Order struct {
 }
 
 type Payment struct {
-	ID          int64                   `json:"id"`
-	AccountID   uuid.UUID               `json:"account_id"`
-	Option      string                  `json:"option"`
-	Status      orderdb.OrderStatus     `json:"status"`
-	Amount      sharedmodel.Concurrency `json:"amount"`
-	Data        json.RawMessage         `json:"data"`
-	DateCreated time.Time               `json:"date_created"`
-	DatePaid    *time.Time              `json:"date_paid"`
-	DateExpired time.Time               `json:"date_expired"`
+	ID              int64                   `json:"id"`
+	AccountID       uuid.UUID               `json:"account_id"`
+	Option          string                  `json:"option"`
+	PaymentMethodID *uuid.UUID              `json:"payment_method_id,omitempty"`
+	Status          orderdb.OrderStatus     `json:"status"`
+	Amount          sharedmodel.Concurrency `json:"amount"`
+	Data            json.RawMessage         `json:"data"`
+	DateCreated     time.Time               `json:"date_created"`
+	DatePaid        *time.Time              `json:"date_paid"`
+	DateExpired     time.Time               `json:"date_expired"`
 }
 
 type Refund struct {

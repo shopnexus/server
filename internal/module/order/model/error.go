@@ -31,5 +31,7 @@ var (
 	ErrItemNotOwnedBySeller   = sharedmodel.NewError(http.StatusForbidden, "item does not belong to this seller").Terminal()
 	ErrOrderNotPayable        = sharedmodel.NewError(http.StatusBadRequest, "order is not payable").Terminal()
 	ErrOrderAlreadyPaid       = sharedmodel.NewError(http.StatusBadRequest, "order is already paid").Terminal()
-	ErrUnknownTransportOption = sharedmodel.NewError(http.StatusBadRequest, "unknown transport option").Terminal()
+	ErrUnknownTransportOption     = sharedmodel.NewError(http.StatusBadRequest, "unknown transport option").Terminal()
+	ErrNoDefaultPaymentMethod     = sharedmodel.NewError(http.StatusBadRequest, "no default payment method configured")
+	ErrPaymentMethodNotFound      = sharedmodel.NewError(http.StatusNotFound, "payment method not found")
 )

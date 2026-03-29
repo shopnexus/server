@@ -84,3 +84,12 @@ func (b *OrderHandler) getPaymentClient(option string) (payment.Client, error) {
 	}
 	return client, nil
 }
+
+func (b *OrderHandler) getPaymentClientByProvider(provider string) (payment.Client, error) {
+	for _, client := range b.paymentMap {
+		if client.Config().Provider == provider {
+			return client, nil
+		}
+	}
+	return nil, ordermodel.ErrUnknownPaymentOption.Fmt(provider).Terminal()
+}

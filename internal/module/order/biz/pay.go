@@ -2,9 +2,13 @@ package orderbiz
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
+
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 
 	"shopnexus-server/config"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -12,9 +16,13 @@ import (
 	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
-
-	"github.com/guregu/null/v6"
 )
+
+// orderInfo is a JSON-safe struct for restate.Run journal serialization.
+type orderInfo struct {
+	ID    string `json:"id"`
+	Total int64  `json:"total"`
+}
 
 // PayOrders creates a payment for one or more unpaid orders belonging to the buyer.
 func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (PayOrdersResult, error) {
@@ -24,17 +32,7 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		return zero, sharedmodel.WrapErr("validate pay orders", err)
 	}
 
-	// Validate payment option exists
-	paymentClient, err := b.getPaymentClient(params.PaymentOption)
-	if err != nil {
-		return zero, err
-	}
-
 	// Fetch orders and validate
-	type orderInfo struct {
-		ID    string `json:"id"`
-		Total int64  `json:"total"`
-	}
 	type fetchResult struct {
 		Orders []orderInfo `json:"orders"`
 	}
@@ -72,13 +70,32 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		return zero, sharedmodel.WrapErr("fetch orders", err)
 	}
 
-	// Calculate total amount
 	var totalAmount sharedmodel.Concurrency
 	for _, o := range fetched.Orders {
 		totalAmount += sharedmodel.Concurrency(o.Total)
 	}
 
-	// Create payment record + call payment provider
+	// Branch based on payment option
+	option := params.PaymentOption
+	if strings.HasPrefix(option, "pm:") {
+		return b.payWithSavedMethod(ctx, params, option[3:], totalAmount)
+	}
+	if option == "" || option == "default" {
+		// TODO: look up buyer's default payment method via account biz (Task 7)
+		return zero, ordermodel.ErrNoDefaultPaymentMethod.Terminal()
+	}
+	return b.payWithRedirect(ctx, params, option, totalAmount)
+}
+
+// payWithRedirect handles redirect-based payments (VNPay, SePay, COD).
+func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersParams, option string, totalAmount sharedmodel.Concurrency) (PayOrdersResult, error) {
+	var zero PayOrdersResult
+
+	paymentClient, err := b.getPaymentClient(option)
+	if err != nil {
+		return zero, err
+	}
+
 	type paymentResult struct {
 		PaymentID   int64  `json:"payment_id"`
 		RedirectURL string `json:"redirect_url"`
@@ -91,11 +108,12 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		}
 
 		dbPayment, err := b.storage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-			AccountID:   params.Account.ID,
-			Option:      params.PaymentOption,
-			Amount:      int64(totalAmount),
-			Data:        []byte("[]"),
-			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
+			AccountID:       params.Account.ID,
+			Option:          option,
+			Amount:          int64(totalAmount),
+			Data:            []byte("[]"),
+			PaymentMethodID: uuid.NullUUID{},
+			DateExpired:     time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 		})
 		if err != nil {
 			return paymentResult{}, sharedmodel.WrapErr("db create payment", err)
@@ -130,10 +148,22 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		return zero, sharedmodel.WrapErr("db set order payment", err)
 	}
 
-	// Fetch created payment for response
+	return b.fetchPaymentResult(ctx, payInfo.PaymentID, payInfo.RedirectURL)
+}
+
+// payWithSavedMethod handles charging a saved card.
+// TODO: Complete implementation after account payment method biz is wired (Task 7).
+func (b *OrderHandler) payWithSavedMethod(ctx restate.Context, params PayOrdersParams, paymentMethodID string, totalAmount sharedmodel.Concurrency) (PayOrdersResult, error) {
+	return PayOrdersResult{}, sharedmodel.NewError(501, "saved card payment not yet implemented").Terminal()
+}
+
+// fetchPaymentResult fetches the created payment and builds the response.
+func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, redirectURL string) (PayOrdersResult, error) {
+	var zero PayOrdersResult
+
 	paymentModel, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Payment, error) {
 		dbPay, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
-			ID: []int64{payInfo.PaymentID},
+			ID: []int64{paymentID},
 		})
 		if err != nil || len(dbPay) == 0 {
 			return ordermodel.Payment{}, sharedmodel.WrapErr("db fetch payment", err)
@@ -143,16 +173,21 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		if p.DatePaid.Valid {
 			datePaid = &p.DatePaid.Time
 		}
+		var pmID *uuid.UUID
+		if p.PaymentMethodID.Valid {
+			pmID = &p.PaymentMethodID.UUID
+		}
 		return ordermodel.Payment{
-			ID:          p.ID,
-			AccountID:   p.AccountID,
-			Option:      p.Option,
-			Status:      p.Status,
-			Amount:      sharedmodel.Concurrency(p.Amount),
-			Data:        p.Data,
-			DateCreated: p.DateCreated,
-			DatePaid:    datePaid,
-			DateExpired: p.DateExpired,
+			ID:              p.ID,
+			AccountID:       p.AccountID,
+			Option:          p.Option,
+			PaymentMethodID: pmID,
+			Status:          p.Status,
+			Amount:          sharedmodel.Concurrency(p.Amount),
+			Data:            p.Data,
+			DateCreated:     p.DateCreated,
+			DatePaid:        datePaid,
+			DateExpired:     p.DateExpired,
 		}, nil
 	})
 	if err != nil {
@@ -160,8 +195,8 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 	}
 
 	var redirectUrl *string
-	if payInfo.RedirectURL != "" {
-		redirectUrl = &payInfo.RedirectURL
+	if redirectURL != "" {
+		redirectUrl = &redirectURL
 	}
 
 	return PayOrdersResult{

@@ -195,16 +195,21 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 				if p.DatePaid.Valid {
 					datePaid = &p.DatePaid.Time
 				}
+				var pmID *uuid.UUID
+				if p.PaymentMethodID.Valid {
+					pmID = &p.PaymentMethodID.UUID
+				}
 				paymentPtr = &ordermodel.Payment{
-					ID:          p.ID,
-					AccountID:   p.AccountID,
-					Option:      p.Option,
-					Status:      p.Status,
-					Amount:      sharedmodel.Concurrency(p.Amount),
-					Data:        p.Data,
-					DateCreated: p.DateCreated,
-					DatePaid:    datePaid,
-					DateExpired: p.DateExpired,
+					ID:              p.ID,
+					AccountID:       p.AccountID,
+					Option:          p.Option,
+					PaymentMethodID: pmID,
+					Status:          p.Status,
+					Amount:          sharedmodel.Concurrency(p.Amount),
+					Data:            p.Data,
+					DateCreated:     p.DateCreated,
+					DatePaid:        datePaid,
+					DateExpired:     p.DateExpired,
 				}
 			}
 		}

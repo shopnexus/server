@@ -174,7 +174,7 @@ type CancelOrderParams struct {
 type PayOrdersParams struct {
 	Account       accountmodel.AuthenticatedAccount
 	OrderIDs      []uuid.UUID `validate:"required,min=1"`
-	PaymentOption string      `validate:"required,min=1,max=100"`
+	PaymentOption string      `validate:"max=100"`
 }
 
 type PayOrdersResult struct {
