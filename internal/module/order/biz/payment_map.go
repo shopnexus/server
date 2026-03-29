@@ -8,6 +8,7 @@ import (
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
+	"shopnexus-server/internal/provider/payment/card"
 	"shopnexus-server/internal/provider/payment/cod"
 	"shopnexus-server/internal/provider/payment/sepay"
 	"shopnexus-server/internal/provider/payment/vnpay"
@@ -49,6 +50,18 @@ func (b *OrderHandler) SetupPaymentMap() error {
 		})
 		b.paymentMap[sepayClient.Config().ID] = sepayClient
 		configs = append(configs, sepayClient.Config())
+	}
+
+	// setup card payment client
+	cardCfg := config.GetConfig().App.CardPayment
+	if cardCfg.Provider != "" {
+		cardClient := card.NewClient(card.ClientOptions{
+			Provider:  cardCfg.Provider,
+			SecretKey: cardCfg.SecretKey,
+			PublicKey: cardCfg.PublicKey,
+		})
+		b.paymentMap[cardClient.Config().ID] = cardClient
+		configs = append(configs, cardClient.Config())
 	}
 
 	// Register payment options in background — Restate may not be ready at init time

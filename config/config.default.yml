@@ -26,6 +26,10 @@ app:
     errorUrl: "http://localhost:3000/payment/sepay_error"
     cancelUrl: "http://localhost:3000/payment/sepay_cancel"
     sandbox: true
+  cardPayment:
+    provider: ""
+    secretKey: ""
+    publicKey: ""
   search:
     url: "http://localhost:8000"
     denseWeight: 0.75

@@ -23,8 +23,9 @@ type App struct {
 	Port   string `yaml:"port" mapstructure:"port"`
 	JWT    JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
 	Vnpay  Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
-	Sepay  Sepay  `yaml:"sepay" mapstructure:"sepay"`
-	Search Search `yaml:"search" mapstructure:"search" validate:"required"`
+	Sepay       Sepay       `yaml:"sepay" mapstructure:"sepay"`
+	CardPayment CardPayment `yaml:"cardPayment" mapstructure:"cardPayment"`
+	Search      Search      `yaml:"search" mapstructure:"search" validate:"required"`
 	Order  Order  `yaml:"order" mapstructure:"order" validate:"required"`
 }
 
@@ -49,6 +50,12 @@ type Sepay struct {
 	ErrorURL     string `yaml:"errorUrl" mapstructure:"errorUrl"`
 	CancelURL    string `yaml:"cancelUrl" mapstructure:"cancelUrl"`
 	Sandbox      bool   `yaml:"sandbox" mapstructure:"sandbox"`
+}
+
+type CardPayment struct {
+	Provider  string `yaml:"provider" mapstructure:"provider"`
+	SecretKey string `yaml:"secretKey" mapstructure:"secretKey"`
+	PublicKey string `yaml:"publicKey" mapstructure:"publicKey"`
 }
 
 type Search struct {
