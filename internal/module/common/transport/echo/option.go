@@ -3,8 +3,8 @@ package commonecho
 import (
 	"net/http"
 
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/labstack/echo/v4"
 )

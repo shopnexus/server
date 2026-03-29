@@ -3,10 +3,11 @@ package catalogecho
 import (
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -14,11 +15,12 @@ import (
 )
 
 type ListProductSpuRequest struct {
-	commonmodel.PaginationParams
-	Code       []string `query:"code" comma_separated:"true" validate:"omitempty"`
-	CategoryID []int64  `query:"category_id" comma_separated:"true" validate:"omitempty"`
-	BrandID    []int64  `query:"brand_id" comma_separated:"true" validate:"omitempty"`
-	IsActive   []bool   `query:"is_active" comma_separated:"true" validate:"omitempty"`
+	sharedmodel.PaginationParams
+	Search     null.String `query:"search" validate:"omitnil"`
+	Slug       []string    `query:"slug" comma_separated:"true" validate:"omitempty"`
+	MyProducts bool        `query:"my_products" validate:"omitempty"`
+	CategoryID []uuid.UUID `query:"category_id" comma_separated:"true" validate:"omitempty"`
+	IsActive   []bool      `query:"is_active" comma_separated:"true" validate:"omitempty"`
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
@@ -30,32 +32,35 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	claims, _ := authclaims.GetClaims(c.Request())
+
+	// Filter by authenticated account when my_products=true
+	var accountID []uuid.UUID
+	if req.MyProducts && claims.Account.ID != uuid.Nil {
+		accountID = []uuid.UUID{claims.Account.ID}
 	}
 
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
 		Account:          claims.Account,
-		Code:             req.Code,
+		Search:           req.Search,
+		Slug:             req.Slug,
+		AccountID:        accountID,
 		CategoryID:       req.CategoryID,
-		BrandID:          req.BrandID,
 		IsActive:         req.IsActive,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
-type GetProductSpuParams struct {
-	ID int64 `param:"id" validate:"required,gt=0"`
+type GetProductSpuRequest struct {
+	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) GetProductSpu(c echo.Context) error {
-	var req GetProductSpuParams
+	var req GetProductSpuRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -63,34 +68,24 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
 	result, err := h.biz.ListProductSpu(c.Request().Context(), catalogbiz.ListProductSpuParams{
-		Account: claims.Account,
-		ID:      []int64{req.ID},
+		ID: []uuid.UUID{req.ID},
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	if len(result.Data) == 0 {
-		return response.FromError(c.Response().Writer, http.StatusNotFound, echo.NewHTTPError(http.StatusNotFound, "product spu not found"))
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result.Data[0])
 }
 
 type CreateProductSpuRequest struct {
-	CategoryID  int64       `json:"category_id" validate:"required,gt=0"`
-	BrandID     int64       `json:"brand_id" validate:"required,gt=0"`
-	Name        string      `json:"name" validate:"required,min=1,max=200"`
-	Description string      `json:"description" validate:"required,max=1000"`
-	IsActive    bool        `json:"is_active" validate:"omitempty"`
-	Tags        []string    `json:"tags" validate:"required,dive,min=1,max=100"`
-	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"omitempty,dive"`
+	CategoryID     uuid.UUID                           `json:"category_id" validate:"required"`
+	Name           string                              `json:"name" validate:"required,min=1,max=200"`
+	Description    string                              `json:"description" validate:"required,max=1000000"`
+	IsActive       bool                                `json:"is_active" validate:"omitempty"`
+	Tags           []string                            `json:"tags" validate:"required,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
+	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
 }
 
 func (h *Handler) CreateProductSpu(c echo.Context) error {
@@ -108,32 +103,32 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 	}
 
 	spu, err := h.biz.CreateProductSpu(c.Request().Context(), catalogbiz.CreateProductSpuParams{
-		Account:     claims.Account,
-		CategoryID:  req.CategoryID,
-		BrandID:     req.BrandID,
-		Name:        req.Name,
-		Description: req.Description,
-		IsActive:    req.IsActive,
-		Tags:        req.Tags,
-		ResourceIDs: req.ResourceIDs,
+		Account:        claims.Account,
+		CategoryID:     req.CategoryID,
+		Name:           req.Name,
+		Description:    req.Description,
+		IsActive:       req.IsActive,
+		Tags:           req.Tags,
+		ResourceIDs:    req.ResourceIDs,
+		Specifications: req.Specifications,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 
 type UpdateProductSpuRequest struct {
-	ID            int64       `json:"id" validate:"required,gt=0"`
-	CategoryID    null.Int64  `json:"category_id" validate:"omitnil,gt=0"`
-	FeaturedSkuID null.Int64  `json:"featured_sku_id" validate:"omitnil,gt=0"`
-	BrandID       null.Int64  `json:"brand_id" validate:"omitnil,gt=0"`
-	Name          null.String `json:"name" validate:"omitnil,min=1,max=200"`
-	Description   null.String `json:"description" validate:"omitnil,max=1000"`
-	IsActive      null.Bool   `json:"is_active" validate:"omitnil"`
-	Tags          []string    `json:"tags" validate:"required,dive,min=1,max=100"`
-	ResourceIDs   []uuid.UUID `json:"resource_ids" validate:"omitempty,dive"`
+	ID             uuid.UUID                           `json:"id" validate:"required"`
+	CategoryID     uuid.NullUUID                       `json:"category_id" validate:"omitnil"`
+	FeaturedSkuID  uuid.NullUUID                       `json:"featured_sku_id" validate:"omitnil"`
+	Name           null.String                         `json:"name" validate:"omitnil,min=1,max=200"`
+	Description    null.String                         `json:"description" validate:"omitnil,max=100000"`
+	IsActive       null.Bool                           `json:"is_active" validate:"omitnil"`
+	RegenerateSlug bool                                `json:"regenerate_slug"`
+	Tags           []string                            `json:"tags" validate:"omitempty,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
+	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateProductSpu(c echo.Context) error {
@@ -151,26 +146,26 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 	}
 
 	spu, err := h.biz.UpdateProductSpu(c.Request().Context(), catalogbiz.UpdateProductSpuParams{
-		Account:       claims.Account,
-		ID:            req.ID,
-		FeaturedSkuID: req.FeaturedSkuID,
-		CategoryID:    req.CategoryID,
-		BrandID:       req.BrandID,
-		Name:          req.Name,
-		Description:   req.Description,
-		IsActive:      req.IsActive,
-		Tags:          req.Tags,
-		ResourceIDs:   req.ResourceIDs,
+		Account:        claims.Account,
+		ID:             req.ID,
+		FeaturedSkuID:  req.FeaturedSkuID,
+		CategoryID:     req.CategoryID,
+		Name:           req.Name,
+		Description:    req.Description,
+		IsActive:       req.IsActive,
+		RegenerateSlug: req.RegenerateSlug,
+		Tags:           req.Tags,
+		ResourceIDs:    req.ResourceIDs,
+		Specifications: req.Specifications,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, spu)
 }
 
 type DeleteProductSpuRequest struct {
-	ID int64 `param:"id" validate:"required,gt=0"`
+	ID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) DeleteProductSpu(c echo.Context) error {

@@ -6,29 +6,30 @@ import (
 	"io"
 	"log/slog"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/infras/objectstore"
-	objlocal "shopnexus-remastered/internal/infras/objectstore/local"
-	objremote "shopnexus-remastered/internal/infras/objectstore/remote"
-	objs3 "shopnexus-remastered/internal/infras/objectstore/s3"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/objectstore"
+	objlocal "shopnexus-server/internal/infras/objectstore/local"
+	objremote "shopnexus-server/internal/infras/objectstore/remote"
+	objs3 "shopnexus-server/internal/infras/objectstore/s3"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
 )
 
-func (b *Commonbiz) SetupObjectStore() error {
+func (b *CommonHandler) SetupObjectStore() error {
 	var err error
-	var configs []commonmodel.OptionConfig
+	var configs []sharedmodel.OptionConfig
 	b.objectstoreMap = make(map[string]objectstore.Client)
 
 	// setup local
 	local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
 	if err != nil {
-		return err
+		return sharedmodel.WrapErr("setup local objectstore", err)
 	}
 	b.objectstoreMap[local.Config().ID] = local
 	configs = append(configs, local.Config())
@@ -42,7 +43,7 @@ func (b *Commonbiz) SetupObjectStore() error {
 		CloudfrontURL:   config.GetConfig().Filestore.S3.CloudfrontURL,
 	})
 	if err != nil {
-		return err
+		return sharedmodel.WrapErr("setup s3 objectstore", err)
 	}
 	b.objectstoreMap[s3.Config().ID] = s3
 	configs = append(configs, s3.Config())
@@ -52,18 +53,22 @@ func (b *Commonbiz) SetupObjectStore() error {
 	b.objectstoreMap[remote.Config().ID] = remote
 	configs = append(configs, remote.Config())
 
-	if err := b.UpdateServiceOptions(context.Background(), UpdateServiceOptionsParams{
-		Storage:  b.storage,
+	if err := b.updateServiceOptions(context.Background(), UpdateServiceOptionsParams{
 		Category: "objectstore",
 		Configs:  configs,
 	}); err != nil {
-		return err
+		return sharedmodel.WrapErr("setup objectstore options", err)
 	}
 
 	return nil
 }
 
-func (b *Commonbiz) mustGetObjectStore(provider string) objectstore.Client {
+// getPlaceholderURL returns the configured 404 placeholder image URL, if any.
+func (b *CommonHandler) getPlaceholderURL() string {
+	return config.GetConfig().Filestore.Placeholder404Url
+}
+
+func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
 	client, ok := b.objectstoreMap[provider]
 	if !ok {
 		return b.objectstoreMap["local"]
@@ -72,7 +77,7 @@ func (b *Commonbiz) mustGetObjectStore(provider string) objectstore.Client {
 }
 
 type UploadFileParams struct {
-	Account     authmodel.AuthenticatedAccount
+	Account     accountmodel.AuthenticatedAccount
 	File        io.Reader `validate:"required"`
 	Filename    string    `validate:"required"`
 	ContentType string    `validate:"required"`
@@ -89,11 +94,13 @@ type UploadFileResult struct {
 
 // UploadFile stores a single uploaded file to the configured object store
 // and creates a corresponding resource record.
-func (b *Commonbiz) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
+// UploadFile is called directly by the transport layer (not via Restate)
+// because io.Reader cannot be serialized through the Restate ingress.
+func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
 	var zero UploadFileResult
 
 	if err := validator.Validate(params); err != nil {
-		return zero, fmt.Errorf("invalid upload params: %w", err)
+		return zero, sharedmodel.WrapErr("invalid upload params", err)
 	}
 
 	var err error
@@ -103,50 +110,54 @@ func (b *Commonbiz) UploadFile(ctx context.Context, params UploadFileParams) (Up
 
 	objectKey, err = b.mustGetObjectStore(config.GetConfig().Filestore.Type).Upload(ctx, myKey, params.File, params.Private)
 	if err != nil {
-		return zero, fmt.Errorf("upload local: %w", err)
+		return zero, sharedmodel.WrapErr("upload local", err)
 	}
 
-	resource, err := b.storage.CreateDefaultCommonResource(ctx, db.CreateDefaultCommonResourceParams{
-		ID:         pgutil.UUIDToPgUUID(uuid.New()),
+	resource, err := b.storage.Querier().CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
 		Provider:   config.GetConfig().Filestore.Type,
 		ObjectKey:  objectKey,
-		UploadedBy: pgutil.Int64ToPgInt8(params.Account.ID),
+		UploadedBy: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		Mime:       params.ContentType,
 		Size:       params.Size,
 		Metadata:   []byte("{}"),
 	})
 	if err != nil {
-		return zero, fmt.Errorf("insert resource: %w", err)
+		return zero, sharedmodel.WrapErr("insert resource", err)
 	}
 
 	url, err := b.mustGetObjectStore(config.GetConfig().Filestore.Type).GetURL(ctx, objectKey)
 	if err != nil {
-		return zero, fmt.Errorf("get file url: %w", err)
+		return zero, sharedmodel.WrapErr("get file url", err)
 	}
 
 	return UploadFileResult{
-		ResourceID: resource.ID.Bytes,
+		ResourceID: resource.ID,
 		Provider:   config.GetConfig().Filestore.Type,
 		ObjectKey:  objectKey,
 		URL:        url,
 	}, nil
 }
 
-func (b *Commonbiz) GetFileURL(ctx context.Context, provider string, objectKey string) (string, error) {
-	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
+type GetFileURLParams struct {
+	Provider  string
+	ObjectKey string
+}
+
+func (b *CommonHandler) GetFileURL(ctx restate.Context, params GetFileURLParams) (string, error) {
+	url, err := b.mustGetObjectStore(params.Provider).GetURL(ctx, params.ObjectKey)
 	if err != nil {
-		return "", err
+		return "", sharedmodel.WrapErr("get file url", err)
 	}
 
 	return url, nil
 }
 
-func (b *Commonbiz) MustGetFileURL(ctx context.Context, provider string, objectKey string) string {
+// mustGetFileURL returns the URL for an object key, falling back to a placeholder on error.
+func (b *CommonHandler) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
-		// TODO: should return 404 placeholder image url
 		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))
-		return ""
+		return b.getPlaceholderURL()
 	}
 
 	return url

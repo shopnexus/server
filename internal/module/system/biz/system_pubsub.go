@@ -1,5 +1,5 @@
 package systembiz
 
-func (b *SystemBiz) SetupPubsub() error {
+func (b *SystemHandler) SetupPubsub() error {
 	return nil
 }

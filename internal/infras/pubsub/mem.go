@@ -15,6 +15,7 @@ type subscription struct {
 // MemoryClient implements the Client interface for in-memory pub/sub
 type MemoryClient struct {
 	config        Config
+	group         string
 	subscriptions map[string][]*subscription
 	mu            sync.RWMutex
 	closed        bool
@@ -28,8 +29,19 @@ func NewMemoryClient(config Config) *MemoryClient {
 	}
 }
 
+// Group returns a new MemoryClient scoped to the given consumer group.
+func (c *MemoryClient) Group(name string) Client {
+	return &MemoryClient{
+		config:        c.config,
+		group:         name,
+		subscriptions: c.subscriptions, // share subscriptions map
+		mu:            sync.RWMutex{},
+		closed:        c.closed,
+	}
+}
+
 // Publish sends a message to all subscribers of the given topic
-func (c *MemoryClient) Publish(ctx context.Context, topic string, value any) error {
+func (c *MemoryClient) Publish(topic string, value any) error {
 	c.mu.RLock()
 	if c.closed {
 		c.mu.RUnlock()
@@ -55,8 +67,6 @@ func (c *MemoryClient) Publish(ctx context.Context, topic string, value any) err
 	// Send to all subscribers
 	for _, sub := range subs {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case <-sub.done:
 			continue // Skip closed subscriptions
 		default:
@@ -70,10 +80,10 @@ func (c *MemoryClient) Publish(ctx context.Context, topic string, value any) err
 				}()
 
 				// Create a timeout context for the handler
-				handlerCtx := ctx
+				ctx := context.Background()
 				if c.config.Timeout > 0 {
 					var cancel context.CancelFunc
-					handlerCtx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+					ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
 					defer cancel()
 				}
 
@@ -84,7 +94,7 @@ func (c *MemoryClient) Publish(ctx context.Context, topic string, value any) err
 				}()
 
 				select {
-				case <-handlerCtx.Done():
+				case <-ctx.Done():
 					// Handler timed out or context cancelled
 				case <-done:
 					// Handler completed
@@ -97,7 +107,7 @@ func (c *MemoryClient) Publish(ctx context.Context, topic string, value any) err
 }
 
 // Subscribe registers a handler for messages on the given topic
-func (c *MemoryClient) Subscribe(ctx context.Context, topic string, handler func(msg *MessageDecoder) error) error {
+func (c *MemoryClient) Subscribe(topic string, handler func(msg *MessageDecoder) error) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -111,13 +121,6 @@ func (c *MemoryClient) Subscribe(ctx context.Context, topic string, handler func
 	}
 
 	c.subscriptions[topic] = append(c.subscriptions[topic], sub)
-
-	// Handle context cancellation
-	go func() {
-		<-ctx.Done()
-		close(sub.done)
-		c.removeSubscription(topic, sub)
-	}()
 
 	return nil
 }

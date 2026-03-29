@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	"shopnexus-remastered/internal/module/shared/response"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -30,7 +31,7 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.UploadFile(c.Request().Context(), commonbiz.UploadFileParams{
+	result, err := h.handler.UploadFile(c.Request().Context(), commonbiz.UploadFileParams{
 		Account:     claims.Account,
 		File:        src,
 		Filename:    fileHeader.Filename,
@@ -42,31 +43,12 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]any{
-		"id":  result.ResourceID,
-		"url": result.URL,
-	})
+	// Get the full resource details
+	resourceMap, _ := h.biz.GetResourcesByIDs(c.Request().Context(), []uuid.UUID{result.ResourceID})
+	resource, ok := resourceMap[result.ResourceID]
+	if !ok {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, fmt.Errorf("failed to retrieve uploaded resource"))
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, resource)
 }
-
-// type GetFileRequest struct {
-// 	ObjectKey string `param:"object_key" validate:"required"`
-// }
-
-// func (h *Handler) GetFile(c echo.Context) error {
-// 	var req GetFileRequest
-// 	if err := c.Bind(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-// 	if err := c.Validate(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-
-// 	url, err := h.biz.GetFileURL(c.Request().Context(), "TODO: bruh", req.ObjectKey)
-// 	if err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-// 	}
-
-// 	return response.FromDTO(c.Response().Writer, http.StatusOK, map[string]string{
-// 		"url": url,
-// 	})
-// }

@@ -1,33 +1,37 @@
 package catalogmodel
 
 import (
+	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
 
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 )
 
 type ProductCard struct {
-	ID          int64     `json:"id"`
-	Code        string    `json:"code"`
-	VendorID    int64     `json:"vendor_id"`
-	CategoryID  int64     `json:"category_id"`
-	BrandID     int64     `json:"brand_id"`
+	ID          uuid.UUID `json:"id"`
+	Slug        string    `json:"slug"`
+	VendorID    uuid.UUID `json:"vendor_id"`
+	CategoryID  uuid.UUID `json:"category_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	IsActive    bool      `json:"is_active"`
 	DateCreated time.Time `json:"date_created"`
 	DateUpdated time.Time `json:"date_updated"`
-	DateDeleted time.Time `json:"date_deleted"`
+	DateDeleted null.Time `json:"date_deleted"`
 
-	Price         commonmodel.Concurrency `json:"price"`
-	OriginalPrice commonmodel.Concurrency `json:"original_price"`
+	Price         sharedmodel.Concurrency `json:"price"`
+	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
 	Rating        Rating                  `json:"rating"`
+	IsFavorite    bool                    `json:"is_favorite"`
 	Resources     []commonmodel.Resource  `json:"resources"`
 	Promotions    []ProductCardPromo      `json:"promotions"`
+	Sold          int64                   `json:"sold"`
 }
 
 type ProductCardPromo struct {
-	ID          int64  `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	ID          uuid.UUID `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
 }

@@ -1,23 +1,27 @@
 package promotionmodel
 
 import (
+	"encoding/json"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
 	"time"
 
-	"shopnexus-remastered/internal/db"
-
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 )
 
-type PromotionBase struct {
-	ID      int64      `json:"id"`
-	Code    string     `json:"code"`
-	OwnerID null.Int64 `json:"owner_id"`
+type Promotion struct {
+	ID      uuid.UUID     `json:"id"`
+	Code    string        `json:"code"`
+	OwnerID uuid.NullUUID `json:"owner_id"`
 
-	Type        db.PromotionType `json:"type"`
-	Title       string           `json:"title"`
-	Description null.String      `json:"description"`
-	IsActive    bool             `json:"is_active"`
-	AutoApply   bool             `json:"auto_apply"`
+	Type        promotiondb.PromotionType `json:"type"`
+	Title       string                    `json:"title"`
+	Description null.String               `json:"description"`
+	IsActive    bool                      `json:"is_active"`
+	AutoApply   bool                      `json:"auto_apply"`
+	Group       string                    `json:"group"`
+	Priority    int32                     `json:"priority"`
+	Data        json.RawMessage           `json:"data"`
 
 	DateStarted time.Time `json:"date_started"`
 	DateEnded   null.Time `json:"date_ended"`
@@ -29,15 +33,6 @@ type PromotionBase struct {
 }
 
 type PromotionRef struct {
-	RefType db.PromotionRefType `validate:"required,validateFn=Valid"`
-	RefID   int64               `validate:"required"`
-}
-
-type PromotionDiscount struct {
-	PromotionBase
-	OrderWide       bool       `json:"order_wide"`
-	MinSpend        int64      `json:"min_spend"`
-	MaxDiscount     int64      `json:"max_discount"`
-	DiscountPercent null.Int32 `json:"discount_percent"`
-	DiscountPrice   null.Int64 `json:"discount_price"`
+	RefType promotiondb.PromotionRefType `validate:"required,validateFn=Valid"`
+	RefID   uuid.UUID                    `validate:"required"`
 }

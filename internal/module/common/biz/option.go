@@ -4,69 +4,71 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
-	"shopnexus-remastered/internal/db"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
+
+	"github.com/guregu/null/v6"
 )
 
 type UpdateServiceOptionsParams struct {
-	Storage  pgsqlc.Storage
-	Category string                     `validate:"required,oneof=objectstore payment shipment"`
-	Configs  []commonmodel.OptionConfig `validate:"required,dive"`
+	Category string                     `validate:"required,oneof=objectstore payment transport"`
+	Configs  []sharedmodel.OptionConfig `validate:"required,dive"`
 }
 
-func (b *Commonbiz) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
+// UpdateServiceOptions creates or updates service option configurations for a given category.
+func (b *CommonHandler) UpdateServiceOptions(ctx restate.Context, params UpdateServiceOptionsParams) error {
+	return b.updateServiceOptions(ctx, params)
+}
+
+// updateServiceOptions is an internal helper that accepts context.Context,
+// used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
+func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return sharedmodel.WrapErr("validate service options", err)
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		for index, cfg := range params.Configs {
-			_, err := txStorage.GetCommonServiceOption(ctx, pgutil.StringToPgText(cfg.ID))
-			if err != nil {
-				// if not found, create it
-				if errors.Is(err, sql.ErrNoRows) {
-					_, err = txStorage.CreateCommonServiceOption(ctx, db.CreateCommonServiceOptionParams{
-						ID:          cfg.ID,
-						Category:    string(params.Category),
-						Name:        cfg.Name,
-						Description: cfg.Description,
-						Provider:    cfg.Provider,
-						Method:      string(cfg.Method),
-						Order:       int32(index),
-					})
-					if err != nil {
-						return err
-					}
-					continue
-				}
-
-				// other db error
-				return err
-			} else {
-				// update existing
-				_, err = txStorage.UpdateCommonServiceOption(ctx, db.UpdateCommonServiceOptionParams{
+	for index, cfg := range params.Configs {
+		_, err := b.storage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
+		if err != nil {
+			// if not found, create it
+			if errors.Is(err, sql.ErrNoRows) {
+				_, err = b.storage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
 					ID:          cfg.ID,
-					Name:        pgutil.StringToPgText(cfg.Name),
-					Description: pgutil.StringToPgText(cfg.Description),
-					Provider:    pgutil.StringToPgText(cfg.Provider),
-					Method:      pgutil.StringToPgText(string(cfg.Method)),
-					IsActive:    pgutil.BoolToPgBool(true),
-					Category:    pgutil.StringToPgText(string(params.Category)),
-					Order:       pgutil.Int32ToPgInt4(int32(index)),
+					Category:    string(params.Category),
+					Name:        cfg.Name,
+					Description: cfg.Description,
+					Provider:    cfg.Provider,
+					Method:      string(cfg.Method),
+					Order:       int32(index),
 				})
 				if err != nil {
-					return err
+					return sharedmodel.WrapErr("db update service options", err)
 				}
+				continue
+			}
+
+			// other db error
+			return sharedmodel.WrapErr("db update service options", err)
+		} else {
+			// update existing
+			_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
+				ID:          cfg.ID,
+				Name:        null.StringFrom(cfg.Name),
+				Description: null.StringFrom(cfg.Description),
+				Provider:    null.StringFrom(cfg.Provider),
+				Method:      null.StringFrom(string(cfg.Method)),
+				IsActive:    null.BoolFrom(true),
+				Category:    null.StringFrom(string(params.Category)),
+				Order:       null.Int32From(int32(index)),
+			})
+			if err != nil {
+				return sharedmodel.WrapErr("db update service options", err)
 			}
 		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to update service options: %w", err)
 	}
 
 	return nil
@@ -77,27 +79,28 @@ type ListServiceOptionParams struct {
 	IsActive []bool   `validate:"omitempty,dive"`
 }
 
-func (b *Commonbiz) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]commonmodel.OptionConfig, error) {
-	if validator.Validate(params) != nil {
-		return nil, validator.Validate(params)
+// ListServiceOption returns active service options filtered by category.
+func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+	if err := validator.Validate(params); err != nil {
+		return nil, sharedmodel.WrapErr("validate list service option", err)
 	}
 
-	dbOptions, err := b.storage.SearchServiceOption(ctx, db.SearchServiceOptionParams{
+	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
 		Category: params.Category,
 		IsActive: params.IsActive,
 	})
 	if err != nil {
-		return nil, err
+		return nil, sharedmodel.WrapErr("db list service option", err)
 	}
 
-	var result []commonmodel.OptionConfig
+	var result []sharedmodel.OptionConfig
 	for _, dbOpt := range dbOptions {
-		opt := commonmodel.OptionConfig{
+		opt := sharedmodel.OptionConfig{
 			ID:          dbOpt.ID,
 			Name:        dbOpt.Name,
 			Description: dbOpt.Description,
 			Provider:    dbOpt.Provider,
-			Method:      commonmodel.OptionMethod(dbOpt.Method),
+			Method:      sharedmodel.OptionMethod(dbOpt.Method),
 		}
 		result = append(result, opt)
 	}

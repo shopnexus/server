@@ -2,181 +2,211 @@ package commonbiz
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	accountmodel "shopnexus-server/internal/module/account/model"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
 )
 
 type UpdateResourcesParams struct {
-	Storage         pgsqlc.Storage
-	Account         authmodel.AuthenticatedAccount
-	RefType         db.CommonResourceRefType `validate:"required,validateFn=Valid"`
-	RefID           int64                    `validate:"required,gt=0"`
-	ResourceIDs     []uuid.UUID              `validate:"omitempty,dive"` // nil with EmptyResources=true means to remove all resources , nil with EmptyResources=false means no-op
-	EmptyResources  bool                     `validate:"omitempty"`
-	DeleteResources bool                     `validate:"omitempty"`
+	Account         accountmodel.AuthenticatedAccount
+	RefType         commondb.CommonResourceRefType `validate:"required,validateFn=Valid"`
+	RefID           uuid.UUID                      `validate:"required,gt=0"`
+	ResourceIDs     []uuid.UUID                    `validate:"omitempty,dive"` // nil with EmptyResources=true means to remove all resources , nil with EmptyResources=false means no-op
+	EmptyResources  bool                           `validate:"omitempty"`
+	DeleteResources bool                           `validate:"omitempty"`
 }
 
-func (b *Commonbiz) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
+// UpdateResources replaces all resource references for a given entity and returns the updated list.
+func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
-		return nil, err
+		return nil, sharedmodel.WrapErr("validate update resources", err)
 	}
 
-	var resources []commonmodel.Resource
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		var err error
-
-		// Update resources (delete all and re-attach)
-		if len(params.ResourceIDs) > 0 || params.EmptyResources {
-			// First step: Delete all attached resources
-			if err := b.DeleteResources(ctx, DeleteResourcesParams{
-				Storage:             txStorage,
-				RefType:             params.RefType,
-				RefID:               []int64{params.RefID},
-				DeleteResources:     params.DeleteResources,
-				SkipDeleteResources: params.ResourceIDs,
-			}); err != nil {
-				return err
-			}
-
-			// Next step: Attach resources
-			var createResourceArgs []db.CreateCopyDefaultCommonResourceReferenceParams
-
-			resources, err := txStorage.ListCommonResource(ctx, db.ListCommonResourceParams{
-				ID:         lo.Map(params.ResourceIDs, func(id uuid.UUID, _ int) pgtype.UUID { return pgutil.UUIDToPgUUID(id) }),
-				UploadedBy: []pgtype.Int8{{Int64: params.Account.ID, Valid: true}}, // Can only attach own uploaded resources
-			})
-			if err != nil {
-				return err
-			}
-			if len(resources) != len(params.ResourceIDs) {
-				// Some resources not found or not belong to the user
-				return commonmodel.ErrResourceNotFound
-			}
-
-			for order, rsID := range params.ResourceIDs {
-				createResourceArgs = append(createResourceArgs, db.CreateCopyDefaultCommonResourceReferenceParams{
-					RsID:      pgutil.UUIDToPgUUID(rsID),
-					RefType:   params.RefType,
-					RefID:     params.RefID,
-					Order:     int32(order),
-					IsPrimary: false,
-				})
-			}
-
-			if _, err = txStorage.CreateCopyDefaultCommonResourceReference(ctx, createResourceArgs); err != nil {
-				return err
-			}
+	// Update resources (delete all and re-attach)
+	if len(params.ResourceIDs) > 0 || params.EmptyResources {
+		// First step: Delete all attached resources
+		if err := b.DeleteResources(ctx, DeleteResourcesParams{
+			RefType:             params.RefType,
+			RefID:               []uuid.UUID{params.RefID},
+			DeleteResources:     params.DeleteResources,
+			SkipDeleteResources: params.ResourceIDs,
+		}); err != nil {
+			return nil, sharedmodel.WrapErr("update resources", err)
 		}
 
-		resourcesMap, err := b.GetResources(ctx, params.RefType, []int64{params.RefID})
+		// Next step: Attach resources
+		var createResourceArgs []commondb.CreateCopyDefaultResourceReferenceParams
+
+		resources, err := b.storage.Querier().ListResource(ctx, commondb.ListResourceParams{
+			ID: params.ResourceIDs,
+		})
 		if err != nil {
-			return err
+			return nil, sharedmodel.WrapErr("db update resources", err)
 		}
-		resources = resourcesMap[params.RefID]
+		if len(resources) != len(params.ResourceIDs) {
+			// Some resources not found or not belong to the user
+			return nil, commonmodel.ErrResourceNotFound.Terminal()
+		}
 
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to update resources: %w", err)
+		for order, rsID := range params.ResourceIDs {
+			createResourceArgs = append(createResourceArgs, commondb.CreateCopyDefaultResourceReferenceParams{
+				RsID:    rsID,
+				RefType: params.RefType,
+				RefID:   params.RefID,
+				Order:   int32(order),
+			})
+		}
+
+		if _, err = b.storage.Querier().CreateCopyDefaultResourceReference(ctx, createResourceArgs); err != nil {
+			return nil, sharedmodel.WrapErr("db update resources", err)
+		}
 	}
 
-	return resources, nil
+	resourcesMap, err := b.GetResources(ctx, GetResourcesParams{
+		RefType: params.RefType,
+		RefIDs:  []uuid.UUID{params.RefID},
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("update resources", err)
+	}
+
+	return resourcesMap[params.RefID], nil
 }
 
 type DeleteResourcesParams struct {
-	Storage             pgsqlc.Storage
-	RefType             db.CommonResourceRefType `validate:"required,validateFn=Valid"`
-	RefID               []int64                  `validate:"required,gt=0"`
-	DeleteResources     bool                     `validate:"omitempty"`
-	SkipDeleteResources []uuid.UUID              `validate:"omitempty,dive"` // Skip delete resource entities with these IDs (but still remove the references)
+	RefType             commondb.CommonResourceRefType `validate:"required,validateFn=Valid"`
+	RefID               []uuid.UUID                    `validate:"required,dive"`
+	DeleteResources     bool                           `validate:"omitempty"`
+	SkipDeleteResources []uuid.UUID                    `validate:"omitempty,dive"` // Skip delete resource entities with these IDs (but still remove the references)
 }
 
-func (b *Commonbiz) DeleteResources(ctx context.Context, params DeleteResourcesParams) error {
+// DeleteResources removes resource references and optionally deletes the underlying resource records.
+func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResourcesParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return sharedmodel.WrapErr("validate delete resources", err)
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		deletedResources, err := txStorage.ListCommonResourceReference(ctx, db.ListCommonResourceReferenceParams{
-			RefType: []db.CommonResourceRefType{params.RefType},
-			RefID:   params.RefID,
-		})
-		if err != nil {
-			return err
+	deletedResources, err := b.storage.Querier().ListResourceReference(ctx, commondb.ListResourceReferenceParams{
+		RefType: []commondb.CommonResourceRefType{params.RefType},
+		RefID:   params.RefID,
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("db delete resources", err)
+	}
+
+	var deletedIDs []uuid.UUID
+	for _, dr := range deletedResources {
+		// Skip deleting resource entity if in skip list
+		if !slices.Contains(params.SkipDeleteResources, dr.RsID) {
+			deletedIDs = append(deletedIDs, dr.RsID)
 		}
+	}
 
-		deletedIDs := lo.Map(
-			lo.Filter(deletedResources, func(dr db.CommonResourceReference, _ int) bool {
-				return !slices.Contains(params.SkipDeleteResources, dr.RsID.Bytes) // Skip resources that should not be deleted
-			}),
-			func(dr db.CommonResourceReference, _ int) pgtype.UUID { return dr.RsID },
-		)
-
-		if err := txStorage.DeleteCommonResourceReference(ctx, db.DeleteCommonResourceReferenceParams{
-			RefType: []db.CommonResourceRefType{params.RefType}, // just for clarity
+	if len(deletedIDs) > 0 {
+		if err := b.storage.Querier().DeleteResourceReference(ctx, commondb.DeleteResourceReferenceParams{
+			RefType: []commondb.CommonResourceRefType{params.RefType},
+			RefID:   params.RefID,
 			RsID:    deletedIDs,
 		}); err != nil {
-			return err
+			return sharedmodel.WrapErr("db delete resources", err)
 		}
+	}
 
-		if err := txStorage.DeleteCommonResource(ctx, db.DeleteCommonResourceParams{
+	if params.DeleteResources && len(deletedIDs) > 0 {
+		if err := b.storage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
 			ID: deletedIDs,
 		}); err != nil {
-			return err
+			return sharedmodel.WrapErr("db delete resources", err)
 		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to delete resources: %w", err)
 	}
 
 	return nil
 }
 
-func (b *Commonbiz) GetResources(ctx context.Context, refType db.CommonResourceRefType, refIDs []int64) (map[int64][]commonmodel.Resource, error) {
+type GetResourcesParams struct {
+	RefType commondb.CommonResourceRefType
+	RefIDs  []uuid.UUID
+}
+
+// GetResources returns resources grouped by reference ID for the given ref type and IDs.
+func (b *CommonHandler) GetResources(ctx restate.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error) {
 	var err error
 
-	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: refType,
-		RefID:   refIDs,
+	resources, err := b.storage.Querier().ListSortedResources(ctx, commondb.ListSortedResourcesParams{
+		RefType: params.RefType,
+		RefID:   params.RefIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, sharedmodel.WrapErr("db list resources", err)
 	}
 
-	return lo.GroupByMap(resources, func(rs db.ListSortedResourcesRow) (int64, commonmodel.Resource) {
+	return lo.GroupByMap(resources, func(rs commondb.ListSortedResourcesRow) (uuid.UUID, commonmodel.Resource) {
 		return rs.RefID, commonmodel.Resource{
-			ID:       rs.ID.Bytes,
-			Url:      b.MustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
+			ID:       rs.ID,
+			Url:      b.mustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
 			Mime:     rs.Mime,
 			Size:     rs.Size,
-			Checksum: pgutil.PgTextToNullString(rs.Checksum),
+			Checksum: rs.Checksum,
 		}
 	}), nil
 }
 
-func (b *Commonbiz) GetResourceURLByID(ctx context.Context, resourceID uuid.UUID) null.String {
-	if resourceID == uuid.Nil {
-		return null.String{}
+// GetResourcesByIDs returns a map of resources keyed by their IDs, falling back to placeholder URLs on error.
+func (b *CommonHandler) GetResourcesByIDs(ctx restate.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error) {
+	result := make(map[uuid.UUID]commonmodel.Resource)
+	for _, rsID := range resourceIDs {
+		result[rsID] = commonmodel.Resource{
+			Url: b.getPlaceholderURL(),
+		}
 	}
 
-	rs, err := b.storage.GetCommonResource(ctx, db.GetCommonResourceParams{
-		ID: pgutil.UUIDToPgUUID(resourceID),
+	resources, err := b.storage.Querier().ListResource(ctx, commondb.ListResourceParams{
+		ID: resourceIDs,
 	})
 	if err != nil {
-		return null.String{}
+		return result, nil
 	}
 
-	return null.StringFrom(b.MustGetFileURL(ctx, rs.Provider, rs.ObjectKey))
+	for _, rs := range resources {
+		result[rs.ID] = commonmodel.Resource{
+			ID:       rs.ID,
+			Url:      b.mustGetFileURL(context.Background(), rs.Provider, rs.ObjectKey),
+			Mime:     rs.Mime,
+			Size:     rs.Size,
+			Checksum: rs.Checksum,
+		}
+	}
+
+	return result, nil
+}
+
+func (b *CommonHandler) GetResourceByID(ctx restate.Context, resourceID uuid.UUID) (*commonmodel.Resource, error) {
+	resource, err := b.storage.Querier().GetResource(ctx, commondb.GetResourceParams{
+		ID: uuid.NullUUID{UUID: resourceID, Valid: true},
+	})
+	if err != nil {
+		return nil, nil
+	}
+
+	url, err := b.mustGetObjectStore(resource.Provider).GetURL(ctx, resource.ObjectKey)
+	if err != nil {
+		return nil, nil
+	}
+
+	return &commonmodel.Resource{
+		ID:       resource.ID,
+		Url:      url,
+		Mime:     resource.Mime,
+		Size:     resource.Size,
+		Checksum: resource.Checksum,
+	}, nil
 }

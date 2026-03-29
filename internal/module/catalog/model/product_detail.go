@@ -1,24 +1,28 @@
 package catalogmodel
 
 import (
-	"shopnexus-remastered/internal/db"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/google/uuid"
 )
 
 type ProductDetail struct {
-	ID             int64                  `json:"id"`
-	Code           string                 `json:"code"`
-	VendorID       int64                  `json:"vendor_id"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	Brand          db.CatalogBrand        `json:"brand"`
-	IsActive       bool                   `json:"is_active"`
-	Category       db.CatalogCategory     `json:"category"`
-	Rating         ProductRating          `json:"rating"`
-	Resources      []commonmodel.Resource `json:"resources"`
-	Promotions     []ProductCardPromo     `json:"promotions"`
-	Skus           []ProductDetailSku     `json:"skus"`
-	Specifications []ProductSpecification `json:"specifications"`
+	ID             uuid.UUID                 `json:"id"`
+	Slug           string                    `json:"slug"`
+	VendorID       uuid.UUID                 `json:"vendor_id"`
+	Name           string                    `json:"name"`
+	Description    string                    `json:"description"`
+	IsActive       bool                      `json:"is_active"`
+	Category       catalogdb.CatalogCategory `json:"category"`
+	Rating         ProductRating             `json:"rating"`
+	IsFavorite     bool                      `json:"is_favorite"`
+	Resources      []commonmodel.Resource    `json:"resources"`
+	Promotions     []ProductCardPromo        `json:"promotions"`
+	Skus           []ProductDetailSku        `json:"skus"`
+	Specifications []ProductSpecification    `json:"specifications"`
+	Tags           []string                  `json:"tags"`
 }
 
 type ProductRating struct {
@@ -28,9 +32,10 @@ type ProductRating struct {
 }
 
 type ProductDetailSku struct {
-	ID            int64              `json:"id"`
-	Price         int64              `json:"price"`
-	OriginalPrice int64              `json:"original_price"`
-	Attributes    []ProductAttribute `json:"attributes"`
-	Sold          int64              `json:"sold"`
+	ID            uuid.UUID               `json:"id"`
+	Price         sharedmodel.Concurrency `json:"price"`
+	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
+	Attributes    []ProductAttribute      `json:"attributes"`
+	Taken         int64                   `json:"taken"`
+	Stock         int64                   `json:"stock"`
 }

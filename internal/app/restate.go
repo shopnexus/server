@@ -1,0 +1,96 @@
+package app
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"os"
+	"time"
+
+	"shopnexus-server/config"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	chatbiz "shopnexus-server/internal/module/chat/biz"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/server"
+)
+
+func SetupRestate(
+	cfg *config.Config,
+	orderBiz *orderbiz.OrderHandler,
+	accountBiz *accountbiz.AccountHandler,
+	catalogBiz *catalogbiz.CatalogHandler,
+	commonBiz *commonbiz.CommonHandler,
+	inventoryBiz *inventorybiz.InventoryHandler,
+	promotionBiz *promotionbiz.PromotionHandler,
+	analyticBiz *analyticbiz.AnalyticHandler,
+	chatBiz *chatbiz.ChatHandler,
+) {
+	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
+
+	srv := server.NewRestate().
+		Bind(restate.Reflect(accountBiz)).
+		Bind(restate.Reflect(analyticBiz)).
+		Bind(restate.Reflect(catalogBiz)).
+		Bind(restate.Reflect(chatBiz)).
+		Bind(restate.Reflect(commonBiz)).
+		Bind(restate.Reflect(inventoryBiz)).
+		Bind(restate.Reflect(orderBiz)).
+		Bind(restate.Reflect(promotionBiz))
+
+	go func() {
+		slog.Info("Starting Restate service endpoint", "address", bindAddress)
+		if err := srv.Start(context.Background(), bindAddress); err != nil {
+			slog.Error("Restate server error", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}()
+
+	// Auto-register with Restate runtime
+	go func() {
+		registerWithRestate(cfg.Restate.AdminAddress, fmt.Sprintf("%s:%s", cfg.Restate.ServiceHost, cfg.Restate.ServicePort))
+	}()
+}
+
+// registerWithRestate registers the service endpoint with the Restate admin API.
+// Retries up to 10 times with 2s delay to handle startup ordering.
+func registerWithRestate(adminAddress, serviceURL string) {
+	type deploymentRequest struct {
+		URI   string `json:"uri"`
+		Force bool   `json:"force"`
+	}
+
+	body, _ := json.Marshal(deploymentRequest{URI: serviceURL, Force: true})
+
+	for i := range 10 {
+		time.Sleep(2 * time.Second)
+
+		resp, err := http.Post(adminAddress+"/deployments", "application/json", bytes.NewReader(body))
+		if err != nil {
+			slog.Warn("Restate registration attempt failed", "attempt", i+1, "error", err)
+			continue
+		}
+
+		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			slog.Info("Registered services with Restate", "admin", adminAddress, "endpoint", serviceURL)
+			return
+		}
+
+		slog.Warn("Restate registration returned non-OK", "attempt", i+1, "status", resp.StatusCode, "body", string(respBody))
+	}
+
+	slog.Error("Failed to register with Restate after retries", "admin", adminAddress)
+}

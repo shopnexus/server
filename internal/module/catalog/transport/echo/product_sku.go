@@ -1,19 +1,22 @@
 package catalogecho
 
 import (
+	"encoding/json"
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type ListProductSkuRequest struct {
-	SpuID      int64      `query:"spu_id" validate:"omitempty,gt=0"`
+	SpuID      uuid.UUID  `query:"spu_id" validate:"omitempty"`
 	PriceFrom  null.Int64 `query:"price_from" validate:"omitnil,gt=0"`
 	PriceTo    null.Int64 `query:"price_to" validate:"omitnil,gt=0,gtefield=PriceFrom"`
 	CanCombine null.Bool  `query:"can_combine" validate:"omitnil"`
@@ -29,7 +32,7 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListProductSku(c.Request().Context(), catalogbiz.ListProductSkuParams{
-		SpuID:      req.SpuID,
+		SpuID:      []uuid.UUID{req.SpuID},
 		PriceFrom:  req.PriceFrom,
 		PriceTo:    req.PriceTo,
 		CanCombine: req.CanCombine,
@@ -37,15 +40,15 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type CreateProductSkuRequest struct {
-	SpuID      int64                           `json:"spu_id" validate:"required,gt=0"`
-	Price      int64                           `json:"price" validate:"required,gt=0"`
-	CanCombine bool                            `json:"can_combine" validate:"omitempty"`
-	Attributes []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	SpuID          uuid.UUID                       `json:"spu_id" validate:"required"`
+	Price          sharedmodel.Concurrency         `json:"price" validate:"required,gt=0"`
+	CanCombine     bool                            `json:"can_combine" validate:"omitempty"`
+	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	PackageDetails json.RawMessage                 `json:"package_details" validate:"required"`
 }
 
 func (h *Handler) CreateProductSku(c echo.Context) error {
@@ -63,24 +66,25 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateProductSku(c.Request().Context(), catalogbiz.CreateProductSkuParams{
-		Account:    claims.Account,
-		SpuID:      req.SpuID,
-		Price:      req.Price,
-		CanCombine: req.CanCombine,
-		Attributes: req.Attributes,
+		Account:        claims.Account,
+		SpuID:          req.SpuID,
+		Price:          req.Price,
+		CanCombine:     req.CanCombine,
+		Attributes:     req.Attributes,
+		PackageDetails: req.PackageDetails,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type UpdateProductSkuRequest struct {
-	ID         int64                           `json:"id" validate:"required,gt=0"`
-	Price      null.Int64                      `json:"price" validate:"omitnil,gt=0"`
-	CanCombine null.Bool                       `json:"can_combine" validate:"omitnil"`
-	Attributes []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	ID             uuid.UUID                       `json:"id" validate:"required"`
+	Price          sharedmodel.NullConcurrency     `json:"price" validate:"omitnil,gt=0"`
+	CanCombine     null.Bool                       `json:"can_combine" validate:"omitnil"`
+	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	PackageDetails json.RawMessage                 `json:"package_details" validate:"omitempty"`
 }
 
 func (h *Handler) UpdateProductSku(c echo.Context) error {
@@ -98,21 +102,21 @@ func (h *Handler) UpdateProductSku(c echo.Context) error {
 	}
 
 	result, err := h.biz.UpdateProductSku(c.Request().Context(), catalogbiz.UpdateProductSkuParams{
-		Account:    claims.Account,
-		ID:         req.ID,
-		Price:      req.Price,
-		CanCombine: req.CanCombine,
-		Attributes: req.Attributes,
+		Account:        claims.Account,
+		ID:             req.ID,
+		Price:          req.Price,
+		CanCombine:     req.CanCombine,
+		Attributes:     req.Attributes,
+		PackageDetails: req.PackageDetails,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type DeleteProductSkuRequest struct {
-	ID int64 `json:"id" validate:"required,gt=0"`
+	ID uuid.UUID `json:"id" validate:"required"`
 }
 
 func (h *Handler) DeleteProductSku(c echo.Context) error {

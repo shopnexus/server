@@ -3,11 +3,11 @@ package catalogecho
 import (
 	"net/http"
 
-	"shopnexus-remastered/internal/db"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -15,13 +15,13 @@ import (
 )
 
 type ListCommentRequest struct {
-	commonmodel.PaginationParams
-	RefType   db.CatalogCommentRefType `query:"ref_type" validate:"required"`
-	RefID     int64                    `query:"ref_id" validate:"required"`
-	ID        []int64                  `query:"id" validate:"omitempty"`
-	AccountID []int64                  `query:"account_id" validate:"omitempty"`
-	ScoreFrom null.Int32               `query:"score_from" validate:"omitnil"`
-	ScoreTo   null.Int32               `query:"score_to" validate:"omitnil"`
+	sharedmodel.PaginationParams
+	RefType   catalogdb.CatalogCommentRefType `query:"ref_type" validate:"required"`
+	RefID     uuid.UUID                       `query:"ref_id" validate:"required"`
+	ID        []uuid.UUID                     `query:"id" validate:"omitempty"`
+	AccountID []uuid.UUID                     `query:"account_id" validate:"omitempty"`
+	ScoreFrom null.Float                      `query:"score_from" validate:"omitnil"`
+	ScoreTo   null.Float                      `query:"score_to" validate:"omitnil"`
 }
 
 func (h *Handler) ListComment(c echo.Context) error {
@@ -33,29 +33,33 @@ func (h *Handler) ListComment(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
 	result, err := h.biz.ListComment(c.Request().Context(), catalogbiz.ListCommentParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
+		Account:          claims.Account,
 		RefType:          req.RefType,
 		ID:               req.ID,
 		AccountID:        req.AccountID,
-		RefID:            []int64{req.RefID},
+		RefID:            []uuid.UUID{req.RefID},
 		ScoreFrom:        req.ScoreFrom,
 		ScoreTo:          req.ScoreTo,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
 type CreateCommentRequest struct {
-	RefType db.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID   int64                    `json:"ref_id" validate:"required"`
-	Body    string                   `json:"body" validate:"required"`
-	Score   int32                    `json:"score" validate:"required"`
-
-	ResourceIDs []uuid.UUID `json:"resource_ids" validate:"required"`
+	RefType     catalogdb.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	RefID       uuid.UUID                       `json:"ref_id" validate:"required"`
+	Body        string                          `json:"body" validate:"required"`
+	Score       float64                         `json:"score" validate:"required"`
+	ResourceIDs []uuid.UUID                     `json:"resource_ids" validate:"required"`
 }
 
 func (h *Handler) CreateComment(c echo.Context) error {
@@ -84,14 +88,13 @@ func (h *Handler) CreateComment(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type UpdateCommentRequest struct {
-	ID             int64       `json:"id" validate:"required"`
+	ID             uuid.UUID   `json:"id" validate:"required"`
 	Body           null.String `json:"body" validate:"required"`
-	Score          null.Int32  `json:"score" validate:"required"`
+	Score          null.Float  `json:"score" validate:"required"`
 	ResourceIDs    []uuid.UUID `json:"resource_ids" validate:"required"`
 	EmptyResources bool        `json:"empty_resources" validate:"omitempty"`
 }
@@ -120,12 +123,11 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, comment)
 }
 
 type DeleteCommentRequest struct {
-	IDs []int64 `json:"ids" validate:"required"`
+	IDs []uuid.UUID `json:"ids" validate:"required"`
 }
 
 func (h *Handler) DeleteComment(c echo.Context) error {

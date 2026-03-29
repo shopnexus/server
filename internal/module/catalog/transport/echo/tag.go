@@ -3,16 +3,18 @@ package catalogecho
 import (
 	"net/http"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 
+	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type ListTagRequest struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
+	Search null.String `query:"search" validate:"omitnil,max=100"`
 }
 
 func (h *Handler) ListTag(c echo.Context) error {
@@ -25,12 +27,12 @@ func (h *Handler) ListTag(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListTag(c.Request().Context(), catalogbiz.ListTagParams{
-		PaginationParams: req.PaginationParams,
+		PaginationParams: req.PaginationParams.Constrain(),
+		Search:           req.Search,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
@@ -59,6 +61,5 @@ func (h *Handler) GetTag(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

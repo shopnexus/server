@@ -3,25 +3,25 @@ package catalogecho
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/response"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/response"
 )
 
 type ListProductCardRequest struct {
-	commonmodel.PaginationParams
-	VendorID null.Int64  `query:"vendor_id" validate:"omitnil,min=1"`
-	Search   null.String `query:"search" validate:"omitnil"`
+	sharedmodel.PaginationParams
+	VendorID uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
+	Search   null.String   `query:"search" validate:"omitnil"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {
 	var req ListProductCardRequest
 
-	// TODO: improve binder error message (currently it not show which field has error)
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -29,16 +29,42 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	result, err := h.biz.ListProductCard(c.Request().Context(), catalogbiz.ListProductCardParams{
-		PaginationParams: req.PaginationParams,
+	params := catalogbiz.ListProductCardParams{
+		PaginationParams: req.PaginationParams.Constrain(),
 		VendorID:         req.VendorID,
 		Search:           req.Search,
-	})
+	}
+
+	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
+		params.AccountID = &claims.Account.ID
+	}
+
+	result, err := h.biz.ListProductCard(c.Request().Context(), params)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromPaginate(c.Response().Writer, result)
+}
+
+func (h *Handler) GetProductCard(c echo.Context) error {
+	spuID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	params := catalogbiz.GetProductCardParams{
+		SpuID: spuID,
+	}
+
+	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
+		params.AccountID = &claims.Account.ID
+	}
+
+	result, err := h.biz.GetProductCard(c.Request().Context(), params)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type ListRecommendedProductCardParams struct {
@@ -54,10 +80,7 @@ func (h *Handler) ListRecommendedProductCard(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
+	claims, _ := authclaims.GetClaims(c.Request())
 
 	result, err := h.biz.ListRecommendedProductCard(c.Request().Context(), catalogbiz.ListRecommendedProductCardParams{
 		Account: claims.Account,
@@ -66,6 +89,5 @@ func (h *Handler) ListRecommendedProductCard(c echo.Context) error {
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
-
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

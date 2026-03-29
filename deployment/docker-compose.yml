@@ -5,26 +5,58 @@ networks:
 
 volumes:
   postgres-data:
+    name: shopnexus-postgres-data-dev
   redis-data:
-  kafka-data:
-  es-data:
-  minio-data:
-  milvus-data:
-  etcd-data:
+    name: shopnexus-redis-data-dev
+  nats-data:
+    name: shopnexus-nats-data-dev
   server-data:
+    name: shopnexus-server-data-dev
+  restate-data:
+    name: shopnexus-restate-data-dev
+  etcd-data:
+    name: shopnexus-etcd-data-dev
+  milvus-data:
+    name: shopnexus-milvus-data-dev
+  milvus-minio-data:
+    name: shopnexus-milvus-minio-data-dev
+
+x-restate-environment: &restate-common-env
+  RESTATE_CLUSTER_NAME: "restate-cluster"
+  RESTATE_LOG_FILTER: "restate=info"
+  RESTATE_DEFAULT_REPLICATION: 2
+  RESTATE_METADATA_CLIENT__ADDRESSES: '["http://restate-1:5122","http://restate-2:5122","http://restate-3:5122"]'
+  RESTATE_WORKER__SNAPSHOTS__DESTINATION: "s3://restate/snapshots"
+  RESTATE_WORKER__SNAPSHOTS__SNAPSHOT_INTERVAL_NUM_RECORDS: "1000"
+  RESTATE_WORKER__SNAPSHOTS__AWS_REGION: "local"
+  RESTATE_WORKER__SNAPSHOTS__AWS_ENDPOINT_URL: "http://minio:9000"
+  RESTATE_WORKER__SNAPSHOTS__AWS_ALLOW_HTTP: true
+  RESTATE_WORKER__SNAPSHOTS__AWS_ACCESS_KEY_ID: "minioadmin"
+  RESTATE_WORKER__SNAPSHOTS__AWS_SECRET_ACCESS_KEY: "minioadmin"
+
+x-restate-defaults: &restate-defaults
+  image: docker.restate.dev/restatedev/restate:latest
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - restate-data:/restate-data
+  restart: unless-stopped
+  depends_on:
+    minio:
+      condition: service_started
 
 services:
   postgres:
     container_name: shopnexus-postgres-dev
-    image: postgres:17-alpine
+    image: postgres:18
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: shopnexus
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-peakshopnexuspassword}
       POSTGRES_DB: shopnexus
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shopnexus -d shopnexus"]
       interval: 10s
@@ -35,9 +67,9 @@ services:
 
   redis:
     container_name: shopnexus-redis-dev
-    image: redis:8-alpine
+    image: redis:8
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -49,53 +81,144 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  kafka:
-    container_name: shopnexus-kafka-dev
-    image: confluentinc/cp-kafka:latest
+  # nats:
+  #   container_name: shopnexus-nats-dev
+  #   image: nats:latest
+  #   ports:
+  #     - "127.0.0.1:4222:4222"
+  #     - "127.0.0.1:8222:8222"
+  #   command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
+  #   volumes:
+  #     - nats-data:/data
+  #   healthcheck:
+  #     test:
+  #       ["CMD", "wget", "--spider", "--quiet", "http://localhost:8222/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 5s
+  #   restart: unless-stopped
+
+  restate-1:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-1-dev
     ports:
-      - "9092:9092"
-    volumes:
-      - kafka-data:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - "127.0.0.1:8080:8080" # Ingress
+      - "127.0.0.1:9470:9070" # Admin
+      - "127.0.0.1:5122:5122" # Node-to-node communication
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-1
+      RESTATE_FORCE_NODE_ID: 1
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-1:5122"
+      RESTATE_AUTO_PROVISION: "true"
+
+  restate-2:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-2-dev
+    ports:
+      - "127.0.0.1:28080:8080"
+      - "127.0.0.1:29070:9070"
+      - "127.0.0.1:25122:5122"
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-2
+      RESTATE_FORCE_NODE_ID: 2
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-2:5122"
+      RESTATE_AUTO_PROVISION: "false"
+
+  restate-3:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-3-dev
+    ports:
+      - "127.0.0.1:38080:8080"
+      - "127.0.0.1:39070:9070"
+      - "127.0.0.1:35122:5122"
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-3
+      RESTATE_FORCE_NODE_ID: 3
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-3:5122"
+      RESTATE_AUTO_PROVISION: "false"
+
+  minio:
+    container_name: shopnexus-minio-dev
+    image: quay.io/minio/minio
+    entrypoint: "/bin/sh"
+    command: "-c 'mkdir -p /data/restate && /usr/bin/minio server --quiet /data'"
+    ports:
+      - "127.0.0.1:9400:9000"
     restart: unless-stopped
+
+  etcd:
+    container_name: shopnexus-etcd-dev
+    image: quay.io/coreos/etcd:v3.5.25
     environment:
-      # Required in KRaft mode
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
-      # Listener configuration
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # Kafka will automatically create topics if needed.
-      KAFKA_NUM_PARTITIONS: 3 # Default number of partitions for new topics.
-      KAFKA_LOG_RETENTION_HOURS: 168 # Keep logs for 7 days.
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0 # No delay for consumer rebalancing.
-      CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk" # A unique ID for the Kafka cluster.
+  milvus-minio:
+    container_name: shopnexus-milvus-minio-dev
+    image: minio/minio:latest
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - milvus-minio-data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
-  kafka-ui:
-    container_name: shopnexus-kafka-ui-dev
-    image: ghcr.io/kafbat/kafka-ui:latest
+  milvus:
+    container_name: shopnexus-milvus-dev
+    image: milvusdb/milvus:v2.6.11
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: milvus-minio:9000
+      common.security.authorizationEnabled: "false"
+      MQ_TYPE: woodpecker
+    volumes:
+      - milvus-data:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
     ports:
-      - "8081:8080"
+      - "127.0.0.1:19530:19530"
+      - "127.0.0.1:9491:9091"
     depends_on:
-      - kafka
+      etcd:
+        condition: service_healthy
+      milvus-minio:
+        condition: service_healthy
+
+  attu:
+    container_name: shopnexus-milvus-attu
+    image: zilliz/attu:latest
+    ports:
+      - "127.0.0.1:5004:3000"
     environment:
-      - KAFKA_CLUSTERS_0_NAME=local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      - MILVUS_URL=http://milvus:19530
+    depends_on:
+      - "milvus"
     restart: unless-stopped
 
   # server:
@@ -106,7 +229,7 @@ services:
   #   ports:
   #     - "50051:50051"
   #   depends_on:
-  #     kafka:
+  #     nats:
   #       condition: service_healthy
   #     postgres:
   #       condition: service_healthy

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -100,10 +101,14 @@ func loadConfigFile(v *viper.Viper) error {
 		return mergeConfigFile(v, configFile)
 	}
 
+	fmt.Println("Attempting to load configuration file from default locations...")
+
 	// 3. Try default locations in order of preference
 	configPaths := []string{
-		"config/config.production.yml", // Production
-		"config/config.dev.yml",        // Development
+		"config/config.prod.yml", // Production
+		"config/config.dev.yml",  // Development
+		"config.prod.yml",        // Production
+		"config.dev.yml",         // Development
 	}
 
 	// Determine environment
@@ -117,12 +122,14 @@ func loadConfigFile(v *viper.Viper) error {
 		envSpecificPaths := []string{
 			fmt.Sprintf("config/config.%s.yml", env),
 			fmt.Sprintf("configs/config.%s.yml", env),
+			fmt.Sprintf("config.%s.yml", env),
 		}
 		configPaths = append(envSpecificPaths, configPaths...)
 	}
 
 	var lastErr error
 	for _, path := range configPaths {
+		slog.Info("Checking for config file", slog.String("path", path))
 		if fileExists(path) {
 			if err := mergeConfigFile(v, path); err == nil {
 				log.Printf("Loaded config from: %s", path)

@@ -1,0 +1,248 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/brianvoe/gofakeit/v7"
+	"github.com/google/uuid"
+	"github.com/gosimple/slug"
+	null "github.com/guregu/null/v6"
+
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
+)
+
+func processProduct(
+	ctx context.Context,
+	fake *gofakeit.Faker,
+	input InputProduct,
+	accountID uuid.UUID,
+	accounts []SeedAccount,
+	accountStore *accountdb.Queries,
+	catalogStore *catalogdb.Queries,
+	commonStore *commondb.Queries,
+	inventoryStore *inventorydb.Queries,
+	promotionStore *promotiondb.Queries,
+) error {
+	// Upsert category
+	categoryID, err := upsertCategory(ctx, catalogStore, input.Breadcrumb)
+	if err != nil {
+		return fmt.Errorf("upsert category: %w", err)
+	}
+
+	// Generate slug
+	productSlug := slug.Make(input.Title)
+	if productSlug == "" {
+		productSlug = "product"
+	}
+	productSlug = fmt.Sprintf("%s.%s", productSlug, uuid.New().String()[:8])
+
+	// Prepend brand as a specification
+	specs := input.ProductSpecifications
+	if input.Brand != "" {
+		specs = append([]Spec{{Name: "Brand", Value: input.Brand}}, specs...)
+	}
+
+	specsJSON, err := json.Marshal(specs)
+	if err != nil {
+		specsJSON = []byte("[]")
+	}
+
+	// Create ProductSpu
+	spuID := uuid.New()
+	spu, err := catalogStore.CreateProductSpu(ctx, catalogdb.CreateProductSpuParams{
+		ID:             spuID,
+		Slug:           productSlug,
+		AccountID:      accountID,
+		CategoryID:     categoryID,
+		FeaturedSkuID:  uuid.NullUUID{Valid: false},
+		Name:           input.Title,
+		Description:    input.ProductDescription,
+		IsActive:       strings.ToLower(input.IsAvailable) != "false",
+		Specifications: specsJSON,
+		DateCreated:    time.Now(),
+		DateUpdated:    time.Now(),
+		DateDeleted:    null.Time{},
+	})
+	if err != nil {
+		return fmt.Errorf("create product spu: %w", err)
+	}
+
+	// Generate SKU combinations
+	variationCombos := generateVariationCombinations(input.Variations)
+	if len(variationCombos) == 0 {
+		variationCombos = [][]map[string]string{{}}
+	}
+
+	basePrice := int64(input.FinalPrice)
+	if input.FinalPrice == 0 {
+		basePrice = int64(input.InitialPrice)
+	}
+
+	totalStock := pickCurrentStock(input)
+	sold := toBigInt(input.Sold)
+	stockPerSku := totalStock / int64(len(variationCombos))
+	if stockPerSku < 1 {
+		stockPerSku = 1
+	}
+	soldPerSku := sold / int64(len(variationCombos))
+
+	var featuredSkuID uuid.UUID
+	for i, combo := range variationCombos {
+		attributesJSON, err := json.Marshal(combo)
+		if err != nil {
+			attributesJSON = []byte("[]")
+		}
+
+		packageDetails := map[string]any{
+			"weight_grams": fake.IntRange(100, 2000),
+			"length_cm":    fake.IntRange(5, 50),
+			"width_cm":     fake.IntRange(5, 50),
+			"height_cm":    fake.IntRange(5, 50),
+		}
+		packageDetailsJSON, err := json.Marshal(packageDetails)
+		if err != nil {
+			packageDetailsJSON = []byte("{}")
+		}
+
+		price := basePrice + int64(fake.IntRange(-25, 50))
+		if price < 1 {
+			price = basePrice
+		}
+
+		skuID := uuid.New()
+		sku, err := catalogStore.CreateProductSku(ctx, catalogdb.CreateProductSkuParams{
+			ID:             skuID,
+			SpuID:          spu.ID,
+			Price:          price,
+			CanCombine:     false,
+			Attributes:     attributesJSON,
+			PackageDetails: packageDetailsJSON,
+			DateCreated:    time.Now(),
+			DateDeleted:    null.Time{},
+		})
+		if err != nil {
+			return fmt.Errorf("create product sku: %w", err)
+		}
+
+		if i == 0 {
+			featuredSkuID = sku.ID
+		}
+
+		stock, err := inventoryStore.CreateDefaultStock(ctx, inventorydb.CreateDefaultStockParams{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   sku.ID,
+			Stock:   stockPerSku,
+		})
+		if err != nil {
+			return fmt.Errorf("create stock for sku: %w", err)
+		}
+
+		if soldPerSku > 0 {
+			_, err = inventoryStore.UpdateStock(ctx, inventorydb.UpdateStockParams{
+				ID:    stock.ID,
+				Taken: null.IntFrom(soldPerSku),
+			})
+			if err != nil {
+				return fmt.Errorf("update stock taken for sku: %w", err)
+			}
+		}
+	}
+
+	// Update featured_sku_id
+	_, err = catalogStore.UpdateProductSpu(ctx, catalogdb.UpdateProductSpuParams{
+		ID:                spu.ID,
+		FeaturedSkuID:     uuid.NullUUID{UUID: featuredSkuID, Valid: true},
+		NullFeaturedSkuID: false,
+	})
+	if err != nil {
+		return fmt.Errorf("update featured sku: %w", err)
+	}
+
+	// Create resource references for images
+	images := input.Image
+	if len(images) > 10 {
+		images = images[:10]
+	}
+	for order, imageURL := range images {
+		if imageURL == "" {
+			continue
+		}
+
+		resourceID := uuid.New()
+		mimeType := "image/jpeg"
+		if strings.Contains(imageURL, ".png") {
+			mimeType = "image/png"
+		}
+
+		resource, err := commonStore.GetResource(ctx, commondb.GetResourceParams{
+			ID:        uuid.NullUUID{Valid: false},
+			Provider:  null.StringFrom("remote"),
+			ObjectKey: null.StringFrom(imageURL),
+		})
+		if err != nil {
+			resource, err = commonStore.CreateResource(ctx, commondb.CreateResourceParams{
+				ID:         resourceID,
+				UploadedBy: uuid.NullUUID{UUID: accountID, Valid: true},
+				Provider:   "remote",
+				ObjectKey:  imageURL,
+				Mime:       mimeType,
+				Size:       0,
+				Metadata:   []byte("null"),
+				Checksum:   null.String{},
+				CreatedAt:  time.Now(),
+			})
+			if err != nil {
+				return fmt.Errorf("create resource for %s: %w", imageURL, err)
+			}
+		}
+
+		_, err = commonStore.CreateDefaultResourceReference(ctx, commondb.CreateDefaultResourceReferenceParams{
+			RsID:    resource.ID,
+			RefType: commondb.CommonResourceRefTypeProductSpu,
+			RefID:   spu.ID,
+			Order:   int32(order),
+		})
+		if err != nil {
+			return fmt.Errorf("create resource reference: %w", err)
+		}
+	}
+
+	// Create search sync
+	_, err = catalogStore.CreateSearchSync(ctx, catalogdb.CreateSearchSyncParams{
+		RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
+		RefID:            spu.ID,
+		IsStaleEmbedding: true,
+		IsStaleMetadata:  true,
+		DateCreated:      time.Now(),
+		DateUpdated:      time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("create search sync: %w", err)
+	}
+
+	// Create tags
+	if err := createTags(ctx, catalogStore, spu.ID, input); err != nil {
+		log.Printf("Warning: failed to create tags: %v", err)
+	}
+
+	// Create promotions
+	if err := createPromotionsFromVouchers(ctx, input.Vouchers, spu.ID, accountID, promotionStore); err != nil {
+		log.Printf("Warning: failed to create promotions: %v", err)
+	}
+
+	// Create comments
+	if err := createComments(ctx, fake, catalogStore, accountStore, spu.ID, input, accounts); err != nil {
+		log.Printf("Warning: failed to create comments: %v", err)
+	}
+
+	return nil
+}

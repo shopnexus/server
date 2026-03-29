@@ -1,4 +1,4 @@
-// Sources for https://watermill.io/docs/getting-started/
+// Sources for https://watermill.io/docs/getting-started/ (adapted for NATS JetStream)
 package main
 
 import (
@@ -6,26 +6,26 @@ import (
 	"log"
 	"time"
 
-	"github.com/IBM/sarama"
-
 	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-kafka/v3/pkg/kafka"
+	wnats "github.com/ThreeDotsLabs/watermill-nats/v2/pkg/nats"
 	"github.com/ThreeDotsLabs/watermill/message"
+	nc "github.com/nats-io/nats.go"
 )
 
 func main() {
-	saramaSubscriberConfig := kafka.DefaultSaramaSubscriberConfig()
-	// equivalent of auto.offset.reset: earliest
-	saramaSubscriberConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+	logger := watermill.NewStdLogger(false, false)
 
-	subscriber, err := kafka.NewSubscriber(
-		kafka.SubscriberConfig{
-			Brokers:               []string{"localhost:9092"},
-			Unmarshaler:           kafka.DefaultMarshaler{},
-			OverwriteSaramaConfig: saramaSubscriberConfig,
-			ConsumerGroup:         "test_consumer_group",
+	subscriber, err := wnats.NewSubscriber(
+		wnats.SubscriberConfig{
+			URL:              nc.DefaultURL,
+			QueueGroupPrefix: "test_consumer_group",
+			Unmarshaler:      &wnats.GobMarshaler{},
+			JetStream: wnats.JetStreamConfig{
+				AutoProvision: true,
+				DurablePrefix: "test_consumer_group",
+			},
 		},
-		watermill.NewStdLogger(false, false),
+		logger,
 	)
 	if err != nil {
 		panic(err)
@@ -38,12 +38,15 @@ func main() {
 
 	go process(messages)
 
-	publisher, err := kafka.NewPublisher(
-		kafka.PublisherConfig{
-			Brokers:   []string{"localhost:9092"},
-			Marshaler: kafka.DefaultMarshaler{},
+	publisher, err := wnats.NewPublisher(
+		wnats.PublisherConfig{
+			URL:       nc.DefaultURL,
+			Marshaler: &wnats.GobMarshaler{},
+			JetStream: wnats.JetStreamConfig{
+				AutoProvision: true,
+			},
 		},
-		watermill.NewStdLogger(false, false),
+		logger,
 	)
 	if err != nil {
 		panic(err)

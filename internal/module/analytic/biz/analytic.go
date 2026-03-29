@@ -1,65 +1,63 @@
 package analyticbiz
 
 import (
-	"context"
+	"log/slog"
+	"time"
 
-	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/infras/pubsub"
+	restate "github.com/restatedev/sdk-go"
 
-	analyticmodel "shopnexus-remastered/internal/module/analytic/model"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
-type AnalyticBiz struct {
-	storage   pgsqlc.Storage
-	pubsub    pubsub.Client
-	promotion *promotionbiz.PromotionBiz
-}
-
-// NewAnalyticBiz creates a new instance of AnalyticBiz.
-func NewAnalyticBiz(
-	storage pgsqlc.Storage,
-	pubsub pubsub.Client,
-	promotionBiz *promotionbiz.PromotionBiz,
-) *AnalyticBiz {
-	return &AnalyticBiz{
-		storage:   storage,
-		pubsub:    pubsub,
-		promotion: promotionBiz,
-	}
+type CreateInteraction struct {
+	Account   accountmodel.AuthenticatedAccount
+	EventType string
+	RefType   analyticdb.AnalyticInteractionRefType
+	RefID     string
 }
 
 type CreateInteractionParams struct {
-	Account authmodel.AuthenticatedAccount
-
-	EventType string
-	RefType   db.AnalyticInteractionRefType
-	RefID     int64
+	Interactions []CreateInteraction
 }
 
-func (s *AnalyticBiz) CreateInteraction(ctx context.Context, params CreateInteractionParams) error {
-	interaction, err := s.storage.CreateDefaultAnalyticInteraction(ctx, db.CreateDefaultAnalyticInteractionParams{
-		AccountID: pgutil.Int64ToPgInt8(params.Account.ID),
-		EventType: params.EventType,
-		RefType:   params.RefType,
-		RefID:     params.RefID,
-		Metadata:  []byte("{}"),
+// CreateInteraction records a batch of user interactions and fans out popularity events.
+func (b *AnalyticHandler) CreateInteraction(ctx restate.Context, params CreateInteractionParams) error {
+	args := lo.Map(params.Interactions, func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
+		return analyticdb.CreateBatchInteractionParams{
+			AccountID:     uuid.NullUUID{UUID: interaction.Account.ID, Valid: true},
+			AccountNumber: interaction.Account.Number,
+			EventType:     interaction.EventType,
+			RefType:       interaction.RefType,
+			RefID:         interaction.RefID,
+			Metadata:      []byte("{}"),
+			DateCreated:   time.Now(),
+		}
 	})
-	if err != nil {
-		return err
-	}
-	// TODO: add outbox event
 
-	return s.pubsub.Publish(analyticmodel.TopicAnalyticInteraction, analyticmodel.Interaction{
-		ID:          interaction.ID,
-		AccountID:   pgutil.PgInt8ToNullInt64(interaction.AccountID),
-		EventType:   params.EventType,
-		RefType:     params.RefType,
-		RefID:       params.RefID,
-		DateCreated: interaction.DateCreated.Time,
-		Metadata:    interaction.Metadata,
+	b.storage.Querier().CreateBatchInteraction(ctx, args).QueryRow(func(_ int, ai analyticdb.AnalyticInteraction, err error) {
+		if err == nil {
+			// Fan out to HandlePopularityEvent and CatalogBiz.AddInteraction via Restate
+			event := analyticmodel.Interaction{
+				ID:            ai.ID,
+				AccountID:     ai.AccountID,
+				AccountNumber: ai.AccountNumber,
+				EventType:     ai.EventType,
+				RefType:       ai.RefType,
+				RefID:         ai.RefID,
+				Metadata:      ai.Metadata,
+				DateCreated:   ai.DateCreated,
+			}
+			restate.ServiceSend(ctx, "Analytic", "HandlePopularityEvent").Send(event)
+			restate.ServiceSend(ctx, "Catalog", "AddInteraction").Send(event)
+		} else {
+			slog.Error("create analytic interaction: %w", "error", err)
+		}
 	})
+
+	return nil
 }

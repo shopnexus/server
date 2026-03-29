@@ -5,16 +5,16 @@ import (
 	"log/slog"
 	"time"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/infras/pgxpool"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/pg"
+	"shopnexus-server/internal/shared/pgsqlc"
 
 	"go.uber.org/fx"
 )
 
-// NewDatabase creates a new database connection
-func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.Storage, error) {
-	pool, err := pgxpool.New(pgxpool.Options{
+// NewPgSqlc creates a new database connection
+func NewPgSqlc(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.TxBeginner, error) {
+	pool, err := pg.New(pg.Options{
 		Url:             cfg.Postgres.Url,
 		Host:            cfg.Postgres.Host,
 		Port:            cfg.Postgres.Port,
@@ -49,5 +49,5 @@ func NewDatabase(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.Storage, error) {
 		},
 	})
 
-	return pgsqlc.NewTxQueries(pool, cfg.Postgres.AllowNestedTransactions), nil
+	return pool, nil
 }

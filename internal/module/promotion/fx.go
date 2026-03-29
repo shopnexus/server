@@ -1,19 +1,34 @@
 package promotion
 
 import (
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	promotionecho "shopnexus-remastered/internal/module/promotion/transport/echo"
-
 	"go.uber.org/fx"
+
+	"shopnexus-server/config"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
+	promotionecho "shopnexus-server/internal/module/promotion/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // Module provides the promotion module dependencies
 var Module = fx.Module("promotion",
 	fx.Provide(
-		promotionbiz.NewPromotionBiz,
+		NewPromotionStorage,
+		promotionbiz.NewPromotionHandler,
+		NewPromotionBiz,
 		promotionecho.NewHandler,
 	),
 	fx.Invoke(
 		promotionecho.NewHandler,
 	),
 )
+
+// NewPromotionStorage creates a new promotion storage backed by PostgreSQL.
+func NewPromotionStorage(pool pgsqlc.TxBeginner) promotionbiz.PromotionStorage {
+	return pgsqlc.NewStorage(pool, promotiondb.New(pool))
+}
+
+// NewPromotionBiz creates a Restate-backed client for the promotion module.
+func NewPromotionBiz(cfg *config.Config) promotionbiz.PromotionBiz {
+	return promotionbiz.NewPromotionRestateClient(cfg.Restate.IngressAddress)
+}

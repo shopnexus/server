@@ -1,89 +1,125 @@
 package catalogbiz
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 
-	"shopnexus-remastered/internal/db"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/utils/slice"
+	restate "github.com/restatedev/sdk-go"
 
-	"github.com/bytedance/sonic"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
+	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	promotionbiz "shopnexus-server/internal/module/promotion/biz"
+	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
-func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmodel.ProductDetail, error) {
+type GetProductDetailParams struct {
+	Account *accountmodel.AuthenticatedAccount // optional, for view tracking
+	ID      uuid.NullUUID
+	Slug    null.String
+}
+
+// GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
+func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
-	spu, err := b.storage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
-		ID: pgutil.Int64ToPgInt8(id),
+	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
+		ID:   params.ID,
+		Slug: params.Slug,
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	var skuIDs []int64
 	var skusDetail []catalogmodel.ProductDetailSku
-	skus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		SpuID: []int64{spu.ID},
+	skus, err := b.ListProductSku(ctx, ListProductSkuParams{
+		SpuID: []uuid.UUID{spu.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
-
-	for _, sku := range skus {
-		skuIDs = append(skuIDs, sku.ID)
-	}
+	skuIDs := lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.ID })
 
 	// Get sold count from inventory
-	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
-		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
+	listStock, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
+		RefType: []inventorydb.InventoryStockRefType{inventorydb.InventoryStockRefTypeProductSku},
 		RefID:   skuIDs,
 	})
 	if err != nil {
 		return zero, err
 	}
-	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
+	stockMap := lo.KeyBy(listStock.Data, func(s inventorydb.InventoryStock) uuid.UUID { return s.RefID })
+
+	// Calculate promoted prices for SKUs
+	requestPrices := make([]catalogmodel.RequestOrderPrice, 0, len(skus))
+	for _, sku := range skus {
+		requestPrices = append(requestPrices, catalogmodel.RequestOrderPrice{
+			SkuID:     sku.ID,
+			SpuID:     sku.SpuID,
+			UnitPrice: sharedmodel.Concurrency(sku.Price),
+			Quantity:  1,
+			ShipCost:  0,
+		})
+	}
+
+	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: map[uuid.UUID]catalogmodel.ProductSpu{
+		spu.ID: spu,
+	}})
+	if err != nil {
+		return zero, err
+	}
 
 	for _, sku := range skus {
-		var attributes []catalogmodel.ProductAttribute
-		if err := sonic.Unmarshal(sku.Attributes, &attributes); err != nil {
-			return zero, err
+		priceValue := sharedmodel.Concurrency(sku.Price)
+		originalPrice := sharedmodel.Concurrency(sku.Price)
+		if priceInfo, ok := priceMap[sku.ID]; ok && priceInfo != nil {
+			originalPrice = priceInfo.Request.UnitPrice
+			if priceInfo.ProductCost != 0 {
+				priceValue = priceInfo.ProductCost
+			}
+		}
+
+		var taken int64
+		var stockCount int64
+		if stock, ok := stockMap[sku.ID]; ok {
+			taken = stock.Taken
+			stockCount = stock.Stock
 		}
 
 		skusDetail = append(skusDetail, catalogmodel.ProductDetailSku{
 			ID:            sku.ID,
-			Price:         sku.Price,
-			OriginalPrice: sku.Price,
-			Attributes:    attributes,
-			Sold:          stockMap[sku.ID].Sold,
+			Price:         priceValue,
+			OriginalPrice: originalPrice,
+			Attributes:    sku.Attributes,
+			Taken:         taken,
+			Stock:         stockCount,
 		})
 	}
 
 	// Get images
-	resources, err := b.storage.ListSortedResources(ctx, db.ListSortedResourcesParams{
-		RefType: db.CommonResourceRefTypeProductSpu,
-		RefID:   []int64{spu.ID},
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  []uuid.UUID{spu.ID},
 	})
 	if err != nil {
 		return zero, err
 	}
-	resourceMap := make(map[int64][]commonmodel.Resource) // map[spuID][]Resource
-	for _, res := range resources {
-		resourceMap[res.RefID] = append(resourceMap[res.RefID], commonmodel.Resource{
-			ID:   res.ID.Bytes,
-			Mime: res.Mime,
-			Url:  b.common.MustGetFileURL(ctx, res.Provider, res.ObjectKey),
-			Size: res.Size,
-		})
-	}
 
 	// get rating
-	rating, err := b.storage.DetailRating(ctx, db.DetailRatingParams{
-		RefType: db.CatalogCommentRefTypeProductSpu,
+	rating, err := b.storage.Querier().DetailRating(ctx, catalogdb.DetailRatingParams{
+		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
 		RefID:   spu.ID,
 	})
 	ratingBreakdown := make(map[int]int)
@@ -96,50 +132,63 @@ func (b *CatalogBiz) GetProductDetail(ctx context.Context, id int64) (catalogmod
 	ratingBreakdown[2] = int(rating.TwoCount)
 	ratingBreakdown[1] = int(rating.OneCount)
 
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, map[int64]db.CatalogProductSpu{
-		spu.ID: spu,
-	})
-	if err != nil {
-		return zero, err
-	}
-	promoSet := make(map[int64]struct{})
+	promoSet := make(map[string]struct{})
 	var promotions []catalogmodel.ProductCardPromo
 	for _, price := range priceMap {
-		for _, promo := range price.Promotions {
-			if _, exists := promoSet[promo.ID]; exists {
+		if price == nil {
+			continue
+		}
+		for _, code := range price.PromotionCodes {
+			if _, exists := promoSet[code]; exists {
 				continue
 			}
-			promoSet[promo.ID] = struct{}{}
+			promoSet[code] = struct{}{}
 			promotions = append(promotions, catalogmodel.ProductCardPromo{
-				ID:          promo.ID,
-				Title:       promo.Title,
-				Description: promo.Description.String,
+				Title: code,
 			})
 		}
 	}
 
-	var specifications []catalogmodel.ProductSpecification
-	if err := sonic.Unmarshal(spu.Specifications, &specifications); err != nil {
-		return zero, err
+	// Check favorite for authenticated user
+	var isFavorite bool
+	if params.Account != nil {
+		favoriteSet, _ := b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: params.Account.ID, SpuIDs: []uuid.UUID{spu.ID}})
+		isFavorite = favoriteSet[spu.ID]
+	}
+
+	// Get tags
+	tagsMap := b.getTagsMap(ctx, []uuid.UUID{spu.ID})
+
+	// Track view interaction for authenticated users
+	if params.Account != nil {
+		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+			Interactions: []analyticbiz.CreateInteraction{{
+				Account:   *params.Account,
+				EventType: analyticmodel.EventView,
+				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+				RefID:     spu.ID.String(),
+			}},
+		})
 	}
 
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
-		Code:        spu.Code,
+		Slug:        spu.Slug,
 		VendorID:    spu.AccountID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		Brand:       b.mustGetBrand(ctx, spu.BrandID),
 		IsActive:    spu.IsActive,
-		Category:    b.mustGetCategory(ctx, spu.CategoryID),
+		Category:    spu.Category,
 		Rating: catalogmodel.ProductRating{
-			Score:     rating.Score / 2, // convert 10 scale to 5 scale
+			Score:     rating.Score,
 			Total:     rating.Count,
 			Breakdown: ratingBreakdown,
 		},
-		Resources:      slice.EnsureSlice(resourceMap[spu.ID]),
-		Promotions:     slice.EnsureSlice(promotions),
+		IsFavorite:     isFavorite,
+		Resources:      resourcesMap[spu.ID],
+		Promotions:     promotions,
 		Skus:           skusDetail,
-		Specifications: specifications,
+		Specifications: spu.Specifications,
+		Tags:           tagsMap[spu.ID],
 	}, nil
 }

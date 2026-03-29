@@ -1,7 +1,0 @@
--- name: Delete{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :exec
-DELETE FROM {{.GetFullTableName}}
-{{generateFilterConditions .}};
-
--- name: DeleteBatch{{.GetSchemaName | pascalCase}}{{.Name | pascalCase}} :batchexec
-DELETE FROM {{.GetFullTableName}}
-{{generateWhereConditions .}};

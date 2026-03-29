@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"shopnexus-remastered/config"
-	"shopnexus-remastered/internal/module/shared/binder"
+	"shopnexus-server/config"
+	"shopnexus-server/internal/shared/binder"
 
-	"shopnexus-remastered/internal/module/shared/validator"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -20,7 +20,7 @@ func NewEcho() *echo.Echo {
 
 	// Middleware
 	//e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
+	// e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
 	return e
@@ -37,7 +37,7 @@ func SetupEcho(params RouteParams) {
 	// Set the custom validator
 	customVal, err := validator.New()
 	if err != nil {
-		slog.Error("Failed to create validator", err)
+		slog.Error("Failed to create validator", slog.Any("error", err))
 		panic(err)
 	}
 	params.Echo.Validator = customVal
@@ -49,15 +49,18 @@ func SetupEcho(params RouteParams) {
 	})
 }
 
-// StartHTTPServer starts the HTTP server with lifecycle management
-func StartHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
+// SetupHTTPServer starts the HTTP server with lifecycle management
+func SetupHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				port := ":8080" // Default port, you can make this configurable
-				slog.Info("Starting HTTP server on port", "port", port)
-				if err := e.Start(port); err != nil {
-					slog.Error("HTTP server error", err)
+				port := cfg.App.Port
+				if port == "" {
+					port = "8080"
+				}
+				slog.Info("Starting HTTP server", "port", port)
+				if err := e.Start(":" + port); err != nil {
+					slog.Error("HTTP server error", slog.Any("error", err))
 				}
 			}()
 			return nil

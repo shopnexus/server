@@ -2,254 +2,289 @@ package promotionbiz
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"log/slog"
 	"time"
 
+	restate "github.com/restatedev/sdk-go"
+
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	promotionmodel "shopnexus-remastered/internal/module/promotion/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
+	promotionmodel "shopnexus-server/internal/module/promotion/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 )
 
-type PromotionBiz struct {
-	storage pgsqlc.Storage
-}
-
-func NewPromotionBiz(storage pgsqlc.Storage) *PromotionBiz {
-	return &PromotionBiz{
-		storage,
-	}
-}
+// --- Get ---
 
 type GetPromotionParams struct {
-	ID int64
+	ID uuid.UUID `validate:"required"`
 }
 
-func (s *PromotionBiz) GetPromotion(ctx context.Context, params GetPromotionParams) (db.PromotionBase, error) {
-	promo, err := s.storage.GetPromotionBase(ctx, db.GetPromotionBaseParams{
-		ID: pgutil.PtrToPgtype(&params.ID, pgutil.Int64ToPgInt8),
+// GetPromotion returns a promotion by ID, including its refs.
+func (s *PromotionHandler) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
+	var zero promotionmodel.Promotion
+
+	promo, err := s.storage.Querier().GetPromotion(ctx, promotiondb.GetPromotionParams{
+		ID: uuid.NullUUID{UUID: params.ID, Valid: true},
 	})
 	if err != nil {
-		return db.PromotionBase{}, err
+		return zero, sharedmodel.WrapErr("db get promotion", err)
 	}
 
-	return promo, nil
+	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{
+		PromotionID: []uuid.UUID{promo.ID},
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db list promotion refs", err)
+	}
+
+	return dbToPromotion(promo, refs), nil
 }
+
+// --- List ---
 
 type ListPromotionParams struct {
-	commonmodel.PaginationParams
+	sharedmodel.PaginationParams
+	ID []uuid.UUID `validate:"omitempty,dive,required"`
 }
 
-func (s *PromotionBiz) ListPromotion(ctx context.Context, params ListPromotionParams) (commonmodel.PaginateResult[promotionmodel.PromotionBase], error) {
-	var zero commonmodel.PaginateResult[promotionmodel.PromotionBase]
+// ListPromotion returns a paginated list of promotions with their refs.
+func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
+	var zero sharedmodel.PaginateResult[promotionmodel.Promotion]
 
-	total, err := s.storage.CountCatalogProductSku(ctx, db.CountCatalogProductSkuParams{})
-	if err != nil {
-		return zero, err
-	}
-
-	promos, err := s.storage.ListPromotionBase(ctx, db.ListPromotionBaseParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
+	rows, err := s.storage.Querier().ListCountPromotion(ctx, promotiondb.ListCountPromotionParams{
+		Limit:  params.Limit,
+		Offset: params.Offset(),
+		ID:     params.ID,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("db list promotions", err)
 	}
 
-	refs, err := s.storage.ListPromotionRef(ctx, db.ListPromotionRefParams{
-		PromotionID: lo.Map(promos, func(p db.PromotionBase, _ int) int64 {
-			return p.ID
-		}),
+	promoIDs := lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) uuid.UUID {
+		return r.PromotionPromotion.ID
+	})
+
+	refs, err := s.storage.Querier().ListRef(ctx, promotiondb.ListRefParams{
+		PromotionID: promoIDs,
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("db list promotion refs", err)
 	}
-	refsMap := lo.GroupBy(refs, func(r db.PromotionRef) int64 { return r.PromotionID })
+	refsMap := lo.GroupBy(refs, func(r promotiondb.PromotionRef) uuid.UUID { return r.PromotionID })
 
-	return commonmodel.PaginateResult[promotionmodel.PromotionBase]{
+	var total null.Int64
+	if len(rows) > 0 {
+		total.SetValid(rows[0].TotalCount)
+	}
+
+	return sharedmodel.PaginateResult[promotionmodel.Promotion]{
 		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
-		Data: lo.Map(promos, func(p db.PromotionBase, _ int) promotionmodel.PromotionBase {
-			return DbPromotionToPromotionBase(p, refsMap[p.ID])
+		Total:      total,
+		Data: lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) promotionmodel.Promotion {
+			return dbToPromotion(r.PromotionPromotion, refsMap[r.PromotionPromotion.ID])
 		}),
 	}, nil
 }
 
+// --- Create ---
+
 type CreatePromotionParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
+	Account accountmodel.AuthenticatedAccount
 
-	Code        string           `validate:"required,alphanum,min=3,max=50"`
-	Refs        []PromotionRef   `validate:"dive"`
-	Type        db.PromotionType `validate:"required,validateFn=Valid"`
-	Title       string           `validate:"required,min=3,max=200"`
-	Description null.String      `validate:"omitnil,max=1000"`
-	IsActive    bool             `validate:"omitempty"`
-	AutoApply   bool             `validate:"omitempty"`
-	DateStarted time.Time        `validate:"required"`
-	DateEnded   null.Time        `validate:"omitnil,gtfield=DateStarted"`
+	Code        string                        `validate:"required,alphanum,min=3,max=50"`
+	Type        promotiondb.PromotionType     `validate:"required,validateFn=Valid"`
+	Title       string                        `validate:"required,min=3,max=200"`
+	Description null.String                   `validate:"omitnil,max=1000"`
+	IsActive    bool                          `validate:"omitempty"`
+	AutoApply   bool                          `validate:"omitempty"`
+	Group       string                        `validate:"required"`
+	Priority    int32                         `validate:"omitempty"`
+	Data        json.RawMessage               `validate:"omitempty"`
+	DateStarted time.Time                     `validate:"required"`
+	DateEnded   null.Time                     `validate:"omitnil,gtfield=DateStarted"`
+	Refs        []promotionmodel.PromotionRef `validate:"dive"`
 }
 
-type PromotionRef struct {
-	RefType db.PromotionRefType `validate:"required,validateFn=Valid"`
-	RefID   int64               `validate:"required"`
-}
-
-func (b *PromotionBiz) createPromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.PromotionBase, error) {
-	var zero promotionmodel.PromotionBase
+// CreatePromotion creates a new promotion with the given parameters and refs.
+func (b *PromotionHandler) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
+	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate create promotion", err)
 	}
 
-	var dbPromo db.PromotionBase
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		var err error
-
-		dbPromo, err := txStorage.CreateDefaultPromotionBase(ctx, db.CreateDefaultPromotionBaseParams{
-			Code:        params.Code,
-			OwnerID:     pgutil.Int64ToPgInt8(params.Account.ID),
-			Type:        db.PromotionTypeDiscount,
-			Title:       params.Title,
-			Description: pgutil.NullStringToPgText(params.Description),
-			IsActive:    params.IsActive,
-			AutoApply:   params.AutoApply,
-			DateStarted: pgutil.TimeToPgTimestamptz(params.DateStarted),
-			DateEnded:   pgutil.NullTimeToPgTimestamptz(params.DateEnded),
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = txStorage.CreateCopyDefaultPromotionRef(ctx, lo.Map(params.Refs, func(r PromotionRef, _ int) db.CreateCopyDefaultPromotionRefParams {
-			return db.CreateCopyDefaultPromotionRefParams{
-				PromotionID: dbPromo.ID,
-				RefType:     r.RefType,
-				RefID:       r.RefID,
-			}
-		}))
-		if err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to create promotion: %w", err)
+	dbPromo, err := b.storage.Querier().CreateDefaultPromotion(ctx, promotiondb.CreateDefaultPromotionParams{
+		Code:        params.Code,
+		OwnerID:     uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		Type:        params.Type,
+		Title:       params.Title,
+		Description: params.Description,
+		IsActive:    params.IsActive,
+		AutoApply:   params.AutoApply,
+		Group:       params.Group,
+		Data:        params.Data,
+		DateStarted: params.DateStarted,
+		DateEnded:   params.DateEnded,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db create promotion", err)
 	}
 
-	return DbPromotionToPromotionBase(dbPromo, nil), nil
+	if err := createRefs(ctx, b.storage, dbPromo.ID, params.Refs); err != nil {
+		return zero, sharedmodel.WrapErr("db create promotion", err)
+	}
+
+	return dbToPromotion(dbPromo, nil), nil
 }
+
+// --- Update ---
 
 type UpdatePromotionParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
+	Account accountmodel.AuthenticatedAccount
 
-	ID            int64          `validate:"required"`
-	Code          null.String    `validate:"omitnil"`
-	OwnerID       null.Int64     `validate:"omitnil"`
-	Title         null.String    `validate:"omitnil"`
-	Description   null.String    `validate:"omitnil"`
-	IsActive      null.Bool      `validate:"omitnil"`
-	AutoApply     null.Bool      `validate:"omitnil"`
-	DateStarted   null.Time      `validate:"omitnil"`
-	DateEnded     null.Time      `validate:"omitnil"`
-	NullDateEnded bool           `validate:"omitempty"`
-	Refs          []PromotionRef `validate:"dive"`
+	ID              uuid.UUID                      `validate:"required"`
+	Code            null.String                    `validate:"omitnil"`
+	OwnerID         uuid.NullUUID                  `validate:"omitnil"`
+	NullOwnerID     bool                           `validate:"omitempty"`
+	Title           null.String                    `validate:"omitnil"`
+	Description     null.String                    `validate:"omitnil"`
+	NullDescription bool                           `validate:"omitempty"`
+	IsActive        null.Bool                      `validate:"omitnil"`
+	AutoApply       null.Bool                      `validate:"omitnil"`
+	Group           null.String                    `validate:"omitnil"`
+	Priority        null.Int32                     `validate:"omitnil"`
+	Data            json.RawMessage                `validate:"omitempty"`
+	NullData        bool                           `validate:"omitempty"`
+	DateStarted     null.Time                      `validate:"omitnil"`
+	DateEnded       null.Time                      `validate:"omitnil"`
+	NullDateEnded   bool                           `validate:"omitempty"`
+	Refs            *[]promotionmodel.PromotionRef `validate:"omitnil"`
 }
 
-func (s *PromotionBiz) updatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.PromotionBase, error) {
-	var zero promotionmodel.PromotionBase
+// UpdatePromotion updates the specified promotion fields and optionally replaces its refs.
+func (s *PromotionHandler) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
+	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate update promotion", err)
 	}
 
-	// TODO: check more biz like unique code, valid owner, valid refID for the refType, dateStarted < dateEnded, etc.
-	// dateEnded cannot less than dateStarted and current time
-
-	var dbPromo db.PromotionBase
-
-	if err := s.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		var err error
-
-		dbPromo, err = txStorage.UpdatePromotionBase(ctx, db.UpdatePromotionBaseParams{
-			ID:            params.ID,
-			Code:          pgutil.NullStringToPgText(params.Code),
-			Title:         pgutil.NullStringToPgText(params.Title),
-			Description:   pgutil.NullStringToPgText(params.Description),
-			IsActive:      pgutil.NullBoolToPgBool(params.IsActive),
-			AutoApply:     pgutil.NullBoolToPgBool(params.AutoApply),
-			DateStarted:   pgutil.NullTimeToPgTimestamptz(params.DateStarted),
-			NullDateEnded: params.NullDateEnded,
-			DateUpdated:   pgutil.TimeToPgTimestamptz(time.Now()),
-		})
-		if err != nil {
-			return err
-		}
-
-		if params.Refs != nil {
-			// Remove all refs
-			if err := txStorage.DeletePromotionRef(ctx, db.DeletePromotionRefParams{
-				PromotionID: []int64{params.ID},
-			}); err != nil {
-				return err
-			}
-
-			// Add new refs
-			if _, err = txStorage.CreateCopyDefaultPromotionRef(ctx, lo.Map(params.Refs, func(r PromotionRef, _ int) db.CreateCopyDefaultPromotionRefParams {
-				return db.CreateCopyDefaultPromotionRefParams{
-					PromotionID: dbPromo.ID,
-					RefType:     r.RefType,
-					RefID:       r.RefID,
-				}
-			})); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to update promotion: %w", err)
+	dbPromo, err := s.storage.Querier().UpdatePromotion(ctx, promotiondb.UpdatePromotionParams{
+		ID:              params.ID,
+		Code:            params.Code,
+		OwnerID:         params.OwnerID,
+		NullOwnerID:     params.NullOwnerID,
+		Title:           params.Title,
+		Description:     params.Description,
+		NullDescription: params.NullDescription,
+		IsActive:        params.IsActive,
+		AutoApply:       params.AutoApply,
+		Group:           params.Group,
+		Priority:        params.Priority,
+		Data:            params.Data,
+		NullData:        params.NullData,
+		DateStarted:     params.DateStarted,
+		DateEnded:       params.DateEnded,
+		NullDateEnded:   params.NullDateEnded,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db update promotion", err)
 	}
 
-	return DbPromotionToPromotionBase(dbPromo, nil), nil
+	if params.Refs != nil {
+		if err := s.storage.Querier().DeleteRef(ctx, promotiondb.DeleteRefParams{
+			PromotionID: []uuid.UUID{params.ID},
+		}); err != nil {
+			return zero, sharedmodel.WrapErr("db update promotion", err)
+		}
+		if err := createRefs(ctx, s.storage, dbPromo.ID, *params.Refs); err != nil {
+			return zero, sharedmodel.WrapErr("db update promotion", err)
+		}
+	}
+
+	return dbToPromotion(dbPromo, nil), nil
 }
+
+// --- Delete ---
 
 type DeletePromotionParams struct {
-	Account authmodel.AuthenticatedAccount
-	ID      int64
+	Account accountmodel.AuthenticatedAccount
+	ID      uuid.UUID
 }
 
-func (s *PromotionBiz) DeletePromotion(ctx context.Context, params DeletePromotionParams) error {
-	return s.storage.DeletePromotionBase(ctx, db.DeletePromotionBaseParams{
-		ID: []int64{params.ID},
+// DeletePromotion deletes the promotion with the given ID.
+func (s *PromotionHandler) DeletePromotion(ctx restate.Context, params DeletePromotionParams) error {
+	return s.storage.Querier().DeletePromotion(ctx, promotiondb.DeletePromotionParams{
+		ID: []uuid.UUID{params.ID},
 	})
 }
 
-func DbPromotionToPromotionBase(dbPromo db.PromotionBase, refs []db.PromotionRef) promotionmodel.PromotionBase {
-	return promotionmodel.PromotionBase{
-		ID:          dbPromo.ID,
-		Code:        dbPromo.Code,
-		OwnerID:     pgutil.PgInt8ToNullInt64(dbPromo.OwnerID),
-		Type:        dbPromo.Type,
-		Title:       dbPromo.Title,
-		Description: pgutil.PgTextToNullString(dbPromo.Description),
-		IsActive:    dbPromo.IsActive,
-		AutoApply:   dbPromo.AutoApply,
-		DateStarted: dbPromo.DateStarted.Time,
-		DateEnded:   pgutil.PgTimestamptzToNullTime(dbPromo.DateEnded),
-		Refs: lo.Map(refs, func(r db.PromotionRef, _ int) promotionmodel.PromotionRef {
+// --- Helpers ---
+
+// createRefs bulk-inserts refs for a promotion. No-op if refs is empty.
+func createRefs(ctx context.Context, storage PromotionStorage, promoID uuid.UUID, refs []promotionmodel.PromotionRef) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	_, err := storage.Querier().CreateCopyDefaultRef(ctx, lo.Map(refs, func(r promotionmodel.PromotionRef, _ int) promotiondb.CreateCopyDefaultRefParams {
+		return promotiondb.CreateCopyDefaultRefParams{
+			PromotionID: promoID,
+			RefType:     r.RefType,
+			RefID:       r.RefID,
+		}
+	}))
+	if err != nil {
+		return sharedmodel.WrapErr("db create promotion refs", err)
+	}
+	return nil
+}
+
+// dbToPromotion maps a DB row + refs to the domain model.
+func dbToPromotion(p promotiondb.PromotionPromotion, refs []promotiondb.PromotionRef) promotionmodel.Promotion {
+	return promotionmodel.Promotion{
+		ID:          p.ID,
+		Code:        p.Code,
+		OwnerID:     p.OwnerID,
+		Type:        p.Type,
+		Title:       p.Title,
+		Description: p.Description,
+		IsActive:    p.IsActive,
+		AutoApply:   p.AutoApply,
+		Group:       p.Group,
+		Priority:    p.Priority,
+		Data:        p.Data,
+		DateStarted: p.DateStarted,
+		DateEnded:   p.DateEnded,
+		DateCreated: p.DateCreated,
+		DateUpdated: p.DateUpdated,
+		Refs: lo.Map(refs, func(r promotiondb.PromotionRef, _ int) promotionmodel.PromotionRef {
 			return promotionmodel.PromotionRef{
 				RefType: r.RefType,
 				RefID:   r.RefID,
 			}
 		}),
-		DateCreated: dbPromo.DateCreated.Time,
-		DateUpdated: dbPromo.DateUpdated.Time,
 	}
+}
+
+// parseDiscountData unmarshals JSONB data into DiscountData.
+// Returns nil on empty/invalid data and logs a warning.
+func parseDiscountData(promoID uuid.UUID, data json.RawMessage) *DiscountData {
+	if len(data) == 0 {
+		return nil
+	}
+	var d DiscountData
+	if err := json.Unmarshal(data, &d); err != nil {
+		slog.Warn("failed to parse promotion data",
+			"promotion_id", promoID,
+			"error", err,
+		)
+		return nil
+	}
+	return &d
 }

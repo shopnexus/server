@@ -1,7 +1,7 @@
 volumes:
   postgres-data:
   redis-data:
-  kafka-data:
+  nats-data:
   es-data:
   minio-data:
   milvus-data:
@@ -64,54 +64,31 @@ services:
           cpus: "0.25"
           memory: 256M
 
-  kafka:
-    container_name: shopnexus-kafka-prod
-    image: confluentinc/cp-kafka:latest
+  nats:
+    container_name: shopnexus-nats-prod
+    image: nats:latest
     # Production: Don't expose ports externally, only internal network access
     # ports:
-    #   - "9092:9092"
+    #   - "4222:4222"
+    command: ["--jetstream", "--store_dir", "/data"]
     volumes:
-      - kafka-data:/data
+      - nats-data:/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1",
-        ]
+      test: ["CMD", "nats-server", "--signal", "ldm"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 10s
     restart: always
-    environment:
-      # Required in KRaft mode
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-
-      # Listener configuration
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      # Production: Disable auto topic creation for security
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-      KAFKA_NUM_PARTITIONS: 3
-      # Production: Longer retention for production data
-      KAFKA_LOG_RETENTION_HOURS: 720 # Keep logs for 30 days
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 3000 # Delay for consumer rebalancing in production
-      CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk"
     # Production: Add resource limits
     deploy:
       resources:
         limits:
-          cpus: "2"
-          memory: 2G
-        reservations:
-          cpus: "0.5"
+          cpus: "1"
           memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
   server:
     container_name: shopnexus-server-prod
@@ -121,7 +98,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      kafka:
+      nats:
         condition: service_healthy
       postgres:
         condition: service_healthy

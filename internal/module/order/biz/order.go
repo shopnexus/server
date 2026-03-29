@@ -1,625 +1,379 @@
 package orderbiz
 
 import (
-	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"time"
 
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
+	restate "github.com/restatedev/sdk-go"
 
-	"shopnexus-remastered/internal/db"
-	"shopnexus-remastered/internal/infras/payment"
-	"shopnexus-remastered/internal/infras/pubsub"
-	"shopnexus-remastered/internal/infras/shipment"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	commonbiz "shopnexus-remastered/internal/module/common/biz"
-	commonmodel "shopnexus-remastered/internal/module/common/model"
-	ordermodel "shopnexus-remastered/internal/module/order/model"
-	promotionbiz "shopnexus-remastered/internal/module/promotion/biz"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	analyticbiz "shopnexus-server/internal/module/analytic/biz"
+	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/validator"
 
-	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
-type OrderBiz struct {
-	storage     pgsqlc.Storage
-	paymentMap  map[string]payment.Client  // map[paymentOption]payment.Client
-	shipmentMap map[string]shipment.Client // map[shipmentOption]shipment.Client
-	pubsub      pubsub.Client
-	promotion   *promotionbiz.PromotionBiz
-	common      *commonbiz.Commonbiz
-}
-
-func NewOrderBiz(
-	storage pgsqlc.Storage,
-	pubsub pubsub.Client,
-	promotion *promotionbiz.PromotionBiz,
-	common *commonbiz.Commonbiz,
-) (*OrderBiz, error) {
-	b := &OrderBiz{
-		storage:   storage,
-		pubsub:    pubsub.Group("order"),
-		promotion: promotion,
-		common:    common,
-	}
-
-	return b, errors.Join(
-		b.SetupPaymentMap(),
-		b.SetupShipmentMap(),
-		b.SetupPubsub(),
-	)
-}
-
-type GetOrderParams = struct {
-	Account authmodel.AuthenticatedAccount
-	OrderID int64 `validate:"required,min=1"`
-}
-
-func (b *OrderBiz) GetOrder(ctx context.Context, params GetOrderParams) (ordermodel.Order, error) {
+// GetOrder returns a single order by ID with all items and payment details.
+func (b *OrderHandler) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
-	if err := validator.Validate(params); err != nil {
-		return zero, err
-	}
-
 	orders, err := b.ListOrders(ctx, ListOrdersParams{
-		ID: []int64{params.OrderID},
+		ID: []uuid.UUID{orderID},
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("get order", err)
 	}
 	if len(orders.Data) == 0 {
-		return zero, fmt.Errorf("order not found")
+		return zero, ordermodel.ErrOrderNotFound.Terminal()
 	}
 
 	return orders.Data[0], nil
 }
 
-type ListOrdersParams struct {
-	commonmodel.PaginationParams
-	ID []int64 `validate:"dive,min=1"`
-}
-
-func (b *OrderBiz) ListOrders(ctx context.Context, params ListOrdersParams) (commonmodel.PaginateResult[ordermodel.Order], error) {
-	var zero commonmodel.PaginateResult[ordermodel.Order]
+// ListOrders returns paginated orders with hydrated items, payments, and product resources.
+func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate list orders", err)
 	}
 
-	total, err := b.storage.CountOrderBase(ctx, db.CountOrderBaseParams{
-		ID: params.ID,
+	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountOrderRow, error) {
+		return b.storage.Querier().ListCountOrder(ctx, orderdb.ListCountOrderParams{
+			Limit:  params.Limit,
+			Offset: params.Offset(),
+			ID:     params.ID,
+		})
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("db list orders", err)
 	}
 
-	orders, err := b.storage.ListOrderBase(ctx, db.ListOrderBaseParams{
-		Limit:  pgutil.Int32ToPgInt4(params.GetLimit()),
-		Offset: pgutil.Int32ToPgInt4(params.Offset()),
-		ID:     params.ID,
+	var total null.Int64
+	if len(listCountOrder) > 0 {
+		total.SetValid(listCountOrder[0].TotalCount)
+	}
+
+	orders := lo.Map(listCountOrder, func(item orderdb.ListCountOrderRow, _ int) orderdb.OrderOrder {
+		return item.OrderOrder
 	})
+	data, err := b.hydrateOrders(ctx, orders)
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("hydrate orders", err)
 	}
 
-	orderItems, err := b.storage.ListOrderItem(ctx, db.ListOrderItemParams{
-		OrderID: lo.Map(orders, func(o db.OrderBase, _ int) int64 { return o.ID }),
-	})
-	if err != nil {
-		return zero, err
-	}
-	orderItemsMap := lo.GroupByMap(orderItems, func(oi db.OrderItem) (int64, db.OrderItem) { return oi.OrderID, oi })
-
-	return commonmodel.PaginateResult[ordermodel.Order]{
+	return sharedmodel.PaginateResult[ordermodel.Order]{
 		PageParams: params.PaginationParams,
-		Total:      null.IntFrom(total),
-		Data: lo.Map(orders, func(o db.OrderBase, _ int) ordermodel.Order {
-			return ordermodel.Order{
-				ID:            o.ID,
-				AccountID:     o.AccountID,
-				PaymentOption: o.PaymentOption,
-				PaymentStatus: o.PaymentStatus,
-				Address:       o.Address,
-				DateCreated:   o.DateCreated.Time,
-				DateUpdated:   o.DateUpdated.Time,
-				Items:         orderItemsMap[o.ID],
-			}
-		}),
+		Total:      total,
+		Data:       data,
 	}, nil
 }
 
-type CreateOrderParams struct {
-	Storage       pgsqlc.Storage
-	Account       authmodel.AuthenticatedAccount
-	Address       string     `validate:"required"`
-	PaymentOption string     `validate:"required,min=1,max=50"`
-	BuyNow        bool       `validate:"omitempty"`
-	Skus          []OrderSku `validate:"required,min=1,dive"`
-}
-
-type OrderSku struct {
-	SkuID          int64   `json:"sku_id"`
-	Quantity       int64   `json:"quantity"`
-	PromotionIDs   []int64 `json:"promotion_ids"` // Promotions from system, vendor // TODO: Not handled yet
-	ShipmentOption string  `json:"shipment_option"`
-	Note           string  `json:"note"`
-}
-
-type CreateOrderResult struct {
-	Order       ordermodel.Order `json:"order"`
-	RedirectUrl null.String      `json:"url"`
-}
-
-func (b *OrderBiz) CreateOrder(ctx context.Context, params CreateOrderParams) (CreateOrderResult, error) {
-	var zero CreateOrderResult
+// ListSellerOrders returns paginated orders for the seller with optional payment/order status filters.
+func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
-	}
-	if params.BuyNow && len(params.Skus) != 1 {
-		return zero, fmt.Errorf("buy now only support single sku")
+		return zero, sharedmodel.WrapErr("validate list seller orders", err)
 	}
 
-	skuIDs := lo.Map(params.Skus, func(s OrderSku, _ int) int64 { return s.SkuID })
-	orderSkuMap := lo.KeyBy(params.Skus, func(s OrderSku) int64 { return s.SkuID })
-
-	var (
-		redirectUrl null.String
-		orderID     int64
-		totalPrice  commonmodel.Concurrency
-	)
-
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		if !params.BuyNow {
-			cartItems, err := txStorage.RemoveCheckoutItem(ctx, db.RemoveCheckoutItemParams{
-				CartID: params.Account.ID,
-				SkuID:  skuIDs,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to remove checkout items: %w", err)
-			}
-			if len(cartItems) != len(skuIDs) {
-				return fmt.Errorf("some sku not found in cart")
-			}
-		}
-
-		var reserveStockErr error
-		txStorage.ReserveInventory(ctx, lo.Map(params.Skus, func(item OrderSku, _ int) db.ReserveInventoryParams {
-			return db.ReserveInventoryParams{
-				RefType: db.InventoryStockRefTypeProductSku,
-				RefID:   item.SkuID,
-				Amount:  item.Quantity,
-			}
-		})).Exec(func(_ int, err error) {
-			if err != nil {
-				reserveStockErr = err
-			}
+	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountSellerOrderRow, error) {
+		return b.storage.Querier().ListCountSellerOrder(ctx, orderdb.ListCountSellerOrderParams{
+			SellerID:      params.SellerID,
+			Search:        params.Search,
+			PaymentStatus: params.PaymentStatus,
+			OrderStatus:   params.OrderStatus,
+			Offset:        params.Offset(),
+			Limit:         params.Limit,
 		})
-		if reserveStockErr != nil {
-			return fmt.Errorf("failed to reserve inventory: %w", reserveStockErr)
-		}
-
-		skus, err := txStorage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-			ID: skuIDs,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list catalog product skus: %w", err)
-		}
-		if len(skus) != len(skuIDs) {
-			return ordermodel.ErrOrderItemNotFound
-		}
-		skuMap := lo.KeyBy(skus, func(s db.CatalogProductSku) int64 { return s.ID })
-
-		spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			ID: lo.Map(skus, func(s db.CatalogProductSku, _ int) int64 { return s.SpuID }),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list catalog product spu: %w", err)
-		}
-		spuMap := lo.KeyBy(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
-
-		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
-		if err != nil {
-			return fmt.Errorf("failed to calculate promoted prices: %w", err)
-		}
-		totalPrice = 0
-		for _, skuID := range skuIDs {
-			totalPrice += priceMap[skuID].Price.Mul(orderSkuMap[skuID].Quantity)
-		}
-
-		order, err := txStorage.CreateDefaultOrderBase(ctx, db.CreateDefaultOrderBaseParams{
-			AccountID:     params.Account.ID,
-			PaymentOption: params.PaymentOption,
-			Address:       params.Address,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create order base: %w", err)
-		}
-		orderID = order.ID
-
-		contacts, err := txStorage.GetVendorAddressBySkuIDs(ctx, skuIDs)
-		if err != nil {
-			return fmt.Errorf("failed to get vendor address by sku ids: %w", err)
-		}
-		contactMap := lo.KeyBy(contacts, func(c db.GetVendorAddressBySkuIDsRow) int64 { return c.SkuID })
-
-		var createShipmentArgs []db.CreateBatchOrderShipmentParams
-		for _, orderSku := range params.Skus {
-			contact, ok := contactMap[orderSku.SkuID]
-			if !ok {
-				return fmt.Errorf("missing vendor address for sku %d", orderSku.SkuID)
-			}
-			shipmentClient, ok := b.shipmentMap[orderSku.ShipmentOption]
-			if !ok {
-				return fmt.Errorf("unknown shipment option: %s", orderSku.ShipmentOption)
-			}
-
-			var packageDetails shipment.PackageDetails
-			if err := sonic.Unmarshal([]byte(skuMap[orderSku.SkuID].PackageDetails), &packageDetails); err != nil {
-				return fmt.Errorf("failed to unmarshal packaged size for sku %d: %w", orderSku.SkuID, err)
-			}
-
-			ship, err := shipmentClient.Quote(ctx, shipment.CreateParams{
-				FromAddress: contact.Address,
-				ToAddress:   params.Address,
-				Package:     packageDetails,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to quote shipment: %w", err)
-			}
-
-			createShipmentArgs = append(createShipmentArgs, db.CreateBatchOrderShipmentParams{
-				FromAddress:  contact.Address,
-				ToAddress:    params.Address,
-				Option:       orderSku.ShipmentOption,
-				TrackingCode: pgutil.StringToPgText(""),
-				LabelUrl:     pgutil.StringToPgText(""),
-				Status:       db.OrderShipmentStatusPending,
-				Cost:         int64(ship.Costs),
-				DateEta:      pgutil.TimeToPgTimestamptz(ship.ETA),
-				WeightGrams:  10,
-				LengthCm:     10,
-				WidthCm:      10,
-				HeightCm:     10,
-				DateCreated:  pgutil.TimeToPgTimestamptz(time.Now()),
-			})
-		}
-
-		shipmentMap := make(map[int64]db.OrderShipment)
-		var createShipmentErr error
-		txStorage.CreateBatchOrderShipment(ctx, createShipmentArgs).QueryRow(func(index int, s db.OrderShipment, err error) {
-			if err != nil {
-				createShipmentErr = err
-				return
-			}
-			shipmentMap[skuIDs[index]] = s
-		})
-		if createShipmentErr != nil {
-			return fmt.Errorf("failed to create order shipments: %w", createShipmentErr)
-		}
-
-		var createOrderItemArgs []db.CreateBatchOrderItemParams
-		for _, skuID := range skuIDs {
-			shipment, ok := shipmentMap[skuID]
-			if !ok {
-				return fmt.Errorf("missing shipment for sku %d", skuID)
-			}
-
-			if skuMap[skuID].CanCombine {
-				createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
-					VendorID:   contactMap[skuID].VendorID,
-					OrderID:    order.ID,
-					SkuID:      skuID,
-					Quantity:   orderSkuMap[skuID].Quantity,
-					ShipmentID: shipment.ID,
-					Note:       orderSkuMap[skuID].Note,
-					Status:     db.CommonStatusPending,
-				})
-			} else {
-				for i := int64(0); i < orderSkuMap[skuID].Quantity; i++ {
-					createOrderItemArgs = append(createOrderItemArgs, db.CreateBatchOrderItemParams{
-						VendorID:   contactMap[skuID].VendorID,
-						OrderID:    order.ID,
-						SkuID:      skuID,
-						Quantity:   1,
-						ShipmentID: shipment.ID,
-						Note:       orderSkuMap[skuID].Note,
-						Status:     db.CommonStatusPending,
-					})
-				}
-			}
-		}
-
-		var getProductArgs []db.GetAvailableProductsParams
-		for _, skuID := range skuIDs {
-			getProductArgs = append(getProductArgs, db.GetAvailableProductsParams{
-				SkuID:  skuID,
-				Amount: int32(orderSkuMap[skuID].Quantity),
-			})
-		}
-
-		serialsMap := make(map[int64][]db.GetAvailableProductsRow)
-		var getSerialsError error
-		txStorage.GetAvailableProducts(ctx, getProductArgs).Query(func(i int, rows []db.GetAvailableProductsRow, err error) {
-			if err != nil {
-				getSerialsError = err
-				return
-			}
-			if int32(len(rows)) < getProductArgs[i].Amount {
-				skuID := getProductArgs[i].SkuID
-				spuName := spuMap[skuMap[skuID].SpuID].Name
-				getSerialsError = ordermodel.ErrOutOfStock.Fmt(fmt.Sprintf("%s (%d)", spuName, skuID))
-				return
-			}
-			serialsMap[rows[0].SkuID] = rows
-		})
-		if getSerialsError != nil {
-			return fmt.Errorf("failed to get available product serials: %w", getSerialsError)
-		}
-
-		var (
-			batchErr              error
-			serialIDs             []int64
-			createOrderSerialArgs []db.CreateCopyDefaultOrderItemSerialParams
-		)
-
-		txStorage.CreateBatchOrderItem(ctx, createOrderItemArgs).QueryRow(func(_ int, orderItem db.OrderItem, err error) {
-			if err != nil {
-				batchErr = err
-				return
-			}
-
-			for i := int64(0); i < orderItem.Quantity; i++ {
-				if len(serialsMap[orderItem.SkuID]) == 0 {
-					spu, err := txStorage.GetCatalogProductSpu(ctx, db.GetCatalogProductSpuParams{
-						ID: pgutil.Int64ToPgInt8(skuMap[orderItem.SkuID].SpuID),
-					})
-					if err != nil {
-						batchErr = err
-						return
-					}
-					batchErr = ordermodel.ErrOutOfStock.Fmt(fmt.Sprintf("%s (%d)", spu.Name, orderItem.SkuID))
-					return
-				}
-
-				serial := serialsMap[orderItem.SkuID][0]
-				serialsMap[orderItem.SkuID] = serialsMap[orderItem.SkuID][1:]
-
-				serialIDs = append(serialIDs, serial.ID)
-				createOrderSerialArgs = append(createOrderSerialArgs, db.CreateCopyDefaultOrderItemSerialParams{
-					OrderItemID:     orderItem.ID,
-					ProductSerialID: serial.ID,
-				})
-			}
-		})
-		if batchErr != nil {
-			return fmt.Errorf("failed to create order items: %w", batchErr)
-		}
-
-		if _, err := txStorage.CreateCopyDefaultOrderItemSerial(ctx, createOrderSerialArgs); err != nil {
-			return fmt.Errorf("failed to attach order item serials: %w", err)
-		}
-
-		if err := txStorage.UpdateSerialStatus(ctx, db.UpdateSerialStatusParams{
-			Status: db.InventoryProductStatusSold,
-			ID:     serialIDs,
-		}); err != nil {
-			return fmt.Errorf("failed to update serial status: %w", err)
-		}
-
-		gateway, ok := b.paymentMap[params.PaymentOption]
-		if !ok {
-			return ordermodel.ErrPaymentGatewayNotFound
-		}
-
-		result, err := gateway.CreateOrder(ctx, payment.CreateOrderParams{
-			RefID:  order.ID,
-			Amount: totalPrice,
-			Info:   fmt.Sprintf("Order #%d", order.ID),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create payment order: %w", err)
-		}
-		if result.RedirectURL != "" {
-			redirectUrl.SetValid(result.RedirectURL)
-		}
-
-		if err := b.pubsub.Publish(ordermodel.TopicOrderCreated, OrderCreatedParams{OrderID: order.ID}); err != nil {
-			return fmt.Errorf("failed to publish order created event: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to create order: %w", err)
-	}
-
-	newOrder, err := b.GetOrder(ctx, GetOrderParams{OrderID: orderID})
+	})
 	if err != nil {
-		return zero, fmt.Errorf("failed to fetch created order: %w", err)
+		return zero, sharedmodel.WrapErr("db list seller orders", err)
 	}
 
-	return CreateOrderResult{Order: newOrder, RedirectUrl: redirectUrl}, nil
+	var total null.Int64
+	if len(listCountOrder) > 0 {
+		total.SetValid(listCountOrder[0].TotalCount)
+	}
+
+	orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountSellerOrderRow, _ int) orderdb.OrderOrder {
+		return item.OrderOrder
+	}))
+	if err != nil {
+		return zero, sharedmodel.WrapErr("hydrate seller orders", err)
+	}
+
+	return sharedmodel.PaginateResult[ordermodel.Order]{
+		PageParams: params.PaginationParams,
+		Total:      total,
+		Data:       orders,
+	}, nil
 }
 
-type CancelOrderParams = struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
-	OrderID int64
-}
+func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.OrderOrder) ([]ordermodel.Order, error) {
+	if len(orders) == 0 {
+		return []ordermodel.Order{}, nil
+	}
 
-func (b *OrderBiz) CancelOrder(ctx context.Context, params CancelOrderParams) error {
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		payment, err := txStorage.GetOrderBase(ctx, pgutil.Int64ToPgInt8(params.OrderID))
+	orderIDs := lo.Map(orders, func(o orderdb.OrderOrder, _ int) uuid.UUID { return o.ID })
+
+	// Collect payment IDs (only valid ones)
+	var paymentIDs []int64
+	for _, o := range orders {
+		if o.PaymentID.Valid {
+			paymentIDs = append(paymentIDs, o.PaymentID.Int64)
+		}
+	}
+
+	// Fetch order items and payments from DB inside Run
+	type dbResults struct {
+		OrderItems []orderdb.OrderItem    `json:"order_items"`
+		Payments   []orderdb.OrderPayment `json:"payments"`
+	}
+	dbData, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResults, error) {
+		orderItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
+			OrderID: lo.Map(orderIDs, func(id uuid.UUID, _ int) uuid.NullUUID {
+				return uuid.NullUUID{UUID: id, Valid: true}
+			}),
+		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch order base: %w", err)
+			return dbResults{}, err
 		}
 
-		if payment.PaymentStatus != db.CommonStatusPending {
-			return fmt.Errorf("payment %d cannot be canceled", params.OrderID)
+		var payments []orderdb.OrderPayment
+		if len(paymentIDs) > 0 {
+			payments, err = b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+				ID: paymentIDs,
+			})
+			if err != nil {
+				return dbResults{}, err
+			}
 		}
 
-		if _, err := txStorage.UpdateOrderBase(ctx, db.UpdateOrderBaseParams{
-			ID:            params.OrderID,
-			PaymentStatus: db.NullCommonStatus{CommonStatus: db.CommonStatusCanceled, Valid: true},
-		}); err != nil {
-			return fmt.Errorf("failed to update order status: %w", err)
-		}
-
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to cancel order %d: %w", params.OrderID, err)
+		return dbResults{OrderItems: orderItems, Payments: payments}, nil
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("db fetch order data", err)
 	}
 
-	return nil
+	// Group items by order_id
+	orderItemsMap := make(map[uuid.UUID][]orderdb.OrderItem)
+	for _, oi := range dbData.OrderItems {
+		if oi.OrderID.Valid {
+			orderItemsMap[oi.OrderID.UUID] = append(orderItemsMap[oi.OrderID.UUID], oi)
+		}
+	}
+
+	// Enrich items with resources
+	enrichedItemsMap := make(map[uuid.UUID][]ordermodel.OrderItem)
+	for orderID, items := range orderItemsMap {
+		enriched, err := b.enrichItems(ctx, items)
+		if err != nil {
+			return nil, sharedmodel.WrapErr("enrich order items", err)
+		}
+		enrichedItemsMap[orderID] = enriched
+	}
+
+	paymentMap := lo.KeyBy(dbData.Payments, func(p orderdb.OrderPayment) int64 { return p.ID })
+
+	result := make([]ordermodel.Order, 0, len(orders))
+	for _, o := range orders {
+		var paymentPtr *ordermodel.Payment
+		if o.PaymentID.Valid {
+			if p, ok := paymentMap[o.PaymentID.Int64]; ok {
+				var datePaid *time.Time
+				if p.DatePaid.Valid {
+					datePaid = &p.DatePaid.Time
+				}
+				var pmID *uuid.UUID
+				if p.PaymentMethodID.Valid {
+					pmID = &p.PaymentMethodID.UUID
+				}
+				paymentPtr = &ordermodel.Payment{
+					ID:              p.ID,
+					AccountID:       p.AccountID,
+					Option:          p.Option,
+					PaymentMethodID: pmID,
+					Status:          p.Status,
+					Amount:          sharedmodel.Concurrency(p.Amount),
+					Data:            p.Data,
+					DateCreated:     p.DateCreated,
+					DatePaid:        datePaid,
+					DateExpired:     p.DateExpired,
+				}
+			}
+		}
+
+		var note *string
+		if o.Note.Valid {
+			note = &o.Note.String
+		}
+
+		result = append(result, ordermodel.Order{
+			ID:              o.ID,
+			BuyerID:         o.BuyerID,
+			SellerID:        o.SellerID,
+			TransportID:     o.TransportID,
+			Payment:         paymentPtr,
+			Status:          o.Status,
+			Address:         o.Address,
+			ProductCost:     sharedmodel.Concurrency(o.ProductCost),
+			ProductDiscount: sharedmodel.Concurrency(o.ProductDiscount),
+			TransportCost:   sharedmodel.Concurrency(o.TransportCost),
+			Total:           sharedmodel.Concurrency(o.Total),
+			Note:            note,
+			Data:            o.Data,
+			DateCreated:     o.DateCreated,
+			Items:           enrichedItemsMap[o.ID],
+		})
+	}
+
+	return result, nil
 }
 
-type VerifyPaymentParams struct {
-	PaymentGateway string `validate:"required,min=1,max=50"`
-	Data           map[string]any
-}
-
-func (b *OrderBiz) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
-	var refID int64
-
+// ConfirmPayment updates the payment status based on a webhook callback result.
+// Called by the transport layer after provider-specific webhook verification.
+func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return sharedmodel.WrapErr("validate confirm payment", err)
 	}
 
-	// Verify payment via payment gateway
-	if gateway, ok := b.paymentMap[params.PaymentGateway]; ok {
-		result, err := gateway.VerifyPayment(ctx, params.Data)
+	refUUID, err := uuid.Parse(params.RefID)
+	if err != nil {
+		return sharedmodel.WrapErr("parse ref id", err)
+	}
+
+	var dbStatus orderdb.OrderStatus
+	switch params.Status {
+	case payment.StatusSuccess:
+		dbStatus = orderdb.OrderStatusSuccess
+	case payment.StatusFailed:
+		dbStatus = orderdb.OrderStatusFailed
+	default:
+		return nil // ignore pending/expired — no state change needed
+	}
+
+	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refUUID, Valid: true})
 		if err != nil {
 			return err
 		}
-		refID = result.RefID
-	} else {
-		return ordermodel.ErrPaymentGatewayNotFound
-	}
 
-	// Publish event for order paid
-	if err := b.pubsub.Publish(ordermodel.TopicOrderPaid, OrderPaidParams{
-		OrderID: refID,
-	}); err != nil {
+		if !order.PaymentID.Valid {
+			return ordermodel.ErrMissingPayment.Terminal()
+		}
+
+		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+			ID:     order.PaymentID.Int64,
+			Status: orderdb.NullOrderStatus{OrderStatus: dbStatus, Valid: true},
+		})
 		return err
+	})
+}
+
+// CancelOrder cancels a pending order along with its items.
+// If unpaid (payment_id NULL): cancel order + items, release inventory.
+// If paid: return error (should use refund flow).
+func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
+	// GetOrder has its own Run internally
+	order, err := b.GetOrder(ctx, params.OrderID)
+	if err != nil {
+		return sharedmodel.WrapErr("fetch order", err)
 	}
 
-	return nil
-}
-
-type QuoteOrderParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
-	Address string     `validate:"required"`
-	Skus    []OrderSku `validate:"required,min=1,dive"`
-}
-type QuoteOrderResult struct {
-	Subtotal commonmodel.Concurrency `json:"subtotal"`
-	Shipping commonmodel.Concurrency `json:"shipping"`
-}
-
-func (b *OrderBiz) QuoteOrder(ctx context.Context, params QuoteOrderParams) (QuoteOrderResult, error) {
-	var zero QuoteOrderResult
-
-	if err := validator.Validate(params); err != nil {
-		return zero, err
+	if order.BuyerID != params.Account.ID {
+		return ordermodel.ErrOrderNotFound.Terminal()
 	}
 
-	skuIDs := lo.Map(params.Skus, func(s OrderSku, _ int) int64 { return s.SkuID })
-	orderSkuMap := lo.KeyBy(params.Skus, func(s OrderSku) int64 { return s.SkuID })
+	if order.Status != orderdb.OrderStatusPending {
+		return ordermodel.ErrOrderCannotCancel.Terminal()
+	}
 
-	var subtotal, shippingPrice commonmodel.Concurrency
+	// If paid, cannot cancel directly
+	if order.Payment != nil && order.Payment.Status == orderdb.OrderStatusSuccess {
+		return ordermodel.ErrPaymentCannotCancel.Terminal()
+	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		skus, err := txStorage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-			ID: skuIDs,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list catalog product skus: %w", err)
-		}
-		if len(skus) != len(skuIDs) {
-			return ordermodel.ErrOrderItemNotFound
-		}
-		skuMap := lo.KeyBy(skus, func(s db.CatalogProductSku) int64 { return s.ID })
-
-		spus, err := txStorage.ListCatalogProductSpu(ctx, db.ListCatalogProductSpuParams{
-			ID: lo.Map(skus, func(s db.CatalogProductSku, _ int) int64 { return s.SpuID }),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list catalog product spu: %w", err)
-		}
-		spuMap := lo.KeyBy(spus, func(s db.CatalogProductSpu) int64 { return s.ID })
-
-		priceMap, err := b.promotion.CalculatePromotedPrices(ctx, skus, spuMap)
-		if err != nil {
-			return fmt.Errorf("failed to calculate promoted prices: %w", err)
+	// Cancel order + items
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		// Cancel payment if exists
+		if order.Payment != nil {
+			if _, err := b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+				ID:     order.Payment.ID,
+				Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
+			}); err != nil {
+				return sharedmodel.WrapErr("db update payment status", err)
+			}
 		}
 
-		for _, sku := range params.Skus {
-			subtotal += priceMap[sku.SkuID].Price.Mul(orderSkuMap[sku.SkuID].Quantity)
+		// Cancel order
+		if _, err := b.storage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
+			ID:     order.ID,
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
+		}); err != nil {
+			return sharedmodel.WrapErr("db update order status", err)
+		}
 
-			spu, ok := spuMap[skuMap[sku.SkuID].SpuID]
-			if !ok {
-				return fmt.Errorf("missing spu for sku %d", sku.SkuID)
-			}
-
-			vendorContact, err := b.getDefaultContact(ctx, spu.AccountID)
-			if err != nil {
-				return fmt.Errorf("failed to get vendor contact: %w", err)
-			}
-
-			shipmentClient, ok := b.shipmentMap[sku.ShipmentOption]
-			if !ok {
-				return fmt.Errorf("unknown shipment option: %s", sku.ShipmentOption)
-			}
-
-			var packageDetails shipment.PackageDetails
-			if err := sonic.Unmarshal([]byte(skuMap[sku.SkuID].PackageDetails), &packageDetails); err != nil {
-				return fmt.Errorf("failed to unmarshal packaged size for sku %d: %w", sku.SkuID, err)
-			}
-
-			shipmentQuote, err := shipmentClient.Quote(ctx, shipment.CreateParams{
-				FromAddress: vendorContact.Address,
-				ToAddress:   params.Address,
-				Package:     packageDetails,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to quote shipment: %w", err)
-			}
-
-			shippingPrice += shipmentQuote.Costs.Mul(orderSkuMap[sku.SkuID].Quantity)
+		// Cancel items
+		if err := b.storage.Querier().CancelItemsByOrder(ctx, uuid.NullUUID{UUID: order.ID, Valid: true}); err != nil {
+			return sharedmodel.WrapErr("db cancel items", err)
 		}
 
 		return nil
 	}); err != nil {
-		return zero, fmt.Errorf("failed to quote order: %w", err)
+		return sharedmodel.WrapErr("cancel order", err)
 	}
 
-	return QuoteOrderResult{
-		Subtotal: subtotal,
-		Shipping: shippingPrice,
-	}, nil
-}
+	// Release inventory for all items
+	if len(order.Items) > 0 {
+		releaseItems := lo.Map(order.Items, func(item ordermodel.OrderItem, _ int) inventorybiz.ReleaseInventoryItem {
+			return inventorybiz.ReleaseInventoryItem{
+				RefType: inventorydb.InventoryStockRefTypeProductSku,
+				RefID:   item.SkuID,
+				Amount:  item.Quantity,
+			}
+		})
+		if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+			Items: releaseItems,
+		}); err != nil {
+			return sharedmodel.WrapErr("release inventory", err)
+		}
+	}
 
-// TODO: should call the account biz instead of using storage directly
-func (b *OrderBiz) getDefaultContact(ctx context.Context, accountID int64) (db.AccountContact, error) {
-	var zero db.AccountContact
-
-	profile, err := b.storage.GetAccountProfile(ctx, db.GetAccountProfileParams{
-		ID: pgutil.Int64ToPgInt8(accountID),
+	// Notify buyer: order cancelled
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+		AccountID: order.BuyerID,
+		Type:      "order_cancelled",
+		Channel:   "in_app",
+		Title:     "Order cancelled",
+		Content:   fmt.Sprintf("Your order %s has been cancelled.", order.ID),
+		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
 	})
-	if err != nil {
-		return zero, err
-	}
 
-	contact, err := b.storage.GetAccountContact(ctx, profile.DefaultContactID)
-	if err != nil {
-		return zero, err
+	// Track cancel_order interactions
+	var cancelInteractions []analyticbiz.CreateInteraction
+	for _, item := range order.Items {
+		cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
+			Account:   params.Account,
+			EventType: analyticmodel.EventCancelOrder,
+			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+			RefID:     item.SkuID.String(),
+		})
 	}
+	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
+		Interactions: cancelInteractions,
+	})
 
-	return contact, nil
+	return nil
 }

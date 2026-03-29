@@ -1,322 +1,157 @@
-# shopnexus-remastered
+# ShopNexus Server
 
 [![wakatime](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f.svg)](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f)
 
-## This project is under heavy development ☢️
+A social marketplace backend in Go, built as a **modular monolith** designed for microservice extraction via [Restate](https://restate.dev) durable execution — comprising these modules with clear boundaries:
 
-## Epic features
+- [`account`](internal/module/account/) — Auth, profiles, contacts, favorites, payment methods, notifications
+- [`catalog`](internal/module/catalog/) — Products (SPU/SKU), categories, tags, comments, hybrid search, recommendations
+- [`order`](internal/module/order/) — Cart, checkout, pending items, seller confirmation, payment, refunds
+- [`inventory`](internal/module/inventory/) — Stock management, serial tracking, audit history
+- [`promotion`](internal/module/promotion/) — Discounts, ship discounts, scheduling, group-based price stacking
+- [`analytic`](internal/module/analytic/) — Interaction tracking, weighted product popularity scoring
+- [`chat`](internal/module/chat/) — Real-time WebSocket messaging, conversations, read receipts
+- [`common`](internal/module/common/) — Resource/file management, object storage, service options, geocoding
+- [`system`](internal/module/system/) — Transactional outbox for reliable event publishing
 
-### 1. Have two mode: modular monolith and microservices
+> Development timeline: [timeline.md](timeline.md)
 
-- Modular monolith: all services in one process -> everything is easy 🤑
-- Microservices: each service run its own process -> scaling and independent deployment, but hell for debugging 🥀
+---
 
-### 2. Support array in request params (separated by comma)
+## Durable Execution (Restate)
 
-- Example: `/products?ids=1,2,3`
-- Use sqlc.slice to filter by array of ids in sql query => faster fetching, reduce n+1 query problem
+All biz handler methods use `restate.Context` instead of `context.Context`. This gives:
 
-## My code, my rules
+- **Durable side effects**: DB writes inside `restate.Run()` are journaled and replay-safe
+- **Cross-module RPC**: calls go through generated Restate proxy clients (auto-registered at startup)
+- **Fire-and-forget**: `restate.ServiceSend()` for notifications and analytics tracking — durable, exactly-once delivery
+- **Terminal errors**: client-facing errors use `.Terminal()` to prevent Restate retries
 
-### 🐧 Every day, 8 hours per day, 6 days per week 🐧
+Cross-module dependencies use the `XxxBiz` interface (resolved to Restate proxy by fx), not direct struct references. Transport handlers also depend on the interface, not the concrete handler.
 
-### No using AI-generated code for backend development (including database design, queries, etc.), except when using tab completion
+---
 
-### Database
+## Unified Account Model
 
-- Always use table per type (TPT) in database design
-- Audit snapshot for tax authority and transaction dispute purpose
-- SearchEngine(search_sync): Query event table to get the latest
-- Only apply default value to fields that are most likely to be missing in insert statement (e.g. created_at, updated_at, status pending, is active, etc.)
-- use SELECT ... FOR UPDATE to lock the rows when update to avoid race condition
-- use SELECT ... FOR UPDATE + SKIP LOCKED in like "finding available task" to avoid multiple worker pick the same task => work best for finding available product serial in our app
+There are no separate customer/vendor account types. Any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction, not per account.
 
-### Go
+---
 
-- Folder structure: Vertical slice (by service)
-- Use grpc generated code as domain model to reduce mapping code (<https://www.reddit.com/r/golang/comments/rdkqwv/grpc_use_the_generated_proto_as_a_model/>)
-- Defensive programming, trust nothing, validate and verify everything. Fail fast, and fail early => Both transport and biz layer will validate the input
-- Always use db+entityName for naming the storage entity received from sqlc (e.g dbResources, dbComment, etc.)
+## Order Lifecycle
 
-#### Always use the null.XXX
+The order flow is split into three phases with clear responsibility boundaries:
 
-- Always use value instead of pointer (details: <https://medium.com/eureka-engineering/understanding-allocations-in-go-stack-heap-memory-9a2631b5035d>). IMO, using pointer may hard to debug in the future.
-- As because of prefer value to pointer, always use the null.XXX from <https://github.com/guregu/null>.
+### 1. Checkout (Buyer)
 
-IMO it is better than sql.NullXXX or pgtype.XXX because:
+Buyer selects SKUs (from cart or Buy Now), provides a shipping address per item. The system:
 
-- Both not fully-compatible with validator/v10: does not have the TextUnmarshaller implemented -> won't work with query/param struct tag
+- Validates SKU availability and fetches seller info
+- **Reserves inventory** immediately (prevents overselling)
+- Creates **pending `order.item` records** (no order yet, no payment)
+- Removes items from cart
 
-### General
+Pending items can be cancelled by the buyer (releases inventory).
 
-- No use orchestration patterns, use choreography instead.
-- Use choreography pattern with compensating transactions to handle failures gracefully.
-- Always use events to communicate between services to microservice friendly and avoid tight coupling.
-- Use "sqids" instead of raw id to avoid data leak and make it harder to guess the total number of records. <https://sqids.org/?hashids>
+### 2. Confirmation (Seller)
 
-#### Early stage
+Seller sees incoming pending items grouped by buyer + address. Seller selects items and confirms them:
 
-- Use models generated from sqlc as much as possible to coupling data with database schema, easy for development
-- Only create custom model for DTOs only (response data) and some custom types that are not directly related to database schema
-- #1: Show the id (the incremental primary key) in the DTO to reduce project complexity
+- Creates a **transport** record (shipping via pluggable provider)
+- Groups selected items into a single **order** with calculated costs:
+  - `product_cost` = sum(unit_price × quantity)
+  - `product_discount` = product_cost - sum(paid_amount)
+  - `total` = product_cost - product_discount + transport_cost
+- Items that share the same buyer AND address can be grouped together
+- Seller can also reject items (releases inventory, notifies buyer)
 
-#### Later stage
+### 3. Payment (Buyer)
 
-- Use generated protobuf as domain models to decouple from database schema
-- Each service is a different binary, so each service can have its own model package
-- Add permission checking
-- #1: Hide the internal id (the incremental primary key) in the DTO to avoid data leak, use "code" (the unique public identifier) instead for external reference
-- add <https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/>
-- Outbox Pattern for reliable event publishing (kafka) <https://microservices.io/patterns/data/transactional-outbox.html>
+Buyer sees confirmed orders with exact totals (product + transport). Buyer selects orders and pays:
 
-### Biz
+- Creates a **payment** record linked to the selected orders
+- Calls the payment provider (VNPay QR/Bank/ATM or COD)
+- Payment verified via IPN callback
 
-- Tag only for SEO purpose, use category for product grouping instead.
-- Handle the problem "Slowly Changing Dimension (SCD)" in database design (financial transactions related)
-- Always use the sharedmodel.Currency to handle money related fields
-- Use validator/v10 to validate the DTO from client side
+### Cancellation
 
-#### Voucher abuse through partial refunds
+- **Unpaid orders**: buyer can cancel directly (releases inventory)
+- **Paid orders**: must go through the refund flow (PickUp or DropOff return methods)
 
-Original Order:
+---
 
-Products: $100 + $200 + $300 = $600
-Voucher: 60% off orders $600+
-Customer pays: $240
-Effective per-item cost: $40, $80, $120
+## Product Model (SPU/SKU)
 
-After Partial Refund:
+Products follow the industry-standard two-level hierarchy:
 
-Customer keeps: $300 product
-Effective price paid for $300 item: Depends on refund calculation
+- **SPU (Standard Product Unit)**: the abstract product concept — name, description, category, specifications, tags, resources (images). Owned by the seller's account.
+- **SKU (Stock Keeping Unit)**: a concrete purchasable variant — price, attributes (color/size), package details, inventory stock. Each SKU belongs to one SPU.
 
-Common Refund Calculation Methods:
-Proportional Refund (Most Fair)
-   Refund = (item_price / original_total) × discount_amount
-   $100 item refund = ($100/$600) × $360 = $60
-   $200 item refund = ($200/$600) × $360 = $120
-   Total refund = $180
+A **featured SKU** per SPU determines the display price on product cards.
 
-Customer effectively paid: $300 - $60 = $240 for $300 item
+---
 
-But customer still can pay only $240 for $300 item, which is not in the first discount rule.
+## Hybrid Search & Recommendations
 
-### Order flow
+Product search combines **dense vector similarity** (embedding-based) and **sparse BM25** (keyword-based) scoring via Milvus. If Milvus is unavailable, falls back to PostgreSQL `ILIKE` matching.
 
-```mermaid
-flowchart TD
-    A["Customer Clicks Buy Now"] --> B["Validate Cart & Promotions"]
-    B --> C["Clear cart items"]
-    C --> D["Reserve Inventory"]
-    D --> E["Create Order in Database"]
-    E --> F["Return Order Info to Customer"]
-    F --> G["Publish OrderCreated Event"]
-    
-    G --> H["Send Email Confirmation"]
-    G --> I["Update Analytics Dashboard"]
-    G --> J["Initiate Shipping Process"]
-    G --> K["Update Recommendation Engine"]
-    G --> L["Execute Fraud Detection"]
-```
-
-### Note
-
-- "Interface values are comparable. Two interface values are equal if they have identical dynamic types and equal dynamic values or if both have value nil."
-Which means when compare an interface value with nil, it will always return false because the "nil" is untyped nil, not typed (as the interface) nil. More details on <https://stackoverflow.com/questions/29138591/hiding-nil-values-understanding-why-go-fails-here/29138676#29138676> and <https://github.com/go-playground/validator/issues/134#issuecomment-126524931>
-- Omitempty only works for pointer, slice, map, and interface types not zero value from struct.
-- If you’re using pgx/v5 you get its implicit support for prepared statements. No additional sqlc configuration is required.
-- struct tag "omitnil" from validator/v10 not work with untyped-nil <https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649>
-- Implement <https://github.com/TecharoHQ/anubis> to stop AI crawlers
-- Some good middlewares (rate limiter, requestID, etc.) I should add to my echo server: <https://echo.labstack.com/docs/category/middleware>
-- <https://medium.com/@zilliz_learn/elasticsearch-was-great-but-vector-databases-are-the-future-0d7ec24ab7f9>
-- Add cursor pagination encode/decode into structs and use as filter conditions in queries
-- Use <https://www.x402.org/> for crypto exchanging
-
-## Develop Timeline
-
-### 29-8-2025 🤑 First request only take 10ms 🤑
-
-![img.png](images/img.png)
-
-#### N+1 query btw but still blazingly fast
-
-![img.png](images/img2.png)
-
-### 4-9-2025 Found a way to write better queries with slqc.slice
-
-I should create a PR to sqlc.dev documentation haha
-
-```sql
-SELECT *
-FROM "catalog"."product_spu"
-WHERE (
-    ("id" = ANY (sqlc.slice('id')))
-)
-```
-
-### 5-9-2025 List products with caculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
-
-![img.png](images/img3.png)
-
-### 8-9-2025 Custom type need to be registered to pgx (pgxpool.go)
-
-Any custom DB types made with CREATE TYPE need to be registered with pgx.
-<https://github.com/kyleconroy/sqlc/issues/2116>
-![img.png](images/img4.png)
-
-### 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods
-
-With "emit_enum_valid_method: true" in sqlc.yaml and "validateFn=Valid" in struct tag
-I can validate the enum field directly with the generated Valid() method from sqlc.
-
-```go
-type CreateOrderParams struct {
- Account     authmodel.AuthenticatedAccount
- Address     string                `validate:"required"`
- OrderMethod db.OrderPaymentMethod `validate:"required,validateFn=Valid"`
- SkuIDs      []int64               `validate:"required,dive,gt=0"`
-}
-```
-
-I should write a blog on this btw.
-
-### 15-9-2025 Implement a well-structured custom Pub/Sub client for clean, maintainable publish/subscribe code
-
-```go
-// The subcriber
-func (s *OrderBiz) SetupPubsub() error {
-    return errutil.Some(
-        s.pubsub.Subscribe("order.created", pubsub.DecodeWrap(s.OrderCreated)),
-        s.pubsub.Subscribe("order.paid", pubsub.DecodeWrap(s.OrderPaid)),
-    )
-}
-
-type OrderCreatedParams = struct {
-    OrderID int64
-}
-
-func (s *OrderBiz) OrderCreated(ctx context.Context, params OrderCreatedParams) error {
-    // code here
-    
-    return nil
-}
-
-type OrderPaidParams = struct {
-    OrderID int64
-    Amount  int64
-}
-
-func (s *OrderBiz) OrderPaid(ctx context.Context, params OrderPaidParams) error {
-    // code here
-    
-    return nil
-}
-
-// The publisher
-if err = s.pubsub.Publish("order.created", OrderCreatedParams{
-    OrderID: order.ID,
-}); err != nil {
-    return zero, err
-}
-```
-
-With this approach, I can easily add new event handlers by simply defining a new struct for the event parameters and implementing the corresponding handler method.
-Also when finding subcribers, I can search globally by "OrderCreated*" or "OrderPaid*" to find all related handlers because the handler name is the same as the event name.
-
-### 25-9-2025 First demo of recommendation engine with milvus vector search
-
-**No more elasticsearch:**
-
-- Elasticsearch is great, but vector databases are the future.
-- After certain days with elasticsearch, found it is not suitable for vector search.
-- As I remember, I was using model MGTE (alibaba) storing 200rows took 8mb of storage 💀
-![img.png](images/img5.png)
-- Inserting into milvus took 60seconds per 100 products
-![img.png](images/img6.png)
-
-### 7-10-2025 refactor payment and shipment with better interface
-
-- Maintainer will now easier to add new payment gateway or shipment provider
-
-```go
-func (s *OrderBiz) SetupPaymentMap() error {
- var configs []sharedmodel.OptionConfig
-
- s.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
-
- // setup cod client
- codClient := cod.NewClient()
- s.paymentMap[codClient.Config().ID] = codClient
- configs = append(configs, codClient.Config())
-
- // setup vnpay client
- vnpayClients := vnpay.NewClients(vnpay.ClientOptions{
-  TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
-  HashSecret: config.GetConfig().App.Vnpay.HashSecret,
-  ReturnURL:  config.GetConfig().App.Vnpay.ReturnURL,
- })
- for _, c := range vnpayClients {
-  s.paymentMap[c.Config().ID] = c
-  configs = append(configs, c.Config())
- }
-
- if err := s.shared.UpdateServiceOptions(context.Background(), "payment", configs); err != nil {
-  return err
- }
-
- return nil
-}
-```
-
-- Create shared service option table to store the payment and shipment options
-
-```sql
-CREATE TABLE "shared"."service_option" (
-    "id" VARCHAR(100) NOT NULL,
-    "category" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
-    "provider" TEXT NOT NULL,
-    "method" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-
-    CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
-);
-```
-
-### 30-10-2025 After a long time of lazying around 🐧
-
-### 7-11-2025 Refactor database wrapper (storage)
-
-Add transaction callback to storage interface to reduce boilerplate code when using transaction. Back then I always forget to commit/rollback the transaction 😂
-
-```go
-// WithTx executes the given function within a transaction, prefer using the provided Storage if not nil, automatically commit/rollback
- WithTx(ctx context.Context, preferStorage Storage, fn func(txStorage Storage) error) error
-```
-
-- With this approach, you can pass the preferStorage from outer biz layer to inner biz layer when both layers need to use transaction. Eg: CreateComment which calls UpdateResources atomically.
-- You can choose to have a nested transaction by setting allowNestedTx (default: false) to true in NewTxQueries.
-
-![img.png](images/img7.png)
-
-### 8-11-2024 Use errors.Join instead of my own errutil.Some
-
-```go
-func Some(errs ...error) error {
- for _, err := range errs {
-  if err != nil {
-   return err
-  }
- }
- return nil
-}
-
-// Standard library approach (Go 1.20+)
-err := errors.Join(err1, err2, err3)
-// Returns an error containing all non-nil errors
-
-// Your Some function
-err := errutil.Some(err1, err2, err3)
-// Returns only the first non-nil error
-```
+Background cron jobs sync product metadata and embeddings to Milvus:
+
+- **Metadata sync**: runs frequently, re-indexes name/price/tags/category
+- **Embedding sync**: runs less often, regenerates vector embeddings when description changes (expensive)
+
+Personalized recommendations use a Redis-cached feed per user, refreshed from Milvus collaborative filtering. Falls back to most-sold products when recommendations are insufficient.
+
+---
+
+## Promotion Engine
+
+Promotions use **group-based stacking**:
+
+- Promotions in **different groups** stack with each other
+- Promotions in the **same group** compete — the one with the biggest savings wins
+- An **"exclusive" group** promotion overrides all others
+
+Discount data is stored as JSONB in `promotion.promotion.data` with configurable `min_spend`, `max_discount`, `discount_percent` or `discount_price`.
+
+Promotions can target specific products (SPU/SKU), categories via the `promotion.ref` table. Auto-apply promotions are included in every price calculation; code-based promotions require the buyer to enter a code.
+
+Types defined: Discount, ShipDiscount, Bundle, BuyXGetY, Cashback. Currently implemented in price calculation: **Discount** and **ShipDiscount**.
+
+---
+
+## Inventory & Serial Tracking
+
+Stock uses a polymorphic `(ref_type, ref_id)` design supporting both ProductSKU and Promotion references.
+
+Serial assignment during checkout uses `FOR UPDATE SKIP LOCKED` — concurrent buyers get different serials without blocking each other. If a transaction rolls back, those serials become available again.
+
+Every stock change (import, reserve, release) is recorded in an append-only `stock_history` audit trail.
+
+---
+
+## Payment & Transport Providers
+
+Both systems use a **pluggable provider pattern** — a `map[string]Client` keyed by option ID, registered at startup.
+
+**Payment providers:**
+
+- VNPay (QR, Bank, ATM) — redirect-based with IPN webhook verification
+- COD (Cash on Delivery) — no online payment
+
+**Transport providers:**
+
+- GHTK (Express, Standard, Economy) — mock implementation with weight-based cost calculation
+
+Providers are discoverable at runtime via the common service option registry.
+
+---
+
+## Analytics
+
+Fire-and-forget interaction tracking via Restate durable calls. Weighted popularity scoring with atomic upsert accumulation. Feeds into product search recommendations.
+
+---
+
+## Real-time Chat
+
+WebSocket-based messaging between any two accounts. One conversation per account pair (idempotent creation). Supports text, image, and system messages with read receipt tracking. Messages are persisted to PostgreSQL; offline users retrieve history via REST pagination.

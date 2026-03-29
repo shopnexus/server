@@ -1,231 +1,224 @@
 package catalogbiz
 
 import (
-	"context"
-	"fmt"
+	"encoding/json"
 
-	"shopnexus-remastered/internal/db"
-	authmodel "shopnexus-remastered/internal/module/auth/model"
-	catalogmodel "shopnexus-remastered/internal/module/catalog/model"
-	searchmodel "shopnexus-remastered/internal/module/search/model"
-	"shopnexus-remastered/internal/module/shared/pgsqlc"
-	"shopnexus-remastered/internal/module/shared/pgutil"
-	"shopnexus-remastered/internal/module/shared/validator"
+	restate "github.com/restatedev/sdk-go"
+
+	accountmodel "shopnexus-server/internal/module/account/model"
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
+	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/nullutil"
+	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
 type ListProductSkuParams struct {
-	SpuID      int64      `validate:"omitempty,gt=0"`
-	PriceFrom  null.Int64 `validate:"omitnil,gt=0"`
-	PriceTo    null.Int64 `validate:"omitnil,gt=0,gtefield=PriceFrom"`
-	CanCombine null.Bool  `validate:"omitnil"`
+	ID         []uuid.UUID `validate:"omitempty,dive,required"`
+	SpuID      []uuid.UUID `validate:"omitempty"`
+	PriceFrom  null.Int64  `validate:"omitnil,gt=0"`
+	PriceTo    null.Int64  `validate:"omitnil,gt=0,gtefield=PriceFrom"`
+	CanCombine null.Bool   `validate:"omitnil"`
 }
 
-func (b *CatalogBiz) ListProductSku(ctx context.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+// ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
+func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate list product sku", err)
 	}
 
-	dbSkus, err := b.storage.ListCatalogProductSku(ctx, db.ListCatalogProductSkuParams{
-		SpuID:      []int64{params.SpuID},
-		PriceFrom:  pgutil.NullInt64ToPgInt8(params.PriceFrom),
-		PriceTo:    pgutil.NullInt64ToPgInt8(params.PriceTo),
-		CanCombine: pgutil.NullBoolToSlice(params.CanCombine),
+	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+		ID:         params.ID,
+		SpuID:      params.SpuID,
+		PriceFrom:  params.PriceFrom,
+		PriceTo:    params.PriceTo,
+		CanCombine: nullutil.NullBoolToSlice(params.CanCombine),
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("db list product sku", err)
 	}
 
-	stocks, err := b.storage.ListInventoryStock(ctx, db.ListInventoryStockParams{
-		RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-		RefID:   lo.Map(dbSkus, func(s db.CatalogProductSku, _ int) int64 { return s.ID }),
+	stocks, err := b.inventory.ListStock(ctx, inventorybiz.ListStockParams{
+		RefType: []inventorydb.InventoryStockRefType{inventorydb.InventoryStockRefTypeProductSku},
+		RefID:   lo.Map(dbSkus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.ID }),
 	})
 	if err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("list stock", err)
 	}
-	stockMap := lo.KeyBy(stocks, func(s db.InventoryStock) int64 { return s.RefID })
+	stockMap := lo.KeyBy(stocks.Data, func(s inventorydb.InventoryStock) uuid.UUID { return s.RefID })
 
 	var skus []catalogmodel.ProductSku
 	for _, dbSku := range dbSkus {
 		var attributes []catalogmodel.ProductAttribute
 		if err := sonic.Unmarshal(dbSku.Attributes, &attributes); err != nil {
-			return zero, err
+			return zero, sharedmodel.WrapErr("unmarshal sku attributes", err)
 		}
-		skus = append(skus, catalogmodel.ProductSku{
-			ID:          dbSku.ID,
-			SpuID:       dbSku.SpuID,
-			Price:       dbSku.Price,
-			CanCombine:  dbSku.CanCombine,
-			DateCreated: dbSku.DateCreated.Time,
-			Stock:       stockMap[dbSku.ID].CurrentStock,
-			Attributes:  attributes,
-		})
+		m := dbToProductSku(dbSku)
+		m.Stock = stockMap[dbSku.ID].Stock
+		m.Attributes = attributes
+		skus = append(skus, m)
 	}
 
 	return skus, nil
 }
 
 type CreateProductSkuParams struct {
-	Storage    pgsqlc.Storage
-	Account    authmodel.AuthenticatedAccount
-	SpuID      int64                           `validate:"required,gt=0"`
-	Price      int64                           `validate:"required,gt=0"`
-	CanCombine bool                            `validate:"required"`
-	Attributes []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
+	Account        accountmodel.AuthenticatedAccount
+	SpuID          uuid.UUID                       `validate:"required"`
+	Price          sharedmodel.Concurrency         `validate:"required,gt=0"`
+	CanCombine     bool                            `validate:"required"`
+	Attributes     []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
+	PackageDetails json.RawMessage                 `validate:"required"`
 }
 
-func (b *CatalogBiz) CreateProductSku(ctx context.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+// CreateProductSku creates a new product SKU and initializes its inventory stock.
+func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
-	var sku db.CatalogProductSku
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		attributesBytes, err := sonic.Marshal(params.Attributes)
-		if err != nil {
-			return err
-		}
-
-		// Create sku
-		sku, err = txStorage.CreateDefaultCatalogProductSku(ctx, db.CreateDefaultCatalogProductSkuParams{
-			SpuID:      params.SpuID,
-			Price:      params.Price,
-			CanCombine: params.CanCombine,
-			Attributes: attributesBytes,
-		})
-		if err != nil {
-			return err
-		}
-
-		// Create sku stock
-		if _, err := txStorage.CreateDefaultInventoryStock(ctx, db.CreateDefaultInventoryStockParams{
-			RefType: db.InventoryStockRefTypeProductSku,
-			RefID:   sku.ID,
-		}); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return zero, fmt.Errorf("failed to create product sku: %w", err)
+	attributesBytes, err := sonic.Marshal(params.Attributes)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("create product sku", err)
+	}
+	packagedetailsBytes, err := sonic.Marshal(params.PackageDetails)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("create product sku", err)
 	}
 
-	return catalogmodel.ProductSku{
-		ID:          sku.ID,
-		SpuID:       sku.SpuID,
-		Price:       sku.Price,
-		CanCombine:  sku.CanCombine,
-		DateCreated: sku.DateCreated.Time,
-		Stock:       0,
-		Attributes:  params.Attributes,
-	}, nil
+	// Create sku
+	sku, err := b.storage.Querier().CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
+		SpuID:          params.SpuID,
+		Price:          int64(params.Price),
+		CanCombine:     params.CanCombine,
+		Attributes:     attributesBytes,
+		PackageDetails: packagedetailsBytes,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db create product sku", err)
+	}
+
+	if _, err := b.inventory.CreateStock(ctx, inventorybiz.CreateStockParams{
+		RefID:   sku.ID,
+		RefType: inventorydb.InventoryStockRefTypeProductSku,
+		Stock:   0,
+	}); err != nil {
+		return zero, sharedmodel.WrapErr("create product sku", err)
+	}
+
+	m := dbToProductSku(sku)
+	m.Stock = 0
+	m.Attributes = params.Attributes
+	return m, nil
 }
 
 type UpdateProductSkuParams struct {
-	Storage    pgsqlc.Storage
-	Account    authmodel.AuthenticatedAccount
-	ID         int64                           `validate:"required,gt=0"`
-	Price      null.Int64                      `validate:"omitnil,gt=0"`
-	CanCombine null.Bool                       `validate:"omitnil"`
-	Attributes []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
+	Account        accountmodel.AuthenticatedAccount
+	ID             uuid.UUID                       `validate:"required"`
+	Price          sharedmodel.NullConcurrency     `validate:"omitnil"`
+	CanCombine     null.Bool                       `validate:"omitnil"`
+	Attributes     []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
+	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
 
-func (b *CatalogBiz) UpdateProductSku(ctx context.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+// UpdateProductSku updates a product SKU and invalidates the parent SPU search index.
+func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
-		return zero, err
+		return zero, sharedmodel.WrapErr("validate update product sku", err)
 	}
 
-	var (
-		sku   db.CatalogProductSku
-		stock db.InventoryStock
-	)
+	attributesBytes, err := sonic.Marshal(params.Attributes)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update product sku", err)
+	}
+	packageDetailsBytes, err := sonic.Marshal(params.PackageDetails)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update product sku", err)
+	}
+	// TODO: check biz logic of attribute update
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		attributesBytes, err := sonic.Marshal(params.Attributes)
-		if err != nil {
-			return err
-		}
-		// TODO: check biz logic of attribute update
+	sku, err := b.storage.Querier().UpdateProductSku(ctx, catalogdb.UpdateProductSkuParams{
+		ID:             params.ID,
+		Price:          params.Price.ToNullInt64(),
+		CanCombine:     params.CanCombine,
+		Attributes:     attributesBytes,
+		PackageDetails: packageDetailsBytes,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db update product sku", err)
+	}
 
-		sku, err = txStorage.UpdateCatalogProductSku(ctx, db.UpdateCatalogProductSkuParams{
-			ID:         params.ID,
-			Price:      pgutil.NullInt64ToPgInt8(params.Price),
-			CanCombine: pgutil.NullBoolToPgBool(params.CanCombine),
-			Attributes: attributesBytes,
-		})
-		if err != nil {
-			return err
-		}
+	stock, err := b.inventory.GetStock(ctx, inventorybiz.GetStockParams{
+		RefType: inventorydb.InventoryStockRefTypeProductSku,
+		RefID:   sku.ID,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update product sku", err)
+	}
 
-		stock, err = txStorage.GetInventoryStock(ctx, db.GetInventoryStockParams{
-			RefType: db.NullInventoryStockRefType{InventoryStockRefType: db.InventoryStockRefTypeProductSku, Valid: true},
-			RefID:   pgutil.Int64ToPgInt8(sku.ID),
-		})
-		if err != nil {
-			return err
-		}
-
-		// Invalidate search index for the parent product (spu)
-		if err := txStorage.UpdateStaleSearchSync(ctx, db.UpdateStaleSearchSyncParams{
-			RefType:         searchmodel.RefTypeProduct,
-			RefID:           sku.SpuID,
-			IsStaleMetadata: pgutil.BoolToPgBool(true),
-		}); err != nil {
-			return err
-		}
-
-		return nil
+	// Invalidate search index for the parent product (spu)
+	if err := b.storage.Querier().UpdateStaleSearchSync(ctx, catalogdb.UpdateStaleSearchSyncParams{
+		RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
+		RefID:           sku.SpuID,
+		IsStaleMetadata: null.BoolFrom(true),
 	}); err != nil {
-		return zero, fmt.Errorf("failed to update product sku: %w", err)
+		return zero, sharedmodel.WrapErr("db update search sync", err)
 	}
 
+	m := dbToProductSku(sku)
+	m.Stock = stock.Stock
+	m.Attributes = params.Attributes
+	return m, nil
+}
+
+// dbToProductSku maps a DB CatalogProductSku row to the model type.
+// Callers should set Stock and Attributes as needed.
+func dbToProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
 	return catalogmodel.ProductSku{
-		ID:          sku.ID,
-		SpuID:       sku.SpuID,
-		Price:       sku.Price,
-		CanCombine:  sku.CanCombine,
-		DateCreated: sku.DateCreated.Time,
-		Stock:       stock.CurrentStock,
-		Attributes:  params.Attributes,
-	}, nil
+		ID:             sku.ID,
+		SpuID:          sku.SpuID,
+		Price:          sharedmodel.Concurrency(sku.Price),
+		CanCombine:     sku.CanCombine,
+		DateCreated:    sku.DateCreated,
+		PackageDetails: sku.PackageDetails,
+	}
 }
 
 type DeleteProductSkuParams struct {
-	Storage pgsqlc.Storage
-	Account authmodel.AuthenticatedAccount
-	ID      int64 `validate:"required,gt=0"`
+	Account accountmodel.AuthenticatedAccount
+	ID      uuid.UUID `validate:"required"`
 }
 
-func (b *CatalogBiz) DeleteProductSku(ctx context.Context, params DeleteProductSkuParams) error {
+// DeleteProductSku deletes a product SKU by ID.
+func (b *CatalogHandler) DeleteProductSku(ctx restate.Context, params DeleteProductSkuParams) error {
 	if err := validator.Validate(params); err != nil {
-		return err
+		return sharedmodel.WrapErr("validate delete product sku", err)
 	}
 
-	if err := b.storage.WithTx(ctx, params.Storage, func(txStorage pgsqlc.Storage) error {
-		// Delete sku
-		if err := txStorage.DeleteCatalogProductSku(ctx, db.DeleteCatalogProductSkuParams{
-			ID: []int64{params.ID},
-		}); err != nil {
-			return err
-		}
-
-		// Delete the associated stock record
-		if err := txStorage.DeleteInventoryStock(ctx, db.DeleteInventoryStockParams{
-			RefType: []db.InventoryStockRefType{db.InventoryStockRefTypeProductSku},
-			RefID:   []int64{params.ID},
-		}); err != nil {
-			return err
-		}
-
-		return nil
+	// Delete sku
+	if err := b.storage.Querier().DeleteProductSku(ctx, catalogdb.DeleteProductSkuParams{
+		ID: []uuid.UUID{params.ID},
 	}); err != nil {
-		return fmt.Errorf("failed to delete product sku: %w", err)
+		return sharedmodel.WrapErr("db delete product sku", err)
 	}
+
+	// TODO: should delete via message queue instead
+	// Delete the associated stock record
+	// if err := b.storage.Querier().DeleteInventoryStock(ctx, catalogdb.DeleteInventoryStockParams{
+	// 	RefType: []catalogdb.InventoryStockRefType{catalogdb.InventoryStockRefTypeProductSku},
+	// 	RefID:   []uuid.UUID{params.ID},
+	// }); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

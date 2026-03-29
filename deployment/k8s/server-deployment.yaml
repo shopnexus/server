@@ -26,7 +26,8 @@ spec:
         - env:
             - name: ENV
               value: production
-          image: shopnexus:latest
+          image: shopnexus-server:latest
+          imagePullPolicy: Never
           livenessProbe:
             exec:
               command:
@@ -51,11 +52,13 @@ spec:
               cpu: "1"
               memory: "1073741824"
           volumeMounts:
-            - mountPath: /data
+            - mountPath: /tmp
               name: server-data
-            - name: config-volume
-              mountPath: /app/config # Or wherever your app expects it
-              readOnly: true
+            - mountPath: /config
+              name: config-volume
+          envFrom:
+            - configMapRef:
+                name: shopnexus-config
       restartPolicy: Always
       volumes:
         - name: server-data
@@ -64,6 +67,3 @@ spec:
         - name: config-volume
           configMap:
             name: shopnexus-config
-            items:
-              - key: config.prod.yml
-                path: config.prod.yml

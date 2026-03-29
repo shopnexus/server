@@ -3,20 +3,28 @@ package accountecho
 import (
 	"net/http"
 
-	accountbiz "shopnexus-remastered/internal/module/account/biz"
-	authclaims "shopnexus-remastered/internal/module/auth/biz/claims"
-	"shopnexus-remastered/internal/module/shared/response"
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	authclaims "shopnexus-server/internal/shared/claims"
+	"shopnexus-server/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the account module.
 type Handler struct {
-	biz *accountbiz.AccountBiz
+	biz accountbiz.AccountBiz
 }
 
-func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
+// NewHandler registers account module routes and returns the handler.
+func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/account")
+
+	authApi := api.Group("/auth")
+	authApi.POST("/login/basic", h.LoginBasic)
+	authApi.POST("/register/basic", h.RegisterBasic)
+	authApi.POST("/refresh", h.Refresh)
 
 	// Account endpoints)
 	api.GET("", h.GetAccount)
@@ -27,13 +35,6 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	meApi.GET("", h.GetMe)
 	meApi.PATCH("", h.UpdateMe)
 
-	// Cart endpoints
-	cartApi := api.Group("/cart")
-	cartApi.GET("", h.GetCart)
-	cartApi.POST("", h.UpdateCart)
-	cartApi.DELETE("", h.ClearCart)
-	cartApi.GET("/buynow", h.GetCheckoutSku)
-
 	// Contact endpoints
 	contactApi := api.Group("/contact")
 	contactApi.GET("/:contact_id", h.GetContact)
@@ -42,15 +43,37 @@ func NewHandler(e *echo.Echo, biz *accountbiz.AccountBiz) *Handler {
 	contactApi.PATCH("", h.UpdateContact)
 	contactApi.DELETE("", h.DeleteContact)
 
+	// Favorite endpoints
+	favoriteApi := api.Group("/favorite")
+	favoriteApi.POST("/:spu_id", h.AddFavorite)
+	favoriteApi.DELETE("/:spu_id", h.RemoveFavorite)
+	favoriteApi.GET("", h.ListFavorite)
+
+	// Payment method endpoints
+	paymentApi := api.Group("/payment-method")
+	paymentApi.POST("", h.CreatePaymentMethod)
+	paymentApi.GET("", h.ListPaymentMethod)
+	paymentApi.PATCH("", h.UpdatePaymentMethod)
+	paymentApi.DELETE("", h.DeletePaymentMethod)
+	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
+	paymentApi.POST("/tokenize", h.TokenizeCard)
+
+	// Notification endpoints
+	notifApi := api.Group("/notification")
+	notifApi.GET("", h.ListNotification)
+	notifApi.GET("/unread-count", h.CountUnread)
+	notifApi.POST("/read", h.MarkRead)
+	notifApi.POST("/read-all", h.MarkAllRead)
+
 	return h
 }
 
-type GetAccountParams struct {
-	AccountID int64 `query:"account_id" validate:"required"`
+type GetAccountRequest struct {
+	AccountID uuid.UUID `query:"account_id" validate:"required"`
 }
 
 func (h *Handler) GetAccount(c echo.Context) error {
-	var req GetAccountParams
+	var req GetAccountRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -73,58 +96,3 @@ func (h *Handler) GetAccount(c echo.Context) error {
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, profile)
 }
-
-// type UpdateAccountRequest struct {
-// 	// Account base fields
-// 	AccountID int64            `json:"account_id" validate:"required"`
-// 	Status    db.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
-// 	Username  null.String      `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
-// 	Phone     null.String      `json:"phone" validate:"omitempty,e164"`
-// 	Email     null.String      `json:"email" validate:"omitempty,email"`
-
-// 	// Profile fields
-// 	Gender           db.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
-// 	Name             null.String      `json:"name" validate:"omitnil"`
-// 	DateOfBirth      null.Time        `json:"date_of_birth" validate:"omitnil"`
-// 	AvatarRsID       null.Int64       `json:"avatar_rs_id" validate:"omitnil"`
-// 	DefaultContactID null.Int64       `json:"default_contact_id" validate:"omitnil"`
-
-// 	// Vendor fields
-// 	Description null.String `json:"description" validate:"omitnil,max=500"`
-// }
-
-// func (h *Handler) UpdateAccount(c echo.Context) error {
-// 	var req UpdateAccountRequest
-// 	if err := c.Bind(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-// 	if err := c.Validate(&req); err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-// 	}
-
-// 	claims, err := authclaims.GetClaims(c.Request())
-// 	if err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-// 	}
-
-// 	result, err := h.biz.UpdateProfile(c.Request().Context(), accountbiz.UpdateProfileParams{
-// 		Issuer:           claims.Account,
-// 		AccountID:        req.AccountID,
-// 		Status:           req.Status,
-// 		Username:         req.Username,
-// 		Phone:            req.Phone,
-// 		Email:            req.Email,
-// 		Gender:           req.Gender,
-// 		Name:             req.Name,
-// 		DateOfBirth:      req.DateOfBirth,
-// 		AvatarRsID:       req.AvatarRsID,
-// 		DefaultContactID: req.DefaultContactID,
-// 		Description:      req.Description,
-// 	})
-
-// 	if err != nil {
-// 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-// 	}
-
-// 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
-// }

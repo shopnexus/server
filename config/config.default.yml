@@ -8,7 +8,7 @@ log:
 
 app:
   name: shopnexus
-  publicUrl: "http://localhost:8080"
+  publicUrl: "http://localhost:5004"
   jwt:
     secret: supersecretkey123
     accessTokenDuration: 3600
@@ -18,11 +18,27 @@ app:
     tmnCode: ""
     hashSecret: ""
     returnUrl: "http://localhost:3000/payment/vnpay_return"
+  sepay:
+    merchantId: ""
+    secretKey: ""
+    ipnSecretKey: ""
+    successUrl: "http://localhost:3000/payment/sepay_return"
+    errorUrl: "http://localhost:3000/payment/sepay_error"
+    cancelUrl: "http://localhost:3000/payment/sepay_cancel"
+    sandbox: true
+  cardPayment:
+    provider: ""
+    secretKey: ""
+    publicKey: ""
   search:
     url: "http://localhost:8000"
     denseWeight: 0.75
     sparseWeight: 0.25
     interactionBatchSize: 1
+    productMetadataSyncInterval: 1s
+    productEmbeddingSyncInterval: 1s
+  order:
+    paymentExpiryDays: 30
 
 filestore:
   type: s3 # Options: Local, S3, Cloudinary, Remote
@@ -33,6 +49,7 @@ filestore:
     region: ""
     bucket: ""
     cloudfrontUrl: ""
+  placeholder404Url: ""
 
 postgres:
   # Option 1: Using connection URL
@@ -55,3 +72,30 @@ redis:
   port: "6379"
   password: "peaksehopnexuspassword"
   db: 0
+
+nats:
+  host: localhost
+  port: 4222
+
+milvus:
+  address: "localhost:19530"
+
+llm:
+  provider: python
+  python:
+    url: "http://localhost:5007"
+  openai:
+    apiKey: ""
+    baseURL: ""
+    embedModel: "text-embedding-3-small"
+    chatModel: "gpt-4o"
+  bedrock:
+    region: "us-east-1"
+    embedModelId: "amazon.titan-embed-text-v2:0"
+    chatModelId: "anthropic.claude-3-haiku-20240307-v1:0"
+
+restate:
+  ingressAddress: "http://localhost:8080"
+  adminAddress: "http://localhost:9470"
+  serviceHost: "http://host.docker.internal"
+  servicePort: "8082"

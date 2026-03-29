@@ -1,7 +1,7 @@
 package main
 
 import (
-	"shopnexus-remastered/internal/app"
+	"shopnexus-server/internal/app"
 
 	"go.uber.org/fx"
 )

@@ -1,23 +1,26 @@
 package catalogecho
 
 import (
-	catalogbiz "shopnexus-remastered/internal/module/catalog/biz"
+	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 
 	"github.com/labstack/echo/v4"
 )
 
+// Handler handles HTTP requests for the catalog module.
 type Handler struct {
-	biz *catalogbiz.CatalogBiz
+	biz catalogbiz.CatalogBiz
 }
 
-func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
-	h := &Handler{biz: catalogbiz}
+// NewHandler registers catalog module routes and returns the handler.
+func NewHandler(e *echo.Echo, biz catalogbiz.CatalogBiz) *Handler {
+	h := &Handler{biz: biz}
 	api := e.Group("/api/v1/catalog")
 
 	// Friendly APIs
 	api.GET("/product-detail", h.GetProductDetail)
 	api.GET("/product-card", h.ListProductCard)
 	api.GET("/product-card/recommended", h.ListRecommendedProductCard)
+	api.GET("/product-card/:id", h.GetProductCard)
 
 	// Product Spu
 	spuApi := api.Group("/product-spu")
@@ -46,13 +49,13 @@ func NewHandler(e *echo.Echo, catalogbiz *catalogbiz.CatalogBiz) *Handler {
 	tagApi.GET("", h.ListTag)
 	tagApi.GET("/:tag", h.GetTag)
 
-	// Brand
-	brandApi := api.Group("/brand")
-	brandApi.GET("", h.ListBrand)
-
 	// Category
 	categoryApi := api.Group("/category")
 	categoryApi.GET("", h.ListCategory)
+	categoryApi.GET("/:id", h.GetCategory)
+
+	// Vendor Stats
+	api.GET("/vendor-stats", h.GetVendorStats)
 
 	return h
 }

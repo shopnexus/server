@@ -1,0 +1,119 @@
+package accountbiz
+
+import (
+	restate "github.com/restatedev/sdk-go"
+
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
+)
+
+type AddFavoriteParams struct {
+	Account accountmodel.AuthenticatedAccount
+	SpuID   uuid.UUID `validate:"required"`
+}
+
+// AddFavorite adds a product SPU to the account's favorites list.
+func (b *AccountHandler) AddFavorite(ctx restate.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error) {
+	var zero accountdb.AccountFavorite
+
+	// Check if already favorited
+	existing, err := b.storage.Querier().GetFavorite(ctx, accountdb.GetFavoriteParams{
+		AccountID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		SpuID:     uuid.NullUUID{UUID: params.SpuID, Valid: true},
+	})
+	if err == nil {
+		return existing, nil // Already favorited
+	}
+
+	result, err := b.storage.Querier().CreateDefaultFavorite(ctx, accountdb.CreateDefaultFavoriteParams{
+		AccountID: params.Account.ID,
+		SpuID:     params.SpuID,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("add favorite", err)
+	}
+
+	return result, nil
+}
+
+type RemoveFavoriteParams struct {
+	Account accountmodel.AuthenticatedAccount
+	SpuID   uuid.UUID `validate:"required"`
+}
+
+// RemoveFavorite removes a product SPU from the account's favorites list.
+func (b *AccountHandler) RemoveFavorite(ctx restate.Context, params RemoveFavoriteParams) error {
+	if err := b.storage.Querier().DeleteFavorite(ctx, accountdb.DeleteFavoriteParams{
+		AccountID: []uuid.UUID{params.Account.ID},
+		SpuID:     []uuid.UUID{params.SpuID},
+	}); err != nil {
+		return sharedmodel.WrapErr("remove favorite", err)
+	}
+
+	return nil
+}
+
+type ListFavoriteParams struct {
+	Account accountmodel.AuthenticatedAccount
+	sharedmodel.PaginationParams
+}
+
+// ListFavorite returns a paginated list of the account's favorited products.
+func (b *AccountHandler) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
+	var zero sharedmodel.PaginateResult[accountdb.AccountFavorite]
+	params.PaginationParams = params.Constrain()
+
+	rows, err := b.storage.Querier().ListCountFavorite(ctx, accountdb.ListCountFavoriteParams{
+		AccountID: []uuid.UUID{params.Account.ID},
+		Limit:     null.Int32From(params.Limit.Int32),
+		Offset:    params.Offset(),
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list favorites", err)
+	}
+
+	favorites := make([]accountdb.AccountFavorite, len(rows))
+	var total int64
+	for i, row := range rows {
+		favorites[i] = row.AccountFavorite
+		total = row.TotalCount
+	}
+
+	return sharedmodel.PaginateResult[accountdb.AccountFavorite]{
+		PageParams: params.PaginationParams,
+		Data:       favorites,
+		Total:      null.IntFrom(total),
+	}, nil
+}
+
+type CheckFavoritesParams struct {
+	AccountID uuid.UUID
+	SpuIDs    []uuid.UUID
+}
+
+// CheckFavorites checks which SPU IDs are favorited by the given account.
+func (b *AccountHandler) CheckFavorites(ctx restate.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error) {
+	accountID := params.AccountID
+	spuIDs := params.SpuIDs
+	if len(spuIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := b.storage.Querier().ListCountFavorite(ctx, accountdb.ListCountFavoriteParams{
+		AccountID: []uuid.UUID{accountID},
+		SpuID:     spuIDs,
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("check favorites", err)
+	}
+
+	result := make(map[uuid.UUID]bool, len(rows))
+	for _, row := range rows {
+		result[row.AccountFavorite.SpuID] = true
+	}
+	return result, nil
+}

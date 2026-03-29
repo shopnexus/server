@@ -1,19 +1,34 @@
 package order
 
 import (
-	orderbiz "shopnexus-remastered/internal/module/order/biz"
-	orderecho "shopnexus-remastered/internal/module/order/transport/echo"
-
 	"go.uber.org/fx"
+
+	"shopnexus-server/config"
+	orderbiz "shopnexus-server/internal/module/order/biz"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	orderecho "shopnexus-server/internal/module/order/transport/echo"
+	"shopnexus-server/internal/shared/pgsqlc"
 )
 
 // Module provides the order module dependencies
 var Module = fx.Module("order",
 	fx.Provide(
-		orderbiz.NewOrderBiz,
+		NewOrderStorage,
+		orderbiz.NewOrderHandler,
+		NewOrderBiz,
 		orderecho.NewHandler,
 	),
 	fx.Invoke(
 		orderecho.NewHandler,
 	),
 )
+
+// NewOrderStorage creates a new order storage backed by PostgreSQL.
+func NewOrderStorage(pool pgsqlc.TxBeginner) orderbiz.OrderStorage {
+	return pgsqlc.NewStorage(pool, orderdb.New(pool))
+}
+
+// NewOrderBiz creates a Restate-backed client for the order module.
+func NewOrderBiz(cfg *config.Config) orderbiz.OrderBiz {
+	return orderbiz.NewOrderRestateClient(cfg.Restate.IngressAddress)
+}
