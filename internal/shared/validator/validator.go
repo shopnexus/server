@@ -16,6 +16,7 @@ import (
 	entranslations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	restate "github.com/restatedev/sdk-go"
 )
 
 var (
@@ -73,7 +74,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 			return valErr
 		}
 
-		return commonmodel.ErrValidation.Fmt(string(text)).Terminal()
+		return commonmodel.ErrValidation.Fmt(string(text))
 	}
 
 	return err
@@ -101,7 +102,7 @@ func ParseNullable(field reflect.Value) any {
 	return nil // Return untyped nil means we tell the validator to throw error (because we cannot parse the value)
 }
 
-// Export shortcut to get the singleton validator instance
+// Export shortcut to get the singleton validator instance, support restate terminal error
 func Validate(i any) error {
 	once.Do(func() {
 		var err error
@@ -110,7 +111,8 @@ func Validate(i any) error {
 			panic(fmt.Sprintf("failed to create validator: %v", err))
 		}
 	})
-	return validate.Validate(i)
+
+	return restate.TerminalError(validate.Validate(i), 400)
 }
 
 // Unmarshal unmarshal JSON data into a struct and validate the result

@@ -7,7 +7,27 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+
+	restate "github.com/restatedev/sdk-go"
 )
+
+var codePrefix = regexp.MustCompile(`^\[\d+\]\s*`)
+
+// parseRestateError tries to extract the original error message from a Restate JSON error response.
+// Falls back to a generic message if the body isn't parseable.
+func parseRestateError(statusCode int, body []byte, service, method string) error {
+	var parsed struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &parsed); err == nil && parsed.Message != "" {
+		// Strip Restate's "[CODE] " prefix (e.g. "[409] Sorry, ...") to avoid duplication when re-wrapped
+		msg := codePrefix.ReplaceAllString(parsed.Message, "")
+		return fmt.Errorf("%s", msg)
+	}
+	return fmt.Errorf("restate: %s/%s returned %d: %s", service, method, statusCode, string(body))
+}
 
 // Client is a simple HTTP client for calling Restate services via the ingress endpoint.
 type Client struct {
@@ -46,6 +66,10 @@ func Call[O any](ctx context.Context, c *Client, service, method string, input a
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
+		// 4xx from Restate ingress means the callee returned a terminal error — propagate as terminal with original code
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return zero, restate.TerminalError(parseRestateError(resp.StatusCode, respBody, service, method), restate.Code(uint16(resp.StatusCode)))
+		}
 		return zero, fmt.Errorf("restate: %s/%s returned %d: %s", service, method, resp.StatusCode, string(respBody))
 	}
 
@@ -78,6 +102,9 @@ func Send(ctx context.Context, c *Client, service, method string, input any) err
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return restate.TerminalError(parseRestateError(resp.StatusCode, respBody, service, method), restate.Code(uint16(resp.StatusCode)))
+		}
 		return fmt.Errorf("restate: %s/%s returned %d: %s", service, method, resp.StatusCode, string(respBody))
 	}
 

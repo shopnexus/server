@@ -39,16 +39,17 @@ func NewError(code uint16, message string) Error {
 	}
 }
 
-// WrapErr wraps an error with context while preserving Restate terminal status.
+// WrapErr wraps an error with context while preserving Restate terminal status and error code.
 // Use this instead of fmt.Errorf when the error might be a terminal error.
 func WrapErr(msg string, err error) error {
 	if restate.IsTerminalError(err) {
-		return restate.TerminalErrorf("%s: %w", msg, err)
+		code := restate.ErrorCode(err)
+		return restate.TerminalError(fmt.Errorf("%s: %w", msg, err), code)
 	}
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
 var (
-	ErrValidation     = NewError(http.StatusBadRequest, "Validation error: %s")
+	ErrValidation     = NewError(http.StatusBadRequest, "validation: %s")
 	ErrEntityNotFound = NewError(http.StatusNotFound, "%s not found")
 )

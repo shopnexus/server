@@ -1,6 +1,7 @@
 package sharedmodel
 
 import (
+	"database/sql/driver"
 	"strconv"
 
 	"github.com/guregu/null/v6"
@@ -74,6 +75,14 @@ func (nc *NullConcurrency) UnmarshalJSON(data []byte) error {
 	}
 	nc.Valid = true
 	return nil
+}
+
+// Value implements driver.Valuer so the validator's ParseNullable recognizes NullConcurrency.
+func (nc NullConcurrency) Value() (driver.Value, error) {
+	if !nc.Valid {
+		return nil, nil
+	}
+	return int64(nc.Concurrency), nil
 }
 
 func (nc NullConcurrency) ToNullInt64() null.Int {

@@ -11,6 +11,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/bytedance/sonic"
+	restate "github.com/restatedev/sdk-go"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 
 func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	errCode := uint16(httpCode)
-	message := http.StatusText(httpCode)
+	message := err.Error()
 
 	if domainErr, ok := errors.AsType[sharedmodel.Error](err); ok {
 		errCode = domainErr.Code()
@@ -69,15 +70,24 @@ func FromMessage(w http.ResponseWriter, httpCode int, message string) error {
 }
 
 // FromError writes an error response based on the provided error type.
+// If the error is a Restate terminal error with a specific code, that code takes precedence over httpCode.
 func FromError(w http.ResponseWriter, httpCode int, err error) error {
+	if err == nil {
+		return FromDTO(w, http.StatusOK, nil)
+	}
+
+	// Extract code from Restate terminal errors (e.g. cross-module 409 propagated through ingress)
+	if restate.IsTerminalError(err) {
+		if code := int(restate.ErrorCode(err)); code >= 400 && code < 600 {
+			httpCode = code
+		}
+	}
+
 	slog.Error("HTTP error",
 		slog.Int("http_code", httpCode),
 		slog.Any("error", err),
 		slog.String("stack", getStackTrace()),
 	)
-	if err == nil {
-		return FromDTO(w, http.StatusOK, nil)
-	}
 
 	return writeError(w, httpCode, err)
 }
