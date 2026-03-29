@@ -1,6 +1,7 @@
 package orderbiz
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/guregu/null/v6"
 
 	"shopnexus-server/config"
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -81,7 +83,18 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 		return b.payWithSavedMethod(ctx, params, option[3:], totalAmount)
 	}
 	if option == "" || option == "default" {
-		// TODO: look up buyer's default payment method via account biz (Task 7)
+		// Look up buyer's default payment method
+		pmList, err := b.account.ListPaymentMethod(ctx, accountbiz.ListPaymentMethodParams{
+			Account: params.Account,
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("list payment methods", err)
+		}
+		for _, pm := range pmList.Data {
+			if pm.IsDefault {
+				return b.payWithSavedMethod(ctx, params, pm.ID.String(), totalAmount)
+			}
+		}
 		return zero, ordermodel.ErrNoDefaultPaymentMethod.Terminal()
 	}
 	return b.payWithRedirect(ctx, params, option, totalAmount)
@@ -107,13 +120,13 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersPara
 			expiryDays = 30
 		}
 
+		// Create payment record first to get the ID for the provider
 		dbPayment, err := b.storage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-			AccountID:       params.Account.ID,
-			Option:          option,
-			Amount:          int64(totalAmount),
-			Data:            []byte("[]"),
-			PaymentMethodID: uuid.NullUUID{},
-			DateExpired:     time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
+			AccountID:   params.Account.ID,
+			Option:      option,
+			Amount:      int64(totalAmount),
+			Data:        []byte("{}"),
+			DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 		})
 		if err != nil {
 			return paymentResult{}, sharedmodel.WrapErr("db create payment", err)
@@ -126,6 +139,15 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersPara
 		})
 		if err != nil {
 			return paymentResult{}, sharedmodel.WrapErr("create payment order", err)
+		}
+
+		// Store redirect URL in payment data so buyer can re-open it later
+		if createdOrder.RedirectURL != "" {
+			data, _ := json.Marshal(map[string]string{"redirect_url": createdOrder.RedirectURL})
+			_, _ = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+				ID:   dbPayment.ID,
+				Data: data,
+			})
 		}
 
 		return paymentResult{
