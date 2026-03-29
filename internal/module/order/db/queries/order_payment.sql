@@ -18,6 +18,7 @@ WHERE (
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
     ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("payment_method_id" = ANY(sqlc.slice('payment_method_id')) OR sqlc.slice('payment_method_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -39,6 +40,7 @@ WHERE (
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
     ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("payment_method_id" = ANY(sqlc.slice('payment_method_id')) OR sqlc.slice('payment_method_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -63,6 +65,7 @@ WHERE (
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
     ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("payment_method_id" = ANY(sqlc.slice('payment_method_id')) OR sqlc.slice('payment_method_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
@@ -76,27 +79,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreatePayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchPayment :batchone
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyPayment :copyfrom
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultPayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultPayment :copyfrom
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdatePayment :one
 UPDATE "order"."payment"
@@ -105,6 +108,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "amount" = COALESCE(sqlc.narg('amount'), "amount"),
     "data" = COALESCE(sqlc.narg('data'), "data"),
+    "payment_method_id" = CASE WHEN sqlc.arg('null_payment_method_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_method_id'), "payment_method_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_paid" = CASE WHEN sqlc.arg('null_date_paid')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_paid'), "date_paid") END,
     "date_expired" = COALESCE(sqlc.narg('date_expired'), "date_expired")
@@ -122,6 +126,7 @@ WHERE (
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
     ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("payment_method_id" = ANY(sqlc.slice('payment_method_id')) OR sqlc.slice('payment_method_id') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND

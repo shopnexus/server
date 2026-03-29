@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS "order"."payment" (
     "amount" BIGINT NOT NULL,
     -- Provider-specific payment intent, token, or QR code data
     "data" JSONB NOT NULL,
+    "payment_method_id" UUID,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_paid" TIMESTAMPTZ(3),
     -- Payment session expiry; unpaid after this timestamp are voided

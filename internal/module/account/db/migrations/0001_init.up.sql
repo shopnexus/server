@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS "account"."payment_method" (
     "account_id" UUID NOT NULL,
     -- Provider type identifier (e.g. 'Stripe', 'VNPay', 'Momo')
     "type" VARCHAR(50) NOT NULL,
+    "provider" VARCHAR(50) NOT NULL DEFAULT '',
     -- Human-readable label shown in the UI (e.g. 'Visa ending in 4242')
     "label" VARCHAR(100) NOT NULL,
     -- Provider-specific token/reference data (no raw card numbers stored here)

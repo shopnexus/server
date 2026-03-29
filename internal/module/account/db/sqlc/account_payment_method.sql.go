@@ -21,15 +21,16 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
-    ("label" = ANY($4) OR $4 IS NULL) AND
-    ("data" = ANY($5) OR $5 IS NULL) AND
-    ("is_default" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("provider" = ANY($4) OR $4 IS NULL) AND
+    ("label" = ANY($5) OR $5 IS NULL) AND
+    ("data" = ANY($6) OR $6 IS NULL) AND
+    ("is_default" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -37,6 +38,7 @@ type CountPaymentMethodParams struct {
 	ID              []uuid.UUID       `json:"id"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	Type            []string          `json:"type"`
+	Provider        []string          `json:"provider"`
 	Label           []string          `json:"label"`
 	Data            []json.RawMessage `json:"data"`
 	IsDefault       []bool            `json:"is_default"`
@@ -53,6 +55,7 @@ func (q *Queries) CountPaymentMethod(ctx context.Context, arg CountPaymentMethod
 		arg.ID,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -79,6 +82,7 @@ type CreateCopyPaymentMethodParams struct {
 	ID          uuid.UUID       `json:"id"`
 	AccountID   uuid.UUID       `json:"account_id"`
 	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 	Label       string          `json:"label"`
 	Data        json.RawMessage `json:"data"`
 	IsDefault   bool            `json:"is_default"`
@@ -89,7 +93,7 @@ type CreateCopyPaymentMethodParams struct {
 const createDefaultPaymentMethod = `-- name: CreateDefaultPaymentMethod :one
 INSERT INTO "account"."payment_method" ("account_id", "type", "label", "data")
 VALUES ($1, $2, $3, $4)
-RETURNING id, account_id, type, label, data, is_default, date_created, date_updated
+RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
 `
 
 type CreateDefaultPaymentMethodParams struct {
@@ -111,6 +115,7 @@ func (q *Queries) CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefa
 		&i.ID,
 		&i.AccountID,
 		&i.Type,
+		&i.Provider,
 		&i.Label,
 		&i.Data,
 		&i.IsDefault,
@@ -121,15 +126,16 @@ func (q *Queries) CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefa
 }
 
 const createPaymentMethod = `-- name: CreatePaymentMethod :one
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, type, label, data, is_default, date_created, date_updated
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
 `
 
 type CreatePaymentMethodParams struct {
 	ID          uuid.UUID       `json:"id"`
 	AccountID   uuid.UUID       `json:"account_id"`
 	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 	Label       string          `json:"label"`
 	Data        json.RawMessage `json:"data"`
 	IsDefault   bool            `json:"is_default"`
@@ -142,6 +148,7 @@ func (q *Queries) CreatePaymentMethod(ctx context.Context, arg CreatePaymentMeth
 		arg.ID,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -153,6 +160,7 @@ func (q *Queries) CreatePaymentMethod(ctx context.Context, arg CreatePaymentMeth
 		&i.ID,
 		&i.AccountID,
 		&i.Type,
+		&i.Provider,
 		&i.Label,
 		&i.Data,
 		&i.IsDefault,
@@ -168,15 +176,16 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
-    ("label" = ANY($4) OR $4 IS NULL) AND
-    ("data" = ANY($5) OR $5 IS NULL) AND
-    ("is_default" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("provider" = ANY($4) OR $4 IS NULL) AND
+    ("label" = ANY($5) OR $5 IS NULL) AND
+    ("data" = ANY($6) OR $6 IS NULL) AND
+    ("is_default" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -184,6 +193,7 @@ type DeletePaymentMethodParams struct {
 	ID              []uuid.UUID       `json:"id"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	Type            []string          `json:"type"`
+	Provider        []string          `json:"provider"`
 	Label           []string          `json:"label"`
 	Data            []json.RawMessage `json:"data"`
 	IsDefault       []bool            `json:"is_default"`
@@ -200,6 +210,7 @@ func (q *Queries) DeletePaymentMethod(ctx context.Context, arg DeletePaymentMeth
 		arg.ID,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -215,7 +226,7 @@ func (q *Queries) DeletePaymentMethod(ctx context.Context, arg DeletePaymentMeth
 
 const getPaymentMethod = `-- name: GetPaymentMethod :one
 
-SELECT id, account_id, type, label, data, is_default, date_created, date_updated
+SELECT id, account_id, type, provider, label, data, is_default, date_created, date_updated
 FROM "account"."payment_method"
 WHERE ("id" = $1) OR ("account_id" = $2)
 `
@@ -234,6 +245,7 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, arg GetPaymentMethodPara
 		&i.ID,
 		&i.AccountID,
 		&i.Type,
+		&i.Provider,
 		&i.Label,
 		&i.Data,
 		&i.IsDefault,
@@ -244,31 +256,33 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, arg GetPaymentMethodPara
 }
 
 const listCountPaymentMethod = `-- name: ListCountPaymentMethod :many
-SELECT embed_payment_method.id, embed_payment_method.account_id, embed_payment_method.type, embed_payment_method.label, embed_payment_method.data, embed_payment_method.is_default, embed_payment_method.date_created, embed_payment_method.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_payment_method.id, embed_payment_method.account_id, embed_payment_method.type, embed_payment_method.provider, embed_payment_method.label, embed_payment_method.data, embed_payment_method.is_default, embed_payment_method.date_created, embed_payment_method.date_updated, COUNT(*) OVER() as total_count
 FROM "account"."payment_method" embed_payment_method
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
-    ("label" = ANY($4) OR $4 IS NULL) AND
-    ("data" = ANY($5) OR $5 IS NULL) AND
-    ("is_default" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("provider" = ANY($4) OR $4 IS NULL) AND
+    ("label" = ANY($5) OR $5 IS NULL) AND
+    ("data" = ANY($6) OR $6 IS NULL) AND
+    ("is_default" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $15::int
+OFFSET $14::int
 `
 
 type ListCountPaymentMethodParams struct {
 	ID              []uuid.UUID       `json:"id"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	Type            []string          `json:"type"`
+	Provider        []string          `json:"provider"`
 	Label           []string          `json:"label"`
 	Data            []json.RawMessage `json:"data"`
 	IsDefault       []bool            `json:"is_default"`
@@ -292,6 +306,7 @@ func (q *Queries) ListCountPaymentMethod(ctx context.Context, arg ListCountPayme
 		arg.ID,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -315,6 +330,7 @@ func (q *Queries) ListCountPaymentMethod(ctx context.Context, arg ListCountPayme
 			&i.AccountPaymentMethod.ID,
 			&i.AccountPaymentMethod.AccountID,
 			&i.AccountPaymentMethod.Type,
+			&i.AccountPaymentMethod.Provider,
 			&i.AccountPaymentMethod.Label,
 			&i.AccountPaymentMethod.Data,
 			&i.AccountPaymentMethod.IsDefault,
@@ -333,31 +349,33 @@ func (q *Queries) ListCountPaymentMethod(ctx context.Context, arg ListCountPayme
 }
 
 const listPaymentMethod = `-- name: ListPaymentMethod :many
-SELECT id, account_id, type, label, data, is_default, date_created, date_updated
+SELECT id, account_id, type, provider, label, data, is_default, date_created, date_updated
 FROM "account"."payment_method"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("type" = ANY($3) OR $3 IS NULL) AND
-    ("label" = ANY($4) OR $4 IS NULL) AND
-    ("data" = ANY($5) OR $5 IS NULL) AND
-    ("is_default" = ANY($6) OR $6 IS NULL) AND
-    ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" >= $8 OR $8 IS NULL) AND
-    ("date_created" <= $9 OR $9 IS NULL) AND
-    ("date_updated" = ANY($10) OR $10 IS NULL) AND
-    ("date_updated" >= $11 OR $11 IS NULL) AND
-    ("date_updated" <= $12 OR $12 IS NULL)
+    ("provider" = ANY($4) OR $4 IS NULL) AND
+    ("label" = ANY($5) OR $5 IS NULL) AND
+    ("data" = ANY($6) OR $6 IS NULL) AND
+    ("is_default" = ANY($7) OR $7 IS NULL) AND
+    ("date_created" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL) AND
+    ("date_updated" = ANY($11) OR $11 IS NULL) AND
+    ("date_updated" >= $12 OR $12 IS NULL) AND
+    ("date_updated" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $15::int
+OFFSET $14::int
 `
 
 type ListPaymentMethodParams struct {
 	ID              []uuid.UUID       `json:"id"`
 	AccountID       []uuid.UUID       `json:"account_id"`
 	Type            []string          `json:"type"`
+	Provider        []string          `json:"provider"`
 	Label           []string          `json:"label"`
 	Data            []json.RawMessage `json:"data"`
 	IsDefault       []bool            `json:"is_default"`
@@ -376,6 +394,7 @@ func (q *Queries) ListPaymentMethod(ctx context.Context, arg ListPaymentMethodPa
 		arg.ID,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -399,6 +418,7 @@ func (q *Queries) ListPaymentMethod(ctx context.Context, arg ListPaymentMethodPa
 			&i.ID,
 			&i.AccountID,
 			&i.Type,
+			&i.Provider,
 			&i.Label,
 			&i.Data,
 			&i.IsDefault,
@@ -419,18 +439,20 @@ const updatePaymentMethod = `-- name: UpdatePaymentMethod :one
 UPDATE "account"."payment_method"
 SET "account_id" = COALESCE($1, "account_id"),
     "type" = COALESCE($2, "type"),
-    "label" = COALESCE($3, "label"),
-    "data" = COALESCE($4, "data"),
-    "is_default" = COALESCE($5, "is_default"),
-    "date_created" = COALESCE($6, "date_created"),
-    "date_updated" = COALESCE($7, "date_updated")
-WHERE id = $8
-RETURNING id, account_id, type, label, data, is_default, date_created, date_updated
+    "provider" = COALESCE($3, "provider"),
+    "label" = COALESCE($4, "label"),
+    "data" = COALESCE($5, "data"),
+    "is_default" = COALESCE($6, "is_default"),
+    "date_created" = COALESCE($7, "date_created"),
+    "date_updated" = COALESCE($8, "date_updated")
+WHERE id = $9
+RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
 `
 
 type UpdatePaymentMethodParams struct {
 	AccountID   uuid.NullUUID   `json:"account_id"`
 	Type        null.String     `json:"type"`
+	Provider    null.String     `json:"provider"`
 	Label       null.String     `json:"label"`
 	Data        json.RawMessage `json:"data"`
 	IsDefault   null.Bool       `json:"is_default"`
@@ -443,6 +465,7 @@ func (q *Queries) UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMeth
 	row := q.db.QueryRow(ctx, updatePaymentMethod,
 		arg.AccountID,
 		arg.Type,
+		arg.Provider,
 		arg.Label,
 		arg.Data,
 		arg.IsDefault,
@@ -455,6 +478,7 @@ func (q *Queries) UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMeth
 		&i.ID,
 		&i.AccountID,
 		&i.Type,
+		&i.Provider,
 		&i.Label,
 		&i.Data,
 		&i.IsDefault,

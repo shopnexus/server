@@ -26,13 +26,14 @@ WHERE (
     ("amount" >= $6 OR $6 IS NULL) AND
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_paid" = ANY($12) OR $12 IS NULL) AND
-    ("date_expired" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" >= $14 OR $14 IS NULL) AND
-    ("date_expired" <= $15 OR $15 IS NULL)
+    ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_paid" = ANY($13) OR $13 IS NULL) AND
+    ("date_expired" = ANY($14) OR $14 IS NULL) AND
+    ("date_expired" >= $15 OR $15 IS NULL) AND
+    ("date_expired" <= $16 OR $16 IS NULL)
 )
 `
 
@@ -45,6 +46,7 @@ type CountPaymentParams struct {
 	AmountFrom      null.Int          `json:"amount_from"`
 	AmountTo        null.Int          `json:"amount_to"`
 	Data            []json.RawMessage `json:"data"`
+	PaymentMethodID []uuid.NullUUID   `json:"payment_method_id"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -64,6 +66,7 @@ func (q *Queries) CountPayment(ctx context.Context, arg CountPaymentParams) (int
 		arg.AmountFrom,
 		arg.AmountTo,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -78,38 +81,41 @@ func (q *Queries) CountPayment(ctx context.Context, arg CountPaymentParams) (int
 }
 
 type CreateCopyDefaultPaymentParams struct {
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 type CreateCopyPaymentParams struct {
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Status      OrderStatus     `json:"status"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Status          OrderStatus     `json:"status"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 const createDefaultPayment = `-- name: CreateDefaultPayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 `
 
 type CreateDefaultPaymentParams struct {
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPaymentParams) (OrderPayment, error) {
@@ -118,6 +124,7 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 		arg.Option,
 		arg.Amount,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DatePaid,
 		arg.DateExpired,
 	)
@@ -129,6 +136,7 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 		&i.Status,
 		&i.Amount,
 		&i.Data,
+		&i.PaymentMethodID,
 		&i.DateCreated,
 		&i.DatePaid,
 		&i.DateExpired,
@@ -137,20 +145,21 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 `
 
 type CreatePaymentParams struct {
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Status      OrderStatus     `json:"status"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Status          OrderStatus     `json:"status"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (OrderPayment, error) {
@@ -160,6 +169,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (O
 		arg.Status,
 		arg.Amount,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.DatePaid,
 		arg.DateExpired,
@@ -172,6 +182,7 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (O
 		&i.Status,
 		&i.Amount,
 		&i.Data,
+		&i.PaymentMethodID,
 		&i.DateCreated,
 		&i.DatePaid,
 		&i.DateExpired,
@@ -190,13 +201,14 @@ WHERE (
     ("amount" >= $6 OR $6 IS NULL) AND
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_paid" = ANY($12) OR $12 IS NULL) AND
-    ("date_expired" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" >= $14 OR $14 IS NULL) AND
-    ("date_expired" <= $15 OR $15 IS NULL)
+    ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_paid" = ANY($13) OR $13 IS NULL) AND
+    ("date_expired" = ANY($14) OR $14 IS NULL) AND
+    ("date_expired" >= $15 OR $15 IS NULL) AND
+    ("date_expired" <= $16 OR $16 IS NULL)
 )
 `
 
@@ -209,6 +221,7 @@ type DeletePaymentParams struct {
 	AmountFrom      null.Int          `json:"amount_from"`
 	AmountTo        null.Int          `json:"amount_to"`
 	Data            []json.RawMessage `json:"data"`
+	PaymentMethodID []uuid.NullUUID   `json:"payment_method_id"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -228,6 +241,7 @@ func (q *Queries) DeletePayment(ctx context.Context, arg DeletePaymentParams) er
 		arg.AmountFrom,
 		arg.AmountTo,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -241,7 +255,7 @@ func (q *Queries) DeletePayment(ctx context.Context, arg DeletePaymentParams) er
 
 const getPayment = `-- name: GetPayment :one
 
-SELECT id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+SELECT id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 FROM "order"."payment"
 WHERE ("id" = $1)
 `
@@ -258,6 +272,7 @@ func (q *Queries) GetPayment(ctx context.Context, id null.Int) (OrderPayment, er
 		&i.Status,
 		&i.Amount,
 		&i.Data,
+		&i.PaymentMethodID,
 		&i.DateCreated,
 		&i.DatePaid,
 		&i.DateExpired,
@@ -266,7 +281,7 @@ func (q *Queries) GetPayment(ctx context.Context, id null.Int) (OrderPayment, er
 }
 
 const listCountPayment = `-- name: ListCountPayment :many
-SELECT embed_payment.id, embed_payment.account_id, embed_payment.option, embed_payment.status, embed_payment.amount, embed_payment.data, embed_payment.date_created, embed_payment.date_paid, embed_payment.date_expired, COUNT(*) OVER() as total_count
+SELECT embed_payment.id, embed_payment.account_id, embed_payment.option, embed_payment.status, embed_payment.amount, embed_payment.data, embed_payment.payment_method_id, embed_payment.date_created, embed_payment.date_paid, embed_payment.date_expired, COUNT(*) OVER() as total_count
 FROM "order"."payment" embed_payment
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -277,17 +292,18 @@ WHERE (
     ("amount" >= $6 OR $6 IS NULL) AND
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_paid" = ANY($12) OR $12 IS NULL) AND
-    ("date_expired" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" >= $14 OR $14 IS NULL) AND
-    ("date_expired" <= $15 OR $15 IS NULL)
+    ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_paid" = ANY($13) OR $13 IS NULL) AND
+    ("date_expired" = ANY($14) OR $14 IS NULL) AND
+    ("date_expired" >= $15 OR $15 IS NULL) AND
+    ("date_expired" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17::int
-OFFSET $16::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListCountPaymentParams struct {
@@ -299,6 +315,7 @@ type ListCountPaymentParams struct {
 	AmountFrom      null.Int          `json:"amount_from"`
 	AmountTo        null.Int          `json:"amount_to"`
 	Data            []json.RawMessage `json:"data"`
+	PaymentMethodID []uuid.NullUUID   `json:"payment_method_id"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -325,6 +342,7 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 		arg.AmountFrom,
 		arg.AmountTo,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -349,6 +367,7 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 			&i.OrderPayment.Status,
 			&i.OrderPayment.Amount,
 			&i.OrderPayment.Data,
+			&i.OrderPayment.PaymentMethodID,
 			&i.OrderPayment.DateCreated,
 			&i.OrderPayment.DatePaid,
 			&i.OrderPayment.DateExpired,
@@ -365,7 +384,7 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 }
 
 const listPayment = `-- name: ListPayment :many
-SELECT id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+SELECT id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 FROM "order"."payment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -376,17 +395,18 @@ WHERE (
     ("amount" >= $6 OR $6 IS NULL) AND
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" >= $10 OR $10 IS NULL) AND
-    ("date_created" <= $11 OR $11 IS NULL) AND
-    ("date_paid" = ANY($12) OR $12 IS NULL) AND
-    ("date_expired" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" >= $14 OR $14 IS NULL) AND
-    ("date_expired" <= $15 OR $15 IS NULL)
+    ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" = ANY($10) OR $10 IS NULL) AND
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("date_paid" = ANY($13) OR $13 IS NULL) AND
+    ("date_expired" = ANY($14) OR $14 IS NULL) AND
+    ("date_expired" >= $15 OR $15 IS NULL) AND
+    ("date_expired" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17::int
-OFFSET $16::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListPaymentParams struct {
@@ -398,6 +418,7 @@ type ListPaymentParams struct {
 	AmountFrom      null.Int          `json:"amount_from"`
 	AmountTo        null.Int          `json:"amount_to"`
 	Data            []json.RawMessage `json:"data"`
+	PaymentMethodID []uuid.NullUUID   `json:"payment_method_id"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -419,6 +440,7 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 		arg.AmountFrom,
 		arg.AmountTo,
 		arg.Data,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -443,6 +465,7 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 			&i.Status,
 			&i.Amount,
 			&i.Data,
+			&i.PaymentMethodID,
 			&i.DateCreated,
 			&i.DatePaid,
 			&i.DateExpired,
@@ -464,24 +487,27 @@ SET "account_id" = COALESCE($1, "account_id"),
     "status" = COALESCE($3, "status"),
     "amount" = COALESCE($4, "amount"),
     "data" = COALESCE($5, "data"),
-    "date_created" = COALESCE($6, "date_created"),
-    "date_paid" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_paid") END,
-    "date_expired" = COALESCE($9, "date_expired")
-WHERE id = $10
-RETURNING id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+    "payment_method_id" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "payment_method_id") END,
+    "date_created" = COALESCE($8, "date_created"),
+    "date_paid" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "date_paid") END,
+    "date_expired" = COALESCE($11, "date_expired")
+WHERE id = $12
+RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 `
 
 type UpdatePaymentParams struct {
-	AccountID    uuid.NullUUID   `json:"account_id"`
-	Option       null.String     `json:"option"`
-	Status       NullOrderStatus `json:"status"`
-	Amount       null.Int        `json:"amount"`
-	Data         json.RawMessage `json:"data"`
-	DateCreated  null.Time       `json:"date_created"`
-	NullDatePaid bool            `json:"null_date_paid"`
-	DatePaid     null.Time       `json:"date_paid"`
-	DateExpired  null.Time       `json:"date_expired"`
-	ID           int64           `json:"id"`
+	AccountID           uuid.NullUUID   `json:"account_id"`
+	Option              null.String     `json:"option"`
+	Status              NullOrderStatus `json:"status"`
+	Amount              null.Int        `json:"amount"`
+	Data                json.RawMessage `json:"data"`
+	NullPaymentMethodID bool            `json:"null_payment_method_id"`
+	PaymentMethodID     uuid.NullUUID   `json:"payment_method_id"`
+	DateCreated         null.Time       `json:"date_created"`
+	NullDatePaid        bool            `json:"null_date_paid"`
+	DatePaid            null.Time       `json:"date_paid"`
+	DateExpired         null.Time       `json:"date_expired"`
+	ID                  int64           `json:"id"`
 }
 
 func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (OrderPayment, error) {
@@ -491,6 +517,8 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (O
 		arg.Status,
 		arg.Amount,
 		arg.Data,
+		arg.NullPaymentMethodID,
+		arg.PaymentMethodID,
 		arg.DateCreated,
 		arg.NullDatePaid,
 		arg.DatePaid,
@@ -505,6 +533,7 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (O
 		&i.Status,
 		&i.Amount,
 		&i.Data,
+		&i.PaymentMethodID,
 		&i.DateCreated,
 		&i.DatePaid,
 		&i.DateExpired,

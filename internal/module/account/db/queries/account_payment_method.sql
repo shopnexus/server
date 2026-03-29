@@ -13,6 +13,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("is_default" = ANY(sqlc.slice('is_default')) OR sqlc.slice('is_default') IS NULL) AND
@@ -31,6 +32,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("is_default" = ANY(sqlc.slice('is_default')) OR sqlc.slice('is_default') IS NULL) AND
@@ -52,6 +54,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("is_default" = ANY(sqlc.slice('is_default')) OR sqlc.slice('is_default') IS NULL) AND
@@ -67,18 +70,18 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreatePaymentMethod :one
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchPaymentMethod :batchone
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyPaymentMethod :copyfrom
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultPaymentMethod :one
 INSERT INTO "account"."payment_method" ("account_id", "type", "label", "data")
@@ -93,6 +96,7 @@ VALUES ($1, $2, $3, $4);
 UPDATE "account"."payment_method"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "type" = COALESCE(sqlc.narg('type'), "type"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "label" = COALESCE(sqlc.narg('label'), "label"),
     "data" = COALESCE(sqlc.narg('data'), "data"),
     "is_default" = COALESCE(sqlc.narg('is_default'), "is_default"),
@@ -107,6 +111,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("is_default" = ANY(sqlc.slice('is_default')) OR sqlc.slice('is_default') IS NULL) AND

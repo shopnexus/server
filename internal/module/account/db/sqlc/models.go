@@ -253,6 +253,7 @@ type AccountPaymentMethod struct {
 	ID          uuid.UUID       `json:"id"`
 	AccountID   uuid.UUID       `json:"account_id"`
 	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 	Label       string          `json:"label"`
 	Data        json.RawMessage `json:"data"`
 	IsDefault   bool            `json:"is_default"`

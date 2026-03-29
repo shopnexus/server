@@ -317,15 +317,16 @@ type OrderOrder struct {
 }
 
 type OrderPayment struct {
-	ID          int64           `json:"id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Status      OrderStatus     `json:"status"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	ID              int64           `json:"id"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Status          OrderStatus     `json:"status"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 type OrderRefund struct {

@@ -269,9 +269,9 @@ func (b *CreateBatchOrderBatchResults) Close() error {
 }
 
 const createBatchPayment = `-- name: CreateBatchPayment :batchone
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, option, status, amount, data, date_created, date_paid, date_expired
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired
 `
 
 type CreateBatchPaymentBatchResults struct {
@@ -281,14 +281,15 @@ type CreateBatchPaymentBatchResults struct {
 }
 
 type CreateBatchPaymentParams struct {
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Status      OrderStatus     `json:"status"`
-	Amount      int64           `json:"amount"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
-	DatePaid    null.Time       `json:"date_paid"`
-	DateExpired time.Time       `json:"date_expired"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	Option          string          `json:"option"`
+	Status          OrderStatus     `json:"status"`
+	Amount          int64           `json:"amount"`
+	Data            json.RawMessage `json:"data"`
+	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreateBatchPayment(ctx context.Context, arg []CreateBatchPaymentParams) *CreateBatchPaymentBatchResults {
@@ -300,6 +301,7 @@ func (q *Queries) CreateBatchPayment(ctx context.Context, arg []CreateBatchPayme
 			a.Status,
 			a.Amount,
 			a.Data,
+			a.PaymentMethodID,
 			a.DateCreated,
 			a.DatePaid,
 			a.DateExpired,
@@ -328,6 +330,7 @@ func (b *CreateBatchPaymentBatchResults) QueryRow(f func(int, OrderPayment, erro
 			&i.Status,
 			&i.Amount,
 			&i.Data,
+			&i.PaymentMethodID,
 			&i.DateCreated,
 			&i.DatePaid,
 			&i.DateExpired,

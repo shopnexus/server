@@ -392,9 +392,9 @@ func (b *CreateBatchNotificationBatchResults) Close() error {
 }
 
 const createBatchPaymentMethod = `-- name: CreateBatchPaymentMethod :batchone
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, type, label, data, is_default, date_created, date_updated
+INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
 `
 
 type CreateBatchPaymentMethodBatchResults struct {
@@ -407,6 +407,7 @@ type CreateBatchPaymentMethodParams struct {
 	ID          uuid.UUID       `json:"id"`
 	AccountID   uuid.UUID       `json:"account_id"`
 	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 	Label       string          `json:"label"`
 	Data        json.RawMessage `json:"data"`
 	IsDefault   bool            `json:"is_default"`
@@ -421,6 +422,7 @@ func (q *Queries) CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatc
 			a.ID,
 			a.AccountID,
 			a.Type,
+			a.Provider,
 			a.Label,
 			a.Data,
 			a.IsDefault,
@@ -448,6 +450,7 @@ func (b *CreateBatchPaymentMethodBatchResults) QueryRow(f func(int, AccountPayme
 			&i.ID,
 			&i.AccountID,
 			&i.Type,
+			&i.Provider,
 			&i.Label,
 			&i.Data,
 			&i.IsDefault,
