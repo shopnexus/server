@@ -28,21 +28,21 @@ WHERE (
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
     ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" > $11 OR $11 IS NULL) AND
-    ("priority" < $12 OR $12 IS NULL) AND
+    ("priority" >= $11 OR $11 IS NULL) AND
+    ("priority" <= $12 OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" > $15 OR $15 IS NULL) AND
-    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_started" >= $15 OR $15 IS NULL) AND
+    ("date_started" <= $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" > $18 OR $18 IS NULL) AND
-    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_ended" >= $18 OR $18 IS NULL) AND
+    ("date_ended" <= $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("date_updated" >= $24 OR $24 IS NULL) AND
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 `
 
@@ -270,21 +270,21 @@ WHERE (
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
     ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" > $11 OR $11 IS NULL) AND
-    ("priority" < $12 OR $12 IS NULL) AND
+    ("priority" >= $11 OR $11 IS NULL) AND
+    ("priority" <= $12 OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" > $15 OR $15 IS NULL) AND
-    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_started" >= $15 OR $15 IS NULL) AND
+    ("date_started" <= $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" > $18 OR $18 IS NULL) AND
-    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_ended" >= $18 OR $18 IS NULL) AND
+    ("date_ended" <= $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("date_updated" >= $24 OR $24 IS NULL) AND
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 `
 
@@ -398,21 +398,21 @@ WHERE (
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
     ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" > $11 OR $11 IS NULL) AND
-    ("priority" < $12 OR $12 IS NULL) AND
+    ("priority" >= $11 OR $11 IS NULL) AND
+    ("priority" <= $12 OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" > $15 OR $15 IS NULL) AND
-    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_started" >= $15 OR $15 IS NULL) AND
+    ("date_started" <= $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" > $18 OR $18 IS NULL) AND
-    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_ended" >= $18 OR $18 IS NULL) AND
+    ("date_ended" <= $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("date_updated" >= $24 OR $24 IS NULL) AND
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
 LIMIT $27::int
@@ -533,21 +533,21 @@ WHERE (
     ("auto_apply" = ANY($8) OR $8 IS NULL) AND
     ("group" = ANY($9) OR $9 IS NULL) AND
     ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" > $11 OR $11 IS NULL) AND
-    ("priority" < $12 OR $12 IS NULL) AND
+    ("priority" >= $11 OR $11 IS NULL) AND
+    ("priority" <= $12 OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
-    ("date_started" > $15 OR $15 IS NULL) AND
-    ("date_started" < $16 OR $16 IS NULL) AND
+    ("date_started" >= $15 OR $15 IS NULL) AND
+    ("date_started" <= $16 OR $16 IS NULL) AND
     ("date_ended" = ANY($17) OR $17 IS NULL) AND
-    ("date_ended" > $18 OR $18 IS NULL) AND
-    ("date_ended" < $19 OR $19 IS NULL) AND
+    ("date_ended" >= $18 OR $18 IS NULL) AND
+    ("date_ended" <= $19 OR $19 IS NULL) AND
     ("date_created" = ANY($20) OR $20 IS NULL) AND
-    ("date_created" > $21 OR $21 IS NULL) AND
-    ("date_created" < $22 OR $22 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
-    ("date_updated" > $24 OR $24 IS NULL) AND
-    ("date_updated" < $25 OR $25 IS NULL)
+    ("date_updated" >= $24 OR $24 IS NULL) AND
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
 LIMIT $27::int

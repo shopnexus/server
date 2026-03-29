@@ -3,7 +3,7 @@
 -- Schema: promotion
 -- Description: Discount and promotion engine. Supports multiple promotion
 --              types (discounts, shipping discounts, bundles, BuyXGetY,
---              cashback), scoped to specific products/categories/brands,
+--              cashback), scoped to specific products/categories,
 --              with optional recurring cron-based scheduling.
 -- =============================================
 
@@ -14,7 +14,7 @@ CREATE SCHEMA IF NOT EXISTS "promotion";
 -- The promotion mechanic applied at checkout
 CREATE TYPE "promotion"."type" AS ENUM ('Discount', 'ShipDiscount', 'Bundle', 'BuyXGetY', 'Cashback');
 -- Entity types that a promotion can target
-CREATE TYPE "promotion"."ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Category', 'Brand');
+CREATE TYPE "promotion"."ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Category');
 
 -- Tables
 
@@ -49,13 +49,13 @@ CREATE TABLE IF NOT EXISTS "promotion"."promotion" (
     CONSTRAINT "promotion_pkey" PRIMARY KEY ("id")
 );
 
--- Scoping rules: links a promotion to specific products, SKUs, categories, or brands.
+-- Scoping rules: links a promotion to specific products, SKUs, categories.
 -- A promotion with no refs applies to all eligible items (global).
 CREATE TABLE IF NOT EXISTS "promotion"."ref" (
     "id" BIGSERIAL NOT NULL,
     "promotion_id" UUID NOT NULL,
     "ref_type" "promotion"."ref_type" NOT NULL,
-    -- ID of the targeted entity (SPU, SKU, category, or brand)
+    -- ID of the targeted entity (SPU, SKU, category)
     "ref_id" UUID NOT NULL,
     CONSTRAINT "ref_pkey" PRIMARY KEY ("id")
 );

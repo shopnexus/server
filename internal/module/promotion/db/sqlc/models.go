@@ -20,7 +20,6 @@ const (
 	PromotionRefTypeProductSpu PromotionRefType = "ProductSpu"
 	PromotionRefTypeProductSku PromotionRefType = "ProductSku"
 	PromotionRefTypeCategory   PromotionRefType = "Category"
-	PromotionRefTypeBrand      PromotionRefType = "Brand"
 )
 
 func (e *PromotionRefType) Scan(src interface{}) error {
@@ -62,8 +61,7 @@ func (e PromotionRefType) Valid() bool {
 	switch e {
 	case PromotionRefTypeProductSpu,
 		PromotionRefTypeProductSku,
-		PromotionRefTypeCategory,
-		PromotionRefTypeBrand:
+		PromotionRefTypeCategory:
 		return true
 	}
 	return false
@@ -74,7 +72,6 @@ func AllPromotionRefTypeValues() []PromotionRefType {
 		PromotionRefTypeProductSpu,
 		PromotionRefTypeProductSku,
 		PromotionRefTypeCategory,
-		PromotionRefTypeBrand,
 	}
 }
 

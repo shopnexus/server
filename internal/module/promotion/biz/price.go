@@ -207,10 +207,6 @@ func isApplicable(promo promotionmodel.Promotion, spu catalogmodel.ProductSpu, s
 			if spu.Category.ID == ref.RefID {
 				return true
 			}
-		case promotiondb.PromotionRefTypeBrand:
-			if spu.Brand.ID == ref.RefID {
-				return true
-			}
 		case promotiondb.PromotionRefTypeProductSpu:
 			if spu.ID == ref.RefID {
 				return true

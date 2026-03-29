@@ -20,21 +20,21 @@ WHERE (
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
-    ("priority" > sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
-    ("priority" < sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
+    ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
+    ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
-    ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
-    ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
+    ("date_started" >= sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
+    ("date_started" <= sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
-    ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
-    ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
+    ("date_ended" >= sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
+    ("date_ended" <= sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListPromotion :many
@@ -51,21 +51,21 @@ WHERE (
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
-    ("priority" > sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
-    ("priority" < sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
+    ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
+    ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
-    ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
-    ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
+    ("date_started" >= sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
+    ("date_started" <= sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
-    ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
-    ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
+    ("date_ended" >= sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
+    ("date_ended" <= sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -85,21 +85,21 @@ WHERE (
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
-    ("priority" > sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
-    ("priority" < sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
+    ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
+    ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
-    ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
-    ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
+    ("date_started" >= sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
+    ("date_started" <= sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
-    ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
-    ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
+    ("date_ended" >= sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
+    ("date_ended" <= sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -160,19 +160,19 @@ WHERE (
     ("auto_apply" = ANY(sqlc.slice('auto_apply')) OR sqlc.slice('auto_apply') IS NULL) AND
     ("group" = ANY(sqlc.slice('group')) OR sqlc.slice('group') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
-    ("priority" > sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
-    ("priority" < sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
+    ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
+    ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_started" = ANY(sqlc.slice('date_started')) OR sqlc.slice('date_started') IS NULL) AND
-    ("date_started" > sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
-    ("date_started" < sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
+    ("date_started" >= sqlc.narg('date_started_from') OR sqlc.narg('date_started_from') IS NULL) AND
+    ("date_started" <= sqlc.narg('date_started_to') OR sqlc.narg('date_started_to') IS NULL) AND
     ("date_ended" = ANY(sqlc.slice('date_ended')) OR sqlc.slice('date_ended') IS NULL) AND
-    ("date_ended" > sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
-    ("date_ended" < sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
+    ("date_ended" >= sqlc.narg('date_ended_from') OR sqlc.narg('date_ended_from') IS NULL) AND
+    ("date_ended" <= sqlc.narg('date_ended_to') OR sqlc.narg('date_ended_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" > sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" < sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );

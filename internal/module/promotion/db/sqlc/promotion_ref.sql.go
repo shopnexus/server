@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countRef = `-- name: CountRef :one
@@ -138,7 +137,7 @@ WHERE ("id" = $1) OR ("promotion_id" = $2 AND "ref_type" = $3 AND "ref_id" = $4)
 `
 
 type GetRefParams struct {
-	ID          pgtype.Int8          `json:"id"`
+	ID          null.Int             `json:"id"`
 	PromotionID uuid.NullUUID        `json:"promotion_id"`
 	RefType     NullPromotionRefType `json:"ref_type"`
 	RefID       uuid.NullUUID        `json:"ref_id"`

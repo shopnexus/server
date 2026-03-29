@@ -15,14 +15,14 @@ WHERE (
     ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
     ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
     ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
-    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
-    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("next_run_at" >= sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" <= sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
     ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
-    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
-    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+    ("last_run_at" >= sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" <= sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
 );
 
 -- name: ListSchedule :many
@@ -34,14 +34,14 @@ WHERE (
     ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
     ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
     ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
-    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
-    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("next_run_at" >= sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" <= sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
     ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
-    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
-    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+    ("last_run_at" >= sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" <= sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -56,14 +56,14 @@ WHERE (
     ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
     ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
     ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
-    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
-    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("next_run_at" >= sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" <= sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
     ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
-    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
-    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+    ("last_run_at" >= sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" <= sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -111,12 +111,12 @@ WHERE (
     ("timezone" = ANY(sqlc.slice('timezone')) OR sqlc.slice('timezone') IS NULL) AND
     ("cron_rule" = ANY(sqlc.slice('cron_rule')) OR sqlc.slice('cron_rule') IS NULL) AND
     ("duration" = ANY(sqlc.slice('duration')) OR sqlc.slice('duration') IS NULL) AND
-    ("duration" > sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
-    ("duration" < sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
+    ("duration" >= sqlc.narg('duration_from') OR sqlc.narg('duration_from') IS NULL) AND
+    ("duration" <= sqlc.narg('duration_to') OR sqlc.narg('duration_to') IS NULL) AND
     ("next_run_at" = ANY(sqlc.slice('next_run_at')) OR sqlc.slice('next_run_at') IS NULL) AND
-    ("next_run_at" > sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
-    ("next_run_at" < sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
+    ("next_run_at" >= sqlc.narg('next_run_at_from') OR sqlc.narg('next_run_at_from') IS NULL) AND
+    ("next_run_at" <= sqlc.narg('next_run_at_to') OR sqlc.narg('next_run_at_to') IS NULL) AND
     ("last_run_at" = ANY(sqlc.slice('last_run_at')) OR sqlc.slice('last_run_at') IS NULL) AND
-    ("last_run_at" > sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
-    ("last_run_at" < sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
+    ("last_run_at" >= sqlc.narg('last_run_at_from') OR sqlc.narg('last_run_at_from') IS NULL) AND
+    ("last_run_at" <= sqlc.narg('last_run_at_to') OR sqlc.narg('last_run_at_to') IS NULL)
 );
