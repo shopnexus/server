@@ -1,6 +1,6 @@
 # Catalog Module
 
-Product catalog with SPU/SKU model, categories, brands, tags, comments/reviews, hybrid search, and personalized recommendations.
+Product catalog with SPU/SKU model, categories, tags, comments/reviews, hybrid search, and personalized recommendations.
 
 - **Struct**: `CatalogHandler` | **Interface**: `CatalogBiz` | **Service**: `"Catalog"`
 - **Schema**: `catalog.*` in PostgreSQL
@@ -10,18 +10,11 @@ Product catalog with SPU/SKU model, categories, brands, tags, comments/reviews, 
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"catalog.product_spu" }o--|| "catalog.brand" : "brand_id"
 "catalog.product_spu" }o--|| "catalog.category" : "category_id"
 "catalog.product_sku" }o--|| "catalog.product_spu" : "spu_id"
 "catalog.product_spu_tag" }o--|| "catalog.product_spu" : "spu_id"
 "catalog.product_spu_tag" }o--|| "catalog.tag" : "tag"
 
-"catalog.brand" {
-  uuid id
-  text code
-  text name
-  text description
-}
 "catalog.category" {
   uuid id
   varchar(100) name
@@ -52,10 +45,10 @@ erDiagram
 }
 "catalog.product_spu" {
   uuid id
+  bigint number
   text slug
   uuid account_id
   uuid category_id
-  uuid brand_id
   uuid featured_sku_id
   text name
   text description
@@ -64,7 +57,6 @@ erDiagram
   timestamptz date_created
   timestamptz date_updated
   timestamptz date_deleted
-  bigint number
 }
 "catalog.product_spu_tag" {
   bigint id
@@ -89,7 +81,7 @@ erDiagram
 
 ## Data Model
 
-- **SPU** (Standard Product Unit) -- abstract product concept (name, description, category, brand, specifications)
+- **SPU** (Standard Product Unit) -- abstract product concept (name, description, category, specifications)
 - **SKU** (Stock Keeping Unit) -- purchasable variant with price, attributes, and package details
 - **Comment** -- polymorphic via `ref_type`: `ProductSpu` for reviews, `Comment` for replies. Score is 0.0--1.0.
 - **Tag** -- free-form labels, lazily created on SPU create/update
@@ -137,7 +129,7 @@ All under `/api/v1/catalog`.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/product-spu` | No | List with filters (category, brand, is_active) |
+| GET | `/product-spu` | No | List with filters (category, is_active) |
 | GET | `/product-spu/:id` | No | Get by UUID |
 | POST | `/product-spu` | Yes | Create with tags, resources, specifications |
 | PATCH | `/product-spu` | Yes | Partial update |
@@ -161,14 +153,12 @@ All under `/api/v1/catalog`.
 | PATCH | `/comment` | Yes | Update body, score, vote deltas, resources |
 | DELETE | `/comment` | Yes | Delete by list of IDs |
 
-### Tags, Brands, Categories
+### Tags, Categories
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/tag` | No | List with optional `search` (ILIKE) |
 | GET | `/tag/:tag` | Yes | Get single tag |
-| GET | `/brand` | No | List with optional `search` |
-| GET | `/brand/:id` | No | Get single brand |
 | GET | `/category` | No | List with optional `search` |
 | GET | `/category/:id` | No | Get single category |
 

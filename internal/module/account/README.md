@@ -13,15 +13,18 @@ Handles user identity, authentication, and account-related data. Accounts are **
 erDiagram
 "account.profile" |o--|| "account.account" : "id"
 "account.profile" }o--|o "account.contact" : "default_contact_id"
+"account.income_history" }o--|| "account.account" : "account_id"
 "account.notification" }o--|| "account.account" : "account_id"
 "account.contact" }o--|| "account.account" : "account_id"
 "account.favorite" }o--|| "account.account" : "account_id"
 "account.payment_method" }o--|| "account.account" : "account_id"
-"chat.conversation" }o--|| "account.account" : "customer_id"
+"chat.conversation" }o--|| "account.account" : "buyer_id"
+"chat.conversation" }o--|| "account.account" : "seller_id"
 "chat.message" }o--|| "account.account" : "sender_id"
 
 "account.account" {
   uuid id
+  bigint number
   status status
   varchar(50) phone
   varchar(255) email
@@ -29,7 +32,6 @@ erDiagram
   varchar(255) password
   timestamptz date_created
   timestamptz date_updated
-  bigint number
 }
 "account.contact" {
   uuid id
@@ -39,10 +41,10 @@ erDiagram
   boolean phone_verified
   varchar(255) address
   address_type address_type
-  timestamptz date_created
-  timestamptz date_updated
   float8 latitude
   float8 longitude
+  timestamptz date_created
+  timestamptz date_updated
 }
 "account.favorite" {
   bigint id
@@ -64,14 +66,14 @@ erDiagram
   uuid account_id
   varchar(50) type
   varchar(50) channel
+  varchar(200) title
   boolean is_read
   text content
+  jsonb metadata
   timestamptz date_created
   timestamptz date_updated
   timestamptz date_sent
   timestamptz date_scheduled
-  varchar(200) title
-  jsonb metadata
 }
 "account.payment_method" {
   uuid id
@@ -87,6 +89,7 @@ erDiagram
   uuid id
   gender gender
   varchar(100) name
+  text description
   timestamp date_of_birth
   uuid avatar_rs_id
   boolean email_verified
@@ -94,7 +97,6 @@ erDiagram
   uuid default_contact_id
   timestamptz date_created
   timestamptz date_updated
-  text description
 }
 ```
 <!--END_SECTION:mermaid-->

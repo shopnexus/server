@@ -47,7 +47,7 @@ erDiagram
 
 ### Resource Management
 
-Polymorphic file attachments for any entity via a `resource_reference` join table with `ref_type` enum discriminator (`ProductSpu`, `ProductSku`, `Brand`, `Refund`, `ReturnDispute`, `Comment`). Each resource tracks provider, object key, MIME type, size, and checksum.
+Polymorphic file attachments for any entity via a `resource_reference` join table with `ref_type` enum discriminator (`ProductSpu`, `ProductSku`, `Refund`, `ReturnDispute`, `Comment`). Each resource tracks provider, object key, MIME type, size, and checksum.
 
 - `UpdateResources` -- transactional replace-all: deletes existing refs, verifies new resource IDs, re-creates in order
 - `DeleteResources` -- removes refs and optionally the underlying resource records

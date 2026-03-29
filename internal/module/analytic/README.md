@@ -54,7 +54,7 @@ All tables in the `analytic` schema.
 
 | Table | Key Columns | Notes |
 |-------|-------------|-------|
-| `interaction` | id, account_id, account_number, event_type, ref_type (Product/Category/Brand), ref_id, metadata (JSONB) | Indexed on account, session, event type, (ref_type, ref_id) |
+| `interaction` | id, account_id, account_number, event_type, ref_type (Product/Category), ref_id, metadata (JSONB) | Indexed on account, session, event type, (ref_type, ref_id) |
 | `product_popularity` | spu_id (PK), score, view_count, purchase_count, favorite_count, cart_count, review_count | Descending index on score for top-N queries |
 
 ---

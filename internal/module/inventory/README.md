@@ -9,14 +9,14 @@ Stock management with serial number tracking and audit trail.
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
+"inventory.serial" }o--|| "inventory.stock" : "stock_id"
 "inventory.stock_history" }o--|| "inventory.stock" : "stock_id"
 
 "inventory.serial" {
   text id
-  stock_ref_type ref_type
-  uuid ref_id
+  bigint stock_id
   status status
-  timestamptz date_created
+  timestamp with time zone date_created
 }
 "inventory.stock" {
   bigint id
@@ -25,13 +25,13 @@ erDiagram
   bigint stock
   bigint taken
   boolean serial_required
-  timestamptz date_created
+  timestamp with time zone date_created
 }
 "inventory.stock_history" {
   bigint id
   bigint stock_id
   bigint change
-  timestamptz date_created
+  timestamp with time zone date_created
 }
 ```
 <!--END_SECTION:mermaid-->

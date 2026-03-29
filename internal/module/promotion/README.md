@@ -11,15 +11,7 @@ Manages promotional campaigns and computes promoted prices for the order/checkou
 erDiagram
 "promotion.ref" }o--|| "promotion.promotion" : "promotion_id"
 "promotion.schedule" }o--|| "promotion.promotion" : "promotion_id"
-"promotion.discount" |o--|| "promotion.promotion" : "id"
 
-"promotion.discount" {
-  uuid id
-  bigint min_spend
-  bigint max_discount
-  float8 discount_percent
-  bigint discount_price
-}
 "promotion.promotion" {
   uuid id
   text code
@@ -29,13 +21,13 @@ erDiagram
   text description
   boolean is_active
   boolean auto_apply
+  text group
+  integer priority
+  jsonb data
   timestamptz date_started
   timestamptz date_ended
   timestamptz date_created
   timestamptz date_updated
-  text group
-  integer priority
-  jsonb data
 }
 "promotion.ref" {
   bigint id
@@ -62,7 +54,7 @@ erDiagram
   - Promotions in **different groups** stack with each other (all apply).
   - Promotions in the **same group** compete -- the one with biggest total savings wins.
   - A winner from the **"exclusive" group** means only that promotion applies (no stacking).
-- **Refs** link promotions to targets: `ProductSpu`, `ProductSku`, `Category`, `Brand`. A promotion with no refs applies to everything.
+- **Refs** link promotions to targets: `ProductSpu`, `ProductSku`, `Category`. A promotion with no refs applies to everything.
 
 ## Promotion Types
 

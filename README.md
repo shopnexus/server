@@ -5,7 +5,7 @@
 A social marketplace backend in Go, built as a **modular monolith** designed for microservice extraction via [Restate](https://restate.dev) durable execution — comprising these modules with clear boundaries:
 
 - [`account`](internal/module/account/) — Auth, profiles, contacts, favorites, payment methods, notifications
-- [`catalog`](internal/module/catalog/) — Products (SPU/SKU), categories, brands, tags, comments, hybrid search, recommendations
+- [`catalog`](internal/module/catalog/) — Products (SPU/SKU), categories, tags, comments, hybrid search, recommendations
 - [`order`](internal/module/order/) — Cart, checkout, pending items, seller confirmation, payment, refunds
 - [`inventory`](internal/module/inventory/) — Stock management, serial tracking, audit history
 - [`promotion`](internal/module/promotion/) — Discounts, ship discounts, scheduling, group-based price stacking
@@ -83,7 +83,7 @@ Buyer sees confirmed orders with exact totals (product + transport). Buyer selec
 
 Products follow the industry-standard two-level hierarchy:
 
-- **SPU (Standard Product Unit)**: the abstract product concept — name, description, category, brand, specifications, tags, resources (images). Owned by the seller's account.
+- **SPU (Standard Product Unit)**: the abstract product concept — name, description, category, specifications, tags, resources (images). Owned by the seller's account.
 - **SKU (Stock Keeping Unit)**: a concrete purchasable variant — price, attributes (color/size), package details, inventory stock. Each SKU belongs to one SPU.
 
 A **featured SKU** per SPU determines the display price on product cards.
@@ -113,7 +113,7 @@ Promotions use **group-based stacking**:
 
 Discount data is stored as JSONB in `promotion.promotion.data` with configurable `min_spend`, `max_discount`, `discount_percent` or `discount_price`.
 
-Promotions can target specific products (SPU/SKU), categories, or brands via the `promotion.ref` table. Auto-apply promotions are included in every price calculation; code-based promotions require the buyer to enter a code.
+Promotions can target specific products (SPU/SKU), categories via the `promotion.ref` table. Auto-apply promotions are included in every price calculation; code-based promotions require the buyer to enter a code.
 
 Types defined: Discount, ShipDiscount, Bundle, BuyXGetY, Cashback. Currently implemented in price calculation: **Discount** and **ShipDiscount**.
 

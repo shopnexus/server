@@ -10,14 +10,15 @@ Real-time messaging between any two accounts. REST API for conversation manageme
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"chat.conversation" }o--|| "account.account" : "customer_id"
+"chat.conversation" }o--|| "account.account" : "buyer_id"
+"chat.conversation" }o--|| "account.account" : "seller_id"
 "chat.message" }o--|| "account.account" : "sender_id"
 "chat.message" }o--|| "chat.conversation" : "conversation_id"
 
 "chat.conversation" {
   uuid id
-  uuid customer_id
-  uuid vendor_id
+  uuid buyer_id
+  uuid seller_id
   timestamptz last_message_at
   timestamptz date_created
 }
