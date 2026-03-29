@@ -15,11 +15,11 @@ WHERE (
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
     ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
-    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
-    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_processed" >= sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" <= sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListOutboxEvent :many
@@ -31,11 +31,11 @@ WHERE (
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
     ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
-    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
-    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_processed" >= sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" <= sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -50,11 +50,11 @@ WHERE (
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
     ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
-    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
-    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_processed" >= sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" <= sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -101,9 +101,9 @@ WHERE (
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("processed" = ANY(sqlc.slice('processed')) OR sqlc.slice('processed') IS NULL) AND
     ("date_processed" = ANY(sqlc.slice('date_processed')) OR sqlc.slice('date_processed') IS NULL) AND
-    ("date_processed" > sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
-    ("date_processed" < sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
+    ("date_processed" >= sqlc.narg('date_processed_from') OR sqlc.narg('date_processed_from') IS NULL) AND
+    ("date_processed" <= sqlc.narg('date_processed_to') OR sqlc.narg('date_processed_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
