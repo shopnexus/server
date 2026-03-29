@@ -14,7 +14,7 @@ type Config struct {
 	Nats      Nats      `yaml:"nats" mapstructure:"nats" validate:"required"`
 	Filestore Filestore `yaml:"filestore" mapstructure:"filestore" validate:"required"`
 	Milvus    Milvus    `yaml:"milvus" mapstructure:"milvus" validate:"required"`
-	LLM LLM `yaml:"llm" mapstructure:"llm" validate:"required"`
+	LLM       LLM       `yaml:"llm" mapstructure:"llm" validate:"required"`
 	Restate   Restate   `yaml:"restate" mapstructure:"restate" validate:"required"`
 }
 
@@ -23,6 +23,7 @@ type App struct {
 	Port   string `yaml:"port" mapstructure:"port"`
 	JWT    JWT    `yaml:"jwt" mapstructure:"jwt" validate:"required"`
 	Vnpay  Vnpay  `yaml:"vnpay" mapstructure:"vnpay" validate:"required"`
+	Sepay  Sepay  `yaml:"sepay" mapstructure:"sepay"`
 	Search Search `yaml:"search" mapstructure:"search" validate:"required"`
 	Order  Order  `yaml:"order" mapstructure:"order" validate:"required"`
 }
@@ -38,6 +39,16 @@ type Vnpay struct {
 	TmnCode    string `yaml:"tmnCode" mapstructure:"tmnCode" validate:"required"`
 	HashSecret string `yaml:"hashSecret" mapstructure:"hashSecret" validate:"required"`
 	ReturnURL  string `yaml:"returnUrl" mapstructure:"returnUrl" validate:"required,url"`
+}
+
+type Sepay struct {
+	MerchantID   string `yaml:"merchantId" mapstructure:"merchantId"`
+	SecretKey    string `yaml:"secretKey" mapstructure:"secretKey"`       // for checkout form signing + API auth
+	IPNSecretKey string `yaml:"ipnSecretKey" mapstructure:"ipnSecretKey"` // for X-Secret-Key webhook verification
+	SuccessURL   string `yaml:"successUrl" mapstructure:"successUrl"`
+	ErrorURL     string `yaml:"errorUrl" mapstructure:"errorUrl"`
+	CancelURL    string `yaml:"cancelUrl" mapstructure:"cancelUrl"`
+	Sandbox      bool   `yaml:"sandbox" mapstructure:"sandbox"`
 }
 
 type Search struct {
@@ -95,9 +106,9 @@ type Milvus struct {
 }
 
 type LLM struct {
-	Provider string    `yaml:"provider" mapstructure:"provider" validate:"required,oneof=python openai bedrock"`
-	Python   LLMPython `yaml:"python" mapstructure:"python"`
-	OpenAI   LLMOpenAI `yaml:"openai" mapstructure:"openai"`
+	Provider string     `yaml:"provider" mapstructure:"provider" validate:"required,oneof=python openai bedrock"`
+	Python   LLMPython  `yaml:"python" mapstructure:"python"`
+	OpenAI   LLMOpenAI  `yaml:"openai" mapstructure:"openai"`
 	Bedrock  LLMBedrock `yaml:"bedrock" mapstructure:"bedrock"`
 }
 
@@ -121,6 +132,7 @@ type LLMBedrock struct {
 type Restate struct {
 	IngressAddress string `yaml:"ingressAddress" mapstructure:"ingressAddress" validate:"required,url"`
 	AdminAddress   string `yaml:"adminAddress" mapstructure:"adminAddress" validate:"required,url"`
+	ServiceHost    string `yaml:"serviceHost" mapstructure:"serviceHost" validate:"required"`
 	ServicePort    string `yaml:"servicePort" mapstructure:"servicePort" validate:"required"`
 }
 

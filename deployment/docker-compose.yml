@@ -216,7 +216,7 @@ services:
     ports:
       - "127.0.0.1:5004:3000"
     environment:
-      - MILVUS_URL=http://standalone:19530
+      - MILVUS_URL=http://milvus:19530
     depends_on:
       - "milvus"
     restart: unless-stopped

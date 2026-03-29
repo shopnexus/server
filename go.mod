@@ -37,6 +37,7 @@ require (
 	github.com/wasilibs/go-pgquery v0.0.0-20250409022910-10ac41983c07
 	go.uber.org/fx v1.24.0
 	golang.org/x/crypto v0.49.0
+	golang.org/x/net v0.52.0
 )
 
 require (
@@ -59,6 +60,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
+	github.com/brianvoe/gofakeit/v7 v7.14.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
@@ -197,7 +199,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
-	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect

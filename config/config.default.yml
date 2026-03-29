@@ -18,6 +18,14 @@ app:
     tmnCode: ""
     hashSecret: ""
     returnUrl: "http://localhost:3000/payment/vnpay_return"
+  sepay:
+    merchantId: ""
+    secretKey: ""
+    ipnSecretKey: ""
+    successUrl: "http://localhost:3000/payment/sepay_return"
+    errorUrl: "http://localhost:3000/payment/sepay_error"
+    cancelUrl: "http://localhost:3000/payment/sepay_cancel"
+    sandbox: true
   search:
     url: "http://localhost:8000"
     denseWeight: 0.75
@@ -85,4 +93,5 @@ llm:
 restate:
   ingressAddress: "http://localhost:8080"
   adminAddress: "http://localhost:9470"
+  serviceHost: "http://host.docker.internal"
   servicePort: "8082"

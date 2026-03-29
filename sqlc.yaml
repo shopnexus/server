@@ -230,10 +230,23 @@ overrides:
           package: "null"
           type: "Int32"
 
+      # Serial (maps to int4)
+      - db_type: "serial"
+        nullable: false
+        go_type: int32
+
+      # Bigserial (maps to int8)
+      - db_type: "bigserial"
+        nullable: false
+        go_type: int64
+      - db_type: "bigserial"
+        nullable: true
+        go_type:
+          import: "github.com/guregu/null/v6"
+          package: "null"
+          type: "Int"
+
       # Int8
-      # - db_type: "int8"
-      #   nullable: false
-      #   go_type: int64
       - db_type: "pg_catalog.int8"
         nullable: true
         go_type:

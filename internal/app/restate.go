@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -57,8 +58,7 @@ func SetupRestate(
 
 	// Auto-register with Restate runtime
 	go func() {
-		serviceURL := fmt.Sprintf("http://host.docker.internal:%s", cfg.Restate.ServicePort)
-		registerWithRestate(cfg.Restate.AdminAddress, serviceURL)
+		registerWithRestate(cfg.Restate.AdminAddress, fmt.Sprintf("%s:%s", cfg.Restate.ServiceHost, cfg.Restate.ServicePort))
 	}()
 }
 
@@ -80,6 +80,8 @@ func registerWithRestate(adminAddress, serviceURL string) {
 			slog.Warn("Restate registration attempt failed", "attempt", i+1, "error", err)
 			continue
 		}
+
+		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -87,7 +89,7 @@ func registerWithRestate(adminAddress, serviceURL string) {
 			return
 		}
 
-		slog.Warn("Restate registration returned non-OK", "attempt", i+1, "status", resp.StatusCode)
+		slog.Warn("Restate registration returned non-OK", "attempt", i+1, "status", resp.StatusCode, "body", string(respBody))
 	}
 
 	slog.Error("Failed to register with Restate after retries", "admin", adminAddress)

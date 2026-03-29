@@ -63,9 +63,9 @@ func filterWhereClause(table *Table) string {
 		// Add range conditions if applicable.
 		if col.IsRangeFilterable() {
 			conditions = append(conditions,
-				fmt.Sprintf(`(%s > sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)`, col.Quoted(), col.Name, col.Name))
+				fmt.Sprintf(`(%s >= sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)`, col.Quoted(), col.Name, col.Name))
 			conditions = append(conditions,
-				fmt.Sprintf(`(%s < sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)`, col.Quoted(), col.Name, col.Name))
+				fmt.Sprintf(`(%s <= sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)`, col.Quoted(), col.Name, col.Name))
 		}
 	}
 
