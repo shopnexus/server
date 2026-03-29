@@ -19,7 +19,6 @@ import (
 //go:generate go run shopnexus-server/cmd/genrestate -interface CommonBiz -service Common
 type CommonBiz interface {
 	// File
-	UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error)
 	GetFileURL(ctx context.Context, params GetFileURLParams) (string, error)
 
 	// Option

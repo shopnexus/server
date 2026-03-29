@@ -31,7 +31,7 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.UploadFile(c.Request().Context(), commonbiz.UploadFileParams{
+	result, err := h.handler.UploadFile(c.Request().Context(), commonbiz.UploadFileParams{
 		Account:     claims.Account,
 		File:        src,
 		Filename:    fileHeader.Filename,

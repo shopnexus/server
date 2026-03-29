@@ -24,10 +24,6 @@ func NewCommonRestateClient(restateIngressURL string) *CommonRestateClient {
 	return &CommonRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *CommonRestateClient) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
-	return restateclient.Call[UploadFileResult](ctx, p.client, serviceName, "UploadFile", params)
-}
-
 func (p *CommonRestateClient) GetFileURL(ctx context.Context, params GetFileURLParams) (string, error) {
 	return restateclient.Call[string](ctx, p.client, serviceName, "GetFileURL", params)
 }

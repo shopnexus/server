@@ -19,7 +19,6 @@ type CommonResourceRefType string
 const (
 	CommonResourceRefTypeProductSpu    CommonResourceRefType = "ProductSpu"
 	CommonResourceRefTypeProductSku    CommonResourceRefType = "ProductSku"
-	CommonResourceRefTypeBrand         CommonResourceRefType = "Brand"
 	CommonResourceRefTypeRefund        CommonResourceRefType = "Refund"
 	CommonResourceRefTypeReturnDispute CommonResourceRefType = "ReturnDispute"
 	CommonResourceRefTypeComment       CommonResourceRefType = "Comment"
@@ -64,7 +63,6 @@ func (e CommonResourceRefType) Valid() bool {
 	switch e {
 	case CommonResourceRefTypeProductSpu,
 		CommonResourceRefTypeProductSku,
-		CommonResourceRefTypeBrand,
 		CommonResourceRefTypeRefund,
 		CommonResourceRefTypeReturnDispute,
 		CommonResourceRefTypeComment:
@@ -77,7 +75,6 @@ func AllCommonResourceRefTypeValues() []CommonResourceRefType {
 	return []CommonResourceRefType{
 		CommonResourceRefTypeProductSpu,
 		CommonResourceRefTypeProductSku,
-		CommonResourceRefTypeBrand,
 		CommonResourceRefTypeRefund,
 		CommonResourceRefTypeReturnDispute,
 		CommonResourceRefTypeComment,

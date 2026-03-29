@@ -23,8 +23,8 @@ WHERE (
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
+    ("order" >= $9 OR $9 IS NULL) AND
+    ("order" <= $10 OR $10 IS NULL)
 )
 `
 
@@ -173,8 +173,8 @@ WHERE (
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
+    ("order" >= $9 OR $9 IS NULL) AND
+    ("order" <= $10 OR $10 IS NULL)
 )
 `
 
@@ -244,8 +244,8 @@ WHERE (
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
+    ("order" >= $9 OR $9 IS NULL) AND
+    ("order" <= $10 OR $10 IS NULL)
 )
 ORDER BY "id"
 LIMIT $12::int
@@ -327,8 +327,8 @@ WHERE (
     ("method" = ANY($6) OR $6 IS NULL) AND
     ("is_active" = ANY($7) OR $7 IS NULL) AND
     ("order" = ANY($8) OR $8 IS NULL) AND
-    ("order" > $9 OR $9 IS NULL) AND
-    ("order" < $10 OR $10 IS NULL)
+    ("order" >= $9 OR $9 IS NULL) AND
+    ("order" <= $10 OR $10 IS NULL)
 )
 ORDER BY "id"
 LIMIT $12::int

@@ -16,13 +16,13 @@ WHERE (
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("size" >= sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" <= sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 );
 
 -- name: ListResource :many
@@ -35,13 +35,13 @@ WHERE (
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("size" >= sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" <= sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -57,13 +57,13 @@ WHERE (
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("size" >= sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" <= sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -114,11 +114,11 @@ WHERE (
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
     ("size" = ANY(sqlc.slice('size')) OR sqlc.slice('size') IS NULL) AND
-    ("size" > sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
-    ("size" < sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
+    ("size" >= sqlc.narg('size_from') OR sqlc.narg('size_from') IS NULL) AND
+    ("size" <= sqlc.narg('size_to') OR sqlc.narg('size_to') IS NULL) AND
     ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
     ("checksum" = ANY(sqlc.slice('checksum')) OR sqlc.slice('checksum') IS NULL) AND
     ("created_at" = ANY(sqlc.slice('created_at')) OR sqlc.slice('created_at') IS NULL) AND
-    ("created_at" > sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
-    ("created_at" < sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
+    ("created_at" >= sqlc.narg('created_at_from') OR sqlc.narg('created_at_from') IS NULL) AND
+    ("created_at" <= sqlc.narg('created_at_to') OR sqlc.narg('created_at_to') IS NULL)
 );

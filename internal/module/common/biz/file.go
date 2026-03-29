@@ -94,7 +94,9 @@ type UploadFileResult struct {
 
 // UploadFile stores a single uploaded file to the configured object store
 // and creates a corresponding resource record.
-func (b *CommonHandler) UploadFile(ctx restate.Context, params UploadFileParams) (UploadFileResult, error) {
+// UploadFile is called directly by the transport layer (not via Restate)
+// because io.Reader cannot be serialized through the Restate ingress.
+func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams) (UploadFileResult, error) {
 	var zero UploadFileResult
 
 	if err := validator.Validate(params); err != nil {

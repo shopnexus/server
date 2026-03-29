@@ -111,14 +111,17 @@ func (b *CommonHandler) DeleteResources(ctx restate.Context, params DeleteResour
 		}
 	}
 
-	if err := b.storage.Querier().DeleteResourceReference(ctx, commondb.DeleteResourceReferenceParams{
-		RefType: []commondb.CommonResourceRefType{params.RefType}, // just for clarity
-		RsID:    deletedIDs,
-	}); err != nil {
-		return sharedmodel.WrapErr("db delete resources", err)
+	if len(deletedIDs) > 0 {
+		if err := b.storage.Querier().DeleteResourceReference(ctx, commondb.DeleteResourceReferenceParams{
+			RefType: []commondb.CommonResourceRefType{params.RefType},
+			RefID:   params.RefID,
+			RsID:    deletedIDs,
+		}); err != nil {
+			return sharedmodel.WrapErr("db delete resources", err)
+		}
 	}
 
-	if params.DeleteResources {
+	if params.DeleteResources && len(deletedIDs) > 0 {
 		if err := b.storage.Querier().DeleteResource(ctx, commondb.DeleteResourceParams{
 			ID: deletedIDs,
 		}); err != nil {

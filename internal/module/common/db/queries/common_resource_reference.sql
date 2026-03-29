@@ -15,8 +15,8 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 );
 
 -- name: ListResourceReference :many
@@ -28,8 +28,8 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -44,8 +44,8 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -91,6 +91,6 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("order" = ANY(sqlc.slice('order')) OR sqlc.slice('order') IS NULL) AND
-    ("order" > sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
-    ("order" < sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
+    ("order" >= sqlc.narg('order_from') OR sqlc.narg('order_from') IS NULL) AND
+    ("order" <= sqlc.narg('order_to') OR sqlc.narg('order_to') IS NULL)
 );

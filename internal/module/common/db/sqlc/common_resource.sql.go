@@ -24,13 +24,13 @@ WHERE (
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
     ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
+    ("size" >= $7 OR $7 IS NULL) AND
+    ("size" <= $8 OR $8 IS NULL) AND
     ("metadata" = ANY($9) OR $9 IS NULL) AND
     ("checksum" = ANY($10) OR $10 IS NULL) AND
     ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("created_at" >= $12 OR $12 IS NULL) AND
+    ("created_at" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -188,13 +188,13 @@ WHERE (
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
     ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
+    ("size" >= $7 OR $7 IS NULL) AND
+    ("size" <= $8 OR $8 IS NULL) AND
     ("metadata" = ANY($9) OR $9 IS NULL) AND
     ("checksum" = ANY($10) OR $10 IS NULL) AND
     ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("created_at" >= $12 OR $12 IS NULL) AND
+    ("created_at" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -275,13 +275,13 @@ WHERE (
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
     ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
+    ("size" >= $7 OR $7 IS NULL) AND
+    ("size" <= $8 OR $8 IS NULL) AND
     ("metadata" = ANY($9) OR $9 IS NULL) AND
     ("checksum" = ANY($10) OR $10 IS NULL) AND
     ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("created_at" >= $12 OR $12 IS NULL) AND
+    ("created_at" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
 LIMIT $15::int
@@ -368,13 +368,13 @@ WHERE (
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
     ("size" = ANY($6) OR $6 IS NULL) AND
-    ("size" > $7 OR $7 IS NULL) AND
-    ("size" < $8 OR $8 IS NULL) AND
+    ("size" >= $7 OR $7 IS NULL) AND
+    ("size" <= $8 OR $8 IS NULL) AND
     ("metadata" = ANY($9) OR $9 IS NULL) AND
     ("checksum" = ANY($10) OR $10 IS NULL) AND
     ("created_at" = ANY($11) OR $11 IS NULL) AND
-    ("created_at" > $12 OR $12 IS NULL) AND
-    ("created_at" < $13 OR $13 IS NULL)
+    ("created_at" >= $12 OR $12 IS NULL) AND
+    ("created_at" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
 LIMIT $15::int

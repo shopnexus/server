@@ -11,7 +11,7 @@ CREATE SCHEMA IF NOT EXISTS "common";
 -- Enums
 
 -- Entity types that can have media attachments
-CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Brand', 'Refund', 'ReturnDispute', 'Comment');
+CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'Refund', 'ReturnDispute', 'Comment');
 
 -- Tables
 
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
     -- The resource being referenced
     "rs_id" UUID NOT NULL,
     "ref_type" "common"."resource_ref_type" NOT NULL,
-    -- ID of the owning entity (product, brand, comment, etc.)
+    -- ID of the owning entity (product, comment, etc.)
     "ref_id" UUID NOT NULL,
     -- Display order position among other resources for the same entity
     "order" INTEGER NOT NULL,

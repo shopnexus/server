@@ -15,7 +15,7 @@ import (
 )
 
 type UpdateServiceOptionsParams struct {
-	Category string                     `validate:"required,oneof=objectstore payment shipment"`
+	Category string                     `validate:"required,oneof=objectstore payment transport"`
 	Configs  []sharedmodel.OptionConfig `validate:"required,dive"`
 }
 
