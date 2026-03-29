@@ -9,7 +9,6 @@ import (
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/payment/card"
-	"shopnexus-server/internal/provider/payment/cod"
 	"shopnexus-server/internal/provider/payment/sepay"
 	"shopnexus-server/internal/provider/payment/vnpay"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -19,11 +18,6 @@ func (b *OrderHandler) SetupPaymentMap() error {
 	var configs []sharedmodel.OptionConfig
 
 	b.paymentMap = make(map[string]payment.Client) // map[gatewayID]payment.Client
-
-	// setup cod client
-	codClient := cod.NewClient()
-	b.paymentMap[codClient.Config().ID] = codClient
-	configs = append(configs, codClient.Config())
 
 	// setup vnpay client
 	vnpayClients := vnpay.NewClients(vnpay.ClientOptions{
