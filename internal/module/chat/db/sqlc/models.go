@@ -138,8 +138,8 @@ func AllChatMessageTypeValues() []ChatMessageType {
 
 type ChatConversation struct {
 	ID            uuid.UUID `json:"id"`
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 	DateCreated   time.Time `json:"date_created"`
 }

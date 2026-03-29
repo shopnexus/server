@@ -30,8 +30,8 @@ func (r *iteratorForCreateCopyConversation) Next() bool {
 func (r iteratorForCreateCopyConversation) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
-		r.rows[0].CustomerID,
-		r.rows[0].VendorID,
+		r.rows[0].BuyerID,
+		r.rows[0].SellerID,
 		r.rows[0].LastMessageAt,
 		r.rows[0].DateCreated,
 	}, nil
@@ -42,7 +42,7 @@ func (r iteratorForCreateCopyConversation) Err() error {
 }
 
 func (q *Queries) CreateCopyConversation(ctx context.Context, arg []CreateCopyConversationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"chat", "conversation"}, []string{"id", "customer_id", "vendor_id", "last_message_at", "date_created"}, &iteratorForCreateCopyConversation{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"chat", "conversation"}, []string{"id", "buyer_id", "seller_id", "last_message_at", "date_created"}, &iteratorForCreateCopyConversation{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultConversation implements pgx.CopyFromSource.
@@ -65,8 +65,8 @@ func (r *iteratorForCreateCopyDefaultConversation) Next() bool {
 
 func (r iteratorForCreateCopyDefaultConversation) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0].CustomerID,
-		r.rows[0].VendorID,
+		r.rows[0].BuyerID,
+		r.rows[0].SellerID,
 		r.rows[0].LastMessageAt,
 	}, nil
 }
@@ -76,7 +76,7 @@ func (r iteratorForCreateCopyDefaultConversation) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultConversation(ctx context.Context, arg []CreateCopyDefaultConversationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"chat", "conversation"}, []string{"customer_id", "vendor_id", "last_message_at"}, &iteratorForCreateCopyDefaultConversation{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"chat", "conversation"}, []string{"buyer_id", "seller_id", "last_message_at"}, &iteratorForCreateCopyDefaultConversation{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultMessage implements pgx.CopyFromSource.

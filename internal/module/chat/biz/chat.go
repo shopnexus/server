@@ -16,7 +16,7 @@ import (
 
 type CreateConversationParams struct {
 	Account  accountmodel.AuthenticatedAccount
-	VendorID uuid.UUID `validate:"required"`
+	SellerID uuid.UUID `validate:"required"`
 }
 
 // CreateConversation creates a new conversation between a customer and vendor, or returns the existing one.
@@ -24,17 +24,17 @@ func (b *ChatHandler) CreateConversation(ctx restate.Context, params CreateConve
 	var zero chatdb.ChatConversation
 
 	existing, err := b.storage.Querier().GetConversationByParticipants(ctx, chatdb.GetConversationByParticipantsParams{
-		CustomerID: params.Account.ID,
-		VendorID:   params.VendorID,
+		BuyerID: params.Account.ID,
+		SellerID:   params.SellerID,
 	})
 
 	if err == nil {
 		return existing, nil
 	}
 
-	result, err := b.storage.Querier().CreateConversation(ctx, chatdb.CreateConversationParams{
-		CustomerID: params.Account.ID,
-		VendorID:   params.VendorID,
+	result, err := b.storage.Querier().CreateDefaultConversation(ctx, chatdb.CreateDefaultConversationParams{
+		BuyerID:  params.Account.ID,
+		SellerID: params.SellerID,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create conversation", err)
@@ -56,7 +56,6 @@ type ListConversationParams struct {
 // ListConversation returns a paginated list of conversations for the authenticated account.
 func (b *ChatHandler) ListConversation(ctx restate.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatConversation]
-	params.PaginationParams = params.Constrain()
 
 	conversations, err := b.storage.Querier().ListConversationByAccount(ctx, chatdb.ListConversationByAccountParams{
 		AccountID: params.Account.ID,
@@ -96,7 +95,7 @@ func (b *ChatHandler) SendMessage(ctx restate.Context, params SendMessageParams)
 		return zero, chatmodel.ErrConversationNotFound.Terminal()
 	}
 
-	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
+	if conv.BuyerID != params.Account.ID && conv.SellerID != params.Account.ID {
 		return zero, chatmodel.ErrNotParticipant.Terminal()
 	}
 
@@ -134,7 +133,7 @@ func (b *ChatHandler) ListMessage(ctx restate.Context, params ListMessageParams)
 		return zero, chatmodel.ErrConversationNotFound.Terminal()
 	}
 
-	if conv.CustomerID != params.Account.ID && conv.VendorID != params.Account.ID {
+	if conv.BuyerID != params.Account.ID && conv.SellerID != params.Account.ID {
 		return zero, chatmodel.ErrNotParticipant.Terminal()
 	}
 

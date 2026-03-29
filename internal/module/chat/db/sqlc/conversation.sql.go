@@ -13,7 +13,7 @@ import (
 
 const countConversationByAccount = `-- name: CountConversationByAccount :one
 SELECT COUNT(*) FROM "chat"."conversation"
-WHERE "customer_id" = $1 OR "vendor_id" = $1
+WHERE "buyer_id" = $1 OR "seller_id" = $1
 `
 
 func (q *Queries) CountConversationByAccount(ctx context.Context, accountID uuid.UUID) (int64, error) {
@@ -24,7 +24,7 @@ func (q *Queries) CountConversationByAccount(ctx context.Context, accountID uuid
 }
 
 const getConversationByID = `-- name: GetConversationByID :one
-SELECT id, customer_id, vendor_id, last_message_at, date_created FROM "chat"."conversation"
+SELECT id, buyer_id, seller_id, last_message_at, date_created FROM "chat"."conversation"
 WHERE "id" = $1
 `
 
@@ -33,8 +33,8 @@ func (q *Queries) GetConversationByID(ctx context.Context, id uuid.UUID) (ChatCo
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)
@@ -42,22 +42,22 @@ func (q *Queries) GetConversationByID(ctx context.Context, id uuid.UUID) (ChatCo
 }
 
 const getConversationByParticipants = `-- name: GetConversationByParticipants :one
-SELECT id, customer_id, vendor_id, last_message_at, date_created FROM "chat"."conversation"
-WHERE "customer_id" = $1 AND "vendor_id" = $2
+SELECT id, buyer_id, seller_id, last_message_at, date_created FROM "chat"."conversation"
+WHERE "buyer_id" = $1 AND "seller_id" = $2
 `
 
 type GetConversationByParticipantsParams struct {
-	CustomerID uuid.UUID `json:"customer_id"`
-	VendorID   uuid.UUID `json:"vendor_id"`
+	BuyerID  uuid.UUID `json:"buyer_id"`
+	SellerID uuid.UUID `json:"seller_id"`
 }
 
 func (q *Queries) GetConversationByParticipants(ctx context.Context, arg GetConversationByParticipantsParams) (ChatConversation, error) {
-	row := q.db.QueryRow(ctx, getConversationByParticipants, arg.CustomerID, arg.VendorID)
+	row := q.db.QueryRow(ctx, getConversationByParticipants, arg.BuyerID, arg.SellerID)
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)
@@ -65,8 +65,8 @@ func (q *Queries) GetConversationByParticipants(ctx context.Context, arg GetConv
 }
 
 const listConversationByAccount = `-- name: ListConversationByAccount :many
-SELECT id, customer_id, vendor_id, last_message_at, date_created FROM "chat"."conversation"
-WHERE "customer_id" = $1 OR "vendor_id" = $1
+SELECT id, buyer_id, seller_id, last_message_at, date_created FROM "chat"."conversation"
+WHERE "buyer_id" = $1 OR "seller_id" = $1
 ORDER BY "last_message_at" DESC NULLS LAST
 LIMIT $3::int
 OFFSET $2::int
@@ -89,8 +89,8 @@ func (q *Queries) ListConversationByAccount(ctx context.Context, arg ListConvers
 		var i ChatConversation
 		if err := rows.Scan(
 			&i.ID,
-			&i.CustomerID,
-			&i.VendorID,
+			&i.BuyerID,
+			&i.SellerID,
 			&i.LastMessageAt,
 			&i.DateCreated,
 		); err != nil {

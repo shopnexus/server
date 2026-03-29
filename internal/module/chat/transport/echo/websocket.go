@@ -93,9 +93,9 @@ func (h *Handler) handleSendMessage(ws *websocket.Conn, account accountmodel.Aut
 		return
 	}
 
-	recipientID := conv.CustomerID
+	recipientID := conv.BuyerID
 	if recipientID == account.ID {
-		recipientID = conv.VendorID
+		recipientID = conv.SellerID
 	}
 
 	outMsg := chatmodel.WSMessage{Type: chatmodel.WSTypeNewMessage, Data: msg}
@@ -125,9 +125,9 @@ func (h *Handler) handleMarkRead(ws *websocket.Conn, account accountmodel.Authen
 		return
 	}
 
-	recipientID := conv.CustomerID
+	recipientID := conv.BuyerID
 	if recipientID == account.ID {
-		recipientID = conv.VendorID
+		recipientID = conv.SellerID
 	}
 
 	h.sendToClient(recipientID, chatmodel.WSMessage{

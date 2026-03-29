@@ -43,7 +43,7 @@ func NewHandler(e *echo.Echo, biz chatbiz.ChatBiz) *Handler {
 }
 
 type CreateConversationRequest struct {
-	VendorID uuid.UUID `json:"vendor_id" validate:"required"`
+	SellerID uuid.UUID `json:"vendor_id" validate:"required"`
 }
 
 func (h *Handler) CreateConversation(c echo.Context) error {
@@ -62,7 +62,7 @@ func (h *Handler) CreateConversation(c echo.Context) error {
 
 	result, err := h.biz.CreateConversation(c.Request().Context(), chatbiz.CreateConversationParams{
 		Account:  claims.Account,
-		VendorID: req.VendorID,
+		SellerID: req.SellerID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

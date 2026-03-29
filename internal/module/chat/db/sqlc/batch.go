@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchConversation = `-- name: CreateBatchConversation :batchone
-INSERT INTO "chat"."conversation" ("id", "customer_id", "vendor_id", "last_message_at", "date_created")
+INSERT INTO "chat"."conversation" ("id", "buyer_id", "seller_id", "last_message_at", "date_created")
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, customer_id, vendor_id, last_message_at, date_created
+RETURNING id, buyer_id, seller_id, last_message_at, date_created
 `
 
 type CreateBatchConversationBatchResults struct {
@@ -34,8 +34,8 @@ type CreateBatchConversationBatchResults struct {
 
 type CreateBatchConversationParams struct {
 	ID            uuid.UUID `json:"id"`
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 	DateCreated   time.Time `json:"date_created"`
 }
@@ -45,8 +45,8 @@ func (q *Queries) CreateBatchConversation(ctx context.Context, arg []CreateBatch
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
-			a.CustomerID,
-			a.VendorID,
+			a.BuyerID,
+			a.SellerID,
 			a.LastMessageAt,
 			a.DateCreated,
 		}
@@ -69,8 +69,8 @@ func (b *CreateBatchConversationBatchResults) QueryRow(f func(int, ChatConversat
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.CustomerID,
-			&i.VendorID,
+			&i.BuyerID,
+			&i.SellerID,
 			&i.LastMessageAt,
 			&i.DateCreated,
 		)

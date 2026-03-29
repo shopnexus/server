@@ -18,21 +18,21 @@ SELECT COUNT(*)
 FROM "chat"."conversation"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("last_message_at" = ANY($4) OR $4 IS NULL) AND
-    ("last_message_at" > $5 OR $5 IS NULL) AND
-    ("last_message_at" < $6 OR $6 IS NULL) AND
+    ("last_message_at" >= $5 OR $5 IS NULL) AND
+    ("last_message_at" <= $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL)
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL)
 )
 `
 
 type CountConversationParams struct {
 	ID                []uuid.UUID `json:"id"`
-	CustomerID        []uuid.UUID `json:"customer_id"`
-	VendorID          []uuid.UUID `json:"vendor_id"`
+	BuyerID           []uuid.UUID `json:"buyer_id"`
+	SellerID          []uuid.UUID `json:"seller_id"`
 	LastMessageAt     []null.Time `json:"last_message_at"`
 	LastMessageAtFrom null.Time   `json:"last_message_at_from"`
 	LastMessageAtTo   null.Time   `json:"last_message_at_to"`
@@ -44,8 +44,8 @@ type CountConversationParams struct {
 func (q *Queries) CountConversation(ctx context.Context, arg CountConversationParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countConversation,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.LastMessageAt,
 		arg.LastMessageAtFrom,
 		arg.LastMessageAtTo,
@@ -59,15 +59,15 @@ func (q *Queries) CountConversation(ctx context.Context, arg CountConversationPa
 }
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO "chat"."conversation" ("id", "customer_id", "vendor_id", "last_message_at", "date_created")
+INSERT INTO "chat"."conversation" ("id", "buyer_id", "seller_id", "last_message_at", "date_created")
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, customer_id, vendor_id, last_message_at, date_created
+RETURNING id, buyer_id, seller_id, last_message_at, date_created
 `
 
 type CreateConversationParams struct {
 	ID            uuid.UUID `json:"id"`
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 	DateCreated   time.Time `json:"date_created"`
 }
@@ -75,16 +75,16 @@ type CreateConversationParams struct {
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (ChatConversation, error) {
 	row := q.db.QueryRow(ctx, createConversation,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.LastMessageAt,
 		arg.DateCreated,
 	)
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)
@@ -93,37 +93,37 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 
 type CreateCopyConversationParams struct {
 	ID            uuid.UUID `json:"id"`
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 	DateCreated   time.Time `json:"date_created"`
 }
 
 type CreateCopyDefaultConversationParams struct {
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 }
 
 const createDefaultConversation = `-- name: CreateDefaultConversation :one
-INSERT INTO "chat"."conversation" ("customer_id", "vendor_id", "last_message_at")
+INSERT INTO "chat"."conversation" ("buyer_id", "seller_id", "last_message_at")
 VALUES ($1, $2, $3)
-RETURNING id, customer_id, vendor_id, last_message_at, date_created
+RETURNING id, buyer_id, seller_id, last_message_at, date_created
 `
 
 type CreateDefaultConversationParams struct {
-	CustomerID    uuid.UUID `json:"customer_id"`
-	VendorID      uuid.UUID `json:"vendor_id"`
+	BuyerID       uuid.UUID `json:"buyer_id"`
+	SellerID      uuid.UUID `json:"seller_id"`
 	LastMessageAt null.Time `json:"last_message_at"`
 }
 
 func (q *Queries) CreateDefaultConversation(ctx context.Context, arg CreateDefaultConversationParams) (ChatConversation, error) {
-	row := q.db.QueryRow(ctx, createDefaultConversation, arg.CustomerID, arg.VendorID, arg.LastMessageAt)
+	row := q.db.QueryRow(ctx, createDefaultConversation, arg.BuyerID, arg.SellerID, arg.LastMessageAt)
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)
@@ -134,21 +134,21 @@ const deleteConversation = `-- name: DeleteConversation :exec
 DELETE FROM "chat"."conversation"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("last_message_at" = ANY($4) OR $4 IS NULL) AND
-    ("last_message_at" > $5 OR $5 IS NULL) AND
-    ("last_message_at" < $6 OR $6 IS NULL) AND
+    ("last_message_at" >= $5 OR $5 IS NULL) AND
+    ("last_message_at" <= $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL)
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL)
 )
 `
 
 type DeleteConversationParams struct {
 	ID                []uuid.UUID `json:"id"`
-	CustomerID        []uuid.UUID `json:"customer_id"`
-	VendorID          []uuid.UUID `json:"vendor_id"`
+	BuyerID           []uuid.UUID `json:"buyer_id"`
+	SellerID          []uuid.UUID `json:"seller_id"`
 	LastMessageAt     []null.Time `json:"last_message_at"`
 	LastMessageAtFrom null.Time   `json:"last_message_at_from"`
 	LastMessageAtTo   null.Time   `json:"last_message_at_to"`
@@ -160,8 +160,8 @@ type DeleteConversationParams struct {
 func (q *Queries) DeleteConversation(ctx context.Context, arg DeleteConversationParams) error {
 	_, err := q.db.Exec(ctx, deleteConversation,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.LastMessageAt,
 		arg.LastMessageAtFrom,
 		arg.LastMessageAtTo,
@@ -174,26 +174,26 @@ func (q *Queries) DeleteConversation(ctx context.Context, arg DeleteConversation
 
 const getConversation = `-- name: GetConversation :one
 
-SELECT id, customer_id, vendor_id, last_message_at, date_created
+SELECT id, buyer_id, seller_id, last_message_at, date_created
 FROM "chat"."conversation"
-WHERE ("id" = $1) OR ("customer_id" = $2 AND "vendor_id" = $3)
+WHERE ("id" = $1) OR ("buyer_id" = $2 AND "seller_id" = $3)
 `
 
 type GetConversationParams struct {
-	ID         uuid.NullUUID `json:"id"`
-	CustomerID uuid.NullUUID `json:"customer_id"`
-	VendorID   uuid.NullUUID `json:"vendor_id"`
+	ID       uuid.NullUUID `json:"id"`
+	BuyerID  uuid.NullUUID `json:"buyer_id"`
+	SellerID uuid.NullUUID `json:"seller_id"`
 }
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: chat.conversation
 func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams) (ChatConversation, error) {
-	row := q.db.QueryRow(ctx, getConversation, arg.ID, arg.CustomerID, arg.VendorID)
+	row := q.db.QueryRow(ctx, getConversation, arg.ID, arg.BuyerID, arg.SellerID)
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)
@@ -201,18 +201,18 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 }
 
 const listConversation = `-- name: ListConversation :many
-SELECT id, customer_id, vendor_id, last_message_at, date_created
+SELECT id, buyer_id, seller_id, last_message_at, date_created
 FROM "chat"."conversation"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("last_message_at" = ANY($4) OR $4 IS NULL) AND
-    ("last_message_at" > $5 OR $5 IS NULL) AND
-    ("last_message_at" < $6 OR $6 IS NULL) AND
+    ("last_message_at" >= $5 OR $5 IS NULL) AND
+    ("last_message_at" <= $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL)
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL)
 )
 ORDER BY "id"
 LIMIT $11::int
@@ -221,8 +221,8 @@ OFFSET $10::int
 
 type ListConversationParams struct {
 	ID                []uuid.UUID `json:"id"`
-	CustomerID        []uuid.UUID `json:"customer_id"`
-	VendorID          []uuid.UUID `json:"vendor_id"`
+	BuyerID           []uuid.UUID `json:"buyer_id"`
+	SellerID          []uuid.UUID `json:"seller_id"`
 	LastMessageAt     []null.Time `json:"last_message_at"`
 	LastMessageAtFrom null.Time   `json:"last_message_at_from"`
 	LastMessageAtTo   null.Time   `json:"last_message_at_to"`
@@ -236,8 +236,8 @@ type ListConversationParams struct {
 func (q *Queries) ListConversation(ctx context.Context, arg ListConversationParams) ([]ChatConversation, error) {
 	rows, err := q.db.Query(ctx, listConversation,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.LastMessageAt,
 		arg.LastMessageAtFrom,
 		arg.LastMessageAtTo,
@@ -256,8 +256,8 @@ func (q *Queries) ListConversation(ctx context.Context, arg ListConversationPara
 		var i ChatConversation
 		if err := rows.Scan(
 			&i.ID,
-			&i.CustomerID,
-			&i.VendorID,
+			&i.BuyerID,
+			&i.SellerID,
 			&i.LastMessageAt,
 			&i.DateCreated,
 		); err != nil {
@@ -272,18 +272,18 @@ func (q *Queries) ListConversation(ctx context.Context, arg ListConversationPara
 }
 
 const listCountConversation = `-- name: ListCountConversation :many
-SELECT embed_conversation.id, embed_conversation.customer_id, embed_conversation.vendor_id, embed_conversation.last_message_at, embed_conversation.date_created, COUNT(*) OVER() as total_count
+SELECT embed_conversation.id, embed_conversation.buyer_id, embed_conversation.seller_id, embed_conversation.last_message_at, embed_conversation.date_created, COUNT(*) OVER() as total_count
 FROM "chat"."conversation" embed_conversation
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("customer_id" = ANY($2) OR $2 IS NULL) AND
-    ("vendor_id" = ANY($3) OR $3 IS NULL) AND
+    ("buyer_id" = ANY($2) OR $2 IS NULL) AND
+    ("seller_id" = ANY($3) OR $3 IS NULL) AND
     ("last_message_at" = ANY($4) OR $4 IS NULL) AND
-    ("last_message_at" > $5 OR $5 IS NULL) AND
-    ("last_message_at" < $6 OR $6 IS NULL) AND
+    ("last_message_at" >= $5 OR $5 IS NULL) AND
+    ("last_message_at" <= $6 OR $6 IS NULL) AND
     ("date_created" = ANY($7) OR $7 IS NULL) AND
-    ("date_created" > $8 OR $8 IS NULL) AND
-    ("date_created" < $9 OR $9 IS NULL)
+    ("date_created" >= $8 OR $8 IS NULL) AND
+    ("date_created" <= $9 OR $9 IS NULL)
 )
 ORDER BY "id"
 LIMIT $11::int
@@ -292,8 +292,8 @@ OFFSET $10::int
 
 type ListCountConversationParams struct {
 	ID                []uuid.UUID `json:"id"`
-	CustomerID        []uuid.UUID `json:"customer_id"`
-	VendorID          []uuid.UUID `json:"vendor_id"`
+	BuyerID           []uuid.UUID `json:"buyer_id"`
+	SellerID          []uuid.UUID `json:"seller_id"`
 	LastMessageAt     []null.Time `json:"last_message_at"`
 	LastMessageAtFrom null.Time   `json:"last_message_at_from"`
 	LastMessageAtTo   null.Time   `json:"last_message_at_to"`
@@ -312,8 +312,8 @@ type ListCountConversationRow struct {
 func (q *Queries) ListCountConversation(ctx context.Context, arg ListCountConversationParams) ([]ListCountConversationRow, error) {
 	rows, err := q.db.Query(ctx, listCountConversation,
 		arg.ID,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.LastMessageAt,
 		arg.LastMessageAtFrom,
 		arg.LastMessageAtTo,
@@ -332,8 +332,8 @@ func (q *Queries) ListCountConversation(ctx context.Context, arg ListCountConver
 		var i ListCountConversationRow
 		if err := rows.Scan(
 			&i.ChatConversation.ID,
-			&i.ChatConversation.CustomerID,
-			&i.ChatConversation.VendorID,
+			&i.ChatConversation.BuyerID,
+			&i.ChatConversation.SellerID,
 			&i.ChatConversation.LastMessageAt,
 			&i.ChatConversation.DateCreated,
 			&i.TotalCount,
@@ -350,17 +350,17 @@ func (q *Queries) ListCountConversation(ctx context.Context, arg ListCountConver
 
 const updateConversation = `-- name: UpdateConversation :one
 UPDATE "chat"."conversation"
-SET "customer_id" = COALESCE($1, "customer_id"),
-    "vendor_id" = COALESCE($2, "vendor_id"),
+SET "buyer_id" = COALESCE($1, "buyer_id"),
+    "seller_id" = COALESCE($2, "seller_id"),
     "last_message_at" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "last_message_at") END,
     "date_created" = COALESCE($5, "date_created")
 WHERE id = $6
-RETURNING id, customer_id, vendor_id, last_message_at, date_created
+RETURNING id, buyer_id, seller_id, last_message_at, date_created
 `
 
 type UpdateConversationParams struct {
-	CustomerID        uuid.NullUUID `json:"customer_id"`
-	VendorID          uuid.NullUUID `json:"vendor_id"`
+	BuyerID           uuid.NullUUID `json:"buyer_id"`
+	SellerID          uuid.NullUUID `json:"seller_id"`
 	NullLastMessageAt bool          `json:"null_last_message_at"`
 	LastMessageAt     null.Time     `json:"last_message_at"`
 	DateCreated       null.Time     `json:"date_created"`
@@ -369,8 +369,8 @@ type UpdateConversationParams struct {
 
 func (q *Queries) UpdateConversation(ctx context.Context, arg UpdateConversationParams) (ChatConversation, error) {
 	row := q.db.QueryRow(ctx, updateConversation,
-		arg.CustomerID,
-		arg.VendorID,
+		arg.BuyerID,
+		arg.SellerID,
 		arg.NullLastMessageAt,
 		arg.LastMessageAt,
 		arg.DateCreated,
@@ -379,8 +379,8 @@ func (q *Queries) UpdateConversation(ctx context.Context, arg UpdateConversation
 	var i ChatConversation
 	err := row.Scan(
 		&i.ID,
-		&i.CustomerID,
-		&i.VendorID,
+		&i.BuyerID,
+		&i.SellerID,
 		&i.LastMessageAt,
 		&i.DateCreated,
 	)

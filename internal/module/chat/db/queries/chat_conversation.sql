@@ -4,21 +4,21 @@
 -- name: GetConversation :one
 SELECT *
 FROM "chat"."conversation"
-WHERE ("id" = sqlc.narg('id')) OR ("customer_id" = sqlc.narg('customer_id') AND "vendor_id" = sqlc.narg('vendor_id'));
+WHERE ("id" = sqlc.narg('id')) OR ("buyer_id" = sqlc.narg('buyer_id') AND "seller_id" = sqlc.narg('seller_id'));
 
 -- name: CountConversation :one
 SELECT COUNT(*)
 FROM "chat"."conversation"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("customer_id" = ANY(sqlc.slice('customer_id')) OR sqlc.slice('customer_id') IS NULL) AND
-    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("last_message_at" = ANY(sqlc.slice('last_message_at')) OR sqlc.slice('last_message_at') IS NULL) AND
-    ("last_message_at" > sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
-    ("last_message_at" < sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
+    ("last_message_at" >= sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
+    ("last_message_at" <= sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListConversation :many
@@ -26,14 +26,14 @@ SELECT *
 FROM "chat"."conversation"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("customer_id" = ANY(sqlc.slice('customer_id')) OR sqlc.slice('customer_id') IS NULL) AND
-    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("last_message_at" = ANY(sqlc.slice('last_message_at')) OR sqlc.slice('last_message_at') IS NULL) AND
-    ("last_message_at" > sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
-    ("last_message_at" < sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
+    ("last_message_at" >= sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
+    ("last_message_at" <= sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -44,46 +44,46 @@ SELECT sqlc.embed(embed_conversation), COUNT(*) OVER() as total_count
 FROM "chat"."conversation" embed_conversation
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("customer_id" = ANY(sqlc.slice('customer_id')) OR sqlc.slice('customer_id') IS NULL) AND
-    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("last_message_at" = ANY(sqlc.slice('last_message_at')) OR sqlc.slice('last_message_at') IS NULL) AND
-    ("last_message_at" > sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
-    ("last_message_at" < sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
+    ("last_message_at" >= sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
+    ("last_message_at" <= sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateConversation :one
-INSERT INTO "chat"."conversation" ("id", "customer_id", "vendor_id", "last_message_at", "date_created")
+INSERT INTO "chat"."conversation" ("id", "buyer_id", "seller_id", "last_message_at", "date_created")
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateBatchConversation :batchone
-INSERT INTO "chat"."conversation" ("id", "customer_id", "vendor_id", "last_message_at", "date_created")
+INSERT INTO "chat"."conversation" ("id", "buyer_id", "seller_id", "last_message_at", "date_created")
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyConversation :copyfrom
-INSERT INTO "chat"."conversation" ("id", "customer_id", "vendor_id", "last_message_at", "date_created")
+INSERT INTO "chat"."conversation" ("id", "buyer_id", "seller_id", "last_message_at", "date_created")
 VALUES ($1, $2, $3, $4, $5);
 
 -- name: CreateDefaultConversation :one
-INSERT INTO "chat"."conversation" ("customer_id", "vendor_id", "last_message_at")
+INSERT INTO "chat"."conversation" ("buyer_id", "seller_id", "last_message_at")
 VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultConversation :copyfrom
-INSERT INTO "chat"."conversation" ("customer_id", "vendor_id", "last_message_at")
+INSERT INTO "chat"."conversation" ("buyer_id", "seller_id", "last_message_at")
 VALUES ($1, $2, $3);
 
 -- name: UpdateConversation :one
 UPDATE "chat"."conversation"
-SET "customer_id" = COALESCE(sqlc.narg('customer_id'), "customer_id"),
-    "vendor_id" = COALESCE(sqlc.narg('vendor_id'), "vendor_id"),
+SET "buyer_id" = COALESCE(sqlc.narg('buyer_id'), "buyer_id"),
+    "seller_id" = COALESCE(sqlc.narg('seller_id'), "seller_id"),
     "last_message_at" = CASE WHEN sqlc.arg('null_last_message_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_message_at'), "last_message_at") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
@@ -93,12 +93,12 @@ RETURNING *;
 DELETE FROM "chat"."conversation"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("customer_id" = ANY(sqlc.slice('customer_id')) OR sqlc.slice('customer_id') IS NULL) AND
-    ("vendor_id" = ANY(sqlc.slice('vendor_id')) OR sqlc.slice('vendor_id') IS NULL) AND
+    ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
+    ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("last_message_at" = ANY(sqlc.slice('last_message_at')) OR sqlc.slice('last_message_at') IS NULL) AND
-    ("last_message_at" > sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
-    ("last_message_at" < sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
+    ("last_message_at" >= sqlc.narg('last_message_at_from') OR sqlc.narg('last_message_at_from') IS NULL) AND
+    ("last_message_at" <= sqlc.narg('last_message_at_to') OR sqlc.narg('last_message_at_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );

@@ -4,7 +4,7 @@
 -- Description: Real-time messaging between buyer and seller accounts.
 --              Each conversation is a 1-1 thread; messages support text,
 --              images, and system-generated events.
--- Note: conversation still uses legacy customer_id / vendor_id column names
+-- Note: conversation still uses legacy buyer_id / seller_id column names
 --       from before the unified account model; both reference account.account.
 -- =============================================
 
@@ -24,9 +24,9 @@ CREATE TYPE "chat"."message_status" AS ENUM ('Sent', 'Delivered', 'Read');
 CREATE TABLE IF NOT EXISTS "chat"."conversation" (
     "id"              UUID NOT NULL DEFAULT gen_random_uuid(),
     -- The account acting as buyer in this conversation
-    "customer_id"     UUID NOT NULL,
+    "buyer_id"     UUID NOT NULL,
     -- The account acting as seller in this conversation
-    "vendor_id"       UUID NOT NULL,
+    "seller_id"       UUID NOT NULL,
     -- Denormalized timestamp of the most recent message for inbox ordering
     "last_message_at" TIMESTAMPTZ(3),
     "date_created"    TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -34,18 +34,18 @@ CREATE TABLE IF NOT EXISTS "chat"."conversation" (
 );
 
 -- Unique pair ensures only one conversation thread exists between any two accounts
-CREATE UNIQUE INDEX IF NOT EXISTS "conversation_customer_vendor_key" ON "chat"."conversation" ("customer_id", "vendor_id");
-CREATE INDEX IF NOT EXISTS "conversation_customer_id_idx" ON "chat"."conversation" ("customer_id");
-CREATE INDEX IF NOT EXISTS "conversation_vendor_id_idx" ON "chat"."conversation" ("vendor_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "conversation_buyer_seller_key" ON "chat"."conversation" ("buyer_id", "seller_id");
+CREATE INDEX IF NOT EXISTS "conversation_buyer_id_idx" ON "chat"."conversation" ("buyer_id");
+CREATE INDEX IF NOT EXISTS "conversation_seller_id_idx" ON "chat"."conversation" ("seller_id");
 -- DESC for inbox sorted by most recent activity
 CREATE INDEX IF NOT EXISTS "conversation_last_message_at_idx" ON "chat"."conversation" ("last_message_at" DESC);
 
 ALTER TABLE "chat"."conversation"
-    ADD CONSTRAINT "conversation_customer_id_fkey"
-    FOREIGN KEY ("customer_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    ADD CONSTRAINT "conversation_buyer_id_fkey"
+    FOREIGN KEY ("buyer_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "chat"."conversation"
-    ADD CONSTRAINT "conversation_vendor_id_fkey"
-    FOREIGN KEY ("vendor_id") REFERENCES "account"."vendor" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    ADD CONSTRAINT "conversation_seller_id_fkey"
+    FOREIGN KEY ("seller_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Individual message within a conversation. sender_id is the account that sent it.
 -- metadata stores type-specific data (e.g. image URL and dimensions for Image messages,
