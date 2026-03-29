@@ -283,17 +283,17 @@ type OrderCartItem struct {
 type OrderItem struct {
 	ID          int64           `json:"id"`
 	OrderID     uuid.NullUUID   `json:"order_id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
 	SkuID       uuid.UUID       `json:"sku_id"`
 	SkuName     string          `json:"sku_name"`
 	Quantity    int64           `json:"quantity"`
 	UnitPrice   int64           `json:"unit_price"`
-	Note        null.String     `json:"note"`
-	SerialIds   json.RawMessage `json:"serial_ids"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	SellerID    uuid.UUID       `json:"seller_id"`
+	PaidAmount  int64           `json:"paid_amount"`
 	Address     string          `json:"address"`
 	Status      OrderItemStatus `json:"status"`
-	PaidAmount  int64           `json:"paid_amount"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
 }
@@ -303,7 +303,7 @@ type OrderOrder struct {
 	BuyerID         uuid.UUID       `json:"buyer_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	PaymentID       null.Int        `json:"payment_id"`
-	TransportID     uuid.UUID       `json:"transport_id"`
+	TransportID     uuid.NullUUID   `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`

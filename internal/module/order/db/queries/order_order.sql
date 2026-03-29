@@ -19,22 +19,22 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("product_cost" = ANY(sqlc.slice('product_cost')) OR sqlc.slice('product_cost') IS NULL) AND
-    ("product_cost" > sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
-    ("product_cost" < sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
+    ("product_cost" >= sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
+    ("product_cost" <= sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
     ("product_discount" = ANY(sqlc.slice('product_discount')) OR sqlc.slice('product_discount') IS NULL) AND
-    ("product_discount" > sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
-    ("product_discount" < sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
+    ("product_discount" >= sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
+    ("product_discount" <= sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
     ("transport_cost" = ANY(sqlc.slice('transport_cost')) OR sqlc.slice('transport_cost') IS NULL) AND
-    ("transport_cost" > sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
-    ("transport_cost" < sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
+    ("transport_cost" >= sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
+    ("transport_cost" <= sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
     ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" > sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" < sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
+    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListOrder :many
@@ -50,22 +50,22 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("product_cost" = ANY(sqlc.slice('product_cost')) OR sqlc.slice('product_cost') IS NULL) AND
-    ("product_cost" > sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
-    ("product_cost" < sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
+    ("product_cost" >= sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
+    ("product_cost" <= sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
     ("product_discount" = ANY(sqlc.slice('product_discount')) OR sqlc.slice('product_discount') IS NULL) AND
-    ("product_discount" > sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
-    ("product_discount" < sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
+    ("product_discount" >= sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
+    ("product_discount" <= sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
     ("transport_cost" = ANY(sqlc.slice('transport_cost')) OR sqlc.slice('transport_cost') IS NULL) AND
-    ("transport_cost" > sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
-    ("transport_cost" < sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
+    ("transport_cost" >= sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
+    ("transport_cost" <= sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
     ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" > sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" < sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
+    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -84,22 +84,22 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("product_cost" = ANY(sqlc.slice('product_cost')) OR sqlc.slice('product_cost') IS NULL) AND
-    ("product_cost" > sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
-    ("product_cost" < sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
+    ("product_cost" >= sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
+    ("product_cost" <= sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
     ("product_discount" = ANY(sqlc.slice('product_discount')) OR sqlc.slice('product_discount') IS NULL) AND
-    ("product_discount" > sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
-    ("product_discount" < sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
+    ("product_discount" >= sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
+    ("product_discount" <= sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
     ("transport_cost" = ANY(sqlc.slice('transport_cost')) OR sqlc.slice('transport_cost') IS NULL) AND
-    ("transport_cost" > sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
-    ("transport_cost" < sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
+    ("transport_cost" >= sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
+    ("transport_cost" <= sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
     ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" > sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" < sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
+    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -120,13 +120,13 @@ INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "trans
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultOrder :one
-INSERT INTO "order"."order" ("buyer_id", "seller_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."order" ("buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrder :copyfrom
-INSERT INTO "order"."order" ("buyer_id", "seller_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "order"."order" ("buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdateOrder :one
 UPDATE "order"."order"
@@ -159,20 +159,20 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("product_cost" = ANY(sqlc.slice('product_cost')) OR sqlc.slice('product_cost') IS NULL) AND
-    ("product_cost" > sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
-    ("product_cost" < sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
+    ("product_cost" >= sqlc.narg('product_cost_from') OR sqlc.narg('product_cost_from') IS NULL) AND
+    ("product_cost" <= sqlc.narg('product_cost_to') OR sqlc.narg('product_cost_to') IS NULL) AND
     ("product_discount" = ANY(sqlc.slice('product_discount')) OR sqlc.slice('product_discount') IS NULL) AND
-    ("product_discount" > sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
-    ("product_discount" < sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
+    ("product_discount" >= sqlc.narg('product_discount_from') OR sqlc.narg('product_discount_from') IS NULL) AND
+    ("product_discount" <= sqlc.narg('product_discount_to') OR sqlc.narg('product_discount_to') IS NULL) AND
     ("transport_cost" = ANY(sqlc.slice('transport_cost')) OR sqlc.slice('transport_cost') IS NULL) AND
-    ("transport_cost" > sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
-    ("transport_cost" < sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
+    ("transport_cost" >= sqlc.narg('transport_cost_from') OR sqlc.narg('transport_cost_from') IS NULL) AND
+    ("transport_cost" <= sqlc.narg('transport_cost_to') OR sqlc.narg('transport_cost_to') IS NULL) AND
     ("total" = ANY(sqlc.slice('total')) OR sqlc.slice('total') IS NULL) AND
-    ("total" > sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
-    ("total" < sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
+    ("total" >= sqlc.narg('total_from') OR sqlc.narg('total_from') IS NULL) AND
+    ("total" <= sqlc.narg('total_to') OR sqlc.narg('total_to') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );

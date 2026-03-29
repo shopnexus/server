@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countCartItem = `-- name: CountCartItem :one
@@ -21,8 +20,8 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("sku_id" = ANY($3) OR $3 IS NULL) AND
     ("quantity" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" > $5 OR $5 IS NULL) AND
-    ("quantity" < $6 OR $6 IS NULL)
+    ("quantity" >= $5 OR $5 IS NULL) AND
+    ("quantity" <= $6 OR $6 IS NULL)
 )
 `
 
@@ -116,8 +115,8 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("sku_id" = ANY($3) OR $3 IS NULL) AND
     ("quantity" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" > $5 OR $5 IS NULL) AND
-    ("quantity" < $6 OR $6 IS NULL)
+    ("quantity" >= $5 OR $5 IS NULL) AND
+    ("quantity" <= $6 OR $6 IS NULL)
 )
 `
 
@@ -150,7 +149,7 @@ WHERE ("id" = $1) OR ("account_id" = $2 AND "sku_id" = $3)
 `
 
 type GetCartItemParams struct {
-	ID        pgtype.Int8   `json:"id"`
+	ID        null.Int      `json:"id"`
 	AccountID uuid.NullUUID `json:"account_id"`
 	SkuID     uuid.NullUUID `json:"sku_id"`
 }
@@ -177,8 +176,8 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("sku_id" = ANY($3) OR $3 IS NULL) AND
     ("quantity" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" > $5 OR $5 IS NULL) AND
-    ("quantity" < $6 OR $6 IS NULL)
+    ("quantity" >= $5 OR $5 IS NULL) AND
+    ("quantity" <= $6 OR $6 IS NULL)
 )
 ORDER BY "id"
 LIMIT $8::int
@@ -238,8 +237,8 @@ WHERE (
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("sku_id" = ANY($3) OR $3 IS NULL) AND
     ("quantity" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" > $5 OR $5 IS NULL) AND
-    ("quantity" < $6 OR $6 IS NULL)
+    ("quantity" >= $5 OR $5 IS NULL) AND
+    ("quantity" <= $6 OR $6 IS NULL)
 )
 ORDER BY "id"
 LIMIT $8::int

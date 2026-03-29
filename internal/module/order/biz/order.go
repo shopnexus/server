@@ -15,6 +15,7 @@ import (
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -213,17 +214,11 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			note = &o.Note.String
 		}
 
-		var transportID *uuid.UUID
-		zeroUUID := uuid.UUID{}
-		if o.TransportID != zeroUUID {
-			transportID = &o.TransportID
-		}
-
 		result = append(result, ordermodel.Order{
 			ID:              o.ID,
 			BuyerID:         o.BuyerID,
 			SellerID:        o.SellerID,
-			TransportID:     transportID,
+			TransportID:     o.TransportID,
 			Payment:         paymentPtr,
 			Status:          o.Status,
 			Address:         o.Address,
@@ -241,34 +236,28 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	return result, nil
 }
 
-// VerifyPayment verifies a payment callback from the payment gateway and updates the payment status.
-func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentParams) error {
+// ConfirmPayment updates the payment status based on a webhook callback result.
+// Called by the transport layer after provider-specific webhook verification.
+func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPaymentParams) error {
 	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate verify payment", err)
+		return sharedmodel.WrapErr("validate confirm payment", err)
 	}
 
-	// Verify payment via payment gateway
-	refID, err := restate.Run(ctx, func(ctx restate.RunContext) (string, error) {
-		gateway, ok := b.paymentMap[params.PaymentGateway]
-		if !ok {
-			return "", ordermodel.ErrPaymentGatewayNotFound.Terminal()
-		}
-		result, err := gateway.VerifyPayment(ctx, params.Data)
-		if err != nil {
-			return "", err
-		}
-		return result.RefID, nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("verify payment", err)
-	}
-
-	refUUID, err := uuid.Parse(refID)
+	refUUID, err := uuid.Parse(params.RefID)
 	if err != nil {
 		return sharedmodel.WrapErr("parse ref id", err)
 	}
 
-	// Update payment status
+	var dbStatus orderdb.OrderStatus
+	switch params.Status {
+	case payment.StatusSuccess:
+		dbStatus = orderdb.OrderStatusSuccess
+	case payment.StatusFailed:
+		dbStatus = orderdb.OrderStatusFailed
+	default:
+		return nil // ignore pending/expired — no state change needed
+	}
+
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refUUID, Valid: true})
 		if err != nil {
@@ -281,7 +270,7 @@ func (b *OrderHandler) VerifyPayment(ctx restate.Context, params VerifyPaymentPa
 
 		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 			ID:     order.PaymentID.Int64,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusSuccess, Valid: true},
+			Status: orderdb.NullOrderStatus{OrderStatus: dbStatus, Valid: true},
 		})
 		return err
 	})

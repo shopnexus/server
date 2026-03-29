@@ -39,7 +39,7 @@ type Order struct {
 	ID              uuid.UUID               `json:"id"`
 	BuyerID         uuid.UUID               `json:"buyer_id"`
 	SellerID        uuid.UUID               `json:"seller_id"`
-	TransportID     *uuid.UUID              `json:"transport_id"`
+	TransportID     uuid.NullUUID           `json:"transport_id"`
 	Payment         *Payment                `json:"payment"`
 	Status          orderdb.OrderStatus     `json:"status"`
 	Address         string                  `json:"address"`

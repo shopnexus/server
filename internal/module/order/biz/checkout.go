@@ -20,7 +20,6 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
 )
 
@@ -328,9 +327,7 @@ func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendi
 		Status   string `json:"status"`
 	}
 	info, err := restate.Run(ctx, func(ctx restate.RunContext) (itemInfo, error) {
-		item, err := b.storage.Querier().GetItem(ctx, orderdb.GetItemParams{
-			ID: pgtype.Int8{Int64: params.ItemID, Valid: true},
-		})
+		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.ItemID))
 		if err != nil {
 			return itemInfo{}, sharedmodel.WrapErr("db get item", err)
 		}

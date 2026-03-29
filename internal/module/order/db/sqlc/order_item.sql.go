@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countItem = `-- name: CountItem :one
@@ -21,33 +20,35 @@ FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("order_id" = ANY($2) OR $2 IS NULL) AND
-    ("sku_id" = ANY($3) OR $3 IS NULL) AND
-    ("sku_name" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" = ANY($5) OR $5 IS NULL) AND
-    ("quantity" > $6 OR $6 IS NULL) AND
-    ("quantity" < $7 OR $7 IS NULL) AND
-    ("unit_price" = ANY($8) OR $8 IS NULL) AND
-    ("unit_price" > $9 OR $9 IS NULL) AND
-    ("unit_price" < $10 OR $10 IS NULL) AND
-    ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
-    ("account_id" = ANY($13) OR $13 IS NULL) AND
-    ("seller_id" = ANY($14) OR $14 IS NULL) AND
-    ("address" = ANY($15) OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("seller_id" = ANY($4) OR $4 IS NULL) AND
+    ("sku_id" = ANY($5) OR $5 IS NULL) AND
+    ("sku_name" = ANY($6) OR $6 IS NULL) AND
+    ("quantity" = ANY($7) OR $7 IS NULL) AND
+    ("quantity" >= $8 OR $8 IS NULL) AND
+    ("quantity" <= $9 OR $9 IS NULL) AND
+    ("unit_price" = ANY($10) OR $10 IS NULL) AND
+    ("unit_price" >= $11 OR $11 IS NULL) AND
+    ("unit_price" <= $12 OR $12 IS NULL) AND
+    ("paid_amount" = ANY($13) OR $13 IS NULL) AND
+    ("address" = ANY($14) OR $14 IS NULL) AND
+    ("status" = ANY($15) OR $15 IS NULL) AND
+    ("note" = ANY($16) OR $16 IS NULL) AND
+    ("serial_ids" = ANY($17) OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_created" >= $19 OR $19 IS NULL) AND
+    ("date_created" <= $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL)
+    ("date_updated" >= $22 OR $22 IS NULL) AND
+    ("date_updated" <= $23 OR $23 IS NULL)
 )
 `
 
 type CountItemParams struct {
 	ID              []int64           `json:"id"`
 	OrderID         []uuid.NullUUID   `json:"order_id"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
 	SkuID           []uuid.UUID       `json:"sku_id"`
 	SkuName         []string          `json:"sku_name"`
 	Quantity        []int64           `json:"quantity"`
@@ -56,13 +57,11 @@ type CountItemParams struct {
 	UnitPrice       []int64           `json:"unit_price"`
 	UnitPriceFrom   null.Int          `json:"unit_price_from"`
 	UnitPriceTo     null.Int          `json:"unit_price_to"`
-	Note            []null.String     `json:"note"`
-	SerialIds       []json.RawMessage `json:"serial_ids"`
-	AccountID       []uuid.UUID       `json:"account_id"`
-	SellerID        []uuid.UUID       `json:"seller_id"`
+	PaidAmount      []int64           `json:"paid_amount"`
 	Address         []string          `json:"address"`
 	Status          []OrderItemStatus `json:"status"`
-	PaidAmount      []int64           `json:"paid_amount"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -75,6 +74,8 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 	row := q.db.QueryRow(ctx, countItem,
 		arg.ID,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
@@ -83,13 +84,11 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 		arg.UnitPrice,
 		arg.UnitPriceFrom,
 		arg.UnitPriceTo,
-		arg.Note,
-		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
+		arg.PaidAmount,
 		arg.Address,
 		arg.Status,
-		arg.PaidAmount,
+		arg.Note,
+		arg.SerialIds,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -104,78 +103,78 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 
 type CreateCopyDefaultItemParams struct {
 	OrderID   uuid.NullUUID   `json:"order_id"`
+	AccountID uuid.UUID       `json:"account_id"`
+	SellerID  uuid.UUID       `json:"seller_id"`
 	SkuID     uuid.UUID       `json:"sku_id"`
 	SkuName   string          `json:"sku_name"`
 	Quantity  int64           `json:"quantity"`
 	UnitPrice int64           `json:"unit_price"`
 	Note      null.String     `json:"note"`
 	SerialIds json.RawMessage `json:"serial_ids"`
-	AccountID uuid.UUID       `json:"account_id"`
-	SellerID  uuid.UUID       `json:"seller_id"`
 }
 
 type CreateCopyItemParams struct {
 	OrderID     uuid.NullUUID   `json:"order_id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
 	SkuID       uuid.UUID       `json:"sku_id"`
 	SkuName     string          `json:"sku_name"`
 	Quantity    int64           `json:"quantity"`
 	UnitPrice   int64           `json:"unit_price"`
-	Note        null.String     `json:"note"`
-	SerialIds   json.RawMessage `json:"serial_ids"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	SellerID    uuid.UUID       `json:"seller_id"`
+	PaidAmount  int64           `json:"paid_amount"`
 	Address     string          `json:"address"`
 	Status      OrderItemStatus `json:"status"`
-	PaidAmount  int64           `json:"paid_amount"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
 }
 
 const createDefaultItem = `-- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 `
 
 type CreateDefaultItemParams struct {
 	OrderID   uuid.NullUUID   `json:"order_id"`
+	AccountID uuid.UUID       `json:"account_id"`
+	SellerID  uuid.UUID       `json:"seller_id"`
 	SkuID     uuid.UUID       `json:"sku_id"`
 	SkuName   string          `json:"sku_name"`
 	Quantity  int64           `json:"quantity"`
 	UnitPrice int64           `json:"unit_price"`
 	Note      null.String     `json:"note"`
 	SerialIds json.RawMessage `json:"serial_ids"`
-	AccountID uuid.UUID       `json:"account_id"`
-	SellerID  uuid.UUID       `json:"seller_id"`
 }
 
 func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, createDefaultItem,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
 		arg.UnitPrice,
 		arg.Note,
 		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
 	)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
 		&i.SkuID,
 		&i.SkuName,
 		&i.Quantity,
 		&i.UnitPrice,
-		&i.Note,
-		&i.SerialIds,
-		&i.AccountID,
-		&i.SellerID,
+		&i.PaidAmount,
 		&i.Address,
 		&i.Status,
-		&i.PaidAmount,
+		&i.Note,
+		&i.SerialIds,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -183,24 +182,24 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 }
 
 const createItem = `-- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "account_id", "seller_id", "address", "status", "paid_amount", "date_created", "date_updated")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "status", "note", "serial_ids", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 `
 
 type CreateItemParams struct {
 	OrderID     uuid.NullUUID   `json:"order_id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	SellerID    uuid.UUID       `json:"seller_id"`
 	SkuID       uuid.UUID       `json:"sku_id"`
 	SkuName     string          `json:"sku_name"`
 	Quantity    int64           `json:"quantity"`
 	UnitPrice   int64           `json:"unit_price"`
-	Note        null.String     `json:"note"`
-	SerialIds   json.RawMessage `json:"serial_ids"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	SellerID    uuid.UUID       `json:"seller_id"`
+	PaidAmount  int64           `json:"paid_amount"`
 	Address     string          `json:"address"`
 	Status      OrderItemStatus `json:"status"`
-	PaidAmount  int64           `json:"paid_amount"`
+	Note        null.String     `json:"note"`
+	SerialIds   json.RawMessage `json:"serial_ids"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
 }
@@ -208,17 +207,17 @@ type CreateItemParams struct {
 func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, createItem,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
 		arg.UnitPrice,
-		arg.Note,
-		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
+		arg.PaidAmount,
 		arg.Address,
 		arg.Status,
-		arg.PaidAmount,
+		arg.Note,
+		arg.SerialIds,
 		arg.DateCreated,
 		arg.DateUpdated,
 	)
@@ -226,17 +225,17 @@ func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderIt
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
 		&i.SkuID,
 		&i.SkuName,
 		&i.Quantity,
 		&i.UnitPrice,
-		&i.Note,
-		&i.SerialIds,
-		&i.AccountID,
-		&i.SellerID,
+		&i.PaidAmount,
 		&i.Address,
 		&i.Status,
-		&i.PaidAmount,
+		&i.Note,
+		&i.SerialIds,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -248,33 +247,35 @@ DELETE FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("order_id" = ANY($2) OR $2 IS NULL) AND
-    ("sku_id" = ANY($3) OR $3 IS NULL) AND
-    ("sku_name" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" = ANY($5) OR $5 IS NULL) AND
-    ("quantity" > $6 OR $6 IS NULL) AND
-    ("quantity" < $7 OR $7 IS NULL) AND
-    ("unit_price" = ANY($8) OR $8 IS NULL) AND
-    ("unit_price" > $9 OR $9 IS NULL) AND
-    ("unit_price" < $10 OR $10 IS NULL) AND
-    ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
-    ("account_id" = ANY($13) OR $13 IS NULL) AND
-    ("seller_id" = ANY($14) OR $14 IS NULL) AND
-    ("address" = ANY($15) OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("seller_id" = ANY($4) OR $4 IS NULL) AND
+    ("sku_id" = ANY($5) OR $5 IS NULL) AND
+    ("sku_name" = ANY($6) OR $6 IS NULL) AND
+    ("quantity" = ANY($7) OR $7 IS NULL) AND
+    ("quantity" >= $8 OR $8 IS NULL) AND
+    ("quantity" <= $9 OR $9 IS NULL) AND
+    ("unit_price" = ANY($10) OR $10 IS NULL) AND
+    ("unit_price" >= $11 OR $11 IS NULL) AND
+    ("unit_price" <= $12 OR $12 IS NULL) AND
+    ("paid_amount" = ANY($13) OR $13 IS NULL) AND
+    ("address" = ANY($14) OR $14 IS NULL) AND
+    ("status" = ANY($15) OR $15 IS NULL) AND
+    ("note" = ANY($16) OR $16 IS NULL) AND
+    ("serial_ids" = ANY($17) OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_created" >= $19 OR $19 IS NULL) AND
+    ("date_created" <= $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL)
+    ("date_updated" >= $22 OR $22 IS NULL) AND
+    ("date_updated" <= $23 OR $23 IS NULL)
 )
 `
 
 type DeleteItemParams struct {
 	ID              []int64           `json:"id"`
 	OrderID         []uuid.NullUUID   `json:"order_id"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
 	SkuID           []uuid.UUID       `json:"sku_id"`
 	SkuName         []string          `json:"sku_name"`
 	Quantity        []int64           `json:"quantity"`
@@ -283,13 +284,11 @@ type DeleteItemParams struct {
 	UnitPrice       []int64           `json:"unit_price"`
 	UnitPriceFrom   null.Int          `json:"unit_price_from"`
 	UnitPriceTo     null.Int          `json:"unit_price_to"`
-	Note            []null.String     `json:"note"`
-	SerialIds       []json.RawMessage `json:"serial_ids"`
-	AccountID       []uuid.UUID       `json:"account_id"`
-	SellerID        []uuid.UUID       `json:"seller_id"`
+	PaidAmount      []int64           `json:"paid_amount"`
 	Address         []string          `json:"address"`
 	Status          []OrderItemStatus `json:"status"`
-	PaidAmount      []int64           `json:"paid_amount"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -302,6 +301,8 @@ func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
 	_, err := q.db.Exec(ctx, deleteItem,
 		arg.ID,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
@@ -310,13 +311,11 @@ func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
 		arg.UnitPrice,
 		arg.UnitPriceFrom,
 		arg.UnitPriceTo,
-		arg.Note,
-		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
+		arg.PaidAmount,
 		arg.Address,
 		arg.Status,
-		arg.PaidAmount,
+		arg.Note,
+		arg.SerialIds,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -329,36 +328,30 @@ func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
 
 const getItem = `-- name: GetItem :one
 
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"
-WHERE ("id" = $1) OR ("order_id" = $2 AND "sku_id" = $3)
+WHERE ("id" = $1)
 `
-
-type GetItemParams struct {
-	ID      pgtype.Int8   `json:"id"`
-	OrderID uuid.NullUUID `json:"order_id"`
-	SkuID   uuid.NullUUID `json:"sku_id"`
-}
 
 // Code generated by pgtempl. DO NOT EDIT.
 // Queries for table: order.item
-func (q *Queries) GetItem(ctx context.Context, arg GetItemParams) (OrderItem, error) {
-	row := q.db.QueryRow(ctx, getItem, arg.ID, arg.OrderID, arg.SkuID)
+func (q *Queries) GetItem(ctx context.Context, id null.Int) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, getItem, id)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
 		&i.SkuID,
 		&i.SkuName,
 		&i.Quantity,
 		&i.UnitPrice,
-		&i.Note,
-		&i.SerialIds,
-		&i.AccountID,
-		&i.SellerID,
+		&i.PaidAmount,
 		&i.Address,
 		&i.Status,
-		&i.PaidAmount,
+		&i.Note,
+		&i.SerialIds,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -366,32 +359,32 @@ func (q *Queries) GetItem(ctx context.Context, arg GetItemParams) (OrderItem, er
 }
 
 const listCountItem = `-- name: ListCountItem :many
-SELECT embed_item.id, embed_item.order_id, embed_item.sku_id, embed_item.sku_name, embed_item.quantity, embed_item.unit_price, embed_item.note, embed_item.serial_ids, embed_item.account_id, embed_item.seller_id, embed_item.address, embed_item.status, embed_item.paid_amount, embed_item.date_created, embed_item.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_item.id, embed_item.order_id, embed_item.account_id, embed_item.seller_id, embed_item.sku_id, embed_item.sku_name, embed_item.quantity, embed_item.unit_price, embed_item.paid_amount, embed_item.address, embed_item.status, embed_item.note, embed_item.serial_ids, embed_item.date_created, embed_item.date_updated, COUNT(*) OVER() as total_count
 FROM "order"."item" embed_item
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("order_id" = ANY($2) OR $2 IS NULL) AND
-    ("sku_id" = ANY($3) OR $3 IS NULL) AND
-    ("sku_name" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" = ANY($5) OR $5 IS NULL) AND
-    ("quantity" > $6 OR $6 IS NULL) AND
-    ("quantity" < $7 OR $7 IS NULL) AND
-    ("unit_price" = ANY($8) OR $8 IS NULL) AND
-    ("unit_price" > $9 OR $9 IS NULL) AND
-    ("unit_price" < $10 OR $10 IS NULL) AND
-    ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
-    ("account_id" = ANY($13) OR $13 IS NULL) AND
-    ("seller_id" = ANY($14) OR $14 IS NULL) AND
-    ("address" = ANY($15) OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("seller_id" = ANY($4) OR $4 IS NULL) AND
+    ("sku_id" = ANY($5) OR $5 IS NULL) AND
+    ("sku_name" = ANY($6) OR $6 IS NULL) AND
+    ("quantity" = ANY($7) OR $7 IS NULL) AND
+    ("quantity" >= $8 OR $8 IS NULL) AND
+    ("quantity" <= $9 OR $9 IS NULL) AND
+    ("unit_price" = ANY($10) OR $10 IS NULL) AND
+    ("unit_price" >= $11 OR $11 IS NULL) AND
+    ("unit_price" <= $12 OR $12 IS NULL) AND
+    ("paid_amount" = ANY($13) OR $13 IS NULL) AND
+    ("address" = ANY($14) OR $14 IS NULL) AND
+    ("status" = ANY($15) OR $15 IS NULL) AND
+    ("note" = ANY($16) OR $16 IS NULL) AND
+    ("serial_ids" = ANY($17) OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_created" >= $19 OR $19 IS NULL) AND
+    ("date_created" <= $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL)
+    ("date_updated" >= $22 OR $22 IS NULL) AND
+    ("date_updated" <= $23 OR $23 IS NULL)
 )
 ORDER BY "id"
 LIMIT $25::int
@@ -401,6 +394,8 @@ OFFSET $24::int
 type ListCountItemParams struct {
 	ID              []int64           `json:"id"`
 	OrderID         []uuid.NullUUID   `json:"order_id"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
 	SkuID           []uuid.UUID       `json:"sku_id"`
 	SkuName         []string          `json:"sku_name"`
 	Quantity        []int64           `json:"quantity"`
@@ -409,13 +404,11 @@ type ListCountItemParams struct {
 	UnitPrice       []int64           `json:"unit_price"`
 	UnitPriceFrom   null.Int          `json:"unit_price_from"`
 	UnitPriceTo     null.Int          `json:"unit_price_to"`
-	Note            []null.String     `json:"note"`
-	SerialIds       []json.RawMessage `json:"serial_ids"`
-	AccountID       []uuid.UUID       `json:"account_id"`
-	SellerID        []uuid.UUID       `json:"seller_id"`
+	PaidAmount      []int64           `json:"paid_amount"`
 	Address         []string          `json:"address"`
 	Status          []OrderItemStatus `json:"status"`
-	PaidAmount      []int64           `json:"paid_amount"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -435,6 +428,8 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 	rows, err := q.db.Query(ctx, listCountItem,
 		arg.ID,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
@@ -443,13 +438,11 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 		arg.UnitPrice,
 		arg.UnitPriceFrom,
 		arg.UnitPriceTo,
-		arg.Note,
-		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
+		arg.PaidAmount,
 		arg.Address,
 		arg.Status,
-		arg.PaidAmount,
+		arg.Note,
+		arg.SerialIds,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -469,17 +462,17 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 		if err := rows.Scan(
 			&i.OrderItem.ID,
 			&i.OrderItem.OrderID,
+			&i.OrderItem.AccountID,
+			&i.OrderItem.SellerID,
 			&i.OrderItem.SkuID,
 			&i.OrderItem.SkuName,
 			&i.OrderItem.Quantity,
 			&i.OrderItem.UnitPrice,
-			&i.OrderItem.Note,
-			&i.OrderItem.SerialIds,
-			&i.OrderItem.AccountID,
-			&i.OrderItem.SellerID,
+			&i.OrderItem.PaidAmount,
 			&i.OrderItem.Address,
 			&i.OrderItem.Status,
-			&i.OrderItem.PaidAmount,
+			&i.OrderItem.Note,
+			&i.OrderItem.SerialIds,
 			&i.OrderItem.DateCreated,
 			&i.OrderItem.DateUpdated,
 			&i.TotalCount,
@@ -495,32 +488,32 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 }
 
 const listItem = `-- name: ListItem :many
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("order_id" = ANY($2) OR $2 IS NULL) AND
-    ("sku_id" = ANY($3) OR $3 IS NULL) AND
-    ("sku_name" = ANY($4) OR $4 IS NULL) AND
-    ("quantity" = ANY($5) OR $5 IS NULL) AND
-    ("quantity" > $6 OR $6 IS NULL) AND
-    ("quantity" < $7 OR $7 IS NULL) AND
-    ("unit_price" = ANY($8) OR $8 IS NULL) AND
-    ("unit_price" > $9 OR $9 IS NULL) AND
-    ("unit_price" < $10 OR $10 IS NULL) AND
-    ("note" = ANY($11) OR $11 IS NULL) AND
-    ("serial_ids" = ANY($12) OR $12 IS NULL) AND
-    ("account_id" = ANY($13) OR $13 IS NULL) AND
-    ("seller_id" = ANY($14) OR $14 IS NULL) AND
-    ("address" = ANY($15) OR $15 IS NULL) AND
-    ("status" = ANY($16) OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
+    ("account_id" = ANY($3) OR $3 IS NULL) AND
+    ("seller_id" = ANY($4) OR $4 IS NULL) AND
+    ("sku_id" = ANY($5) OR $5 IS NULL) AND
+    ("sku_name" = ANY($6) OR $6 IS NULL) AND
+    ("quantity" = ANY($7) OR $7 IS NULL) AND
+    ("quantity" >= $8 OR $8 IS NULL) AND
+    ("quantity" <= $9 OR $9 IS NULL) AND
+    ("unit_price" = ANY($10) OR $10 IS NULL) AND
+    ("unit_price" >= $11 OR $11 IS NULL) AND
+    ("unit_price" <= $12 OR $12 IS NULL) AND
+    ("paid_amount" = ANY($13) OR $13 IS NULL) AND
+    ("address" = ANY($14) OR $14 IS NULL) AND
+    ("status" = ANY($15) OR $15 IS NULL) AND
+    ("note" = ANY($16) OR $16 IS NULL) AND
+    ("serial_ids" = ANY($17) OR $17 IS NULL) AND
     ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" > $19 OR $19 IS NULL) AND
-    ("date_created" < $20 OR $20 IS NULL) AND
+    ("date_created" >= $19 OR $19 IS NULL) AND
+    ("date_created" <= $20 OR $20 IS NULL) AND
     ("date_updated" = ANY($21) OR $21 IS NULL) AND
-    ("date_updated" > $22 OR $22 IS NULL) AND
-    ("date_updated" < $23 OR $23 IS NULL)
+    ("date_updated" >= $22 OR $22 IS NULL) AND
+    ("date_updated" <= $23 OR $23 IS NULL)
 )
 ORDER BY "id"
 LIMIT $25::int
@@ -530,6 +523,8 @@ OFFSET $24::int
 type ListItemParams struct {
 	ID              []int64           `json:"id"`
 	OrderID         []uuid.NullUUID   `json:"order_id"`
+	AccountID       []uuid.UUID       `json:"account_id"`
+	SellerID        []uuid.UUID       `json:"seller_id"`
 	SkuID           []uuid.UUID       `json:"sku_id"`
 	SkuName         []string          `json:"sku_name"`
 	Quantity        []int64           `json:"quantity"`
@@ -538,13 +533,11 @@ type ListItemParams struct {
 	UnitPrice       []int64           `json:"unit_price"`
 	UnitPriceFrom   null.Int          `json:"unit_price_from"`
 	UnitPriceTo     null.Int          `json:"unit_price_to"`
-	Note            []null.String     `json:"note"`
-	SerialIds       []json.RawMessage `json:"serial_ids"`
-	AccountID       []uuid.UUID       `json:"account_id"`
-	SellerID        []uuid.UUID       `json:"seller_id"`
+	PaidAmount      []int64           `json:"paid_amount"`
 	Address         []string          `json:"address"`
 	Status          []OrderItemStatus `json:"status"`
-	PaidAmount      []int64           `json:"paid_amount"`
+	Note            []null.String     `json:"note"`
+	SerialIds       []json.RawMessage `json:"serial_ids"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
 	DateCreatedTo   null.Time         `json:"date_created_to"`
@@ -559,6 +552,8 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 	rows, err := q.db.Query(ctx, listItem,
 		arg.ID,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
@@ -567,13 +562,11 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 		arg.UnitPrice,
 		arg.UnitPriceFrom,
 		arg.UnitPriceTo,
-		arg.Note,
-		arg.SerialIds,
-		arg.AccountID,
-		arg.SellerID,
+		arg.PaidAmount,
 		arg.Address,
 		arg.Status,
-		arg.PaidAmount,
+		arg.Note,
+		arg.SerialIds,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -593,17 +586,17 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
+			&i.AccountID,
+			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
 			&i.Quantity,
 			&i.UnitPrice,
-			&i.Note,
-			&i.SerialIds,
-			&i.AccountID,
-			&i.SellerID,
+			&i.PaidAmount,
 			&i.Address,
 			&i.Status,
-			&i.PaidAmount,
+			&i.Note,
+			&i.SerialIds,
 			&i.DateCreated,
 			&i.DateUpdated,
 		); err != nil {
@@ -620,41 +613,39 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 const updateItem = `-- name: UpdateItem :one
 UPDATE "order"."item"
 SET "order_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "order_id") END,
-    "sku_id" = COALESCE($3, "sku_id"),
-    "sku_name" = COALESCE($4, "sku_name"),
-    "quantity" = COALESCE($5, "quantity"),
-    "unit_price" = COALESCE($6, "unit_price"),
-    "note" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "note") END,
-    "serial_ids" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "serial_ids") END,
-    "account_id" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "account_id") END,
-    "seller_id" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "seller_id") END,
-    "address" = COALESCE($15, "address"),
-    "status" = COALESCE($16, "status"),
-    "paid_amount" = COALESCE($17, "paid_amount"),
-    "date_created" = COALESCE($18, "date_created"),
-    "date_updated" = COALESCE($19, "date_updated")
-WHERE id = $20
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+    "account_id" = COALESCE($3, "account_id"),
+    "seller_id" = COALESCE($4, "seller_id"),
+    "sku_id" = COALESCE($5, "sku_id"),
+    "sku_name" = COALESCE($6, "sku_name"),
+    "quantity" = COALESCE($7, "quantity"),
+    "unit_price" = COALESCE($8, "unit_price"),
+    "paid_amount" = COALESCE($9, "paid_amount"),
+    "address" = COALESCE($10, "address"),
+    "status" = COALESCE($11, "status"),
+    "note" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "note") END,
+    "serial_ids" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "serial_ids") END,
+    "date_created" = COALESCE($16, "date_created"),
+    "date_updated" = COALESCE($17, "date_updated")
+WHERE id = $18
+RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 `
 
 type UpdateItemParams struct {
 	NullOrderID   bool                `json:"null_order_id"`
 	OrderID       uuid.NullUUID       `json:"order_id"`
+	AccountID     uuid.NullUUID       `json:"account_id"`
+	SellerID      uuid.NullUUID       `json:"seller_id"`
 	SkuID         uuid.NullUUID       `json:"sku_id"`
 	SkuName       null.String         `json:"sku_name"`
 	Quantity      null.Int            `json:"quantity"`
 	UnitPrice     null.Int            `json:"unit_price"`
+	PaidAmount    null.Int            `json:"paid_amount"`
+	Address       null.String         `json:"address"`
+	Status        NullOrderItemStatus `json:"status"`
 	NullNote      bool                `json:"null_note"`
 	Note          null.String         `json:"note"`
 	NullSerialIds bool                `json:"null_serial_ids"`
 	SerialIds     json.RawMessage     `json:"serial_ids"`
-	NullAccountID bool                `json:"null_account_id"`
-	AccountID     uuid.NullUUID       `json:"account_id"`
-	NullSellerID  bool                `json:"null_seller_id"`
-	SellerID      uuid.NullUUID       `json:"seller_id"`
-	Address       null.String         `json:"address"`
-	Status        NullOrderItemStatus `json:"status"`
-	PaidAmount    null.Int            `json:"paid_amount"`
 	DateCreated   null.Time           `json:"date_created"`
 	DateUpdated   null.Time           `json:"date_updated"`
 	ID            int64               `json:"id"`
@@ -664,21 +655,19 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 	row := q.db.QueryRow(ctx, updateItem,
 		arg.NullOrderID,
 		arg.OrderID,
+		arg.AccountID,
+		arg.SellerID,
 		arg.SkuID,
 		arg.SkuName,
 		arg.Quantity,
 		arg.UnitPrice,
+		arg.PaidAmount,
+		arg.Address,
+		arg.Status,
 		arg.NullNote,
 		arg.Note,
 		arg.NullSerialIds,
 		arg.SerialIds,
-		arg.NullAccountID,
-		arg.AccountID,
-		arg.NullSellerID,
-		arg.SellerID,
-		arg.Address,
-		arg.Status,
-		arg.PaidAmount,
 		arg.DateCreated,
 		arg.DateUpdated,
 		arg.ID,
@@ -687,17 +676,17 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
 		&i.SkuID,
 		&i.SkuName,
 		&i.Quantity,
 		&i.UnitPrice,
-		&i.Note,
-		&i.SerialIds,
-		&i.AccountID,
-		&i.SellerID,
+		&i.PaidAmount,
 		&i.Address,
 		&i.Status,
-		&i.PaidAmount,
+		&i.Note,
+		&i.SerialIds,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)

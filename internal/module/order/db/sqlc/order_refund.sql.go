@@ -27,8 +27,8 @@ WHERE (
     ("reason" = ANY($8) OR $8 IS NULL) AND
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
@@ -193,8 +193,8 @@ WHERE (
     ("reason" = ANY($8) OR $8 IS NULL) AND
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
@@ -272,8 +272,8 @@ WHERE (
     ("reason" = ANY($8) OR $8 IS NULL) AND
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14::int
@@ -363,8 +363,8 @@ WHERE (
     ("reason" = ANY($8) OR $8 IS NULL) AND
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" > $11 OR $11 IS NULL) AND
-    ("date_created" < $12 OR $12 IS NULL)
+    ("date_created" >= $11 OR $11 IS NULL) AND
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
 LIMIT $14::int

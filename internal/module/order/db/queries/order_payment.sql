@@ -15,16 +15,16 @@ WHERE (
     ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
-    ("amount" > sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" < sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
-    ("date_expired" > sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" < sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
 );
 
 -- name: ListPayment :many
@@ -36,16 +36,16 @@ WHERE (
     ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
-    ("amount" > sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" < sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
-    ("date_expired" > sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" < sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -60,16 +60,16 @@ WHERE (
     ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
-    ("amount" > sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" < sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
-    ("date_expired" > sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" < sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -119,14 +119,14 @@ WHERE (
     ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
-    ("amount" > sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" < sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
-    ("date_expired" > sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" < sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
 );

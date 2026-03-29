@@ -14,8 +14,8 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
 );
 
 -- name: ListCartItem :many
@@ -26,8 +26,8 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -41,8 +41,8 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -86,6 +86,6 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
     ("quantity" = ANY(sqlc.slice('quantity')) OR sqlc.slice('quantity') IS NULL) AND
-    ("quantity" > sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
-    ("quantity" < sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
+    ("quantity" >= sqlc.narg('quantity_from') OR sqlc.narg('quantity_from') IS NULL) AND
+    ("quantity" <= sqlc.narg('quantity_to') OR sqlc.narg('quantity_to') IS NULL)
 );

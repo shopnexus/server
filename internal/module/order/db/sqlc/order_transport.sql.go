@@ -21,12 +21,12 @@ WHERE (
     ("option" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("cost" = ANY($4) OR $4 IS NULL) AND
-    ("cost" > $5 OR $5 IS NULL) AND
-    ("cost" < $6 OR $6 IS NULL) AND
+    ("cost" >= $5 OR $5 IS NULL) AND
+    ("cost" <= $6 OR $6 IS NULL) AND
     ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL)
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL)
 )
 `
 
@@ -133,12 +133,12 @@ WHERE (
     ("option" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("cost" = ANY($4) OR $4 IS NULL) AND
-    ("cost" > $5 OR $5 IS NULL) AND
-    ("cost" < $6 OR $6 IS NULL) AND
+    ("cost" >= $5 OR $5 IS NULL) AND
+    ("cost" <= $6 OR $6 IS NULL) AND
     ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL)
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL)
 )
 `
 
@@ -202,12 +202,12 @@ WHERE (
     ("option" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("cost" = ANY($4) OR $4 IS NULL) AND
-    ("cost" > $5 OR $5 IS NULL) AND
-    ("cost" < $6 OR $6 IS NULL) AND
+    ("cost" >= $5 OR $5 IS NULL) AND
+    ("cost" <= $6 OR $6 IS NULL) AND
     ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL)
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL)
 )
 ORDER BY "id"
 LIMIT $12::int
@@ -283,12 +283,12 @@ WHERE (
     ("option" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("cost" = ANY($4) OR $4 IS NULL) AND
-    ("cost" > $5 OR $5 IS NULL) AND
-    ("cost" < $6 OR $6 IS NULL) AND
+    ("cost" >= $5 OR $5 IS NULL) AND
+    ("cost" <= $6 OR $6 IS NULL) AND
     ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
-    ("date_created" > $9 OR $9 IS NULL) AND
-    ("date_created" < $10 OR $10 IS NULL)
+    ("date_created" >= $9 OR $9 IS NULL) AND
+    ("date_created" <= $10 OR $10 IS NULL)
 )
 ORDER BY "id"
 LIMIT $12::int

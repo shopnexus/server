@@ -110,7 +110,7 @@ INSERT INTO "order"."item" (
     "note", "serial_ids"
 )
 VALUES ($1, $2, $3, 'Pending', $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 `
 
 type CreatePendingItemParams struct {
@@ -143,17 +143,17 @@ func (q *Queries) CreatePendingItem(ctx context.Context, arg CreatePendingItemPa
 	err := row.Scan(
 		&i.ID,
 		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
 		&i.SkuID,
 		&i.SkuName,
 		&i.Quantity,
 		&i.UnitPrice,
-		&i.Note,
-		&i.SerialIds,
-		&i.AccountID,
-		&i.SellerID,
+		&i.PaidAmount,
 		&i.Address,
 		&i.Status,
-		&i.PaidAmount,
+		&i.Note,
+		&i.SerialIds,
 		&i.DateCreated,
 		&i.DateUpdated,
 	)
@@ -161,7 +161,7 @@ func (q *Queries) CreatePendingItem(ctx context.Context, arg CreatePendingItemPa
 }
 
 const listPendingItemsByAccount = `-- name: ListPendingItemsByAccount :many
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"
 WHERE "account_id" = $1 AND "status" = ANY($2::"order".item_status[])
 ORDER BY "date_created" DESC
@@ -193,17 +193,17 @@ func (q *Queries) ListPendingItemsByAccount(ctx context.Context, arg ListPending
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
+			&i.AccountID,
+			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
 			&i.Quantity,
 			&i.UnitPrice,
-			&i.Note,
-			&i.SerialIds,
-			&i.AccountID,
-			&i.SellerID,
+			&i.PaidAmount,
 			&i.Address,
 			&i.Status,
-			&i.PaidAmount,
+			&i.Note,
+			&i.SerialIds,
 			&i.DateCreated,
 			&i.DateUpdated,
 		); err != nil {
@@ -219,7 +219,7 @@ func (q *Queries) ListPendingItemsByAccount(ctx context.Context, arg ListPending
 
 const listPendingItemsBySeller = `-- name: ListPendingItemsBySeller :many
 
-SELECT id, order_id, sku_id, sku_name, quantity, unit_price, note, serial_ids, account_id, seller_id, address, status, paid_amount, date_created, date_updated
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"
 WHERE "seller_id" = $1 AND "status" = 'Pending'
 ORDER BY "date_created" DESC
@@ -246,17 +246,17 @@ func (q *Queries) ListPendingItemsBySeller(ctx context.Context, arg ListPendingI
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrderID,
+			&i.AccountID,
+			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
 			&i.Quantity,
 			&i.UnitPrice,
-			&i.Note,
-			&i.SerialIds,
-			&i.AccountID,
-			&i.SellerID,
+			&i.PaidAmount,
 			&i.Address,
 			&i.Status,
-			&i.PaidAmount,
+			&i.Note,
+			&i.SerialIds,
 			&i.DateCreated,
 			&i.DateUpdated,
 		); err != nil {

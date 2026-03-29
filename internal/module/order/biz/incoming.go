@@ -233,7 +233,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 			ID:              uuid.Must(uuid.NewRandom()),
 			BuyerID:         buyerID,
 			SellerID:        sellerID,
-			TransportID:     transportID,
+			TransportID:     uuid.NullUUID{UUID: transportID, Valid: true},
 			Status:          orderdb.OrderStatusPending,
 			Address:         address,
 			ProductCost:     productCost,
