@@ -1,12 +1,13 @@
 package orderecho
 
 import (
-	"log/slog"
+	"context"
 	"net/http"
 	"strconv"
 
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	"shopnexus-server/internal/provider/payment"
 	authclaims "shopnexus-server/internal/shared/claims"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
@@ -21,7 +22,7 @@ type Handler struct {
 }
 
 // NewHandler registers order module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz) *Handler {
+func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler) *Handler {
 	h := &Handler{biz: biz}
 	g := e.Group("/api/v1/order")
 
@@ -48,8 +49,17 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz) *Handler {
 	// Payment
 	g.POST("/pay", h.PayOrders)
 
-	// IPN (no auth)
-	e.GET("/api/v1/order/ipn", h.VnpayVerifyIPN)
+	// Payment webhooks — register OnResult then mount routes
+	onResult := func(ctx context.Context, result payment.WebhookResult) error {
+		return biz.ConfirmPayment(ctx, orderbiz.ConfirmPaymentParams{
+			RefID:  result.RefID,
+			Status: result.Status,
+		})
+	}
+	for _, client := range handler.PaymentClients() {
+		client.OnResult(onResult)
+		client.InitializeWebhook(e)
+	}
 
 	// Refund (unchanged routes)
 	refundApi := g.Group("/refund")
@@ -309,28 +319,3 @@ func (h *Handler) CancelOrder(c echo.Context) error {
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Order cancelled successfully")
 }
 
-// --- IPN ---
-
-func (h *Handler) VnpayVerifyIPN(c echo.Context) error {
-	if err := c.Request().ParseForm(); err != nil {
-		slog.Error("VnpayVerifyIPN parse form error", slog.Any("error", err))
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	query := make(map[string]any)
-	for key, values := range c.Request().Form {
-		if len(values) > 0 {
-			query[key] = values[0]
-		}
-	}
-
-	if err := h.biz.VerifyPayment(c.Request().Context(), orderbiz.VerifyPaymentParams{
-		PaymentGateway: "vnpay_qr",
-		Data:           query,
-	}); err != nil {
-		slog.Error("VnpayVerifyIPN verify error", slog.Any("error", err))
-		return c.NoContent(http.StatusBadRequest)
-	}
-
-	return c.NoContent(http.StatusOK)
-}

@@ -9,6 +9,7 @@ import (
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/payment/cod"
+	"shopnexus-server/internal/provider/payment/sepay"
 	"shopnexus-server/internal/provider/payment/vnpay"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
@@ -32,6 +33,22 @@ func (b *OrderHandler) SetupPaymentMap() error {
 	for _, c := range vnpayClients {
 		b.paymentMap[c.Config().ID] = c
 		configs = append(configs, c.Config())
+	}
+
+	// setup sepay client
+	sepayCfg := config.GetConfig().App.Sepay
+	if sepayCfg.MerchantID != "" {
+		sepayClient := sepay.NewClient(sepay.ClientOptions{
+			MerchantID:   sepayCfg.MerchantID,
+			SecretKey:    sepayCfg.SecretKey,
+			IPNSecretKey: sepayCfg.IPNSecretKey,
+			SuccessURL:   sepayCfg.SuccessURL,
+			ErrorURL:   sepayCfg.ErrorURL,
+			CancelURL:  sepayCfg.CancelURL,
+			Sandbox:    sepayCfg.Sandbox,
+		})
+		b.paymentMap[sepayClient.Config().ID] = sepayClient
+		configs = append(configs, sepayClient.Config())
 	}
 
 	// Register payment options in background — Restate may not be ready at init time

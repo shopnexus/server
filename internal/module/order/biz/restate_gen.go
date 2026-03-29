@@ -67,8 +67,8 @@ func (p *OrderRestateClient) PayOrders(ctx context.Context, params PayOrdersPara
 	return restateclient.Call[PayOrdersResult](ctx, p.client, serviceName, "PayOrders", params)
 }
 
-func (p *OrderRestateClient) VerifyPayment(ctx context.Context, params VerifyPaymentParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "VerifyPayment", params)
+func (p *OrderRestateClient) ConfirmPayment(ctx context.Context, params ConfirmPaymentParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "ConfirmPayment", params)
 }
 
 func (p *OrderRestateClient) GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error) {

@@ -101,10 +101,10 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 			return paymentResult{}, sharedmodel.WrapErr("db create payment", err)
 		}
 
-		createdOrder, err := paymentClient.CreateOrder(ctx, payment.CreateOrderParams{
-			RefID:  dbPayment.ID,
-			Amount: totalAmount,
-			Info:   fmt.Sprintf("Payment %d", dbPayment.ID),
+		createdOrder, err := paymentClient.Create(ctx, payment.CreateParams{
+			RefID:       dbPayment.ID,
+			Amount:      totalAmount,
+			Description: fmt.Sprintf("Payment %d", dbPayment.ID),
 		})
 		if err != nil {
 			return paymentResult{}, sharedmodel.WrapErr("create payment order", err)

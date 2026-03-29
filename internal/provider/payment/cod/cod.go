@@ -4,25 +4,25 @@ import (
 	"context"
 
 	"shopnexus-server/internal/provider/payment"
-	commonmodel "shopnexus-server/internal/shared/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/labstack/echo/v4"
 )
 
 // Type guard
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
-	// MethodCOD represents the Cash on Delivery method.
-	MethodCOD commonmodel.OptionMethod = "cod"
+	MethodCOD sharedmodel.OptionMethod = "cod"
 )
 
-// ClientImpl default COD (Cash on Delivery) client implementation
 type ClientImpl struct {
-	config commonmodel.OptionConfig
+	config sharedmodel.OptionConfig
 }
 
 func NewClient() *ClientImpl {
 	return &ClientImpl{
-		config: commonmodel.OptionConfig{
+		config: sharedmodel.OptionConfig{
 			ID:       "system-cod",
 			Provider: "system",
 			Method:   MethodCOD,
@@ -31,24 +31,25 @@ func NewClient() *ClientImpl {
 	}
 }
 
-func (c *ClientImpl) Config() commonmodel.OptionConfig {
+func (c *ClientImpl) Config() sharedmodel.OptionConfig {
 	return c.config
 }
 
-func (c *ClientImpl) CreateOrder(ctx context.Context, params payment.CreateOrderParams) (payment.CreateOrderResult, error) {
-	// For COD, we don't need a redirect URL.
-	return payment.CreateOrderResult{
-		RedirectURL: "",
+func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
+	return payment.CreateResult{}, nil
+}
+
+func (c *ClientImpl) Get(ctx context.Context, providerID string) (payment.PaymentInfo, error) {
+	return payment.PaymentInfo{
+		ProviderID: providerID,
+		Status:     payment.StatusPending,
 	}, nil
 }
 
-func (c *ClientImpl) VerifyPayment(ctx context.Context, data map[string]any) (payment.VerifyResult, error) {
-	// For COD, we assume payment is verified upon delivery.
-	refID, ok := data["ref_id"].(string)
-	if !ok {
-		return payment.VerifyResult{}, nil // or return an error
-	}
-	return payment.VerifyResult{
-		RefID: refID,
-	}, nil
+func (c *ClientImpl) OnResult(fn payment.ResultHandler) {
+	// COD has no webhooks
+}
+
+func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
+	// COD has no webhooks
 }

@@ -16,14 +16,14 @@ func main() {
 		ReturnURL:  "localhost",
 	})[0]
 
-	url, err := client.CreateOrder(context.TODO(), payment.CreateOrderParams{
-		RefID:  13,
-		Amount: 100000,
-		Info:   "Don hang 1",
+	result, err := client.Create(context.TODO(), payment.CreateParams{
+		RefID:       13,
+		Amount:      100000,
+		Description: "Don hang 1",
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(url)
+	fmt.Println(result.RedirectURL)
 }

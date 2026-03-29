@@ -45,7 +45,7 @@ type OrderBiz interface {
 
 	// Payment
 	PayOrders(ctx context.Context, params PayOrdersParams) (PayOrdersResult, error)
-	VerifyPayment(ctx context.Context, params VerifyPaymentParams) error
+	ConfirmPayment(ctx context.Context, params ConfirmPaymentParams) error
 
 	// Cart (unchanged)
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
@@ -76,6 +76,11 @@ type OrderHandler struct {
 
 func (b *OrderHandler) ServiceName() string {
 	return "Order"
+}
+
+// PaymentClients returns the registered payment clients.
+func (b *OrderHandler) PaymentClients() map[string]payment.Client {
+	return b.paymentMap
 }
 
 // NewOrderHandler creates a new OrderHandler with the given dependencies.
@@ -177,9 +182,9 @@ type PayOrdersResult struct {
 	RedirectUrl *string            `json:"redirect_url"`
 }
 
-type VerifyPaymentParams struct {
-	PaymentGateway string `validate:"required,min=1,max=50"`
-	Data           map[string]any
+type ConfirmPaymentParams struct {
+	RefID  string         `validate:"required"`
+	Status payment.Status `validate:"required"`
 }
 
 type GetCartParams struct {

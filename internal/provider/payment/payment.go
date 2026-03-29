@@ -4,34 +4,62 @@ import (
 	"context"
 
 	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/labstack/echo/v4"
 )
 
-type CreateOrderParams struct {
-	RefID  int64
-	Amount sharedmodel.Concurrency
-	Info   string
+// Status represents the normalized payment status across all providers.
+type Status string
+
+const (
+	StatusPending Status = "pending"
+	StatusSuccess Status = "success"
+	StatusFailed  Status = "failed"
+	StatusExpired Status = "expired"
+)
+
+// CreateParams contains the parameters needed to create a payment with any provider.
+type CreateParams struct {
+	RefID       int64                   // internal payment record ID
+	Amount      sharedmodel.Concurrency // payment amount
+	Description string                  // human-readable description
+	ReturnURL   string                  // where to redirect after payment (provider may override)
 }
 
-type CreateOrderResult struct {
-	RedirectURL string
+// CreateResult contains the result of creating a payment.
+type CreateResult struct {
+	ProviderID  string // provider-side transaction/order ID (for tracking)
+	RedirectURL string // redirect URL for online payments, empty for COD/offline
 }
 
-type VerifyResult struct {
-	RefID string
+// PaymentInfo contains normalized payment information from the provider.
+type PaymentInfo struct {
+	ProviderID string
+	RefID      string // maps back to our internal reference
+	Status     Status
+	Amount     int64
 }
 
+// WebhookResult contains the result of verifying a webhook/IPN callback.
+type WebhookResult struct {
+	RefID  string // maps back to our internal payment reference
+	Status Status // the payment status reported by the provider
+}
+
+// ResultHandler is a callback invoked when a webhook is verified.
+type ResultHandler func(ctx context.Context, result WebhookResult) error
+
+// Client is the interface that all payment providers must implement.
 type Client interface {
-	// CreateOrder creates a payment order and returns either:
-	// - a redirect URL (for online payments),
-	// - or an empty string + metadata (for COD, Bank Transfer, etc.)
-	CreateOrder(ctx context.Context, params CreateOrderParams) (CreateOrderResult, error)
+	Config() sharedmodel.OptionConfig
+	Create(ctx context.Context, params CreateParams) (CreateResult, error)
+	Get(ctx context.Context, providerID string) (PaymentInfo, error)
 
-	// VerifyPayment verifies webhook/IPN data and returns a normalized payment reference.
-	VerifyPayment(ctx context.Context, data map[string]any) (VerifyResult, error)
+	// OnResult registers a handler that is called when a webhook is verified.
+	// Multiple handlers can be registered; all are called (fan-out).
+	OnResult(fn ResultHandler)
 
-	// GetPaymentStatus checks the current status (useful for async providers or retries).
-	//GetPaymentStatus(ctx context.Context, referenceID string) (PaymentStatus, error)
-
-	// Refund processes a refund/void if supported by the payment provider.
-	//Refund(ctx context.Context, params RefundParams) (RefundResult, error)
+	// InitializeWebhook registers the provider's webhook route on Echo.
+	// Must be called after OnResult handlers are registered.
+	InitializeWebhook(e *echo.Echo)
 }
