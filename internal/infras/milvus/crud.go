@@ -18,6 +18,9 @@ func (c *Client) Query(
 		WithFilter(filter).
 		WithOutputFields(outputFields...)
 
+	ctx, cancel := c.wrapCtx(ctx)
+	defer cancel()
+
 	rs, err := c.inner.Query(ctx, opt)
 	if err != nil {
 		return rs, fmt.Errorf("milvus Query %q: %w", collection, err)

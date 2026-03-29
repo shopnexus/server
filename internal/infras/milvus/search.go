@@ -15,7 +15,6 @@ type SearchResult struct {
 }
 
 // HybridSearch performs a multi-vector hybrid search with reranking.
-// It delegates to the SDK's HybridSearch and flattens the first query's results.
 func (c *Client) HybridSearch(
 	ctx context.Context,
 	collection string,
@@ -27,6 +26,9 @@ func (c *Client) HybridSearch(
 	opt := milvusclient.NewHybridSearchOption(collection, limit, requests...).
 		WithReranker(reranker).
 		WithOutputFields(outputFields...)
+
+	ctx, cancel := c.wrapCtx(ctx)
+	defer cancel()
 
 	resultSets, err := c.inner.HybridSearch(ctx, opt)
 	if err != nil {
@@ -49,6 +51,9 @@ func (c *Client) Search(
 		WithANNSField(annField).
 		WithOutputFields(outputFields...)
 
+	ctx, cancel := c.wrapCtx(ctx)
+	defer cancel()
+
 	resultSets, err := c.inner.Search(ctx, opt)
 	if err != nil {
 		return nil, fmt.Errorf("milvus Search %q: %w", collection, err)
@@ -58,7 +63,6 @@ func (c *Client) Search(
 }
 
 // extractResults converts the SDK ResultSet slice into our SearchResult slice.
-// It takes only the first query's results (nq=1 is the common case).
 func extractResults(resultSets []milvusclient.ResultSet) ([]SearchResult, error) {
 	if len(resultSets) == 0 {
 		return nil, nil
@@ -73,7 +77,6 @@ func extractResults(resultSets []milvusclient.ResultSet) ([]SearchResult, error)
 	for i := 0; i < rs.ResultCount; i++ {
 		idStr, err := rs.IDs.GetAsString(i)
 		if err != nil {
-			// Fallback: try to get as generic value and format.
 			val, err2 := rs.IDs.Get(i)
 			if err2 != nil {
 				return nil, fmt.Errorf("failed to read ID at index %d: %w", i, err2)

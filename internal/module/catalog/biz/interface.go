@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
@@ -119,7 +120,7 @@ func NewCatalogHandler(
 		inventory:     inventory,
 		promotion:     promotion,
 
-		milvus:       milvusClient,
+		milvus:       milvusClient.WithTimeout(5 * time.Second),
 		llm:          llmClient,
 		denseWeight:  cfg.App.Search.DenseWeight,
 		sparseWeight: cfg.App.Search.SparseWeight,
