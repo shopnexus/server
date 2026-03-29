@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -14,6 +15,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -261,6 +263,62 @@ func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundPa
 		Content:   fmt.Sprintf("Your refund request %s has been approved.", refund.ID),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
 	})
+
+	// Auto-refund for card payments: look up the order's payment record and
+	// check whether it was charged via a saved payment method. If so, issue
+	// a provider-level refund automatically.
+	type chargeInfo struct {
+		HasCharge bool   `json:"has_charge"`
+		Provider  string `json:"provider"`
+		ChargeID  string `json:"charge_id"`
+		Amount    int64  `json:"amount"`
+	}
+	ci, _ := restate.Run(ctx, func(ctx restate.RunContext) (chargeInfo, error) {
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+		if err != nil || !order.PaymentID.Valid {
+			return chargeInfo{}, nil
+		}
+		payments, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+			ID: []int64{order.PaymentID.Int64},
+		})
+		if err != nil || len(payments) == 0 || !payments[0].PaymentMethodID.Valid {
+			return chargeInfo{}, nil
+		}
+		p := payments[0]
+		var data struct {
+			ProviderChargeID string `json:"provider_charge_id"`
+			Provider         string `json:"provider"`
+		}
+		_ = json.Unmarshal(p.Data, &data)
+		if data.ProviderChargeID == "" {
+			return chargeInfo{}, nil
+		}
+		return chargeInfo{
+			HasCharge: true,
+			Provider:  data.Provider,
+			ChargeID:  data.ProviderChargeID,
+			Amount:    p.Amount,
+		}, nil
+	})
+
+	if ci.HasCharge {
+		cardClient, err := b.getPaymentClientByProvider(ci.Provider)
+		if err == nil {
+			restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+				_, refundErr := cardClient.Refund(ctx, payment.RefundParams{
+					ProviderChargeID: ci.ChargeID,
+					Amount:           sharedmodel.Concurrency(ci.Amount),
+				})
+				if refundErr != nil {
+					slog.Error("auto-refund failed",
+						slog.String("refund_id", refund.ID.String()),
+						slog.Any("error", refundErr),
+					)
+				}
+				return nil
+			})
+		}
+	}
 
 	return refund, nil
 }
