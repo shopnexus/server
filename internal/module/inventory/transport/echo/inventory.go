@@ -9,6 +9,7 @@ import (
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
+	null "github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,6 +25,7 @@ func NewHandler(e *echo.Echo, biz inventorybiz.InventoryBiz) *Handler {
 
 	stockApi := api.Group("/stock")
 	stockApi.GET("", h.GetStock)
+	stockApi.PATCH("", h.UpdateStockSettings)
 	stockApi.GET("/history", h.ListStockHistory)
 	stockApi.POST("/import", h.ImportStock)
 
@@ -83,6 +85,33 @@ func (h *Handler) ListStockHistory(c echo.Context) error {
 	}
 
 	return response.FromPaginate(c.Response().Writer, result)
+}
+
+type UpdateStockSettingsRequest struct {
+	RefID          uuid.UUID                         `json:"ref_id" validate:"required"`
+	RefType        inventorydb.InventoryStockRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	SerialRequired null.Bool                         `json:"serial_required" validate:"omitnil"`
+}
+
+func (h *Handler) UpdateStockSettings(c echo.Context) error {
+	var req UpdateStockSettingsRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	result, err := h.biz.UpdateStockSettings(c.Request().Context(), inventorybiz.UpdateStockSettingsParams{
+		RefID:          req.RefID,
+		RefType:        req.RefType,
+		SerialRequired: req.SerialRequired,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
 type ImportStockRequest struct {

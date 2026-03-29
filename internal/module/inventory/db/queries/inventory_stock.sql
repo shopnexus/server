@@ -14,15 +14,15 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("stock" = ANY(sqlc.slice('stock')) OR sqlc.slice('stock') IS NULL) AND
-    ("stock" > sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
-    ("stock" < sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
+    ("stock" >= sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
+    ("stock" <= sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
     ("taken" = ANY(sqlc.slice('taken')) OR sqlc.slice('taken') IS NULL) AND
-    ("taken" > sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
-    ("taken" < sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
+    ("taken" >= sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
+    ("taken" <= sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
     ("serial_required" = ANY(sqlc.slice('serial_required')) OR sqlc.slice('serial_required') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListStock :many
@@ -33,15 +33,15 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("stock" = ANY(sqlc.slice('stock')) OR sqlc.slice('stock') IS NULL) AND
-    ("stock" > sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
-    ("stock" < sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
+    ("stock" >= sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
+    ("stock" <= sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
     ("taken" = ANY(sqlc.slice('taken')) OR sqlc.slice('taken') IS NULL) AND
-    ("taken" > sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
-    ("taken" < sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
+    ("taken" >= sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
+    ("taken" <= sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
     ("serial_required" = ANY(sqlc.slice('serial_required')) OR sqlc.slice('serial_required') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -55,15 +55,15 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("stock" = ANY(sqlc.slice('stock')) OR sqlc.slice('stock') IS NULL) AND
-    ("stock" > sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
-    ("stock" < sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
+    ("stock" >= sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
+    ("stock" <= sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
     ("taken" = ANY(sqlc.slice('taken')) OR sqlc.slice('taken') IS NULL) AND
-    ("taken" > sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
-    ("taken" < sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
+    ("taken" >= sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
+    ("taken" <= sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
     ("serial_required" = ANY(sqlc.slice('serial_required')) OR sqlc.slice('serial_required') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -84,13 +84,13 @@ INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock", "taken", "serial
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultStock :one
-INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock")
-VALUES ($1, $2, $3)
+INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock", "serial_required")
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateCopyDefaultStock :copyfrom
-INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock")
-VALUES ($1, $2, $3);
+INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock", "serial_required")
+VALUES ($1, $2, $3, $4);
 
 -- name: UpdateStock :one
 UPDATE "inventory"."stock"
@@ -110,13 +110,13 @@ WHERE (
     ("ref_type" = ANY(sqlc.slice('ref_type')) OR sqlc.slice('ref_type') IS NULL) AND
     ("ref_id" = ANY(sqlc.slice('ref_id')) OR sqlc.slice('ref_id') IS NULL) AND
     ("stock" = ANY(sqlc.slice('stock')) OR sqlc.slice('stock') IS NULL) AND
-    ("stock" > sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
-    ("stock" < sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
+    ("stock" >= sqlc.narg('stock_from') OR sqlc.narg('stock_from') IS NULL) AND
+    ("stock" <= sqlc.narg('stock_to') OR sqlc.narg('stock_to') IS NULL) AND
     ("taken" = ANY(sqlc.slice('taken')) OR sqlc.slice('taken') IS NULL) AND
-    ("taken" > sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
-    ("taken" < sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
+    ("taken" >= sqlc.narg('taken_from') OR sqlc.narg('taken_from') IS NULL) AND
+    ("taken" <= sqlc.narg('taken_to') OR sqlc.narg('taken_to') IS NULL) AND
     ("serial_required" = ANY(sqlc.slice('serial_required')) OR sqlc.slice('serial_required') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );

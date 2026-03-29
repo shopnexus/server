@@ -65,6 +65,7 @@ func (r iteratorForCreateCopyDefaultStock) Values() ([]interface{}, error) {
 		r.rows[0].RefType,
 		r.rows[0].RefID,
 		r.rows[0].Stock,
+		r.rows[0].SerialRequired,
 	}, nil
 }
 
@@ -73,7 +74,7 @@ func (r iteratorForCreateCopyDefaultStock) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultStock(ctx context.Context, arg []CreateCopyDefaultStockParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"inventory", "stock"}, []string{"ref_type", "ref_id", "stock"}, &iteratorForCreateCopyDefaultStock{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"inventory", "stock"}, []string{"ref_type", "ref_id", "stock", "serial_required"}, &iteratorForCreateCopyDefaultStock{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultStockHistory implements pgx.CopyFromSource.

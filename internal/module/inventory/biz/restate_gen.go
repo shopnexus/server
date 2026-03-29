@@ -26,6 +26,10 @@ func (p *InventoryRestateClient) GetStock(ctx context.Context, params GetStockPa
 	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "GetStock", params)
 }
 
+func (p *InventoryRestateClient) UpdateStockSettings(ctx context.Context, params UpdateStockSettingsParams) (inventorydb.InventoryStock, error) {
+	return restateclient.Call[inventorydb.InventoryStock](ctx, p.client, serviceName, "UpdateStockSettings", params)
+}
+
 func (p *InventoryRestateClient) ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[inventorydb.InventoryStock]](ctx, p.client, serviceName, "ListStock", params)
 }

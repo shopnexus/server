@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countStock = `-- name: CountStock :one
@@ -22,15 +21,15 @@ WHERE (
     ("ref_type" = ANY($2) OR $2 IS NULL) AND
     ("ref_id" = ANY($3) OR $3 IS NULL) AND
     ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
+    ("stock" >= $5 OR $5 IS NULL) AND
+    ("stock" <= $6 OR $6 IS NULL) AND
     ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
+    ("taken" >= $8 OR $8 IS NULL) AND
+    ("taken" <= $9 OR $9 IS NULL) AND
     ("serial_required" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
+    ("date_created" >= $12 OR $12 IS NULL) AND
+    ("date_created" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -72,9 +71,10 @@ func (q *Queries) CountStock(ctx context.Context, arg CountStockParams) (int64, 
 }
 
 type CreateCopyDefaultStockParams struct {
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-	Stock   int64                 `json:"stock"`
+	RefType        InventoryStockRefType `json:"ref_type"`
+	RefID          uuid.UUID             `json:"ref_id"`
+	Stock          int64                 `json:"stock"`
+	SerialRequired bool                  `json:"serial_required"`
 }
 
 type CreateCopyStockParams struct {
@@ -87,19 +87,25 @@ type CreateCopyStockParams struct {
 }
 
 const createDefaultStock = `-- name: CreateDefaultStock :one
-INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock")
-VALUES ($1, $2, $3)
+INSERT INTO "inventory"."stock" ("ref_type", "ref_id", "stock", "serial_required")
+VALUES ($1, $2, $3, $4)
 RETURNING id, ref_type, ref_id, stock, taken, serial_required, date_created
 `
 
 type CreateDefaultStockParams struct {
-	RefType InventoryStockRefType `json:"ref_type"`
-	RefID   uuid.UUID             `json:"ref_id"`
-	Stock   int64                 `json:"stock"`
+	RefType        InventoryStockRefType `json:"ref_type"`
+	RefID          uuid.UUID             `json:"ref_id"`
+	Stock          int64                 `json:"stock"`
+	SerialRequired bool                  `json:"serial_required"`
 }
 
 func (q *Queries) CreateDefaultStock(ctx context.Context, arg CreateDefaultStockParams) (InventoryStock, error) {
-	row := q.db.QueryRow(ctx, createDefaultStock, arg.RefType, arg.RefID, arg.Stock)
+	row := q.db.QueryRow(ctx, createDefaultStock,
+		arg.RefType,
+		arg.RefID,
+		arg.Stock,
+		arg.SerialRequired,
+	)
 	var i InventoryStock
 	err := row.Scan(
 		&i.ID,
@@ -157,15 +163,15 @@ WHERE (
     ("ref_type" = ANY($2) OR $2 IS NULL) AND
     ("ref_id" = ANY($3) OR $3 IS NULL) AND
     ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
+    ("stock" >= $5 OR $5 IS NULL) AND
+    ("stock" <= $6 OR $6 IS NULL) AND
     ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
+    ("taken" >= $8 OR $8 IS NULL) AND
+    ("taken" <= $9 OR $9 IS NULL) AND
     ("serial_required" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
+    ("date_created" >= $12 OR $12 IS NULL) AND
+    ("date_created" <= $13 OR $13 IS NULL)
 )
 `
 
@@ -212,7 +218,7 @@ WHERE ("id" = $1) OR ("ref_id" = $2 AND "ref_type" = $3)
 `
 
 type GetStockParams struct {
-	ID      pgtype.Int8               `json:"id"`
+	ID      null.Int                  `json:"id"`
 	RefID   uuid.NullUUID             `json:"ref_id"`
 	RefType NullInventoryStockRefType `json:"ref_type"`
 }
@@ -242,15 +248,15 @@ WHERE (
     ("ref_type" = ANY($2) OR $2 IS NULL) AND
     ("ref_id" = ANY($3) OR $3 IS NULL) AND
     ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
+    ("stock" >= $5 OR $5 IS NULL) AND
+    ("stock" <= $6 OR $6 IS NULL) AND
     ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
+    ("taken" >= $8 OR $8 IS NULL) AND
+    ("taken" <= $9 OR $9 IS NULL) AND
     ("serial_required" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
+    ("date_created" >= $12 OR $12 IS NULL) AND
+    ("date_created" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
 LIMIT $15::int
@@ -333,15 +339,15 @@ WHERE (
     ("ref_type" = ANY($2) OR $2 IS NULL) AND
     ("ref_id" = ANY($3) OR $3 IS NULL) AND
     ("stock" = ANY($4) OR $4 IS NULL) AND
-    ("stock" > $5 OR $5 IS NULL) AND
-    ("stock" < $6 OR $6 IS NULL) AND
+    ("stock" >= $5 OR $5 IS NULL) AND
+    ("stock" <= $6 OR $6 IS NULL) AND
     ("taken" = ANY($7) OR $7 IS NULL) AND
-    ("taken" > $8 OR $8 IS NULL) AND
-    ("taken" < $9 OR $9 IS NULL) AND
+    ("taken" >= $8 OR $8 IS NULL) AND
+    ("taken" <= $9 OR $9 IS NULL) AND
     ("serial_required" = ANY($10) OR $10 IS NULL) AND
     ("date_created" = ANY($11) OR $11 IS NULL) AND
-    ("date_created" > $12 OR $12 IS NULL) AND
-    ("date_created" < $13 OR $13 IS NULL)
+    ("date_created" >= $12 OR $12 IS NULL) AND
+    ("date_created" <= $13 OR $13 IS NULL)
 )
 ORDER BY "id"
 LIMIT $15::int

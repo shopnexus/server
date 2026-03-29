@@ -20,8 +20,8 @@ WHERE (
     ("stock_id" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL)
+    ("date_created" >= $5 OR $5 IS NULL) AND
+    ("date_created" <= $6 OR $6 IS NULL)
 )
 `
 
@@ -120,8 +120,8 @@ WHERE (
     ("stock_id" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL)
+    ("date_created" >= $5 OR $5 IS NULL) AND
+    ("date_created" <= $6 OR $6 IS NULL)
 )
 `
 
@@ -175,8 +175,8 @@ WHERE (
     ("stock_id" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL)
+    ("date_created" >= $5 OR $5 IS NULL) AND
+    ("date_created" <= $6 OR $6 IS NULL)
 )
 ORDER BY "id"
 LIMIT $8::int
@@ -242,8 +242,8 @@ WHERE (
     ("stock_id" = ANY($2) OR $2 IS NULL) AND
     ("status" = ANY($3) OR $3 IS NULL) AND
     ("date_created" = ANY($4) OR $4 IS NULL) AND
-    ("date_created" > $5 OR $5 IS NULL) AND
-    ("date_created" < $6 OR $6 IS NULL)
+    ("date_created" >= $5 OR $5 IS NULL) AND
+    ("date_created" <= $6 OR $6 IS NULL)
 )
 ORDER BY "id"
 LIMIT $8::int

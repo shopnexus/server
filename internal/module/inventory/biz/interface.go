@@ -14,6 +14,7 @@ import (
 type InventoryBiz interface {
 	// Stock
 	GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error)
+	UpdateStockSettings(ctx context.Context, params UpdateStockSettingsParams) (inventorydb.InventoryStock, error)
 	ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error)
 	CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error)
 

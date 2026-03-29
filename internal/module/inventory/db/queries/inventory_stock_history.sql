@@ -13,11 +13,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
-    ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
-    ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
+    ("change" >= sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
+    ("change" <= sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListStockHistory :many
@@ -27,11 +27,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
-    ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
-    ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
+    ("change" >= sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
+    ("change" <= sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -44,11 +44,11 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
-    ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
-    ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
+    ("change" >= sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
+    ("change" <= sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -91,9 +91,9 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("stock_id" = ANY(sqlc.slice('stock_id')) OR sqlc.slice('stock_id') IS NULL) AND
     ("change" = ANY(sqlc.slice('change')) OR sqlc.slice('change') IS NULL) AND
-    ("change" > sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
-    ("change" < sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
+    ("change" >= sqlc.narg('change_from') OR sqlc.narg('change_from') IS NULL) AND
+    ("change" <= sqlc.narg('change_to') OR sqlc.narg('change_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" > sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" < sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );

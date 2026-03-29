@@ -37,6 +37,30 @@ func (b *InventoryHandler) GetStock(ctx restate.Context, params GetStockParams) 
 	return b.getStockByRef(ctx, b.storage.Querier(), params.RefType, params.RefID)
 }
 
+type UpdateStockSettingsParams struct {
+	RefID          uuid.UUID                         `validate:"required"`
+	RefType        inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	SerialRequired null.Bool                         `validate:"omitnil"`
+}
+
+// UpdateStockSettings updates stock settings like serial_required.
+func (b *InventoryHandler) UpdateStockSettings(ctx restate.Context, params UpdateStockSettingsParams) (inventorydb.InventoryStock, error) {
+	var zero inventorydb.InventoryStock
+	if err := validator.Validate(params); err != nil {
+		return zero, sharedmodel.WrapErr("validate update stock settings", err)
+	}
+
+	stock, err := b.getStockByRef(ctx, b.storage.Querier(), params.RefType, params.RefID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db get stock", err)
+	}
+
+	return b.storage.Querier().UpdateStock(ctx, inventorydb.UpdateStockParams{
+		ID:             stock.ID,
+		SerialRequired: params.SerialRequired,
+	})
+}
+
 type ListStockParams struct {
 	sharedmodel.PaginationParams
 	RefType []inventorydb.InventoryStockRefType `validate:"dive,required,validateFn=Valid"`
@@ -77,9 +101,10 @@ func (b *InventoryHandler) ListStock(ctx restate.Context, params ListStockParams
 }
 
 type CreateStockParams struct {
-	RefID   uuid.UUID                         `validate:"required"`
-	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
-	Stock   int64                             `validate:"required,gt=0"`
+	RefID          uuid.UUID                         `validate:"required"`
+	RefType        inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
+	Stock          int64                             `validate:"gte=0"`
+	SerialRequired bool                              `validate:"omitempty"`
 }
 
 // CreateStock creates a new stock record for the given reference.
@@ -90,9 +115,10 @@ func (b *InventoryHandler) CreateStock(ctx restate.Context, params CreateStockPa
 	}
 
 	return b.storage.Querier().CreateDefaultStock(ctx, inventorydb.CreateDefaultStockParams{
-		RefType: params.RefType,
-		RefID:   params.RefID,
-		Stock:   params.Stock,
+		RefType:        params.RefType,
+		RefID:          params.RefID,
+		Stock:          params.Stock,
+		SerialRequired: params.SerialRequired,
 	})
 }
 

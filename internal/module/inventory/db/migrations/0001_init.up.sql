@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS "inventory"."stock" (
     -- Quantity currently reserved or sold
     "taken" BIGINT NOT NULL DEFAULT 0,
     -- When true, each unit must be tracked individually in the serial table
-    "serial_required" BOOLEAN NOT NULL DEFAULT false,
+    "serial_required" BOOLEAN NOT NULL,
     "date_created" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "stock_pkey" PRIMARY KEY ("id")
 );
