@@ -83,6 +83,18 @@ func (p *OrderRestateClient) ClearCart(ctx context.Context, params ClearCartPara
 	return restateclient.Send(ctx, p.client, serviceName, "ClearCart", params)
 }
 
+func (p *OrderRestateClient) HasPurchasedProduct(ctx context.Context, params HasPurchasedProductParams) (bool, error) {
+	return restateclient.Call[bool](ctx, p.client, serviceName, "HasPurchasedProduct", params)
+}
+
+func (p *OrderRestateClient) ListReviewableOrders(ctx context.Context, params ListReviewableOrdersParams) ([]ReviewableOrder, error) {
+	return restateclient.Call[[]ReviewableOrder](ctx, p.client, serviceName, "ListReviewableOrders", params)
+}
+
+func (p *OrderRestateClient) ValidateOrderForReview(ctx context.Context, params ValidateOrderForReviewParams) (bool, error) {
+	return restateclient.Call[bool](ctx, p.client, serviceName, "ValidateOrderForReview", params)
+}
+
 func (p *OrderRestateClient) ListRefunds(ctx context.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Refund]](ctx, p.client, serviceName, "ListRefunds", params)
 }
@@ -101,4 +113,20 @@ func (p *OrderRestateClient) CancelRefund(ctx context.Context, params CancelRefu
 
 func (p *OrderRestateClient) ConfirmRefund(ctx context.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
 	return restateclient.Call[ordermodel.Refund](ctx, p.client, serviceName, "ConfirmRefund", params)
+}
+
+func (p *OrderRestateClient) GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error) {
+	return restateclient.Call[SellerOrderStats](ctx, p.client, serviceName, "GetSellerOrderStats", params)
+}
+
+func (p *OrderRestateClient) GetSellerOrderTimeSeries(ctx context.Context, params GetSellerOrderTimeSeriesParams) ([]SellerOrderTimeSeriesPoint, error) {
+	return restateclient.Call[[]SellerOrderTimeSeriesPoint](ctx, p.client, serviceName, "GetSellerOrderTimeSeries", params)
+}
+
+func (p *OrderRestateClient) GetSellerPendingActions(ctx context.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error) {
+	return restateclient.Call[SellerPendingActions](ctx, p.client, serviceName, "GetSellerPendingActions", params)
+}
+
+func (p *OrderRestateClient) GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error) {
+	return restateclient.Call[[]SellerTopProduct](ctx, p.client, serviceName, "GetSellerTopProducts", params)
 }

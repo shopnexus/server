@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"context"
 	"errors"
+	"time"
 
 	"shopnexus-server/config"
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -53,12 +54,23 @@ type OrderBiz interface {
 	UpdateCart(ctx context.Context, params UpdateCartParams) error
 	ClearCart(ctx context.Context, params ClearCartParams) error
 
+	// Review eligibility
+	HasPurchasedProduct(ctx context.Context, params HasPurchasedProductParams) (bool, error)
+	ListReviewableOrders(ctx context.Context, params ListReviewableOrdersParams) ([]ReviewableOrder, error)
+	ValidateOrderForReview(ctx context.Context, params ValidateOrderForReviewParams) (bool, error)
+
 	// Refund
 	ListRefunds(ctx context.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error)
 	CreateRefund(ctx context.Context, params CreateRefundParams) (ordermodel.Refund, error)
 	UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error)
 	CancelRefund(ctx context.Context, params CancelRefundParams) error
 	ConfirmRefund(ctx context.Context, params ConfirmRefundParams) (ordermodel.Refund, error)
+
+	// Dashboard
+	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)
+	GetSellerOrderTimeSeries(ctx context.Context, params GetSellerOrderTimeSeriesParams) ([]SellerOrderTimeSeriesPoint, error)
+	GetSellerPendingActions(ctx context.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error)
+	GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error)
 }
 
 type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
@@ -238,6 +250,28 @@ type UpdateRefundParams struct {
 type CancelRefundParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
+}
+
+type HasPurchasedProductParams struct {
+	AccountID uuid.UUID   `json:"account_id" validate:"required"`
+	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
+}
+
+type ListReviewableOrdersParams struct {
+	AccountID uuid.UUID   `json:"account_id" validate:"required"`
+	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
+}
+
+type ReviewableOrder struct {
+	ID          uuid.UUID `json:"id"`
+	Total       int64     `json:"total"`
+	DateCreated time.Time `json:"date_created"`
+}
+
+type ValidateOrderForReviewParams struct {
+	AccountID uuid.UUID   `json:"account_id" validate:"required"`
+	OrderID   uuid.UUID   `json:"order_id" validate:"required"`
+	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
 }
 
 type ConfirmRefundParams struct {
