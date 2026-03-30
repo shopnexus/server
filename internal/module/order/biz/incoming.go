@@ -7,6 +7,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountmodel "shopnexus-server/internal/module/account/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -270,8 +271,8 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 	// Step 6: Notify buyer (fire-and-forget)
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: buyerID,
-		Type:      "items_confirmed",
-		Channel:   "in_app",
+		Type:      accountmodel.NotiItemsConfirmed,
+		Channel:   accountmodel.ChannelInApp,
 		Title:     "Items confirmed",
 		Content:   fmt.Sprintf("Your items have been confirmed and grouped into order %s.", orderID),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, orderID)),
@@ -358,8 +359,8 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 		buyerID, _ := uuid.Parse(items[0].BuyerID)
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
-			Type:      "items_rejected",
-			Channel:   "in_app",
+			Type:      accountmodel.NotiItemsRejected,
+			Channel:   accountmodel.ChannelInApp,
 			Title:     "Items rejected",
 			Content:   "Some of your items have been rejected by the seller.",
 			Metadata:  json.RawMessage(`{}`),

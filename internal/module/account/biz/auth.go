@@ -225,6 +225,15 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 		return zero, sharedmodel.WrapErr("generate refresh token", err)
 	}
 
+	// Welcome notification
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(CreateNotificationParams{
+		AccountID: account.ID,
+		Type:      accountmodel.NotiWelcome,
+		Channel:   accountmodel.ChannelInApp,
+		Title:     "Welcome to ShopNexus",
+		Content:   "Your account has been created successfully. Start exploring!",
+	})
+
 	return RegisterResult{
 		Account:      account,
 		AccessToken:  accessToken,

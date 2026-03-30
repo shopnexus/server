@@ -8,6 +8,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -264,22 +265,76 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 		return nil // ignore pending/expired — no state change needed
 	}
 
-	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+	type confirmResult struct {
+		BuyerID     string `json:"buyer_id"`
+		RedirectURL string `json:"redirect_url"`
+	}
+	cr, err := restate.Run(ctx, func(ctx restate.RunContext) (confirmResult, error) {
 		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refUUID, Valid: true})
 		if err != nil {
-			return err
+			return confirmResult{}, err
 		}
 
 		if !order.PaymentID.Valid {
-			return ordermodel.ErrMissingPayment.Terminal()
+			return confirmResult{}, ordermodel.ErrMissingPayment.Terminal()
 		}
 
 		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 			ID:     order.PaymentID.Int64,
 			Status: orderdb.NullOrderStatus{OrderStatus: dbStatus, Valid: true},
 		})
-		return err
+		if err != nil {
+			return confirmResult{}, err
+		}
+
+		// Extract redirect_url from payment data for notification metadata
+		var redirectURL string
+		payments, pErr := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+			ID: []int64{order.PaymentID.Int64},
+		})
+		if pErr == nil && len(payments) > 0 {
+			var data struct {
+				RedirectURL string `json:"redirect_url"`
+			}
+			_ = json.Unmarshal(payments[0].Data, &data)
+			redirectURL = data.RedirectURL
+		}
+
+		return confirmResult{BuyerID: order.BuyerID.String(), RedirectURL: redirectURL}, nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Notify buyer about payment result
+	buyerID, _ := uuid.Parse(cr.BuyerID)
+	switch params.Status {
+	case payment.StatusSuccess:
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: buyerID,
+			Type:      accountmodel.NotiPaymentSuccess,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Payment successful",
+			Content:   "Your payment has been confirmed successfully.",
+			Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, refUUID)),
+		})
+	case payment.StatusFailed:
+		meta := fmt.Sprintf(`{"order_id":"%s"`, refUUID)
+		if cr.RedirectURL != "" {
+			meta += fmt.Sprintf(`,"redirect_url":"%s"`, cr.RedirectURL)
+		}
+		meta += "}"
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: buyerID,
+			Type:      accountmodel.NotiPaymentFailed,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Payment failed",
+			Content:   "Your payment could not be processed. Please try again.",
+			Metadata:  json.RawMessage(meta),
+		})
+	}
+
+	return nil
 }
 
 // CancelOrder cancels a pending order along with its items.
@@ -354,8 +409,8 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 	// Notify buyer: order cancelled
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: order.BuyerID,
-		Type:      "order_cancelled",
-		Channel:   "in_app",
+		Type:      accountmodel.NotiOrderCancelled,
+		Channel:   accountmodel.ChannelInApp,
 		Title:     "Order cancelled",
 		Content:   fmt.Sprintf("Your order %s has been cancelled.", order.ID),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),

@@ -8,6 +8,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -121,7 +122,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 		return zero, sharedmodel.WrapErr("create refund", err)
 	}
 
-	// Track refund_requested interaction
+	// Track refund_requested interaction + notify seller
 	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
 		var refundInteractions []analyticbiz.CreateInteraction
 		for _, item := range order.Items {
@@ -134,6 +135,16 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 		}
 		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 			Interactions: refundInteractions,
+		})
+
+		// Notify seller: refund requested
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: order.SellerID,
+			Type:      accountmodel.NotiRefundRequested,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Refund requested",
+			Content:   fmt.Sprintf("A refund has been requested for order %s.", params.OrderID),
+			Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
 		})
 	}
 
@@ -225,7 +236,7 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 		return sharedmodel.WrapErr("validate cancel refund", err)
 	}
 
-	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		if _, err := b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
 			ID:     params.RefundID,
 			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
@@ -233,7 +244,33 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 			return sharedmodel.WrapErr(fmt.Sprintf("db cancel refund %s", params.RefundID), err)
 		}
 		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Notify seller: refund cancelled (fire-and-forget, best effort)
+	refundData, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Refund, error) {
+		r, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+		if err != nil {
+			return ordermodel.Refund{}, err
+		}
+		return dbToRefund(r), nil
 	})
+	if err == nil {
+		order, err := b.GetOrder(ctx, refundData.OrderID)
+		if err == nil {
+			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+				AccountID: order.SellerID,
+				Type:      accountmodel.NotiRefundCancelled,
+				Channel:   accountmodel.ChannelInApp,
+				Title:     "Refund cancelled",
+				Content:   fmt.Sprintf("Refund request for order %s has been cancelled by the buyer.", refundData.OrderID),
+				Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refundData.OrderID, refundData.ID)),
+			})
+		}
+	}
+
+	return nil
 }
 
 // ConfirmRefund marks a refund as confirmed by the vendor and transitions it to processing.
@@ -257,8 +294,8 @@ func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundPa
 	// Notify customer: refund confirmed
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: refund.AccountID,
-		Type:      "refund_approved",
-		Channel:   "in_app",
+		Type:      accountmodel.NotiRefundApproved,
+		Channel:   accountmodel.ChannelInApp,
 		Title:     "Refund approved",
 		Content:   fmt.Sprintf("Your refund request %s has been approved.", refund.ID),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),

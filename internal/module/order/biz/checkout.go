@@ -3,6 +3,8 @@ package orderbiz
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -159,6 +161,23 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 		Interactions: purchaseInteractions,
 	})
+
+	// Step 5b: Notify sellers about new pending items (fire-and-forget)
+	sellerIDs := make(map[uuid.UUID]bool)
+	for _, item := range params.Items {
+		sku := skuMap[item.SkuID]
+		spu := spuMap[sku.SpuID]
+		sellerIDs[spu.AccountID] = true
+	}
+	for sellerID := range sellerIDs {
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: sellerID,
+			Type:      accountmodel.NotiNewPendingItems,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "New pending items",
+			Content:   "You have new pending items to review.",
+		})
+	}
 
 	// Step 6: Hydrate and return created items
 	itemIDs := lo.Map(createdItems, func(info createdItemInfo, _ int) int64 { return info.ID })
@@ -323,6 +342,7 @@ func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendi
 	// Fetch the item first
 	type itemInfo struct {
 		SkuID    string `json:"sku_id"`
+		SellerID string `json:"seller_id"`
 		Quantity int64  `json:"quantity"`
 		Status   string `json:"status"`
 	}
@@ -339,6 +359,7 @@ func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendi
 		}
 		return itemInfo{
 			SkuID:    item.SkuID.String(),
+			SellerID: item.SellerID.String(),
 			Quantity: item.Quantity,
 			Status:   string(item.Status),
 		}, nil
@@ -361,11 +382,25 @@ func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendi
 	}
 
 	// Cancel the item
-	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		return b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
 			ID:        params.ItemID,
 			AccountID: params.AccountID,
 		})
+	}); err != nil {
+		return err
+	}
+
+	// Notify seller: pending item cancelled (fire-and-forget)
+	sellerUUID, _ := uuid.Parse(info.SellerID)
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+		AccountID: sellerUUID,
+		Type:      accountmodel.NotiPendingItemCancelled,
+		Channel:   accountmodel.ChannelInApp,
+		Title:     "Pending item cancelled",
+		Content:   "A buyer has cancelled a pending item.",
 	})
+
+	return nil
 }
 

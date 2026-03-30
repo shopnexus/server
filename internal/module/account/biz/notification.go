@@ -92,8 +92,8 @@ func (b *AccountHandler) MarkAllRead(ctx restate.Context, params MarkAllReadPara
 
 type CreateNotificationParams struct {
 	AccountID uuid.UUID
-	Type      string
-	Channel   string
+	Type      accountmodel.NotificationType
+	Channel   accountmodel.NotificationChannel
 	Title     string
 	Content   string
 	Metadata  json.RawMessage
@@ -103,8 +103,8 @@ type CreateNotificationParams struct {
 func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
 	noti, err := b.storage.Querier().CreateNotification(ctx, accountdb.CreateNotificationParams{
 		AccountID: params.AccountID,
-		Type:      params.Type,
-		Channel:   params.Channel,
+		Type:      string(params.Type),
+		Channel:   string(params.Channel),
 		Title:     params.Title,
 		Content:   params.Content,
 		Metadata:  params.Metadata,

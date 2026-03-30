@@ -51,6 +51,14 @@ func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreateP
 		}
 	}
 
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(CreateNotificationParams{
+		AccountID: params.Account.ID,
+		Type:      accountmodel.NotiPaymentMethodAdded,
+		Channel:   accountmodel.ChannelInApp,
+		Title:     "Payment method added",
+		Content:   fmt.Sprintf("Payment method '%s' has been added to your account.", params.Label),
+	})
+
 	return result, nil
 }
 
@@ -126,6 +134,14 @@ func (b *AccountHandler) DeletePaymentMethod(ctx restate.Context, params DeleteP
 	}); err != nil {
 		return sharedmodel.WrapErr("delete payment method", err)
 	}
+
+	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(CreateNotificationParams{
+		AccountID: params.Account.ID,
+		Type:      accountmodel.NotiPaymentMethodDeleted,
+		Channel:   accountmodel.ChannelInApp,
+		Title:     "Payment method removed",
+		Content:   "A payment method has been removed from your account.",
+	})
 
 	return nil
 }

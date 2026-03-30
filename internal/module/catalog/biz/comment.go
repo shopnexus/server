@@ -177,6 +177,19 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 			Interactions: interactions,
 		})
+
+		// Notify product seller about new review
+		if spu, err := b.storage.Querier().GetProductSpu(ctx, catalogdb.GetProductSpuParams{
+			ID: uuid.NullUUID{UUID: params.RefID, Valid: true},
+		}); err == nil {
+			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+				AccountID: spu.AccountID,
+				Type:      accountmodel.NotiNewReview,
+				Channel:   accountmodel.ChannelInApp,
+				Title:     "New review",
+				Content:   "A customer left a review on your product.",
+			})
+		}
 	}
 
 	return catalogmodel.Comment{
