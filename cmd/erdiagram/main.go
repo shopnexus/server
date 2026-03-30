@@ -55,7 +55,9 @@ const (
 )
 
 var typeReplacements = map[string]string{
+	"timestamp with time zone":       "timestamptz",
 	"timestamp(3) with time zone":    "timestamptz",
+	"timestamp without time zone":    "timestamp",
 	"timestamp(3) without time zone": "timestamp",
 	"double precision":               "float8",
 }

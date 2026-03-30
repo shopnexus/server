@@ -16,7 +16,7 @@ erDiagram
   text id
   bigint stock_id
   status status
-  timestamp with time zone date_created
+  timestamptz date_created
 }
 "inventory.stock" {
   bigint id
@@ -25,13 +25,13 @@ erDiagram
   bigint stock
   bigint taken
   boolean serial_required
-  timestamp with time zone date_created
+  timestamptz date_created
 }
 "inventory.stock_history" {
   bigint id
   bigint stock_id
   bigint change
-  timestamp with time zone date_created
+  timestamptz date_created
 }
 ```
 <!--END_SECTION:mermaid-->
