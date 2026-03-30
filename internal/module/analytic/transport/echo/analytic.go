@@ -2,6 +2,7 @@ package accountecho
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -9,6 +10,7 @@ import (
 
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	authclaims "shopnexus-server/internal/shared/claims"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
@@ -26,6 +28,7 @@ func NewHandler(e *echo.Echo, biz analyticbiz.AnalyticBiz) *Handler {
 	api.POST("/interaction", h.CreateInteraction)
 	api.GET("/popularity/top", h.ListTopProductPopularity)
 	api.GET("/popularity/:spu_id", h.GetProductPopularity)
+	api.GET("/seller-dashboard", h.GetSellerDashboard)
 
 	return h
 }
@@ -105,6 +108,51 @@ func (h *Handler) ListTopProductPopularity(c echo.Context) error {
 	}
 
 	result, err := h.biz.ListTopProductPopularity(c.Request().Context(), req.PaginationParams)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type GetSellerDashboardRequest struct {
+	Start       string `query:"start"`
+	End         string `query:"end"`
+	Granularity string `query:"granularity"`
+}
+
+func (h *Handler) GetSellerDashboard(c echo.Context) error {
+	var req GetSellerDashboardRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	params := analyticmodel.GetSellerDashboardParams{
+		SellerID:    claims.Account.ID,
+		Granularity: req.Granularity,
+	}
+
+	if req.Start != "" {
+		t, err := time.Parse(time.RFC3339, req.Start)
+		if err != nil {
+			return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+		}
+		params.StartDate = t
+	}
+	if req.End != "" {
+		t, err := time.Parse(time.RFC3339, req.End)
+		if err != nil {
+			return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+		}
+		params.EndDate = t
+	}
+
+	result, err := h.biz.GetSellerDashboard(c.Request().Context(), params)
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
