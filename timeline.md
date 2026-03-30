@@ -227,7 +227,7 @@ The big architecture shift: instead of direct function calls between modules, ev
 - Auto-generate Restate HTTP proxy clients from interface definitions (`cmd/genrestate`)
 - Rename: `XxxClient` → `XxxBiz` (interface), `XxxBiz` → `XxxHandler` (struct)
 
-<!-- image: diagram showing module A calling module B through Restate ingress -->
+![alt text](images/img9.png)
 
 ## 27-3-2026 Massive schema and API refactor
 
