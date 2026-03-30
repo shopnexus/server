@@ -39,3 +39,7 @@ func (p *AnalyticRestateClient) GetProductPopularity(ctx context.Context, spuID 
 func (p *AnalyticRestateClient) ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
 	return restateclient.Call[[]analyticdb.AnalyticProductPopularity](ctx, p.client, serviceName, "ListTopProductPopularity", params)
 }
+
+func (p *AnalyticRestateClient) GetSellerDashboard(ctx context.Context, params analyticmodel.GetSellerDashboardParams) (analyticmodel.SellerDashboard, error) {
+	return restateclient.Call[analyticmodel.SellerDashboard](ctx, p.client, serviceName, "GetSellerDashboard", params)
+}
