@@ -15,7 +15,7 @@ const setDefaultPaymentMethod = `-- name: SetDefaultPaymentMethod :one
 UPDATE "account"."payment_method"
 SET "is_default" = true
 WHERE "id" = $1 AND "account_id" = $2
-RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
+RETURNING id, account_id, service_option_id, label, data, is_default, date_created, date_updated
 `
 
 type SetDefaultPaymentMethodParams struct {
@@ -29,8 +29,7 @@ func (q *Queries) SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPay
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.Type,
-		&i.Provider,
+		&i.ServiceOptionID,
 		&i.Label,
 		&i.Data,
 		&i.IsDefault,

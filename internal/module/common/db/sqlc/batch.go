@@ -161,9 +161,9 @@ func (b *CreateBatchResourceReferenceBatchResults) Close() error {
 }
 
 const createBatchServiceOption = `-- name: CreateBatchServiceOption :batchone
-INSERT INTO "common"."service_option" ("id", "category", "name", "description", "provider", "method", "is_active", "order")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category, name, description, provider, method, is_active, "order"
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, category, provider, is_active, name, description, priority, config, logo_rs_id
 `
 
 type CreateBatchServiceOptionBatchResults struct {
@@ -173,14 +173,15 @@ type CreateBatchServiceOptionBatchResults struct {
 }
 
 type CreateBatchServiceOptionParams struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
+	ID          string          `json:"id"`
+	Category    string          `json:"category"`
+	Provider    string          `json:"provider"`
+	IsActive    bool            `json:"is_active"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	Config      json.RawMessage `json:"config"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
 }
 
 func (q *Queries) CreateBatchServiceOption(ctx context.Context, arg []CreateBatchServiceOptionParams) *CreateBatchServiceOptionBatchResults {
@@ -189,12 +190,13 @@ func (q *Queries) CreateBatchServiceOption(ctx context.Context, arg []CreateBatc
 		vals := []interface{}{
 			a.ID,
 			a.Category,
+			a.Provider,
+			a.IsActive,
 			a.Name,
 			a.Description,
-			a.Provider,
-			a.Method,
-			a.IsActive,
-			a.Order,
+			a.Priority,
+			a.Config,
+			a.LogoRsID,
 		}
 		batch.Queue(createBatchServiceOption, vals...)
 	}
@@ -216,12 +218,13 @@ func (b *CreateBatchServiceOptionBatchResults) QueryRow(f func(int, CommonServic
 		err := row.Scan(
 			&i.ID,
 			&i.Category,
+			&i.Provider,
+			&i.IsActive,
 			&i.Name,
 			&i.Description,
-			&i.Provider,
-			&i.Method,
-			&i.IsActive,
-			&i.Order,
+			&i.Priority,
+			&i.Config,
+			&i.LogoRsID,
 		)
 		if f != nil {
 			f(t, i, err)

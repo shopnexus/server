@@ -392,9 +392,9 @@ func (b *CreateBatchNotificationBatchResults) Close() error {
 }
 
 const createBatchPaymentMethod = `-- name: CreateBatchPaymentMethod :batchone
-INSERT INTO "account"."payment_method" ("id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, account_id, type, provider, label, data, is_default, date_created, date_updated
+INSERT INTO "account"."payment_method" ("id", "account_id", "service_option_id", "label", "data", "is_default", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, account_id, service_option_id, label, data, is_default, date_created, date_updated
 `
 
 type CreateBatchPaymentMethodBatchResults struct {
@@ -404,15 +404,14 @@ type CreateBatchPaymentMethodBatchResults struct {
 }
 
 type CreateBatchPaymentMethodParams struct {
-	ID          uuid.UUID       `json:"id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	Type        string          `json:"type"`
-	Provider    string          `json:"provider"`
-	Label       string          `json:"label"`
-	Data        json.RawMessage `json:"data"`
-	IsDefault   bool            `json:"is_default"`
-	DateCreated time.Time       `json:"date_created"`
-	DateUpdated time.Time       `json:"date_updated"`
+	ID              uuid.UUID       `json:"id"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	ServiceOptionID string          `json:"service_option_id"`
+	Label           string          `json:"label"`
+	Data            json.RawMessage `json:"data"`
+	IsDefault       bool            `json:"is_default"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateUpdated     time.Time       `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatchPaymentMethodParams) *CreateBatchPaymentMethodBatchResults {
@@ -421,8 +420,7 @@ func (q *Queries) CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatc
 		vals := []interface{}{
 			a.ID,
 			a.AccountID,
-			a.Type,
-			a.Provider,
+			a.ServiceOptionID,
 			a.Label,
 			a.Data,
 			a.IsDefault,
@@ -449,8 +447,7 @@ func (b *CreateBatchPaymentMethodBatchResults) QueryRow(f func(int, AccountPayme
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.Type,
-			&i.Provider,
+			&i.ServiceOptionID,
 			&i.Label,
 			&i.Data,
 			&i.IsDefault,

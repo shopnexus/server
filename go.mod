@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.13
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.50.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
+	github.com/brianvoe/gofakeit/v7 v7.14.1
 	github.com/bytedance/sonic v1.15.0
 	github.com/casbin/casbin-pg-adapter v1.5.0
 	github.com/casbin/casbin/v2 v2.135.0
@@ -60,7 +61,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
-	github.com/brianvoe/gofakeit/v7 v7.14.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect

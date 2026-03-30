@@ -291,8 +291,7 @@ func (r *iteratorForCreateCopyDefaultPaymentMethod) Next() bool {
 func (r iteratorForCreateCopyDefaultPaymentMethod) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
-		r.rows[0].Type,
-		r.rows[0].Provider,
+		r.rows[0].ServiceOptionID,
 		r.rows[0].Label,
 		r.rows[0].Data,
 	}, nil
@@ -303,7 +302,7 @@ func (r iteratorForCreateCopyDefaultPaymentMethod) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPaymentMethod(ctx context.Context, arg []CreateCopyDefaultPaymentMethodParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"account_id", "type", "provider", "label", "data"}, &iteratorForCreateCopyDefaultPaymentMethod{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"account_id", "service_option_id", "label", "data"}, &iteratorForCreateCopyDefaultPaymentMethod{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultProfile implements pgx.CopyFromSource.
@@ -478,8 +477,7 @@ func (r iteratorForCreateCopyPaymentMethod) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
 		r.rows[0].AccountID,
-		r.rows[0].Type,
-		r.rows[0].Provider,
+		r.rows[0].ServiceOptionID,
 		r.rows[0].Label,
 		r.rows[0].Data,
 		r.rows[0].IsDefault,
@@ -493,7 +491,7 @@ func (r iteratorForCreateCopyPaymentMethod) Err() error {
 }
 
 func (q *Queries) CreateCopyPaymentMethod(ctx context.Context, arg []CreateCopyPaymentMethodParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"id", "account_id", "type", "provider", "label", "data", "is_default", "date_created", "date_updated"}, &iteratorForCreateCopyPaymentMethod{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "payment_method"}, []string{"id", "account_id", "service_option_id", "label", "data", "is_default", "date_created", "date_updated"}, &iteratorForCreateCopyPaymentMethod{rows: arg})
 }
 
 // iteratorForCreateCopyProfile implements pgx.CopyFromSource.

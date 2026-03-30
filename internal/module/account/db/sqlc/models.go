@@ -250,15 +250,14 @@ type AccountNotification struct {
 }
 
 type AccountPaymentMethod struct {
-	ID          uuid.UUID       `json:"id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	Type        string          `json:"type"`
-	Provider    string          `json:"provider"`
-	Label       string          `json:"label"`
-	Data        json.RawMessage `json:"data"`
-	IsDefault   bool            `json:"is_default"`
-	DateCreated time.Time       `json:"date_created"`
-	DateUpdated time.Time       `json:"date_updated"`
+	ID              uuid.UUID       `json:"id"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	ServiceOptionID string          `json:"service_option_id"`
+	Label           string          `json:"label"`
+	Data            json.RawMessage `json:"data"`
+	IsDefault       bool            `json:"is_default"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateUpdated     time.Time       `json:"date_updated"`
 }
 
 type AccountProfile struct {

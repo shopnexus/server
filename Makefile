@@ -16,7 +16,7 @@ generate:
 	go generate ./...
 
 pgtempl:
-	go run ./cmd/pgtempl/ -module all -skip-schema-prefix
+	go run ./cmd/pgtempl/ -module all -skip-schema-prefix -single-file=generated_queries.sql
 
 migrate:
 	go run ./cmd/migrate/

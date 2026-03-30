@@ -104,11 +104,12 @@ func (r iteratorForCreateCopyDefaultServiceOption) Values() ([]interface{}, erro
 	return []interface{}{
 		r.rows[0].ID,
 		r.rows[0].Category,
+		r.rows[0].Provider,
 		r.rows[0].Name,
 		r.rows[0].Description,
-		r.rows[0].Provider,
-		r.rows[0].Method,
-		r.rows[0].Order,
+		r.rows[0].Priority,
+		r.rows[0].Config,
+		r.rows[0].LogoRsID,
 	}, nil
 }
 
@@ -117,7 +118,7 @@ func (r iteratorForCreateCopyDefaultServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultServiceOption(ctx context.Context, arg []CreateCopyDefaultServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "order"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
 }
 
 // iteratorForCreateCopyResource implements pgx.CopyFromSource.
@@ -217,12 +218,13 @@ func (r iteratorForCreateCopyServiceOption) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
 		r.rows[0].Category,
+		r.rows[0].Provider,
+		r.rows[0].IsActive,
 		r.rows[0].Name,
 		r.rows[0].Description,
-		r.rows[0].Provider,
-		r.rows[0].Method,
-		r.rows[0].IsActive,
-		r.rows[0].Order,
+		r.rows[0].Priority,
+		r.rows[0].Config,
+		r.rows[0].LogoRsID,
 	}, nil
 }
 
@@ -231,5 +233,5 @@ func (r iteratorForCreateCopyServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopyServiceOption(ctx context.Context, arg []CreateCopyServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "name", "description", "provider", "method", "is_active", "order"}, &iteratorForCreateCopyServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyServiceOption{rows: arg})
 }
