@@ -17,12 +17,11 @@ import (
 )
 
 type CreatePaymentMethodParams struct {
-	Account   accountmodel.AuthenticatedAccount
-	Type      string          `validate:"required"`
-	Provider  string          `validate:"required"`
-	Label     string          `validate:"required"`
-	Data      json.RawMessage `validate:"required"`
-	IsDefault bool
+	Account         accountmodel.AuthenticatedAccount
+	ServiceOptionID string          `validate:"required"`
+	Label           string          `validate:"required"`
+	Data            json.RawMessage `validate:"required"`
+	IsDefault       bool
 }
 
 // CreatePaymentMethod creates a new payment method for the authenticated account.
@@ -30,11 +29,10 @@ func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreateP
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
-		AccountID: params.Account.ID,
-		Type:      params.Type,
-		Provider:  params.Provider,
-		Label:     params.Label,
-		Data:      params.Data,
+		AccountID:       params.Account.ID,
+		ServiceOptionID: params.ServiceOptionID,
+		Label:           params.Label,
+		Data:            params.Data,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create payment method", err)
@@ -90,11 +88,11 @@ func (b *AccountHandler) ListPaymentMethod(ctx restate.Context, params ListPayme
 }
 
 type UpdatePaymentMethodParams struct {
-	Account accountmodel.AuthenticatedAccount
-	ID      uuid.UUID       `validate:"required"`
-	Type    null.String     `validate:"omitnil"`
-	Label   null.String     `validate:"omitnil"`
-	Data    json.RawMessage `validate:"omitempty"`
+	Account         accountmodel.AuthenticatedAccount
+	ID              uuid.UUID       `validate:"required"`
+	ServiceOptionID null.String     `validate:"omitnil"`
+	Label           null.String     `validate:"omitnil"`
+	Data            json.RawMessage `validate:"omitempty"`
 }
 
 // UpdatePaymentMethod updates the specified payment method fields.
@@ -102,11 +100,11 @@ func (b *AccountHandler) UpdatePaymentMethod(ctx restate.Context, params UpdateP
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().UpdatePaymentMethod(ctx, accountdb.UpdatePaymentMethodParams{
-		ID:        params.ID,
-		AccountID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-		Type:      params.Type,
-		Label:     params.Label,
-		Data:      params.Data,
+		ID:              params.ID,
+		AccountID:       uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		ServiceOptionID: params.ServiceOptionID,
+		Label:           params.Label,
+		Data:            params.Data,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("update payment method", err)

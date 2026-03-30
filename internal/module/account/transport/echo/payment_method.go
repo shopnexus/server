@@ -15,11 +15,10 @@ import (
 )
 
 type CreatePaymentMethodRequest struct {
-	Type      string          `json:"type" validate:"required"`
-	Provider  string          `json:"provider" validate:"required"`
-	Label     string          `json:"label" validate:"required"`
-	Data      json.RawMessage `json:"data" validate:"required"`
-	IsDefault bool            `json:"is_default"`
+	ServiceOptionID string          `json:"service_option_id" validate:"required"`
+	Label           string          `json:"label" validate:"required"`
+	Data            json.RawMessage `json:"data" validate:"required"`
+	IsDefault       bool            `json:"is_default"`
 }
 
 func (h *Handler) CreatePaymentMethod(c echo.Context) error {
@@ -37,12 +36,11 @@ func (h *Handler) CreatePaymentMethod(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreatePaymentMethod(c.Request().Context(), accountbiz.CreatePaymentMethodParams{
-		Account:   claims.Account,
-		Type:      req.Type,
-		Provider:  req.Provider,
-		Label:     req.Label,
-		Data:      req.Data,
-		IsDefault: req.IsDefault,
+		Account:         claims.Account,
+		ServiceOptionID: req.ServiceOptionID,
+		Label:           req.Label,
+		Data:            req.Data,
+		IsDefault:       req.IsDefault,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -81,10 +79,10 @@ func (h *Handler) ListPaymentMethod(c echo.Context) error {
 }
 
 type UpdatePaymentMethodRequest struct {
-	ID    uuid.UUID       `json:"id" validate:"required"`
-	Type  null.String     `json:"type" validate:"omitnil"`
-	Label null.String     `json:"label" validate:"omitnil"`
-	Data  json.RawMessage `json:"data" validate:"omitempty"`
+	ID              uuid.UUID       `json:"id" validate:"required"`
+	ServiceOptionID null.String     `json:"service_option_id" validate:"omitnil"`
+	Label           null.String     `json:"label" validate:"omitnil"`
+	Data            json.RawMessage `json:"data" validate:"omitempty"`
 }
 
 func (h *Handler) UpdatePaymentMethod(c echo.Context) error {
@@ -102,11 +100,11 @@ func (h *Handler) UpdatePaymentMethod(c echo.Context) error {
 	}
 
 	result, err := h.biz.UpdatePaymentMethod(c.Request().Context(), accountbiz.UpdatePaymentMethodParams{
-		Account: claims.Account,
-		ID:      req.ID,
-		Type:    req.Type,
-		Label:   req.Label,
-		Data:    req.Data,
+		Account:         claims.Account,
+		ID:              req.ID,
+		ServiceOptionID: req.ServiceOptionID,
+		Label:           req.Label,
+		Data:            req.Data,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
