@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	TopicAnalyticInteraction = "analytic_interaction"
-
 	// High intent events
 	EventPurchase    = "purchase"
 	EventAddToCart   = "add_to_cart"
@@ -25,6 +23,10 @@ const (
 	EventClickFromRecommend  = "click_from_recommendation"
 	EventClickFromCategory   = "click_from_category"
 	EventViewSimilarProducts = "view_similar_products"
+
+	// Funnel events
+	EventProductImpression = "product_impression"
+	EventCheckoutStarted   = "checkout_started"
 
 	// Additional signals
 	EventAddToFavorites = "add_to_favorites"

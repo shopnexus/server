@@ -13,6 +13,8 @@ type PopularityWeights struct {
 	ClickFromRecommend  float64 `yaml:"click_from_recommendation" mapstructure:"click_from_recommendation"`
 	ClickFromCategory   float64 `yaml:"click_from_category" mapstructure:"click_from_category"`
 	ViewSimilarProducts float64 `yaml:"view_similar_products" mapstructure:"view_similar_products"`
+	ProductImpression   float64 `yaml:"product_impression" mapstructure:"product_impression"`
+	CheckoutStarted     float64 `yaml:"checkout_started" mapstructure:"checkout_started"`
 	RemoveFromCart      float64 `yaml:"remove_from_cart" mapstructure:"remove_from_cart"`
 	ReturnProduct       float64 `yaml:"return_product" mapstructure:"return_product"`
 	RefundRequested     float64 `yaml:"refund_requested" mapstructure:"refund_requested"`
@@ -39,6 +41,8 @@ func DefaultPopularityWeights() PopularityWeights {
 		ClickFromRecommend:  0.15,
 		ClickFromCategory:   0.12,
 		ViewSimilarProducts: 0.15,
+		ProductImpression:   0.1,
+		CheckoutStarted:     0.6,
 		RemoveFromCart:      -0.3,
 		ReturnProduct:       -0.6,
 		RefundRequested:     -0.7,
@@ -66,6 +70,8 @@ func (w PopularityWeights) WeightMap() map[string]float64 {
 		"click_from_recommendation": w.ClickFromRecommend,
 		"click_from_category":       w.ClickFromCategory,
 		"view_similar_products":     w.ViewSimilarProducts,
+		"product_impression":        w.ProductImpression,
+		"checkout_started":          w.CheckoutStarted,
 		"remove_from_cart":          w.RemoveFromCart,
 		"return_product":            w.ReturnProduct,
 		"refund_requested":          w.RefundRequested,
