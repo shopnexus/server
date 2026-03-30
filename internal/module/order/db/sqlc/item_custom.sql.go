@@ -166,6 +166,29 @@ func (q *Queries) CreatePendingItem(ctx context.Context, arg CreatePendingItemPa
 	return i, err
 }
 
+const hasPurchasedSku = `-- name: HasPurchasedSku :one
+SELECT EXISTS(
+    SELECT 1
+    FROM "order"."item" i
+    JOIN "order"."order" o ON i."order_id" = o."id"
+    WHERE i."account_id" = $1
+      AND i."sku_id" = ANY($2::uuid[])
+      AND o."status" = 'Success'
+) AS has_purchased
+`
+
+type HasPurchasedSkuParams struct {
+	AccountID uuid.UUID   `json:"account_id"`
+	SkuIds    []uuid.UUID `json:"sku_ids"`
+}
+
+func (q *Queries) HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasPurchasedSku, arg.AccountID, arg.SkuIds)
+	var has_purchased bool
+	err := row.Scan(&has_purchased)
+	return has_purchased, err
+}
+
 const listPendingItemsByAccount = `-- name: ListPendingItemsByAccount :many
 SELECT id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, status, note, serial_ids, date_created, date_updated
 FROM "order"."item"

@@ -94,10 +94,22 @@ type Querier interface {
 	// Queries for table: order.refund_dispute
 	// ========================================
 	GetRefundDispute(ctx context.Context, id uuid.NullUUID) (OrderRefundDispute, error)
+	// Custom dashboard aggregation queries for seller analytics
+	// Aggregates revenue, order count, and items sold for a seller within a date range.
+	// Only counts orders with status 'Success'.
+	GetSellerOrderStats(ctx context.Context, arg GetSellerOrderStatsParams) (GetSellerOrderStatsRow, error)
+	// Returns time-bucketed revenue and order counts for chart data.
+	// @granularity must be 'day', 'week', or 'month'.
+	GetSellerOrderTimeSeries(ctx context.Context, arg GetSellerOrderTimeSeriesParams) ([]GetSellerOrderTimeSeriesRow, error)
+	// Counts unconfirmed incoming items and pending refunds for a seller.
+	GetSellerPendingActions(ctx context.Context, sellerID uuid.UUID) (GetSellerPendingActionsRow, error)
+	// Returns top products by sold quantity within a date range, with revenue.
+	GetSellerTopProducts(ctx context.Context, arg GetSellerTopProductsParams) ([]GetSellerTopProductsRow, error)
 	// ========================================
 	// Queries for table: order.transport
 	// ========================================
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
+	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	ListCountCartItem(ctx context.Context, arg ListCountCartItemParams) ([]ListCountCartItemRow, error)
 	ListCountItem(ctx context.Context, arg ListCountItemParams) ([]ListCountItemRow, error)
