@@ -77,8 +77,7 @@ erDiagram
 "account.payment_method" {
   uuid id
   uuid account_id
-  varchar(50) type
-  varchar(50) provider
+  varchar(100) service_option_id
   varchar(100) label
   jsonb data
   boolean is_default

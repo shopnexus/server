@@ -33,12 +33,13 @@ erDiagram
 "common.service_option" {
   varchar(100) id
   text category
+  text provider
+  boolean is_active
   text name
   text description
-  text provider
-  text method
-  boolean is_active
-  integer order
+  integer priority
+  jsonb config
+  uuid logo_rs_id
 }
 ```
 <!--END_SECTION:mermaid-->

@@ -32,6 +32,7 @@ erDiagram
   float8 score
   timestamptz date_created
   timestamptz date_updated
+  uuid order_id
 }
 "catalog.product_sku" {
   uuid id
