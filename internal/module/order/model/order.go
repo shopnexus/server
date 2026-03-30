@@ -9,6 +9,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 )
 
 const (
@@ -25,6 +26,7 @@ type OrderItem struct {
 	Address     string                  `json:"address"`
 	Status      orderdb.OrderItemStatus `json:"status"`
 	SkuID       uuid.UUID               `json:"sku_id"`
+	SpuID       uuid.UUID               `json:"spu_id"`
 	SkuName     string                  `json:"sku_name"`
 	Quantity    int64                   `json:"quantity"`
 	UnitPrice   int64                   `json:"unit_price"`
@@ -47,7 +49,7 @@ type Order struct {
 	ProductDiscount sharedmodel.Concurrency `json:"product_discount"`
 	TransportCost   sharedmodel.Concurrency `json:"transport_cost"`
 	Total           sharedmodel.Concurrency `json:"total"`
-	Note            *string                 `json:"note"`
+	Note            null.String             `json:"note"`
 	Data            json.RawMessage         `json:"data"`
 	DateCreated     time.Time               `json:"date_created"`
 	Items           []OrderItem             `json:"items"`

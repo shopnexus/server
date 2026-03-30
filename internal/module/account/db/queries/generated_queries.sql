@@ -511,13 +511,13 @@ INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", 
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyDefaultNotification :copyfrom
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateNotification :one
 UPDATE "account"."notification"

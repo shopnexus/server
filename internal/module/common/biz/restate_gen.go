@@ -4,12 +4,11 @@ package commonbiz
 
 import (
 	"context"
+	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	"shopnexus-server/internal/provider/geocoding"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
 )
 
 const serviceName = "Common"
@@ -67,4 +66,8 @@ func (p *CommonRestateClient) ForwardGeocode(ctx context.Context, params Forward
 
 func (p *CommonRestateClient) SearchGeocode(ctx context.Context, params SearchGeocodeParams) ([]geocoding.Result, error) {
 	return restateclient.Call[[]geocoding.Result](ctx, p.client, serviceName, "SearchGeocode", params)
+}
+
+func (p *CommonRestateClient) PushEvent(ctx context.Context, params PushEventParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "PushEvent", params)
 }

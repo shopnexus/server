@@ -83,19 +83,29 @@ func (cb *CustomBinder) bindCommaSeparatedFields(i any, c echo.Context, commaSep
 			continue
 		}
 
-		param := values.Get(queryTag)
-		if param == "" {
+		params := values[queryTag]
+		if len(params) == 0 {
 			continue
 		}
 
 		// Handle both slice and non-slice fields
 		if field.Kind() == reflect.Slice {
-			if err := cb.setSliceFromCommaSeparated(field, param); err != nil {
+			// Support both repeated params (?k=a&k=b) and comma-separated (?k=a,b)
+			var allParts []string
+			for _, p := range params {
+				for _, part := range strings.Split(p, ",") {
+					part = strings.TrimSpace(part)
+					if part != "" {
+						allParts = append(allParts, part)
+					}
+				}
+			}
+			if err := cb.setSliceFromParts(field, allParts); err != nil {
 				return fmt.Errorf("error parsing %s: %w", queryTag, err)
 			}
 		} else {
 			// For non-slice fields, take the first value
-			parts := strings.Split(param, ",")
+			parts := strings.Split(params[0], ",")
 			if len(parts) > 0 {
 				if err := cb.setSingleValueFromString(field, strings.TrimSpace(parts[0])); err != nil {
 					return fmt.Errorf("error parsing %s: %w", queryTag, err)
@@ -183,18 +193,12 @@ func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c ec
 	return nil
 }
 
-func (cb *CustomBinder) setSliceFromCommaSeparated(field reflect.Value, param string) error {
-	parts := strings.Split(param, ",")
+func (cb *CustomBinder) setSliceFromParts(field reflect.Value, parts []string) error {
 	elemType := field.Type().Elem()
 
 	slice := reflect.MakeSlice(field.Type(), 0, len(parts))
 
 	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-
 		elem := reflect.New(elemType).Elem()
 
 		if err := cb.setSingleValueFromString(elem, part); err != nil {

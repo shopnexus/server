@@ -174,7 +174,8 @@ type RejectSellerPendingParams struct {
 
 type ListBuyerConfirmedParams struct {
 	sharedmodel.PaginationParams
-	ID []uuid.UUID `validate:"dive"`
+	ID     []uuid.UUID           `validate:"dive"`
+	Status []orderdb.OrderStatus `validate:"omitempty"`
 }
 
 type ListSellerConfirmedParams struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -30,6 +31,7 @@ type ChatStorage = pgsqlc.Storage[*chatdb.Queries]
 // ChatHandler implements the core business logic for the chat module.
 type ChatHandler struct {
 	storage ChatStorage
+	common  commonbiz.CommonBiz
 }
 
 func (b *ChatHandler) ServiceName() string {
@@ -37,6 +39,6 @@ func (b *ChatHandler) ServiceName() string {
 }
 
 // NewChatHandler creates a new ChatHandler with the given dependencies.
-func NewChatHandler(storage ChatStorage) *ChatHandler {
-	return &ChatHandler{storage: storage}
+func NewChatHandler(storage ChatStorage, common commonbiz.CommonBiz) *ChatHandler {
+	return &ChatHandler{storage: storage, common: common}
 }

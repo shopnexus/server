@@ -59,6 +59,7 @@ type CreateCommentRequest struct {
 	RefID       uuid.UUID                       `json:"ref_id" validate:"required"`
 	Body        string                          `json:"body" validate:"required"`
 	Score       float64                         `json:"score" validate:"required"`
+	OrderID     uuid.UUID                       `json:"order_id" validate:"required"`
 	ResourceIDs []uuid.UUID                     `json:"resource_ids" validate:"required"`
 }
 
@@ -77,12 +78,12 @@ func (h *Handler) CreateComment(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateComment(c.Request().Context(), catalogbiz.CreateCommentParams{
-		Account: claims.Account,
-		RefType: req.RefType,
-		RefID:   req.RefID,
-		Body:    req.Body,
-		Score:   req.Score,
-
+		Account:     claims.Account,
+		RefType:     req.RefType,
+		RefID:       req.RefID,
+		Body:        req.Body,
+		Score:       req.Score,
+		OrderID:     req.OrderID,
 		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
@@ -126,6 +127,42 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, comment)
 }
 
+type VoteCommentRequest struct {
+	CommentID uuid.UUID `json:"comment_id" validate:"required"`
+	Vote      string    `json:"vote" validate:"required,oneof=upvote downvote"`
+}
+
+func (h *Handler) VoteComment(c echo.Context) error {
+	var req VoteCommentRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	params := catalogbiz.UpdateCommentParams{
+		Account: claims.Account,
+		ID:      req.CommentID,
+	}
+	if req.Vote == "upvote" {
+		params.UpvoteDelta = null.IntFrom(1)
+	} else {
+		params.DownvoteDelta = null.IntFrom(1)
+	}
+
+	comment, err := h.biz.UpdateComment(c.Request().Context(), params)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, comment)
+}
+
 type DeleteCommentRequest struct {
 	IDs []uuid.UUID `json:"ids" validate:"required"`
 }
@@ -152,4 +189,32 @@ func (h *Handler) DeleteComment(c echo.Context) error {
 	}
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "comment deleted")
+}
+
+type ListReviewableOrdersRequest struct {
+	SpuID uuid.UUID `query:"spu_id" validate:"required"`
+}
+
+func (h *Handler) ListReviewableOrders(c echo.Context) error {
+	var req ListReviewableOrdersRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.ListReviewableOrders(c.Request().Context(), catalogbiz.ListReviewableOrdersParams{
+		Account: claims.Account,
+		SpuID:   req.SpuID,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

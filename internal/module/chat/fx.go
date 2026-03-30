@@ -7,6 +7,7 @@ import (
 	chatbiz "shopnexus-server/internal/module/chat/biz"
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 	chatecho "shopnexus-server/internal/module/chat/transport/echo"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
@@ -14,7 +15,7 @@ import (
 var Module = fx.Module("chat",
 	fx.Provide(
 		NewChatStorage,
-		chatbiz.NewChatHandler,
+		NewChatHandler,
 		NewChatBiz,
 		chatecho.NewHandler,
 	),
@@ -22,6 +23,10 @@ var Module = fx.Module("chat",
 		chatecho.NewHandler,
 	),
 )
+
+func NewChatHandler(storage chatbiz.ChatStorage, common commonbiz.CommonBiz) *chatbiz.ChatHandler {
+	return chatbiz.NewChatHandler(storage, common)
+}
 
 // NewChatStorage creates a new chat storage backed by PostgreSQL.
 func NewChatStorage(pool pgsqlc.TxBeginner) chatbiz.ChatStorage {

@@ -128,6 +128,7 @@ type Querier interface {
 	ListPendingItemsBySeller(ctx context.Context, arg ListPendingItemsBySellerParams) ([]OrderItem, error)
 	ListRefund(ctx context.Context, arg ListRefundParams) ([]OrderRefund, error)
 	ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error)
+	ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error)
 	ListTransport(ctx context.Context, arg ListTransportParams) ([]OrderTransport, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)
 	SetOrderPayment(ctx context.Context, arg SetOrderPaymentParams) error
@@ -139,6 +140,7 @@ type Querier interface {
 	UpdateRefund(ctx context.Context, arg UpdateRefundParams) (OrderRefund, error)
 	UpdateRefundDispute(ctx context.Context, arg UpdateRefundDisputeParams) (OrderRefundDispute, error)
 	UpdateTransport(ctx context.Context, arg UpdateTransportParams) (OrderTransport, error)
+	ValidateOrderForReview(ctx context.Context, arg ValidateOrderForReviewParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

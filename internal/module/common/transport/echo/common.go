@@ -22,6 +22,7 @@ func NewHandler(e *echo.Echo, biz commonbiz.CommonBiz, handler *commonbiz.Common
 	api.POST("/geocode/reverse", h.ReverseGeocode)
 	api.POST("/geocode/forward", h.ForwardGeocode)
 	api.GET("/geocode/search", h.SearchGeocode)
+	api.GET("/stream", h.HandleSSE)
 
 	return h, nil
 }

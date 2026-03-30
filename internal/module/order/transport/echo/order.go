@@ -127,6 +127,7 @@ func (h *Handler) GetSellerOrder(c echo.Context) error {
 }
 
 type ListBuyerConfirmedRequest struct {
+	Status []orderdb.OrderStatus `query:"status" validate:"omitempty"`
 	sharedmodel.PaginationParams
 }
 
@@ -141,6 +142,7 @@ func (h *Handler) ListBuyerConfirmed(c echo.Context) error {
 
 	result, err := h.biz.ListBuyerConfirmed(c.Request().Context(), orderbiz.ListBuyerConfirmedParams{
 		PaginationParams: req.PaginationParams.Constrain(),
+		Status:           req.Status,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

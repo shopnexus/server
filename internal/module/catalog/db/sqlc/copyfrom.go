@@ -74,6 +74,7 @@ func (r iteratorForCreateCopyComment) Values() ([]interface{}, error) {
 		r.rows[0].Score,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
+		r.rows[0].OrderID,
 	}, nil
 }
 
@@ -82,7 +83,7 @@ func (r iteratorForCreateCopyComment) Err() error {
 }
 
 func (q *Queries) CreateCopyComment(ctx context.Context, arg []CreateCopyCommentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "comment"}, []string{"id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated"}, &iteratorForCreateCopyComment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "comment"}, []string{"id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id"}, &iteratorForCreateCopyComment{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultCategory implements pgx.CopyFromSource.
@@ -144,6 +145,7 @@ func (r iteratorForCreateCopyDefaultComment) Values() ([]interface{}, error) {
 		r.rows[0].RefID,
 		r.rows[0].Body,
 		r.rows[0].Score,
+		r.rows[0].OrderID,
 	}, nil
 }
 
@@ -152,7 +154,7 @@ func (r iteratorForCreateCopyDefaultComment) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultComment(ctx context.Context, arg []CreateCopyDefaultCommentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "comment"}, []string{"account_id", "ref_type", "ref_id", "body", "score"}, &iteratorForCreateCopyDefaultComment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "comment"}, []string{"account_id", "ref_type", "ref_id", "body", "score", "order_id"}, &iteratorForCreateCopyDefaultComment{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultProductSku implements pgx.CopyFromSource.

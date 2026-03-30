@@ -8,6 +8,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	chatdb "shopnexus-server/internal/module/chat/db/sqlc"
 	chatmodel "shopnexus-server/internal/module/chat/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -114,6 +115,19 @@ func (b *ChatHandler) SendMessage(ctx restate.Context, params SendMessageParams)
 		return zero, sharedmodel.WrapErr("update conversation last message", err)
 	}
 
+	// Push new_message to both participants via SSE
+	recipientID := conv.BuyerID
+	if recipientID == params.Account.ID {
+		recipientID = conv.SellerID
+	}
+	for _, id := range []uuid.UUID{params.Account.ID, recipientID} {
+		restate.ServiceSend(ctx, "Common", "PushEvent").Send(commonbiz.PushEventParams{
+			AccountID: id,
+			Type:      commonbiz.SSENewMessage,
+			Data:      msg,
+		})
+	}
+
 	return msg, nil
 }
 
@@ -165,8 +179,29 @@ type MarkReadParams struct {
 
 // MarkRead marks all messages in a conversation as read for the authenticated account.
 func (b *ChatHandler) MarkRead(ctx restate.Context, params MarkReadParams) error {
-	return b.storage.Querier().MarkMessagesRead(ctx, chatdb.MarkMessagesReadParams{
+	if err := b.storage.Querier().MarkMessagesRead(ctx, chatdb.MarkMessagesReadParams{
 		ConversationID: params.ConversationID,
 		ReaderID:       params.Account.ID,
-	})
+	}); err != nil {
+		return err
+	}
+
+	// Push read_receipt to the other participant via SSE
+	conv, err := b.storage.Querier().GetConversationByID(ctx, params.ConversationID)
+	if err == nil {
+		recipientID := conv.BuyerID
+		if recipientID == params.Account.ID {
+			recipientID = conv.SellerID
+		}
+		restate.ServiceSend(ctx, "Common", "PushEvent").Send(commonbiz.PushEventParams{
+			AccountID: recipientID,
+			Type:      commonbiz.SSEReadReceipt,
+			Data: map[string]any{
+				"conversation_id": params.ConversationID,
+				"reader_id":       params.Account.ID,
+			},
+		})
+	}
+
+	return nil
 }

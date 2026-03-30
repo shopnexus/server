@@ -15,8 +15,9 @@ import (
 
 type ListProductCardRequest struct {
 	sharedmodel.PaginationParams
-	VendorID uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
-	Search   null.String   `query:"search" validate:"omitnil"`
+	VendorID   uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
+	CategoryID []uuid.UUID   `query:"category_id" comma_separated:"true" validate:"omitempty"`
+	Search     null.String   `query:"search" validate:"omitnil"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {
@@ -32,6 +33,7 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 	params := catalogbiz.ListProductCardParams{
 		PaginationParams: req.PaginationParams.Constrain(),
 		VendorID:         req.VendorID,
+		CategoryID:       req.CategoryID,
 		Search:           req.Search,
 	}
 

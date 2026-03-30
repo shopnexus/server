@@ -52,13 +52,14 @@ type CatalogBiz interface {
 	CreateComment(ctx context.Context, params CreateCommentParams) (catalogmodel.Comment, error)
 	UpdateComment(ctx context.Context, params UpdateCommentParams) (catalogmodel.Comment, error)
 	DeleteComment(ctx context.Context, params DeleteCommentParams) error
+	ListReviewableOrders(ctx context.Context, params ListReviewableOrdersParams) ([]catalogmodel.ReviewableOrder, error)
 
 	// Tag
 	ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error)
 	GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error)
 
 	// Category
-	ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error)
+	ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogmodel.Category], error)
 
 	// Search
 	Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error)

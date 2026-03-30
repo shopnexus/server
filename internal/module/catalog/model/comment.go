@@ -15,7 +15,14 @@ type Comment struct {
 	Upvote      int64                  `json:"upvote"`
 	Downvote    int64                  `json:"downvote"`
 	Score       float64                `json:"score"`
+	OrderID     uuid.UUID               `json:"order_id"`
 	DateCreated time.Time              `json:"date_created"`
 	DateUpdated time.Time              `json:"date_updated"`
 	Resources   []commonmodel.Resource `json:"resources"`
+}
+
+type ReviewableOrder struct {
+	ID          uuid.UUID `json:"id"`
+	Total       int64     `json:"total"`
+	DateCreated time.Time `json:"date_created"`
 }

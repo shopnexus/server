@@ -199,9 +199,10 @@ func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCa
 
 type ListProductCardParams struct {
 	sharedmodel.PaginationParams
-	AccountID *uuid.UUID    // optional, for is_favorite
-	VendorID  uuid.NullUUID `validate:"omitnil"`
-	Search    null.String   `validate:"omitnil,min=1,max=100"`
+	AccountID  *uuid.UUID    // optional, for is_favorite
+	VendorID   uuid.NullUUID `validate:"omitnil"`
+	CategoryID []uuid.UUID   `validate:"omitempty"`
+	Search     null.String   `validate:"omitnil,min=1,max=100"`
 }
 
 // ListProductCard returns paginated product cards with optional search and vendor filter.
@@ -223,6 +224,9 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 
 	if params.VendorID.Valid {
 		searchArg.AccountID = []uuid.UUID{params.VendorID.UUID}
+	}
+	if len(params.CategoryID) > 0 {
+		searchArg.CategoryID = params.CategoryID
 	}
 
 	// If search is provided, use search service to get product IDs

@@ -564,7 +564,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL)
 );
 
 -- name: ListComment :many
@@ -590,7 +591,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -619,34 +621,35 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateComment :one
-INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchComment :batchone
-INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyComment :copyfrom
-INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultComment :one
-INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score", "order_id")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultComment :copyfrom
-INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score", "order_id")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateComment :one
 UPDATE "catalog"."comment"
@@ -658,7 +661,8 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "downvote" = COALESCE(sqlc.narg('downvote'), "downvote"),
     "score" = COALESCE(sqlc.narg('score'), "score"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
+    "order_id" = COALESCE(sqlc.narg('order_id'), "order_id")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -684,7 +688,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL)
 );
 
 -- ========================================

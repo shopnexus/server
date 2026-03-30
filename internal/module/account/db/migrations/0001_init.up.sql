@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS "account"."notification" (
     "type" VARCHAR(50) NOT NULL,
     -- Delivery channel (e.g. 'Push', 'Email', 'SMS')
     "channel" VARCHAR(50) NOT NULL,
-    "title" VARCHAR(200) NOT NULL DEFAULT '',
+    "title" VARCHAR(200) NOT NULL,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
     "content" TEXT NOT NULL,
     -- Additional structured payload for deep-links, images, etc.

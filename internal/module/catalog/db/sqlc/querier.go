@@ -104,6 +104,7 @@ type Querier interface {
 	ListCountProductSpuTag(ctx context.Context, arg ListCountProductSpuTagParams) ([]ListCountProductSpuTagRow, error)
 	ListCountSearchSync(ctx context.Context, arg ListCountSearchSyncParams) ([]ListCountSearchSyncRow, error)
 	ListCountTag(ctx context.Context, arg ListCountTagParams) ([]ListCountTagRow, error)
+	ListPopularProductPerCategory(ctx context.Context, arg ListPopularProductPerCategoryParams) ([]ListPopularProductPerCategoryRow, error)
 	ListProductSku(ctx context.Context, arg ListProductSkuParams) ([]CatalogProductSku, error)
 	ListProductSpu(ctx context.Context, arg ListProductSpuParams) ([]CatalogProductSpu, error)
 	ListProductSpuTag(ctx context.Context, arg ListProductSpuTagParams) ([]CatalogProductSpuTag, error)

@@ -60,6 +60,7 @@ func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerC
 			Limit:  params.Limit,
 			Offset: params.Offset(),
 			ID:     params.ID,
+			Status: params.Status,
 		})
 	})
 

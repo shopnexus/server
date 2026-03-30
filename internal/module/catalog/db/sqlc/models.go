@@ -145,6 +145,7 @@ type CatalogComment struct {
 	Score       float64               `json:"score"`
 	DateCreated time.Time             `json:"date_created"`
 	DateUpdated time.Time             `json:"date_updated"`
+	OrderID     uuid.UUID             `json:"order_id"`
 }
 
 type CatalogProductSku struct {

@@ -11,6 +11,7 @@ import (
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	commonbiz "shopnexus-server/internal/module/common/biz"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -101,7 +102,7 @@ type CreateNotificationParams struct {
 
 // CreateNotification creates a new notification for the given account.
 func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
-	noti, err := b.storage.Querier().CreateNotification(ctx, accountdb.CreateNotificationParams{
+	noti, err := b.storage.Querier().CreateDefaultNotification(ctx, accountdb.CreateDefaultNotificationParams{
 		AccountID: params.AccountID,
 		Type:      string(params.Type),
 		Channel:   string(params.Channel),
@@ -112,6 +113,13 @@ func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNo
 	if err != nil {
 		return accountdb.AccountNotification{}, sharedmodel.WrapErr("create notification", err)
 	}
+
+	// Push real-time notification to SSE clients
+	restate.ServiceSend(ctx, "Common", "PushEvent").Send(commonbiz.PushEventParams{
+		AccountID: params.AccountID,
+		Type:      commonbiz.SSENotification,
+		Data:      noti,
+	})
 
 	return noti, nil
 }

@@ -20,6 +20,11 @@ import (
 	"github.com/samber/lo"
 )
 
+type ListReviewableOrdersParams struct {
+	Account accountmodel.AuthenticatedAccount
+	SpuID   uuid.UUID `validate:"required"`
+}
+
 type ListCommentParams struct {
 	sharedmodel.PaginationParams
 	Account   accountmodel.AuthenticatedAccount
@@ -98,6 +103,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 			Upvote:      dbComment.Upvote,
 			Downvote:    dbComment.Downvote,
 			Score:       dbComment.Score,
+			OrderID:     dbComment.OrderID,
 			DateCreated: dbComment.DateCreated,
 			DateUpdated: dbComment.DateUpdated,
 			Resources:   resourcesMap[dbComment.ID],
@@ -118,16 +124,57 @@ type CreateCommentParams struct {
 	RefID   uuid.UUID                       `validate:"required"`
 	Body    string                          `validate:"required,min=1,max=1000"`
 	Score   float64                         `validate:"required,gte=0,lte=1"`
+	OrderID uuid.UUID                       `validate:"required"`
 
 	ResourceIDs []uuid.UUID `validate:"omitempty,dive"`
 }
 
 // CreateComment creates a new comment with resources and tracks review analytics.
+// For product reviews (RefType=ProductSpu), the user must have a completed order for the product.
 func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateCommentParams) (catalogmodel.Comment, error) {
 	var zero catalogmodel.Comment
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate create comment", err)
+	}
+
+	// Verify purchase for product reviews
+	if params.RefType == catalogdb.CatalogCommentRefTypeProductSpu {
+		skuIDs, err := b.getSkuIDsForSpu(ctx, params.RefID)
+		if err != nil {
+			return zero, err
+		}
+
+		type validateParams struct {
+			AccountID uuid.UUID   `json:"account_id"`
+			OrderID   uuid.UUID   `json:"order_id"`
+			SkuIDs    []uuid.UUID `json:"sku_ids"`
+		}
+		valid, err := restate.Service[bool](ctx, "Order", "ValidateOrderForReview").Request(validateParams{
+			AccountID: params.Account.ID,
+			OrderID:   params.OrderID,
+			SkuIDs:    skuIDs,
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("validate order for review", err)
+		}
+		if !valid {
+			return zero, catalogmodel.ErrMustPurchaseToReview.Terminal()
+		}
+
+		// Check if this order was already reviewed for this product
+		existing, err := b.storage.Querier().ListCountComment(ctx, catalogdb.ListCountCommentParams{
+			Limit:   null.Int32From(1),
+			RefType: []catalogdb.CatalogCommentRefType{catalogdb.CatalogCommentRefTypeProductSpu},
+			RefID:   []uuid.UUID{params.RefID},
+			OrderID: []uuid.UUID{params.OrderID},
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("check existing review", err)
+		}
+		if len(existing) > 0 && existing[0].TotalCount > 0 {
+			return zero, catalogmodel.ErrOrderAlreadyReviewed.Terminal()
+		}
 	}
 
 	comment, err := b.storage.Querier().CreateDefaultComment(ctx, catalogdb.CreateDefaultCommentParams{
@@ -136,6 +183,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		RefID:     params.RefID,
 		Body:      params.Body,
 		Score:     params.Score,
+		OrderID:   params.OrderID,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db create comment", err)
@@ -199,6 +247,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
 		Score:       comment.Score,
+		OrderID:     comment.OrderID,
 		DateCreated: comment.DateCreated,
 		DateUpdated: comment.DateUpdated,
 		Resources:   resources,
@@ -275,6 +324,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
 		Score:       comment.Score,
+		OrderID:     comment.OrderID,
 		DateCreated: comment.DateCreated,
 		DateUpdated: comment.DateUpdated,
 		Resources:   resources,
@@ -310,4 +360,46 @@ func (b *CatalogHandler) DeleteComment(ctx restate.Context, params DeleteComment
 	}
 
 	return nil
+}
+
+// getSkuIDsForSpu returns all SKU IDs belonging to the given SPU.
+func (b *CatalogHandler) getSkuIDsForSpu(ctx restate.Context, spuID uuid.UUID) ([]uuid.UUID, error) {
+	skus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+		SpuID: []uuid.UUID{spuID},
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("list product skus", err)
+	}
+	if len(skus) == 0 {
+		return nil, catalogmodel.ErrProductNotFound.Terminal()
+	}
+	return lo.Map(skus, func(sku catalogdb.CatalogProductSku, _ int) uuid.UUID {
+		return sku.ID
+	}), nil
+}
+
+// ListReviewableOrders returns completed orders for a product that the user can review.
+func (b *CatalogHandler) ListReviewableOrders(ctx restate.Context, params ListReviewableOrdersParams) ([]catalogmodel.ReviewableOrder, error) {
+	if err := validator.Validate(params); err != nil {
+		return nil, sharedmodel.WrapErr("validate list reviewable orders", err)
+	}
+
+	skuIDs, err := b.getSkuIDsForSpu(ctx, params.SpuID)
+	if err != nil {
+		return nil, err
+	}
+
+	type listParams struct {
+		AccountID uuid.UUID   `json:"account_id"`
+		SkuIDs    []uuid.UUID `json:"sku_ids"`
+	}
+	orders, err := restate.Service[[]catalogmodel.ReviewableOrder](ctx, "Order", "ListReviewableOrders").Request(listParams{
+		AccountID: params.Account.ID,
+		SkuIDs:    skuIDs,
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("list reviewable orders", err)
+	}
+
+	return orders, nil
 }

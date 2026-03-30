@@ -305,3 +305,79 @@ func (q *Queries) ListPendingItemsBySeller(ctx context.Context, arg ListPendingI
 	}
 	return items, nil
 }
+
+const listSuccessOrdersBySkus = `-- name: ListSuccessOrdersBySkus :many
+SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.payment_id, o.transport_id, o.confirmed_by_id, o.status, o.address, o.product_cost, o.product_discount, o.transport_cost, o.total, o.note, o.data, o.date_created
+FROM "order"."order" o
+JOIN "order"."item" i ON i."order_id" = o."id"
+WHERE o."buyer_id" = $1
+  AND i."sku_id" = ANY($2::uuid[])
+  AND o."status" = 'Success'
+ORDER BY o."date_created" DESC
+`
+
+type ListSuccessOrdersBySkusParams struct {
+	BuyerID uuid.UUID   `json:"buyer_id"`
+	SkuIds  []uuid.UUID `json:"sku_ids"`
+}
+
+func (q *Queries) ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error) {
+	rows, err := q.db.Query(ctx, listSuccessOrdersBySkus, arg.BuyerID, arg.SkuIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderOrder{}
+	for rows.Next() {
+		var i OrderOrder
+		if err := rows.Scan(
+			&i.ID,
+			&i.BuyerID,
+			&i.SellerID,
+			&i.PaymentID,
+			&i.TransportID,
+			&i.ConfirmedByID,
+			&i.Status,
+			&i.Address,
+			&i.ProductCost,
+			&i.ProductDiscount,
+			&i.TransportCost,
+			&i.Total,
+			&i.Note,
+			&i.Data,
+			&i.DateCreated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const validateOrderForReview = `-- name: ValidateOrderForReview :one
+SELECT EXISTS(
+    SELECT 1
+    FROM "order"."order" o
+    JOIN "order"."item" i ON i."order_id" = o."id"
+    WHERE o."id" = $1
+      AND o."buyer_id" = $2
+      AND i."sku_id" = ANY($3::uuid[])
+      AND o."status" = 'Success'
+) AS is_valid
+`
+
+type ValidateOrderForReviewParams struct {
+	OrderID uuid.UUID   `json:"order_id"`
+	BuyerID uuid.UUID   `json:"buyer_id"`
+	SkuIds  []uuid.UUID `json:"sku_ids"`
+}
+
+func (q *Queries) ValidateOrderForReview(ctx context.Context, arg ValidateOrderForReviewParams) (bool, error) {
+	row := q.db.QueryRow(ctx, validateOrderForReview, arg.OrderID, arg.BuyerID, arg.SkuIds)
+	var is_valid bool
+	err := row.Scan(&is_valid)
+	return is_valid, err
+}

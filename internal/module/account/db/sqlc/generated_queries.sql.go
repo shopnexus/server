@@ -599,6 +599,7 @@ type CreateCopyDefaultNotificationParams struct {
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
+	Title         string          `json:"title"`
 	Content       string          `json:"content"`
 	Metadata      json.RawMessage `json:"metadata"`
 	DateSent      null.Time       `json:"date_sent"`
@@ -812,8 +813,8 @@ func (q *Queries) CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultNotification = `-- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
@@ -821,6 +822,7 @@ type CreateDefaultNotificationParams struct {
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
+	Title         string          `json:"title"`
 	Content       string          `json:"content"`
 	Metadata      json.RawMessage `json:"metadata"`
 	DateSent      null.Time       `json:"date_sent"`
@@ -832,6 +834,7 @@ func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefau
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
+		arg.Title,
 		arg.Content,
 		arg.Metadata,
 		arg.DateSent,

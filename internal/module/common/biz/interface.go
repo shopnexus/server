@@ -3,6 +3,7 @@ package commonbiz
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/objectstore"
@@ -37,9 +38,17 @@ type CommonBiz interface {
 	ReverseGeocode(ctx context.Context, params ReverseGeocodeParams) (geocoding.Result, error)
 	ForwardGeocode(ctx context.Context, params ForwardGeocodeParams) (geocoding.Result, error)
 	SearchGeocode(ctx context.Context, params SearchGeocodeParams) ([]geocoding.Result, error)
+
+	// SSE
+	PushEvent(ctx context.Context, params PushEventParams) error
 }
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
+
+// SSEClient is a connected SSE client with a buffered channel.
+type SSEClient struct {
+	Ch chan []byte
+}
 
 // CommonHandler implements shared business logic used across modules.
 type CommonHandler struct {
@@ -47,6 +56,10 @@ type CommonHandler struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 	geocoder       geocoding.Client
+
+	// SSE client registry
+	sseMu      sync.RWMutex
+	sseClients map[uuid.UUID][]*SSEClient
 }
 
 func (b *CommonHandler) ServiceName() string {
@@ -56,9 +69,10 @@ func (b *CommonHandler) ServiceName() string {
 // NewcommonBiz creates a new CommonHandler with the given dependencies.
 func NewcommonBiz(cfg *config.Config, storage CommonStorage, geocoder geocoding.Client) (*CommonHandler, error) {
 	b := &CommonHandler{
-		config:   cfg,
-		storage:  storage,
-		geocoder: geocoder,
+		config:     cfg,
+		storage:    storage,
+		geocoder:   geocoder,
+		sseClients: make(map[uuid.UUID][]*SSEClient),
 	}
 
 	return b, errors.Join(

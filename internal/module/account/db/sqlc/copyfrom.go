@@ -255,6 +255,7 @@ func (r iteratorForCreateCopyDefaultNotification) Values() ([]interface{}, error
 		r.rows[0].AccountID,
 		r.rows[0].Type,
 		r.rows[0].Channel,
+		r.rows[0].Title,
 		r.rows[0].Content,
 		r.rows[0].Metadata,
 		r.rows[0].DateSent,
@@ -267,7 +268,7 @@ func (r iteratorForCreateCopyDefaultNotification) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultNotification(ctx context.Context, arg []CreateCopyDefaultNotificationParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "content", "metadata", "date_sent", "date_scheduled"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "notification"}, []string{"account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled"}, &iteratorForCreateCopyDefaultNotification{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultPaymentMethod implements pgx.CopyFromSource.
