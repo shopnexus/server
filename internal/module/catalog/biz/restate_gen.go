@@ -91,6 +91,10 @@ func (p *CatalogRestateClient) DeleteComment(ctx context.Context, params DeleteC
 	return restateclient.Send(ctx, p.client, serviceName, "DeleteComment", params)
 }
 
+func (p *CatalogRestateClient) ListReviewableOrders(ctx context.Context, params ListReviewableOrdersParams) ([]catalogmodel.ReviewableOrder, error) {
+	return restateclient.Call[[]catalogmodel.ReviewableOrder](ctx, p.client, serviceName, "ListReviewableOrders", params)
+}
+
 func (p *CatalogRestateClient) ListTag(ctx context.Context, params ListTagParams) (sharedmodel.PaginateResult[catalogdb.CatalogTag], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogTag]](ctx, p.client, serviceName, "ListTag", params)
 }
@@ -99,8 +103,8 @@ func (p *CatalogRestateClient) GetTag(ctx context.Context, params GetTagParams) 
 	return restateclient.Call[catalogdb.CatalogTag](ctx, p.client, serviceName, "GetTag", params)
 }
 
-func (p *CatalogRestateClient) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogdb.CatalogCategory], error) {
-	return restateclient.Call[sharedmodel.PaginateResult[catalogdb.CatalogCategory]](ctx, p.client, serviceName, "ListCategory", params)
+func (p *CatalogRestateClient) ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogmodel.Category], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[catalogmodel.Category]](ctx, p.client, serviceName, "ListCategory", params)
 }
 
 func (p *CatalogRestateClient) Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
