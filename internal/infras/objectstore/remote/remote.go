@@ -23,7 +23,6 @@ func (c *ClientImpl) Config() commonmodel.OptionConfig {
 		ID:          "remote",
 		Name:        "Remote Storage",
 		Provider:    "Remote",
-		Method:      "default",
 		Description: "Remote Object Storage",
 	}
 }

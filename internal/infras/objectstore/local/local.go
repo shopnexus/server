@@ -47,7 +47,6 @@ func (c *ClientImpl) Config() commonmodel.OptionConfig {
 		ID:          "local",
 		Name:        "Local Storage",
 		Provider:    "Local",
-		Method:      "default",
 		Description: "Local File System Storage",
 	}
 }

@@ -32,7 +32,6 @@ func NewClient(cfg ClientOptions) *ClientImpl {
 		config: sharedmodel.OptionConfig{
 			ID:       "card_" + cfg.Provider,
 			Provider: cfg.Provider,
-			Method:   "card",
 			Name:     "Card Payment (" + cfg.Provider + ")",
 		},
 		provider:  cfg.Provider,

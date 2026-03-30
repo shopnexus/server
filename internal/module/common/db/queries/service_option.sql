@@ -6,6 +6,6 @@ WHERE (
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
     ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL)
 )
-ORDER BY "order", "id" ASC
+ORDER BY "priority", "id" ASC
 LIMIT sqlc.narg('limit')
 OFFSET sqlc.narg('offset');

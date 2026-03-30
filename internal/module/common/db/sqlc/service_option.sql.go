@@ -12,14 +12,14 @@ import (
 )
 
 const listSortedServiceOption = `-- name: ListSortedServiceOption :many
-SELECT id, category, name, description, provider, method, is_active, "order"
+SELECT id, category, provider, is_active, name, description, priority, config, logo_rs_id
 FROM "common"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("is_active" = ANY($2) OR $2 IS NULL) AND
     ("category" = ANY($3) OR $3 IS NULL)
 )
-ORDER BY "order", "id" ASC
+ORDER BY "priority", "id" ASC
 LIMIT $5
 OFFSET $4
 `
@@ -50,12 +50,13 @@ func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedSer
 		if err := rows.Scan(
 			&i.ID,
 			&i.Category,
+			&i.Provider,
+			&i.IsActive,
 			&i.Name,
 			&i.Description,
-			&i.Provider,
-			&i.Method,
-			&i.IsActive,
-			&i.Order,
+			&i.Priority,
+			&i.Config,
+			&i.LogoRsID,
 		); err != nil {
 			return nil, err
 		}

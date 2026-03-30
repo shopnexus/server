@@ -17,8 +17,6 @@ import (
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
-	MethodBankTransfer sharedmodel.OptionMethod = "bank_transfer"
-
 	sandboxCheckoutURL = "https://pay-sandbox.sepay.vn/v1/checkout/init"
 	prodCheckoutURL    = "https://pay.sepay.vn/v1/checkout/init"
 
@@ -63,7 +61,6 @@ func NewClient(cfg ClientOptions) *ClientImpl {
 		config: sharedmodel.OptionConfig{
 			ID:       "sepay_bank_transfer",
 			Provider: "sepay",
-			Method:   MethodBankTransfer,
 			Name:     "SePay - Bank Transfer",
 		},
 		merchantID:   cfg.MerchantID,

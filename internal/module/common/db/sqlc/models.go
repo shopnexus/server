@@ -102,12 +102,13 @@ type CommonResourceReference struct {
 }
 
 type CommonServiceOption struct {
-	ID          string `json:"id"`
-	Category    string `json:"category"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Method      string `json:"method"`
-	IsActive    bool   `json:"is_active"`
-	Order       int32  `json:"order"`
+	ID          string          `json:"id"`
+	Category    string          `json:"category"`
+	Provider    string          `json:"provider"`
+	IsActive    bool            `json:"is_active"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	Config      json.RawMessage `json:"config"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
 }

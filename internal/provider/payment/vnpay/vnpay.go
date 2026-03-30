@@ -17,13 +17,14 @@ import (
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
-	MethodQR   sharedmodel.OptionMethod = "qr"
-	MethodBank sharedmodel.OptionMethod = "bank"
-	MethodATM  sharedmodel.OptionMethod = "atm"
+	MethodQR   = "qr"
+	MethodBank = "bank"
+	MethodATM  = "atm"
 )
 
 type ClientImpl struct {
 	config sharedmodel.OptionConfig
+	method string
 
 	tmnCode    string
 	hashSecret string
@@ -41,15 +42,15 @@ type ClientOptions struct {
 func NewClients(cfg ClientOptions) []*ClientImpl {
 	var clients []*ClientImpl
 
-	methods := []sharedmodel.OptionMethod{MethodQR, MethodBank, MethodATM}
+	methods := []string{MethodQR, MethodBank, MethodATM}
 	for _, method := range methods {
 		clients = append(clients, &ClientImpl{
 			config: sharedmodel.OptionConfig{
-				ID:       "vnpay_" + string(method),
+				ID:       "vnpay_" + method,
 				Provider: "vnpay",
-				Method:   method,
-				Name:     "VNPay - " + string(method),
+				Name:     "VNPay - " + method,
 			},
+			method:     method,
 			tmnCode:    cfg.TmnCode,
 			hashSecret: cfg.HashSecret,
 			returnURL:  cfg.ReturnURL,

@@ -16,14 +16,15 @@ import (
 )
 
 const (
-	ServiceExpress  sharedmodel.OptionMethod = "express"
-	ServiceStandard sharedmodel.OptionMethod = "standard"
-	ServiceEconomy  sharedmodel.OptionMethod = "economy"
+	ServiceExpress  = "express"
+	ServiceStandard = "standard"
+	ServiceEconomy  = "economy"
 )
 
 // GHTKClient implements the transport.Client interface for GHTK (fake implementation)
 type GHTKClient struct {
 	config   sharedmodel.OptionConfig
+	method   string
 	baseURL  string
 	apiKey   string
 	clientID string
@@ -66,17 +67,17 @@ type packageDetails struct {
 // NewClients creates new GHTK transport clients — one per service variant
 func NewClients(baseURL, apiKey, clientID string) []*GHTKClient {
 	var clients []*GHTKClient
-	methods := []sharedmodel.OptionMethod{ServiceExpress, ServiceStandard, ServiceEconomy}
+	methods := []string{ServiceExpress, ServiceStandard, ServiceEconomy}
 
 	for _, method := range methods {
 		clients = append(clients, &GHTKClient{
 			config: sharedmodel.OptionConfig{
 				ID:          fmt.Sprintf("ghtk_%s", method),
-				Name:        fmt.Sprintf("Giao hàng tiết kiệm - %s", string(method)),
+				Name:        fmt.Sprintf("Giao hàng tiết kiệm - %s", method),
 				Description: "Dịch vụ giao hàng nhanh của Giao hàng tiết kiệm",
 				Provider:    "ghtk",
-				Method:      method,
 			},
+			method:    method,
 			baseURL:   baseURL,
 			apiKey:    apiKey,
 			clientID:  clientID,
@@ -94,10 +95,10 @@ func (g *GHTKClient) Config() sharedmodel.OptionConfig {
 // Weight is extracted from PackageDetails of the first item.
 func (g *GHTKClient) Quote(ctx context.Context, params transport.QuoteParams) (transport.QuoteResult, error) {
 	weightGrams := g.extractWeight(params.Items)
-	cost := g.calculateShippingCost(weightGrams, g.config.Method)
+	cost := g.calculateShippingCost(weightGrams)
 
 	data, err := json.Marshal(ghtkData{
-		ETA: g.calculateETA(g.config.Method),
+		ETA: g.calculateETA(),
 	})
 	if err != nil {
 		return transport.QuoteResult{}, fmt.Errorf("marshal quote data: %w", err)
@@ -113,12 +114,12 @@ func (g *GHTKClient) Quote(ctx context.Context, params transport.QuoteParams) (t
 func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) (transport.Transport, error) {
 	trackingID := g.generateTrackingID()
 	weightGrams := g.extractWeight(params.Items)
-	cost := g.calculateShippingCost(weightGrams, g.config.Method)
-	eta := g.calculateETA(g.config.Method)
+	cost := g.calculateShippingCost(weightGrams)
+	eta := g.calculateETA()
 
 	ship := &fakeShipment{
 		ID:          trackingID,
-		Service:     string(g.config.Method),
+		Service:     g.method,
 		Status:      "LabelCreated",
 		Cost:        cost,
 		FromAddress: params.FromAddress,
@@ -145,7 +146,7 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 
 	return transport.Transport{
 		ID:     id,
-		Option: string(g.config.Method),
+		Option: g.method,
 		Cost:   int64(cost),
 		Data:   data,
 	}, nil
@@ -204,7 +205,7 @@ func (g *GHTKClient) extractWeight(items []transport.ItemMetadata) int32 {
 }
 
 // calculateShippingCost calculates shipping cost based on weight and service type.
-func (g *GHTKClient) calculateShippingCost(weightGrams int32, service sharedmodel.OptionMethod) sharedmodel.Concurrency {
+func (g *GHTKClient) calculateShippingCost(weightGrams int32) sharedmodel.Concurrency {
 	baseCost := sharedmodel.Int64ToConcurrency(15000) // 15,000 VND base cost
 
 	var weightCost sharedmodel.Concurrency
@@ -213,7 +214,7 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32, service sharedmode
 	}
 
 	serviceMultiplier := float64(1.0)
-	switch service {
+	switch g.method {
 	case ServiceExpress:
 		serviceMultiplier = 1.5
 	case ServiceStandard:
@@ -230,9 +231,9 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32, service sharedmode
 }
 
 // calculateETA calculates estimated time of arrival.
-func (g *GHTKClient) calculateETA(service sharedmodel.OptionMethod) time.Time {
+func (g *GHTKClient) calculateETA() time.Time {
 	now := time.Now()
-	switch service {
+	switch g.method {
 	case ServiceExpress:
 		return now.Add(24 * time.Hour)
 	case ServiceStandard:

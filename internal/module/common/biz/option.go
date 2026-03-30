@@ -5,13 +5,12 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/guregu/null/v6"
 	restate "github.com/restatedev/sdk-go"
 
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
-
-	"github.com/guregu/null/v6"
 )
 
 type UpdateServiceOptionsParams struct {
@@ -32,42 +31,47 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 	}
 
 	for index, cfg := range params.Configs {
+		config := cfg.Config
+		if config == nil {
+			config = []byte("{}")
+		}
+
 		_, err := b.storage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
 		if err != nil {
-			// if not found, create it
 			if errors.Is(err, sql.ErrNoRows) {
 				_, err = b.storage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
 					ID:          cfg.ID,
-					Category:    string(params.Category),
+					Category:    params.Category,
+					Provider:    cfg.Provider,
+					IsActive:    true,
 					Name:        cfg.Name,
 					Description: cfg.Description,
-					Provider:    cfg.Provider,
-					Method:      string(cfg.Method),
-					Order:       int32(index),
+					Priority:    int32(index),
+					Config:      config,
+					LogoRsID:    cfg.LogoRsID,
 				})
 				if err != nil {
-					return sharedmodel.WrapErr("db update service options", err)
+					return sharedmodel.WrapErr("db create service option", err)
 				}
 				continue
 			}
 
-			// other db error
-			return sharedmodel.WrapErr("db update service options", err)
-		} else {
-			// update existing
-			_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
-				ID:          cfg.ID,
-				Name:        null.StringFrom(cfg.Name),
-				Description: null.StringFrom(cfg.Description),
-				Provider:    null.StringFrom(cfg.Provider),
-				Method:      null.StringFrom(string(cfg.Method)),
-				IsActive:    null.BoolFrom(true),
-				Category:    null.StringFrom(string(params.Category)),
-				Order:       null.Int32From(int32(index)),
-			})
-			if err != nil {
-				return sharedmodel.WrapErr("db update service options", err)
-			}
+			return sharedmodel.WrapErr("db get service option", err)
+		}
+
+		_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
+			ID:          cfg.ID,
+			Category:    null.StringFrom(params.Category),
+			Provider:    null.StringFrom(cfg.Provider),
+			IsActive:    null.BoolFrom(true),
+			Name:        null.StringFrom(cfg.Name),
+			Description: null.StringFrom(cfg.Description),
+			Priority:    null.Int32From(int32(index)),
+			Config:      config,
+			LogoRsID:    cfg.LogoRsID,
+		})
+		if err != nil {
+			return sharedmodel.WrapErr("db update service option", err)
 		}
 	}
 
@@ -95,14 +99,15 @@ func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServic
 
 	var result []sharedmodel.OptionConfig
 	for _, dbOpt := range dbOptions {
-		opt := sharedmodel.OptionConfig{
+		result = append(result, sharedmodel.OptionConfig{
 			ID:          dbOpt.ID,
+			Provider:    dbOpt.Provider,
 			Name:        dbOpt.Name,
 			Description: dbOpt.Description,
-			Provider:    dbOpt.Provider,
-			Method:      sharedmodel.OptionMethod(dbOpt.Method),
-		}
-		result = append(result, opt)
+			Priority:    dbOpt.Priority,
+			Config:      dbOpt.Config,
+			LogoRsID:    dbOpt.LogoRsID,
+		})
 	}
 
 	return result, nil

@@ -59,7 +59,6 @@ func (s *ClientImpl) Config() commonmodel.OptionConfig {
 		ID:          "s3",
 		Name:        "Amazon S3",
 		Provider:    "AWS",
-		Method:      "default",
 		Description: "Amazon S3 Object Storage",
 	}
 }
