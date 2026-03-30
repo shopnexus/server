@@ -37,9 +37,9 @@ func (b *OrderHandler) SetupPaymentMap() error {
 			SecretKey:    sepayCfg.SecretKey,
 			IPNSecretKey: sepayCfg.IPNSecretKey,
 			SuccessURL:   sepayCfg.SuccessURL,
-			ErrorURL:   sepayCfg.ErrorURL,
-			CancelURL:  sepayCfg.CancelURL,
-			Sandbox:    sepayCfg.Sandbox,
+			ErrorURL:     sepayCfg.ErrorURL,
+			CancelURL:    sepayCfg.CancelURL,
+			Sandbox:      sepayCfg.Sandbox,
 		})
 		b.paymentMap[sepayClient.Config().ID] = sepayClient
 		configs = append(configs, sepayClient.Config())

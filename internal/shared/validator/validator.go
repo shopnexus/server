@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sync"
 
-	commonmodel "shopnexus-server/internal/shared/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/bytedance/sonic"
@@ -74,7 +73,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 			return valErr
 		}
 
-		return commonmodel.ErrValidation.Fmt(string(text))
+		return sharedmodel.ErrValidation.Fmt(string(text))
 	}
 
 	return err

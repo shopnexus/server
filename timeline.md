@@ -100,9 +100,9 @@ Also when finding subcribers, I can search globally by "OrderCreated*" or "Order
 - Inserting into milvus took 60seconds per 100 products
 ![img.png](images/img6.png)
 
-## 7-10-2025 Refactor payment and shipment with better interface
+## 7-10-2025 Refactor payment and transport with better interface
 
-- Maintainer will now easier to add new payment gateway or shipment provider
+- Maintainer will now easier to add new payment gateway or transport provider
 
 ```go
 func (s *orderBiz) SetupPaymentMap() error {
@@ -134,7 +134,7 @@ func (s *orderBiz) SetupPaymentMap() error {
 }
 ```
 
-- Create shared service option table to store the payment and shipment options
+- Create shared service option table to store the payment and transport options
 
 ```sql
 CREATE TABLE "shared"."service_option" (

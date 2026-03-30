@@ -9,7 +9,6 @@ Manages the full order lifecycle: cart, checkout, seller confirmation, payment, 
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"order.order" }o--|o "order.payment" : "payment_id"
 "order.order" }o--|o "order.transport" : "transport_id"
 "order.item" }o--|o "order.order" : "order_id"
 "order.refund" }o--|o "order.transport" : "transport_id"
@@ -63,6 +62,7 @@ erDiagram
   status status
   bigint amount
   jsonb data
+  uuid payment_method_id
   timestamptz date_created
   timestamptz date_paid
   timestamptz date_expired

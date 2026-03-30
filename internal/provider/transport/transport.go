@@ -3,9 +3,9 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
-	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 type Client interface {

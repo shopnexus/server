@@ -3,9 +3,8 @@ package remote
 import (
 	"context"
 	"io"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
-
-	commonmodel "shopnexus-server/internal/shared/model"
 )
 
 type ClientImpl struct {
@@ -18,8 +17,8 @@ func NewClient(cfg RemoteConfig) *ClientImpl {
 	return &ClientImpl{}
 }
 
-func (c *ClientImpl) Config() commonmodel.OptionConfig {
-	return commonmodel.OptionConfig{
+func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+	return sharedmodel.OptionConfig{
 		ID:          "remote",
 		Name:        "Remote Storage",
 		Provider:    "Remote",

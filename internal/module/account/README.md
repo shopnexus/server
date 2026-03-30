@@ -17,7 +17,6 @@ erDiagram
 "account.notification" }o--|| "account.account" : "account_id"
 "account.contact" }o--|| "account.account" : "account_id"
 "account.favorite" }o--|| "account.account" : "account_id"
-"account.payment_method" }o--|| "account.account" : "account_id"
 "chat.conversation" }o--|| "account.account" : "buyer_id"
 "chat.conversation" }o--|| "account.account" : "seller_id"
 "chat.message" }o--|| "account.account" : "sender_id"
@@ -79,6 +78,7 @@ erDiagram
   uuid id
   uuid account_id
   varchar(50) type
+  varchar(50) provider
   varchar(100) label
   jsonb data
   boolean is_default

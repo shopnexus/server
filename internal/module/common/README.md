@@ -67,7 +67,7 @@ Each resource record tracks its `provider`, so URLs resolve against the correct 
 
 ### Service Options Registry
 
-Generic registry for configurable providers (payment, shipment, objectstore). Each option has an ID, category, provider, method, name, and description. Auto-synced on module startup. Other modules call `UpdateServiceOptions` to register their providers.
+Generic registry for configurable providers (payment, transport, objectstore). Each option has an ID, category, provider, method, name, and description. Auto-synced on module startup. Other modules call `UpdateServiceOptions` to register their providers.
 
 ### Geocoding
 

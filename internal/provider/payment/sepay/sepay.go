@@ -31,10 +31,10 @@ type ClientImpl struct {
 	secretKey    string
 	ipnSecretKey string
 	checkoutURL  string
-	apiURL      string
-	successURL  string
-	errorURL    string
-	cancelURL   string
+	apiURL       string
+	successURL   string
+	errorURL     string
+	cancelURL    string
 
 	handlers []payment.ResultHandler
 }
@@ -44,9 +44,9 @@ type ClientOptions struct {
 	SecretKey    string // checkout signing + API Basic Auth
 	IPNSecretKey string // X-Secret-Key webhook verification
 	SuccessURL   string
-	ErrorURL   string
-	CancelURL  string
-	Sandbox    bool
+	ErrorURL     string
+	CancelURL    string
+	Sandbox      bool
 }
 
 func NewClient(cfg ClientOptions) *ClientImpl {
@@ -67,10 +67,10 @@ func NewClient(cfg ClientOptions) *ClientImpl {
 		secretKey:    cfg.SecretKey,
 		ipnSecretKey: cfg.IPNSecretKey,
 		checkoutURL:  checkoutURL,
-		apiURL:      apiURL,
-		successURL:  cfg.SuccessURL,
-		errorURL:    cfg.ErrorURL,
-		cancelURL:   cfg.CancelURL,
+		apiURL:       apiURL,
+		successURL:   cfg.SuccessURL,
+		errorURL:     cfg.ErrorURL,
+		cancelURL:    cfg.CancelURL,
 	}
 }
 

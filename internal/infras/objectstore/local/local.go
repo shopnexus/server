@@ -7,10 +7,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"strings"
 	"time"
-
-	commonmodel "shopnexus-server/internal/shared/model"
 )
 
 type ClientImpl struct {
@@ -42,8 +41,8 @@ func (c *ClientImpl) fullPath(key string) string {
 	return filepath.Join(c.root, clean)
 }
 
-func (c *ClientImpl) Config() commonmodel.OptionConfig {
-	return commonmodel.OptionConfig{
+func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+	return sharedmodel.OptionConfig{
 		ID:          "local",
 		Name:        "Local Storage",
 		Provider:    "Local",

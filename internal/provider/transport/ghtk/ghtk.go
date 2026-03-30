@@ -29,11 +29,11 @@ type GHTKClient struct {
 	apiKey   string
 	clientID string
 
-	shipments map[string]*fakeShipment // In-memory storage for fake tracking
+	transports map[string]*fakeTransport // In-memory storage for fake tracking
 }
 
-// fakeShipment represents a fake shipment in our mock system
-type fakeShipment struct {
+// fakeTransport represents a fake transport in our mock system
+type fakeTransport struct {
 	ID      string
 	Service string
 	Status  string
@@ -77,11 +77,11 @@ func NewClients(baseURL, apiKey, clientID string) []*GHTKClient {
 				Description: "Dịch vụ giao hàng nhanh của Giao hàng tiết kiệm",
 				Provider:    "ghtk",
 			},
-			method:    method,
-			baseURL:   baseURL,
-			apiKey:    apiKey,
-			clientID:  clientID,
-			shipments: make(map[string]*fakeShipment),
+			method:     method,
+			baseURL:    baseURL,
+			apiKey:     apiKey,
+			clientID:   clientID,
+			transports: make(map[string]*fakeTransport),
 		})
 	}
 	return clients
@@ -91,7 +91,7 @@ func (g *GHTKClient) Config() sharedmodel.OptionConfig {
 	return g.config
 }
 
-// Quote calculates estimated cost without creating a shipment.
+// Quote calculates estimated cost without creating a transport.
 // Weight is extracted from PackageDetails of the first item.
 func (g *GHTKClient) Quote(ctx context.Context, params transport.QuoteParams) (transport.QuoteResult, error) {
 	weightGrams := g.extractWeight(params.Items)
@@ -110,14 +110,14 @@ func (g *GHTKClient) Quote(ctx context.Context, params transport.QuoteParams) (t
 	}, nil
 }
 
-// Create books a shipment and returns transport with tracking data in Data JSONB.
+// Create books a transport and returns transport with tracking data in Data JSONB.
 func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) (transport.Transport, error) {
 	trackingID := g.generateTrackingID()
 	weightGrams := g.extractWeight(params.Items)
 	cost := g.calculateShippingCost(weightGrams)
 	eta := g.calculateETA()
 
-	ship := &fakeShipment{
+	ship := &fakeTransport{
 		ID:          trackingID,
 		Service:     g.method,
 		Status:      "LabelCreated",
@@ -128,7 +128,7 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-	g.shipments[trackingID] = ship
+	g.transports[trackingID] = ship
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -154,12 +154,12 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 
 // Track returns the current status for a given tracking id.
 func (g *GHTKClient) Track(ctx context.Context, id string) (transport.TrackResult, error) {
-	ship, exists := g.shipments[id]
+	ship, exists := g.transports[id]
 	if !exists {
 		return transport.TrackResult{}, fmt.Errorf("tracking id not found: %s", id)
 	}
 
-	g.updateShipmentStatus(ship)
+	g.updateStatus(ship)
 
 	location := g.getCurrentLocation(ship)
 	data, err := json.Marshal(ghtkData{
@@ -176,15 +176,15 @@ func (g *GHTKClient) Track(ctx context.Context, id string) (transport.TrackResul
 	}, nil
 }
 
-// Cancel attempts to cancel a shipment by its tracking id.
+// Cancel attempts to cancel a transport by its tracking id.
 func (g *GHTKClient) Cancel(ctx context.Context, id string) error {
-	ship, exists := g.shipments[id]
+	ship, exists := g.transports[id]
 	if !exists {
 		return fmt.Errorf("tracking id not found: %s", id)
 	}
 
 	if ship.Status == "Delivered" {
-		return fmt.Errorf("cannot cancel delivered shipment: %s", id)
+		return fmt.Errorf("cannot cancel delivered transport: %s", id)
 	}
 
 	ship.Status = "Cancelled"
@@ -245,8 +245,8 @@ func (g *GHTKClient) calculateETA() time.Time {
 	}
 }
 
-// updateShipmentStatus simulates shipment status progression.
-func (g *GHTKClient) updateShipmentStatus(ship *fakeShipment) {
+// updateStatus simulates status progression.
+func (g *GHTKClient) updateStatus(ship *fakeTransport) {
 	now := time.Now()
 	elapsed := now.Sub(ship.CreatedAt)
 
@@ -264,8 +264,8 @@ func (g *GHTKClient) updateShipmentStatus(ship *fakeShipment) {
 	ship.UpdatedAt = now
 }
 
-// getCurrentLocation returns a fake location based on shipment status.
-func (g *GHTKClient) getCurrentLocation(ship *fakeShipment) string {
+// getCurrentLocation returns a fake location based on transport status.
+func (g *GHTKClient) getCurrentLocation(ship *fakeTransport) string {
 	switch ship.Status {
 	case "LabelCreated":
 		return "Hà Nội - Đang chuẩn bị hàng"

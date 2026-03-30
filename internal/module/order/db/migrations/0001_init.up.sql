@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
 );
 
 -- Refund request raised by the buyer after a completed order. transport_id is set
--- when the return shipment is created (for PickUp/DropOff methods).
+-- when the return transport is created (for PickUp/DropOff methods).
 -- confirmed_by_id is the seller or admin who approved the refund.
 CREATE TABLE IF NOT EXISTS "order"."refund" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
     "order_id" UUID NOT NULL,
     -- Account (seller/admin) that approved or rejected the refund
     "confirmed_by_id" UUID,
-    -- Return shipment record; NULL until return label is generated
+    -- Return transport record; NULL until return label is generated
     "transport_id" UUID,
     "method" "order"."refund_method" NOT NULL,
     "status" "order"."status" NOT NULL DEFAULT 'Pending',

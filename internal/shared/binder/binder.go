@@ -4,10 +4,9 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"strconv"
 	"strings"
-
-	commonmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/labstack/echo/v4"
 )
@@ -29,12 +28,12 @@ func (cb *CustomBinder) Bind(i any, c echo.Context) error {
 
 	// Handle comma-separated fields first
 	if err := cb.bindCommaSeparatedFields(i, c, commaSeparatedFields); err != nil {
-		return commonmodel.ErrValidation.Fmt("failed to bind comma-separated fields: %v", err)
+		return sharedmodel.ErrValidation.Fmt("failed to bind comma-separated fields: %v", err)
 	}
 
 	// Then handle regular fields with modified query params
 	if err := cb.bindRegularFields(i, c, commaSeparatedFields); err != nil {
-		return commonmodel.ErrValidation.Fmt(err.Error())
+		return sharedmodel.ErrValidation.Fmt(err.Error())
 	}
 
 	return nil
@@ -122,9 +121,9 @@ func (cb *CustomBinder) bindRegularFields(i any, c echo.Context, commaSeparatedF
 	// Bind body using default binder (JSON errors already include field context)
 	if err := cb.DefaultBinder.BindBody(c, i); err != nil {
 		if he, ok := err.(*echo.HTTPError); ok && he.Internal != nil {
-			return commonmodel.ErrValidation.Fmt(he.Internal.Error())
+			return sharedmodel.ErrValidation.Fmt(he.Internal.Error())
 		}
-		return commonmodel.ErrValidation.Fmt(err.Error())
+		return sharedmodel.ErrValidation.Fmt(err.Error())
 	}
 
 	return nil
@@ -165,7 +164,7 @@ func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c ec
 			}
 			if value := c.QueryParam(queryTag); value != "" {
 				if err := cb.setSingleValueFromString(field, value); err != nil {
-					return commonmodel.ErrValidation.Fmt("query param '%s': %v", queryTag, err)
+					return sharedmodel.ErrValidation.Fmt("query param '%s': %v", queryTag, err)
 				}
 			}
 			continue
@@ -175,7 +174,7 @@ func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c ec
 		if paramTag := fieldType.Tag.Get("param"); paramTag != "" {
 			if value := c.Param(paramTag); value != "" {
 				if err := cb.setSingleValueFromString(field, value); err != nil {
-					return commonmodel.ErrValidation.Fmt("path param '%s': %v", paramTag, err)
+					return sharedmodel.ErrValidation.Fmt("path param '%s': %v", paramTag, err)
 				}
 			}
 			continue
