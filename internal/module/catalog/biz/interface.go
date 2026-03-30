@@ -72,6 +72,7 @@ type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
 // CatalogHandler implements the core business logic for the catalog module.
 type CatalogHandler struct {
+	config        *config.Config
 	cache         cache.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
@@ -112,6 +113,7 @@ func NewCatalogHandler(
 ) *CatalogHandler {
 
 	b := &CatalogHandler{
+		config:        cfg,
 		cache:         cache,
 		restateClient: restateClient,
 		storage:       storage,

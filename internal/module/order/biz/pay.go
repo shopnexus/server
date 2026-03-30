@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 
-	"shopnexus-server/config"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
@@ -115,7 +114,7 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersPara
 	}
 
 	payInfo, err := restate.Run(ctx, func(ctx restate.RunContext) (paymentResult, error) {
-		expiryDays := config.GetConfig().App.Order.PaymentExpiryDays
+		expiryDays := b.config.App.Order.PaymentExpiryDays
 		if expiryDays <= 0 {
 			expiryDays = 30
 		}

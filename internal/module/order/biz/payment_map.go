@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	"shopnexus-server/config"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -21,9 +20,9 @@ func (b *OrderHandler) SetupPaymentMap() error {
 
 	// setup vnpay client
 	vnpayClients := vnpay.NewClients(vnpay.ClientOptions{
-		TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
-		HashSecret: config.GetConfig().App.Vnpay.HashSecret,
-		ReturnURL:  config.GetConfig().App.Vnpay.ReturnURL,
+		TmnCode:    b.config.App.Vnpay.TmnCode,
+		HashSecret: b.config.App.Vnpay.HashSecret,
+		ReturnURL:  b.config.App.Vnpay.ReturnURL,
 	})
 	for _, c := range vnpayClients {
 		b.paymentMap[c.Config().ID] = c
@@ -31,7 +30,7 @@ func (b *OrderHandler) SetupPaymentMap() error {
 	}
 
 	// setup sepay client
-	sepayCfg := config.GetConfig().App.Sepay
+	sepayCfg := b.config.App.Sepay
 	if sepayCfg.MerchantID != "" {
 		sepayClient := sepay.NewClient(sepay.ClientOptions{
 			MerchantID:   sepayCfg.MerchantID,
@@ -47,7 +46,7 @@ func (b *OrderHandler) SetupPaymentMap() error {
 	}
 
 	// setup card payment client
-	cardCfg := config.GetConfig().App.CardPayment
+	cardCfg := b.config.App.CardPayment
 	if cardCfg.Provider != "" {
 		cardClient := card.NewClient(card.ClientOptions{
 			Provider:  cardCfg.Provider,

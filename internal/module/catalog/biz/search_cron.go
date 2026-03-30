@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 
-	"shopnexus-server/config"
 	restateclient "shopnexus-server/internal/infras/restate"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
@@ -24,14 +23,12 @@ const (
 
 // SetupCron starts background cron jobs for syncing product metadata and embeddings.
 func (b *CatalogHandler) SetupCron() error {
-	cfg := config.GetConfig()
-
-	metadataInterval := cfg.App.Search.ProductMetadataSyncInterval
+	metadataInterval := b.config.App.Search.ProductMetadataSyncInterval
 	if metadataInterval <= 0 {
 		metadataInterval = time.Second
 	}
 
-	embeddingInterval := cfg.App.Search.ProductEmbeddingSyncInterval
+	embeddingInterval := b.config.App.Search.ProductEmbeddingSyncInterval
 	if embeddingInterval <= 0 {
 		embeddingInterval = time.Second
 	}

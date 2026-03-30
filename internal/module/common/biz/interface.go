@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/objectstore"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
@@ -42,6 +43,7 @@ type CommonStorage = pgsqlc.Storage[*commondb.Queries]
 
 // CommonHandler implements shared business logic used across modules.
 type CommonHandler struct {
+	config         *config.Config
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 	geocoder       geocoding.Client
@@ -52,8 +54,9 @@ func (b *CommonHandler) ServiceName() string {
 }
 
 // NewcommonBiz creates a new CommonHandler with the given dependencies.
-func NewcommonBiz(storage CommonStorage, geocoder geocoding.Client) (*CommonHandler, error) {
+func NewcommonBiz(cfg *config.Config, storage CommonStorage, geocoder geocoding.Client) (*CommonHandler, error) {
 	b := &CommonHandler{
+		config:   cfg,
 		storage:  storage,
 		geocoder: geocoder,
 	}

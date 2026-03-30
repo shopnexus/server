@@ -2,7 +2,6 @@ package accountbiz
 
 import (
 	"errors"
-	"shopnexus-server/config"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	authclaims "shopnexus-server/internal/shared/claims"
@@ -241,7 +240,7 @@ type RefreshResult struct {
 // Refresh validates a refresh token and issues new access and refresh tokens.
 func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
-	claims, err := authclaims.ValidateAccessToken(config.GetConfig().App.JWT.RefreshSecret, refreshToken)
+	claims, err := authclaims.ValidateAccessToken(a.config.App.JWT.RefreshSecret, refreshToken)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("validate refresh token", err)
 	}

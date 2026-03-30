@@ -54,23 +54,22 @@ CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
 );
 
 -- Registry of pluggable service integrations selectable at checkout or configuration time.
--- category groups related providers (e.g. 'payment', 'shipping').
+-- category groups related providers (e.g. 'payment', 'transport').
 -- provider and method identify the specific adapter implementation.
--- "order" controls display order within a category in the UI.
+-- "priority" controls display priority within a category in the UI.
 CREATE TABLE IF NOT EXISTS "common"."service_option" (
-    -- Stable identifier for this option (e.g. 'stripe', 'vnpay', 'ghn')
+    -- Stable identifier for this option (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
     "id" VARCHAR(100) NOT NULL,
-    -- Grouping key (e.g. 'payment', 'shipping', 'notification')
+    -- Grouping key (e.g. 'payment', 'transport', ...)
     "category" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
     -- Backend adapter identifier (e.g. 'stripe', 'ghn')
     "provider" TEXT NOT NULL,
-    -- Handler method within the provider adapter
-    "method" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
-    -- Display order within the category
-    "order" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "priority" INTEGER NOT NULL,
+    "config" JSONB NOT NULL,
+    "logo_rs_id" UUID,
     CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
 );
 
@@ -85,3 +84,7 @@ CREATE INDEX IF NOT EXISTS "service_option_category_provider_idx" ON "common"."s
 ALTER TABLE "common"."resource_reference"
     ADD CONSTRAINT "resource_reference_rs_id_fkey"
     FOREIGN KEY ("rs_id") REFERENCES "common"."resource" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "common"."service_option"
+    ADD CONSTRAINT "service_option_logo_rs_id_fkey"
+    FOREIGN KEY ("logo_rs_id") REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"shopnexus-server/config"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
@@ -64,6 +65,7 @@ type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 
 // OrderHandler implements the core business logic for the order module.
 type OrderHandler struct {
+	config       *config.Config
 	storage      OrderStorage
 	paymentMap   map[string]payment.Client
 	transportMap map[string]transport.Client
@@ -85,6 +87,7 @@ func (b *OrderHandler) PaymentClients() map[string]payment.Client {
 
 // NewOrderHandler creates a new OrderHandler with the given dependencies.
 func NewOrderHandler(
+	cfg *config.Config,
 	storage OrderStorage,
 	account accountbiz.AccountBiz,
 	catalog catalogbiz.CatalogBiz,
@@ -93,6 +96,7 @@ func NewOrderHandler(
 	common commonbiz.CommonBiz,
 ) (*OrderHandler, error) {
 	b := &OrderHandler{
+		config:    cfg,
 		storage:   storage,
 		account:   account,
 		catalog:   catalog,

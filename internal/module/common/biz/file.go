@@ -8,7 +8,6 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/objectstore"
 	objlocal "shopnexus-server/internal/infras/objectstore/local"
 	objremote "shopnexus-server/internal/infras/objectstore/remote"
@@ -36,11 +35,11 @@ func (b *CommonHandler) SetupObjectStore() error {
 
 	// setup s3
 	s3, err := objs3.NewClient(objs3.S3Config{
-		AccessKeyID:     config.GetConfig().Filestore.S3.AccessKeyID,
-		SecretAccessKey: config.GetConfig().Filestore.S3.SecretAccessKey,
-		Region:          config.GetConfig().Filestore.S3.Region,
-		Bucket:          config.GetConfig().Filestore.S3.Bucket,
-		CloudfrontURL:   config.GetConfig().Filestore.S3.CloudfrontURL,
+		AccessKeyID:     b.config.Filestore.S3.AccessKeyID,
+		SecretAccessKey: b.config.Filestore.S3.SecretAccessKey,
+		Region:          b.config.Filestore.S3.Region,
+		Bucket:          b.config.Filestore.S3.Bucket,
+		CloudfrontURL:   b.config.Filestore.S3.CloudfrontURL,
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("setup s3 objectstore", err)
@@ -65,7 +64,7 @@ func (b *CommonHandler) SetupObjectStore() error {
 
 // getPlaceholderURL returns the configured 404 placeholder image URL, if any.
 func (b *CommonHandler) getPlaceholderURL() string {
-	return config.GetConfig().Filestore.Placeholder404Url
+	return b.config.Filestore.Placeholder404Url
 }
 
 func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
@@ -108,13 +107,13 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 
 	myKey := fmt.Sprintf("%s_%s", uuid.New().String(), params.Filename)
 
-	objectKey, err = b.mustGetObjectStore(config.GetConfig().Filestore.Type).Upload(ctx, myKey, params.File, params.Private)
+	objectKey, err = b.mustGetObjectStore(b.config.Filestore.Type).Upload(ctx, myKey, params.File, params.Private)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("upload local", err)
 	}
 
 	resource, err := b.storage.Querier().CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
-		Provider:   config.GetConfig().Filestore.Type,
+		Provider:   b.config.Filestore.Type,
 		ObjectKey:  objectKey,
 		UploadedBy: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		Mime:       params.ContentType,
@@ -125,14 +124,14 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 		return zero, sharedmodel.WrapErr("insert resource", err)
 	}
 
-	url, err := b.mustGetObjectStore(config.GetConfig().Filestore.Type).GetURL(ctx, objectKey)
+	url, err := b.mustGetObjectStore(b.config.Filestore.Type).GetURL(ctx, objectKey)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get file url", err)
 	}
 
 	return UploadFileResult{
 		ResourceID: resource.ID,
-		Provider:   config.GetConfig().Filestore.Type,
+		Provider:   b.config.Filestore.Type,
 		ObjectKey:  objectKey,
 		URL:        url,
 	}, nil
