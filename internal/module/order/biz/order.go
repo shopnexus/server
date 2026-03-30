@@ -25,11 +25,11 @@ import (
 	"github.com/samber/lo"
 )
 
-// GetOrder returns a single order by ID with all items and payment details.
-func (b *OrderHandler) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
+// GetBuyerOrder returns a single order by ID with all items and payment details.
+func (b *OrderHandler) GetBuyerOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
-	orders, err := b.ListOrders(ctx, ListOrdersParams{
+	orders, err := b.ListBuyerConfirmed(ctx, ListBuyerConfirmedParams{
 		ID: []uuid.UUID{orderID},
 	})
 	if err != nil {
@@ -42,8 +42,13 @@ func (b *OrderHandler) GetOrder(ctx restate.Context, orderID uuid.UUID) (ordermo
 	return orders.Data[0], nil
 }
 
-// ListOrders returns paginated orders with hydrated items, payments, and product resources.
-func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+// GetSellerOrder returns a single order by ID (seller perspective).
+func (b *OrderHandler) GetSellerOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
+	return b.GetBuyerOrder(ctx, orderID)
+}
+
+// ListBuyerConfirmed returns paginated orders with hydrated items, payments, and product resources.
+func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
@@ -57,6 +62,7 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 			ID:     params.ID,
 		})
 	})
+
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db list orders", err)
 	}
@@ -81,8 +87,8 @@ func (b *OrderHandler) ListOrders(ctx restate.Context, params ListOrdersParams) 
 	}, nil
 }
 
-// ListSellerOrders returns paginated orders for the seller with optional payment/order status filters.
-func (b *OrderHandler) ListSellerOrders(ctx restate.Context, params ListSellerOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+// ListSellerConfirmed returns paginated orders for the seller with optional payment/order status filters.
+func (b *OrderHandler) ListSellerConfirmed(ctx restate.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
@@ -216,10 +222,6 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			}
 		}
 
-		var note *string
-		if o.Note.Valid {
-			note = &o.Note.String
-		}
 
 		result = append(result, ordermodel.Order{
 			ID:              o.ID,
@@ -233,7 +235,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			ProductDiscount: sharedmodel.Concurrency(o.ProductDiscount),
 			TransportCost:   sharedmodel.Concurrency(o.TransportCost),
 			Total:           sharedmodel.Concurrency(o.Total),
-			Note:            note,
+			Note:            o.Note,
 			Data:            o.Data,
 			DateCreated:     o.DateCreated,
 			Items:           enrichedItemsMap[o.ID],
@@ -337,12 +339,12 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	return nil
 }
 
-// CancelOrder cancels a pending order along with its items.
+// CancelBuyerOrder cancels a pending order along with its items.
 // If unpaid (payment_id NULL): cancel order + items, release inventory.
 // If paid: return error (should use refund flow).
-func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams) error {
-	// GetOrder has its own Run internally
-	order, err := b.GetOrder(ctx, params.OrderID)
+func (b *OrderHandler) CancelBuyerOrder(ctx restate.Context, params CancelBuyerOrderParams) error {
+	// GetBuyerOrder has its own Run internally
+	order, err := b.GetBuyerOrder(ctx, params.OrderID)
 	if err != nil {
 		return sharedmodel.WrapErr("fetch order", err)
 	}
@@ -412,7 +414,7 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 		Type:      accountmodel.NotiOrderCancelled,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Order cancelled",
-		Content:   fmt.Sprintf("Your order %s has been cancelled.", order.ID),
+		Content:   fmt.Sprintf("Your order for %s has been cancelled.", ordermodel.SummarizeItems(order.Items)),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
 	})
 
@@ -431,4 +433,54 @@ func (b *OrderHandler) CancelOrder(ctx restate.Context, params CancelOrderParams
 	})
 
 	return nil
+}
+
+// HasPurchasedProduct checks if an account has a successful order containing any of the given SKU IDs.
+func (b *OrderHandler) HasPurchasedProduct(ctx restate.Context, params HasPurchasedProductParams) (bool, error) {
+	if err := validator.Validate(params); err != nil {
+		return false, sharedmodel.WrapErr("validate has purchased product", err)
+	}
+
+	return b.storage.Querier().HasPurchasedSku(ctx, orderdb.HasPurchasedSkuParams{
+		AccountID: params.AccountID,
+		SkuIds:    params.SkuIDs,
+	})
+}
+
+// ListReviewableOrders returns successful orders that contain items matching the given SKU IDs.
+func (b *OrderHandler) ListReviewableOrders(ctx restate.Context, params ListReviewableOrdersParams) ([]ReviewableOrder, error) {
+	if err := validator.Validate(params); err != nil {
+		return nil, sharedmodel.WrapErr("validate list reviewable orders", err)
+	}
+
+	orders, err := b.storage.Querier().ListSuccessOrdersBySkus(ctx, orderdb.ListSuccessOrdersBySkusParams{
+		BuyerID: params.AccountID,
+		SkuIds:  params.SkuIDs,
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("db list reviewable orders", err)
+	}
+
+	result := make([]ReviewableOrder, len(orders))
+	for i, o := range orders {
+		result[i] = ReviewableOrder{
+			ID:          o.ID,
+			Total:       o.Total,
+			DateCreated: o.DateCreated,
+		}
+	}
+	return result, nil
+}
+
+// ValidateOrderForReview checks if a specific order is eligible for review.
+func (b *OrderHandler) ValidateOrderForReview(ctx restate.Context, params ValidateOrderForReviewParams) (bool, error) {
+	if err := validator.Validate(params); err != nil {
+		return false, sharedmodel.WrapErr("validate order for review", err)
+	}
+
+	return b.storage.Querier().ValidateOrderForReview(ctx, orderdb.ValidateOrderForReviewParams{
+		OrderID: params.OrderID,
+		BuyerID: params.AccountID,
+		SkuIds:  params.SkuIDs,
+	})
 }

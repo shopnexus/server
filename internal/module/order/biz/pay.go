@@ -25,9 +25,9 @@ type orderInfo struct {
 	Total int64  `json:"total"`
 }
 
-// PayOrders creates a payment for one or more unpaid orders belonging to the buyer.
-func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (PayOrdersResult, error) {
-	var zero PayOrdersResult
+// PayBuyerOrders creates a payment for one or more unpaid orders belonging to the buyer.
+func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error) {
+	var zero PayBuyerOrdersResult
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate pay orders", err)
@@ -100,8 +100,8 @@ func (b *OrderHandler) PayOrders(ctx restate.Context, params PayOrdersParams) (P
 }
 
 // payWithRedirect handles redirect-based payments (VNPay, SePay, COD).
-func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersParams, option string, totalAmount sharedmodel.Concurrency) (PayOrdersResult, error) {
-	var zero PayOrdersResult
+func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayBuyerOrdersParams, option string, totalAmount sharedmodel.Concurrency) (PayBuyerOrdersResult, error) {
+	var zero PayBuyerOrdersResult
 
 	paymentClient, err := b.getPaymentClient(option)
 	if err != nil {
@@ -174,13 +174,13 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayOrdersPara
 
 // payWithSavedMethod handles charging a saved card.
 // TODO: Complete implementation after account payment method biz is wired (Task 7).
-func (b *OrderHandler) payWithSavedMethod(ctx restate.Context, params PayOrdersParams, paymentMethodID string, totalAmount sharedmodel.Concurrency) (PayOrdersResult, error) {
-	return PayOrdersResult{}, sharedmodel.NewError(501, "saved card payment not yet implemented").Terminal()
+func (b *OrderHandler) payWithSavedMethod(ctx restate.Context, params PayBuyerOrdersParams, paymentMethodID string, totalAmount sharedmodel.Concurrency) (PayBuyerOrdersResult, error) {
+	return PayBuyerOrdersResult{}, sharedmodel.NewError(501, "saved card payment not yet implemented").Terminal()
 }
 
 // fetchPaymentResult fetches the created payment and builds the response.
-func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, redirectURL string) (PayOrdersResult, error) {
-	var zero PayOrdersResult
+func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, redirectURL string) (PayBuyerOrdersResult, error) {
+	var zero PayBuyerOrdersResult
 
 	paymentModel, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Payment, error) {
 		dbPay, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
@@ -220,7 +220,7 @@ func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, 
 		redirectUrl = &redirectURL
 	}
 
-	return PayOrdersResult{
+	return PayBuyerOrdersResult{
 		Payment:     paymentModel,
 		RedirectUrl: redirectUrl,
 	}, nil

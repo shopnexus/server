@@ -1,6 +1,9 @@
 package orderbiz
 
 import (
+	"fmt"
+	"strings"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -25,10 +28,10 @@ import (
 	"github.com/samber/lo"
 )
 
-// Checkout creates pending order items (no order, no payment, no transport yet).
+// BuyerCheckout creates pending order items (no order, no payment, no transport yet).
 // Inventory is reserved. Items are removed from cart unless BuyNow.
-func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (CheckoutResult, error) {
-	var zero CheckoutResult
+func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error) {
+	var zero BuyerCheckoutResult
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate checkout", err)
@@ -100,12 +103,22 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 
 			paidAmount := int64(sku.Price) * checkoutItem.Quantity
 
+			// Build display name: "SPU Name - Attr1 / Attr2"
+			skuName := spu.Name
+			if len(sku.Attributes) > 0 {
+				vals := make([]string, 0, len(sku.Attributes))
+				for _, attr := range sku.Attributes {
+					vals = append(vals, attr.Value)
+				}
+				skuName += " - " + strings.Join(vals, " / ")
+			}
+
 			dbItem, err := b.storage.Querier().CreatePendingItem(ctx, orderdb.CreatePendingItemParams{
 				AccountID:  params.Account.ID,
 				SellerID:   spu.AccountID,
 				Address:    checkoutItem.Address,
 				SkuID:      sku.ID,
-				SkuName:    spu.Name,
+				SkuName:    skuName,
 				Quantity:   checkoutItem.Quantity,
 				UnitPrice:  int64(sku.Price),
 				PaidAmount: paidAmount,
@@ -163,19 +176,24 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 	})
 
 	// Step 5b: Notify sellers about new pending items (fire-and-forget)
-	sellerIDs := make(map[uuid.UUID]bool)
+	// Group product names by seller
+	sellerItems := make(map[uuid.UUID][]string)
 	for _, item := range params.Items {
 		sku := skuMap[item.SkuID]
 		spu := spuMap[sku.SpuID]
-		sellerIDs[spu.AccountID] = true
+		sellerItems[spu.AccountID] = append(sellerItems[spu.AccountID], spu.Name)
 	}
-	for sellerID := range sellerIDs {
+	for sellerID, names := range sellerItems {
+		summary := names[0]
+		if len(names) > 1 {
+			summary = fmt.Sprintf("%s and %d more", names[0], len(names)-1)
+		}
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: sellerID,
 			Type:      accountmodel.NotiNewPendingItems,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "New pending items",
-			Content:   "You have new pending items to review.",
+			Content:   fmt.Sprintf("New order for %s is waiting for your review.", summary),
 		})
 	}
 
@@ -187,7 +205,7 @@ func (b *OrderHandler) Checkout(ctx restate.Context, params CheckoutParams) (Che
 		return zero, sharedmodel.WrapErr("hydrate created items", err)
 	}
 
-	return CheckoutResult{
+	return BuyerCheckoutResult{
 		Items: hydratedItems,
 	}, nil
 }
@@ -261,6 +279,7 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 			Address:     oi.Address,
 			Status:      oi.Status,
 			SkuID:       oi.SkuID,
+			SpuID:       spuID,
 			SkuName:     oi.SkuName,
 			Quantity:    oi.Quantity,
 			UnitPrice:   oi.UnitPrice,
@@ -275,8 +294,8 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 	return result, nil
 }
 
-// ListPendingItems returns paginated pending items for the buyer.
-func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+// ListBuyerPending returns paginated pending items for the buyer.
+func (b *OrderHandler) ListBuyerPending(ctx restate.Context, params ListBuyerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {
@@ -333,8 +352,8 @@ func (b *OrderHandler) ListPendingItems(ctx restate.Context, params ListPendingI
 	}, nil
 }
 
-// CancelPendingItem cancels a pending item and releases its inventory.
-func (b *OrderHandler) CancelPendingItem(ctx restate.Context, params CancelPendingItemParams) error {
+// CancelBuyerPending cancels a pending item and releases its inventory.
+func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuyerPendingParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate cancel pending item", err)
 	}

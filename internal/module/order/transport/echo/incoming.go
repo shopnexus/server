@@ -12,13 +12,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ListIncomingItemsRequest struct {
+type ListSellerPendingRequest struct {
 	Search null.String `query:"search"`
 	sharedmodel.PaginationParams
 }
 
-func (h *Handler) ListIncomingItems(c echo.Context) error {
-	var req ListIncomingItemsRequest
+func (h *Handler) ListSellerPending(c echo.Context) error {
+	var req ListSellerPendingRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -31,7 +31,7 @@ func (h *Handler) ListIncomingItems(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.ListIncomingItems(c.Request().Context(), orderbiz.ListIncomingItemsParams{
+	result, err := h.biz.ListSellerPending(c.Request().Context(), orderbiz.ListSellerPendingParams{
 		SellerID:         claims.Account.ID,
 		Search:           req.Search,
 		PaginationParams: req.PaginationParams.Constrain(),
@@ -43,14 +43,14 @@ func (h *Handler) ListIncomingItems(c echo.Context) error {
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
-type ConfirmItemsRequest struct {
+type ConfirmSellerPendingRequest struct {
 	ItemIDs         []int64 `json:"item_ids" validate:"required,min=1"`
 	TransportOption string  `json:"transport_option" validate:"required,min=1,max=100"`
 	Note            string  `json:"note" validate:"max=500"`
 }
 
-func (h *Handler) ConfirmItems(c echo.Context) error {
-	var req ConfirmItemsRequest
+func (h *Handler) ConfirmSellerPending(c echo.Context) error {
+	var req ConfirmSellerPendingRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -63,7 +63,7 @@ func (h *Handler) ConfirmItems(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.ConfirmItems(c.Request().Context(), orderbiz.ConfirmItemsParams{
+	result, err := h.biz.ConfirmSellerPending(c.Request().Context(), orderbiz.ConfirmSellerPendingParams{
 		Account:         claims.Account,
 		ItemIDs:         req.ItemIDs,
 		TransportOption: req.TransportOption,
@@ -76,12 +76,12 @@ func (h *Handler) ConfirmItems(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
-type RejectItemsRequest struct {
+type RejectSellerPendingRequest struct {
 	ItemIDs []int64 `json:"item_ids" validate:"required,min=1"`
 }
 
-func (h *Handler) RejectItems(c echo.Context) error {
-	var req RejectItemsRequest
+func (h *Handler) RejectSellerPending(c echo.Context) error {
+	var req RejectSellerPendingRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -94,7 +94,7 @@ func (h *Handler) RejectItems(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := h.biz.RejectItems(c.Request().Context(), orderbiz.RejectItemsParams{
+	if err := h.biz.RejectSellerPending(c.Request().Context(), orderbiz.RejectSellerPendingParams{
 		Account: claims.Account,
 		ItemIDs: req.ItemIDs,
 	}); err != nil {

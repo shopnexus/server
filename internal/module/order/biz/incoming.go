@@ -21,8 +21,8 @@ import (
 	"github.com/samber/lo"
 )
 
-// ListIncomingItems returns paginated pending items for the seller.
-func (b *OrderHandler) ListIncomingItems(ctx restate.Context, params ListIncomingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+// ListSellerPending returns paginated pending items for the seller.
+func (b *OrderHandler) ListSellerPending(ctx restate.Context, params ListSellerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {
@@ -74,8 +74,8 @@ func (b *OrderHandler) ListIncomingItems(ctx restate.Context, params ListIncomin
 	}, nil
 }
 
-// ConfirmItems groups selected pending items into an order with transport.
-func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsParams) (ordermodel.Order, error) {
+// ConfirmSellerPending groups selected pending items into an order with transport.
+func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
 	if err := validator.Validate(params); err != nil {
@@ -89,6 +89,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 		SellerID   string `json:"seller_id"`
 		Address    string `json:"address"`
 		SkuID      string `json:"sku_id"`
+		SkuName    string `json:"sku_name"`
 		Quantity   int64  `json:"quantity"`
 		UnitPrice  int64  `json:"unit_price"`
 		PaidAmount int64  `json:"paid_amount"`
@@ -117,6 +118,7 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 				SellerID:   item.SellerID.String(),
 				Address:    item.Address,
 				SkuID:      item.SkuID.String(),
+				SkuName:    item.SkuName,
 				Quantity:   item.Quantity,
 				UnitPrice:  item.UnitPrice,
 				PaidAmount: item.PaidAmount,
@@ -269,21 +271,33 @@ func (b *OrderHandler) ConfirmItems(ctx restate.Context, params ConfirmItemsPara
 	orderID, _ := uuid.Parse(oResult.OrderID)
 
 	// Step 6: Notify buyer (fire-and-forget)
+	itemNames := make([]string, 0, len(fetched.Items))
+	for _, fi := range fetched.Items {
+		if fi.SkuName != "" {
+			itemNames = append(itemNames, fi.SkuName)
+		}
+	}
+	summary := "Your items"
+	if len(itemNames) == 1 {
+		summary = itemNames[0]
+	} else if len(itemNames) > 1 {
+		summary = fmt.Sprintf("%s and %d more", itemNames[0], len(itemNames)-1)
+	}
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: buyerID,
 		Type:      accountmodel.NotiItemsConfirmed,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Items confirmed",
-		Content:   fmt.Sprintf("Your items have been confirmed and grouped into order %s.", orderID),
+		Content:   fmt.Sprintf("%s has been confirmed by the seller.", summary),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, orderID)),
 	})
 
 	// Step 7: Return hydrated order
-	return b.GetOrder(ctx, orderID)
+	return b.GetBuyerOrder(ctx, orderID)
 }
 
-// RejectItems rejects pending items owned by the seller and releases inventory.
-func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams) error {
+// RejectSellerPending rejects pending items owned by the seller and releases inventory.
+func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSellerPendingParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate reject items", err)
 	}
@@ -294,6 +308,7 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 	type itemInfo struct {
 		ID       int64  `json:"id"`
 		SkuID    string `json:"sku_id"`
+		SkuName  string `json:"sku_name"`
 		Quantity int64  `json:"quantity"`
 		BuyerID  string `json:"buyer_id"`
 	}
@@ -319,6 +334,7 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 			result = append(result, itemInfo{
 				ID:       item.ID,
 				SkuID:    item.SkuID.String(),
+				SkuName:  item.SkuName,
 				Quantity: item.Quantity,
 				BuyerID:  item.AccountID.String(),
 			})
@@ -357,12 +373,24 @@ func (b *OrderHandler) RejectItems(ctx restate.Context, params RejectItemsParams
 	// Notify buyer (fire-and-forget)
 	if len(items) > 0 {
 		buyerID, _ := uuid.Parse(items[0].BuyerID)
+		rejectedNames := make([]string, 0, len(items))
+		for _, it := range items {
+			if it.SkuName != "" {
+				rejectedNames = append(rejectedNames, it.SkuName)
+			}
+		}
+		rejectSummary := "Some of your items"
+		if len(rejectedNames) == 1 {
+			rejectSummary = rejectedNames[0]
+		} else if len(rejectedNames) > 1 {
+			rejectSummary = fmt.Sprintf("%s and %d more", rejectedNames[0], len(rejectedNames)-1)
+		}
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
 			Type:      accountmodel.NotiItemsRejected,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Items rejected",
-			Content:   "Some of your items have been rejected by the seller.",
+			Content:   fmt.Sprintf("%s has been rejected by the seller.", rejectSummary),
 			Metadata:  json.RawMessage(`{}`),
 		})
 	}

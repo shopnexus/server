@@ -28,25 +28,26 @@ import (
 //go:generate go run shopnexus-server/cmd/genrestate -interface OrderBiz -service Order
 type OrderBiz interface {
 	// Checkout
-	Checkout(ctx context.Context, params CheckoutParams) (CheckoutResult, error)
+	BuyerCheckout(ctx context.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error)
 
 	// Pending Items (buyer)
-	ListPendingItems(ctx context.Context, params ListPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
-	CancelPendingItem(ctx context.Context, params CancelPendingItemParams) error
+	ListBuyerPending(ctx context.Context, params ListBuyerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
+	CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error
 
 	// Incoming Items (seller)
-	ListIncomingItems(ctx context.Context, params ListIncomingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
-	ConfirmItems(ctx context.Context, params ConfirmItemsParams) (ordermodel.Order, error)
-	RejectItems(ctx context.Context, params RejectItemsParams) error
+	ListSellerPending(ctx context.Context, params ListSellerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
+	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
+	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
 
 	// Orders
-	GetOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
-	ListOrders(ctx context.Context, params ListOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
-	ListSellerOrders(ctx context.Context, params ListSellerOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
-	CancelOrder(ctx context.Context, params CancelOrderParams) error
+	GetBuyerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
+	GetSellerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
+	ListBuyerConfirmed(ctx context.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListSellerConfirmed(ctx context.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	CancelBuyerOrder(ctx context.Context, params CancelBuyerOrderParams) error
 
 	// Payment
-	PayOrders(ctx context.Context, params PayOrdersParams) (PayOrdersResult, error)
+	PayBuyerOrders(ctx context.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error)
 	ConfirmPayment(ctx context.Context, params ConfirmPaymentParams) error
 
 	// Cart (unchanged)
@@ -60,11 +61,11 @@ type OrderBiz interface {
 	ValidateOrderForReview(ctx context.Context, params ValidateOrderForReviewParams) (bool, error)
 
 	// Refund
-	ListRefunds(ctx context.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error)
-	CreateRefund(ctx context.Context, params CreateRefundParams) (ordermodel.Refund, error)
-	UpdateRefund(ctx context.Context, params UpdateRefundParams) (ordermodel.Refund, error)
-	CancelRefund(ctx context.Context, params CancelRefundParams) error
-	ConfirmRefund(ctx context.Context, params ConfirmRefundParams) (ordermodel.Refund, error)
+	ListBuyerRefunds(ctx context.Context, params ListBuyerRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error)
+	CreateBuyerRefund(ctx context.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error)
+	UpdateBuyerRefund(ctx context.Context, params UpdateBuyerRefundParams) (ordermodel.Refund, error)
+	CancelBuyerRefund(ctx context.Context, params CancelBuyerRefundParams) error
+	ConfirmSellerRefund(ctx context.Context, params ConfirmSellerRefundParams) (ordermodel.Refund, error)
 
 	// Dashboard
 	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)
@@ -125,7 +126,7 @@ func NewOrderHandler(
 
 // --- Param structs ---
 
-type CheckoutParams struct {
+type BuyerCheckoutParams struct {
 	Account accountmodel.AuthenticatedAccount
 	BuyNow  bool           `validate:"omitempty"`
 	Items   []CheckoutItem `validate:"required,min=1,dive"`
@@ -138,45 +139,45 @@ type CheckoutItem struct {
 	Note     string    `json:"note" validate:"max=500"`
 }
 
-type CheckoutResult struct {
+type BuyerCheckoutResult struct {
 	Items []ordermodel.OrderItem `json:"items"`
 }
 
-type ListPendingItemsParams struct {
+type ListBuyerPendingParams struct {
 	AccountID uuid.UUID                 `validate:"required"`
 	Status    []orderdb.OrderItemStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams
 }
 
-type CancelPendingItemParams struct {
+type CancelBuyerPendingParams struct {
 	AccountID uuid.UUID `validate:"required"`
 	ItemID    int64     `validate:"required"`
 }
 
-type ListIncomingItemsParams struct {
+type ListSellerPendingParams struct {
 	SellerID uuid.UUID   `validate:"required"`
 	Search   null.String `validate:"omitnil"`
 	sharedmodel.PaginationParams
 }
 
-type ConfirmItemsParams struct {
+type ConfirmSellerPendingParams struct {
 	Account         accountmodel.AuthenticatedAccount
 	ItemIDs         []int64 `validate:"required,min=1"`
 	TransportOption string  `validate:"required,min=1,max=100"`
 	Note            string  `validate:"max=500"`
 }
 
-type RejectItemsParams struct {
+type RejectSellerPendingParams struct {
 	Account accountmodel.AuthenticatedAccount
 	ItemIDs []int64 `validate:"required,min=1"`
 }
 
-type ListOrdersParams struct {
+type ListBuyerConfirmedParams struct {
 	sharedmodel.PaginationParams
 	ID []uuid.UUID `validate:"dive"`
 }
 
-type ListSellerOrdersParams struct {
+type ListSellerConfirmedParams struct {
 	SellerID      uuid.UUID             `validate:"required"`
 	Search        null.String           `validate:"omitnil"`
 	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
@@ -184,18 +185,18 @@ type ListSellerOrdersParams struct {
 	sharedmodel.PaginationParams
 }
 
-type CancelOrderParams struct {
+type CancelBuyerOrderParams struct {
 	Account accountmodel.AuthenticatedAccount
 	OrderID uuid.UUID
 }
 
-type PayOrdersParams struct {
+type PayBuyerOrdersParams struct {
 	Account       accountmodel.AuthenticatedAccount
 	OrderIDs      []uuid.UUID `validate:"required,min=1"`
 	PaymentOption string      `validate:"max=100"`
 }
 
-type PayOrdersResult struct {
+type PayBuyerOrdersResult struct {
 	Payment     ordermodel.Payment `json:"payment"`
 	RedirectUrl *string            `json:"redirect_url"`
 }
@@ -221,11 +222,11 @@ type ClearCartParams struct {
 	Account accountmodel.AuthenticatedAccount
 }
 
-type ListRefundsParams struct {
+type ListBuyerRefundsParams struct {
 	sharedmodel.PaginationParams
 }
 
-type CreateRefundParams struct {
+type CreateBuyerRefundParams struct {
 	Account     accountmodel.AuthenticatedAccount
 	OrderID     uuid.UUID                 `validate:"required"`
 	Method      orderdb.OrderRefundMethod `validate:"required,validateFn=Valid"`
@@ -234,7 +235,7 @@ type CreateRefundParams struct {
 	ResourceIDs []uuid.UUID               `validate:"dive"`
 }
 
-type UpdateRefundParams struct {
+type UpdateBuyerRefundParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID                 `validate:"required"`
 	Method   orderdb.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
@@ -247,7 +248,7 @@ type UpdateRefundParams struct {
 	ResourceIDs   []uuid.UUID         `validate:"required,dive"`
 }
 
-type CancelRefundParams struct {
+type CancelBuyerRefundParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
 }
@@ -274,7 +275,7 @@ type ValidateOrderForReviewParams struct {
 	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
 }
 
-type ConfirmRefundParams struct {
+type ConfirmSellerRefundParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
 }

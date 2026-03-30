@@ -25,8 +25,8 @@ import (
 	"github.com/samber/lo"
 )
 
-// ListRefunds returns paginated refund requests with attached resources.
-func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+// ListBuyerRefunds returns paginated refund requests with attached resources.
+func (b *OrderHandler) ListBuyerRefunds(ctx restate.Context, params ListBuyerRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
@@ -71,8 +71,8 @@ func (b *OrderHandler) ListRefunds(ctx restate.Context, params ListRefundsParams
 	})
 }
 
-// CreateRefund creates a new refund request for an order and tracks refund analytics.
-func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundParams) (ordermodel.Refund, error) {
+// CreateBuyerRefund creates a new refund request for an order and tracks refund analytics.
+func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -123,7 +123,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 	}
 
 	// Track refund_requested interaction + notify seller
-	if order, err := b.GetOrder(ctx, params.OrderID); err == nil {
+	if order, err := b.GetBuyerOrder(ctx, params.OrderID); err == nil {
 		var refundInteractions []analyticbiz.CreateInteraction
 		for _, item := range order.Items {
 			refundInteractions = append(refundInteractions, analyticbiz.CreateInteraction{
@@ -143,7 +143,7 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 			Type:      accountmodel.NotiRefundRequested,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Refund requested",
-			Content:   fmt.Sprintf("A refund has been requested for order %s.", params.OrderID),
+			Content:   fmt.Sprintf("A refund has been requested for %s.", ordermodel.SummarizeItems(order.Items)),
 			Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
 		})
 	}
@@ -151,8 +151,8 @@ func (b *OrderHandler) CreateRefund(ctx restate.Context, params CreateRefundPara
 	return refund, nil
 }
 
-// UpdateRefund updates a pending refund's method, reason, address, or status.
-func (b *OrderHandler) UpdateRefund(ctx restate.Context, params UpdateRefundParams) (ordermodel.Refund, error) {
+// UpdateBuyerRefund updates a pending refund's method, reason, address, or status.
+func (b *OrderHandler) UpdateBuyerRefund(ctx restate.Context, params UpdateBuyerRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -230,8 +230,8 @@ func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 	}
 }
 
-// CancelRefund cancels a refund request by setting its status to canceled.
-func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundParams) error {
+// CancelBuyerRefund cancels a refund request by setting its status to canceled.
+func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyerRefundParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate cancel refund", err)
 	}
@@ -257,14 +257,14 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 		return dbToRefund(r), nil
 	})
 	if err == nil {
-		order, err := b.GetOrder(ctx, refundData.OrderID)
+		order, err := b.GetBuyerOrder(ctx, refundData.OrderID)
 		if err == nil {
 			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 				AccountID: order.SellerID,
 				Type:      accountmodel.NotiRefundCancelled,
 				Channel:   accountmodel.ChannelInApp,
 				Title:     "Refund cancelled",
-				Content:   fmt.Sprintf("Refund request for order %s has been cancelled by the buyer.", refundData.OrderID),
+				Content:   fmt.Sprintf("Refund request for %s has been cancelled by the buyer.", ordermodel.SummarizeItems(order.Items)),
 				Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refundData.OrderID, refundData.ID)),
 			})
 		}
@@ -273,15 +273,15 @@ func (b *OrderHandler) CancelRefund(ctx restate.Context, params CancelRefundPara
 	return nil
 }
 
-// ConfirmRefund marks a refund as confirmed by the vendor and transitions it to processing.
-func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundParams) (ordermodel.Refund, error) {
+// ConfirmSellerRefund marks a refund as confirmed by the vendor and transitions it to processing.
+func (b *OrderHandler) ConfirmSellerRefund(ctx restate.Context, params ConfirmSellerRefundParams) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate confirm refund", err)
 	}
 
-	refund, err := b.UpdateRefund(ctx, UpdateRefundParams{
+	refund, err := b.UpdateBuyerRefund(ctx, UpdateBuyerRefundParams{
 		Account:       params.Account,
 		RefundID:      params.RefundID,
 		Status:        orderdb.OrderStatusProcessing,
@@ -292,12 +292,17 @@ func (b *OrderHandler) ConfirmRefund(ctx restate.Context, params ConfirmRefundPa
 	}
 
 	// Notify customer: refund confirmed
+	refundOrder, _ := b.GetBuyerOrder(ctx, refund.OrderID)
+	refundSummary := "your order"
+	if refundOrder.Items != nil {
+		refundSummary = ordermodel.SummarizeItems(refundOrder.Items)
+	}
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: refund.AccountID,
 		Type:      accountmodel.NotiRefundApproved,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Refund approved",
-		Content:   fmt.Sprintf("Your refund request %s has been approved.", refund.ID),
+		Content:   fmt.Sprintf("Your refund for %s has been approved.", refundSummary),
 		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
 	})
 
