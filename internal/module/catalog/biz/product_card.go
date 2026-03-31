@@ -202,6 +202,7 @@ type ListProductCardParams struct {
 	AccountID  *uuid.UUID    // optional, for is_favorite
 	VendorID   uuid.NullUUID `validate:"omitnil"`
 	CategoryID []uuid.UUID   `validate:"omitempty"`
+	Tags       []string      `validate:"omitempty"`
 	Search     null.String   `validate:"omitnil,min=1,max=100"`
 }
 
@@ -227,6 +228,31 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 	}
 	if len(params.CategoryID) > 0 {
 		searchArg.CategoryID = params.CategoryID
+	}
+
+	// If tags are provided, pre-filter SPU IDs by tags
+	if len(params.Tags) > 0 {
+		tagRows, err := b.storage.Querier().SearchCountProductSpuByTags(ctx, catalogdb.SearchCountProductSpuByTagsParams{
+			Tags:     params.Tags,
+			TagCount: int32(len(params.Tags)),
+			Limit:    params.Limit,
+			Offset:   params.Offset(),
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("db search by tags", err)
+		}
+		if len(tagRows) == 0 {
+			return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
+				PageParams: params.PaginationParams,
+				Data:       products,
+				Total:      null.IntFrom(0),
+			}, nil
+		}
+		tagIDs := lo.Map(tagRows, func(r catalogdb.SearchCountProductSpuByTagsRow, _ int) uuid.UUID { return r.ID })
+		searchArg.ID = tagIDs
+		if len(tagRows) > 0 {
+			total = tagRows[0].TotalCount
+		}
 	}
 
 	// If search is provided, use search service to get product IDs

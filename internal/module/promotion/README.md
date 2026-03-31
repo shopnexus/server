@@ -80,10 +80,10 @@ erDiagram
 
 ## API Endpoints
 
-| Method | Path | Handler | Auth | Description |
-|--------|------|---------|------|-------------|
-| GET | `/api/v1/catalog/promotion/:id` | GetPromotion | No | Get promotion by ID with refs |
-| GET | `/api/v1/catalog/promotion` | ListPromotion | No | Paginated promotion list |
-| POST | `/api/v1/catalog/promotion` | CreatePromotion | Yes | Create promotion (any type) |
-| PATCH | `/api/v1/catalog/promotion` | UpdatePromotion | Yes | Update promotion fields and refs |
-| DELETE | `/api/v1/catalog/promotion/:id` | DeletePromotion | Yes | Delete promotion (cascades refs) |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/api/v1/catalog/promotion/:id` | GetPromotion | Get promotion by ID with refs |
+| GET | `/api/v1/catalog/promotion` | ListPromotion | Paginated promotion list |
+| POST | `/api/v1/catalog/promotion` | CreatePromotion | Create promotion (any type) |
+| PATCH | `/api/v1/catalog/promotion` | UpdatePromotion | Update promotion fields and refs |
+| DELETE | `/api/v1/catalog/promotion/:id` | DeletePromotion | Delete promotion (cascades refs) |

@@ -119,49 +119,57 @@ All under `/api/v1/catalog`.
 
 ### Product Detail & Cards
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/product-detail` | Optional | Full product detail by `id` or `slug` query param |
-| GET | `/product-card` | No | List product cards with pagination, `vendor_id`, `search` filters |
-| GET | `/product-card/recommended` | Yes | Personalized recommendations with most-sold fallback |
-| GET | `/product-card/:id` | No | Single product card by ID |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/product-detail` | Full product detail by `id` or `slug` query param |
+| GET | `/product-card` | List product cards with pagination, `vendor_id`, `search` filters |
+| GET | `/product-card/recommended` | Personalized recommendations with most-sold fallback |
+| GET | `/product-card/:id` | Single product card by ID |
 
 ### Product SPU
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/product-spu` | No | List with filters (category, is_active) |
-| GET | `/product-spu/:id` | No | Get by UUID |
-| POST | `/product-spu` | Yes | Create with tags, resources, specifications |
-| PATCH | `/product-spu` | Yes | Partial update |
-| DELETE | `/product-spu/:id` | Yes | Delete |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/product-spu` | List with filters (category, is_active) |
+| GET | `/product-spu/:id` | Get by UUID |
+| POST | `/product-spu` | Create with tags, resources, specifications |
+| PATCH | `/product-spu` | Partial update |
+| DELETE | `/product-spu/:id` | Delete |
 
 ### Product SKU
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/product-sku` | No | List by `spu_id` with price/can_combine filters |
-| POST | `/product-sku` | Yes | Create (also provisions inventory stock) |
-| PATCH | `/product-sku` | Yes | Update price, attributes, package details |
-| DELETE | `/product-sku` | Yes | Delete |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/product-sku` | List by `spu_id` with price/can_combine filters |
+| POST | `/product-sku` | Create (also provisions inventory stock) |
+| PATCH | `/product-sku` | Update price, attributes, package details |
+| DELETE | `/product-sku` | Delete |
 
 ### Comments
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/comment` | Yes | List by `ref_type` + `ref_id`, score filters |
-| POST | `/comment` | Yes | Create review/reply with score and resources |
-| PATCH | `/comment` | Yes | Update body, score, vote deltas, resources |
-| DELETE | `/comment` | Yes | Delete by list of IDs |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/comment` | List by `ref_type` + `ref_id`, score filters |
+| POST | `/comment` | Create review/reply with score and resources |
+| PATCH | `/comment` | Update body, score, resources |
+| DELETE | `/comment` | Delete by list of IDs |
+| POST | `/comment/vote` | Upvote or downvote a comment |
+| GET | `/comment/reviewable-orders` | List orders eligible for review |
 
 ### Tags, Categories
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/tag` | No | List with optional `search` (ILIKE) |
-| GET | `/tag/:tag` | Yes | Get single tag |
-| GET | `/category` | No | List with optional `search` |
-| GET | `/category/:id` | No | Get single category |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/tag` | List with optional `search` (ILIKE) |
+| GET | `/tag/:tag` | Get single tag |
+| GET | `/category` | List with optional `search` |
+| GET | `/category/:id` | Get single category |
+
+### Vendor Stats
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/vendor-stats` | Aggregate stats for the authenticated vendor |
 
 ## Cross-Module Dependencies
 

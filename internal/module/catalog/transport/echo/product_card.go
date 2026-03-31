@@ -17,6 +17,7 @@ type ListProductCardRequest struct {
 	sharedmodel.PaginationParams
 	VendorID   uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
 	CategoryID []uuid.UUID   `query:"category_id" comma_separated:"true" validate:"omitempty"`
+	Tags       []string      `query:"tag" validate:"omitempty"`
 	Search     null.String   `query:"search" validate:"omitnil"`
 }
 
@@ -34,6 +35,7 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 		PaginationParams: req.PaginationParams.Constrain(),
 		VendorID:         req.VendorID,
 		CategoryID:       req.CategoryID,
+		Tags:             req.Tags,
 		Search:           req.Search,
 	}
 

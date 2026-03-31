@@ -50,31 +50,32 @@ FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("body" = ANY($5) OR $5 IS NULL) AND
-    ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" >= $7 OR $7 IS NULL) AND
-    ("upvote" <= $8 OR $8 IS NULL) AND
-    ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" >= $10 OR $10 IS NULL) AND
-    ("downvote" <= $11 OR $11 IS NULL) AND
-    ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" >= $13 OR $13 IS NULL) AND
-    ("score" <= $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL) AND
-    ("order_id" = ANY($21) OR $21 IS NULL)
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("body" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" = ANY($7) OR $7 IS NULL) AND
+    ("upvote" >= $8 OR $8 IS NULL) AND
+    ("upvote" <= $9 OR $9 IS NULL) AND
+    ("downvote" = ANY($10) OR $10 IS NULL) AND
+    ("downvote" >= $11 OR $11 IS NULL) AND
+    ("downvote" <= $12 OR $12 IS NULL) AND
+    ("score" = ANY($13) OR $13 IS NULL) AND
+    ("score" >= $14 OR $14 IS NULL) AND
+    ("score" <= $15 OR $15 IS NULL) AND
+    ("date_created" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" >= $17 OR $17 IS NULL) AND
+    ("date_created" <= $18 OR $18 IS NULL) AND
+    ("date_updated" = ANY($19) OR $19 IS NULL) AND
+    ("date_updated" >= $20 OR $20 IS NULL) AND
+    ("date_updated" <= $21 OR $21 IS NULL)
 )
 `
 
 type CountCommentParams struct {
 	ID              []uuid.UUID             `json:"id"`
 	AccountID       []uuid.UUID             `json:"account_id"`
+	OrderID         []uuid.NullUUID         `json:"order_id"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []uuid.UUID             `json:"ref_id"`
 	Body            []string                `json:"body"`
@@ -93,13 +94,13 @@ type CountCommentParams struct {
 	DateUpdated     []time.Time             `json:"date_updated"`
 	DateUpdatedFrom null.Time               `json:"date_updated_from"`
 	DateUpdatedTo   null.Time               `json:"date_updated_to"`
-	OrderID         []uuid.UUID             `json:"order_id"`
 }
 
 func (q *Queries) CountComment(ctx context.Context, arg CountCommentParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countComment,
 		arg.ID,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -118,7 +119,6 @@ func (q *Queries) CountComment(ctx context.Context, arg CountCommentParams) (int
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.OrderID,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -392,14 +392,15 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 }
 
 const createComment = `-- name: CreateComment :one
-INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id")
+INSERT INTO "catalog"."comment" ("id", "account_id", "order_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+RETURNING id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
 type CreateCommentParams struct {
 	ID          uuid.UUID             `json:"id"`
 	AccountID   uuid.UUID             `json:"account_id"`
+	OrderID     uuid.NullUUID         `json:"order_id"`
 	RefType     CatalogCommentRefType `json:"ref_type"`
 	RefID       uuid.UUID             `json:"ref_id"`
 	Body        string                `json:"body"`
@@ -408,13 +409,13 @@ type CreateCommentParams struct {
 	Score       float64               `json:"score"`
 	DateCreated time.Time             `json:"date_created"`
 	DateUpdated time.Time             `json:"date_updated"`
-	OrderID     uuid.UUID             `json:"order_id"`
 }
 
 func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (CatalogComment, error) {
 	row := q.db.QueryRow(ctx, createComment,
 		arg.ID,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -423,12 +424,12 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (C
 		arg.Score,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.OrderID,
 	)
 	var i CatalogComment
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
+		&i.OrderID,
 		&i.RefType,
 		&i.RefID,
 		&i.Body,
@@ -437,7 +438,6 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (C
 		&i.Score,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.OrderID,
 	)
 	return i, err
 }
@@ -452,6 +452,7 @@ type CreateCopyCategoryParams struct {
 type CreateCopyCommentParams struct {
 	ID          uuid.UUID             `json:"id"`
 	AccountID   uuid.UUID             `json:"account_id"`
+	OrderID     uuid.NullUUID         `json:"order_id"`
 	RefType     CatalogCommentRefType `json:"ref_type"`
 	RefID       uuid.UUID             `json:"ref_id"`
 	Body        string                `json:"body"`
@@ -460,7 +461,6 @@ type CreateCopyCommentParams struct {
 	Score       float64               `json:"score"`
 	DateCreated time.Time             `json:"date_created"`
 	DateUpdated time.Time             `json:"date_updated"`
-	OrderID     uuid.UUID             `json:"order_id"`
 }
 
 type CreateCopyDefaultCategoryParams struct {
@@ -471,11 +471,11 @@ type CreateCopyDefaultCategoryParams struct {
 
 type CreateCopyDefaultCommentParams struct {
 	AccountID uuid.UUID             `json:"account_id"`
+	OrderID   uuid.NullUUID         `json:"order_id"`
 	RefType   CatalogCommentRefType `json:"ref_type"`
 	RefID     uuid.UUID             `json:"ref_id"`
 	Body      string                `json:"body"`
 	Score     float64               `json:"score"`
-	OrderID   uuid.UUID             `json:"order_id"`
 }
 
 type CreateCopyDefaultProductSkuParams struct {
@@ -584,33 +584,34 @@ func (q *Queries) CreateDefaultCategory(ctx context.Context, arg CreateDefaultCa
 }
 
 const createDefaultComment = `-- name: CreateDefaultComment :one
-INSERT INTO "catalog"."comment" ("account_id", "ref_type", "ref_id", "body", "score", "order_id")
+INSERT INTO "catalog"."comment" ("account_id", "order_id", "ref_type", "ref_id", "body", "score")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+RETURNING id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
 type CreateDefaultCommentParams struct {
 	AccountID uuid.UUID             `json:"account_id"`
+	OrderID   uuid.NullUUID         `json:"order_id"`
 	RefType   CatalogCommentRefType `json:"ref_type"`
 	RefID     uuid.UUID             `json:"ref_id"`
 	Body      string                `json:"body"`
 	Score     float64               `json:"score"`
-	OrderID   uuid.UUID             `json:"order_id"`
 }
 
 func (q *Queries) CreateDefaultComment(ctx context.Context, arg CreateDefaultCommentParams) (CatalogComment, error) {
 	row := q.db.QueryRow(ctx, createDefaultComment,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
 		arg.Score,
-		arg.OrderID,
 	)
 	var i CatalogComment
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
+		&i.OrderID,
 		&i.RefType,
 		&i.RefID,
 		&i.Body,
@@ -619,7 +620,6 @@ func (q *Queries) CreateDefaultComment(ctx context.Context, arg CreateDefaultCom
 		&i.Score,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.OrderID,
 	)
 	return i, err
 }
@@ -975,31 +975,32 @@ DELETE FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("body" = ANY($5) OR $5 IS NULL) AND
-    ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" >= $7 OR $7 IS NULL) AND
-    ("upvote" <= $8 OR $8 IS NULL) AND
-    ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" >= $10 OR $10 IS NULL) AND
-    ("downvote" <= $11 OR $11 IS NULL) AND
-    ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" >= $13 OR $13 IS NULL) AND
-    ("score" <= $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL) AND
-    ("order_id" = ANY($21) OR $21 IS NULL)
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("body" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" = ANY($7) OR $7 IS NULL) AND
+    ("upvote" >= $8 OR $8 IS NULL) AND
+    ("upvote" <= $9 OR $9 IS NULL) AND
+    ("downvote" = ANY($10) OR $10 IS NULL) AND
+    ("downvote" >= $11 OR $11 IS NULL) AND
+    ("downvote" <= $12 OR $12 IS NULL) AND
+    ("score" = ANY($13) OR $13 IS NULL) AND
+    ("score" >= $14 OR $14 IS NULL) AND
+    ("score" <= $15 OR $15 IS NULL) AND
+    ("date_created" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" >= $17 OR $17 IS NULL) AND
+    ("date_created" <= $18 OR $18 IS NULL) AND
+    ("date_updated" = ANY($19) OR $19 IS NULL) AND
+    ("date_updated" >= $20 OR $20 IS NULL) AND
+    ("date_updated" <= $21 OR $21 IS NULL)
 )
 `
 
 type DeleteCommentParams struct {
 	ID              []uuid.UUID             `json:"id"`
 	AccountID       []uuid.UUID             `json:"account_id"`
+	OrderID         []uuid.NullUUID         `json:"order_id"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []uuid.UUID             `json:"ref_id"`
 	Body            []string                `json:"body"`
@@ -1018,13 +1019,13 @@ type DeleteCommentParams struct {
 	DateUpdated     []time.Time             `json:"date_updated"`
 	DateUpdatedFrom null.Time               `json:"date_updated_from"`
 	DateUpdatedTo   null.Time               `json:"date_updated_to"`
-	OrderID         []uuid.UUID             `json:"order_id"`
 }
 
 func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) error {
 	_, err := q.db.Exec(ctx, deleteComment,
 		arg.ID,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -1043,7 +1044,6 @@ func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) er
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.OrderID,
 	)
 	return err
 }
@@ -1302,7 +1302,7 @@ func (q *Queries) GetCategory(ctx context.Context, arg GetCategoryParams) (Catal
 
 const getComment = `-- name: GetComment :one
 
-SELECT id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+SELECT id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 FROM "catalog"."comment"
 WHERE ("id" = $1)
 `
@@ -1316,6 +1316,7 @@ func (q *Queries) GetComment(ctx context.Context, id uuid.NullUUID) (CatalogComm
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
+		&i.OrderID,
 		&i.RefType,
 		&i.RefID,
 		&i.Body,
@@ -1324,7 +1325,6 @@ func (q *Queries) GetComment(ctx context.Context, id uuid.NullUUID) (CatalogComm
 		&i.Score,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.OrderID,
 	)
 	return i, err
 }
@@ -1519,30 +1519,30 @@ func (q *Queries) ListCategory(ctx context.Context, arg ListCategoryParams) ([]C
 }
 
 const listComment = `-- name: ListComment :many
-SELECT id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+SELECT id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 FROM "catalog"."comment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("body" = ANY($5) OR $5 IS NULL) AND
-    ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" >= $7 OR $7 IS NULL) AND
-    ("upvote" <= $8 OR $8 IS NULL) AND
-    ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" >= $10 OR $10 IS NULL) AND
-    ("downvote" <= $11 OR $11 IS NULL) AND
-    ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" >= $13 OR $13 IS NULL) AND
-    ("score" <= $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL) AND
-    ("order_id" = ANY($21) OR $21 IS NULL)
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("body" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" = ANY($7) OR $7 IS NULL) AND
+    ("upvote" >= $8 OR $8 IS NULL) AND
+    ("upvote" <= $9 OR $9 IS NULL) AND
+    ("downvote" = ANY($10) OR $10 IS NULL) AND
+    ("downvote" >= $11 OR $11 IS NULL) AND
+    ("downvote" <= $12 OR $12 IS NULL) AND
+    ("score" = ANY($13) OR $13 IS NULL) AND
+    ("score" >= $14 OR $14 IS NULL) AND
+    ("score" <= $15 OR $15 IS NULL) AND
+    ("date_created" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" >= $17 OR $17 IS NULL) AND
+    ("date_created" <= $18 OR $18 IS NULL) AND
+    ("date_updated" = ANY($19) OR $19 IS NULL) AND
+    ("date_updated" >= $20 OR $20 IS NULL) AND
+    ("date_updated" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
 LIMIT $23::int
@@ -1552,6 +1552,7 @@ OFFSET $22::int
 type ListCommentParams struct {
 	ID              []uuid.UUID             `json:"id"`
 	AccountID       []uuid.UUID             `json:"account_id"`
+	OrderID         []uuid.NullUUID         `json:"order_id"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []uuid.UUID             `json:"ref_id"`
 	Body            []string                `json:"body"`
@@ -1570,7 +1571,6 @@ type ListCommentParams struct {
 	DateUpdated     []time.Time             `json:"date_updated"`
 	DateUpdatedFrom null.Time               `json:"date_updated_from"`
 	DateUpdatedTo   null.Time               `json:"date_updated_to"`
-	OrderID         []uuid.UUID             `json:"order_id"`
 	Offset          null.Int32              `json:"offset"`
 	Limit           null.Int32              `json:"limit"`
 }
@@ -1579,6 +1579,7 @@ func (q *Queries) ListComment(ctx context.Context, arg ListCommentParams) ([]Cat
 	rows, err := q.db.Query(ctx, listComment,
 		arg.ID,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -1597,7 +1598,6 @@ func (q *Queries) ListComment(ctx context.Context, arg ListCommentParams) ([]Cat
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.OrderID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1611,6 +1611,7 @@ func (q *Queries) ListComment(ctx context.Context, arg ListCommentParams) ([]Cat
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
+			&i.OrderID,
 			&i.RefType,
 			&i.RefID,
 			&i.Body,
@@ -1619,7 +1620,6 @@ func (q *Queries) ListComment(ctx context.Context, arg ListCommentParams) ([]Cat
 			&i.Score,
 			&i.DateCreated,
 			&i.DateUpdated,
-			&i.OrderID,
 		); err != nil {
 			return nil, err
 		}
@@ -1693,30 +1693,30 @@ func (q *Queries) ListCountCategory(ctx context.Context, arg ListCountCategoryPa
 }
 
 const listCountComment = `-- name: ListCountComment :many
-SELECT embed_comment.id, embed_comment.account_id, embed_comment.ref_type, embed_comment.ref_id, embed_comment.body, embed_comment.upvote, embed_comment.downvote, embed_comment.score, embed_comment.date_created, embed_comment.date_updated, embed_comment.order_id, COUNT(*) OVER() as total_count
+SELECT embed_comment.id, embed_comment.account_id, embed_comment.order_id, embed_comment.ref_type, embed_comment.ref_id, embed_comment.body, embed_comment.upvote, embed_comment.downvote, embed_comment.score, embed_comment.date_created, embed_comment.date_updated, COUNT(*) OVER() as total_count
 FROM "catalog"."comment" embed_comment
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("ref_type" = ANY($3) OR $3 IS NULL) AND
-    ("ref_id" = ANY($4) OR $4 IS NULL) AND
-    ("body" = ANY($5) OR $5 IS NULL) AND
-    ("upvote" = ANY($6) OR $6 IS NULL) AND
-    ("upvote" >= $7 OR $7 IS NULL) AND
-    ("upvote" <= $8 OR $8 IS NULL) AND
-    ("downvote" = ANY($9) OR $9 IS NULL) AND
-    ("downvote" >= $10 OR $10 IS NULL) AND
-    ("downvote" <= $11 OR $11 IS NULL) AND
-    ("score" = ANY($12) OR $12 IS NULL) AND
-    ("score" >= $13 OR $13 IS NULL) AND
-    ("score" <= $14 OR $14 IS NULL) AND
-    ("date_created" = ANY($15) OR $15 IS NULL) AND
-    ("date_created" >= $16 OR $16 IS NULL) AND
-    ("date_created" <= $17 OR $17 IS NULL) AND
-    ("date_updated" = ANY($18) OR $18 IS NULL) AND
-    ("date_updated" >= $19 OR $19 IS NULL) AND
-    ("date_updated" <= $20 OR $20 IS NULL) AND
-    ("order_id" = ANY($21) OR $21 IS NULL)
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
+    ("ref_type" = ANY($4) OR $4 IS NULL) AND
+    ("ref_id" = ANY($5) OR $5 IS NULL) AND
+    ("body" = ANY($6) OR $6 IS NULL) AND
+    ("upvote" = ANY($7) OR $7 IS NULL) AND
+    ("upvote" >= $8 OR $8 IS NULL) AND
+    ("upvote" <= $9 OR $9 IS NULL) AND
+    ("downvote" = ANY($10) OR $10 IS NULL) AND
+    ("downvote" >= $11 OR $11 IS NULL) AND
+    ("downvote" <= $12 OR $12 IS NULL) AND
+    ("score" = ANY($13) OR $13 IS NULL) AND
+    ("score" >= $14 OR $14 IS NULL) AND
+    ("score" <= $15 OR $15 IS NULL) AND
+    ("date_created" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" >= $17 OR $17 IS NULL) AND
+    ("date_created" <= $18 OR $18 IS NULL) AND
+    ("date_updated" = ANY($19) OR $19 IS NULL) AND
+    ("date_updated" >= $20 OR $20 IS NULL) AND
+    ("date_updated" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
 LIMIT $23::int
@@ -1726,6 +1726,7 @@ OFFSET $22::int
 type ListCountCommentParams struct {
 	ID              []uuid.UUID             `json:"id"`
 	AccountID       []uuid.UUID             `json:"account_id"`
+	OrderID         []uuid.NullUUID         `json:"order_id"`
 	RefType         []CatalogCommentRefType `json:"ref_type"`
 	RefID           []uuid.UUID             `json:"ref_id"`
 	Body            []string                `json:"body"`
@@ -1744,7 +1745,6 @@ type ListCountCommentParams struct {
 	DateUpdated     []time.Time             `json:"date_updated"`
 	DateUpdatedFrom null.Time               `json:"date_updated_from"`
 	DateUpdatedTo   null.Time               `json:"date_updated_to"`
-	OrderID         []uuid.UUID             `json:"order_id"`
 	Offset          null.Int32              `json:"offset"`
 	Limit           null.Int32              `json:"limit"`
 }
@@ -1758,6 +1758,7 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 	rows, err := q.db.Query(ctx, listCountComment,
 		arg.ID,
 		arg.AccountID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -1776,7 +1777,6 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.OrderID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1790,6 +1790,7 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 		if err := rows.Scan(
 			&i.CatalogComment.ID,
 			&i.CatalogComment.AccountID,
+			&i.CatalogComment.OrderID,
 			&i.CatalogComment.RefType,
 			&i.CatalogComment.RefID,
 			&i.CatalogComment.Body,
@@ -1798,7 +1799,6 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 			&i.CatalogComment.Score,
 			&i.CatalogComment.DateCreated,
 			&i.CatalogComment.DateUpdated,
-			&i.CatalogComment.OrderID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2630,21 +2630,23 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 const updateComment = `-- name: UpdateComment :one
 UPDATE "catalog"."comment"
 SET "account_id" = COALESCE($1, "account_id"),
-    "ref_type" = COALESCE($2, "ref_type"),
-    "ref_id" = COALESCE($3, "ref_id"),
-    "body" = COALESCE($4, "body"),
-    "upvote" = COALESCE($5, "upvote"),
-    "downvote" = COALESCE($6, "downvote"),
-    "score" = COALESCE($7, "score"),
-    "date_created" = COALESCE($8, "date_created"),
-    "date_updated" = COALESCE($9, "date_updated"),
-    "order_id" = COALESCE($10, "order_id")
-WHERE id = $11
-RETURNING id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+    "order_id" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "order_id") END,
+    "ref_type" = COALESCE($4, "ref_type"),
+    "ref_id" = COALESCE($5, "ref_id"),
+    "body" = COALESCE($6, "body"),
+    "upvote" = COALESCE($7, "upvote"),
+    "downvote" = COALESCE($8, "downvote"),
+    "score" = COALESCE($9, "score"),
+    "date_created" = COALESCE($10, "date_created"),
+    "date_updated" = COALESCE($11, "date_updated")
+WHERE id = $12
+RETURNING id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
 type UpdateCommentParams struct {
 	AccountID   uuid.NullUUID             `json:"account_id"`
+	NullOrderID bool                      `json:"null_order_id"`
+	OrderID     uuid.NullUUID             `json:"order_id"`
 	RefType     NullCatalogCommentRefType `json:"ref_type"`
 	RefID       uuid.NullUUID             `json:"ref_id"`
 	Body        null.String               `json:"body"`
@@ -2653,13 +2655,14 @@ type UpdateCommentParams struct {
 	Score       null.Float                `json:"score"`
 	DateCreated null.Time                 `json:"date_created"`
 	DateUpdated null.Time                 `json:"date_updated"`
-	OrderID     uuid.NullUUID             `json:"order_id"`
 	ID          uuid.UUID                 `json:"id"`
 }
 
 func (q *Queries) UpdateComment(ctx context.Context, arg UpdateCommentParams) (CatalogComment, error) {
 	row := q.db.QueryRow(ctx, updateComment,
 		arg.AccountID,
+		arg.NullOrderID,
+		arg.OrderID,
 		arg.RefType,
 		arg.RefID,
 		arg.Body,
@@ -2668,13 +2671,13 @@ func (q *Queries) UpdateComment(ctx context.Context, arg UpdateCommentParams) (C
 		arg.Score,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.OrderID,
 		arg.ID,
 	)
 	var i CatalogComment
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
+		&i.OrderID,
 		&i.RefType,
 		&i.RefID,
 		&i.Body,
@@ -2683,7 +2686,6 @@ func (q *Queries) UpdateComment(ctx context.Context, arg UpdateCommentParams) (C
 		&i.Score,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.OrderID,
 	)
 	return i, err
 }

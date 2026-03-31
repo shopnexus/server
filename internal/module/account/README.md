@@ -172,7 +172,7 @@ All routes prefixed with `/api/v1/account`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | Get another account's profile by `account_id` query param |
+| GET | `` | Get another account's profile by `account_id` query param |
 | GET | `/me` | Get authenticated user's full profile |
 | PATCH | `/me` | Update profile fields |
 
@@ -203,6 +203,7 @@ All routes prefixed with `/api/v1/account`.
 | PATCH | `/payment-method` | Update payment method |
 | DELETE | `/payment-method` | Delete payment method |
 | PUT | `/payment-method/:id/default` | Set as default |
+| POST | `/payment-method/tokenize` | Tokenize a card for a payment provider |
 
 ### Notifications
 

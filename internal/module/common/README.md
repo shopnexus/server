@@ -78,10 +78,11 @@ Reverse/forward geocoding and location search via a pluggable provider interface
 
 All under `/api/v1/common`.
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/files` | Yes | Upload file via multipart/form-data, returns resource with URL |
-| GET | `/option` | No | List active service options by `category` query param |
-| POST | `/geocode/reverse` | No | Convert lat/lng to address (`latitude`, `longitude` body) |
-| POST | `/geocode/forward` | No | Convert address to lat/lng (`address` body) |
-| GET | `/geocode/search` | No | Location suggestions for partial query (`q`, `limit` params) |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/files` | Upload file via multipart/form-data, returns resource with URL |
+| GET | `/option` | List active service options by `category` query param |
+| POST | `/geocode/reverse` | Convert lat/lng to address (`latitude`, `longitude` body) |
+| POST | `/geocode/forward` | Convert address to lat/lng (`address` body) |
+| GET | `/geocode/search` | Location suggestions for partial query (`q`, `limit` params) |
+| GET | `/stream` | SSE stream for real-time events; auth via `Authorization` header or `?token=` query param |

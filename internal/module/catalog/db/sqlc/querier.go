@@ -17,6 +17,8 @@ type Querier interface {
 	CountProductSku(ctx context.Context, arg CountProductSkuParams) (int64, error)
 	CountProductSpu(ctx context.Context, arg CountProductSpuParams) (int64, error)
 	CountProductSpuTag(ctx context.Context, arg CountProductSpuTagParams) (int64, error)
+	// Custom comment queries
+	CountRepliesByCommentIDs(ctx context.Context, refIds []uuid.UUID) ([]CountRepliesByCommentIDsRow, error)
 	CountSearchSync(ctx context.Context, arg CountSearchSyncParams) (int64, error)
 	CountTag(ctx context.Context, arg CountTagParams) (int64, error)
 	CreateBatchCategory(ctx context.Context, arg []CreateBatchCategoryParams) *CreateBatchCategoryBatchResults
@@ -114,6 +116,9 @@ type Querier interface {
 	ListTag(ctx context.Context, arg ListTagParams) ([]CatalogTag, error)
 	SearchCategory(ctx context.Context, arg SearchCategoryParams) ([]SearchCategoryRow, error)
 	SearchCountProductSpu(ctx context.Context, arg SearchCountProductSpuParams) ([]SearchCountProductSpuRow, error)
+	// Custom product queries
+	// Returns SPU IDs that have ALL of the specified tags (AND logic).
+	SearchCountProductSpuByTags(ctx context.Context, arg SearchCountProductSpuByTagsParams) ([]SearchCountProductSpuByTagsRow, error)
 	SearchTag(ctx context.Context, arg SearchTagParams) ([]SearchTagRow, error)
 	UpdateBatchStaleSearchSync(ctx context.Context, arg []UpdateBatchStaleSearchSyncParams) *UpdateBatchStaleSearchSyncBatchResults
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (CatalogCategory, error)

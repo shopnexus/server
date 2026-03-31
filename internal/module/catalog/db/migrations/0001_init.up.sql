@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu_tag" (
 CREATE TABLE IF NOT EXISTS "catalog"."comment" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "account_id" UUID NOT NULL,
+    -- Optional reference to the order that purchased the product being reviewed (must not null when ref_type='ProductSpu')
+    "order_id" UUID,
     -- 'ProductSpu' = top-level review; 'Comment' = reply to another comment
     "ref_type" "catalog"."comment_ref_type" NOT NULL,
     "ref_id" UUID NOT NULL,

@@ -137,6 +137,7 @@ type CatalogCategory struct {
 type CatalogComment struct {
 	ID          uuid.UUID             `json:"id"`
 	AccountID   uuid.UUID             `json:"account_id"`
+	OrderID     uuid.NullUUID         `json:"order_id"`
 	RefType     CatalogCommentRefType `json:"ref_type"`
 	RefID       uuid.UUID             `json:"ref_id"`
 	Body        string                `json:"body"`
@@ -145,7 +146,6 @@ type CatalogComment struct {
 	Score       float64               `json:"score"`
 	DateCreated time.Time             `json:"date_created"`
 	DateUpdated time.Time             `json:"date_updated"`
-	OrderID     uuid.UUID             `json:"order_id"`
 }
 
 type CatalogProductSku struct {

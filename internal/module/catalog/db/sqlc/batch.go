@@ -83,9 +83,9 @@ func (b *CreateBatchCategoryBatchResults) Close() error {
 }
 
 const createBatchComment = `-- name: CreateBatchComment :batchone
-INSERT INTO "catalog"."comment" ("id", "account_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated", "order_id")
+INSERT INTO "catalog"."comment" ("id", "account_id", "order_id", "ref_type", "ref_id", "body", "upvote", "downvote", "score", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, account_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated, order_id
+RETURNING id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
 type CreateBatchCommentBatchResults struct {
@@ -97,6 +97,7 @@ type CreateBatchCommentBatchResults struct {
 type CreateBatchCommentParams struct {
 	ID          uuid.UUID             `json:"id"`
 	AccountID   uuid.UUID             `json:"account_id"`
+	OrderID     uuid.NullUUID         `json:"order_id"`
 	RefType     CatalogCommentRefType `json:"ref_type"`
 	RefID       uuid.UUID             `json:"ref_id"`
 	Body        string                `json:"body"`
@@ -105,7 +106,6 @@ type CreateBatchCommentParams struct {
 	Score       float64               `json:"score"`
 	DateCreated time.Time             `json:"date_created"`
 	DateUpdated time.Time             `json:"date_updated"`
-	OrderID     uuid.UUID             `json:"order_id"`
 }
 
 func (q *Queries) CreateBatchComment(ctx context.Context, arg []CreateBatchCommentParams) *CreateBatchCommentBatchResults {
@@ -114,6 +114,7 @@ func (q *Queries) CreateBatchComment(ctx context.Context, arg []CreateBatchComme
 		vals := []interface{}{
 			a.ID,
 			a.AccountID,
+			a.OrderID,
 			a.RefType,
 			a.RefID,
 			a.Body,
@@ -122,7 +123,6 @@ func (q *Queries) CreateBatchComment(ctx context.Context, arg []CreateBatchComme
 			a.Score,
 			a.DateCreated,
 			a.DateUpdated,
-			a.OrderID,
 		}
 		batch.Queue(createBatchComment, vals...)
 	}
@@ -144,6 +144,7 @@ func (b *CreateBatchCommentBatchResults) QueryRow(f func(int, CatalogComment, er
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
+			&i.OrderID,
 			&i.RefType,
 			&i.RefID,
 			&i.Body,
@@ -152,7 +153,6 @@ func (b *CreateBatchCommentBatchResults) QueryRow(f func(int, CatalogComment, er
 			&i.Score,
 			&i.DateCreated,
 			&i.DateUpdated,
-			&i.OrderID,
 		)
 		if f != nil {
 			f(t, i, err)

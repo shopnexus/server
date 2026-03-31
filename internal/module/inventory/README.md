@@ -63,6 +63,7 @@ Serial reservation uses `FOR UPDATE SKIP LOCKED` so concurrent checkouts never b
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
 | GET | `/api/v1/inventory/stock` | GetStock | Get stock by ref_id + ref_type |
+| PATCH | `/api/v1/inventory/stock` | UpdateStockSettings | Update stock settings (e.g. serial_required) |
 | GET | `/api/v1/inventory/stock/history` | ListStockHistory | Paginated stock change history |
 | POST | `/api/v1/inventory/stock/import` | ImportStock | Import stock with optional serial IDs |
 

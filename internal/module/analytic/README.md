@@ -96,8 +96,9 @@ Events not in the weight map are silently skipped.
 
 All routes prefixed with `/api/v1/analytic`.
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/interaction` | Yes | Record one or more interaction events |
-| GET | `/popularity/top` | No | List top products by popularity score (paginated) |
-| GET | `/popularity/:spu_id` | No | Get popularity data for a specific product |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/interaction` | Record one or more interaction events |
+| GET | `/popularity/top` | List top products by popularity score (paginated) |
+| GET | `/popularity/:spu_id` | Get popularity data for a specific product |
+| GET | `/seller-dashboard` | Get seller sales and revenue dashboard (`?start=`, `?end=`, `?granularity=`) |

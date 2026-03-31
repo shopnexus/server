@@ -1,6 +1,8 @@
 package catalogbiz
 
 import (
+	"time"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -13,6 +15,7 @@ import (
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/ptrutil"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -94,20 +97,88 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		return zero, sharedmodel.WrapErr("list comment resources", err)
 	}
 
+	// Batch-fetch reply counts
+	replyCountMap := map[uuid.UUID]int64{}
+	if len(commentIDs) > 0 {
+		replyCounts, err := b.storage.Querier().CountRepliesByCommentIDs(ctx, commentIDs)
+		if err != nil {
+			return zero, sharedmodel.WrapErr("count replies", err)
+		}
+		for _, rc := range replyCounts {
+			replyCountMap[rc.RefID] = rc.ReplyCount
+		}
+	}
+
+	// Batch-fetch order items for enrichment (SKU name + order date)
+	var orderIDs []uuid.UUID
+	for _, c := range dbComments {
+		if c.OrderID.Valid {
+			orderIDs = append(orderIDs, c.OrderID.UUID)
+		}
+	}
+
+	type orderItemInfo struct {
+		SkuName   string
+		OrderDate *time.Time
+	}
+	orderItemMap := map[uuid.UUID]orderItemInfo{} // keyed by order_id
+	if len(orderIDs) > 0 {
+		type listParams struct {
+			ID []uuid.UUID `json:"ID"`
+			sharedmodel.PaginationParams
+		}
+		type orderItem struct {
+			SpuID   uuid.UUID `json:"spu_id"`
+			SkuName string    `json:"sku_name"`
+		}
+		type order struct {
+			ID          uuid.UUID   `json:"id"`
+			DateCreated time.Time   `json:"date_created"`
+			Items       []orderItem `json:"items"`
+		}
+		type orderResult struct {
+			Data []order `json:"Data"`
+		}
+		result, err := restate.Service[orderResult](ctx, "Order", "ListBuyerConfirmed").Request(listParams{
+			ID:               orderIDs,
+			PaginationParams: sharedmodel.PaginationParams{Limit: null.Int32From(int32(len(orderIDs)))},
+		})
+		if err == nil {
+			for _, o := range result.Data {
+				orderDate := o.DateCreated
+				for _, item := range o.Items {
+					// Match item to comment by ref_id (SPU ID)
+					orderItemMap[o.ID] = orderItemInfo{
+						SkuName:   item.SkuName,
+						OrderDate: &orderDate,
+					}
+				}
+			}
+		}
+	}
+
 	var comments []catalogmodel.Comment
 	for _, dbComment := range dbComments {
-		comments = append(comments, catalogmodel.Comment{
+		c := catalogmodel.Comment{
 			ID:          dbComment.ID,
 			Profile:     profileMap[dbComment.AccountID],
 			Body:        dbComment.Body,
 			Upvote:      dbComment.Upvote,
 			Downvote:    dbComment.Downvote,
 			Score:       dbComment.Score,
-			OrderID:     dbComment.OrderID,
+			OrderID:     ptrutil.PtrIf(dbComment.OrderID.UUID, dbComment.OrderID.Valid),
 			DateCreated: dbComment.DateCreated,
 			DateUpdated: dbComment.DateUpdated,
 			Resources:   resourcesMap[dbComment.ID],
-		})
+			ReplyCount:  replyCountMap[dbComment.ID],
+		}
+		if dbComment.OrderID.Valid {
+			if info, ok := orderItemMap[dbComment.OrderID.UUID]; ok {
+				c.OrderItemName = info.SkuName
+				c.OrderDate = info.OrderDate
+			}
+		}
+		comments = append(comments, c)
 	}
 
 	return sharedmodel.PaginateResult[catalogmodel.Comment]{
@@ -167,7 +238,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 			Limit:   null.Int32From(1),
 			RefType: []catalogdb.CatalogCommentRefType{catalogdb.CatalogCommentRefTypeProductSpu},
 			RefID:   []uuid.UUID{params.RefID},
-			OrderID: []uuid.UUID{params.OrderID},
+			OrderID: []uuid.NullUUID{{UUID: params.OrderID, Valid: true}},
 		})
 		if err != nil {
 			return zero, sharedmodel.WrapErr("check existing review", err)
@@ -183,7 +254,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		RefID:     params.RefID,
 		Body:      params.Body,
 		Score:     params.Score,
-		OrderID:   params.OrderID,
+		OrderID:   uuid.NullUUID{UUID: params.OrderID, Valid: params.OrderID != uuid.Nil},
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db create comment", err)
@@ -247,7 +318,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
 		Score:       comment.Score,
-		OrderID:     comment.OrderID,
+		OrderID:     ptrutil.PtrIf(comment.OrderID.UUID, comment.OrderID.Valid),
 		DateCreated: comment.DateCreated,
 		DateUpdated: comment.DateUpdated,
 		Resources:   resources,
@@ -324,7 +395,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		Upvote:      comment.Upvote,
 		Downvote:    comment.Downvote,
 		Score:       comment.Score,
-		OrderID:     comment.OrderID,
+		OrderID:     ptrutil.PtrIf(comment.OrderID.UUID, comment.OrderID.Valid),
 		DateCreated: comment.DateCreated,
 		DateUpdated: comment.DateUpdated,
 		Resources:   resources,
