@@ -23,7 +23,7 @@ import (
 	"shopnexus-server/internal/module/inventory"
 	"shopnexus-server/internal/module/order"
 	"shopnexus-server/internal/module/promotion"
-	"shopnexus-server/internal/module/system"
+
 	"shopnexus-server/internal/provider/geocoding"
 	"shopnexus-server/internal/provider/llm"
 )
@@ -52,7 +52,6 @@ var Module = fx.Module("main",
 	promotion.Module,
 	analytic.Module,
 	chat.Module,
-	system.Module,
 
 	// HTTP server
 	fx.Invoke(

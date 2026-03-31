@@ -12,7 +12,6 @@ A social marketplace backend in Go, built as a **modular monolith** designed for
 - [`analytic`](internal/module/analytic/) — Interaction tracking, weighted product popularity scoring
 - [`chat`](internal/module/chat/) — Real-time WebSocket messaging, conversations, read receipts
 - [`common`](internal/module/common/) — Resource/file management, object storage, service options, geocoding
-- [`system`](internal/module/system/) — Transactional outbox for reliable event publishing
 
 > Development timeline: [timeline.md](timeline.md)
 
