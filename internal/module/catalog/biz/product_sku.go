@@ -25,7 +25,7 @@ type ListProductSkuParams struct {
 	SpuID      []uuid.UUID `validate:"omitempty"`
 	PriceFrom  null.Int64  `validate:"omitnil,gt=0"`
 	PriceTo    null.Int64  `validate:"omitnil,gt=0,gtefield=PriceFrom"`
-	CanCombine null.Bool   `validate:"omitnil"`
+	Combinable null.Bool   `validate:"omitnil"`
 }
 
 // ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
@@ -41,7 +41,7 @@ func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductS
 		SpuID:      params.SpuID,
 		PriceFrom:  params.PriceFrom,
 		PriceTo:    params.PriceTo,
-		CanCombine: nullutil.NullBoolToSlice(params.CanCombine),
+		Combinable: nullutil.NullBoolToSlice(params.Combinable),
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db list product sku", err)
@@ -75,7 +75,7 @@ type CreateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	SpuID          uuid.UUID                       `validate:"required"`
 	Price          sharedmodel.Concurrency         `validate:"required,gt=0"`
-	CanCombine     bool                            `validate:"required"`
+	Combinable     bool                            `validate:"required"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `validate:"required"`
 }
@@ -97,7 +97,7 @@ func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProd
 	sku, err := b.storage.Querier().CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
 		SpuID:          params.SpuID,
 		Price:          int64(params.Price),
-		CanCombine:     params.CanCombine,
+		Combinable:     params.Combinable,
 		Attributes:     attributesBytes,
 		PackageDetails: packagedetailsBytes,
 	})
@@ -123,7 +123,7 @@ type UpdateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	ID             uuid.UUID                       `validate:"required"`
 	Price          sharedmodel.NullConcurrency     `validate:"omitnil"`
-	CanCombine     null.Bool                       `validate:"omitnil"`
+	Combinable     null.Bool                       `validate:"omitnil"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
 	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
@@ -149,7 +149,7 @@ func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProd
 	sku, err := b.storage.Querier().UpdateProductSku(ctx, catalogdb.UpdateProductSkuParams{
 		ID:             params.ID,
 		Price:          params.Price.ToNullInt64(),
-		CanCombine:     params.CanCombine,
+		Combinable:     params.Combinable,
 		Attributes:     attributesBytes,
 		PackageDetails: packageDetailsBytes,
 	})
@@ -186,8 +186,8 @@ func dbToProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
 	return catalogmodel.ProductSku{
 		ID:             sku.ID,
 		SpuID:          sku.SpuID,
-		Price:          sharedmodel.Concurrency(sku.Price),
-		CanCombine:     sku.CanCombine,
+		Price:          sharedmodel.Int64ToConcurrency(sku.Price),
+		Combinable:     sku.Combinable,
 		DateCreated:    sku.DateCreated,
 		PackageDetails: sku.PackageDetails,
 	}

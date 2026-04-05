@@ -29,7 +29,7 @@ type OrderItem struct {
 	SpuID       uuid.UUID               `json:"spu_id"`
 	SkuName     string                  `json:"sku_name"`
 	Quantity    int64                   `json:"quantity"`
-	UnitPrice   int64                   `json:"unit_price"`
+	UnitPrice   sharedmodel.Concurrency `json:"unit_price"`
 	PaidAmount  int64                   `json:"paid_amount"`
 	Note        *string                 `json:"note"`
 	SerialIds   json.RawMessage         `json:"serial_ids"`
@@ -41,9 +41,8 @@ type Order struct {
 	ID              uuid.UUID               `json:"id"`
 	BuyerID         uuid.UUID               `json:"buyer_id"`
 	SellerID        uuid.UUID               `json:"seller_id"`
-	TransportID     uuid.NullUUID           `json:"transport_id"`
+	Transport       *Transport              `json:"transport"`
 	Payment         *Payment                `json:"payment"`
-	Status          orderdb.OrderStatus     `json:"status"`
 	Address         string                  `json:"address"`
 	ProductCost     sharedmodel.Concurrency `json:"product_cost"`
 	ProductDiscount sharedmodel.Concurrency `json:"product_discount"`
@@ -66,6 +65,15 @@ type Payment struct {
 	DateCreated     time.Time               `json:"date_created"`
 	DatePaid        *time.Time              `json:"date_paid"`
 	DateExpired     time.Time               `json:"date_expired"`
+}
+
+type Transport struct {
+	ID          uuid.UUID                    `json:"id"`
+	Option      string                       `json:"option"`
+	Status      orderdb.OrderTransportStatus `json:"status"`
+	Cost        sharedmodel.Concurrency      `json:"cost"`
+	Data        json.RawMessage              `json:"data"`
+	DateCreated time.Time                    `json:"date_created"`
 }
 
 type Refund struct {

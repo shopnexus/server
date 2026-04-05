@@ -8,3 +8,9 @@
 - dùng product code thay vì id trong url để lấy product (tăng SEO)
 - support no auth list product-card & checkout
 - should write a blog about transaction in service layer instead of repository layer (combine with sqlc)
+
+- toàn bộ lib trong infras phải có WithTimeout() trả về chính nó để timeout call
+- luôn tạo transaction để db command trong restate run
+- wire filter by category (/category/id)
+- allow add background image
+- allow reference item in chat

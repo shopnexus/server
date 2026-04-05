@@ -19,7 +19,7 @@ type OrderItemStatus string
 const (
 	OrderItemStatusPending   OrderItemStatus = "Pending"
 	OrderItemStatusConfirmed OrderItemStatus = "Confirmed"
-	OrderItemStatusCanceled  OrderItemStatus = "Canceled"
+	OrderItemStatusCancelled OrderItemStatus = "Cancelled"
 )
 
 func (e *OrderItemStatus) Scan(src interface{}) error {
@@ -61,7 +61,7 @@ func (e OrderItemStatus) Valid() bool {
 	switch e {
 	case OrderItemStatusPending,
 		OrderItemStatusConfirmed,
-		OrderItemStatusCanceled:
+		OrderItemStatusCancelled:
 		return true
 	}
 	return false
@@ -71,7 +71,7 @@ func AllOrderItemStatusValues() []OrderItemStatus {
 	return []OrderItemStatus{
 		OrderItemStatusPending,
 		OrderItemStatusConfirmed,
-		OrderItemStatusCanceled,
+		OrderItemStatusCancelled,
 	}
 }
 
@@ -139,7 +139,7 @@ const (
 	OrderStatusPending    OrderStatus = "Pending"
 	OrderStatusProcessing OrderStatus = "Processing"
 	OrderStatusSuccess    OrderStatus = "Success"
-	OrderStatusCanceled   OrderStatus = "Canceled"
+	OrderStatusCancelled  OrderStatus = "Cancelled"
 	OrderStatusFailed     OrderStatus = "Failed"
 )
 
@@ -183,7 +183,7 @@ func (e OrderStatus) Valid() bool {
 	case OrderStatusPending,
 		OrderStatusProcessing,
 		OrderStatusSuccess,
-		OrderStatusCanceled,
+		OrderStatusCancelled,
 		OrderStatusFailed:
 		return true
 	}
@@ -195,7 +195,7 @@ func AllOrderStatusValues() []OrderStatus {
 		OrderStatusPending,
 		OrderStatusProcessing,
 		OrderStatusSuccess,
-		OrderStatusCanceled,
+		OrderStatusCancelled,
 		OrderStatusFailed,
 	}
 }
@@ -305,7 +305,6 @@ type OrderOrder struct {
 	PaymentID       null.Int        `json:"payment_id"`
 	TransportID     uuid.NullUUID   `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
-	Status          OrderStatus     `json:"status"`
 	Address         string          `json:"address"`
 	ProductCost     int64           `json:"product_cost"`
 	ProductDiscount int64           `json:"product_discount"`

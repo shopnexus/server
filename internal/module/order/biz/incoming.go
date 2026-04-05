@@ -74,6 +74,134 @@ func (b *OrderHandler) ListSellerPending(ctx restate.Context, params ListSellerP
 	}, nil
 }
 
+// QuoteTransport returns a cost estimate for shipping the selected pending items.
+func (b *OrderHandler) QuoteTransport(ctx restate.Context, params QuoteTransportParams) (QuoteTransportResult, error) {
+	var zero QuoteTransportResult
+
+	if err := validator.Validate(params); err != nil {
+		return zero, sharedmodel.WrapErr("validate quote", err)
+	}
+
+	sellerID := params.Account.ID
+
+	// Fetch items and validate
+	type fetchedItem struct {
+		AccountID  string `json:"account_id"`
+		SellerID   string `json:"seller_id"`
+		Address    string `json:"address"`
+		SkuID      string `json:"sku_id"`
+		Quantity   int64  `json:"quantity"`
+		UnitPrice  int64  `json:"unit_price"`
+		PaidAmount int64  `json:"paid_amount"`
+		Status     string `json:"status"`
+	}
+	type fetchResult struct {
+		Items []fetchedItem `json:"items"`
+	}
+
+	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
+		items, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
+			ID: params.ItemIDs,
+		})
+		if err != nil {
+			return fetchResult{}, err
+		}
+		if len(items) != len(params.ItemIDs) {
+			return fetchResult{}, ordermodel.ErrOrderItemNotFound.Terminal()
+		}
+		result := make([]fetchedItem, 0, len(items))
+		for _, item := range items {
+			result = append(result, fetchedItem{
+				AccountID:  item.AccountID.String(),
+				SellerID:   item.SellerID.String(),
+				Address:    item.Address,
+				SkuID:      item.SkuID.String(),
+				Quantity:   item.Quantity,
+				UnitPrice:  item.UnitPrice,
+				PaidAmount: item.PaidAmount,
+				Status:     string(item.Status),
+			})
+		}
+		return fetchResult{Items: result}, nil
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("fetch items", err)
+	}
+
+	var address string
+	for i, item := range fetched.Items {
+		if item.Status != string(orderdb.OrderItemStatusPending) {
+			return zero, ordermodel.ErrItemNotPending
+		}
+		itemSellerID, _ := uuid.Parse(item.SellerID)
+		if itemSellerID != sellerID {
+			return zero, ordermodel.ErrItemNotOwnedBySeller
+		}
+		if i == 0 {
+			address = item.Address
+		}
+	}
+
+	// Get seller contact for from_address
+	contactMap, err := b.account.GetDefaultContact(ctx, []uuid.UUID{sellerID})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("get seller contact", err)
+	}
+	fromAddress := contactMap[sellerID].Address
+
+	// Get transport quote
+	transportClient, err := b.getTransportClient(params.TransportOption)
+	if err != nil {
+		return zero, err
+	}
+
+	transportItems := lo.Map(fetched.Items, func(item fetchedItem, _ int) transport.ItemMetadata {
+		skuID, _ := uuid.Parse(item.SkuID)
+		return transport.ItemMetadata{
+			SkuID:    skuID,
+			Quantity: item.Quantity,
+		}
+	})
+
+	type quoteResult struct {
+		Cost int64 `json:"cost"`
+	}
+	qResult, err := restate.Run(ctx, func(ctx restate.RunContext) (quoteResult, error) {
+		q, err := transportClient.Quote(ctx, transport.QuoteParams{
+			Items:       transportItems,
+			FromAddress: fromAddress,
+			ToAddress:   address,
+		})
+		if err != nil {
+			return quoteResult{}, sharedmodel.WrapErr("transport quote", err)
+		}
+		return quoteResult{Cost: q.Cost}, nil
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("quote transport", err)
+	}
+
+	// Calculate costs
+	var productCost, totalPaidAmount int64
+	for _, item := range fetched.Items {
+		productCost += item.UnitPrice * item.Quantity
+		totalPaidAmount += item.PaidAmount
+	}
+	productDiscount := productCost - totalPaidAmount
+	if productDiscount < 0 {
+		productDiscount = 0
+	}
+	total := productCost - productDiscount + qResult.Cost
+
+	return QuoteTransportResult{
+		// TODO: the shared.Concurrency some func name is weird, consider renaming. or drop entirely
+		ProductCost:     sharedmodel.Concurrency(productCost),
+		ProductDiscount: sharedmodel.Concurrency(productDiscount),
+		TransportCost:   sharedmodel.Concurrency(qResult.Cost),
+		Total:           sharedmodel.Concurrency(total),
+	}, nil
+}
+
 // ConfirmSellerPending groups selected pending items into an order with transport.
 func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error) {
 	var zero ordermodel.Order
@@ -241,7 +369,6 @@ func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmS
 			BuyerID:         buyerID,
 			SellerID:        sellerID,
 			TransportID:     uuid.NullUUID{UUID: transportID, Valid: true},
-			Status:          orderdb.OrderStatusPending,
 			Address:         address,
 			ProductCost:     productCost,
 			ProductDiscount: productDiscount,

@@ -85,9 +85,9 @@ func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutPa
 
 	// Step 3: Create pending items
 	type createdItemInfo struct {
-		ID          int64     `json:"id"`
-		SkuID       string    `json:"sku_id"`
-		DateCreated string    `json:"date_created"`
+		ID          int64  `json:"id"`
+		SkuID       string `json:"sku_id"`
+		DateCreated string `json:"date_created"`
 	}
 	createdItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]createdItemInfo, error) {
 		var items []createdItemInfo
@@ -282,7 +282,7 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 			SpuID:       spuID,
 			SkuName:     oi.SkuName,
 			Quantity:    oi.Quantity,
-			UnitPrice:   oi.UnitPrice,
+			UnitPrice:   sharedmodel.Concurrency(oi.UnitPrice),
 			PaidAmount:  oi.PaidAmount,
 			Note:        note,
 			SerialIds:   oi.SerialIds,
@@ -422,4 +422,3 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 
 	return nil
 }
-

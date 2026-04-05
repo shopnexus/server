@@ -35,17 +35,17 @@ WHERE "id" = ANY(@ids::bigint[]) AND "status" = 'Pending';
 
 -- name: CancelItem :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = @id AND "account_id" = @account_id AND "status" = 'Pending';
 
 -- name: CancelItemsBySeller :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = ANY(@ids::bigint[]) AND "seller_id" = @seller_id AND "status" = 'Pending';
 
 -- name: CancelItemsByOrder :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "order_id" = @order_id;
 
 -- name: CreatePendingItem :one
@@ -62,18 +62,20 @@ SELECT EXISTS(
     SELECT 1
     FROM "order"."item" i
     JOIN "order"."order" o ON i."order_id" = o."id"
+    JOIN "order"."payment" p ON o."payment_id" = p."id"
     WHERE i."account_id" = @account_id
       AND i."sku_id" = ANY(@sku_ids::uuid[])
-      AND o."status" = 'Success'
+      AND p."status" = 'Success'
 ) AS has_purchased;
 
 -- name: ListSuccessOrdersBySkus :many
-SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.payment_id, o.transport_id, o.confirmed_by_id, o.status, o.address, o.product_cost, o.product_discount, o.transport_cost, o.total, o.note, o.data, o.date_created
+SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.payment_id, o.transport_id, o.confirmed_by_id, o.address, o.product_cost, o.product_discount, o.transport_cost, o.total, o.note, o.data, o.date_created
 FROM "order"."order" o
 JOIN "order"."item" i ON i."order_id" = o."id"
+JOIN "order"."payment" p ON o."payment_id" = p."id"
 WHERE o."buyer_id" = @buyer_id
   AND i."sku_id" = ANY(@sku_ids::uuid[])
-  AND o."status" = 'Success'
+  AND p."status" = 'Success'
 ORDER BY o."date_created" DESC;
 
 -- name: ValidateOrderForReview :one
@@ -81,8 +83,9 @@ SELECT EXISTS(
     SELECT 1
     FROM "order"."order" o
     JOIN "order"."item" i ON i."order_id" = o."id"
+    JOIN "order"."payment" p ON o."payment_id" = p."id"
     WHERE o."id" = @order_id
       AND o."buyer_id" = @buyer_id
       AND i."sku_id" = ANY(@sku_ids::uuid[])
-      AND o."status" = 'Success'
+      AND p."status" = 'Success'
 ) AS is_valid;

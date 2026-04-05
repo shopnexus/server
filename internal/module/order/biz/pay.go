@@ -54,9 +54,6 @@ func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrders
 			if o.BuyerID != params.Account.ID {
 				return fetchResult{}, ordermodel.ErrOrderNotFound.Terminal()
 			}
-			if o.Status != orderdb.OrderStatusPending {
-				return fetchResult{}, ordermodel.ErrOrderNotPayable
-			}
 			if o.PaymentID.Valid {
 				return fetchResult{}, ordermodel.ErrOrderAlreadyPaid
 			}

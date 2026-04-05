@@ -123,7 +123,7 @@ func processProduct(
 			ID:             skuID,
 			SpuID:          spu.ID,
 			Price:          price,
-			CanCombine:     false,
+			Combinable:     false,
 			Attributes:     attributesJSON,
 			PackageDetails: packageDetailsJSON,
 			DateCreated:    time.Now(),

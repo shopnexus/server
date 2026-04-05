@@ -152,7 +152,7 @@ type CatalogProductSku struct {
 	ID             uuid.UUID       `json:"id"`
 	SpuID          uuid.UUID       `json:"spu_id"`
 	Price          int64           `json:"price"`
-	CanCombine     bool            `json:"can_combine"`
+	Combinable     bool            `json:"combinable"`
 	Attributes     json.RawMessage `json:"attributes"`
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`

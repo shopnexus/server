@@ -9,11 +9,6 @@ import (
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
-	analyticbiz "shopnexus-server/internal/module/analytic/biz"
-	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-server/internal/module/analytic/model"
-	inventorybiz "shopnexus-server/internal/module/inventory/biz"
-	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -29,17 +24,22 @@ import (
 func (b *OrderHandler) GetBuyerOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
-	orders, err := b.ListBuyerConfirmed(ctx, ListBuyerConfirmedParams{
-		ID: []uuid.UUID{orderID},
+	order, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderOrder, error) {
+		return b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: orderID, Valid: true})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get order", err)
 	}
-	if len(orders.Data) == 0 {
+
+	hydrated, err := b.hydrateOrders(ctx, []orderdb.OrderOrder{order})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("hydrate order", err)
+	}
+	if len(hydrated) == 0 {
 		return zero, ordermodel.ErrOrderNotFound.Terminal()
 	}
 
-	return orders.Data[0], nil
+	return hydrated[0], nil
 }
 
 // GetSellerOrder returns a single order by ID (seller perspective).
@@ -55,12 +55,12 @@ func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerC
 		return zero, sharedmodel.WrapErr("validate list orders", err)
 	}
 
-	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountOrderRow, error) {
-		return b.storage.Querier().ListCountOrder(ctx, orderdb.ListCountOrderParams{
-			Limit:  params.Limit,
-			Offset: params.Offset(),
-			ID:     params.ID,
-			Status: params.Status,
+	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountBuyerOrderRow, error) {
+		return b.storage.Querier().ListCountBuyerOrder(ctx, orderdb.ListCountBuyerOrderParams{
+			BuyerID:       params.BuyerID,
+			PaymentStatus: params.PaymentStatus,
+			Limit:         params.Limit,
+			Offset:        params.Offset(),
 		})
 	})
 
@@ -73,7 +73,7 @@ func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerC
 		total.SetValid(listCountOrder[0].TotalCount)
 	}
 
-	orders := lo.Map(listCountOrder, func(item orderdb.ListCountOrderRow, _ int) orderdb.OrderOrder {
+	orders := lo.Map(listCountOrder, func(item orderdb.ListCountBuyerOrderRow, _ int) orderdb.OrderOrder {
 		return item.OrderOrder
 	})
 	data, err := b.hydrateOrders(ctx, orders)
@@ -101,7 +101,6 @@ func (b *OrderHandler) ListSellerConfirmed(ctx restate.Context, params ListSelle
 			SellerID:      params.SellerID,
 			Search:        params.Search,
 			PaymentStatus: params.PaymentStatus,
-			OrderStatus:   params.OrderStatus,
 			Offset:        params.Offset(),
 			Limit:         params.Limit,
 		})
@@ -144,10 +143,19 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		}
 	}
 
-	// Fetch order items and payments from DB inside Run
+	// Collect transport IDs (only valid ones)
+	var transportIDs []uuid.UUID
+	for _, o := range orders {
+		if o.TransportID.Valid {
+			transportIDs = append(transportIDs, o.TransportID.UUID)
+		}
+	}
+
+	// Fetch order items, payments, and transports from DB inside Run
 	type dbResults struct {
-		OrderItems []orderdb.OrderItem    `json:"order_items"`
-		Payments   []orderdb.OrderPayment `json:"payments"`
+		OrderItems []orderdb.OrderItem     `json:"order_items"`
+		Payments   []orderdb.OrderPayment  `json:"payments"`
+		Transports []orderdb.OrderTransport `json:"transports"`
 	}
 	dbData, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResults, error) {
 		orderItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
@@ -169,7 +177,17 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			}
 		}
 
-		return dbResults{OrderItems: orderItems, Payments: payments}, nil
+		var transports []orderdb.OrderTransport
+		if len(transportIDs) > 0 {
+			transports, err = b.storage.Querier().ListTransport(ctx, orderdb.ListTransportParams{
+				ID: transportIDs,
+			})
+			if err != nil {
+				return dbResults{}, err
+			}
+		}
+
+		return dbResults{OrderItems: orderItems, Payments: payments, Transports: transports}, nil
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db fetch order data", err)
@@ -194,6 +212,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	}
 
 	paymentMap := lo.KeyBy(dbData.Payments, func(p orderdb.OrderPayment) int64 { return p.ID })
+	transportMap := lo.KeyBy(dbData.Transports, func(t orderdb.OrderTransport) uuid.UUID { return t.ID })
 
 	result := make([]ordermodel.Order, 0, len(orders))
 	for _, o := range orders {
@@ -223,14 +242,30 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			}
 		}
 
+		var transportPtr *ordermodel.Transport
+		if o.TransportID.Valid {
+			if t, ok := transportMap[o.TransportID.UUID]; ok {
+				var dateCreated time.Time
+				if t.DateCreated.Valid {
+					dateCreated = t.DateCreated.Time
+				}
+				transportPtr = &ordermodel.Transport{
+					ID:          t.ID,
+					Option:      t.Option,
+					Status:      t.Status.OrderTransportStatus,
+					Cost:        sharedmodel.Concurrency(t.Cost),
+					Data:        t.Data,
+					DateCreated: dateCreated,
+				}
+			}
+		}
 
 		result = append(result, ordermodel.Order{
 			ID:              o.ID,
 			BuyerID:         o.BuyerID,
 			SellerID:        o.SellerID,
-			TransportID:     o.TransportID,
+			Transport:       transportPtr,
 			Payment:         paymentPtr,
-			Status:          o.Status,
 			Address:         o.Address,
 			ProductCost:     sharedmodel.Concurrency(o.ProductCost),
 			ProductDiscount: sharedmodel.Concurrency(o.ProductDiscount),
@@ -336,102 +371,6 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 			Metadata:  json.RawMessage(meta),
 		})
 	}
-
-	return nil
-}
-
-// CancelBuyerOrder cancels a pending order along with its items.
-// If unpaid (payment_id NULL): cancel order + items, release inventory.
-// If paid: return error (should use refund flow).
-func (b *OrderHandler) CancelBuyerOrder(ctx restate.Context, params CancelBuyerOrderParams) error {
-	// GetBuyerOrder has its own Run internally
-	order, err := b.GetBuyerOrder(ctx, params.OrderID)
-	if err != nil {
-		return sharedmodel.WrapErr("fetch order", err)
-	}
-
-	if order.BuyerID != params.Account.ID {
-		return ordermodel.ErrOrderNotFound.Terminal()
-	}
-
-	if order.Status != orderdb.OrderStatusPending {
-		return ordermodel.ErrOrderCannotCancel.Terminal()
-	}
-
-	// If paid, cannot cancel directly
-	if order.Payment != nil && order.Payment.Status == orderdb.OrderStatusSuccess {
-		return ordermodel.ErrPaymentCannotCancel.Terminal()
-	}
-
-	// Cancel order + items
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		// Cancel payment if exists
-		if order.Payment != nil {
-			if _, err := b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
-				ID:     order.Payment.ID,
-				Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
-			}); err != nil {
-				return sharedmodel.WrapErr("db update payment status", err)
-			}
-		}
-
-		// Cancel order
-		if _, err := b.storage.Querier().UpdateOrder(ctx, orderdb.UpdateOrderParams{
-			ID:     order.ID,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
-		}); err != nil {
-			return sharedmodel.WrapErr("db update order status", err)
-		}
-
-		// Cancel items
-		if err := b.storage.Querier().CancelItemsByOrder(ctx, uuid.NullUUID{UUID: order.ID, Valid: true}); err != nil {
-			return sharedmodel.WrapErr("db cancel items", err)
-		}
-
-		return nil
-	}); err != nil {
-		return sharedmodel.WrapErr("cancel order", err)
-	}
-
-	// Release inventory for all items
-	if len(order.Items) > 0 {
-		releaseItems := lo.Map(order.Items, func(item ordermodel.OrderItem, _ int) inventorybiz.ReleaseInventoryItem {
-			return inventorybiz.ReleaseInventoryItem{
-				RefType: inventorydb.InventoryStockRefTypeProductSku,
-				RefID:   item.SkuID,
-				Amount:  item.Quantity,
-			}
-		})
-		if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-			Items: releaseItems,
-		}); err != nil {
-			return sharedmodel.WrapErr("release inventory", err)
-		}
-	}
-
-	// Notify buyer: order cancelled
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: order.BuyerID,
-		Type:      accountmodel.NotiOrderCancelled,
-		Channel:   accountmodel.ChannelInApp,
-		Title:     "Order cancelled",
-		Content:   fmt.Sprintf("Your order for %s has been cancelled.", ordermodel.SummarizeItems(order.Items)),
-		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, order.ID)),
-	})
-
-	// Track cancel_order interactions
-	var cancelInteractions []analyticbiz.CreateInteraction
-	for _, item := range order.Items {
-		cancelInteractions = append(cancelInteractions, analyticbiz.CreateInteraction{
-			Account:   params.Account,
-			EventType: analyticmodel.EventCancelOrder,
-			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
-			RefID:     item.SkuID.String(),
-		})
-	}
-	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
-		Interactions: cancelInteractions,
-	})
 
 	return nil
 }

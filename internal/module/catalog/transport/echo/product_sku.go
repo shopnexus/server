@@ -19,7 +19,7 @@ type ListProductSkuRequest struct {
 	SpuID      uuid.UUID  `query:"spu_id" validate:"omitempty"`
 	PriceFrom  null.Int64 `query:"price_from" validate:"omitnil,gt=0"`
 	PriceTo    null.Int64 `query:"price_to" validate:"omitnil,gt=0,gtefield=PriceFrom"`
-	CanCombine null.Bool  `query:"can_combine" validate:"omitnil"`
+	Combinable null.Bool  `query:"combinable" validate:"omitnil"`
 }
 
 func (h *Handler) ListProductSku(c echo.Context) error {
@@ -35,7 +35,7 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 		SpuID:      []uuid.UUID{req.SpuID},
 		PriceFrom:  req.PriceFrom,
 		PriceTo:    req.PriceTo,
-		CanCombine: req.CanCombine,
+		Combinable: req.Combinable,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -46,7 +46,7 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 type CreateProductSkuRequest struct {
 	SpuID          uuid.UUID                       `json:"spu_id" validate:"required"`
 	Price          sharedmodel.Concurrency         `json:"price" validate:"required,gt=0"`
-	CanCombine     bool                            `json:"can_combine" validate:"omitempty"`
+	Combinable     bool                            `json:"combinable" validate:"omitempty"`
 	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"required"`
 }
@@ -69,7 +69,7 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 		Account:        claims.Account,
 		SpuID:          req.SpuID,
 		Price:          req.Price,
-		CanCombine:     req.CanCombine,
+		Combinable:     req.Combinable,
 		Attributes:     req.Attributes,
 		PackageDetails: req.PackageDetails,
 	})
@@ -82,7 +82,7 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 type UpdateProductSkuRequest struct {
 	ID             uuid.UUID                       `json:"id" validate:"required"`
 	Price          sharedmodel.NullConcurrency     `json:"price" validate:"omitnil,gt=0"`
-	CanCombine     null.Bool                       `json:"can_combine" validate:"omitnil"`
+	Combinable     null.Bool                       `json:"combinable" validate:"omitnil"`
 	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"omitempty"`
 }
@@ -105,7 +105,7 @@ func (h *Handler) UpdateProductSku(c echo.Context) error {
 		Account:        claims.Account,
 		ID:             req.ID,
 		Price:          req.Price,
-		CanCombine:     req.CanCombine,
+		Combinable:     req.Combinable,
 		Attributes:     req.Attributes,
 		PackageDetails: req.PackageDetails,
 	})

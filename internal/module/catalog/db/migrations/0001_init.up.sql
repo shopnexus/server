@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu" (
 
 -- SKU (Stock Keeping Unit): a specific purchasable variant of an SPU
 -- (e.g. size=L, color=Red). price is in the smallest currency unit (e.g. cents/VND).
--- can_combine controls whether this SKU can be bundled with other SKUs in promotions.
+-- combinable: SKU is small / no serial tracking, units can share a single package.
 -- attributes holds the variant dimension values (JSONB).
 -- package_details holds weight/dimensions for shipping calculation.
 CREATE TABLE IF NOT EXISTS "catalog"."product_sku" (
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_sku" (
     "spu_id" UUID NOT NULL,
     -- Price in smallest currency unit (e.g. VND, cents)
     "price" BIGINT NOT NULL,
-    -- Whether this SKU can participate in bundle promotions
-    "can_combine" BOOLEAN NOT NULL,
+    -- Small / no serial tracking → units can share a single package
+    "combinable" BOOLEAN NOT NULL,
     -- Variant attribute key/value pairs (e.g. {"size": "L", "color": "Red"})
     "attributes" JSONB NOT NULL,
     -- Physical packaging info for shipping (weight, dimensions, etc.)

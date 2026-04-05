@@ -43,6 +43,37 @@ func (h *Handler) ListSellerPending(c echo.Context) error {
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
+type QuoteTransportRequest struct {
+	ItemIDs         []int64 `json:"item_ids" validate:"required,min=1"`
+	TransportOption string  `json:"transport_option" validate:"required,min=1,max=100"`
+}
+
+func (h *Handler) QuoteTransport(c echo.Context) error {
+	var req QuoteTransportRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.QuoteTransport(c.Request().Context(), orderbiz.QuoteTransportParams{
+		Account:         claims.Account,
+		ItemIDs:         req.ItemIDs,
+		TransportOption: req.TransportOption,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
 type ConfirmSellerPendingRequest struct {
 	ItemIDs         []int64 `json:"item_ids" validate:"required,min=1"`
 	TransportOption string  `json:"transport_option" validate:"required,min=1,max=100"`

@@ -15,7 +15,7 @@ import (
 
 const cancelItem = `-- name: CancelItem :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = $1 AND "account_id" = $2 AND "status" = 'Pending'
 `
 
@@ -31,7 +31,7 @@ func (q *Queries) CancelItem(ctx context.Context, arg CancelItemParams) error {
 
 const cancelItemsByOrder = `-- name: CancelItemsByOrder :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "order_id" = $1
 `
 
@@ -42,7 +42,7 @@ func (q *Queries) CancelItemsByOrder(ctx context.Context, orderID uuid.NullUUID)
 
 const cancelItemsBySeller = `-- name: CancelItemsBySeller :exec
 UPDATE "order"."item"
-SET "status" = 'Canceled', "date_updated" = CURRENT_TIMESTAMP
+SET "status" = 'Cancelled', "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = ANY($1::bigint[]) AND "seller_id" = $2 AND "status" = 'Pending'
 `
 
@@ -171,9 +171,10 @@ SELECT EXISTS(
     SELECT 1
     FROM "order"."item" i
     JOIN "order"."order" o ON i."order_id" = o."id"
+    JOIN "order"."payment" p ON o."payment_id" = p."id"
     WHERE i."account_id" = $1
       AND i."sku_id" = ANY($2::uuid[])
-      AND o."status" = 'Success'
+      AND p."status" = 'Success'
 ) AS has_purchased
 `
 
@@ -307,12 +308,13 @@ func (q *Queries) ListPendingItemsBySeller(ctx context.Context, arg ListPendingI
 }
 
 const listSuccessOrdersBySkus = `-- name: ListSuccessOrdersBySkus :many
-SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.payment_id, o.transport_id, o.confirmed_by_id, o.status, o.address, o.product_cost, o.product_discount, o.transport_cost, o.total, o.note, o.data, o.date_created
+SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.payment_id, o.transport_id, o.confirmed_by_id, o.address, o.product_cost, o.product_discount, o.transport_cost, o.total, o.note, o.data, o.date_created
 FROM "order"."order" o
 JOIN "order"."item" i ON i."order_id" = o."id"
+JOIN "order"."payment" p ON o."payment_id" = p."id"
 WHERE o."buyer_id" = $1
   AND i."sku_id" = ANY($2::uuid[])
-  AND o."status" = 'Success'
+  AND p."status" = 'Success'
 ORDER BY o."date_created" DESC
 `
 
@@ -337,7 +339,6 @@ func (q *Queries) ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOr
 			&i.PaymentID,
 			&i.TransportID,
 			&i.ConfirmedByID,
-			&i.Status,
 			&i.Address,
 			&i.ProductCost,
 			&i.ProductDiscount,
@@ -362,10 +363,11 @@ SELECT EXISTS(
     SELECT 1
     FROM "order"."order" o
     JOIN "order"."item" i ON i."order_id" = o."id"
+    JOIN "order"."payment" p ON o."payment_id" = p."id"
     WHERE o."id" = $1
       AND o."buyer_id" = $2
       AND i."sku_id" = ANY($3::uuid[])
-      AND o."status" = 'Success'
+      AND p."status" = 'Success'
 ) AS is_valid
 `
 

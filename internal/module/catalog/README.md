@@ -38,7 +38,7 @@ erDiagram
   uuid id
   uuid spu_id
   bigint price
-  boolean can_combine
+  boolean combinable
   jsonb attributes
   jsonb package_details
   timestamptz date_created
@@ -140,7 +140,7 @@ All under `/api/v1/catalog`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/product-sku` | List by `spu_id` with price/can_combine filters |
+| GET | `/product-sku` | List by `spu_id` with price/combinable filters |
 | POST | `/product-sku` | Create (also provisions inventory stock) |
 | PATCH | `/product-sku` | Update price, attributes, package details |
 | DELETE | `/product-sku` | Delete |

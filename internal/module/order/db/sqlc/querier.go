@@ -111,13 +111,14 @@ type Querier interface {
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
 	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
+	// Custom order queries
+	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
 	ListCountCartItem(ctx context.Context, arg ListCountCartItemParams) ([]ListCountCartItemRow, error)
 	ListCountItem(ctx context.Context, arg ListCountItemParams) ([]ListCountItemRow, error)
 	ListCountOrder(ctx context.Context, arg ListCountOrderParams) ([]ListCountOrderRow, error)
 	ListCountPayment(ctx context.Context, arg ListCountPaymentParams) ([]ListCountPaymentRow, error)
 	ListCountRefund(ctx context.Context, arg ListCountRefundParams) ([]ListCountRefundRow, error)
 	ListCountRefundDispute(ctx context.Context, arg ListCountRefundDisputeParams) ([]ListCountRefundDisputeRow, error)
-	// Custom order queries
 	ListCountSellerOrder(ctx context.Context, arg ListCountSellerOrderParams) ([]ListCountSellerOrderRow, error)
 	ListCountTransport(ctx context.Context, arg ListCountTransportParams) ([]ListCountTransportRow, error)
 	ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error)

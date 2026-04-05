@@ -373,7 +373,7 @@ func (b *CatalogHandler) UpdateComment(ctx restate.Context, params UpdateComment
 		RefType:         commondb.CommonResourceRefTypeComment,
 		RefID:           params.ID,
 		ResourceIDs:     params.ResourceIDs,
-		EmptyResources:  true, // User may want to remove all resources (set to empty)
+		EmptyResources:  params.EmptyResources, // User may want to remove all linked resources
 		DeleteResources: true,
 	})
 	if err != nil {

@@ -172,6 +172,15 @@ func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c ec
 			if commaSeparatedFields[queryTag] {
 				continue
 			}
+			// For slice fields, bind all repeated query values (?key=a&key=b)
+			if field.Kind() == reflect.Slice {
+				if parts := c.QueryParams()[queryTag]; len(parts) > 0 {
+					if err := cb.setSliceFromParts(field, parts); err != nil {
+						return sharedmodel.ErrValidation.Fmt("query param '%s': %v", queryTag, err)
+					}
+				}
+				continue
+			}
 			if value := c.QueryParam(queryTag); value != "" {
 				if err := cb.setSingleValueFromString(field, value); err != nil {
 					return sharedmodel.ErrValidation.Fmt("query param '%s': %v", queryTag, err)

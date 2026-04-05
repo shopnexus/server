@@ -36,7 +36,7 @@ type ProductSku struct {
 	ID          uuid.UUID               `json:"id"`
 	SpuID       uuid.UUID               `json:"spu_id"`
 	Price       sharedmodel.Concurrency `json:"price"`
-	CanCombine  bool                    `json:"can_combine"`
+	Combinable  bool                    `json:"combinable"`
 	DateCreated time.Time               `json:"date_created"`
 	Stock       int64                   `json:"stock"`
 

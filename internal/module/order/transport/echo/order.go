@@ -40,7 +40,6 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	// Buyer - Confirmed
 	g.GET("/buyer/confirmed", h.ListBuyerConfirmed)
 	g.GET("/buyer/confirmed/:id", h.GetBuyerOrder)
-	g.DELETE("/buyer/confirmed/:id", h.CancelBuyerOrder)
 	g.POST("/buyer/pay", h.PayBuyerOrders)
 
 	// Buyer - Refund
@@ -52,6 +51,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 
 	// Seller - Pending
 	g.GET("/seller/pending", h.ListSellerPending)
+	g.POST("/seller/pending/quote", h.QuoteTransport)
 	g.POST("/seller/pending/confirm", h.ConfirmSellerPending)
 	g.POST("/seller/pending/reject", h.RejectSellerPending)
 
@@ -127,7 +127,7 @@ func (h *Handler) GetSellerOrder(c echo.Context) error {
 }
 
 type ListBuyerConfirmedRequest struct {
-	Status []orderdb.OrderStatus `query:"status" validate:"omitempty"`
+	PaymentStatus []orderdb.OrderStatus `query:"payment_status" validate:"omitempty"`
 	sharedmodel.PaginationParams
 }
 
@@ -140,9 +140,15 @@ func (h *Handler) ListBuyerConfirmed(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
 	result, err := h.biz.ListBuyerConfirmed(c.Request().Context(), orderbiz.ListBuyerConfirmedParams{
+		BuyerID:          claims.Account.ID,
+		PaymentStatus:    req.PaymentStatus,
 		PaginationParams: req.PaginationParams.Constrain(),
-		Status:           req.Status,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -154,7 +160,6 @@ func (h *Handler) ListBuyerConfirmed(c echo.Context) error {
 type ListSellerConfirmedRequest struct {
 	Search        null.String           `query:"search"`
 	PaymentStatus []orderdb.OrderStatus `query:"payment_status"`
-	OrderStatus   []orderdb.OrderStatus `query:"order_status"`
 	sharedmodel.PaginationParams
 }
 
@@ -176,7 +181,6 @@ func (h *Handler) ListSellerConfirmed(c echo.Context) error {
 		SellerID:         claims.Account.ID,
 		Search:           req.Search,
 		PaymentStatus:    req.PaymentStatus,
-		OrderStatus:      req.OrderStatus,
 		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
@@ -322,32 +326,3 @@ func (h *Handler) PayBuyerOrders(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
-// --- Cancel Buyer Order ---
-
-type CancelBuyerOrderRequest struct {
-	ID uuid.UUID `param:"id" validate:"required"`
-}
-
-func (h *Handler) CancelBuyerOrder(c echo.Context) error {
-	var req CancelBuyerOrderRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
-	if err := h.biz.CancelBuyerOrder(c.Request().Context(), orderbiz.CancelBuyerOrderParams{
-		Account: claims.Account,
-		OrderID: req.ID,
-	}); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromMessage(c.Response().Writer, http.StatusOK, "Order cancelled successfully")
-}

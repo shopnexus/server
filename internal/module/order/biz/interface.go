@@ -36,6 +36,7 @@ type OrderBiz interface {
 
 	// Incoming Items (seller)
 	ListSellerPending(ctx context.Context, params ListSellerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
+	QuoteTransport(ctx context.Context, params QuoteTransportParams) (QuoteTransportResult, error)
 	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
 
@@ -44,7 +45,6 @@ type OrderBiz interface {
 	GetSellerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
 	ListBuyerConfirmed(ctx context.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
 	ListSellerConfirmed(ctx context.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
-	CancelBuyerOrder(ctx context.Context, params CancelBuyerOrderParams) error
 
 	// Payment
 	PayBuyerOrders(ctx context.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error)
@@ -160,6 +160,19 @@ type ListSellerPendingParams struct {
 	sharedmodel.PaginationParams
 }
 
+type QuoteTransportParams struct {
+	Account         accountmodel.AuthenticatedAccount
+	ItemIDs         []int64 `validate:"required,min=1"`
+	TransportOption string  `validate:"required,min=1,max=100"`
+}
+
+type QuoteTransportResult struct {
+	ProductCost     sharedmodel.Concurrency `json:"product_cost"`
+	ProductDiscount sharedmodel.Concurrency `json:"product_discount"`
+	TransportCost   sharedmodel.Concurrency `json:"transport_cost"`
+	Total           sharedmodel.Concurrency `json:"total"`
+}
+
 type ConfirmSellerPendingParams struct {
 	Account         accountmodel.AuthenticatedAccount
 	ItemIDs         []int64 `validate:"required,min=1"`
@@ -173,22 +186,16 @@ type RejectSellerPendingParams struct {
 }
 
 type ListBuyerConfirmedParams struct {
+	BuyerID       uuid.UUID             `validate:"required"`
+	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams
-	ID     []uuid.UUID           `validate:"dive"`
-	Status []orderdb.OrderStatus `validate:"omitempty"`
 }
 
 type ListSellerConfirmedParams struct {
 	SellerID      uuid.UUID             `validate:"required"`
 	Search        null.String           `validate:"omitnil"`
 	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
-	OrderStatus   []orderdb.OrderStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams
-}
-
-type CancelBuyerOrderParams struct {
-	Account accountmodel.AuthenticatedAccount
-	OrderID uuid.UUID
 }
 
 type PayBuyerOrdersParams struct {

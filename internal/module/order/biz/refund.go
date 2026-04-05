@@ -239,7 +239,7 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		if _, err := b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
 			ID:     params.RefundID,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCanceled, Valid: true},
+			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCancelled, Valid: true},
 		}); err != nil {
 			return sharedmodel.WrapErr(fmt.Sprintf("db cancel refund %s", params.RefundID), err)
 		}

@@ -15,9 +15,9 @@ CREATE TYPE "order"."refund_method" AS ENUM ('PickUp', 'DropOff');
 -- Delivery lifecycle states
 CREATE TYPE "order"."transport_status" AS ENUM ('Pending', 'LabelCreated', 'InTransit', 'OutForDelivery', 'Delivered', 'Failed', 'Cancelled');
 -- Generic status used by payment, order, refund, and refund_dispute tables
-CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Canceled', 'Failed');
+CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Cancelled', 'Failed');
 -- Per-item confirmation state before an order is created
-CREATE TYPE "order"."item_status" AS ENUM ('Pending', 'Confirmed', 'Canceled');
+CREATE TYPE "order"."item_status" AS ENUM ('Pending', 'Confirmed', 'Cancelled');
 
 -- Tables
 
@@ -85,7 +85,6 @@ CREATE TABLE IF NOT EXISTS "order"."order" (
     "transport_id" UUID,
     -- Account that confirmed the order (usually the seller)
     "confirmed_by_id" UUID,
-    "status" "order"."status" NOT NULL DEFAULT 'Pending',
     -- Snapshot of the delivery address at order time
     "address" TEXT NOT NULL,
     -- Sum of item unit prices × quantities before discounts

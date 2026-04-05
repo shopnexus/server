@@ -2,155 +2,127 @@
 
 [![wakatime](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f.svg)](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f)
 
-A social marketplace backend in Go, built as a **modular monolith** designed for microservice extraction via [Restate](https://restate.dev) durable execution — comprising these modules with clear boundaries:
+A social marketplace backend in Go, built as a **modular monolith** designed for microservice extraction via [Restate](https://restate.dev) durable execution.
 
-- [`account`](internal/module/account/) — Auth, profiles, contacts, favorites, payment methods, notifications
-- [`catalog`](internal/module/catalog/) — Products (SPU/SKU), categories, tags, comments, hybrid search, recommendations
-- [`order`](internal/module/order/) — Cart, checkout, pending items, seller confirmation, payment, refunds
-- [`inventory`](internal/module/inventory/) — Stock management, serial tracking, audit history
-- [`promotion`](internal/module/promotion/) — Discounts, ship discounts, scheduling, group-based price stacking
-- [`analytic`](internal/module/analytic/) — Interaction tracking, weighted product popularity scoring
-- [`chat`](internal/module/chat/) — Real-time WebSocket messaging, conversations, read receipts
-- [`common`](internal/module/common/) — Resource/file management, object storage, service options, geocoding
+**No customer/vendor distinction** — any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction.
 
 > Development timeline: [timeline.md](timeline.md)
 
----
+## Modules
 
-## Durable Execution (Restate)
+Each module has its own README with ER diagrams, endpoints, and domain concepts.
 
-All biz handler methods use `restate.Context` instead of `context.Context`. This gives:
+| Module | Description |
+|--------|-------------|
+| [`account`](internal/module/account/) | Auth, profiles, contacts, favorites, payment methods, notifications |
+| [`catalog`](internal/module/catalog/) | Products (SPU/SKU), categories, tags, comments, hybrid search, recommendations |
+| [`order`](internal/module/order/) | Cart, checkout, pending items, seller confirmation, payment, refunds |
+| [`inventory`](internal/module/inventory/) | Stock management, serial tracking, audit history |
+| [`promotion`](internal/module/promotion/) | Discounts, ship discounts, scheduling, group-based price stacking |
+| [`analytic`](internal/module/analytic/) | Interaction tracking, weighted product popularity scoring |
+| [`chat`](internal/module/chat/) | REST messaging, conversations, read receipts |
+| [`common`](internal/module/common/) | Resource/file management, object storage, service options, SSE, geocoding |
+
+## Quick Start
+
+```bash
+# Infrastructure
+docker compose -f deployment/docker-compose.yml up -d
+
+# Server
+make dev          # hot-reload (air)
+make migrate      # run migrations
+make seed         # seed data
+make register     # register with Restate
+```
+
+## Architecture
+
+Entry point: `cmd/server/main.go` → `fx.New(app.Module).Run()`
+
+### Module Structure (Vertical Slice)
+
+```
+internal/module/<name>/
+  biz/
+    interface.go      # XxxBiz interface + XxxHandler struct + constructor
+    restate_gen.go    # Auto-generated Restate proxy (DO NOT EDIT)
+    *.go              # Business logic (uses restate.Context)
+  db/
+    migrations/       # SQL schema (*.up.sql / *.down.sql)
+    queries/          # SQLC queries (pgtempl-generated + *_custom.sql)
+    sqlc/             # Generated DB code (DO NOT EDIT)
+  model/              # DTOs, domain models, error sentinels
+  transport/echo/     # HTTP handlers
+  fx.go               # Uber fx module wiring
+```
+
+### Restate Durable Execution
+
+All biz methods use `restate.Context` instead of `context.Context`:
 
 - **Durable side effects**: DB writes inside `restate.Run()` are journaled and replay-safe
-- **Cross-module RPC**: calls go through generated Restate proxy clients (auto-registered at startup)
-- **Fire-and-forget**: `restate.ServiceSend()` for notifications and analytics tracking — durable, exactly-once delivery
-- **Terminal errors**: client-facing errors use `.Terminal()` to prevent Restate retries
+- **Cross-module RPC**: calls go through generated proxy clients (`XxxRestateClient`)
+- **Fire-and-forget**: `restate.ServiceSend()` for notifications, analytics — durable, exactly-once
+- **Terminal errors**: client-facing errors use `.Terminal()` to prevent retries
 
-Cross-module dependencies use the `XxxBiz` interface (resolved to Restate proxy by fx), not direct struct references. Transport handlers also depend on the interface, not the concrete handler.
+Cross-module deps use the `XxxBiz` interface (resolved to Restate proxy by fx). Transport handlers also depend on the interface, never the concrete struct.
 
----
+### Database
 
-## Unified Account Model
+- **PostgreSQL**: one schema per module (`account.*`, `catalog.*`, `order.*`, etc.)
+- **SQLC**: type-safe Go from SQL queries. `guregu/null/v6` for nullable types, `pgx/v5` driver.
+- **pgtempl**: generates SQLC query templates from migrations. Custom queries in `*_custom.sql`.
 
-There are no separate customer/vendor account types. Any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction, not per account.
+### Infrastructure
 
----
+| Service | Package | Purpose |
+|---------|---------|---------|
+| PostgreSQL | `internal/shared/pgsqlc` | Multi-schema DB with pgxpool |
+| Redis | `internal/infras/cachestruct` | Struct caching (Sonic JSON) |
+| NATS | `internal/infras/pubsub` | Message queue (JetStream) |
+| Restate | `internal/infras/restate` | HTTP ingress client for service calls |
+| Milvus | `internal/infras/milvus` | Vector search |
+| S3/Local | `internal/infras/objectstore` | File storage with presigned URLs |
+| Geocoding | `internal/infras/geocoding` | Reverse/forward geocoding + search |
+| LLM | `internal/infras/llm` | Embedding + chat (Python/OpenAI/Bedrock) |
 
-## Order Lifecycle
+## Code Rules
 
-The order flow is split into three phases with clear responsibility boundaries:
+### Error Handling
 
-### 1. Checkout (Buyer)
+- **Client-visible errors**: `sharedmodel.NewError(httpStatusCode, "message")` defined in `model/error.go`. Return with `.Terminal()` to prevent Restate retries.
+- **Internal errors**: `fmt.Errorf("action: %w", err)` — no "failed to" prefix.
+- **Wrapping terminal errors**: use `sharedmodel.WrapErr(msg, err)` instead of `fmt.Errorf` to preserve the terminal flag.
 
-Buyer selects SKUs (from cart or Buy Now), provides a shipping address per item. The system:
+### Naming
 
-- Validates SKU availability and fetches seller info
-- **Reserves inventory** immediately (prevents overselling)
-- Creates **pending `order.item` records** (no order yet, no payment)
-- Removes items from cart
+| Thing | Pattern | Example |
+|-------|---------|---------|
+| Interface | `XxxBiz` | `AccountBiz` |
+| Implementation | `XxxHandler` | `AccountHandler` |
+| Generated proxy | `XxxRestateClient` | `AccountRestateClient` |
+| Constructor | `NewXxxHandler` | `NewAccountHandler` |
+| Import alias | `sharedmodel` | `internal/shared/model` |
 
-Pending items can be cancelled by the buyer (releases inventory).
+### Nullable Types
 
-### 2. Confirmation (Seller)
+- `guregu/null/v6` for DB fields in SQLC-generated structs
+- `*T` pointers for JSON serialization in models exposed to Restate (generic types like `null.Value[T]` break Restate's JSON schema generation)
+- `ptrutil.PtrIf[T](val, valid)` for converting nullable DB types to pointers
 
-Seller sees incoming pending items grouped by buyer + address. Seller selects items and confirms them:
+### Restate Gotchas
 
-- Creates a **transport** record (shipping via pluggable provider)
-- Groups selected items into a single **order** with calculated costs:
-  - `product_cost` = sum(unit_price × quantity)
-  - `product_discount` = product_cost - sum(paid_amount)
-  - `total` = product_cost - product_discount + transport_cost
-- Items that share the same buyer AND address can be grouped together
-- Seller can also reject items (releases inventory, notifies buyer)
+- **`restate.Run()` closures**: `ctx` inside is `restate.RunContext`, not `restate.Context` — move cross-module calls outside `Run()` blocks.
+- **`restate.Run()` serialization**: return values are JSON-serialized in the journal. `uuid.UUID` (byte array), `null.*`, `int64` may not round-trip. Avoid returning complex DB structs.
+- **Init-time**: never call through the Restate proxy in constructors (Restate isn't running yet). Use background goroutines or `context.Context` helpers.
+- **`genrestate`**: methods must have exactly 1 input param (besides ctx). Multi-param methods need a params struct.
 
-### 3. Payment (Buyer)
+### Code Generation
 
-Buyer sees confirmed orders with exact totals (product + transport). Buyer selects orders and pays:
-
-- Creates a **payment** record linked to the selected orders
-- Calls the payment provider (VNPay QR/Bank/ATM or COD)
-- Payment verified via IPN callback
-
-### Cancellation
-
-- **Unpaid orders**: buyer can cancel directly (releases inventory)
-- **Paid orders**: must go through the refund flow (PickUp or DropOff return methods)
-
----
-
-## Product Model (SPU/SKU)
-
-Products follow the industry-standard two-level hierarchy:
-
-- **SPU (Standard Product Unit)**: the abstract product concept — name, description, category, specifications, tags, resources (images). Owned by the seller's account.
-- **SKU (Stock Keeping Unit)**: a concrete purchasable variant — price, attributes (color/size), package details, inventory stock. Each SKU belongs to one SPU.
-
-A **featured SKU** per SPU determines the display price on product cards.
-
----
-
-## Hybrid Search & Recommendations
-
-Product search combines **dense vector similarity** (embedding-based) and **sparse BM25** (keyword-based) scoring via Milvus. If Milvus is unavailable, falls back to PostgreSQL `ILIKE` matching.
-
-Background cron jobs sync product metadata and embeddings to Milvus:
-
-- **Metadata sync**: runs frequently, re-indexes name/price/tags/category
-- **Embedding sync**: runs less often, regenerates vector embeddings when description changes (expensive)
-
-Personalized recommendations use a Redis-cached feed per user, refreshed from Milvus collaborative filtering. Falls back to most-sold products when recommendations are insufficient.
-
----
-
-## Promotion Engine
-
-Promotions use **group-based stacking**:
-
-- Promotions in **different groups** stack with each other
-- Promotions in the **same group** compete — the one with the biggest savings wins
-- An **"exclusive" group** promotion overrides all others
-
-Discount data is stored as JSONB in `promotion.promotion.data` with configurable `min_spend`, `max_discount`, `discount_percent` or `discount_price`.
-
-Promotions can target specific products (SPU/SKU), categories via the `promotion.ref` table. Auto-apply promotions are included in every price calculation; code-based promotions require the buyer to enter a code.
-
-Types defined: Discount, ShipDiscount, Bundle, BuyXGetY, Cashback. Currently implemented in price calculation: **Discount** and **ShipDiscount**.
-
----
-
-## Inventory & Serial Tracking
-
-Stock uses a polymorphic `(ref_type, ref_id)` design supporting both ProductSKU and Promotion references.
-
-Serial assignment during checkout uses `FOR UPDATE SKIP LOCKED` — concurrent buyers get different serials without blocking each other. If a transaction rolls back, those serials become available again.
-
-Every stock change (import, reserve, release) is recorded in an append-only `stock_history` audit trail.
-
----
-
-## Payment & Transport Providers
-
-Both systems use a **pluggable provider pattern** — a `map[string]Client` keyed by option ID, registered at startup.
-
-**Payment providers:**
-
-- VNPay (QR, Bank, ATM) — redirect-based with IPN webhook verification
-- COD (Cash on Delivery) — no online payment
-
-**Transport providers:**
-
-- GHTK (Express, Standard, Economy) — mock implementation with weight-based cost calculation
-
-Providers are discoverable at runtime via the common service option registry.
-
----
-
-## Analytics
-
-Fire-and-forget interaction tracking via Restate durable calls. Weighted popularity scoring with atomic upsert accumulation. Feeds into product search recommendations.
-
----
-
-## Real-time Chat
-
-WebSocket-based messaging between any two accounts. One conversation per account pair (idempotent creation). Supports text, image, and system messages with read receipt tracking. Messages are persisted to PostgreSQL; offline users retrieve history via REST pagination.
+```bash
+go run ./cmd/pgtempl/ -module <name> -skip-schema-prefix -single-file=generated_queries.sql
+sqlc generate
+go generate ./internal/module/<name>/biz/
+# or: make generate (all modules)
+```

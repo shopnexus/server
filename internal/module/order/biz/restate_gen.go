@@ -39,6 +39,10 @@ func (p *OrderRestateClient) ListSellerPending(ctx context.Context, params ListS
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListSellerPending", params)
 }
 
+func (p *OrderRestateClient) QuoteTransport(ctx context.Context, params QuoteTransportParams) (QuoteTransportResult, error) {
+	return restateclient.Call[QuoteTransportResult](ctx, p.client, serviceName, "QuoteTransport", params)
+}
+
 func (p *OrderRestateClient) ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error) {
 	return restateclient.Call[ordermodel.Order](ctx, p.client, serviceName, "ConfirmSellerPending", params)
 }
@@ -61,10 +65,6 @@ func (p *OrderRestateClient) ListBuyerConfirmed(ctx context.Context, params List
 
 func (p *OrderRestateClient) ListSellerConfirmed(ctx context.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListSellerConfirmed", params)
-}
-
-func (p *OrderRestateClient) CancelBuyerOrder(ctx context.Context, params CancelBuyerOrderParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "CancelBuyerOrder", params)
 }
 
 func (p *OrderRestateClient) PayBuyerOrders(ctx context.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error) {
