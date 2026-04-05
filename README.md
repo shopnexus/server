@@ -36,6 +36,28 @@ transport/echo/
 fx.go               # Uber fx module wiring
 ```
 
+### Request Flow
+
+```mermaid
+flowchart LR
+    Client([Client]) -->|HTTP| Echo["Echo Handler"]
+    Echo -->|depends on| Biz["XxxBiz\n(interface)"]
+    Biz -.->|"fx resolves to"| Proxy["XxxRestateClient\n(generated)"]
+    Proxy -->|HTTP| Restate["Restate\nIngress"]
+    Restate -->|routes to| Handler["XxxHandler\n(restate.Context)"]
+    Handler -->|"restate.Run()"| SQLC["SQLC → PostgreSQL"]
+```
+
+Cross-module calls follow the same path — when `OrderHandler` needs account data, it calls `AccountBiz` (interface), which fx resolves to `AccountRestateClient`, which goes through Restate ingress to `AccountHandler`:
+
+```mermaid
+flowchart LR
+    OrderHandler -->|"calls AccountBiz"| AccountBiz["AccountBiz\n(interface)"]
+    AccountBiz -.->|proxy| AccountRestate["AccountRestateClient"]
+    AccountRestate -->|HTTP| Ingress["Restate\nIngress"]
+    Ingress -->|routes to| AccountHandler
+```
+
 ## Restate Durable Execution
 
 All business logic methods use `restate.Context` instead of `context.Context`. This is required for Restate's `Reflect()` registration and enables:
