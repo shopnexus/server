@@ -1,8 +1,8 @@
 # Order Module
 
-Manages the full order lifecycle: cart, checkout, seller confirmation, payment, cancellation, and refunds.
+Manages the full order lifecycle: cart, checkout, seller confirmation, payment, delivery, cancellation, and refunds. The most complex module in the system — orchestrates inventory, transport, payment, and promotion modules.
 
-**Struct:** `OrderHandler` | **Interface:** `OrderBiz` | **Restate service:** `Order`
+**Handler**: `OrderHandler` | **Interface**: `OrderBiz` | **Restate service**: `"Order"`
 
 ## ER Diagram
 
@@ -99,108 +99,132 @@ erDiagram
 ```
 <!--END_SECTION:mermaid-->
 
+## Domain Concepts
 
-## Key Concepts
+### Pending Items vs Orders
 
-- **No customer/vendor distinction** -- any account can buy and sell. Orders track `buyer_id` and `seller_id` per transaction.
-- **Checkout creates pending items**, not orders. Inventory is reserved and cart items are removed.
-- **Sellers create orders** by confirming incoming pending items via `ConfirmSellerPending`, which creates a transport and groups items into an order.
-- **Payment is separate** -- `payment_id` on orders is nullable until the buyer calls `PayBuyerOrders`.
-- **Pluggable providers** -- payment and transport providers are registered at startup in `map[string]Client` maps, selected by option string.
+**Checkout creates pending items, not orders.** When a buyer checks out, the system reserves inventory and creates `order.item` records with `status = Pending` — but no `order.order` row exists yet. The seller then reviews incoming pending items and either confirms or rejects them.
 
-## Order Flow
+**Sellers create orders** by confirming pending items via `ConfirmSellerPending`. This groups the confirmed items into an `order.order`, creates a transport record, and calculates the total cost (product cost - discount + transport cost). Only after confirmation does a proper "order" exist.
+
+### Payment
+
+Payment is separate from order creation. The `payment_id` on orders is nullable until the buyer calls `PayBuyerOrders`. A single payment can cover multiple orders. Payment providers are pluggable — each implements a `payment.Client` interface and is registered in `paymentMap` at startup.
+
+### Transport
+
+Transport providers are also pluggable via `transport.Client`. The seller selects a transport option when confirming pending items. The system calls `transportClient.Quote()` for cost estimation and `transportClient.Create()` when finalizing the order. Transport data (tracking ID, provider-specific metadata) is stored as JSONB.
+
+### Refunds
+
+Buyers request refunds on paid orders, choosing either PickUp (seller arranges pickup) or DropOff (buyer ships back). Refunds go through seller confirmation. Disputes can be raised against refunds.
+
+## Flows
+
+### Order Lifecycle
 
 ```
-Cart -> Checkout (pending items) -> Seller confirms (creates order + transport)
-     -> Buyer pays (PayBuyerOrders) -> Delivery -> (optional) Refund
+Cart → Checkout (pending items) → Seller confirms (creates order + transport)
+     → Buyer pays (PayBuyerOrders) → Delivery → (optional) Refund
 ```
 
-1. **Checkout** (`BuyerCheckout`): reserves inventory, removes from cart, creates pending `order.item` records (no order yet)
-2. **Buyer pending**: buyer lists (`ListBuyerPending`) and cancels (`CancelBuyerPending`) pending items (releases inventory)
-3. **Seller incoming**: seller lists pending items (`ListSellerPending`), confirms selected items (`ConfirmSellerPending`, creates order + transport), or rejects them (`RejectSellerPending`, releases inventory)
-4. **Payment**: buyer pays confirmed orders via `PayBuyerOrders` (creates payment, calls provider)
-5. **Cancel**: buyer cancels unpaid orders via `CancelBuyerOrder` (releases inventory)
-6. **Refund**: buyer requests refund on paid orders (PickUp/DropOff methods), seller confirms
+1. **Cart**: buyer adds SKUs to cart (`UpdateCart`). Cart is a simple quantity map.
+2. **Checkout** (`BuyerCheckout`): validates SKUs, reserves inventory via the inventory module, removes items from cart, creates pending `order.item` records. Supports "buy now" mode (skip cart).
+3. **Buyer pending**: buyer lists (`ListBuyerPending`) and can cancel (`CancelBuyerPending`) pending items, which releases the reserved inventory.
+4. **Seller incoming**: seller views pending items for their products (`ListSellerPending`). Can preview costs via `QuoteTransport` before confirming. `ConfirmSellerPending` groups items into an order, creates a transport, and calculates totals. `RejectSellerPending` releases inventory.
+5. **Payment** (`PayBuyerOrders`): buyer pays one or more confirmed orders. Creates a payment record, calls the payment provider. Provider webhook confirms success/failure.
+6. **Refund**: buyer requests refund on a paid order (`CreateBuyerRefund`). Seller confirms (`ConfirmSellerRefund`). Buyer can update or cancel pending refunds.
 
-## Tables
+### Payment Webhook Flow
 
-`order.cart_item`, `order.item`, `order.order`, `order.payment`, `order.transport`, `order.refund`, `order.refund_dispute`
+1. `PayBuyerOrders` creates a payment record and redirects buyer to the provider's payment page.
+2. Provider processes payment and calls the webhook (mounted dynamically via `payment.Client.MountWebhookRoutes()`).
+3. `ConfirmPayment` updates the payment status and all associated orders.
 
-## Providers
+## Implementation Notes
 
-**Payment:** VNPay (QR/Bank/ATM), COD (`system-cod`)
+- **Pluggable provider maps**: `paymentMap` and `transportMap` are `map[string]payment.Client` and `map[string]transport.Client`, populated at startup from config. The provider string on each order/transport record is the map key.
+- **Transport quote**: `QuoteTransport` calls `transportClient.Quote()` inside a `restate.Run()` closure for durability. This gives sellers a cost preview before confirming, including product cost, discount, transport cost, and total.
+- **`restate.Run()` for side effects**: transport creation and payment provider calls are wrapped in `restate.Run()` to ensure they're journaled. If the process crashes after creating a transport but before updating the order, Restate replays and skips the already-completed transport creation.
+- **Inventory coordination**: checkout reserves inventory via `inventory.ReserveInventory`. Cancellation (buyer cancel, seller reject) releases via `inventory.ReleaseInventory`. Both are cross-module Restate calls — durable and exactly-once.
+- **Promotion integration**: during checkout, prices are calculated via `promotion.CalculatePromotedPrices`, which applies all applicable discounts and returns the effective price per SKU.
 
-**Transport:** GHTK (Express/Standard/Economy) -- mock implementation with cost based on weight and service tier
+## Endpoints
 
-## API Endpoints
-
-All endpoints under `/api/v1/order`. Routes follow a `buyer/seller` + `pending/confirmed` convention.
+All under `/api/v1/order`.
 
 ### Cart
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/cart` | GetCart | List cart items |
-| POST | `/cart` | UpdateCart | Add/update/remove cart item |
-| DELETE | `/cart` | ClearCart | Remove all cart items |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/cart` | List cart items |
+| POST | `/cart` | Add/update/remove cart item |
+| DELETE | `/cart` | Remove all cart items |
 
-### Buyer -- Pending
+### Buyer — Pending
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| POST | `/buyer/checkout` | BuyerCheckout | Checkout items, reserve inventory, create pending items |
-| GET | `/buyer/pending` | ListBuyerPending | List buyer's pending items (filterable by `status`) |
-| DELETE | `/buyer/pending/:id` | CancelBuyerPending | Cancel a pending item (releases inventory) |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/buyer/checkout` | Checkout items, reserve inventory, create pending items |
+| GET | `/buyer/pending` | List buyer's pending items (filterable by `status`) |
+| DELETE | `/buyer/pending/:id` | Cancel a pending item (releases inventory) |
 
-### Buyer -- Confirmed
+### Buyer — Confirmed
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/buyer/confirmed` | ListBuyerConfirmed | List buyer's orders (filterable by `status`) |
-| GET | `/buyer/confirmed/:id` | GetBuyerOrder | Get order by ID |
-| DELETE | `/buyer/confirmed/:id` | CancelBuyerOrder | Cancel unpaid order (releases inventory) |
-| POST | `/buyer/pay` | PayBuyerOrders | Pay for confirmed orders |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/buyer/confirmed` | List buyer's orders (filterable by `status`) |
+| GET | `/buyer/confirmed/:id` | Get order by ID |
+| DELETE | `/buyer/confirmed/:id` | Cancel unpaid order (releases inventory) |
+| POST | `/buyer/pay` | Pay for confirmed orders |
 
-### Buyer -- Refund
+### Buyer — Refund
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/buyer/refund` | ListBuyerRefunds | List refund requests |
-| POST | `/buyer/refund` | CreateBuyerRefund | Create refund request (PickUp/DropOff) |
-| PATCH | `/buyer/refund` | UpdateBuyerRefund | Update pending refund |
-| DELETE | `/buyer/refund` | CancelBuyerRefund | Cancel pending refund |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/buyer/refund` | List refund requests |
+| POST | `/buyer/refund` | Create refund request (PickUp/DropOff) |
+| PATCH | `/buyer/refund` | Update pending refund |
+| DELETE | `/buyer/refund` | Cancel pending refund |
 
-### Seller -- Pending
+### Seller — Pending
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/seller/pending` | ListSellerPending | List pending items for seller's products (filterable by `search`) |
-| POST | `/seller/pending/confirm` | ConfirmSellerPending | Confirm items, create transport + order |
-| POST | `/seller/pending/reject` | RejectSellerPending | Reject pending items (releases inventory) |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/seller/pending` | List pending items for seller's products |
+| POST | `/seller/pending/quote` | Preview transport cost before confirming |
+| POST | `/seller/pending/confirm` | Confirm items, create transport + order |
+| POST | `/seller/pending/reject` | Reject pending items (releases inventory) |
 
-### Seller -- Confirmed
+### Seller — Confirmed
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| GET | `/seller/confirmed` | ListSellerConfirmed | List seller's orders (filterable by `search`, `order_status`, `payment_status`) |
-| GET | `/seller/confirmed/:id` | GetSellerOrder | Get order by ID |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/seller/confirmed` | List seller's orders (filterable by `search`, `status`) |
+| GET | `/seller/confirmed/:id` | Get order by ID |
 
-### Seller -- Refund
+### Seller — Refund
 
-| Method | Path | Handler | Description |
-|--------|------|---------|-------------|
-| POST | `/seller/refund/confirm` | ConfirmSellerRefund | Seller confirms refund |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/seller/refund/confirm` | Seller confirms refund |
 
 ### Payment Webhooks
 
-Payment providers register webhook routes at startup (e.g. VNPay IPN). These are mounted dynamically via `payment.Client.MountWebhookRoutes()`.
+Payment providers register webhook routes at startup (e.g., VNPay IPN). These are mounted dynamically via `payment.Client.MountWebhookRoutes()`.
+
+## Providers
+
+**Payment**: VNPay (QR/Bank/ATM), COD (`system-cod`)
+
+**Transport**: GHTK (Express/Standard/Economy) — mock implementation with cost based on weight and service tier
 
 ## Cross-Module Dependencies
 
 | Module | Usage |
 |--------|-------|
-| `account` | Authenticated identity, seller default contacts, notifications |
-| `catalog` | SPU/SKU lookup, pricing, package details |
-| `inventory` | Reserve/release inventory during checkout |
-| `promotion` | Price calculation with promotion codes |
-| `common` | Resource management (refund images) |
+| `account` | Authenticated identity, seller default contacts for shipping origin, notifications |
+| `catalog` | SPU/SKU lookup, pricing, package details for transport quoting |
+| `inventory` | Reserve/release inventory during checkout and cancellation |
+| `promotion` | Price calculation with active promotions and discount codes |
+| `common` | Resource management for refund images |

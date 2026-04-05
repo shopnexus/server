@@ -1,10 +1,8 @@
 # Account Module
 
-Handles user identity, authentication, and account-related data. Accounts are **unified** -- any account can act as both buyer and seller. There are no separate customer/vendor account types.
+Handles user identity, authentication, and account-related data. Accounts are **unified** — any account can act as both buyer and seller. There are no separate customer/vendor account types.
 
-**Struct**: `AccountHandler` | **Interface**: `AccountBiz` | **Restate service**: `Account`
-
----
+**Handler**: `AccountHandler` | **Interface**: `AccountBiz` | **Restate service**: `"Account"`
 
 ## ER Diagram
 
@@ -100,61 +98,41 @@ erDiagram
 ```
 <!--END_SECTION:mermaid-->
 
-## Features
+## Domain Concepts
 
 ### Authentication
 
-- Register and login with email, phone, or username + password (bcrypt).
-- JWT access tokens (HS512) with refresh token rotation using a separate signing secret.
+Register and login with email, phone, or username + password (bcrypt). JWT access tokens (HS512) with refresh token rotation using a separate signing secret.
 
 ### Profile
 
-- Name, gender, date of birth, avatar (linked to resource management), description.
-- Email and phone verification status tracking.
+One-to-one with account. Tracks name, gender, date of birth, avatar (linked to resource management via `avatar_rs_id`), description, and email/phone verification status.
 
 ### Contacts
 
-- Multiple shipping addresses per account (full name, phone, address, address type: Home/Work).
-- First contact auto-set as default. Configurable default via profile.
+Multiple shipping addresses per account with full name, phone, address, and type (Home/Work). The first contact is auto-set as default. The default contact is referenced by the profile and used as the seller's shipping origin during order confirmation.
 
 ### Favorites
 
-- Add/remove SPUs to a wishlist. Paginated listing. Batch check if SPUs are favorited.
-- Idempotent add -- returns existing record if already favorited.
+Wishlist of SPUs. Add is idempotent — returns the existing record if already favorited. Supports batch check ("are these SPUs favorited?") for product card rendering.
 
 ### Payment Methods
 
-- CRUD with JSONB data for flexible provider metadata.
-- Exactly-one-default enforcement via partial unique index (`WHERE is_default = true`).
-- Default swap wrapped in a transaction.
+Flexible provider metadata stored as JSONB. Exactly-one-default enforced via a partial unique index (`WHERE is_default = true`). Default swap is wrapped in a transaction to prevent two defaults from coexisting.
 
 ### Notifications
 
-- Per-account notifications with type, channel, content, read tracking.
-- Scheduled delivery support. Unread count endpoint.
-- Mark individual or all notifications as read.
+Per-account notifications with type, channel, content, and read tracking. Supports scheduled delivery. Unread count endpoint for badge rendering.
 
-### Account Management
+### Income History
 
-- `SuspendAccount` sets status to `Suspended` (soft delete, no row removal).
+Append-only earnings ledger. Each entry records the transaction type, income delta, and resulting balance.
 
----
+## Implementation Notes
 
-## Database Tables
-
-All tables in the `account` schema.
-
-| Table | Key Columns | Notes |
-|-------|-------------|-------|
-| `account` | id (UUID), number (identity), status, phone, email, username, password | Unique on phone, email, username |
-| `profile` | id (FK to account), gender, name, description, date_of_birth, avatar_rs_id, default_contact_id | 1:1 with account |
-| `contact` | id, account_id, full_name, phone, address, address_type | Multiple per account |
-| `favorite` | id, account_id, spu_id | Unique on (account_id, spu_id) |
-| `payment_method` | id, account_id, type, label, data (JSONB), is_default | Partial unique index for default |
-| `notification` | id, account_id, type, channel, is_read, content, date_scheduled | Indexed on account, type, channel |
-| `income_history` | id, account_id, type, income, current_balance, note | Append-only earnings ledger |
-
----
+- **Refresh token rotation**: access and refresh tokens use different signing secrets. On refresh, both tokens are re-issued — the old refresh token is implicitly invalidated by its expiry.
+- **Partial unique index**: `CREATE UNIQUE INDEX ... WHERE is_default = true` ensures at most one default payment method per account at the database level, avoiding application-level race conditions.
+- **Account suspension**: `SuspendAccount` sets status to `Suspended` (soft delete, no row removal). Suspended accounts cannot authenticate.
 
 ## Endpoints
 
@@ -213,3 +191,9 @@ All routes prefixed with `/api/v1/account`.
 | GET | `/notification/unread-count` | Get unread notification count |
 | POST | `/notification/read` | Mark specific notifications as read |
 | POST | `/notification/read-all` | Mark all notifications as read |
+
+## Cross-Module Dependencies
+
+| Module | Usage |
+|--------|-------|
+| `common` | Resource management for avatar images |

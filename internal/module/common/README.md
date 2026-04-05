@@ -1,9 +1,8 @@
 # Common Module
 
-Shared infrastructure services: resource management, object storage, service options registry, and geocoding.
+Shared infrastructure services: resource management, object storage, service options registry, geocoding, and server-sent events.
 
-- **Struct**: `CommonHandler` | **Interface**: `CommonBiz` | **Service**: `"Common"`
-- **Schema**: `common.*` in PostgreSQL
+**Handler**: `CommonHandler` | **Interface**: `CommonBiz` | **Restate service**: `"Common"`
 
 ## ER Diagram
 
@@ -44,19 +43,17 @@ erDiagram
 ```
 <!--END_SECTION:mermaid-->
 
-## Core Responsibilities
+## Domain Concepts
 
 ### Resource Management
 
-Polymorphic file attachments for any entity via a `resource_reference` join table with `ref_type` enum discriminator (`ProductSpu`, `ProductSku`, `Refund`, `ReturnDispute`, `Comment`). Each resource tracks provider, object key, MIME type, size, and checksum.
+Polymorphic file attachments for any entity via a `resource_reference` join table. The `ref_type` enum discriminator (`ProductSpu`, `ProductSku`, `Refund`, `ReturnDispute`, `Comment`) links resources to their owning entity without foreign keys. Each resource tracks its storage provider, object key, MIME type, size, and checksum.
 
-- `UpdateResources` -- transactional replace-all: deletes existing refs, verifies new resource IDs, re-creates in order
-- `DeleteResources` -- removes refs and optionally the underlying resource records
-- `GetResources` -- returns ordered resources per entity as a map of `refID -> []Resource` with resolved URLs
+Resources are ordered per entity — the `order` column on `resource_reference` controls display order (e.g., first image is the product thumbnail).
 
 ### Object Storage
 
-Three backends initialized on startup, registered as service options:
+Three backends, each registered as a service option at startup:
 
 | Provider | Description |
 |----------|-------------|
@@ -68,13 +65,23 @@ Each resource record tracks its `provider`, so URLs resolve against the correct 
 
 ### Service Options Registry
 
-Generic registry for configurable providers (payment, transport, objectstore). Each option has an ID, category, provider, method, name, and description. Auto-synced on module startup. Other modules call `UpdateServiceOptions` to register their providers.
+A generic registry for configurable providers (payment, transport, objectstore). Each option has an ID, category, provider, name, description, and JSONB config. Other modules call `UpdateServiceOptions` to register their providers on startup — the registry auto-syncs.
 
 ### Geocoding
 
-Reverse/forward geocoding and location search via a pluggable provider interface. Currently uses Nominatim (OpenStreetMap).
+Reverse/forward geocoding and location search via a pluggable provider interface. Currently uses Nominatim (OpenStreetMap). Used by the account module for contact address resolution.
 
-## API Endpoints
+### Server-Sent Events (SSE)
+
+Real-time event stream for push notifications, chat messages, and other live updates. Authenticates via `Authorization` header or `?token=` query param.
+
+## Implementation Notes
+
+- **Transactional replace-all**: `UpdateResources` deletes existing refs, verifies new resource IDs exist, and re-creates refs in order — all within a single transaction. This simplifies the frontend: just send the full list of resource IDs in the desired order.
+- **Auto-sync on startup**: each module registers its providers by calling `UpdateServiceOptions` during fx initialization. The registry upserts by ID, so restarts don't create duplicates.
+- **Placeholder fallback**: if a resource URL can't be resolved (deleted file, broken S3 link), the system returns a configurable placeholder image URL instead of failing.
+
+## Endpoints
 
 All under `/api/v1/common`.
 
@@ -82,7 +89,7 @@ All under `/api/v1/common`.
 |--------|------|-------------|
 | POST | `/files` | Upload file via multipart/form-data, returns resource with URL |
 | GET | `/option` | List active service options by `category` query param |
-| POST | `/geocode/reverse` | Convert lat/lng to address (`latitude`, `longitude` body) |
-| POST | `/geocode/forward` | Convert address to lat/lng (`address` body) |
+| POST | `/geocode/reverse` | Convert lat/lng to address |
+| POST | `/geocode/forward` | Convert address to lat/lng |
 | GET | `/geocode/search` | Location suggestions for partial query (`q`, `limit` params) |
-| GET | `/stream` | SSE stream for real-time events; auth via `Authorization` header or `?token=` query param |
+| GET | `/stream` | SSE stream for real-time events |
