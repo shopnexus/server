@@ -174,7 +174,7 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 	return catalogmodel.ProductDetail{
 		ID:          spu.ID,
 		Slug:        spu.Slug,
-		VendorID:    spu.AccountID,
+		SellerID:    spu.AccountID,
 		Name:        spu.Name,
 		Description: spu.Description,
 		IsActive:    spu.IsActive,

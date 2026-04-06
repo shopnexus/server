@@ -12,7 +12,7 @@ import (
 type ProductCard struct {
 	ID          uuid.UUID `json:"id"`
 	Slug        string    `json:"slug"`
-	VendorID    uuid.UUID `json:"vendor_id"`
+	SellerID    uuid.UUID `json:"seller_id"`
 	CategoryID  uuid.UUID `json:"category_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`

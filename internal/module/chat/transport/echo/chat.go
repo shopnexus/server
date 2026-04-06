@@ -34,7 +34,7 @@ func NewHandler(e *echo.Echo, biz chatbiz.ChatBiz) *Handler {
 }
 
 type CreateConversationRequest struct {
-	SellerID uuid.UUID `json:"vendor_id" validate:"required"`
+	SellerID uuid.UUID `json:"seller_id" validate:"required"`
 }
 
 func (h *Handler) CreateConversation(c echo.Context) error {
