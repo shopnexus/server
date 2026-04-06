@@ -6,7 +6,6 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/bytedance/sonic"
 	"github.com/milvus-io/milvus/client/v2/column"
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
@@ -195,13 +194,13 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 
 	ids := make([]string, 0, len(products))
 	numbers := make([]int64, 0, len(products))
-	names := make([]string, 0, len(products))
-	descriptions := make([]string, 0, len(products))
-	categories := make([]string, 0, len(products))
+	accountIDs := make([]string, 0, len(products))
+	categoryIDs := make([]string, 0, len(products))
 	isActives := make([]bool, 0, len(products))
-	ratings := make([]float32, 0, len(products))
-	skusJSON := make([][]byte, 0, len(products))
-	specsJSON := make([][]byte, 0, len(products))
+	priceMins := make([]float32, 0, len(products))
+	priceMaxs := make([]float32, 0, len(products))
+	dateCreateds := make([]int64, 0, len(products))
+	tagRows := make([][]string, 0, len(products))
 	denseVecs := make([][]float32, 0, len(products))
 	sparseVecs := make([]entity.SparseEmbedding, 0, len(products))
 
@@ -209,28 +208,32 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 		pid := p.ID.String()
 
 		ids = append(ids, pid)
-		numbers = append(numbers, 0) // number not in ProductDetail; use 0
-		names = append(names, p.Name)
-		desc := p.Description
-		if len(desc) > 10240 {
-			desc = desc[:10240]
-		}
-		descriptions = append(descriptions, desc)
-		categories = append(categories, p.Category.Name)
+		numbers = append(numbers, 0)
+		accountIDs = append(accountIDs, p.SellerID.String())
+		categoryIDs = append(categoryIDs, p.Category.ID.String())
 		isActives = append(isActives, p.IsActive)
-		ratings = append(ratings, float32(p.Rating.Score))
 
-		skuBytes, _ := sonic.Marshal(p.Skus)
-		skusJSON = append(skusJSON, skuBytes)
-		specBytes, _ := sonic.Marshal(p.Specifications)
-		specsJSON = append(specsJSON, specBytes)
+		// Derive price range from SKUs
+		var pMin, pMax float32
+		for i, sku := range p.Skus {
+			price := float32(sku.Price)
+			if i == 0 || price < pMin {
+				pMin = price
+			}
+			if i == 0 || price > pMax {
+				pMax = price
+			}
+		}
+		priceMins = append(priceMins, pMin)
+		priceMaxs = append(priceMaxs, pMax)
+		dateCreateds = append(dateCreateds, 0) // not available in ProductDetail; use 0
+		tagRows = append(tagRows, p.Tags)
 
 		if metadataOnly {
 			if ev, ok := existingVecMap[pid]; ok {
 				denseVecs = append(denseVecs, ev.dense)
 				sparseVecs = append(sparseVecs, ev.sparse)
 			} else {
-				// Product not yet in Milvus; use zero vectors
 				denseVecs = append(denseVecs, make([]float32, ContentVectorDim))
 				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
 				sparseVecs = append(sparseVecs, emptyEmb)
@@ -241,7 +244,6 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 			if emb.sparse != nil {
 				sparseVecs = append(sparseVecs, mapToSparseEmbedding(emb.sparse))
 			} else {
-				// Provider does not return sparse vectors; use empty embedding
 				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
 				sparseVecs = append(sparseVecs, emptyEmb)
 			}
@@ -251,13 +253,13 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 	cols := []column.Column{
 		column.NewColumnVarChar("id", ids),
 		column.NewColumnInt64("number", numbers),
-		column.NewColumnVarChar("name", names),
-		column.NewColumnVarChar("description", descriptions),
-		column.NewColumnVarChar("category", categories),
+		column.NewColumnVarChar("account_id", accountIDs),
+		column.NewColumnVarChar("category_id", categoryIDs),
 		column.NewColumnBool("is_active", isActives),
-		column.NewColumnFloat("rating", ratings),
-		column.NewColumnJSONBytes("skus", skusJSON),
-		column.NewColumnJSONBytes("specifications", specsJSON),
+		column.NewColumnFloat("price_min", priceMins),
+		column.NewColumnFloat("price_max", priceMaxs),
+		column.NewColumnInt64("date_created", dateCreateds),
+		column.NewColumnVarCharArray("tags", tagRows),
 		column.NewColumnFloatVector("content_vector", ContentVectorDim, denseVecs),
 		column.NewColumnSparseVectors("sparse_vector", sparseVecs),
 	}

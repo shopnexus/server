@@ -449,9 +449,9 @@ func (b *CreateBatchSearchSyncBatchResults) Close() error {
 }
 
 const createBatchTag = `-- name: CreateBatchTag :batchone
-INSERT INTO "catalog"."tag" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
+INSERT INTO "catalog"."tag" ("id", "account_id", "name", "description")
+VALUES ($1, $2, $3, $4)
+RETURNING id, account_id, name, description
 `
 
 type CreateBatchTagBatchResults struct {
@@ -462,6 +462,8 @@ type CreateBatchTagBatchResults struct {
 
 type CreateBatchTagParams struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }
 
@@ -470,6 +472,8 @@ func (q *Queries) CreateBatchTag(ctx context.Context, arg []CreateBatchTagParams
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
+			a.AccountID,
+			a.Name,
 			a.Description,
 		}
 		batch.Queue(createBatchTag, vals...)
@@ -489,7 +493,12 @@ func (b *CreateBatchTagBatchResults) QueryRow(f func(int, CatalogTag, error)) {
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.Description)
+		err := row.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Name,
+			&i.Description,
+		)
 		if f != nil {
 			f(t, i, err)
 		}

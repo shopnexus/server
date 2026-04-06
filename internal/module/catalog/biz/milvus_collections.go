@@ -13,27 +13,65 @@ import (
 )
 
 const (
-	CollectionProducts = "products"
-	CollectionAccounts = "accounts"
-	ContentVectorDim   = 768 // 1024 - BGE-M3, 768 - MGTE
+	CollectionProducts   = "products"
+	CollectionAccounts   = "accounts"
+	CollectionCategories = "categories"
+	CollectionTags       = "tags"
+	ContentVectorDim     = 768 // 1024 - BGE-M3, 768 - MGTE
 )
 
 func productsSchema() *entity.Schema {
 	return entity.NewSchema().
 		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPrimaryKey(true)).
 		WithField(entity.NewField().WithName("number").WithDataType(entity.FieldTypeInt64)).
-		WithField(entity.NewField().WithName("name").WithDataType(entity.FieldTypeVarChar).WithMaxLength(1024)).
-		WithField(entity.NewField().WithName("description").WithDataType(entity.FieldTypeVarChar).WithMaxLength(10240)).
-		WithField(entity.NewField().WithName("category").WithDataType(entity.FieldTypeVarChar).WithMaxLength(256)).
+		WithField(entity.NewField().WithName("account_id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36)).
+		WithField(entity.NewField().WithName("category_id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36)).
 		WithField(entity.NewField().WithName("is_active").WithDataType(entity.FieldTypeBool)).
-		WithField(entity.NewField().WithName("rating").WithDataType(entity.FieldTypeFloat)).
-		WithField(entity.NewField().WithName("skus").WithDataType(entity.FieldTypeJSON)).
-		WithField(entity.NewField().WithName("specifications").WithDataType(entity.FieldTypeJSON)).
+		WithField(entity.NewField().WithName("price_min").WithDataType(entity.FieldTypeFloat)).
+		WithField(entity.NewField().WithName("price_max").WithDataType(entity.FieldTypeFloat)).
+		WithField(entity.NewField().WithName("date_created").WithDataType(entity.FieldTypeInt64)).
+		WithField(entity.NewField().WithName("tags").WithDataType(entity.FieldTypeArray).WithElementType(entity.FieldTypeVarChar).WithMaxLength(100).WithMaxCapacity(50)).
 		WithField(entity.NewField().WithName("sparse_vector").WithDataType(entity.FieldTypeSparseVector)).
 		WithField(entity.NewField().WithName("content_vector").WithDataType(entity.FieldTypeFloatVector).WithDim(ContentVectorDim))
 }
 
 func productsIndexes() []milvus.IndexDef {
+	return []milvus.IndexDef{
+		// Vector indexes
+		{FieldName: "sparse_vector", IndexType: index.SparseInverted, MetricType: entity.IP},
+		{FieldName: "content_vector", IndexType: index.AUTOINDEX, MetricType: entity.COSINE},
+		// Scalar indexes for filtering
+		{FieldName: "account_id", IndexType: index.AUTOINDEX},
+		{FieldName: "category_id", IndexType: index.AUTOINDEX},
+		{FieldName: "is_active", IndexType: index.AUTOINDEX},
+		{FieldName: "price_min", IndexType: index.AUTOINDEX},
+		{FieldName: "price_max", IndexType: index.AUTOINDEX},
+		{FieldName: "date_created", IndexType: index.AUTOINDEX},
+	}
+}
+
+func categoriesSchema() *entity.Schema {
+	return entity.NewSchema().
+		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPrimaryKey(true)).
+		WithField(entity.NewField().WithName("sparse_vector").WithDataType(entity.FieldTypeSparseVector)).
+		WithField(entity.NewField().WithName("content_vector").WithDataType(entity.FieldTypeFloatVector).WithDim(ContentVectorDim))
+}
+
+func categoriesIndexes() []milvus.IndexDef {
+	return []milvus.IndexDef{
+		{FieldName: "sparse_vector", IndexType: index.SparseInverted, MetricType: entity.IP},
+		{FieldName: "content_vector", IndexType: index.AUTOINDEX, MetricType: entity.COSINE},
+	}
+}
+
+func tagsSchema() *entity.Schema {
+	return entity.NewSchema().
+		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(100).WithIsPrimaryKey(true)).
+		WithField(entity.NewField().WithName("sparse_vector").WithDataType(entity.FieldTypeSparseVector)).
+		WithField(entity.NewField().WithName("content_vector").WithDataType(entity.FieldTypeFloatVector).WithDim(ContentVectorDim))
+}
+
+func tagsIndexes() []milvus.IndexDef {
 	return []milvus.IndexDef{
 		{FieldName: "sparse_vector", IndexType: index.SparseInverted, MetricType: entity.IP},
 		{FieldName: "content_vector", IndexType: index.AUTOINDEX, MetricType: entity.COSINE},
@@ -70,6 +108,12 @@ func (b *CatalogHandler) SetupMilvusCollections(ctx context.Context) error {
 	}
 	if err := b.milvus.EnsureCollection(ctx, CollectionAccounts, accountsSchema(), accountsIndexes()); err != nil {
 		return sharedmodel.WrapErr("setup accounts collection", err)
+	}
+	if err := b.milvus.EnsureCollection(ctx, CollectionCategories, categoriesSchema(), categoriesIndexes()); err != nil {
+		return sharedmodel.WrapErr("setup categories collection", err)
+	}
+	if err := b.milvus.EnsureCollection(ctx, CollectionTags, tagsSchema(), tagsIndexes()); err != nil {
+		return sharedmodel.WrapErr("setup tags collection", err)
 	}
 	return nil
 }

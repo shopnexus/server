@@ -193,5 +193,7 @@ type CatalogSearchSync struct {
 
 type CatalogTag struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }

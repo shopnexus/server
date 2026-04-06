@@ -75,7 +75,7 @@ func (q *Queries) SearchCategory(ctx context.Context, arg SearchCategoryParams) 
 
 const searchTag = `-- name: SearchTag :many
 SELECT 
-    tag.id, tag.description,
+    tag.id, tag.account_id, tag.name, tag.description,
     COUNT(*) OVER() as total_count
 FROM "catalog"."tag" tag
 WHERE (
@@ -117,7 +117,13 @@ func (q *Queries) SearchTag(ctx context.Context, arg SearchTagParams) ([]SearchT
 	items := []SearchTagRow{}
 	for rows.Next() {
 		var i SearchTagRow
-		if err := rows.Scan(&i.CatalogTag.ID, &i.CatalogTag.Description, &i.TotalCount); err != nil {
+		if err := rows.Scan(
+			&i.CatalogTag.ID,
+			&i.CatalogTag.AccountID,
+			&i.CatalogTag.Name,
+			&i.CatalogTag.Description,
+			&i.TotalCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

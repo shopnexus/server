@@ -15,10 +15,14 @@ import (
 
 type ListProductCardRequest struct {
 	sharedmodel.PaginationParams
-	VendorID   uuid.NullUUID `query:"vendor_id" validate:"omitnil"`
-	CategoryID []uuid.UUID   `query:"category_id" comma_separated:"true" validate:"omitempty"`
-	Tags       []string      `query:"tag" validate:"omitempty"`
-	Search     null.String   `query:"search" validate:"omitnil"`
+	SellerID        uuid.NullUUID `query:"seller_id" validate:"omitnil"`
+	CategoryID      []uuid.UUID   `query:"category_id" comma_separated:"true" validate:"omitempty"`
+	Tags            []string      `query:"tag" validate:"omitempty"`
+	Search          null.String   `query:"search" validate:"omitnil"`
+	PriceMin        null.Float    `query:"price_min" validate:"omitnil,gte=0"`
+	PriceMax        null.Float    `query:"price_max" validate:"omitnil,gte=0"`
+	DateCreatedFrom null.Int      `query:"date_created_from" validate:"omitnil,gte=0"`
+	DateCreatedTo   null.Int      `query:"date_created_to" validate:"omitnil,gte=0"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {
@@ -33,14 +37,18 @@ func (h *Handler) ListProductCard(c echo.Context) error {
 
 	params := catalogbiz.ListProductCardParams{
 		PaginationParams: req.PaginationParams.Constrain(),
-		VendorID:         req.VendorID,
+		SellerID:         req.SellerID,
 		CategoryID:       req.CategoryID,
 		Tags:             req.Tags,
 		Search:           req.Search,
+		PriceMin:         req.PriceMin,
+		PriceMax:         req.PriceMax,
+		DateCreatedFrom:  req.DateCreatedFrom,
+		DateCreatedTo:    req.DateCreatedTo,
 	}
 
 	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
-		params.AccountID = &claims.Account.ID
+		params.AccountID = uuid.NullUUID{UUID: claims.Account.ID, Valid: true}
 	}
 
 	result, err := h.biz.ListProductCard(c.Request().Context(), params)
@@ -61,7 +69,7 @@ func (h *Handler) GetProductCard(c echo.Context) error {
 	}
 
 	if claims, err := authclaims.GetClaims(c.Request()); err == nil {
-		params.AccountID = &claims.Account.ID
+		params.AccountID = uuid.NullUUID{UUID: claims.Account.ID, Valid: true}
 	}
 
 	result, err := h.biz.GetProductCard(c.Request().Context(), params)

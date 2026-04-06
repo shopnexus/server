@@ -25,7 +25,7 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID *uuid.UUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID uuid.NullUUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -128,8 +128,8 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 
 	// Check favorites for authenticated user
 	var favoriteSet map[uuid.UUID]bool
-	if accountID != nil {
-		favoriteSet, _ = b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: *accountID, SpuIDs: spuIDs})
+	if accountID.Valid {
+		favoriteSet, _ = b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: accountID.UUID, SpuIDs: spuIDs})
 	}
 
 	for _, spu := range spus {
@@ -149,7 +149,7 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		productMap[spu.ID] = &catalogmodel.ProductCard{
 			ID:          spu.ID,
 			Slug:        spu.Slug,
-			VendorID:    spu.AccountID,
+			SellerID:    spu.AccountID,
 			CategoryID:  spu.Category.ID,
 			Name:        spu.Name,
 			Description: spu.Description,
@@ -174,8 +174,8 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 }
 
 type GetProductCardParams struct {
-	AccountID *uuid.UUID
-	SpuID     uuid.UUID `validate:"required"`
+	AccountID uuid.NullUUID `validate:"omitnil"` // optional, for is_favorite
+	SpuID     uuid.UUID     `validate:"required"`
 }
 
 // GetProductCard returns a single product card by SPU ID.
@@ -199,38 +199,115 @@ func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCa
 
 type ListProductCardParams struct {
 	sharedmodel.PaginationParams
-	AccountID  *uuid.UUID    // optional, for is_favorite
-	VendorID   uuid.NullUUID `validate:"omitnil"`
-	CategoryID []uuid.UUID   `validate:"omitempty"`
-	Tags       []string      `validate:"omitempty"`
-	Search     null.String   `validate:"omitnil,min=1,max=100"`
+	AccountID       uuid.NullUUID `validate:"omitnil"` // optional, for is_favorite
+	SellerID        uuid.NullUUID `validate:"omitnil"`
+	CategoryID      []uuid.UUID   `validate:"omitempty"`
+	Tags            []string      `validate:"omitempty"`
+	Search          null.String   `validate:"omitnil,min=1,max=100"`
+	PriceMin        null.Float    `validate:"omitnil,gte=0"`
+	PriceMax        null.Float    `validate:"omitnil,gte=0"`
+	DateCreatedFrom null.Int      `validate:"omitnil,gte=0"`
+	DateCreatedTo   null.Int      `validate:"omitnil,gte=0"`
 }
 
 // ListProductCard returns paginated product cards with optional search and vendor filter.
+// When a search query is provided, Milvus handles both semantic ranking and scalar filtering
+// in a single pass. When browsing (no search), Postgres handles filtering and pagination.
 func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
-	var products []catalogmodel.ProductCard
-	var err error
 
-	if err = validator.Validate(params); err != nil {
+	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate list product card", err)
 	}
 
+	var spuIDs []uuid.UUID
 	var total int64
-	var spuIDs []uuid.UUID // To respect order of search result
-	var searchArg = catalogdb.SearchCountProductSpuParams{
+
+	if params.Search.Valid {
+		// --- Search path: Milvus handles ranking + filtering ---
+		searchParams := SearchParams{
+			PaginationParams: params.PaginationParams,
+			Collection:       CollectionProducts,
+			Query:            params.Search.String,
+			Tags:             params.Tags,
+			IsActive:         null.BoolFrom(true),
+			PriceMin:         params.PriceMin,
+			PriceMax:         params.PriceMax,
+			DateCreatedFrom:  params.DateCreatedFrom,
+			DateCreatedTo:    params.DateCreatedTo,
+		}
+		if params.SellerID.Valid {
+			searchParams.AccountID = []uuid.UUID{params.SellerID.UUID}
+		}
+		if len(params.CategoryID) > 0 {
+			searchParams.CategoryID = params.CategoryID
+		}
+
+		results, err := b.Search(ctx, searchParams)
+		if err != nil {
+			slog.Error("failed to search products",
+				slog.String("query", params.Search.String),
+				slog.Any("error", err),
+			)
+			// Fallback to Postgres ILIKE search
+			return b.listProductCardFromDB(ctx, params)
+		}
+
+		spuIDs = lo.Map(results, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID })
+		// Estimate total: if we got a full page, there are likely more
+		total = int64(params.Page.Int32)*int64(params.Limit.Int32) + 1
+		if len(results) < int(params.Limit.Int32) {
+			total = int64(params.Page.Int32-1)*int64(params.Limit.Int32) + int64(len(results))
+		}
+	} else {
+		// --- Browse path: Postgres handles filtering + pagination ---
+		return b.listProductCardFromDB(ctx, params)
+	}
+
+	if len(spuIDs) == 0 {
+		return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
+			PageParams: params.PaginationParams,
+			Data:       []catalogmodel.ProductCard{},
+			Total:      null.IntFrom(0),
+		}, nil
+	}
+
+	// Enrich ranked IDs into full product cards
+	productCardMap, err := b.buildProductCards(ctx, spuIDs, params.AccountID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("build product cards", err)
+	}
+
+	products := make([]catalogmodel.ProductCard, 0, len(spuIDs))
+	for _, id := range spuIDs {
+		if card := productCardMap[id]; card != nil {
+			products = append(products, *card)
+		}
+	}
+
+	return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
+		PageParams: params.PaginationParams,
+		Data:       products,
+		Total:      null.IntFrom(total),
+	}, nil
+}
+
+// listProductCardFromDB is the Postgres-only path for browsing (no search query) or as fallback.
+func (b *CatalogHandler) listProductCardFromDB(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
+
+	searchArg := catalogdb.SearchCountProductSpuParams{
 		Limit:  params.Limit,
 		Offset: params.Offset(),
 	}
-
-	if params.VendorID.Valid {
-		searchArg.AccountID = []uuid.UUID{params.VendorID.UUID}
+	if params.SellerID.Valid {
+		searchArg.AccountID = []uuid.UUID{params.SellerID.UUID}
 	}
 	if len(params.CategoryID) > 0 {
 		searchArg.CategoryID = params.CategoryID
 	}
 
-	// If tags are provided, pre-filter SPU IDs by tags
+	// Tag pre-filter via join table
 	if len(params.Tags) > 0 {
 		tagRows, err := b.storage.Querier().SearchCountProductSpuByTags(ctx, catalogdb.SearchCountProductSpuByTagsParams{
 			Tags:     params.Tags,
@@ -244,77 +321,48 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 		if len(tagRows) == 0 {
 			return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
 				PageParams: params.PaginationParams,
-				Data:       products,
+				Data:       []catalogmodel.ProductCard{},
 				Total:      null.IntFrom(0),
 			}, nil
 		}
-		tagIDs := lo.Map(tagRows, func(r catalogdb.SearchCountProductSpuByTagsRow, _ int) uuid.UUID { return r.ID })
-		searchArg.ID = tagIDs
-		if len(tagRows) > 0 {
-			total = tagRows[0].TotalCount
-		}
+		searchArg.ID = lo.Map(tagRows, func(r catalogdb.SearchCountProductSpuByTagsRow, _ int) uuid.UUID { return r.ID })
 	}
 
-	// If search is provided, use search service to get product IDs
+	// ILIKE fallback when search is set but Milvus failed
 	if params.Search.Valid {
-		searchProducts, err := b.Search(ctx, SearchParams{
-			PaginationParams: params.PaginationParams,
-			Collection:       CollectionProducts,
-			Query:            params.Search.String,
-		})
-		if err != nil {
-			slog.Error("failed to search products",
-				slog.String("query", params.Search.String),
-				slog.Any("error", err),
-			)
-			searchArg.Description = params.Search
-			searchArg.Name = params.Search
-			searchArg.Slug = params.Search
-		} else {
-			searchArg.ID = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID })
-			spuIDs = lo.Map(searchProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }) // respect order
-		}
-		// total = int64(len(searchProducts))
-		// TODO: fix the search server to return total instead of calculating here
-		total = int64(params.Page.Int32)*int64(params.Limit.Int32) + 1
-		if len(searchProducts) < int(params.Limit.Int32) {
-			total -= int64(params.Limit.Int32) - int64(len(searchProducts))
-		}
-	} else {
-		total, err = b.storage.Querier().CountProductSpu(ctx, catalogdb.CountProductSpuParams{})
-		if err != nil {
-			return zero, sharedmodel.WrapErr("db count product spu", err)
-		}
+		searchArg.Name = params.Search
+		searchArg.Description = params.Search
+		searchArg.Slug = params.Search
 	}
 
-	searchCountSpu, err := b.storage.Querier().SearchCountProductSpu(ctx, searchArg)
+	var total null.Int64
+
+	rows, err := b.storage.Querier().SearchCountProductSpu(ctx, searchArg)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db search product spu", err)
 	}
-	// TODO: handle total from search result
+	if len(rows) > 0 {
+		total.SetValid(rows[0].TotalCount)
+	}
 
-	productCardMap, err := b.buildProductCards(ctx, lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID }), params.AccountID)
+	spuIDs := lo.Map(rows, func(r catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return r.CatalogProductSpu.ID })
+
+	productCardMap, err := b.buildProductCards(ctx, spuIDs, params.AccountID)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("build product cards", err)
 	}
 
-	// respect the order from search result, else use the order from DB query
-	if len(spuIDs) == 0 {
-		spuIDs = lo.Map(searchCountSpu, func(spu catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return spu.CatalogProductSpu.ID })
-	}
-
+	products := make([]catalogmodel.ProductCard, 0, len(spuIDs))
 	for _, id := range spuIDs {
-		productCard := productCardMap[id]
-		if productCard != nil {
-			products = append(products, *productCard)
+		if card := productCardMap[id]; card != nil {
+			products = append(products, *card)
 		}
 	}
 
-	// List some attributes for compact data
 	return sharedmodel.PaginateResult[catalogmodel.ProductCard]{
 		PageParams: params.PaginationParams,
 		Data:       products,
-		Total:      null.IntFrom(total),
+		Total:      total,
 	}, nil
 }
 
@@ -418,7 +466,11 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		})...)
 	}
 
-	productCardMap, err := b.buildProductCards(ctx, lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }), &params.Account.ID)
+	productCardMap, err := b.buildProductCards(
+		ctx,
+		lo.Map(rcmProducts, func(p catalogmodel.ProductRecommend, _ int) uuid.UUID { return p.ID }),
+		uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+	)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("build product cards", err)
 	}

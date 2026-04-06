@@ -30,11 +30,60 @@ type SearchParams struct {
 	sharedmodel.PaginationParams
 	Collection string
 	Query      string
+
+	// Scalar filters (applied inside Milvus before ANN ranking)
+	AccountID       []uuid.UUID // vendor filter
+	CategoryID      []uuid.UUID // category filter
+	Tags            []string    // array_contains_any on tags
+	IsActive        null.Bool   // active status
+	PriceMin        null.Float  // minimum price (filters on price_min >= value)
+	PriceMax        null.Float  // maximum price (filters on price_max <= value)
+	DateCreatedFrom null.Int    // unix timestamp lower bound
+	DateCreatedTo   null.Int    // unix timestamp upper bound
 }
 
-// Search performs hybrid dense+sparse vector search against the product collection.
+// buildFilterExpr builds a Milvus boolean expression from typed filter params.
+func buildFilterExpr(params SearchParams) string {
+	var clauses []string
+
+	if len(params.AccountID) > 0 {
+		ids := make([]string, len(params.AccountID))
+		for i, id := range params.AccountID {
+			ids[i] = id.String()
+		}
+		clauses = append(clauses, fmt.Sprintf("account_id in %s", toMilvusStringList(ids)))
+	}
+	if len(params.CategoryID) > 0 {
+		ids := make([]string, len(params.CategoryID))
+		for i, id := range params.CategoryID {
+			ids[i] = id.String()
+		}
+		clauses = append(clauses, fmt.Sprintf("category_id in %s", toMilvusStringList(ids)))
+	}
+	if len(params.Tags) > 0 {
+		clauses = append(clauses, fmt.Sprintf("array_contains_any(tags, %s)", toMilvusStringList(params.Tags)))
+	}
+	if params.IsActive.Valid {
+		clauses = append(clauses, fmt.Sprintf("is_active == %t", params.IsActive.Bool))
+	}
+	if params.PriceMin.Valid {
+		clauses = append(clauses, fmt.Sprintf("price_min >= %f", params.PriceMin.Float64))
+	}
+	if params.PriceMax.Valid {
+		clauses = append(clauses, fmt.Sprintf("price_max <= %f", params.PriceMax.Float64))
+	}
+	if params.DateCreatedFrom.Valid {
+		clauses = append(clauses, fmt.Sprintf("date_created >= %d", params.DateCreatedFrom.Int64))
+	}
+	if params.DateCreatedTo.Valid {
+		clauses = append(clauses, fmt.Sprintf("date_created <= %d", params.DateCreatedTo.Int64))
+	}
+
+	return strings.Join(clauses, " && ")
+}
+
+// Search performs hybrid dense+sparse vector search with scalar filtering.
 func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error) {
-	// 1. Get embeddings from embedding service
 	embeddings, err := b.llm.Embed(ctx, []string{params.Query})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("embed query", err)
@@ -51,17 +100,24 @@ func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]cat
 		offset = int(pag.Offset().Int32)
 	}
 
-	// 2. Build search requests
+	filter := buildFilterExpr(params)
+
+	// Build search requests with filters
 	denseReq := milvusclient.NewAnnRequest("content_vector", limit, entity.FloatVector(emb.Dense)).
 		WithOffset(offset)
+	if filter != "" {
+		denseReq.WithFilter(filter)
+	}
 
 	var results []milvus.SearchResult
 
 	if emb.Sparse != nil {
-		// Hybrid dense+sparse search
 		sparseVec := mapToSparseEmbedding(emb.Sparse)
 		sparseReq := milvusclient.NewAnnRequest("sparse_vector", limit, sparseVec).
 			WithOffset(offset)
+		if filter != "" {
+			sparseReq.WithFilter(filter)
+		}
 
 		reranker := milvusclient.NewWeightedReranker([]float64{
 			float64(b.denseWeight),
@@ -73,7 +129,6 @@ func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]cat
 			denseReq, sparseReq,
 		)
 	} else {
-		// Dense-only search (provider does not return sparse vectors)
 		results, err = b.milvus.Search(ctx, CollectionProducts,
 			limit, []entity.Vector{entity.FloatVector(emb.Dense)},
 			"content_vector", []string{"id"},
@@ -83,7 +138,6 @@ func (b *CatalogHandler) Search(ctx restate.Context, params SearchParams) ([]cat
 		return nil, sharedmodel.WrapErr("search", err)
 	}
 
-	// 4. Convert results
 	products := make([]catalogmodel.ProductRecommend, 0, len(results))
 	for _, r := range results {
 		id, err := uuid.Parse(r.ID)
@@ -306,7 +360,7 @@ func (b *CatalogHandler) UpdateProducts(ctx restate.Context, params UpdateProduc
 	if !params.MetadataOnly {
 		texts := make([]string, len(products))
 		for i, p := range products {
-			texts[i] = p.Name + " " + htmlutil.StripHTML(p.Description) // TODO: add other rich context fields like: sku name, specification, ...
+			texts[i] = buildEmbeddingText(p)
 		}
 		embeddings, err := b.llm.Embed(ctx, texts)
 		if err != nil {
@@ -380,6 +434,65 @@ func accountOutputFields() []string {
 		fields = append(fields, fmt.Sprintf("strength_%d", i))
 	}
 	return fields
+}
+
+// buildEmbeddingText produces a natural-language text for embedding.
+// Written as prose rather than structured labels because MGTE/BGE-M3 are trained
+// on web text — they understand natural sentences, not key-value delimiters.
+// The order is intentional: name first (strongest signal), then contextual keywords
+// (category, tags, attributes, specs), then description last (longest, dilutes less).
+func buildEmbeddingText(p catalogmodel.ProductDetail) string {
+	var b strings.Builder
+
+	b.WriteString(p.Name)
+
+	if p.Category.Name != "" {
+		b.WriteString(". ")
+		b.WriteString(p.Category.Name)
+	}
+
+	if len(p.Tags) > 0 {
+		b.WriteString(". ")
+		b.WriteString(strings.Join(p.Tags, ", "))
+	}
+
+	// Collect unique attribute values across SKUs (e.g. "Red, Blue, XL, M")
+	attrSet := make(map[string][]string)
+	for _, sku := range p.Skus {
+		for _, attr := range sku.Attributes {
+			attrSet[attr.Name] = appendUnique(attrSet[attr.Name], attr.Value)
+		}
+	}
+	for name, values := range attrSet {
+		b.WriteString(". ")
+		b.WriteString(name)
+		b.WriteString(" ")
+		b.WriteString(strings.Join(values, " "))
+	}
+
+	for _, s := range p.Specifications {
+		b.WriteString(". ")
+		b.WriteString(s.Name)
+		b.WriteString(" ")
+		b.WriteString(s.Value)
+	}
+
+	desc := htmlutil.StripHTML(p.Description)
+	if desc != "" {
+		b.WriteString(". ")
+		b.WriteString(desc)
+	}
+
+	return b.String()
+}
+
+func appendUnique(slice []string, val string) []string {
+	for _, s := range slice {
+		if s == val {
+			return slice
+		}
+	}
+	return append(slice, val)
 }
 
 func mapToSparseEmbedding(m map[uint32]float32) entity.SparseEmbedding {

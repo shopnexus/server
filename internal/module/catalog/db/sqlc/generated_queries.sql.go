@@ -345,17 +345,26 @@ SELECT COUNT(*)
 FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("description" = ANY($2) OR $2 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type CountTagParams struct {
 	ID          []string      `json:"id"`
+	AccountID   []uuid.UUID   `json:"account_id"`
+	Name        []string      `json:"name"`
 	Description []null.String `json:"description"`
 }
 
 func (q *Queries) CountTag(ctx context.Context, arg CountTagParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTag, arg.ID, arg.Description)
+	row := q.db.QueryRow(ctx, countTag,
+		arg.ID,
+		arg.AccountID,
+		arg.Name,
+		arg.Description,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -511,6 +520,8 @@ type CreateCopyDefaultSearchSyncParams struct {
 
 type CreateCopyDefaultTagParams struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }
 
@@ -556,6 +567,8 @@ type CreateCopySearchSyncParams struct {
 
 type CreateCopyTagParams struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }
 
@@ -756,20 +769,32 @@ func (q *Queries) CreateDefaultSearchSync(ctx context.Context, arg CreateDefault
 }
 
 const createDefaultTag = `-- name: CreateDefaultTag :one
-INSERT INTO "catalog"."tag" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
+INSERT INTO "catalog"."tag" ("id", "account_id", "name", "description")
+VALUES ($1, $2, $3, $4)
+RETURNING id, account_id, name, description
 `
 
 type CreateDefaultTagParams struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }
 
 func (q *Queries) CreateDefaultTag(ctx context.Context, arg CreateDefaultTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, createDefaultTag, arg.ID, arg.Description)
+	row := q.db.QueryRow(ctx, createDefaultTag,
+		arg.ID,
+		arg.AccountID,
+		arg.Name,
+		arg.Description,
+	)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Description)
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.Description,
+	)
 	return i, err
 }
 
@@ -926,20 +951,32 @@ func (q *Queries) CreateSearchSync(ctx context.Context, arg CreateSearchSyncPara
 }
 
 const createTag = `-- name: CreateTag :one
-INSERT INTO "catalog"."tag" ("id", "description")
-VALUES ($1, $2)
-RETURNING id, description
+INSERT INTO "catalog"."tag" ("id", "account_id", "name", "description")
+VALUES ($1, $2, $3, $4)
+RETURNING id, account_id, name, description
 `
 
 type CreateTagParams struct {
 	ID          string      `json:"id"`
+	AccountID   uuid.UUID   `json:"account_id"`
+	Name        string      `json:"name"`
 	Description null.String `json:"description"`
 }
 
 func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, createTag, arg.ID, arg.Description)
+	row := q.db.QueryRow(ctx, createTag,
+		arg.ID,
+		arg.AccountID,
+		arg.Name,
+		arg.Description,
+	)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Description)
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.Description,
+	)
 	return i, err
 }
 
@@ -1255,17 +1292,26 @@ const deleteTag = `-- name: DeleteTag :exec
 DELETE FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("description" = ANY($2) OR $2 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 `
 
 type DeleteTagParams struct {
 	ID          []string      `json:"id"`
+	AccountID   []uuid.UUID   `json:"account_id"`
+	Name        []string      `json:"name"`
 	Description []null.String `json:"description"`
 }
 
 func (q *Queries) DeleteTag(ctx context.Context, arg DeleteTagParams) error {
-	_, err := q.db.Exec(ctx, deleteTag, arg.ID, arg.Description)
+	_, err := q.db.Exec(ctx, deleteTag,
+		arg.ID,
+		arg.AccountID,
+		arg.Name,
+		arg.Description,
+	)
 	return err
 }
 
@@ -1448,7 +1494,7 @@ func (q *Queries) GetSearchSync(ctx context.Context, arg GetSearchSyncParams) (C
 
 const getTag = `-- name: GetTag :one
 
-SELECT id, description
+SELECT id, account_id, name, description
 FROM "catalog"."tag"
 WHERE ("id" = $1)
 `
@@ -1459,7 +1505,12 @@ WHERE ("id" = $1)
 func (q *Queries) GetTag(ctx context.Context, id null.String) (CatalogTag, error) {
 	row := q.db.QueryRow(ctx, getTag, id)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Description)
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.Description,
+	)
 	return i, err
 }
 
@@ -2170,19 +2221,23 @@ func (q *Queries) ListCountSearchSync(ctx context.Context, arg ListCountSearchSy
 }
 
 const listCountTag = `-- name: ListCountTag :many
-SELECT embed_tag.id, embed_tag.description, COUNT(*) OVER() as total_count
+SELECT embed_tag.id, embed_tag.account_id, embed_tag.name, embed_tag.description, COUNT(*) OVER() as total_count
 FROM "catalog"."tag" embed_tag
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("description" = ANY($2) OR $2 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
-LIMIT $4::int
-OFFSET $3::int
+LIMIT $6::int
+OFFSET $5::int
 `
 
 type ListCountTagParams struct {
 	ID          []string      `json:"id"`
+	AccountID   []uuid.UUID   `json:"account_id"`
+	Name        []string      `json:"name"`
 	Description []null.String `json:"description"`
 	Offset      null.Int32    `json:"offset"`
 	Limit       null.Int32    `json:"limit"`
@@ -2196,6 +2251,8 @@ type ListCountTagRow struct {
 func (q *Queries) ListCountTag(ctx context.Context, arg ListCountTagParams) ([]ListCountTagRow, error) {
 	rows, err := q.db.Query(ctx, listCountTag,
 		arg.ID,
+		arg.AccountID,
+		arg.Name,
 		arg.Description,
 		arg.Offset,
 		arg.Limit,
@@ -2207,7 +2264,13 @@ func (q *Queries) ListCountTag(ctx context.Context, arg ListCountTagParams) ([]L
 	items := []ListCountTagRow{}
 	for rows.Next() {
 		var i ListCountTagRow
-		if err := rows.Scan(&i.CatalogTag.ID, &i.CatalogTag.Description, &i.TotalCount); err != nil {
+		if err := rows.Scan(
+			&i.CatalogTag.ID,
+			&i.CatalogTag.AccountID,
+			&i.CatalogTag.Name,
+			&i.CatalogTag.Description,
+			&i.TotalCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2549,19 +2612,23 @@ func (q *Queries) ListSearchSync(ctx context.Context, arg ListSearchSyncParams) 
 }
 
 const listTag = `-- name: ListTag :many
-SELECT id, description
+SELECT id, account_id, name, description
 FROM "catalog"."tag"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("description" = ANY($2) OR $2 IS NULL)
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("name" = ANY($3) OR $3 IS NULL) AND
+    ("description" = ANY($4) OR $4 IS NULL)
 )
 ORDER BY "id"
-LIMIT $4::int
-OFFSET $3::int
+LIMIT $6::int
+OFFSET $5::int
 `
 
 type ListTagParams struct {
 	ID          []string      `json:"id"`
+	AccountID   []uuid.UUID   `json:"account_id"`
+	Name        []string      `json:"name"`
 	Description []null.String `json:"description"`
 	Offset      null.Int32    `json:"offset"`
 	Limit       null.Int32    `json:"limit"`
@@ -2570,6 +2637,8 @@ type ListTagParams struct {
 func (q *Queries) ListTag(ctx context.Context, arg ListTagParams) ([]CatalogTag, error) {
 	rows, err := q.db.Query(ctx, listTag,
 		arg.ID,
+		arg.AccountID,
+		arg.Name,
 		arg.Description,
 		arg.Offset,
 		arg.Limit,
@@ -2581,7 +2650,12 @@ func (q *Queries) ListTag(ctx context.Context, arg ListTagParams) ([]CatalogTag,
 	items := []CatalogTag{}
 	for rows.Next() {
 		var i CatalogTag
-		if err := rows.Scan(&i.ID, &i.Description); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Name,
+			&i.Description,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2879,20 +2953,35 @@ func (q *Queries) UpdateSearchSync(ctx context.Context, arg UpdateSearchSyncPara
 
 const updateTag = `-- name: UpdateTag :one
 UPDATE "catalog"."tag"
-SET "description" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "description") END
-WHERE id = $3
-RETURNING id, description
+SET "account_id" = COALESCE($1, "account_id"),
+    "name" = COALESCE($2, "name"),
+    "description" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "description") END
+WHERE id = $5
+RETURNING id, account_id, name, description
 `
 
 type UpdateTagParams struct {
-	NullDescription bool        `json:"null_description"`
-	Description     null.String `json:"description"`
-	ID              string      `json:"id"`
+	AccountID       uuid.NullUUID `json:"account_id"`
+	Name            null.String   `json:"name"`
+	NullDescription bool          `json:"null_description"`
+	Description     null.String   `json:"description"`
+	ID              string        `json:"id"`
 }
 
 func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) (CatalogTag, error) {
-	row := q.db.QueryRow(ctx, updateTag, arg.NullDescription, arg.Description, arg.ID)
+	row := q.db.QueryRow(ctx, updateTag,
+		arg.AccountID,
+		arg.Name,
+		arg.NullDescription,
+		arg.Description,
+		arg.ID,
+	)
 	var i CatalogTag
-	err := row.Scan(&i.ID, &i.Description)
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.Description,
+	)
 	return i, err
 }
