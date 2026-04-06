@@ -63,7 +63,14 @@ func main() {
 		log.Printf("  %s | %s | password: %s", a.Username, a.Email, a.Password)
 	}
 
-	// Step 2: Process products — distribute across accounts
+	// Step 2: Seed base categories from categories.json
+	catalogStore := catalogdb.New(pool)
+	catIdx, err := seedCategories(ctx, catalogStore)
+	if err != nil {
+		log.Fatalf("failed to seed categories: %v", err)
+	}
+
+	// Step 3: Process products — distribute across accounts
 	processedCount := 0
 	totalProducts := len(products)
 
@@ -78,7 +85,7 @@ func main() {
 			}
 			defer tx.Rollback(ctx)
 
-			if err := processProduct(ctx, fake, product, owner.ID, accounts,
+			if err := processProduct(ctx, fake, product, owner.ID, catIdx, accounts,
 				accountdb.New(tx), catalogdb.New(tx), commondb.New(tx), inventorydb.New(tx), promotiondb.New(tx),
 			); err != nil {
 				return err

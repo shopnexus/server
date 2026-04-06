@@ -25,6 +25,7 @@ func processProduct(
 	fake *gofakeit.Faker,
 	input InputProduct,
 	accountID uuid.UUID,
+	catIdx *categoryIndex,
 	accounts []SeedAccount,
 	accountStore *accountdb.Queries,
 	catalogStore *catalogdb.Queries,
@@ -32,11 +33,8 @@ func processProduct(
 	inventoryStore *inventorydb.Queries,
 	promotionStore *promotiondb.Queries,
 ) error {
-	// Upsert category
-	categoryID, err := upsertCategory(ctx, catalogStore, input.Breadcrumb)
-	if err != nil {
-		return fmt.Errorf("upsert category: %w", err)
-	}
+	// Match product to a base category via breadcrumb
+	categoryID := catIdx.match(input.Breadcrumb)
 
 	// Generate slug
 	productSlug := slug.Make(input.Title)

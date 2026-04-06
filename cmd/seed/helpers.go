@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gosimple/slug"
@@ -13,29 +17,138 @@ import (
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 )
 
-func upsertCategory(ctx context.Context, store *catalogdb.Queries, breadcrumb []string) (uuid.UUID, error) {
-	leaf := "General"
-	if len(breadcrumb) > 0 {
-		leaf = breadcrumb[len(breadcrumb)-1]
+// seedCategory represents a category entry in categories.json.
+type seedCategory struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// categoryIndex maps lowercased keywords from category names to their UUID.
+// Used for fuzzy matching product breadcrumbs to base categories.
+type categoryIndex struct {
+	byName map[string]uuid.UUID // exact lowercase name → UUID
+	byWord map[string]uuid.UUID // individual word → UUID (last match wins; used as fallback)
+	fallback uuid.UUID          // "General" category
+}
+
+func newCategoryIndex() *categoryIndex {
+	return &categoryIndex{
+		byName: make(map[string]uuid.UUID),
+		byWord: make(map[string]uuid.UUID),
+	}
+}
+
+func (ci *categoryIndex) add(name string, id uuid.UUID) {
+	lower := strings.ToLower(name)
+	ci.byName[lower] = id
+
+	for _, word := range strings.FieldsFunc(lower, func(r rune) bool {
+		return r == ' ' || r == '&' || r == ',' || r == '-' || r == '/'
+	}) {
+		if len(word) > 2 { // skip tiny words like "of", "a", "&"
+			ci.byWord[word] = id
+		}
+	}
+}
+
+// match tries to find the best category for a product breadcrumb.
+// Priority: exact name match on any crumb → word match from leaf → fallback.
+func (ci *categoryIndex) match(breadcrumb []string) uuid.UUID {
+	// 1. Try exact match on each breadcrumb level (prefer deepest match)
+	for i := len(breadcrumb) - 1; i >= 0; i-- {
+		lower := strings.ToLower(breadcrumb[i])
+		if id, ok := ci.byName[lower]; ok {
+			return id
+		}
 	}
 
-	category, err := store.GetCategory(ctx, catalogdb.GetCategoryParams{
-		Name: null.StringFrom(leaf),
-	})
-	if err == nil {
-		return category.ID, nil
+	// 2. Try word-level matching from leaf backwards; pick first hit
+	for i := len(breadcrumb) - 1; i >= 0; i-- {
+		words := strings.FieldsFunc(strings.ToLower(breadcrumb[i]), func(r rune) bool {
+			return r == ' ' || r == '&' || r == ',' || r == '-' || r == '/'
+		})
+		for _, w := range words {
+			if id, ok := ci.byWord[w]; ok {
+				return id
+			}
+		}
 	}
 
-	category, err = store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
-		Name:        leaf,
-		Description: leaf,
-		ParentID:    null.Int{},
+	return ci.fallback
+}
+
+// seedCategories loads categories.json and inserts them into the database.
+// Returns a categoryIndex for matching products to categories.
+func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryIndex, error) {
+	data, err := os.ReadFile("categories.json")
+	if err != nil {
+		return nil, fmt.Errorf("read categories.json: %w", err)
+	}
+
+	var categories []seedCategory
+	if err := json.Unmarshal(data, &categories); err != nil {
+		return nil, fmt.Errorf("parse categories.json: %w", err)
+	}
+
+	idx := newCategoryIndex()
+
+	for _, cat := range categories {
+		var categoryID uuid.UUID
+
+		// Check if already exists by name
+		existing, err := store.GetCategory(ctx, catalogdb.GetCategoryParams{
+			Name: null.StringFrom(cat.Name),
+		})
+		if err == nil {
+			categoryID = existing.ID
+			idx.add(cat.Name, categoryID)
+			log.Printf("  Category exists: %s (%s)", cat.Name, categoryID)
+		} else {
+			created, err := store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
+				Name:        cat.Name,
+				Description: cat.Description,
+				ParentID:    null.Int{},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("create category %q: %w", cat.Name, err)
+			}
+			categoryID = created.ID
+			idx.add(cat.Name, categoryID)
+			log.Printf("  Created category: %s (%s)", cat.Name, categoryID)
+		}
+
+		// Ensure search_sync row for this category
+		store.CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
+			RefType: catalogdb.CatalogSearchSyncRefTypeCategory,
+			RefID:   categoryID,
+		})
+	}
+
+	// Ensure a "General" fallback category exists
+	general, err := store.GetCategory(ctx, catalogdb.GetCategoryParams{
+		Name: null.StringFrom("General"),
 	})
 	if err != nil {
-		return uuid.Nil, err
+		general, err = store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
+			Name:        "General",
+			Description: "Uncategorized products",
+			ParentID:    null.Int{},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create General category: %w", err)
+		}
+		log.Printf("  Created category: General (%s)", general.ID)
 	}
+	idx.fallback = general.ID
+	idx.add("General", general.ID)
+	store.CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
+		RefType: catalogdb.CatalogSearchSyncRefTypeCategory,
+		RefID:   general.ID,
+	})
 
-	return category.ID, nil
+	log.Printf("Seeded %d categories (+1 General fallback)", len(categories))
+	return idx, nil
 }
 
 func createTags(
@@ -82,6 +195,13 @@ func createTags(
 			if err != nil {
 				continue
 			}
+
+			// Create search_sync row for this tag (deterministic UUID from tag slug)
+			tagUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(tagID))
+			store.CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
+				RefType: catalogdb.CatalogSearchSyncRefTypeTag,
+				RefID:   tagUUID,
+			})
 		}
 
 		_, err = store.CreateProductSpuTag(ctx, catalogdb.CreateProductSpuTagParams{

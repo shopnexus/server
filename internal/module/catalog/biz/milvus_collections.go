@@ -25,7 +25,7 @@ func productsSchema() *entity.Schema {
 		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPrimaryKey(true)).
 		WithField(entity.NewField().WithName("number").WithDataType(entity.FieldTypeInt64)).
 		WithField(entity.NewField().WithName("account_id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36)).
-		WithField(entity.NewField().WithName("category_id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36)).
+		WithField(entity.NewField().WithName("category_id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPartitionKey(true)).
 		WithField(entity.NewField().WithName("is_active").WithDataType(entity.FieldTypeBool)).
 		WithField(entity.NewField().WithName("price_min").WithDataType(entity.FieldTypeFloat)).
 		WithField(entity.NewField().WithName("price_max").WithDataType(entity.FieldTypeFloat)).
