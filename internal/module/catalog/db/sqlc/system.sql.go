@@ -15,17 +15,16 @@ import (
 const listStaleSearchSync = `-- name: ListStaleSearchSync :many
 SELECT id, ref_id, ref_type
 FROM catalog.search_sync
-WHERE (is_stale_metadata = $2 OR is_stale_embedding = $3) AND ref_type = $1
+WHERE (is_stale_metadata = $1 OR is_stale_embedding = $2)
 ORDER BY date_updated ASC
 FOR UPDATE SKIP LOCKED
-LIMIT $4
+LIMIT $3
 `
 
 type ListStaleSearchSyncParams struct {
-	RefType          CatalogSearchSyncRefType `json:"ref_type"`
-	IsStaleMetadata  null.Bool                `json:"is_stale_metadata"`
-	IsStaleEmbedding null.Bool                `json:"is_stale_embedding"`
-	Limit            int32                    `json:"limit"`
+	IsStaleMetadata  null.Bool `json:"is_stale_metadata"`
+	IsStaleEmbedding null.Bool `json:"is_stale_embedding"`
+	Limit            int32     `json:"limit"`
 }
 
 type ListStaleSearchSyncRow struct {
@@ -35,12 +34,7 @@ type ListStaleSearchSyncRow struct {
 }
 
 func (q *Queries) ListStaleSearchSync(ctx context.Context, arg ListStaleSearchSyncParams) ([]ListStaleSearchSyncRow, error) {
-	rows, err := q.db.Query(ctx, listStaleSearchSync,
-		arg.RefType,
-		arg.IsStaleMetadata,
-		arg.IsStaleEmbedding,
-		arg.Limit,
-	)
+	rows, err := q.db.Query(ctx, listStaleSearchSync, arg.IsStaleMetadata, arg.IsStaleEmbedding, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

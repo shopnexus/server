@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,90 +13,141 @@ import (
 	restateclient "shopnexus-server/internal/infras/restate"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
+	"shopnexus-server/internal/shared/htmlutil"
 	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/validator"
 )
 
 const (
-	EmbeddingProductSyncBatchSize = 32
-	MetadataProductSyncBatchSize  = 1000
+	MetadataSyncBatchSize  = 1000
+	EmbeddingSyncBatchSize = 32
 )
 
-// SetupCron starts background cron jobs for syncing product metadata and embeddings.
+// embeddingResult holds dense and sparse vectors returned from the LLM.
+type embeddingResult struct {
+	dense  []float32
+	sparse map[uint32]float32
+}
+
+// ---------------------------------------------------------------------------
+// Cron setup
+// ---------------------------------------------------------------------------
+
+// SetupCron starts background goroutines for metadata and embedding sync loops.
 func (b *CatalogHandler) SetupCron() error {
-	metadataInterval := b.config.App.Search.ProductMetadataSyncInterval
+	metadataInterval := b.config.App.Search.MetadataSyncInterval
 	if metadataInterval <= 0 {
 		metadataInterval = time.Second
 	}
 
-	embeddingInterval := b.config.App.Search.ProductEmbeddingSyncInterval
+	embeddingInterval := b.config.App.Search.EmbeddingSyncInterval
 	if embeddingInterval <= 0 {
 		embeddingInterval = time.Second
 	}
 
-	go b.startProductSyncCron(context.Background(), metadataInterval, true)
-	go b.startProductSyncCron(context.Background(), embeddingInterval, false)
+	go b.startSyncCron(context.Background(), metadataInterval, true)
+	go b.startSyncCron(context.Background(), embeddingInterval, false)
 	return nil
 }
 
-// syncProductData fetches stale products and syncs them via Restate ingress
-func (b *CatalogHandler) syncProductData(ctx context.Context, metadataOnly bool) error {
+// startSyncCron runs a ticker loop that syncs stale entities on each tick.
+func (b *CatalogHandler) startSyncCron(ctx context.Context, interval time.Duration, metadataOnly bool) {
+	kind := "embedding"
 	if metadataOnly {
-		metadataStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-			RefType:         catalogdb.CatalogSearchSyncRefTypeProductSpu,
-			Limit:           MetadataProductSyncBatchSize,
-			IsStaleMetadata: null.BoolFrom(true),
-		})
-		if err != nil {
-			return sharedmodel.WrapErr("sync product data", err)
-		}
+		kind = "metadata"
+	}
+	log.Printf("Starting %s sync cron job...", kind)
 
-		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
-			Stales:       metadataStales,
-			MetadataOnly: true,
-		}); err != nil {
-			return sharedmodel.WrapErr("sync product data", err)
-		}
-	} else {
-		embeddingStales, err := b.storage.Querier().ListStaleSearchSync(ctx, catalogdb.ListStaleSearchSyncParams{
-			RefType:          catalogdb.CatalogSearchSyncRefTypeProductSpu,
-			Limit:            EmbeddingProductSyncBatchSize,
-			IsStaleEmbedding: null.BoolFrom(true),
-		})
-		if err != nil {
-			return sharedmodel.WrapErr("sync product data", err)
-		}
-
-		if err := b.updateStaleProducts(ctx, UpdateStaleProductsParams{
-			Stales:       embeddingStales,
-			MetadataOnly: false,
-		}); err != nil {
-			return sharedmodel.WrapErr("sync product data", err)
-		}
+	// Run immediately on startup
+	if err := b.syncStaleEntities(ctx, metadataOnly); err != nil {
+		log.Printf("Initial %s sync failed: %v", kind, err)
 	}
 
-	return nil
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			log.Printf("Stopping %s sync cron job...", kind)
+			return
+		}
+
+		b.syncLock.Lock()
+		if err := b.syncStaleEntities(ctx, metadataOnly); err != nil {
+			log.Printf("%s sync failed: %v", kind, err)
+		}
+		b.syncLock.Unlock()
+	}
 }
 
-type UpdateStaleProductsParams struct {
-	Stales       []catalogdb.ListStaleSearchSyncRow `validate:"required"`
-	MetadataOnly bool
-}
+// ---------------------------------------------------------------------------
+// Unified dispatcher
+// ---------------------------------------------------------------------------
 
-// updateStaleProducts fetches product details via Restate and syncs to search engine
-func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateStaleProductsParams) error {
-	if len(params.Stales) == 0 {
+// syncStaleEntities fetches all stale search_sync rows (regardless of ref_type),
+// groups them, and dispatches to the appropriate per-entity sync function.
+func (b *CatalogHandler) syncStaleEntities(ctx context.Context, metadataOnly bool) error {
+	batchSize := int32(EmbeddingSyncBatchSize)
+	if metadataOnly {
+		batchSize = int32(MetadataSyncBatchSize)
+	}
+
+	params := catalogdb.ListStaleSearchSyncParams{
+		Limit: batchSize,
+	}
+	if metadataOnly {
+		params.IsStaleMetadata = null.BoolFrom(true)
+	} else {
+		params.IsStaleEmbedding = null.BoolFrom(true)
+	}
+
+	stales, err := b.storage.Querier().ListStaleSearchSync(ctx, params)
+	if err != nil {
+		return sharedmodel.WrapErr("list stale search sync", err)
+	}
+	if len(stales) == 0 {
 		return nil
 	}
-	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate update stale products", err)
+
+	// Group by ref_type
+	grouped := make(map[catalogdb.CatalogSearchSyncRefType][]catalogdb.ListStaleSearchSyncRow)
+	for _, s := range stales {
+		grouped[s.RefType] = append(grouped[s.RefType], s)
 	}
 
-	log.Printf("🔄 Syncing %d stale products (metadataOnly=%v)...", len(params.Stales), params.MetadataOnly)
+	for refType, rows := range grouped {
+		switch refType {
+		case catalogdb.CatalogSearchSyncRefTypeProductSpu:
+			if err := b.syncProducts(ctx, rows, metadataOnly); err != nil {
+				slog.Error("sync products", "error", err)
+			}
+		case catalogdb.CatalogSearchSyncRefTypeCategory:
+			if err := b.syncCategories(ctx, rows, metadataOnly); err != nil {
+				slog.Error("sync categories", "error", err)
+			}
+		case catalogdb.CatalogSearchSyncRefTypeTag:
+			if err := b.syncTags(ctx, rows, metadataOnly); err != nil {
+				slog.Error("sync tags", "error", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Per-entity sync
+// ---------------------------------------------------------------------------
+
+// syncProducts fetches product details via Restate ingress, embeds if needed,
+// upserts to Milvus, and clears stale flags.
+func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+	log.Printf("Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
 
 	// Fetch product details via Restate ingress
-	var productDetails []catalogmodel.ProductDetail
-	for _, stale := range params.Stales {
+	var products []catalogmodel.ProductDetail
+	for _, stale := range stales {
 		detail, err := restateclient.Call[catalogmodel.ProductDetail](ctx, b.restateClient, "Catalog", "GetProductDetail", GetProductDetailParams{
 			ID: uuid.NullUUID{UUID: stale.RefID, Valid: true},
 		})
@@ -103,47 +155,269 @@ func (b *CatalogHandler) updateStaleProducts(ctx context.Context, params UpdateS
 			slog.Error("get product detail for sync", "product_id", stale.RefID, "error", err)
 			continue
 		}
-
-		productDetails = append(productDetails, detail)
+		products = append(products, detail)
 	}
 
-	// Send to search server — UpdateProducts will clear stale flags on success
-	if err := restateclient.Send(ctx, b.restateClient, "Catalog", "UpdateProducts", UpdateProductsParams{
-		Products:     productDetails,
-		MetadataOnly: params.MetadataOnly,
-	}); err != nil {
-		return sharedmodel.WrapErr("update products", err)
+	if len(products) == 0 {
+		return nil
 	}
 
+	// Embed if not metadata-only
+	var embeddingMap map[string]embeddingResult
+	if !metadataOnly {
+		texts := make([]string, len(products))
+		for i, p := range products {
+			texts[i] = buildEmbeddingText(p)
+		}
+		embeddings, err := b.llm.Embed(ctx, texts)
+		if err != nil {
+			return sharedmodel.WrapErr("embed products", err)
+		}
+		embeddingMap = make(map[string]embeddingResult, len(products))
+		for i, p := range products {
+			embeddingMap[p.ID.String()] = embeddingResult{
+				dense:  embeddings[i].Dense,
+				sparse: embeddings[i].Sparse,
+			}
+		}
+	}
+
+	// Upsert to Milvus
+	if err := b.upsertProducts(ctx, products, embeddingMap, metadataOnly); err != nil {
+		return sharedmodel.WrapErr("upsert products", err)
+	}
+
+	// Clear stale flags
+	return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+}
+
+// syncCategories embeds categories and upserts to the categories collection.
+// Categories have no scalar metadata in Milvus, so metadata-only syncs just clear flags.
+func (b *CatalogHandler) syncCategories(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+	if metadataOnly {
+		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+	}
+
+	log.Printf("Syncing %d stale categories...", len(stales))
+
+	// Collect category UUIDs from stale rows
+	categoryIDs := make([]uuid.UUID, len(stales))
+	for i, s := range stales {
+		categoryIDs[i] = s.RefID
+	}
+
+	// Fetch categories from DB
+	categories, err := b.storage.Querier().ListCategory(ctx, catalogdb.ListCategoryParams{
+		ID: categoryIDs,
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("list categories for sync", err)
+	}
+
+	if len(categories) == 0 {
+		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+	}
+
+	// Embed
+	texts := make([]string, len(categories))
+	for i, c := range categories {
+		texts[i] = buildCategoryEmbeddingText(c.Name, c.Description)
+	}
+	embeddings, err := b.llm.Embed(ctx, texts)
+	if err != nil {
+		return sharedmodel.WrapErr("embed categories", err)
+	}
+	embeddingMap := make(map[string]embeddingResult, len(categories))
+	for i, c := range categories {
+		embeddingMap[c.ID.String()] = embeddingResult{
+			dense:  embeddings[i].Dense,
+			sparse: embeddings[i].Sparse,
+		}
+	}
+
+	// Upsert to Milvus
+	if err := b.upsertCategories(ctx, categories, embeddingMap); err != nil {
+		return sharedmodel.WrapErr("upsert categories", err)
+	}
+
+	return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+}
+
+// syncTags embeds tags and upserts to the tags collection.
+// Tags have no scalar metadata in Milvus, so metadata-only syncs just clear flags.
+func (b *CatalogHandler) syncTags(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+	if metadataOnly {
+		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+	}
+
+	log.Printf("Syncing %d stale tags...", len(stales))
+
+	// Build a set of stale ref_ids for matching
+	staleRefIDs := make(map[uuid.UUID]struct{}, len(stales))
+	for _, s := range stales {
+		staleRefIDs[s.RefID] = struct{}{}
+	}
+
+	// Tags have string PKs but search_sync uses UUID ref_id.
+	// We fetch all tags and match via uuid.NewSHA1(uuid.NameSpaceURL, []byte(tag.ID)).
+	// Collect tag string IDs from stale rows by reversing the mapping — we need to fetch
+	// all potentially matching tags. Since we can't reverse SHA1, fetch all tags and filter.
+	tags, err := b.storage.Querier().ListTag(ctx, catalogdb.ListTagParams{})
+	if err != nil {
+		return sharedmodel.WrapErr("list tags for sync", err)
+	}
+
+	// Filter to only stale tags
+	var matchedTags []catalogdb.CatalogTag
+	for _, t := range tags {
+		tagUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(t.ID))
+		if _, ok := staleRefIDs[tagUUID]; ok {
+			matchedTags = append(matchedTags, t)
+		}
+	}
+
+	if len(matchedTags) == 0 {
+		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+	}
+
+	// Embed
+	texts := make([]string, len(matchedTags))
+	for i, t := range matchedTags {
+		texts[i] = buildTagEmbeddingText(t.ID, t.Name, t.Description.String)
+	}
+	embeddings, err := b.llm.Embed(ctx, texts)
+	if err != nil {
+		return sharedmodel.WrapErr("embed tags", err)
+	}
+	embeddingMap := make(map[string]embeddingResult, len(matchedTags))
+	for i, t := range matchedTags {
+		tagUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(t.ID))
+		embeddingMap[tagUUID.String()] = embeddingResult{
+			dense:  embeddings[i].Dense,
+			sparse: embeddings[i].Sparse,
+		}
+	}
+
+	// Upsert to Milvus
+	if err := b.upsertTags(ctx, matchedTags, embeddingMap); err != nil {
+		return sharedmodel.WrapErr("upsert tags", err)
+	}
+
+	return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
+}
+
+// ---------------------------------------------------------------------------
+// Flag clearing
+// ---------------------------------------------------------------------------
+
+// clearStaleFlagsByRows builds batch update args and clears the appropriate stale flags.
+// If metadataOnly, sets is_stale_metadata=false but keeps is_stale_embedding as-is.
+// If !metadataOnly, sets is_stale_embedding=false but keeps is_stale_metadata as-is.
+func (b *CatalogHandler) clearStaleFlagsByRows(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+	args := make([]catalogdb.UpdateBatchStaleSearchSyncParams, len(stales))
+	for i, s := range stales {
+		arg := catalogdb.UpdateBatchStaleSearchSyncParams{
+			RefType: s.RefType,
+			RefID:   s.RefID,
+		}
+		if metadataOnly {
+			arg.IsStaleMetadata = null.BoolFrom(false)
+			// is_stale_embedding stays as zero value (null.Bool{}) — no change
+		} else {
+			arg.IsStaleEmbedding = null.BoolFrom(false)
+			// is_stale_metadata stays as zero value (null.Bool{}) — no change
+		}
+		args[i] = arg
+	}
+	return b.batchClearFlags(ctx, args)
+}
+
+// batchClearFlags executes the batch update for stale flags.
+func (b *CatalogHandler) batchClearFlags(ctx context.Context, args []catalogdb.UpdateBatchStaleSearchSyncParams) error {
+	var updateErr error
+	b.storage.Querier().UpdateBatchStaleSearchSync(ctx, args).Exec(func(i int, err error) {
+		if err != nil {
+			updateErr = err
+		}
+	})
+	if updateErr != nil {
+		return sharedmodel.WrapErr("clear stale flags", updateErr)
+	}
 	return nil
 }
 
-// startProductSyncCron starts the cron job for product data sync
-func (b *CatalogHandler) startProductSyncCron(ctx context.Context, duration time.Duration, metadataOnly bool) {
-	log.Println("Starting product sync cron job...")
+// ---------------------------------------------------------------------------
+// Embedding text builders
+// ---------------------------------------------------------------------------
 
-	// Run immediately on startup
-	if err := b.syncProductData(ctx, metadataOnly); err != nil {
-		log.Printf("Initial product sync failed: %v", err)
+// buildEmbeddingText produces a natural-language text for embedding.
+// Written as prose rather than structured labels because MGTE/BGE-M3 are trained
+// on web text — they understand natural sentences, not key-value delimiters.
+// The order is intentional: name first (strongest signal), then contextual keywords
+// (category, tags, attributes, specs), then description last (longest, dilutes less).
+func buildEmbeddingText(p catalogmodel.ProductDetail) string {
+	var b strings.Builder
+
+	b.WriteString(p.Name)
+
+	if p.Category.Name != "" {
+		b.WriteString(". ")
+		b.WriteString(p.Category.Name)
 	}
 
-	ticker := time.NewTicker(duration)
-	defer ticker.Stop()
-
-	for {
-		// Wait for duration or stop early if context is canceled
-		select {
-		case <-ticker.C:
-			// continue to next sync
-		case <-ctx.Done():
-			log.Println("Stopping product sync cron job...")
-			return
-		}
-
-		b.syncLock.Lock()
-		if err := b.syncProductData(ctx, metadataOnly); err != nil {
-			log.Printf("Product sync failed: %v", err)
-		}
-		b.syncLock.Unlock()
+	if len(p.Tags) > 0 {
+		b.WriteString(". ")
+		b.WriteString(strings.Join(p.Tags, ", "))
 	}
+
+	// Collect unique attribute values across SKUs (e.g. "Red, Blue, XL, M")
+	attrSet := make(map[string][]string)
+	for _, sku := range p.Skus {
+		for _, attr := range sku.Attributes {
+			attrSet[attr.Name] = appendUnique(attrSet[attr.Name], attr.Value)
+		}
+	}
+	for name, values := range attrSet {
+		b.WriteString(". ")
+		b.WriteString(name)
+		b.WriteString(" ")
+		b.WriteString(strings.Join(values, " "))
+	}
+
+	for _, s := range p.Specifications {
+		b.WriteString(". ")
+		b.WriteString(s.Name)
+		b.WriteString(" ")
+		b.WriteString(s.Value)
+	}
+
+	desc := htmlutil.StripHTML(p.Description)
+	if desc != "" {
+		b.WriteString(". ")
+		b.WriteString(desc)
+	}
+
+	return b.String()
+}
+
+// buildCategoryEmbeddingText creates embedding text for a category.
+func buildCategoryEmbeddingText(name, description string) string {
+	if description == "" {
+		return name
+	}
+	return name + ". " + description
+}
+
+// buildTagEmbeddingText creates embedding text for a tag.
+func buildTagEmbeddingText(id, name, description string) string {
+	return id + ". " + name + ". " + description
+}
+
+func appendUnique(slice []string, val string) []string {
+	for _, s := range slice {
+		if s == val {
+			return slice
+		}
+	}
+	return append(slice, val)
 }

@@ -1,15 +1,18 @@
 package catalogbiz
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
 
+	"github.com/google/uuid"
 	"github.com/milvus-io/milvus/client/v2/column"
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 
+	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	catalogutil "shopnexus-server/internal/module/catalog/util"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -123,7 +126,7 @@ func (b *CatalogHandler) upsertAccountInterests(ctx restate.Context, accountID s
 }
 
 // getProductAllVectors fetches content_vector and sparse_vector for the given product IDs from Milvus.
-func (b *CatalogHandler) getProductAllVectors(ctx restate.Context, ids []string) (map[string]existingVectors, error) {
+func (b *CatalogHandler) getProductAllVectors(ctx context.Context, ids []string) (map[string]existingVectors, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -173,7 +176,7 @@ type existingVectors struct {
 }
 
 // upsertProducts upserts product data (and optionally vectors) to Milvus.
-func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
+func (b *CatalogHandler) upsertProducts(ctx context.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
 	if len(products) == 0 {
 		return nil
 	}
@@ -267,6 +270,91 @@ func (b *CatalogHandler) upsertProducts(ctx restate.Context, products []catalogm
 	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionProducts, cols...))
 	if err != nil {
 		return sharedmodel.WrapErr("upsert products", err)
+	}
+	return nil
+}
+
+// upsertCategories upserts category vectors to the Milvus categories collection.
+func (b *CatalogHandler) upsertCategories(ctx context.Context, categories []catalogdb.CatalogCategory, embeddings map[string]embeddingResult) error {
+	if len(categories) == 0 {
+		return nil
+	}
+
+	ids := make([]string, len(categories))
+	denseVecs := make([][]float32, len(categories))
+	sparseVecs := make([]entity.SparseEmbedding, len(categories))
+
+	for i, c := range categories {
+		cid := c.ID.String()
+		ids[i] = cid
+
+		if emb, ok := embeddings[cid]; ok {
+			denseVecs[i] = emb.dense
+			if emb.sparse != nil {
+				sparseVecs[i] = mapToSparseEmbedding(emb.sparse)
+			} else {
+				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+				sparseVecs[i] = emptyEmb
+			}
+		} else {
+			denseVecs[i] = make([]float32, ContentVectorDim)
+			emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+			sparseVecs[i] = emptyEmb
+		}
+	}
+
+	cols := []column.Column{
+		column.NewColumnVarChar("id", ids),
+		column.NewColumnFloatVector("content_vector", ContentVectorDim, denseVecs),
+		column.NewColumnSparseVectors("sparse_vector", sparseVecs),
+	}
+
+	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionCategories, cols...))
+	if err != nil {
+		return sharedmodel.WrapErr("upsert categories", err)
+	}
+	return nil
+}
+
+// upsertTags upserts tag vectors to the Milvus tags collection.
+func (b *CatalogHandler) upsertTags(ctx context.Context, tags []catalogdb.CatalogTag, embeddings map[string]embeddingResult) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	ids := make([]string, len(tags))
+	denseVecs := make([][]float32, len(tags))
+	sparseVecs := make([]entity.SparseEmbedding, len(tags))
+
+	for i, t := range tags {
+		ids[i] = t.ID
+
+		// Tags use deterministic UUID as key in the embeddings map
+		tagUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(t.ID))
+		if emb, ok := embeddings[tagUUID.String()]; ok {
+			denseVecs[i] = emb.dense
+			if emb.sparse != nil {
+				sparseVecs[i] = mapToSparseEmbedding(emb.sparse)
+			} else {
+				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+				sparseVecs[i] = emptyEmb
+			}
+		} else {
+			denseVecs[i] = make([]float32, ContentVectorDim)
+			emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
+			sparseVecs[i] = emptyEmb
+		}
+	}
+
+	cols := []column.Column{
+		column.NewColumnVarChar("id", ids),
+		column.NewColumnFloatVector("content_vector", ContentVectorDim, denseVecs),
+		column.NewColumnSparseVectors("sparse_vector", sparseVecs),
+	}
+
+	_, err := b.milvus.Inner().Upsert(ctx, milvusclient.NewColumnBasedInsertOption(CollectionTags, cols...))
+	if err != nil {
+		return sharedmodel.WrapErr("upsert tags", err)
 	}
 	return nil
 }

@@ -35,8 +35,8 @@ app:
     denseWeight: 0.75
     sparseWeight: 0.25
     interactionBatchSize: 1
-    productMetadataSyncInterval: 1s
-    productEmbeddingSyncInterval: 1s
+    metadataSyncInterval: 1s
+    embeddingSyncInterval: 1s
   order:
     paymentExpiryDays: 30
 

@@ -76,6 +76,8 @@ type CatalogSearchSyncRefType string
 
 const (
 	CatalogSearchSyncRefTypeProductSpu CatalogSearchSyncRefType = "ProductSpu"
+	CatalogSearchSyncRefTypeCategory   CatalogSearchSyncRefType = "Category"
+	CatalogSearchSyncRefTypeTag        CatalogSearchSyncRefType = "Tag"
 )
 
 func (e *CatalogSearchSyncRefType) Scan(src interface{}) error {
@@ -115,7 +117,9 @@ func (ns NullCatalogSearchSyncRefType) Value() (driver.Value, error) {
 
 func (e CatalogSearchSyncRefType) Valid() bool {
 	switch e {
-	case CatalogSearchSyncRefTypeProductSpu:
+	case CatalogSearchSyncRefTypeProductSpu,
+		CatalogSearchSyncRefTypeCategory,
+		CatalogSearchSyncRefTypeTag:
 		return true
 	}
 	return false
@@ -124,6 +128,8 @@ func (e CatalogSearchSyncRefType) Valid() bool {
 func AllCatalogSearchSyncRefTypeValues() []CatalogSearchSyncRefType {
 	return []CatalogSearchSyncRefType{
 		CatalogSearchSyncRefTypeProductSpu,
+		CatalogSearchSyncRefTypeCategory,
+		CatalogSearchSyncRefTypeTag,
 	}
 }
 

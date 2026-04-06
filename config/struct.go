@@ -62,12 +62,8 @@ type Search struct {
 	DenseWeight          float32 `yaml:"denseWeight" mapstructure:"denseWeight" validate:"required,gte=0,lte=1"`
 	SparseWeight         float32 `yaml:"sparseWeight" mapstructure:"sparseWeight" validate:"required,gte=0,lte=1"`
 	InteractionBatchSize int     `yaml:"interactionBatchSize" mapstructure:"interactionBatchSize" validate:"required,gte=1"`
-	// ProductMetadataSyncInterval controls how often product metadata is synced to the search engine.
-	// If zero or negative, a sensible default will be used by the caller.
-	ProductMetadataSyncInterval time.Duration `yaml:"productMetadataSyncInterval" mapstructure:"productMetadataSyncInterval" validate:"gte=0"`
-	// ProductEmbeddingSyncInterval controls how often product embeddings are synced to the search engine.
-	// If zero or negative, a sensible default will be used by the caller.
-	ProductEmbeddingSyncInterval time.Duration `yaml:"productEmbeddingSyncInterval" mapstructure:"productEmbeddingSyncInterval" validate:"gte=0"`
+	MetadataSyncInterval  time.Duration `yaml:"metadataSyncInterval" mapstructure:"metadataSyncInterval" validate:"gte=0"`
+	EmbeddingSyncInterval time.Duration `yaml:"embeddingSyncInterval" mapstructure:"embeddingSyncInterval" validate:"gte=0"`
 }
 
 type Order struct {

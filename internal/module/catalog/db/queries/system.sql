@@ -1,7 +1,7 @@
 -- name: ListStaleSearchSync :many
 SELECT id, ref_id, ref_type
 FROM catalog.search_sync
-WHERE (is_stale_metadata = sqlc.narg('is_stale_metadata') OR is_stale_embedding = sqlc.narg('is_stale_embedding')) AND ref_type = $1
+WHERE (is_stale_metadata = sqlc.narg('is_stale_metadata') OR is_stale_embedding = sqlc.narg('is_stale_embedding'))
 ORDER BY date_updated ASC
 FOR UPDATE SKIP LOCKED
 LIMIT sqlc.arg('limit');

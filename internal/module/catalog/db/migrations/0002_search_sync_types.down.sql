@@ -1,0 +1,3 @@
+-- PostgreSQL does not support removing enum values.
+-- To roll back, recreate the type and migrate data.
+-- This is intentionally left as a no-op for safety.
