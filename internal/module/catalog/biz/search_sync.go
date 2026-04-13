@@ -4,13 +4,15 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 
-	restateclient "shopnexus-server/internal/infras/restate"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	"shopnexus-server/internal/shared/htmlutil"
@@ -27,10 +29,6 @@ type embeddingResult struct {
 	dense  []float32
 	sparse map[uint32]float32
 }
-
-// ---------------------------------------------------------------------------
-// Cron setup
-// ---------------------------------------------------------------------------
 
 // SetupCron starts background goroutines for metadata and embedding sync loops.
 func (b *CatalogHandler) SetupCron() error {
@@ -80,10 +78,6 @@ func (b *CatalogHandler) startSyncCron(ctx context.Context, interval time.Durati
 		b.syncLock.Unlock()
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Unified dispatcher
-// ---------------------------------------------------------------------------
 
 // syncStaleEntities fetches all stale search_sync rows (regardless of ref_type),
 // groups them, and dispatches to the appropriate per-entity sync function.
@@ -136,26 +130,67 @@ func (b *CatalogHandler) syncStaleEntities(ctx context.Context, metadataOnly boo
 	return nil
 }
 
-// ---------------------------------------------------------------------------
-// Per-entity sync
-// ---------------------------------------------------------------------------
-
-// syncProducts fetches product details via Restate ingress, embeds if needed,
+// syncProducts fetches product details directly from DB, embeds if needed,
 // upserts to Milvus, and clears stale flags.
 func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
 	log.Printf("Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
 
-	// Fetch product details via Restate ingress
+	// Batch-fetch product details directly from DB (avoids N+1 HTTP via Restate ingress)
+	spuIDs := make([]uuid.UUID, len(stales))
+	for i, s := range stales {
+		spuIDs[i] = s.RefID
+	}
+
+	dbSpus, err := b.storage.Querier().ListProductSpu(ctx, catalogdb.ListProductSpuParams{
+		ID: spuIDs,
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("list spus for sync", err)
+	}
+
+	dbSkus, err := b.storage.Querier().ListProductSku(ctx, catalogdb.ListProductSkuParams{
+		SpuID: spuIDs,
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("list skus for sync", err)
+	}
+	skusBySpuID := lo.GroupBy(dbSkus, func(s catalogdb.CatalogProductSku) uuid.UUID { return s.SpuID })
+
+	tags, err := b.storage.Querier().ListProductSpuTag(ctx, catalogdb.ListProductSpuTagParams{SpuID: spuIDs})
+	if err != nil {
+		return sharedmodel.WrapErr("list tags for sync", err)
+	}
+	tagsBySpuID := lo.GroupByMap(tags, func(t catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return t.SpuID, t.Tag })
+
+	categoryIDs := lo.Uniq(lo.Map(dbSpus, func(s catalogdb.CatalogProductSpu, _ int) uuid.UUID { return s.CategoryID }))
+	categories, err := b.storage.Querier().ListCategory(ctx, catalogdb.ListCategoryParams{ID: categoryIDs})
+	if err != nil {
+		return sharedmodel.WrapErr("list categories for sync", err)
+	}
+	categoryMap := lo.KeyBy(categories, func(c catalogdb.CatalogCategory) uuid.UUID { return c.ID })
+
 	var products []catalogmodel.ProductDetail
-	for _, stale := range stales {
-		detail, err := restateclient.Call[catalogmodel.ProductDetail](ctx, b.restateClient, "Catalog", "GetProductDetail", GetProductDetailParams{
-			ID: uuid.NullUUID{UUID: stale.RefID, Valid: true},
-		})
-		if err != nil {
-			slog.Error("get product detail for sync", "product_id", stale.RefID, "error", err)
-			continue
+	for _, spu := range dbSpus {
+		skuDetails := make([]catalogmodel.ProductDetailSku, 0, len(skusBySpuID[spu.ID]))
+		for _, sku := range skusBySpuID[spu.ID] {
+			var attrs []catalogmodel.ProductAttribute
+			sonic.Unmarshal(sku.Attributes, &attrs)
+			skuDetails = append(skuDetails, catalogmodel.ProductDetailSku{
+				ID:         sku.ID,
+				Price:      sharedmodel.Concurrency(sku.Price),
+				Attributes: attrs,
+			})
 		}
-		products = append(products, detail)
+		products = append(products, catalogmodel.ProductDetail{
+			ID:       spu.ID,
+			SellerID: spu.AccountID,
+			Name:     spu.Name,
+			Description: spu.Description,
+			IsActive:    spu.IsActive,
+			Category:    categoryMap[spu.CategoryID],
+			Skus:        skuDetails,
+			Tags:        tagsBySpuID[spu.ID],
+		})
 	}
 
 	if len(products) == 0 {
@@ -306,10 +341,6 @@ func (b *CatalogHandler) syncTags(ctx context.Context, stales []catalogdb.ListSt
 	return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
 }
 
-// ---------------------------------------------------------------------------
-// Flag clearing
-// ---------------------------------------------------------------------------
-
 // clearStaleFlagsByRows builds batch update args and clears the appropriate stale flags.
 // If metadataOnly, sets is_stale_metadata=false but keeps is_stale_embedding as-is.
 // If !metadataOnly, sets is_stale_embedding=false but keeps is_stale_metadata as-is.
@@ -345,10 +376,6 @@ func (b *CatalogHandler) batchClearFlags(ctx context.Context, args []catalogdb.U
 	}
 	return nil
 }
-
-// ---------------------------------------------------------------------------
-// Embedding text builders
-// ---------------------------------------------------------------------------
 
 // buildEmbeddingText produces a natural-language text for embedding.
 // Written as prose rather than structured labels because MGTE/BGE-M3 are trained
@@ -414,10 +441,8 @@ func buildTagEmbeddingText(id, name, description string) string {
 }
 
 func appendUnique(slice []string, val string) []string {
-	for _, s := range slice {
-		if s == val {
-			return slice
-		}
+	if slices.Contains(slice, val) {
+		return slice
 	}
 	return append(slice, val)
 }

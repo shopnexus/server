@@ -1,0 +1,290 @@
+\chapter{Cơ sở khoa học của đề tài}
+
+\section{Quy trình nghiệp vụ}
+
+\subsection{Quy trình đặt hàng và thanh toán}
+
+Quy trình đặt hàng trong mô hình marketplace có sự tham gia của nhiều bên: người mua, nhiều người bán, cổng thanh toán, và đơn vị vận chuyển. Trong ShopNexus, quy trình gồm sáu bước:
+
+\begin{enumerate}
+    \item \textbf{Giỏ hàng:} Người mua thêm sản phẩm vào giỏ hàng -- mỗi mục là bộ (account\_id, sku\_id, quantity).
+    \item \textbf{Checkout:} Hệ thống tạo các \textit{checkout items} trạng thái Pending, snapshot giá và tên SKU, nhóm theo seller\_id.
+    \item \textbf{Xác nhận từ người bán:} Người bán xác nhận hoặc từ chối từng mục trong danh sách pending items.
+    \item \textbf{Tạo đơn hàng:} Hệ thống tạo đơn chính thức chứa các mục đã xác nhận, tính toán: \texttt{total = product\_cost - product\_discount + transport\_cost}.
+    \item \textbf{Thanh toán:} Tạo phiên thanh toán có thời hạn. Người mua chọn phương thức (VNPay QR, chuyển khoản, ATM, COD). Cổng thanh toán gửi callback xác nhận.
+    \item \textbf{Giao vận:} Sau thanh toán, tạo phiên vận chuyển với GHTK. Trạng thái: Pending $\rightarrow$ LabelCreated $\rightarrow$ InTransit $\rightarrow$ OutForDelivery $\rightarrow$ Delivered.
+\end{enumerate}
+
+\subsection{Quy trình hoàn trả và tranh chấp}
+
+Quy trình hoàn trả bảo vệ quyền lợi người mua đồng thời đảm bảo công bằng cho người bán:
+
+\begin{enumerate}
+    \item \textbf{Yêu cầu hoàn trả:} Người mua tạo yêu cầu với lý do cụ thể, chọn phương thức trả hàng: PickUp (đơn vị vận chuyển đến lấy) hoặc DropOff (tự mang đến điểm gửi).
+    \item \textbf{Xem xét:} Người bán (hoặc quản trị viên) chấp nhận hoặc từ chối. Nếu chấp nhận, tạo phiên vận chuyển ngược.
+    \item \textbf{Hoàn tiền:} Sau khi nhận hàng trả lại và xác nhận tình trạng, hệ thống hoàn tiền qua phương thức thanh toán ban đầu.
+\end{enumerate}
+
+Khi một bên không đồng ý kết quả, có thể mở \textbf{tranh chấp} (refund dispute). Quản trị viên nền tảng xem xét bằng chứng từ cả hai bên và đưa phán quyết cuối cùng (Success hoặc Cancelled).
+
+\begin{figure}[p]
+\centering
+\begin{tikzpicture}[
+  node distance=0.55cm,
+  act/.style={rectangle, rounded corners=3pt, draw=headerblue, fill=rowgray, text width=2.4cm, minimum height=0.6cm, align=center, font=\scriptsize},
+  dec/.style={diamond, draw=headerblue, fill=headerblue!10, aspect=2, inner sep=1pt, font=\scriptsize, align=center},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  arr/.style={-{Stealth[length=4pt]}, thick, headerblue!80!black},
+  lane/.style={font=\footnotesize\bfseries, headerblue},
+]
+% Swimlanes — wider layout, shorter height
+\draw[dashed, gray!50] (4.2,0.3) -- (4.2,-19);
+\draw[dashed, gray!50] (9,0.3) -- (9,-19);
+\node[lane] at (2,0) {Buyer};
+\node[lane] at (6.5,0) {ShopNexus};
+\node[lane] at (11,0) {Seller};
+
+% Phase 1: Checkout
+\node[start] (s) at (2,-0.5) {};
+\node[act, below=of s] (cart) {Thêm vào giỏ hàng};
+\node[act, below=of cart] (checkout) {Checkout};
+\node[act, below=of checkout, xshift=4.5cm] (reserve) {Reserve Inventory + Snapshot giá};
+\node[act, below=of reserve, xshift=4.5cm] (inbox) {Xem inbox pending items};
+
+% Phase 2: Confirm
+\node[dec, below=0.6cm of inbox] (d1) {Xác nhận?};
+\node[act, right=1cm of d1] (reject) {Từ chối (giải phóng kho)};
+\node[act, below=0.6cm of d1, xshift=-4.5cm] (create) {Tạo Order + Transport};
+
+% Phase 3: Payment
+\node[act, below=of create, xshift=-4.5cm] (pay) {Thanh toán (VNPay/COD)};
+\node[act, below=of pay, xshift=4.5cm] (confirm) {Callback xác nhận TT};
+\node[act, below=of confirm] (ship) {Giao vận};
+
+% Phase 4: Refund
+\node[dec, below=0.6cm of ship, xshift=-4.5cm] (d2) {Hoàn trả?};
+\node[act, below=0.6cm of d2] (refund) {Tạo yêu cầu hoàn trả};
+\node[act, below=of refund, xshift=4.5cm] (review) {Seller duyệt hoàn trả};
+\node[dec, below=0.6cm of review] (d3) {Chấp nhận?};
+\node[act, below left=0.5cm and 1cm of d3] (autorefund) {Auto-refund qua cổng TT};
+\node[act, below right=0.5cm and 0.5cm of d3] (dispute) {Dispute (Admin)};
+\node[finish] (e) at (6.5,-19) {};
+
+% Arrows
+\draw[arr] (s) -- (cart);
+\draw[arr] (cart) -- (checkout);
+\draw[arr] (checkout) -- (reserve);
+\draw[arr] (reserve) -- (inbox);
+\draw[arr] (inbox) -- (d1);
+\draw[arr] (d1) -- node[font=\scriptsize, above] {Không} (reject);
+\draw[arr] (d1) -- node[font=\scriptsize, left] {Có} (create);
+\draw[arr] (reject.south) |- (e);
+\draw[arr] (create) -- (pay);
+\draw[arr] (pay) -- (confirm);
+\draw[arr] (confirm) -- (ship);
+\draw[arr] (ship) -- (d2);
+\draw[arr] (d2) -- node[font=\scriptsize, left] {Có} (refund);
+\draw[arr] (d2.east) -- ++(1.5,0) |- (e) node[font=\scriptsize, near start, above] {Không};
+\draw[arr] (refund) -- (review);
+\draw[arr] (review) -- (d3);
+\draw[arr] (d3) -- node[font=\scriptsize, above left] {Có} (autorefund);
+\draw[arr] (d3) -- node[font=\scriptsize, above right] {Không} (dispute);
+\draw[arr] (autorefund) |- (e);
+\draw[arr] (dispute) |- (e);
+\end{tikzpicture}
+\caption{Quy trình đặt hàng, thanh toán, và hoàn trả trong ShopNexus}
+\label{fig:order-flow}
+\end{figure}
+
+\section{Các quy định và quy tắc quản lý}
+
+\subsection{Quản lý trạng thái}
+
+Hệ thống sử dụng bốn kiểu trạng thái được định nghĩa tại tầng cơ sở dữ liệu:
+
+\begin{itemize}
+    \item \textbf{Item Status} (Pending, Confirmed, Cancelled): Trạng thái mục hàng trước khi gắn vào đơn. Chỉ mục Confirmed mới được đưa vào đơn hàng chính thức.
+    \item \textbf{Order/Payment/Refund Status} (Pending, Processing, Success, Cancelled, Failed): Trạng thái chung cho đơn hàng, thanh toán, hoàn trả, và tranh chấp. Chuyển trạng thái được kiểm soát chặt tại tầng nghiệp vụ.
+    \item \textbf{Transport Status} (Pending, LabelCreated, InTransit, OutForDelivery, Delivered, Failed, Cancelled): Phản ánh vòng đời giao hàng thực tế.
+\end{itemize}
+
+\subsection{Bảo vệ tính toàn vẹn dữ liệu và an toàn thanh toán}
+
+\begin{itemize}
+    \item \textbf{Snapshot giá:} Giá đơn vị và tên sản phẩm được lưu vào bản ghi item tại thời điểm checkout, ngăn chặn giá thay đổi sau khi đặt hàng.
+    \item \textbf{Schema isolation:} Mỗi module sở hữu schema riêng trong PostgreSQL, không có foreign key xuyên schema, cho phép tách module thành microservice khi cần.
+    \item \textbf{Xử lý exactly-once:} Mọi side effect được thực hiện trong \texttt{restate.Run()}, ghi vào journal bền vững. Nếu crash, Restate replay và bỏ qua bước đã hoàn thành.
+    \item \textbf{An toàn thanh toán:} Phiên thanh toán có thời hạn hết hạn tự động. Hỗ trợ đa cổng thanh toán qua mô hình provider pluggable.
+    \item \textbf{Bảo vệ dữ liệu hoàn trả:} Bản ghi hoàn trả được giữ lại ngay cả khi đơn hàng bị xóa (\texttt{ON DELETE NO ACTION}).
+\end{itemize}
+
+\section{Công nghệ sử dụng}
+
+Phần này trình bày các công nghệ chính được lựa chọn, lý do so sánh với phương án thay thế, và cách sử dụng cụ thể trong ShopNexus.
+
+\subsection{Ngôn ngữ lập trình: Go}
+
+\begin{table}[htbp]
+\centering
+\caption{So sánh ngôn ngữ lập trình backend}
+\label{tab:lang-compare}
+\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Go} & \thead{Java (Spring Boot)} \\
+\midrule
+Xử lý đồng thời & Goroutines (\textasciitilde 2KB stack) & Threads (\textasciitilde 1MB stack) \\
+Hiệu năng & Biên dịch trước, nhanh gần C & JVM JIT, cold start chậm \\
+Bộ nhớ & Thấp (\textasciitilde 10--50MB) & Cao (\textasciitilde 200--500MB do JVM) \\
+Triển khai & Binary duy nhất, Docker-friendly & Cần JVM runtime \\
+Đường cong học tập & Đơn giản, ít abstraction & Phức tạp, nhiều abstraction \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Lý do chọn Go:} Goroutines phù hợp cho e-commerce (xử lý đồng thời nhiều checkout, thanh toán). Biên dịch tĩnh tạo binary duy nhất, đơn giản hóa triển khai Docker. Type safety phát hiện lỗi tại compile time -- quan trọng cho logic thanh toán. Restate, Milvus, và pgx đều cung cấp SDK chính thức cho Go.
+
+\textbf{Trong ShopNexus:} Go cho toàn bộ backend. Entry point \texttt{cmd/server/main.go}, sử dụng Uber fx cho dependency injection. Mỗi module theo vertical-slice pattern: \texttt{biz/} (logic), \texttt{db/} (truy vấn), \texttt{model/} (cấu trúc dữ liệu), \texttt{transport/echo/} (HTTP handlers).
+
+\subsection{Kiến trúc: Modular Monolith}
+
+\begin{table}[htbp]
+\centering
+\caption{So sánh kiến trúc phần mềm}
+\label{tab:arch-compare}
+\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Modular Monolith} & \thead{Microservices} \\
+\midrule
+Triển khai & Đơn giản, 1 artifact & Phức tạp, nhiều artifact \\
+Ranh giới module & Schema isolation, interface & Service boundaries \\
+Giao tiếp & HTTP qua Restate (in-process) & HTTP/gRPC qua network \\
+Chi phí vận hành & Thấp & Cao (orchestration, monitoring) \\
+Mở rộng & Dễ tách thành microservice & Đã tách sẵn \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Lý do chọn Modular Monolith:} Quy mô team nhỏ -- microservices đầy đủ tốn nhiều công sức vận hành. Giao tiếp qua Restate HTTP ingress nên bất kỳ module nào cũng có thể tách thành service riêng khi cần mở rộng. Schema isolation (mỗi module có PostgreSQL schema riêng, không foreign key xuyên schema) giữ ranh giới rõ ràng.
+
+\textbf{Trong ShopNexus:} 8 module: \textit{account}, \textit{catalog}, \textit{order}, \textit{inventory}, \textit{promotion}, \textit{analytic}, \textit{chat}, \textit{common}. Mỗi module có cấu trúc vertical-slice đồng nhất, giao tiếp qua interface \texttt{XxxBiz} được resolve thành Restate proxy client.
+
+\subsection{Durable Execution: Restate}
+
+\begin{table}[htbp]
+\centering
+\caption{So sánh giải pháp đảm bảo tính nhất quán giao dịch}
+\label{tab:durable-compare}
+\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Restate} & \thead{Temporal} \\
+\midrule
+Mô hình & Code thông thường + \texttt{restate.Run()} & Workflow DSL + Activity \\
+Triển khai & HTTP proxy nhẹ & Cluster nặng (Cassandra + ES) \\
+Đường cong học tập & Thấp -- viết code bình thường & Trung bình -- cần học workflow \\
+Chi phí vận hành & Thấp (3 node cluster) & Cao \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Durable execution} là mô hình trong đó mỗi bước thực thi được ghi vào journal bền vững. Nếu process crash, hệ thống replay từ bước cuối đã hoàn thành thay vì bắt đầu lại.
+
+\textbf{Lý do chọn Restate:} Không cần học workflow DSL -- chỉ wrap side effects trong \texttt{restate.Run()}. Nhẹ (không yêu cầu Cassandra/Elasticsearch). Cross-module calls tự động retry và deduplicate (exactly-once). Fire-and-forget qua \texttt{restate.ServiceSend()} cho tác vụ bất đồng bộ.
+
+\textbf{Trong ShopNexus:} Mỗi module có \texttt{interface.go} định nghĩa interface, công cụ \texttt{genrestate} sinh proxy client. Luồng checkout (tạo item $\rightarrow$ trừ kho $\rightarrow$ tạo payment $\rightarrow$ gọi cổng thanh toán) được thực thi durable qua cơ chế này.
+
+\subsection{Cơ sở dữ liệu: PostgreSQL với SQLC}
+
+\begin{table}[htbp]
+\centering
+\caption{So sánh PostgreSQL và MongoDB cho e-commerce}
+\label{tab:db-compare}
+\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{PostgreSQL} & \thead{MongoDB} \\
+\midrule
+Mô hình dữ liệu & Quan hệ + JSONB & Tài liệu (document) \\
+ACID & Đầy đủ, native & Hỗ trợ từ v4.0, hạn chế \\
+Truy vấn phức tạp & SQL mạnh (CTE, JOIN, subquery) & Aggregation pipeline \\
+Schema migration & Mature tooling (golang-migrate) & Schema-less, khó validate \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Lý do chọn PostgreSQL:} ACID đầy đủ cho giao dịch tài chính. Schema isolation cho modular monolith. JSONB cho dữ liệu linh hoạt (payment data, transport tracking). Partial indexes tối ưu truy vấn pending items.
+
+\textbf{SQLC} sinh mã Go type-safe từ SQL queries thuần -- thay vì dùng ORM. Kết hợp \texttt{pgtempl} (công cụ nội bộ sinh CRUD từ migration files) và driver \texttt{pgx/v5} với connection pooling cho hiệu năng cao.
+
+\subsection{Tìm kiếm sản phẩm: Milvus Vector Database}
+
+\begin{table}[htbp]
+\centering
+\caption{So sánh Milvus và Elasticsearch cho tìm kiếm sản phẩm}
+\label{tab:search-compare}
+\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Milvus} & \thead{Elasticsearch} \\
+\midrule
+Tìm kiếm ngữ nghĩa & Native, tối ưu & Bổ sung sau (từ v8) \\
+Hybrid search & Dense + sparse native & Hạn chế \\
+Scalar filtering & Hỗ trợ kết hợp & Native, mạnh mẽ \\
+Sử dụng bộ nhớ & Tối ưu cho vector & Cao (inverted + vector index) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Lý do chọn Milvus:} Hybrid search native (dense vectors cho ngữ nghĩa + sparse vectors BM25 cho keyword matching). Scalar filtering kết hợp (category, price, tags) trong cùng query. Thiết kế chuyên biệt cho vector search với index HNSW, IVF.
+
+\textbf{Trong ShopNexus:} Module \textit{catalog} đồng bộ dữ liệu sản phẩm vào Milvus qua cron job. Mỗi sản phẩm có dense vector (OpenAI/Bedrock embeddings) và sparse vector (BM25). Query hybrid search kết hợp scalar filter, kết quả enriched từ PostgreSQL.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  layer/.style={minimum width=14cm, minimum height=1.1cm, text=white, font=\small\bfseries, rounded corners=3pt, align=center},
+  tech/.style={font=\footnotesize, text=black, fill=white, rounded corners=2pt, inner sep=3pt, minimum height=0.6cm},
+]
+% Layers (bottom to top)
+\node[layer, fill=headerblue!50!black] (infra) at (0,0) {};
+\node[layer, fill=headerblue!70!black] (data)  at (0,1.4) {};
+\node[layer, fill=headerblue!85!black] (back)  at (0,2.8) {};
+\node[layer, fill=headerblue]          (api)   at (0,4.2) {};
+\node[layer, fill=headerblue!70]       (front) at (0,5.6) {};
+
+% Layer labels (left)
+\node[anchor=west, font=\scriptsize, text=white] at ([xshift=.15cm]infra.west) {Hạ tầng};
+\node[anchor=west, font=\scriptsize, text=white] at ([xshift=.15cm]data.west) {Dữ liệu};
+\node[anchor=west, font=\scriptsize, text=white] at ([xshift=.15cm]back.west) {Backend};
+\node[anchor=west, font=\scriptsize, text=white] at ([xshift=.15cm]api.west) {API};
+\node[anchor=west, font=\scriptsize, text=white] at ([xshift=.15cm]front.west) {Frontend};
+
+% Tech badges per layer
+\node[tech] at ([xshift=1.5cm]front.center) {Next.js 16};
+\node[tech] at ([xshift=4.5cm]front.center) {React 19};
+\node[tech] at ([xshift=-1.5cm]front.center) {shadcn/ui};
+\node[tech] at ([xshift=-3.5cm]front.center) {TanStack Query};
+
+\node[tech] at ([xshift=-1cm]api.center) {ConnectRPC};
+\node[tech] at ([xshift=2cm]api.center) {Echo v4};
+
+\node[tech] at ([xshift=-2cm]back.center) {Go 1.26};
+\node[tech] at ([xshift=0.5cm]back.center) {Restate};
+\node[tech] at ([xshift=3cm]back.center) {Uber fx};
+\node[tech] at ([xshift=5cm]back.center) {SQLC};
+
+\node[tech] at ([xshift=-2.5cm]data.center) {PostgreSQL 18};
+\node[tech] at ([xshift=0cm]data.center) {Redis 8};
+\node[tech] at ([xshift=2cm]data.center) {Milvus 2.6};
+\node[tech] at ([xshift=4.5cm]data.center) {MinIO};
+
+\node[tech] at ([xshift=-1cm]infra.center) {Docker Compose};
+\node[tech] at ([xshift=2cm]infra.center) {NATS JetStream};
+\node[tech] at ([xshift=5cm]infra.center) {Restate Cluster};
+\end{tikzpicture}
+\caption{Tổng quan technology stack của ShopNexus}
+\label{fig:tech-stack}
+\end{figure}

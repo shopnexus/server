@@ -27,9 +27,9 @@ type seedCategory struct {
 // categoryIndex maps lowercased keywords from category names to their UUID.
 // Used for fuzzy matching product breadcrumbs to base categories.
 type categoryIndex struct {
-	byName map[string]uuid.UUID // exact lowercase name → UUID
-	byWord map[string]uuid.UUID // individual word → UUID (last match wins; used as fallback)
-	fallback uuid.UUID          // "General" category
+	byName   map[string]uuid.UUID // exact lowercase name → UUID
+	byWord   map[string]uuid.UUID // individual word → UUID (last match wins; used as fallback)
+	fallback uuid.UUID            // "General" category
 }
 
 func newCategoryIndex() *categoryIndex {
@@ -81,7 +81,7 @@ func (ci *categoryIndex) match(breadcrumb []string) uuid.UUID {
 // seedCategories loads categories.json and inserts them into the database.
 // Returns a categoryIndex for matching products to categories.
 func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryIndex, error) {
-	data, err := os.ReadFile("categories.json")
+	data, err := os.ReadFile("./cmd/seed/categories.json")
 	if err != nil {
 		return nil, fmt.Errorf("read categories.json: %w", err)
 	}

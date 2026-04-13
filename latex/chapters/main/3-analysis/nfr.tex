@@ -1,0 +1,49 @@
+% ============================================================
+% Yêu cầu phi chức năng
+% ============================================================
+
+\section{Yêu cầu phi chức năng}
+\label{sec:nfr}
+
+Bảng~\ref{tab:nfr-all} tổng hợp các yêu cầu phi chức năng cho module quản lý đơn hàng, phân loại theo ba nhóm: nghiệp vụ, vận hành, và phát triển.
+
+\rowcolors{2}{white}{rowgray}
+\small
+\begin{longtable}{@{} c p{2.8cm} p{5cm} p{5cm} @{}}
+\caption{Tổng hợp yêu cầu phi chức năng}\label{tab:nfr-all} \\
+\toprule
+\rowcolor{headerblue}
+\thead{Mã} & \thead{Tên} & \thead{Yêu cầu} & \thead{Tiêu chí đo lường} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Mã} & \thead{Tên} & \thead{Yêu cầu} & \thead{Tiêu chí đo lường} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nghiệp vụ}}} \\
+B01 & Xử lý nhanh & API checkout $\leq$ 2s, confirm $\leq$ 3s, đọc $\leq$ 500ms & Đo response time trung bình \\
+B02 & Tồn kho chính xác & Không overselling; đặt chỗ nguyên tử (Restate exactly-once) & Tỷ lệ overselling = 0\% \\
+B03 & Trạng thái real-time & Thông báo in-app $\leq$ 5s sau khi trạng thái đổi & Đo latency thông báo \\
+B04 & Nhất quán chi phí & Snapshot giá tại checkout; total = cost - discount + transport & Kiểm tra công thức qua unit test \\
+B05 & Phân tích kinh doanh & Dashboard stats $\leq$ 1s; time series day/week/month & Đo query response \\
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Vận hành}}} \\
+O01 & Xác thực \& phân quyền & 100\% endpoint yêu cầu token; buyer/seller chỉ truy cập dữ liệu của mình & Kiểm tra AuthenticatedAccount \\
+O02 & Bảo mật thanh toán & Không lưu thông tin thẻ trực tiếp; webhook kiểm tra RefID hợp lệ; phiên TT có date\_expired & Audit bảo mật \\
+O03 & Sẵn sàng \& phục hồi & Uptime $\geq$ 99.5\%; Restate 3-node fault tolerance; tự động retry transient failure & Monitoring uptime \\
+O04 & Khả năng mở rộng & $\geq$ 100 concurrent checkout; pagination mọi API danh sách; partial index tối ưu & Load test \\
+O05 & Ghi nhận hành vi & Sự kiện add\_to\_cart, purchase, refund\_requested; fire-and-forget không ảnh hưởng hiệu suất & Kiểm tra log analytics \\
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Phát triển}}} \\
+D01 & Modular Monolith & Module độc lập (biz/db/model/transport); giao tiếp qua interface + Restate proxy & Review kiến trúc \\
+D02 & Type Safety (SQLC) & 100\% query sinh mã từ SQL; enum PostgreSQL ánh xạ Go type-safe & Kiểm tra SQLC output \\
+D03 & Durable Execution & DB ops trong restate.Run(); cross-module ngoài Run(); return JSON-serializable & Code review \\
+D04 & Code Generation & Restate proxy sinh tự động; 1 param/method; validate tags cho input & Kiểm tra go:generate \\
+D05 & Tổ chức mã nguồn & File tách theo chức năng: cart, checkout, incoming, order, pay, refund, dashboard & Review cấu trúc thư mục \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

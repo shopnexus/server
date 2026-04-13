@@ -1,0 +1,114 @@
+% ============================================================
+% 4.2 Thiết kế chi tiết: Hoàn trả + Tranh chấp
+% 4.4 Bảng tham chiếu: Hoàn trả + Tranh chấp
+% Owner: Person 3
+% ============================================================
+
+\section{Thiết kế chi tiết --- Hoàn trả và Tranh chấp}
+
+% ------------------------------------------------------------------
+\subsection{Giao diện (Lớp biên)}
+\label{subsec:refund-forms}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách form --- module Hoàn trả}
+\label{tab:refund-forms}
+\begin{tabular}{@{}p{3.5cm}lp{4.5cm}p{3.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
+\midrule
+RefundRequestForm & Buyer & RadioGroup phương thức (PickUp/DropOff), TextArea lý do, FileUpload bằng chứng, Input địa chỉ & CreateBuyerRefund \\
+RefundListPage    & Buyer & Bộ lọc trạng thái, phân trang & ListBuyerRefunds \\
+RefundEditForm    & Buyer & Chỉnh sửa lý do, phương thức, địa chỉ, upload thêm ảnh & UpdateBuyerRefund \\
+RefundCancelBtn   & Buyer & Nút Huỷ yêu cầu & CancelBuyerRefund \\
+SellerRefundReview & Seller & Xem chi tiết refund, nút Chấp nhận & ConfirmSellerRefund \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{API (Lớp xử lý)}
+\label{subsec:refund-apis}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách API --- module Hoàn trả}
+\label{tab:refund-apis}
+\begin{tabular}{@{}p{3.5cm}p{4cm}p{2.5cm}p{4cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
+\midrule
+ListBuyerRefunds & PaginationParams & Paginate[Refund] & DS yêu cầu hoàn trả của buyer \\
+CreateBuyerRefund & OrderID, Method, Reason, Address?, ResourceIDs & Refund & Tạo yêu cầu hoàn trả \\
+UpdateBuyerRefund & RefundID, Method?, Reason?, Address?, ResourceIDs & Refund & Cập nhật yêu cầu (trạng thái Pending) \\
+CancelBuyerRefund & RefundID & -- & Buyer huỷ yêu cầu hoàn trả \\
+ConfirmSellerRefund & RefundID & Refund & Seller chấp nhận hoàn trả \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) với phương thức trả hàng (PickUp hoặc DropOff) $\to$ Seller xem xét và chấp nhận (\texttt{ConfirmSellerRefund}) $\to$ hệ thống tạo transport record cho việc trả hàng. Nếu hai bên không đồng ý, có thể tạo tranh chấp (refund\_dispute) để bên thứ ba xử lý.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{sequencediagram}
+\newinst{form}{RefundForm}
+\newinst[2]{handler}{OrderHandler}
+\newinst[2]{pay}{PaymentProvider}
+\newinst[2]{tp}{TransportProvider}
+\newinst[2]{db}{DB (SQLC)}
+
+\begin{call}{form}{CreateBuyerRefund(orderID, method, reason)}{handler}{Refund}
+  \begin{call}{handler}{restate.Run: getOrder()}{db}{order}
+  \end{call}
+  \begin{call}{handler}{restate.Run: insertRefund()}{db}{refund}
+  \end{call}
+\end{call}
+
+\postlevel
+
+\begin{call}{form}{ConfirmSellerRefund(refundID)}{handler}{Refund}
+  \begin{call}{handler}{restate.Run: getRefund()}{db}{refund}
+  \end{call}
+  \begin{call}{handler}{CreateTransport(address, opt)}{tp}{transport}
+  \end{call}
+  \begin{call}{handler}{Refund(paymentID, amount)}{pay}{ok}
+  \end{call}
+  \begin{call}{handler}{restate.Run: updateRefund(Success)}{db}{ok}
+  \end{call}
+  \begin{call}{handler}{restate.Run: restoreInventory()}{db}{ok}
+  \end{call}
+\end{call}
+
+\end{sequencediagram}
+}%
+\caption{Luồng xử lý quy trình hoàn trả}
+\label{fig:refund-sequence}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Bảng tham chiếu --- Hoàn trả và Tranh chấp}
+\label{subsec:refund-crossref}
+
+\begin{table}[htbp]
+\centering
+\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
+\label{tab:refund-crossref}
+\begin{tabular}{@{}p{2.8cm}p{3cm}p{3.5cm}p{4cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
+\midrule
+Tạo yêu cầu hoàn trả & RefundRequestForm & CreateBuyerRefund & order.refund, common.resource \\
+Xem DS hoàn trả & RefundListPage & ListBuyerRefunds & order.refund \\
+Cập nhật hoàn trả & RefundEditForm & UpdateBuyerRefund & order.refund \\
+Huỷ hoàn trả & RefundCancelBtn & CancelBuyerRefund & order.refund \\
+Seller xử lý hoàn trả & SellerRefundReview & ConfirmSellerRefund & order.refund, order.transport \\
+Tranh chấp & (tích hợp trong RefundDetail) & -- (refund\_dispute) & order.refund\_dispute \\
+\bottomrule
+\end{tabular}
+\end{table}

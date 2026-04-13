@@ -1,0 +1,111 @@
+% ============================================================
+% 4.1 Thiết kế kiến trúc của PM
+% Owner: Common (Manager)
+% ============================================================
+
+\section{Thiết kế kiến trúc}
+\label{sec:architecture}
+
+Hệ thống ShopNexus được thiết kế theo kiến trúc \textbf{modular monolith} --- kết hợp tính đơn giản trong triển khai của monolith truyền thống với tính phân tách miền nghiệp vụ (bounded context) của microservices. Phần mềm được xây dựng bằng Go~1.26, sử dụng framework \textbf{Restate} cho thực thi bền vững (durable execution) và \textbf{Uber~fx} cho dependency injection. Kiến trúc được phân rã theo ba kỹ thuật: \textit{phân tầng} (layering), \textit{phân vùng} (segmentation), và \textit{trích lớp cơ bản} (factoring).
+
+Hệ thống tổ chức theo mô hình ba tầng: (1)~\textbf{Tầng giao diện} sử dụng Echo~v4 để tiếp nhận HTTP request, phân tích tham số và gọi xuống tầng nghiệp vụ; (2)~\textbf{Tầng nghiệp vụ} chứa toàn bộ logic xử lý dưới dạng Restate service handler, sử dụng \texttt{restate.Context} để ghi journal và replay tự động; (3)~\textbf{Tầng truy cập dữ liệu} sử dụng SQLC sinh mã Go type-safe từ SQL query, với driver \texttt{pgx/v5} và connection pooling. Mỗi module sở hữu một PostgreSQL schema riêng, không có foreign key liên schema.
+
+% ------------------------------------------------------------------
+\subsection{Các module nghiệp vụ}
+\label{subsec:modules}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách module nghiệp vụ}
+\label{tab:modules}
+\begin{tabular}{@{}llp{8.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Module} & \thead{Tầng dữ liệu} & \thead{Chức năng chính} \\
+\midrule
+\texttt{account}   & \texttt{account.*}   & Xác thực, hồ sơ, liên hệ, yêu thích, phương thức thanh toán, thông báo \\
+\texttt{catalog}   & \texttt{catalog.*}   & Sản phẩm SPU/SKU, danh mục, tag, bình luận, tìm kiếm lai (vector + scalar) \\
+\texttt{order}     & \texttt{order.*}     & Giỏ hàng, checkout, xác nhận người bán, thanh toán, vận chuyển, hoàn trả \\
+\texttt{inventory} & \texttt{inventory.*} & Tồn kho, theo dõi serial, đặt trước hàng, lịch sử kiểm kê \\
+\texttt{promotion} & \texttt{promotion.*} & Khuyến mãi giảm giá, giảm phí vận chuyển, lập lịch, cộng dồn giá \\
+\texttt{analytic}  & \texttt{analytic.*}  & Theo dõi tương tác, tính điểm phổ biến sản phẩm có trọng số \\
+\texttt{chat}      & \texttt{chat.*}      & Nhắn tin REST, quản lý hội thoại, xác nhận đã đọc \\
+\texttt{common}    & \texttt{common.*}    & Quản lý tệp tin, object storage (MinIO), service option, SSE, geocoding \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mỗi module tuân theo cấu trúc vertical-slice: \texttt{biz/} (interface + handler), \texttt{db/} (migration + SQLC), \texttt{model/} (DTO), \texttt{transport/echo/} (HTTP handler), \texttt{fx.go} (DI wiring).
+
+% ------------------------------------------------------------------
+\subsection{Giao tiếp liên module qua Restate}
+\label{subsec:cross-module}
+
+Mọi lời gọi liên module đều đi qua \textbf{Restate Ingress} thay vì gọi hàm trực tiếp. Khi \texttt{OrderHandler} cần gọi \texttt{CatalogBiz}, Uber~fx resolve interface thành \texttt{CatalogRestateClient} (proxy HTTP tự động sinh), proxy gửi request đến Restate Ingress, Restate ghi journal và định tuyến đến \texttt{CatalogHandler}. Cơ chế này đảm bảo: (a)~\textit{exactly-once delivery} ngay cả khi crash giữa chừng, (b)~\textit{automatic retry} với exponential backoff cho lỗi tạm thời, (c)~\textit{fire-and-forget} qua \texttt{restate.ServiceSend()} cho thao tác bất đồng bộ, và (d)~\textit{microservice extraction path} --- chỉ cần thay đổi URL đăng ký Restate để tách module thành service độc lập.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  mod/.style={rectangle, rounded corners=3pt, draw=headerblue, fill=rowgray, minimum width=1.6cm, minimum height=0.7cm, align=center, font=\scriptsize},
+  layer/.style={draw=headerblue!30, fill=headerblue!5, rounded corners=5pt, inner sep=8pt},
+  infra/.style={rectangle, rounded corners=3pt, draw=headerblue!60, fill=headerblue!15, minimum width=1.8cm, minimum height=0.6cm, align=center, font=\scriptsize},
+  ext/.style={rectangle, rounded corners=3pt, draw=orange!60!black, fill=orange!10, minimum width=1.6cm, minimum height=0.6cm, align=center, font=\scriptsize},
+  lbl/.style={font=\scriptsize\bfseries, headerblue},
+  arr/.style={-{Stealth[length=4pt]}, thick, headerblue!60},
+]
+
+% Transport layer
+\node[layer, minimum width=15cm, minimum height=1cm, label={[lbl]left:Transport}] (transport) at (7,6) {};
+\node[mod] at (4,6) {Echo v4\\(HTTP)};
+\node[mod] at (7,6) {ConnectRPC};
+\node[mod] at (10,6) {SSE\\(Realtime)};
+
+% Restate Ingress
+\node[rectangle, rounded corners=3pt, draw=headerblue, fill=headerblue!25, minimum width=15cm, minimum height=0.6cm, font=\scriptsize\bfseries, text=headerblue!80!black] (restate) at (7,4.6) {Restate Ingress (Durable Execution --- exactly-once, auto-retry, journal replay)};
+
+% Biz layer
+\node[layer, minimum width=15cm, minimum height=1.8cm, label={[lbl]left:Biz}] (biz) at (7,3) {};
+\node[mod] (account) at (1.5,3.3)  {account};
+\node[mod] (catalog) at (3.5,3.3)  {catalog};
+\node[mod, fill=headerblue!20, draw=headerblue, line width=1pt] (order) at (5.5,3.3)  {\textbf{order}};
+\node[mod] (inventory) at (7.5,3.3){inventory};
+\node[mod] (promotion) at (9.5,3.3){promotion};
+\node[mod] (analytic) at (11.5,3.3){analytic};
+\node[mod] (chat) at (3.5,2.3)    {chat};
+\node[mod] (common) at (5.5,2.3)  {common};
+
+% Data layer
+\node[layer, minimum width=15cm, minimum height=1cm, label={[lbl]left:Data}] (data) at (7,0.8) {};
+\node[infra] (pg) at (2,0.8)    {PostgreSQL 18};
+\node[infra] (redis) at (5,0.8) {Redis 8};
+\node[infra] (milvus) at (8,0.8){Milvus 2.6};
+\node[infra] (minio) at (11,0.8){MinIO};
+\node[infra] (nats) at (13.5,0.8) {NATS};
+
+% External services
+\node[ext] (vnpay) at (2,-0.8)   {VNPay};
+\node[ext] (ghtk) at (5,-0.8)    {GHTK};
+\node[ext] (nominatim) at (8,-0.8){Nominatim};
+\node[ext] (openai) at (11,-0.8) {OpenAI};
+\node[lbl] at (6.5,-1.4) {Nhà cung cấp dịch vụ bên ngoài};
+
+% Arrows
+\draw[arr] (transport) -- (restate);
+\draw[arr] (restate) -- (biz);
+\draw[arr] (biz) -- (data);
+\draw[arr, dashed] (order) -- (vnpay);
+\draw[arr, dashed] (order) -- (ghtk);
+\draw[arr, dashed] (catalog) -- (openai);
+
+\end{tikzpicture}
+}%
+\caption{Kiến trúc tổng thể hệ thống ShopNexus}
+\label{fig:architecture}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Hạ tầng và nhà cung cấp dịch vụ}
+\label{subsec:infra}
+
+Hệ thống triển khai qua Docker Compose gồm: PostgreSQL~18 (CSDL chính), Redis~8 (cache), Restate 3-node cluster (durable execution, replication factor = 2), Milvus~2.6 (vector search), MinIO (object storage + Restate snapshot), etcd (Milvus metadata), NATS JetStream (message queue). Các nhà cung cấp dịch vụ bên ngoài sử dụng mẫu Strategy (\texttt{map[string]Client}): VNPay/COD cho thanh toán, GHTK cho vận chuyển, Nominatim cho geocoding, OpenAI/Bedrock cho LLM.

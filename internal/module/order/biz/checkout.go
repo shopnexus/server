@@ -144,16 +144,11 @@ func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutPa
 	// Step 4: Remove from cart (skip if BuyNow)
 	if !params.BuyNow {
 		if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-			cartItems, err := b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
+			if _, err := b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
 				AccountID: params.Account.ID,
 				SkuID:     skuIDs,
-			})
-			if err != nil {
+			}); err != nil {
 				return sharedmodel.WrapErr("db remove checkout items", err)
-			}
-			if len(cartItems) != len(skuIDs) {
-				// Some items may not be in cart (e.g., added via BuyNow previously), that's OK
-				_ = cartItems
 			}
 			return nil
 		}); err != nil {

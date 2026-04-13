@@ -1,6 +1,7 @@
 package catalogbiz
 
 import (
+	"log/slog"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -109,7 +110,7 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		}
 	}
 
-	// Batch-fetch order items for enrichment (SKU name + order date)
+	// Fetch order items for enrichment (SKU name + order date)
 	var orderIDs []uuid.UUID
 	for _, c := range dbComments {
 		if c.OrderID.Valid {
@@ -121,38 +122,30 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		SkuName   string
 		OrderDate *time.Time
 	}
-	orderItemMap := map[uuid.UUID]orderItemInfo{} // keyed by order_id
+	orderItemMap := map[uuid.UUID]orderItemInfo{}
 	if len(orderIDs) > 0 {
-		type listParams struct {
-			ID []uuid.UUID `json:"ID"`
-			sharedmodel.PaginationParams
-		}
 		type orderItem struct {
-			SpuID   uuid.UUID `json:"spu_id"`
-			SkuName string    `json:"sku_name"`
+			SkuName string `json:"sku_name"`
 		}
-		type order struct {
+		type orderEnrich struct {
 			ID          uuid.UUID   `json:"id"`
 			DateCreated time.Time   `json:"date_created"`
 			Items       []orderItem `json:"items"`
 		}
-		type orderResult struct {
-			Data []order `json:"Data"`
-		}
-		result, err := restate.Service[orderResult](ctx, "Order", "ListBuyerConfirmed").Request(listParams{
-			ID:               orderIDs,
-			PaginationParams: sharedmodel.PaginationParams{Limit: null.Int32From(int32(len(orderIDs)))},
-		})
-		if err == nil {
-			for _, o := range result.Data {
-				orderDate := o.DateCreated
-				for _, item := range o.Items {
-					// Match item to comment by ref_id (SPU ID)
-					orderItemMap[o.ID] = orderItemInfo{
-						SkuName:   item.SkuName,
-						OrderDate: &orderDate,
-					}
-				}
+		for _, oid := range lo.Uniq(orderIDs) {
+			order, err := restate.Service[orderEnrich](ctx, "Order", "GetBuyerOrder").Request(oid)
+			if err != nil {
+				slog.Warn("fetch order for comment enrichment", slog.String("order_id", oid.String()), slog.Any("error", err))
+				continue
+			}
+			orderDate := order.DateCreated
+			var skuName string
+			if len(order.Items) > 0 {
+				skuName = order.Items[0].SkuName
+			}
+			orderItemMap[order.ID] = orderItemInfo{
+				SkuName:   skuName,
+				OrderDate: &orderDate,
 			}
 		}
 	}

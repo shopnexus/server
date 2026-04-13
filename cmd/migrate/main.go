@@ -22,15 +22,14 @@ func main() {
 
 	// Modules ordered by dependency: common first, modules with cross-schema FKs last
 	modules := []string{
-		"common",
 		"account",
-		"catalog",
 		"analytic",
+		"catalog",
+		"chat",
+		"common",
 		"inventory",
 		"order",
 		"promotion",
-		"system",
-		"chat", // depends on account schema
 	}
 
 	if *moduleFlag != "" {

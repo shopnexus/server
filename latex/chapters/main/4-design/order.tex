@@ -1,0 +1,148 @@
+% ============================================================
+% 4.2 Thiết kế chi tiết: Mua hàng
+% 4.4 Bảng tham chiếu: Mua hàng
+% Owner: Person 2
+% ============================================================
+
+\section{Thiết kế chi tiết --- Mua hàng}
+
+% ------------------------------------------------------------------
+\subsection{Giao diện (Lớp biên)}
+\label{subsec:order-forms}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách form --- module Mua hàng}
+\label{tab:order-forms}
+\begin{tabular}{@{}p{3.2cm}lp{4.5cm}p{3.8cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
+\midrule
+CartPage           & Buyer  & Checkbox chọn SP, nút +/-, nút Checkout & GetCart, UpdateCart, ClearCart \\
+CheckoutPage       & Buyer  & Danh sách item, input địa chỉ, nút Đặt hàng & BuyerCheckout \\
+BuyerPendingList   & Buyer  & Danh sách mục chờ, nút Huỷ & ListBuyerPending, CancelBuyerPending \\
+SellerInbox        & Seller & Danh sách mục chờ, chọn vận chuyển, nút Xác nhận/Từ chối & ListSellerPending, QuoteTransport, ConfirmSellerPending, RejectSellerPending \\
+OrderListPage      & Buyer/Seller & Bộ lọc trạng thái, phân trang & ListBuyerConfirmed, ListSellerConfirmed \\
+OrderDetailPage    & Buyer/Seller & Thông tin đơn, nút Thanh toán & GetBuyerOrder, GetSellerOrder \\
+PaymentPage        & Buyer  & Chọn phương thức, nút Thanh toán & PayBuyerOrders \\
+SellerDashboard    & Seller & Thống kê, biểu đồ, top SP & GetSellerOrderStats, GetSellerOrderTimeSeries, GetSellerTopProducts \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{API (Lớp xử lý)}
+\label{subsec:order-apis}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách API --- module Mua hàng}
+\label{tab:order-apis}
+\small
+\begin{tabular}{@{}p{3.2cm}p{4cm}p{2.8cm}p{4cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
+\midrule
+GetCart          & AccountID & []CartItem & Lấy danh sách giỏ hàng \\
+UpdateCart       & SkuID, Quantity/ DeltaQuantity & -- & Cập nhật số lượng; quantity=0 xoá item \\
+ClearCart        & AccountID & -- & Xoá toàn bộ giỏ hàng \\
+BuyerCheckout    & []CheckoutItem, BuyNow & []OrderItem & Tạo mục chờ xác nhận; BuyNow chỉ 1 item \\
+\addlinespace
+ListBuyerPending & AccountID, Status[], Page & Paginate[OrderItem] & DS mục chờ của buyer \\
+CancelBuyerPending & AccountID, ItemID & -- & Buyer huỷ mục chờ \\
+ListSellerPending & SellerID, Search, Page & Paginate[OrderItem] & DS mục chờ của seller \\
+QuoteTransport   & ItemIDs, TransportOption & QuoteResult (cost) & Báo giá vận chuyển \\
+ConfirmSellerPending & ItemIDs, TransportOption & Order & Seller xác nhận $\to$ tạo Order \\
+RejectSellerPending & ItemIDs & -- & Seller từ chối \\
+\addlinespace
+GetBuyerOrder    & OrderID & Order & Chi tiết đơn (buyer) \\
+GetSellerOrder   & OrderID & Order & Chi tiết đơn (seller) \\
+ListBuyerConfirmed & BuyerID, Status[], Page & Paginate[Order] & DS đơn hàng buyer \\
+ListSellerConfirmed & SellerID, Status[], Page & Paginate[Order] & DS đơn hàng seller \\
+PayBuyerOrders   & OrderIDs, PaymentOption & Payment, RedirectUrl & Thanh toán nhiều đơn \\
+ConfirmPayment   & RefID, Status & -- & Callback từ payment gateway \\
+\addlinespace
+GetSellerOrderStats & SellerID, DateRange & SellerOrderStats & Thống kê tổng hợp \\
+GetSellerOrderTimeSeries & SellerID, DateRange & []TimeSeriesPoint & Biểu đồ theo thời gian \\
+GetSellerPendingActions & SellerID & PendingActions & Số lượng hành động chờ \\
+GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{sequencediagram}
+\newinst{form}{BuyerForm}
+\newinst[1.8]{handler}{OrderHandler}
+\newinst[1.5]{cat}{CatalogProxy}
+\newinst[1.5]{inv}{InventoryProxy}
+\newinst[1.5]{pay}{PaymentProvider}
+\newinst[1.5]{db}{DB (SQLC)}
+
+\begin{call}{form}{BuyerCheckout(items, buyNow)}{handler}{[]OrderItem}
+  \begin{call}{handler}{GetProductSKU(skuID)}{cat}{SKU}
+  \end{call}
+  \begin{call}{handler}{ReserveInventory(skuID, qty)}{inv}{serialIDs}
+  \end{call}
+  \begin{call}{handler}{restate.Run: insertItem()}{db}{item}
+  \end{call}
+  \begin{call}{handler}{restate.Run: deleteCartItem()}{db}{ok}
+  \end{call}
+\end{call}
+
+\postlevel
+
+\begin{call}{form}{ConfirmSellerPending(itemIDs, opt)}{handler}{Order}
+  \begin{call}{handler}{restate.Run: insertOrder()}{db}{order}
+  \end{call}
+  \begin{call}{handler}{QuoteTransport(items, opt)}{pay}{cost}
+  \end{call}
+\end{call}
+
+\postlevel
+
+\begin{call}{form}{PayBuyerOrders(orderIDs, opt)}{handler}{redirectUrl}
+  \begin{call}{handler}{CreatePayment(amount)}{pay}{intent}
+  \end{call}
+  \begin{call}{handler}{restate.Run: insertPayment()}{db}{payment}
+  \end{call}
+\end{call}
+
+\begin{call}{pay}{ConfirmPayment(refID, status)}{handler}{ok}
+  \begin{call}{handler}{restate.Run: updateStatus()}{db}{ok}
+  \end{call}
+\end{call}
+
+\end{sequencediagram}
+}%
+\caption{Luồng xử lý chính của quy trình mua hàng}
+\label{fig:order-sequence}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Bảng tham chiếu --- Mua hàng}
+\label{subsec:order-crossref}
+
+\begin{table}[htbp]
+\centering
+\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
+\label{tab:order-crossref}
+\begin{tabular}{@{}p{2.8cm}p{2.8cm}p{3.5cm}p{4cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
+\midrule
+Quản lý giỏ hàng & CartPage & GetCart, UpdateCart, ClearCart & order.cart\_item \\
+Đặt hàng (Checkout) & CheckoutPage & BuyerCheckout & order.item \\
+Xem mục chờ & BuyerPendingList, SellerInbox & ListBuyerPending, ListSellerPending & order.item \\
+Xác nhận đơn & SellerInbox & ConfirmSellerPending, RejectSellerPending & order.order, order.item, order.transport \\
+Thanh toán & PaymentPage & PayBuyerOrders, ConfirmPayment & order.payment, order.order \\
+Xem đơn hàng & OrderListPage, OrderDetailPage & ListBuyerConfirmed, GetBuyerOrder & order.order, order.item \\
+Dashboard & SellerDashboard & GetSellerOrderStats, GetSellerTopProducts & order.order, order.item \\
+\bottomrule
+\end{tabular}
+\end{table}

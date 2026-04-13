@@ -187,14 +187,10 @@ func (b *OrderHandler) QuoteTransport(ctx restate.Context, params QuoteTransport
 		productCost += item.UnitPrice * item.Quantity
 		totalPaidAmount += item.PaidAmount
 	}
-	productDiscount := productCost - totalPaidAmount
-	if productDiscount < 0 {
-		productDiscount = 0
-	}
+	productDiscount := max(productCost-totalPaidAmount, 0)
 	total := productCost - productDiscount + qResult.Cost
 
 	return QuoteTransportResult{
-		// TODO: the shared.Concurrency some func name is weird, consider renaming. or drop entirely
 		ProductCost:     sharedmodel.Concurrency(productCost),
 		ProductDiscount: sharedmodel.Concurrency(productDiscount),
 		TransportCost:   sharedmodel.Concurrency(qResult.Cost),
@@ -352,10 +348,7 @@ func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmS
 		productCost += item.UnitPrice * item.Quantity
 		totalPaidAmount += item.PaidAmount
 	}
-	productDiscount := productCost - totalPaidAmount
-	if productDiscount < 0 {
-		productDiscount = 0
-	}
+	productDiscount := max(productCost-totalPaidAmount, 0)
 	transportCost := tResult.Cost
 	total := productCost - productDiscount + transportCost
 
@@ -404,19 +397,15 @@ func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmS
 			itemNames = append(itemNames, fi.SkuName)
 		}
 	}
-	summary := "Your items"
-	if len(itemNames) == 1 {
-		summary = itemNames[0]
-	} else if len(itemNames) > 1 {
-		summary = fmt.Sprintf("%s and %d more", itemNames[0], len(itemNames)-1)
-	}
+	summary := ordermodel.SummarizeNames(itemNames)
+	notiMeta, _ := json.Marshal(map[string]string{"order_id": orderID.String()})
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: buyerID,
 		Type:      accountmodel.NotiItemsConfirmed,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Items confirmed",
 		Content:   fmt.Sprintf("%s has been confirmed by the seller.", summary),
-		Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, orderID)),
+		Metadata:  notiMeta,
 	})
 
 	// Step 7: Return hydrated order
@@ -506,12 +495,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 				rejectedNames = append(rejectedNames, it.SkuName)
 			}
 		}
-		rejectSummary := "Some of your items"
-		if len(rejectedNames) == 1 {
-			rejectSummary = rejectedNames[0]
-		} else if len(rejectedNames) > 1 {
-			rejectSummary = fmt.Sprintf("%s and %d more", rejectedNames[0], len(rejectedNames)-1)
-		}
+		rejectSummary := ordermodel.SummarizeNames(rejectedNames)
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
 			Type:      accountmodel.NotiItemsRejected,

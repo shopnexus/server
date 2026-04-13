@@ -36,11 +36,36 @@ func (b *CatalogHandler) getTagsMap(ctx restate.Context, spuID []uuid.UUID) map[
 	return lo.GroupByMap(tags, func(tag catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return tag.SpuID, tag.Tag })
 }
 
+func (b *CatalogHandler) getRatingsMap(ctx restate.Context, spuIDs []uuid.UUID) (map[uuid.UUID]catalogdb.ListRatingRow, error) {
+	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
+		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
+		RefID:   spuIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID }), nil
+}
+
 func (b *CatalogHandler) getCategory(ctx restate.Context, categoryID uuid.UUID) catalogdb.CatalogCategory {
 	category, _ := b.storage.Querier().GetCategory(ctx, catalogdb.GetCategoryParams{
 		ID: uuid.NullUUID{UUID: categoryID, Valid: true},
 	})
 	return category
+}
+
+// getCategoriesMap batch-fetches categories by IDs and returns a map keyed by category ID.
+func (b *CatalogHandler) getCategoriesMap(ctx restate.Context, categoryIDs []uuid.UUID) map[uuid.UUID]catalogdb.CatalogCategory {
+	if len(categoryIDs) == 0 {
+		return map[uuid.UUID]catalogdb.CatalogCategory{}
+	}
+	categories, err := b.storage.Querier().ListCategory(ctx, catalogdb.ListCategoryParams{
+		ID: lo.Uniq(categoryIDs),
+	})
+	if err != nil {
+		return map[uuid.UUID]catalogdb.CatalogCategory{}
+	}
+	return lo.KeyBy(categories, func(c catalogdb.CatalogCategory) uuid.UUID { return c.ID })
 }
 
 type GetProductSpuParams struct {
@@ -142,15 +167,13 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 	}
 
 	spuIDs := lo.Map(dbSpus, func(spu catalogdb.CatalogProductSpu, _ int) uuid.UUID { return spu.ID })
-	// Calculate rating score
-	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
-		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
-		RefID:   spuIDs,
-	})
+	categoryIDs := lo.Map(dbSpus, func(spu catalogdb.CatalogProductSpu, _ int) uuid.UUID { return spu.CategoryID })
+	categoriesMap := b.getCategoriesMap(ctx, categoryIDs)
+
+	ratingMap, err := b.getRatingsMap(ctx, spuIDs)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db list rating", err)
 	}
-	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
 	tagsMap := b.getTagsMap(ctx, spuIDs)
 
@@ -171,9 +194,11 @@ func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductS
 	var spus []catalogmodel.ProductSpu
 	for _, spu := range dbSpus {
 		specs := []catalogmodel.ProductSpecification{}
-		sonic.Unmarshal(spu.Specifications, &specs)
+		if err := sonic.Unmarshal(spu.Specifications, &specs); err != nil {
+			return zero, sharedmodel.WrapErr("unmarshal specifications", err)
+		}
 
-		m := b.dbToProductSpu(ctx, spu)
+		m := b.dbToProductSpuWithCategory(spu, categoriesMap[spu.CategoryID])
 		m.Rating = catalogmodel.ProductRating{
 			Score: ratingMap[spu.ID].Score,
 			Total: ratingMap[spu.ID].Count,
@@ -452,14 +477,14 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 	return nil
 }
 
-// dbToProductSpu maps a DB CatalogProductSpu row to the model type.
+// dbToProductSpuWithCategory maps a DB CatalogProductSpu row to the model type using a pre-fetched category.
 // Callers should set Rating, Tags, Resources, and Specifications as needed.
-func (b *CatalogHandler) dbToProductSpu(ctx restate.Context, spu catalogdb.CatalogProductSpu) catalogmodel.ProductSpu {
+func (b *CatalogHandler) dbToProductSpuWithCategory(spu catalogdb.CatalogProductSpu, category catalogdb.CatalogCategory) catalogmodel.ProductSpu {
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
 		AccountID:     spu.AccountID,
 		Slug:          spu.Slug,
-		Category:      b.getCategory(ctx, spu.CategoryID),
+		Category:      category,
 		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,
@@ -467,6 +492,12 @@ func (b *CatalogHandler) dbToProductSpu(ctx restate.Context, spu catalogdb.Catal
 		DateCreated:   spu.DateCreated,
 		DateUpdated:   spu.DateUpdated,
 	}
+}
+
+// dbToProductSpu maps a DB CatalogProductSpu row to the model type, fetching category individually.
+// Prefer dbToProductSpuWithCategory with a batch-fetched category map for list operations.
+func (b *CatalogHandler) dbToProductSpu(ctx restate.Context, spu catalogdb.CatalogProductSpu) catalogmodel.ProductSpu {
+	return b.dbToProductSpuWithCategory(spu, b.getCategory(ctx, spu.CategoryID))
 }
 
 // GenerateSlug creates a URL-friendly slug from a product name with a unique suffix.

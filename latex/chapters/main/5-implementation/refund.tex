@@ -1,0 +1,74 @@
+% ============================================================
+% 5.2 Hiện thực: Hoàn trả và Tranh chấp
+% ============================================================
+
+\section{Hiện thực --- Hoàn trả và Tranh chấp}
+\label{sec:impl-refund}
+
+\subsection{Mô tả cách sử dụng}
+
+Buyer có thể yêu cầu hoàn trả cho đơn hàng đã thanh toán thành công. Quy trình gồm: buyer tạo yêu cầu hoàn trả (chọn phương thức PickUp hoặc DropOff, nhập lý do và ảnh minh chứng), seller xem xét và chấp nhận/từ chối. Nếu seller từ chối, buyer có quyền mở tranh chấp (dispute) để admin phân xử.
+
+\begin{figure}[htbp]
+\centering
+\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot form yêu cầu hoàn trả --- chọn phương thức trả hàng (PickUp/DropOff), lý do, upload ảnh minh chứng\vspace{3cm}}}
+\caption{Form tạo yêu cầu hoàn trả}
+\label{fig:impl-refund-form}
+\end{figure}
+
+Buyer điền form hoàn trả gồm phương thức trả hàng, lý do chi tiết và ảnh minh chứng. Hệ thống tự động gửi thông báo cho seller qua SSE.
+
+\begin{figure}[htbp]
+\centering
+\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang tranh chấp --- hiển thị lý do từ chối của seller, form mở dispute với bằng chứng bổ sung\vspace{3cm}}}
+\caption{Trang tranh chấp hoàn trả (Refund Dispute)}
+\label{fig:impl-refund-dispute}
+\end{figure}
+
+Khi seller từ chối hoàn trả, buyer có thể mở tranh chấp bằng cách cung cấp bằng chứng bổ sung. Admin sẽ xem xét và đưa ra phán quyết chấp nhận hoặc từ chối.
+
+% ------------------------------------------------------------------
+\subsection{Đánh giá}
+\label{subsec:refund-eval}
+
+\begin{table}[htbp]
+\centering
+\caption{Đánh giá chức năng hoàn trả và tranh chấp}
+\label{tab:refund-eval}
+\begin{tabular}{@{}p{0.5cm}p{6.5cm}p{0.5cm}p{6.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\thead{Điểm mạnh}} & \multicolumn{2}{c}{\thead{Hạn chế}} \\
+\midrule
+1 & Hỗ trợ hai phương thức trả hàng (PickUp/DropOff) linh hoạt & 1 & Chưa tích hợp hoàn tiền tự động qua cổng thanh toán \\
+2 & Cơ chế dispute ba bên (buyer--seller--admin) công bằng & 2 & Chưa có thời hạn tự động duyệt nếu seller không phản hồi \\
+3 & Upload ảnh minh chứng qua presigned URL (MinIO) & 3 & Chưa hỗ trợ hoàn trả một phần (partial refund) \\
+4 & Thông báo real-time qua SSE cho các bên liên quan & 4 & Chưa có luồng trả hàng tích hợp với đơn vị vận chuyển \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Kiểm thử}
+\label{subsec:refund-test}
+
+\begin{table}[htbp]
+\centering
+\caption{Các trường hợp kiểm thử chức năng hoàn trả và tranh chấp}
+\label{tab:refund-test}
+\begin{tabular}{@{}p{1cm}p{5cm}p{7.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Mô tả} & \thead{Kết quả mong đợi} \\
+\midrule
+TC-11 & Tạo yêu cầu hoàn trả (PickUp) & Yêu cầu được tạo, seller nhận thông báo \\
+TC-12 & Tạo hoàn trả cho đơn chưa thanh toán & Hệ thống từ chối với lỗi validation \\
+TC-13 & Seller chấp nhận hoàn trả & Trạng thái chuyển Approved, inventory hoàn trả \\
+TC-14 & Seller từ chối hoàn trả & Trạng thái chuyển Rejected, buyer nhận thông báo \\
+TC-15 & Buyer mở dispute sau khi bị từ chối & Dispute được tạo, admin nhận thông báo \\
+TC-16 & Admin phán quyết chấp nhận dispute & Hoàn trả được duyệt, inventory hoàn trả \\
+TC-17 & Admin phán quyết từ chối dispute & Dispute đóng, hoàn trả bị từ chối vĩnh viễn \\
+TC-18 & Tạo hoàn trả khi đã có yêu cầu đang xử lý & Hệ thống từ chối yêu cầu trùng lặp \\
+\bottomrule
+\end{tabular}
+\end{table}

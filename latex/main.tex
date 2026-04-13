@@ -1,0 +1,79 @@
+% 'draft' mode can be used to speed up compilation
+\documentclass[final]{thesis}
+
+% Table packages (colors already defined in thesis.cls)
+\usepackage{booktabs,array}
+
+% Code listings for inline code
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=none,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+% cleveref MUST come after hyperref (loaded in thesis.cls)
+\usepackage[nameinlink]{cleveref}
+
+
+% ============================================================
+% Configurations — FILL IN
+% ============================================================
+\reporttype{BÁO CÁO ĐỒ ÁN MÔN HỌC}
+\title{TÊN ĐỀ TÀI}
+\defcouncil{Tên môn học (Mã môn)}
+\supervisor{
+  Tên giảng viên
+}
+\groupnum{ X:}
+\stuname{
+\begin{tabular}{ p{6cm} p{4cm} }
+Họ tên 1 & MSSV1 \\
+Họ tên 2 & MSSV2 \\
+Họ tên 3 & MSSV3 \\
+\end{tabular}
+}
+
+\begin{document}
+\coverpage%
+
+\frontmatter%
+
+\input{chapters/front/declaration.tex}
+\input{chapters/front/acknowledge.tex}
+\input{chapters/front/abstract.tex}
+
+\begin{KeepFromToc}
+\tableofcontents
+\end{KeepFromToc}
+
+\clearpage
+\listoffigures
+
+\clearpage
+\listoftables
+
+\mainmatter%
+
+% Chương 1: Giới thiệu đề tài
+\input{chapters/main/1-introduction.tex}
+
+% Chương 2: Cơ sở khoa học của đề tài
+\input{chapters/main/2-theory.tex}
+
+% Chương 3: Phân tích hệ thống
+\input{chapters/main/3-analysis.tex}
+
+% Chương 4: Thiết kế phần mềm
+\input{chapters/main/4-design.tex}
+
+% Chương 5: Hiện thực
+\input{chapters/main/5-implementation.tex}
+
+\bibliographystyle{plain}
+\bibliography{refs/refs.bib}
+\nocite{*}
+
+\end{document}

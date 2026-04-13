@@ -188,7 +188,3 @@ ALTER TABLE "account"."favorite"
 ALTER TABLE "account"."payment_method"
     ADD CONSTRAINT "payment_method_account_id_fkey"
     FOREIGN KEY ("account_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "account"."payment_method"
-    ADD CONSTRAINT "payment_method_service_option_id_fkey"
-    FOREIGN KEY ("service_option_id") REFERENCES "common"."service_option" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;

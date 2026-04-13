@@ -13,8 +13,6 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
-	commonbiz "shopnexus-server/internal/module/common/biz"
-	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
@@ -108,16 +106,11 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		})
 	}
 
-	// Get images
-	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
-		RefType: commondb.CommonResourceRefTypeProductSpu,
-		RefIDs:  []uuid.UUID{spu.ID},
-	})
-	if err != nil {
-		return zero, err
-	}
+	// Reuse resources and tags already fetched by GetProductSpu → ListProductSpu
+	resources := spu.Resources
+	tags := spu.Tags
 
-	// get rating
+	// Detail rating (with per-score breakdown — not available from ListProductSpu)
 	rating, err := b.storage.Querier().DetailRating(ctx, catalogdb.DetailRatingParams{
 		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
 		RefID:   spu.ID,
@@ -156,9 +149,6 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		isFavorite = favoriteSet[spu.ID]
 	}
 
-	// Get tags
-	tagsMap := b.getTagsMap(ctx, []uuid.UUID{spu.ID})
-
 	// Track view interaction for authenticated users
 	if params.Account != nil {
 		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
@@ -185,10 +175,10 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 			Breakdown: ratingBreakdown,
 		},
 		IsFavorite:     isFavorite,
-		Resources:      resourcesMap[spu.ID],
+		Resources:      resources,
 		Promotions:     promotions,
 		Skus:           skusDetail,
 		Specifications: spu.Specifications,
-		Tags:           tagsMap[spu.ID],
+		Tags:           tags,
 	}, nil
 }

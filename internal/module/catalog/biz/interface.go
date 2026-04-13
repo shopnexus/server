@@ -135,7 +135,9 @@ func NewCatalogHandler(
 		slog.Error("Failed to setup Milvus collections", "error", err)
 	}
 
-	b.SetupCron()
+	if err := b.SetupCron(); err != nil {
+		slog.Error("Failed to setup cron", "error", err)
+	}
 
 	return b
 }

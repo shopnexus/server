@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 
@@ -51,8 +50,20 @@ func main() {
 
 	log.Printf("Loaded %d products from data.json", len(products))
 
+	// Single transaction for the entire seed
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		log.Fatalf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	accountStore := accountdb.New(tx)
+	catalogStore := catalogdb.New(tx)
+	commonStore := commondb.New(tx)
+	inventoryStore := inventorydb.New(tx)
+	promotionStore := promotiondb.New(tx)
+
 	// Step 1: Create vendor accounts
-	accountStore := accountdb.New(pool)
 	accounts, err := createAccounts(ctx, accountStore, fake)
 	if err != nil {
 		log.Fatalf("failed to create accounts: %v", err)
@@ -63,45 +74,31 @@ func main() {
 		log.Printf("  %s | %s | password: %s", a.Username, a.Email, a.Password)
 	}
 
-	// Step 2: Seed base categories from categories.json
-	catalogStore := catalogdb.New(pool)
+	// Step 2: Seed base categories
 	catIdx, err := seedCategories(ctx, catalogStore)
 	if err != nil {
 		log.Fatalf("failed to seed categories: %v", err)
 	}
 
-	// Step 3: Process products — distribute across accounts
-	processedCount := 0
-	totalProducts := len(products)
-
+	// Step 3: Process products
 	for i, product := range products {
-		// Round-robin assign products to accounts
 		owner := accounts[i%len(accounts)]
 
-		err := func() error {
-			tx, err := pool.Begin(ctx)
-			if err != nil {
-				return fmt.Errorf("begin tx: %w", err)
-			}
-			defer tx.Rollback(ctx)
-
-			if err := processProduct(ctx, fake, product, owner.ID, catIdx, accounts,
-				accountdb.New(tx), catalogdb.New(tx), commondb.New(tx), inventorydb.New(tx), promotiondb.New(tx),
-			); err != nil {
-				return err
-			}
-			return tx.Commit(ctx)
-		}()
-		if err != nil {
-			log.Printf("Error processing product %d (%s): %v", i+1, product.Title, err)
-		} else {
-			processedCount++
+		if err := processProduct(ctx, fake, product, owner.ID, catIdx, accounts,
+			accountStore, catalogStore, commonStore, inventoryStore, promotionStore,
+		); err != nil {
+			log.Fatalf("failed to process product %d (%s): %v", i+1, product.Title, err)
 		}
 
 		if (i+1)%100 == 0 {
-			log.Printf("Progress: %d/%d products processed", i+1, totalProducts)
+			log.Printf("Progress: %d/%d products processed", i+1, len(products))
 		}
 	}
 
-	log.Printf("Successfully processed %d/%d products", processedCount, totalProducts)
+	// Commit everything
+	if err := tx.Commit(ctx); err != nil {
+		log.Fatalf("failed to commit transaction: %v", err)
+	}
+
+	log.Printf("Successfully seeded %d products", len(products))
 }

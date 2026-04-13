@@ -50,7 +50,7 @@ services:
     container_name: shopnexus-postgres-dev
     image: postgres:18
     ports:
-      - "127.0.0.1:5433:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: shopnexus
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-peakshopnexuspassword}
@@ -69,7 +69,7 @@ services:
     container_name: shopnexus-redis-dev
     image: redis:8
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -85,8 +85,8 @@ services:
   #   container_name: shopnexus-nats-dev
   #   image: nats:latest
   #   ports:
-  #     - "127.0.0.1:4222:4222"
-  #     - "127.0.0.1:8222:8222"
+  #     - "4222:4222"
+  #     - "8222:8222"
   #   command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
   #   volumes:
   #     - nats-data:/data
@@ -103,9 +103,9 @@ services:
     <<: *restate-defaults
     container_name: shopnexus-restate-1-dev
     ports:
-      - "127.0.0.1:8080:8080" # Ingress
-      - "127.0.0.1:9470:9070" # Admin
-      - "127.0.0.1:5122:5122" # Node-to-node communication
+      - "8080:8080" # Ingress
+      - "9470:9070" # Admin
+      - "5122:5122" # Node-to-node communication
     environment:
       <<: *restate-common-env
       RESTATE_NODE_NAME: restate-1
@@ -117,9 +117,9 @@ services:
     <<: *restate-defaults
     container_name: shopnexus-restate-2-dev
     ports:
-      - "127.0.0.1:28080:8080"
-      - "127.0.0.1:29070:9070"
-      - "127.0.0.1:25122:5122"
+      - "28080:8080"
+      - "29070:9070"
+      - "25122:5122"
     environment:
       <<: *restate-common-env
       RESTATE_NODE_NAME: restate-2
@@ -131,9 +131,9 @@ services:
     <<: *restate-defaults
     container_name: shopnexus-restate-3-dev
     ports:
-      - "127.0.0.1:38080:8080"
-      - "127.0.0.1:39070:9070"
-      - "127.0.0.1:35122:5122"
+      - "38080:8080"
+      - "39070:9070"
+      - "35122:5122"
     environment:
       <<: *restate-common-env
       RESTATE_NODE_NAME: restate-3
@@ -147,7 +147,7 @@ services:
     entrypoint: "/bin/sh"
     command: "-c 'mkdir -p /data/restate && /usr/bin/minio server --quiet /data'"
     ports:
-      - "127.0.0.1:9400:9000"
+      - "9400:9000"
     restart: unless-stopped
 
   etcd:
@@ -160,7 +160,7 @@ services:
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
       - etcd-data:/etcd
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    command: etcd -advertise-client-urls=http://0.0.0.0:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 30s
@@ -202,8 +202,8 @@ services:
       timeout: 20s
       retries: 3
     ports:
-      - "127.0.0.1:19530:19530"
-      - "127.0.0.1:9491:9091"
+      - "19530:19530"
+      - "9491:9091"
     depends_on:
       etcd:
         condition: service_healthy
@@ -214,7 +214,7 @@ services:
     container_name: shopnexus-milvus-attu
     image: zilliz/attu:latest
     ports:
-      - "127.0.0.1:5004:3000"
+      - "5004:3000"
     environment:
       - MILVUS_URL=http://milvus:19530
     depends_on:

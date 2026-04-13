@@ -13,7 +13,7 @@ CREATE SCHEMA IF NOT EXISTS "catalog";
 -- Entities a comment can be attached to (product or another comment for threading)
 CREATE TYPE "catalog"."comment_ref_type" AS ENUM ('ProductSpu', 'Comment');
 -- Entities tracked in the search sync queue
-CREATE TYPE "catalog"."search_sync_ref_type" AS ENUM ('ProductSpu');
+CREATE TYPE "catalog"."search_sync_ref_type" AS ENUM ('ProductSpu', 'Category', 'Tag');
 
 -- Tables
 

@@ -1,0 +1,98 @@
+% ============================================================
+% 3.1 Hiện trạng -- 3.2 Đề xuất giải pháp
+% ============================================================
+
+\section{Hiện trạng phát sinh nhu cầu dùng phần mềm}
+\label{sec:current-state}
+
+Thương mại điện tử (TMĐT) tại Việt Nam tăng trưởng trung bình 25\%/năm, vượt mốc 20 tỷ USD vào năm 2023. Sự tăng trưởng này đặt ra nhiều thách thức cho doanh nghiệp vừa và nhỏ trong quản lý đơn hàng. Qua khảo sát, nhóm nhận diện các vấn đề chính:
+
+\begin{itemize}
+    \item \textbf{Xử lý thủ công, dễ sai sót}: Kiểm tra tồn kho, tính chi phí và xác nhận đơn hàng bằng tay dẫn đến overselling, tính sai giá, chậm trễ xác nhận. Thông tin sản phẩm không được snapshot tại thời điểm mua.
+    \item \textbf{Thiếu theo dõi trạng thái}: Không có hệ thống trạng thái rõ ràng cho đơn hàng, khách hàng không biết đơn đang ở bước nào, thiếu thông báo tự động khi trạng thái thay đổi.
+    \item \textbf{Hoàn trả rời rạc}: Không có form hoàn trả thống nhất, không phân biệt phương thức trả hàng (PickUp/DropOff), thiếu cơ chế giải quyết tranh chấp có hệ thống, hoàn tiền thủ công.
+    \item \textbf{Thiếu phân tích kinh doanh}: Không có dashboard thống kê doanh thu, xu hướng bán hàng, sản phẩm bán chạy hay tổng quan hành động chờ xử lý.
+    \item \textbf{Giỏ hàng/thanh toán hạn chế}: Không hỗ trợ ``Mua ngay'', chỉ một cổng thanh toán, phiên thanh toán không có thời hạn hết hạn.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  node distance=0.9cm and 2cm,
+  act/.style={rectangle, rounded corners=4pt, draw=headerblue, fill=rowgray, text width=3.2cm, minimum height=0.8cm, align=center, font=\footnotesize},
+  start/.style={circle, fill=black, minimum size=6pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=6pt, inner sep=0pt, double, double distance=1.5pt},
+  arr/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black},
+  warn/.style={font=\scriptsize\itshape, text=red!70!black, align=center},
+]
+% Swimlane divider
+\draw[dashed, gray] (3.5,1) -- (3.5,-9.5);
+\node[font=\small\bfseries, headerblue] at (1.5,0.6) {Khách hàng};
+\node[font=\small\bfseries, headerblue] at (5.5,0.6) {Người bán};
+
+% Flow
+\node[start] (s) at (1.5,0) {};
+\node[act, below=of s] (order) {Gọi điện / đến cửa hàng đặt mua};
+\node[act, below=of order, xshift=4cm] (confirm) {Xác nhận thủ công (giấy/sổ)};
+\node[act, below=of confirm] (pack) {Đóng gói hàng};
+\node[act, below=of pack, xshift=-4cm] (deliver) {Nhận hàng};
+\node[act, below=of deliver] (refund) {Liên hệ hoàn trả (gọi/đến)};
+\node[act, below=of refund, xshift=4cm] (process) {Xử lý hoàn trả thủ công};
+\node[finish] (e) at (5.5,-9) {};
+
+\draw[arr] (s) -- (order);
+\draw[arr] (order) -- (confirm);
+\draw[arr] (confirm) -- (pack);
+\draw[arr] (pack) -- (deliver);
+\draw[arr] (deliver) -- (refund);
+\draw[arr] (refund) -- (process);
+\draw[arr] (process) -- (e);
+
+% Pain point annotations
+\node[warn, right=0.3cm of confirm] {dễ sai sót\\không truy vết};
+\node[warn, left=0.3cm of refund] {thủ công\\chậm trễ};
+\node[warn, right=0.3cm of pack] {không snapshot\\giá sản phẩm};
+\end{tikzpicture}
+\caption{Lược đồ hoạt động --- Quy trình xử lý đơn hàng truyền thống}
+\label{fig:workflow-truyen-thong}
+\end{figure}
+
+% ============================================================
+\section{Đề xuất giải pháp của đề tài}
+\label{sec:proposed-solution}
+
+Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với module quản lý đơn hàng tự động hóa toàn bộ quy trình từ đặt hàng đến hoàn trả. Các giải pháp tương ứng với từng vấn đề:
+
+\begin{itemize}
+    \item \textbf{Tự động hóa hai giai đoạn}: Giai đoạn Checkout tự động đặt chỗ tồn kho (atomic reservation), snapshot giá/tên sản phẩm, tạo mục chờ. Giai đoạn Confirm để người bán xem xét, tự động tính chi phí (\texttt{total = productCost - productDiscount + transportCost}) và tạo vận đơn.
+    \item \textbf{Hệ thống trạng thái và thông báo}: Trạng thái chi tiết cho item (Pending/Confirmed/Cancelled), order/payment (Pending $\rightarrow$ Processing $\rightarrow$ Success/Failed), transport (Pending $\rightarrow$ InTransit $\rightarrow$ Delivered). Thông báo tự động qua fire-and-forget tại mỗi bước chuyển.
+    \item \textbf{Hoàn trả có cấu trúc}: Form hoàn trả chuẩn hóa, hỗ trợ PickUp/DropOff, tự động hoàn tiền qua cổng thanh toán ban đầu. Cơ chế tranh chấp (Dispute) cho phép quản trị viên can thiệp.
+    \item \textbf{Dashboard phân tích}: Thống kê doanh thu, biểu đồ xu hướng (day/week/month), sản phẩm bán chạy, hành động chờ xử lý.
+    \item \textbf{Giỏ hàng và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD), phiên thanh toán có thời hạn.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  actor/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=rowgray, minimum width=2.8cm, minimum height=1cm, align=center, font=\small\bfseries},
+  system/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=headerblue!15, minimum width=3.2cm, minimum height=1.2cm, align=center, font=\small\bfseries, line width=1.5pt},
+  msg/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black},
+  lbl/.style={font=\scriptsize, fill=white, inner sep=2pt, align=center},
+]
+\node[system] (shop) at (0,0) {ShopNexus};
+\node[actor]  (buyer)    at (-5, 1.5) {Khách hàng};
+\node[actor]  (seller)   at ( 5, 1.5) {Người bán};
+\node[actor]  (payment)  at (-4,-2.5) {Cổng thanh toán};
+\node[actor]  (shipping) at ( 4,-2.5) {Đơn vị vận chuyển};
+
+\draw[msg] (buyer)   -- node[lbl, above, sloped] {1. Đặt hàng} (shop);
+\draw[msg] (shop)    -- node[lbl, above, sloped] {2. Xác nhận đơn} (seller);
+\draw[msg] (buyer)   -- node[lbl, below, sloped] {3. Thanh toán} (payment);
+\draw[msg] (payment) -- node[lbl, below] {4. Callback xác nhận} (shop);
+\draw[msg] (shop)    -- node[lbl, below, sloped] {5. Tạo vận đơn} (shipping);
+\draw[msg] (shipping) -- node[lbl, above, sloped, near end] {6. Giao hàng} (buyer);
+\draw[msg, dashed] (buyer) to[bend right=20] node[lbl, below, sloped] {7. Hoàn trả} (shop);
+\end{tikzpicture}
+\caption{Lược đồ cộng tác --- Mô hình vận hành mới với ShopNexus}
+\label{fig:workflow-shopnexus}
+\end{figure}

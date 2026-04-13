@@ -1,0 +1,129 @@
+% ============================================================
+% Phân tích use cases: Mua hàng
+% ============================================================
+
+\subsection{Đặc tả use case đặt hàng (UC04)}
+\label{uc:checkout}
+
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả UC04 --- Đặt hàng từ giỏ hàng}
+\label{tab:uc-checkout}
+\small
+\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\toprule
+Mục đích & Tạo mục chờ xử lý, đặt chỗ tồn kho, snapshot giá sản phẩm \\
+Actor & Buyer; liên quan: Catalog, Inventory, Account \\
+Tiền ĐK & Đã đăng nhập; giỏ hàng không rỗng; sản phẩm còn tồn kho \\
+Hậu ĐK & Item status=Pending (order\_id=NULL); tồn kho đặt chỗ; xóa khỏi giỏ; thông báo seller \\
+Luồng chính & Truy vấn SKU $\rightarrow$ ReserveInventory $\rightarrow$ tạo item $\rightarrow$ xóa giỏ $\rightarrow$ thông báo \\
+Ngoại lệ & Hết tồn kho hoặc SKU không tồn tại $\rightarrow$ trả lỗi, không tạo item \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Đặc tả use case xác nhận đơn (UC09)}
+\label{uc:confirm-order}
+
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả UC09 --- Xác nhận đơn hàng}
+\label{tab:uc-confirm}
+\small
+\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\toprule
+Mục đích & Seller xem xét mục chờ, tạo đơn hàng chính thức kèm vận đơn \\
+Actor & Seller; liên quan: Transport Provider, Account \\
+Tiền ĐK & Tồn tại item Pending thuộc seller; đã chọn transport provider \\
+Hậu ĐK & Item=Confirmed, gắn order\_id; tạo order+transport; total = cost - discount + transport; thông báo buyer \\
+Luồng chính & Chọn items $\rightarrow$ tạo vận đơn $\rightarrow$ gom thành order $\rightarrow$ tạo payment record $\rightarrow$ thông báo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Đặc tả use case thanh toán (UC12)}
+\label{uc:payment}
+
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả UC12 --- Thanh toán đơn hàng}
+\label{tab:uc-payment}
+\small
+\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\toprule
+Mục đích & Buyer thanh toán đơn hàng đã xác nhận qua cổng thanh toán \\
+Actor & Buyer; liên quan: Payment Gateway (VNPay, SePay, COD) \\
+Tiền ĐK & Order tồn tại, payment status=Pending, chưa hết hạn \\
+Hậu ĐK & Payment status=Success + provider\_charge\_id; hoặc Failed \\
+Luồng chính & Chọn phương thức $\rightarrow$ redirect/COD $\rightarrow$ webhook callback (UC13) $\rightarrow$ cập nhật status \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Trạng thái đơn hàng}
+\label{subsec:order-state}
+
+\begin{table}[htbp]
+\centering
+\caption{Chuyển trạng thái --- Vòng đời đơn hàng}
+\label{tab:order-states}
+\small
+\begin{tabular}{@{} l l l l @{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Thực thể} & \thead{Từ} & \thead{Đến} & \thead{Sự kiện} \\
+\midrule
+Item & --- & Pending & BuyerCheckout \\
+Item & Pending & Confirmed / Cancelled & Confirm / Cancel / Reject \\
+Payment & --- & Pending & Tạo order \\
+Payment & Pending & Processing & PayBuyerOrders \\
+Payment & Processing & Success / Failed & ConfirmPayment \\
+Transport & --- & Pending $\rightarrow$ InTransit $\rightarrow$ Delivered & Cập nhật từ carrier \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{sequencediagram}
+\newinst{buyer}{Khách hàng}
+\newinst[2.5]{shop}{ShopNexus}
+\newinst[2]{catalog}{Catalog}
+\newinst[1.5]{inv}{Inventory}
+\newinst[2]{seller}{Người bán}
+\newinst[2]{pgw}{Cổng TT}
+
+\begin{call}{buyer}{checkout(items, buyNow)}{shop}{pendingItems}
+  \begin{call}{shop}{getSKU(skuID)}{catalog}{sku}
+  \end{call}
+  \begin{call}{shop}{reserve(skuID, qty)}{inv}{ok}
+  \end{call}
+\end{call}
+
+\begin{messcall}{shop}{notify(pendingItems)}{seller}
+\end{messcall}
+
+\begin{call}{seller}{confirm(itemIDs, transportOpt)}{shop}{order}
+\end{call}
+
+\begin{call}{buyer}{pay(orderIDs, paymentOpt)}{shop}{redirectUrl}
+  \begin{call}{shop}{createPayment(amount, opt)}{pgw}{paymentIntent}
+  \end{call}
+\end{call}
+
+\begin{call}{pgw}{confirmPayment(refID, status)}{shop}{ok}
+\end{call}
+
+\begin{messcall}{shop}{notify(orderPaid)}{seller}
+\end{messcall}
+
+\end{sequencediagram}
+}%
+\caption{Lược đồ tuần tự --- Luồng xử lý đơn hàng}
+\label{fig:order-sequence}
+\end{figure}
+
+\subsection{Thành phần nghiệp vụ}
+
+Module phân rã thành: \textbf{Cart} (GetCart, UpdateCart, ClearCart), \textbf{Checkout} (BuyerCheckout, ListBuyerPending, CancelBuyerPending), \textbf{Incoming} (ListSellerPending, QuoteTransport, ConfirmSellerPending, RejectSellerPending), \textbf{Order} (GetBuyerOrder, GetSellerOrder, ListConfirmed, ConfirmPayment), \textbf{Payment} (PayBuyerOrders), \textbf{Dashboard} (Stats, TimeSeries, PendingActions, TopProducts).

@@ -18,6 +18,9 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
+// emptySparseEmbedding is a reusable zero-value sparse embedding for Milvus upserts.
+var emptySparseEmbedding, _ = entity.NewSliceSparseEmbedding(nil, nil)
+
 // getProductVectors fetches content_vector for the given product IDs from Milvus.
 func (b *CatalogHandler) getProductVectors(ctx restate.Context, ids []string) (map[string][]float32, error) {
 	if len(ids) == 0 {
@@ -238,8 +241,7 @@ func (b *CatalogHandler) upsertProducts(ctx context.Context, products []catalogm
 				sparseVecs = append(sparseVecs, ev.sparse)
 			} else {
 				denseVecs = append(denseVecs, make([]float32, ContentVectorDim))
-				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-				sparseVecs = append(sparseVecs, emptyEmb)
+				sparseVecs = append(sparseVecs, emptySparseEmbedding)
 			}
 		} else {
 			emb := embeddings[pid]
@@ -247,8 +249,7 @@ func (b *CatalogHandler) upsertProducts(ctx context.Context, products []catalogm
 			if emb.sparse != nil {
 				sparseVecs = append(sparseVecs, mapToSparseEmbedding(emb.sparse))
 			} else {
-				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-				sparseVecs = append(sparseVecs, emptyEmb)
+				sparseVecs = append(sparseVecs, emptySparseEmbedding)
 			}
 		}
 	}
@@ -293,13 +294,11 @@ func (b *CatalogHandler) upsertCategories(ctx context.Context, categories []cata
 			if emb.sparse != nil {
 				sparseVecs[i] = mapToSparseEmbedding(emb.sparse)
 			} else {
-				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-				sparseVecs[i] = emptyEmb
+				sparseVecs[i] = emptySparseEmbedding
 			}
 		} else {
 			denseVecs[i] = make([]float32, ContentVectorDim)
-			emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-			sparseVecs[i] = emptyEmb
+			sparseVecs[i] = emptySparseEmbedding
 		}
 	}
 
@@ -336,13 +335,11 @@ func (b *CatalogHandler) upsertTags(ctx context.Context, tags []catalogdb.Catalo
 			if emb.sparse != nil {
 				sparseVecs[i] = mapToSparseEmbedding(emb.sparse)
 			} else {
-				emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-				sparseVecs[i] = emptyEmb
+				sparseVecs[i] = emptySparseEmbedding
 			}
 		} else {
 			denseVecs[i] = make([]float32, ContentVectorDim)
-			emptyEmb, _ := entity.NewSliceSparseEmbedding(nil, nil)
-			sparseVecs[i] = emptyEmb
+			sparseVecs[i] = emptySparseEmbedding
 		}
 	}
 

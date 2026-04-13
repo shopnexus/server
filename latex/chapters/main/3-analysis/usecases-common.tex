@@ -1,0 +1,185 @@
+% ============================================================
+% 3.3 Định nghĩa các tình huống sử dụng (tổng quan)
+% ============================================================
+
+\section{Định nghĩa các tình huống sử dụng}
+\label{sec:usecases-overview}
+
+\subsection{Tác nhân hệ thống}
+
+\begin{table}[htbp]
+\centering
+\caption{Các tác nhân trong module quản lý đơn hàng}
+\label{tab:actors}
+\small
+\begin{tabular}{@{} c l p{8.5cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Tác nhân} & \thead{Vai trò} \\
+\midrule
+1 & Khách hàng (Buyer) & Mua sắm, giỏ hàng, đặt hàng, thanh toán, hoàn trả, tranh chấp \\
+2 & Người bán (Seller) & Xác nhận/từ chối đơn, duyệt hoàn trả, dashboard phân tích \\
+3 & Quản trị viên (Admin) & Giải quyết tranh chấp hoàn trả \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Lược đồ use case tổng quan}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse, draw=headerblue, fill=rowgray, text width=2.6cm, align=center, font=\footnotesize, minimum height=0.9cm, inner sep=3pt},
+  actor/.style={font=\footnotesize\bfseries},
+  arr/.style={-, headerblue!60},
+  inc/.style={-{Stealth[length=4pt]}, dashed, headerblue!60},
+  ext/.style={-{Stealth[length=4pt]}, dotted, headerblue!60},
+  lbl/.style={font=\scriptsize\itshape, headerblue!70!black},
+  cnt/.style={font=\tiny, gray, anchor=south},
+]
+
+% System boundary
+\draw[headerblue, thick, rounded corners=8pt] (-0.5,0.8) rectangle (10.5,-11.5);
+\node[font=\small\bfseries, headerblue, anchor=north west] at (-0.2,0.6) {Module Quản lý Đơn hàng};
+
+% Actors — Buyer (left)
+\node[actor] at (-2.5,-3) {Khách hàng};
+\draw (-2.5,-3.5) circle(0.25);
+\draw (-2.5,-3.75) -- (-2.5,-4.4);
+\draw (-2.9,-4) -- (-2.1,-4);
+\draw (-2.5,-4.4) -- (-2.9,-4.9);
+\draw (-2.5,-4.4) -- (-2.1,-4.9);
+
+% Actors — Seller (right)
+\node[actor] at (13,-3) {Người bán};
+\draw (13,-3.5) circle(0.25);
+\draw (13,-3.75) -- (13,-4.4);
+\draw (12.6,-4) -- (13.4,-4);
+\draw (13,-4.4) -- (12.6,-4.9);
+\draw (13,-4.4) -- (13.4,-4.9);
+
+% Actors — Admin (bottom right)
+\node[actor] at (13,-9.5) {Quản trị viên};
+\draw (13,-10) circle(0.25);
+\draw (13,-10.25) -- (13,-10.9);
+\draw (12.6,-10.5) -- (13.4,-10.5);
+\draw (13,-10.9) -- (12.6,-11.4);
+\draw (13,-10.9) -- (13.4,-11.4);
+
+% Use case groups — 9 ellipses with UC count
+\node[uc] (g1) at (2,0) {Giỏ hàng};
+\node[cnt] at (g1.south) {UC01--03};
+
+\node[uc] (g2) at (5.5,0) {Đặt hàng};
+\node[cnt] at (g2.south) {UC04--06};
+
+\node[uc] (g3) at (9,0) {Xử lý đơn};
+\node[cnt] at (g3.south) {UC07--11};
+
+\node[uc] (g4) at (2,-2.5) {Thanh toán};
+\node[cnt] at (g4.south) {UC12--13};
+
+\node[uc] (g5) at (6,-2.5) {Theo dõi};
+\node[cnt] at (g5.south) {UC14--16};
+
+\node[uc] (g6) at (2,-5.5) {Hoàn trả};
+\node[cnt] at (g6.south) {UC17--21};
+
+\node[uc] (g7) at (6,-5.5) {Tranh chấp};
+\node[cnt] at (g7.south) {UC22--23};
+
+\node[uc] (g8) at (5,-8.5) {Dashboard};
+\node[cnt] at (g8.south) {UC24--27};
+
+\node[uc] (g9) at (2,-8.5) {Đánh giá};
+\node[cnt] at (g9.south) {UC28--30};
+
+% Buyer connections
+\foreach \n in {g1,g2,g4,g5,g6,g9}
+  \draw[arr] (-2.5,-4.2) -- (\n);
+\draw[arr] (-2.5,-4.2) -- (g7);
+
+% Seller connections
+\foreach \n in {g3,g5,g6,g8}
+  \draw[arr] (13,-4.2) -- (\n);
+\draw[arr] (13,-4.2) -- (g7);
+
+% Admin connections
+\draw[arr] (13,-10.2) -- (g7);
+
+% Relations between groups
+\draw[inc] (g2) -- (g4) node[lbl, midway, right] {$\ll$include$\gg$};
+\draw[ext] (g7) -- (g6) node[lbl, midway, above] {$\ll$extend$\gg$};
+
+\end{tikzpicture}
+\caption{Lược đồ use case tổng quan --- Module quản lý đơn hàng}
+\label{fig:overall-usecase}
+\end{figure}
+
+\subsection{Danh sách tình huống sử dụng}
+
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} c p{7.5cm} p{4cm} @{}}
+\caption{Danh sách tình huống sử dụng}\label{tab:usecase-list} \\
+\toprule
+\rowcolor{headerblue}
+\thead{Mã} & \thead{Tên} & \thead{Actor} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Mã} & \thead{Tên} & \thead{Actor} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Giỏ hàng}}} \\
+UC01 & Xem giỏ hàng & Buyer \\
+UC02 & Cập nhật giỏ hàng & Buyer \\
+UC03 & Xóa toàn bộ giỏ hàng & Buyer \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Đặt hàng}}} \\
+UC04 & Đặt hàng từ giỏ hàng & Buyer \\
+UC05 & Mua ngay (Buy Now) & Buyer \\
+UC06 & Hủy mục chờ xử lý & Buyer \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Xử lý đơn (Seller)}}} \\
+UC07 & Xem danh sách mục chờ & Seller \\
+UC08 & Báo giá vận chuyển & Seller \\
+UC09 & Xác nhận đơn hàng & Seller \\
+UC10 & Từ chối đơn hàng & Seller \\
+UC11 & Xem đơn đã xác nhận & Seller \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Thanh toán}}} \\
+UC12 & Thanh toán đơn hàng & Buyer \\
+UC13 & Xác nhận TT (webhook) & Hệ thống \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Theo dõi}}} \\
+UC14 & Xem đơn hàng (Buyer) & Buyer \\
+UC15 & Xem đơn hàng (Seller) & Seller \\
+UC16 & Xem DS đơn hàng & Buyer, Seller \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Hoàn trả}}} \\
+UC17 & Xem DS hoàn trả & Buyer \\
+UC18 & Tạo yêu cầu hoàn trả & Buyer \\
+UC19 & Cập nhật hoàn trả & Buyer \\
+UC20 & Hủy hoàn trả & Buyer \\
+UC21 & Duyệt hoàn trả & Seller \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Tranh chấp}}} \\
+UC22 & Mở tranh chấp & Buyer, Seller \\
+UC23 & Giải quyết tranh chấp & Admin \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Dashboard}}} \\
+UC24 & Xem thống kê & Seller \\
+UC25 & Xem xu hướng & Seller \\
+UC26 & Xem hành động chờ & Seller \\
+UC27 & Xem SP bán chạy & Seller \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Đánh giá}}} \\
+UC28 & Kiểm tra quyền đánh giá & Buyer \\
+UC29 & Xem đơn có thể đánh giá & Buyer \\
+UC30 & Xác thực đơn cho đánh giá & Buyer \\
+\end{longtable}
+\rowcolors{1}{}{}
+
+\subsection{Quan hệ và tương tác liên module}
+
+\textbf{Generalization}: UC05 đặc biệt hóa UC04; UC14/UC15 tổng quát hóa ``Xem đơn hàng''. \textbf{$\ll$include$\gg$}: UC04 $\rightarrow$ đặt chỗ tồn kho; UC06/UC10 $\rightarrow$ giải phóng tồn kho; UC09 $\rightarrow$ tạo vận đơn; UC21 $\rightarrow$ auto-refund. \textbf{$\ll$extend$\gg$}: UC05 mở rộng UC04; UC22 mở rộng UC21; UC13 mở rộng UC12.
+
+Tương tác liên module qua Restate proxy: Catalog (tra cứu SKU), Inventory (tồn kho), Account (thông báo, địa chỉ), Common (tài nguyên), Analytic (hành vi). Catalog gọi ngược Order để xác thực quyền đánh giá.

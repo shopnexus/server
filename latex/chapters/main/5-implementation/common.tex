@@ -1,0 +1,36 @@
+% ============================================================
+% 5.0 Tổng quan hiện thực
+% ============================================================
+
+\section{Tổng quan hiện thực}
+\label{sec:version-overview}
+
+Phiên bản hiện tại của ShopNexus (\textbf{v1.0 Development}) đã hiện thực toàn bộ luồng nghiệp vụ cốt lõi của nền tảng thương mại điện tử, bao gồm: quản lý tài khoản và xác thực JWT, catalog sản phẩm SPU/SKU với tìm kiếm lai (Milvus + PostgreSQL), giỏ hàng và checkout với reserve inventory, thanh toán qua VNPay và COD, quản lý đơn hàng cho buyer/seller, hoàn trả và tranh chấp, khuyến mãi tự động, chat real-time, phân tích hành vi người dùng, và dashboard thống kê cho seller.
+
+\subsection{Công nghệ sử dụng}
+\label{subsec:tech-stack}
+
+Bảng công nghệ chi tiết đã trình bày tại Chương~2. Tóm tắt các thành phần chính:
+
+\begin{table}[htbp]
+\centering
+\caption{Tóm tắt công nghệ chính}
+\label{tab:tech-summary}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tầng} & \thead{Công nghệ} & \thead{Vai trò} \\
+\midrule
+Backend & Go 1.26, Echo v4, Restate & HTTP server, durable execution \\
+Database & PostgreSQL 18, Redis 8, Milvus & RDBMS, cache, vector search \\
+Storage & MinIO, NATS JetStream & Object storage, message queue \\
+External & VNPay, GHTK, Nominatim & Thanh toán, vận chuyển, geocoding \\
+Frontend & Next.js 16, React 19, shadcn/ui & Giao diện người dùng \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Triển khai}
+\label{subsec:deployment}
+
+Môi trường phát triển sử dụng \textbf{Docker Compose} (\texttt{deployment/docker-compose.yml}) để quản lý hạ tầng gồm: PostgreSQL, Redis, Restate cluster 3 node (replication factor 2, snapshot lưu trên MinIO), Milvus standalone với etcd, và MinIO cho object storage. Tất cả container nằm trong Docker network chung. Go server chạy trên host với hot-reload qua \texttt{air} (\texttt{make dev}), kết nối các service qua port mapping. Quy trình khởi tạo: \texttt{docker compose up} $\rightarrow$ \texttt{make migrate} $\rightarrow$ \texttt{make seed} $\rightarrow$ \texttt{make dev} $\rightarrow$ \texttt{make register}.

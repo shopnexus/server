@@ -8,7 +8,6 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
@@ -186,27 +185,7 @@ func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, 
 		if err != nil || len(dbPay) == 0 {
 			return ordermodel.Payment{}, sharedmodel.WrapErr("db fetch payment", err)
 		}
-		p := dbPay[0]
-		var datePaid *time.Time
-		if p.DatePaid.Valid {
-			datePaid = &p.DatePaid.Time
-		}
-		var pmID *uuid.UUID
-		if p.PaymentMethodID.Valid {
-			pmID = &p.PaymentMethodID.UUID
-		}
-		return ordermodel.Payment{
-			ID:              p.ID,
-			AccountID:       p.AccountID,
-			Option:          p.Option,
-			PaymentMethodID: pmID,
-			Status:          p.Status,
-			Amount:          sharedmodel.Concurrency(p.Amount),
-			Data:            p.Data,
-			DateCreated:     p.DateCreated,
-			DatePaid:        datePaid,
-			DateExpired:     p.DateExpired,
-		}, nil
+		return dbToPayment(dbPay[0]), nil
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("fetch payment", err)

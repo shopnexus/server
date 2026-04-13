@@ -40,13 +40,6 @@ CREATE INDEX IF NOT EXISTS "conversation_seller_id_idx" ON "chat"."conversation"
 -- DESC for inbox sorted by most recent activity
 CREATE INDEX IF NOT EXISTS "conversation_last_message_at_idx" ON "chat"."conversation" ("last_message_at" DESC);
 
-ALTER TABLE "chat"."conversation"
-    ADD CONSTRAINT "conversation_buyer_id_fkey"
-    FOREIGN KEY ("buyer_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "chat"."conversation"
-    ADD CONSTRAINT "conversation_seller_id_fkey"
-    FOREIGN KEY ("seller_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 -- Individual message within a conversation. sender_id is the account that sent it.
 -- metadata stores type-specific data (e.g. image URL and dimensions for Image messages,
 -- action payload for System messages).
@@ -71,6 +64,3 @@ CREATE INDEX IF NOT EXISTS "message_sender_id_idx" ON "chat"."message" ("sender_
 ALTER TABLE "chat"."message"
     ADD CONSTRAINT "message_conversation_id_fkey"
     FOREIGN KEY ("conversation_id") REFERENCES "chat"."conversation" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "chat"."message"
-    ADD CONSTRAINT "message_sender_id_fkey"
-    FOREIGN KEY ("sender_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;

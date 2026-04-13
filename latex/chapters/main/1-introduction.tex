@@ -1,0 +1,35 @@
+\chapter{Giới thiệu đề tài}
+
+\section{Mục đích}
+
+Thương mại điện tử tại Việt Nam đạt hơn 20 tỷ USD doanh thu năm 2023 và tăng trưởng trung bình 25\% mỗi năm, đặt ra thách thức lớn cho việc quản lý đơn hàng -- từ đặt hàng, thanh toán, xác nhận từ người bán, giao vận, đến hoàn trả và giải quyết tranh chấp. Đề tài \textit{ShopNexus} xây dựng nền tảng thương mại điện tử dạng marketplace phục vụ ba nhóm đối tượng: \textbf{người mua} (trải nghiệm mua sắm liền mạch, theo dõi đơn hàng, hoàn trả minh bạch), \textbf{người bán} (quản lý mặt hàng chờ xác nhận, xử lý đơn hàng và hoàn trả), và \textbf{quản trị viên} (giám sát giao dịch, phán quyết tranh chấp). Hệ thống áp dụng kiến trúc \textit{modular monolith} kết hợp \textit{durable execution} qua Restate framework, đảm bảo mọi giao dịch được xử lý chính xác một lần (exactly-once) ngay cả khi xảy ra sự cố.
+
+\section{Mục tiêu}
+
+Mục tiêu chính là xây dựng hệ thống quản lý đơn hàng toàn diện cho nền tảng ShopNexus, giải quyết các vấn đề cốt lõi:
+
+\begin{itemize}
+    \item \textbf{Quy trình đặt hàng đa người bán:} Tách giỏ hàng theo từng người bán, cho phép xác nhận/từ chối từng mục, tính toán chi phí chính xác (giá sản phẩm, khuyến mãi, phí vận chuyển), và đảm bảo tính nhất quán giữa trừ tồn kho, tạo đơn hàng, khởi tạo thanh toán.
+
+    \item \textbf{Thanh toán an toàn:} Tích hợp đa cổng thanh toán (VNPay QR/Bank/ATM, COD), xử lý exactly-once (không trừ tiền hai lần, không mất giao dịch), quản lý phiên thanh toán có thời hạn hết hạn tự động.
+
+    \item \textbf{Hoàn trả và tranh chấp:} Hỗ trợ hai phương thức trả hàng (DropOff, PickUp), xác nhận/từ chối hoàn trả từ người bán, cơ chế tranh chấp (dispute) với phán quyết từ quản trị viên.
+
+    \item \textbf{Giao vận:} Tích hợp đơn vị vận chuyển (GHTK -- ba mức dịch vụ), theo dõi trạng thái giao vận theo chuỗi Pending $\rightarrow$ LabelCreated $\rightarrow$ InTransit $\rightarrow$ OutForDelivery $\rightarrow$ Delivered.
+
+    \item \textbf{Tìm kiếm sản phẩm thông minh:} Tìm kiếm ngữ nghĩa (semantic search) kết hợp dense và sparse vector qua Milvus, giúp tìm sản phẩm phù hợp ngay cả khi từ khóa không chính xác.
+\end{itemize}
+
+\section{Phương pháp tiến hành}
+
+Việc thực hiện đề tài tuân theo quy trình bốn giai đoạn:
+
+\begin{enumerate}
+    \item \textbf{Tìm hiểu hiện trạng:} Khảo sát quy trình đặt hàng, chính sách hoàn trả, và mô hình dữ liệu trên các nền tảng phổ biến (Shopee, Lazada, Amazon). Nhận diện các hạn chế thường gặp: mất đơn do lỗi hệ thống, thanh toán trùng lặp, trạng thái không nhất quán.
+
+    \item \textbf{Tìm hiểu nghiệp vụ và quy định:} Nghiên cứu Nghị định 52/2013/NĐ-CP về thương mại điện tử, Luật Bảo vệ quyền lợi người tiêu dùng 2023, quy định thanh toán trực tuyến, và các quy tắc nghiệp vụ tiêu chuẩn (chính sách hoàn tiền 7--30 ngày, xác nhận đơn hàng hai bước, cơ chế escrow).
+
+    \item \textbf{Tìm hiểu mô hình và công nghệ:} So sánh các kiến trúc (monolith, modular monolith, microservices), mô hình durable execution (Restate, Temporal), tìm kiếm ngữ nghĩa (Milvus, Elasticsearch), và lựa chọn công nghệ phù hợp (Go, PostgreSQL, Redis, NATS, ConnectRPC, Next.js).
+
+    \item \textbf{Phân tích, thiết kế, hiện thực, đánh giá:} Xác định yêu cầu qua use case và activity diagrams; thiết kế kiến trúc modular monolith với schema isolation; lập trình backend bằng Go với Restate, frontend bằng Next.js 16; kiểm thử chức năng và tính bền vững (crash recovery).
+\end{enumerate}

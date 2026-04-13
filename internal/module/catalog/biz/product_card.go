@@ -92,15 +92,10 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		return zero, sharedmodel.WrapErr("calculate promoted prices", err)
 	}
 
-	// Calculate rating score
-	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
-		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
-		RefID:   spuIDs,
-	})
+	ratingMap, err := b.getRatingsMap(ctx, spuIDs)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db list rating", err)
 	}
-	ratingMap := lo.KeyBy(ratings, func(r catalogdb.ListRatingRow) uuid.UUID { return r.RefID })
 
 	// Get first image of the product
 	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{

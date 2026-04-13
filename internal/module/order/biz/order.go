@@ -2,7 +2,6 @@ package orderbiz
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -193,22 +192,18 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		return nil, sharedmodel.WrapErr("db fetch order data", err)
 	}
 
-	// Group items by order_id
-	orderItemsMap := make(map[uuid.UUID][]orderdb.OrderItem)
-	for _, oi := range dbData.OrderItems {
-		if oi.OrderID.Valid {
-			orderItemsMap[oi.OrderID.UUID] = append(orderItemsMap[oi.OrderID.UUID], oi)
-		}
+	// Enrich all items in one batch (single ListProductSku + GetResources call)
+	allEnriched, err := b.enrichItems(ctx, dbData.OrderItems)
+	if err != nil {
+		return nil, sharedmodel.WrapErr("enrich order items", err)
 	}
 
-	// Enrich items with resources
+	// Group enriched items by order_id
 	enrichedItemsMap := make(map[uuid.UUID][]ordermodel.OrderItem)
-	for orderID, items := range orderItemsMap {
-		enriched, err := b.enrichItems(ctx, items)
-		if err != nil {
-			return nil, sharedmodel.WrapErr("enrich order items", err)
+	for _, item := range allEnriched {
+		if item.OrderID != nil {
+			enrichedItemsMap[*item.OrderID] = append(enrichedItemsMap[*item.OrderID], item)
 		}
-		enrichedItemsMap[orderID] = enriched
 	}
 
 	paymentMap := lo.KeyBy(dbData.Payments, func(p orderdb.OrderPayment) int64 { return p.ID })
@@ -219,44 +214,16 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		var paymentPtr *ordermodel.Payment
 		if o.PaymentID.Valid {
 			if p, ok := paymentMap[o.PaymentID.Int64]; ok {
-				var datePaid *time.Time
-				if p.DatePaid.Valid {
-					datePaid = &p.DatePaid.Time
-				}
-				var pmID *uuid.UUID
-				if p.PaymentMethodID.Valid {
-					pmID = &p.PaymentMethodID.UUID
-				}
-				paymentPtr = &ordermodel.Payment{
-					ID:              p.ID,
-					AccountID:       p.AccountID,
-					Option:          p.Option,
-					PaymentMethodID: pmID,
-					Status:          p.Status,
-					Amount:          sharedmodel.Concurrency(p.Amount),
-					Data:            p.Data,
-					DateCreated:     p.DateCreated,
-					DatePaid:        datePaid,
-					DateExpired:     p.DateExpired,
-				}
+				pm := dbToPayment(p)
+				paymentPtr = &pm
 			}
 		}
 
 		var transportPtr *ordermodel.Transport
 		if o.TransportID.Valid {
 			if t, ok := transportMap[o.TransportID.UUID]; ok {
-				var dateCreated time.Time
-				if t.DateCreated.Valid {
-					dateCreated = t.DateCreated.Time
-				}
-				transportPtr = &ordermodel.Transport{
-					ID:          t.ID,
-					Option:      t.Option,
-					Status:      t.Status.OrderTransportStatus,
-					Cost:        sharedmodel.Concurrency(t.Cost),
-					Data:        t.Data,
-					DateCreated: dateCreated,
-				}
+				tr := dbToTransport(t)
+				transportPtr = &tr
 			}
 		}
 
@@ -279,6 +246,46 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	}
 
 	return result, nil
+}
+
+// dbToPayment maps a DB OrderPayment row to the model type.
+func dbToPayment(p orderdb.OrderPayment) ordermodel.Payment {
+	var datePaid *time.Time
+	if p.DatePaid.Valid {
+		datePaid = &p.DatePaid.Time
+	}
+	var pmID *uuid.UUID
+	if p.PaymentMethodID.Valid {
+		pmID = &p.PaymentMethodID.UUID
+	}
+	return ordermodel.Payment{
+		ID:              p.ID,
+		AccountID:       p.AccountID,
+		Option:          p.Option,
+		PaymentMethodID: pmID,
+		Status:          p.Status,
+		Amount:          sharedmodel.Concurrency(p.Amount),
+		Data:            p.Data,
+		DateCreated:     p.DateCreated,
+		DatePaid:        datePaid,
+		DateExpired:     p.DateExpired,
+	}
+}
+
+// dbToTransport maps a DB OrderTransport row to the model type.
+func dbToTransport(t orderdb.OrderTransport) ordermodel.Transport {
+	var dateCreated time.Time
+	if t.DateCreated.Valid {
+		dateCreated = t.DateCreated.Time
+	}
+	return ordermodel.Transport{
+		ID:          t.ID,
+		Option:      t.Option,
+		Status:      t.Status.OrderTransportStatus,
+		Cost:        sharedmodel.Concurrency(t.Cost),
+		Data:        t.Data,
+		DateCreated: dateCreated,
+	}
 }
 
 // ConfirmPayment updates the payment status based on a webhook callback result.
@@ -348,27 +355,28 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	buyerID, _ := uuid.Parse(cr.BuyerID)
 	switch params.Status {
 	case payment.StatusSuccess:
+		meta, _ := json.Marshal(map[string]string{"order_id": refUUID.String()})
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
 			Type:      accountmodel.NotiPaymentSuccess,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Payment successful",
 			Content:   "Your payment has been confirmed successfully.",
-			Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s"}`, refUUID)),
+			Metadata:  meta,
 		})
 	case payment.StatusFailed:
-		meta := fmt.Sprintf(`{"order_id":"%s"`, refUUID)
+		metaMap := map[string]string{"order_id": refUUID.String()}
 		if cr.RedirectURL != "" {
-			meta += fmt.Sprintf(`,"redirect_url":"%s"`, cr.RedirectURL)
+			metaMap["redirect_url"] = cr.RedirectURL
 		}
-		meta += "}"
+		meta, _ := json.Marshal(metaMap)
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
 			Type:      accountmodel.NotiPaymentFailed,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Payment failed",
 			Content:   "Your payment could not be processed. Please try again.",
-			Metadata:  json.RawMessage(meta),
+			Metadata:  meta,
 		})
 	}
 

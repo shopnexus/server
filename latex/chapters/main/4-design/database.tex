@@ -1,0 +1,178 @@
+% ============================================================
+% 4.3 Thiết kế cơ sở dữ liệu
+% Owner: Common (Manager)
+% ============================================================
+
+\section{Thiết kế cơ sở dữ liệu}
+\label{sec:database}
+
+Module Order sử dụng schema \texttt{order.*} trên PostgreSQL~18, gồm 7 bảng và 4 kiểu enum, chuẩn hoá 3NF. Thiết kế tuân theo mô hình checkout hai pha: item bắt đầu ở trạng thái chờ xác nhận (\texttt{order\_id IS NULL}), chỉ được gắn vào đơn hàng sau khi seller xác nhận. Không có foreign key liên schema --- tính toàn vẹn liên module được đảm bảo ở tầng nghiệp vụ.
+
+\begin{figure}[p]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  entity/.style={rectangle, draw=headerblue, inner sep=0pt, fill=none},
+  header/.style={rectangle, fill=headerblue, text=white, font=\scriptsize\bfseries, minimum width=4.2cm, minimum height=0.45cm},
+  attr/.style={rectangle, draw=rowgray, fill=rowgray, text width=4cm, minimum height=0.35cm, font=\scriptsize, anchor=north, inner xsep=3pt},
+  pk/.style={font=\scriptsize\bfseries},
+  fk/.style={font=\scriptsize\itshape},
+  enum/.style={rectangle, rounded corners=3pt, draw=headerblue!60, fill=headerblue!8, minimum width=2.5cm, align=left, font=\scriptsize, inner sep=5pt},
+  rel/.style={-{Stealth[length=4pt]}, thick, headerblue!70},
+]
+
+% === cart_item ===
+\node[header] (cart_h) at (0,0) {cart\_item};
+\node[attr] (cart1) at (cart_h.south) {\textbf{id} BIGSERIAL PK};
+\node[attr] (cart2) at (cart1.south) {account\_id UUID};
+\node[attr] (cart3) at (cart2.south) {sku\_id UUID};
+\node[attr] (cart4) at (cart3.south) {quantity BIGINT};
+\node[entity, fit=(cart_h)(cart4)] {};
+
+% === payment ===
+\node[header] (pay_h) at (6,0) {payment};
+\node[attr] (pay1) at (pay_h.south) {\textbf{id} BIGSERIAL PK};
+\node[attr] (pay2) at (pay1.south) {account\_id UUID};
+\node[attr] (pay3) at (pay2.south) {option TEXT};
+\node[attr] (pay4) at (pay3.south) {status order.status};
+\node[attr] (pay5) at (pay4.south) {amount BIGINT};
+\node[attr] (pay6) at (pay5.south) {data JSONB};
+\node[attr] (pay7) at (pay6.south) {date\_expired TIMESTAMPTZ};
+\node[entity, fit=(pay_h)(pay7)] {};
+
+% === transport ===
+\node[header] (tp_h) at (12,0) {transport};
+\node[attr] (tp1) at (tp_h.south) {\textbf{id} UUID PK};
+\node[attr] (tp2) at (tp1.south) {option TEXT};
+\node[attr] (tp3) at (tp2.south) {status transport\_status};
+\node[attr] (tp4) at (tp3.south) {cost BIGINT};
+\node[attr] (tp5) at (tp4.south) {data JSONB};
+\node[entity, fit=(tp_h)(tp5)] {};
+
+% === order ===
+\node[header] (ord_h) at (6,-6) {order};
+\node[attr] (ord1) at (ord_h.south) {\textbf{id} UUID PK};
+\node[attr] (ord2) at (ord1.south) {buyer\_id UUID};
+\node[attr] (ord3) at (ord2.south) {seller\_id UUID};
+\node[attr] (ord4) at (ord3.south) {payment\_id BIGINT FK};
+\node[attr] (ord5) at (ord4.south) {transport\_id UUID FK};
+\node[attr] (ord6) at (ord5.south) {product\_cost / discount};
+\node[attr] (ord7) at (ord6.south) {transport\_cost, total};
+\node[attr] (ord8) at (ord7.south) {data JSONB};
+\node[entity, fit=(ord_h)(ord8)] {};
+
+% === item ===
+\node[header] (item_h) at (0,-6) {item};
+\node[attr] (item1) at (item_h.south) {\textbf{id} BIGSERIAL PK};
+\node[attr] (item2) at (item1.south) {order\_id UUID FK};
+\node[attr] (item3) at (item2.south) {account\_id UUID};
+\node[attr] (item4) at (item3.south) {seller\_id UUID};
+\node[attr] (item5) at (item4.south) {sku\_id UUID, sku\_name};
+\node[attr] (item6) at (item5.south) {quantity, unit\_price};
+\node[attr] (item7) at (item6.south) {paid\_amount, status};
+\node[attr] (item8) at (item7.south) {serial\_ids JSONB};
+\node[entity, fit=(item_h)(item8)] {};
+
+% === refund ===
+\node[header] (ref_h) at (12,-6) {refund};
+\node[attr] (ref1) at (ref_h.south) {\textbf{id} UUID PK};
+\node[attr] (ref2) at (ref1.south) {account\_id UUID};
+\node[attr] (ref3) at (ref2.south) {order\_id UUID FK};
+\node[attr] (ref4) at (ref3.south) {confirmed\_by\_id UUID};
+\node[attr] (ref5) at (ref4.south) {transport\_id UUID FK};
+\node[attr] (ref6) at (ref5.south) {method refund\_method};
+\node[attr] (ref7) at (ref6.south) {status order.status};
+\node[attr] (ref8) at (ref7.south) {reason TEXT};
+\node[entity, fit=(ref_h)(ref8)] {};
+
+% === refund_dispute ===
+\node[header] (disp_h) at (12,-12.5) {refund\_dispute};
+\node[attr] (disp1) at (disp_h.south) {\textbf{id} UUID PK};
+\node[attr] (disp2) at (disp1.south) {refund\_id UUID FK};
+\node[attr] (disp3) at (disp2.south) {issued\_by\_id UUID};
+\node[attr] (disp4) at (disp3.south) {reason TEXT};
+\node[attr] (disp5) at (disp4.south) {status order.status};
+\node[entity, fit=(disp_h)(disp5)] {};
+
+% === Enums ===
+\node[enum] (e1) at (15.5,0) {\textbf{item\_status}\\Pending\\Confirmed\\Cancelled};
+\node[enum] (e2) at (15.5,-2.8) {\textbf{status}\\Pending\\Processing\\Success\\Cancelled\\Failed};
+\node[enum] (e3) at (15.5,-6) {\textbf{transport\_status}\\Pending, LabelCreated\\InTransit, OutForDelivery\\Delivered, Failed, Cancelled};
+\node[enum] (e4) at (15.5,-9.5) {\textbf{refund\_method}\\PickUp\\DropOff};
+
+% === Relationships ===
+\draw[rel] (ord4.east) -- ++(0.5,0) |- (pay7.east) node[near start, right, font=\tiny] {SET NULL};
+\draw[rel] (ord5.east) -- ++(1.2,0) |- (tp5.east) node[near start, right, font=\tiny] {SET NULL};
+\draw[rel] (item2.east) -- (ord1.west) node[midway, above, font=\tiny] {N:1 CASCADE};
+\draw[rel] (ref3.west) -- (ord1.east) node[midway, above, font=\tiny] {N:1 NO ACTION};
+\draw[rel] (ref5.north) -- ++(0,0.5) -| (tp5.south) node[near end, right, font=\tiny] {0..1};
+\draw[rel] (disp2.north) -- ++(0,0.4) -| (ref8.south) node[near end, right, font=\tiny] {N:1};
+
+% Partial index annotation
+\node[rectangle, draw=red!50, dashed, rounded corners=2pt, fill=red!5, font=\tiny\itshape, text width=3.2cm, align=center] at (0,-11.5) {Partial index:\\WHERE order\_id IS NULL\\(pending item inbox)};
+\draw[-{Stealth[length=3pt]}, dashed, red!50] (0,-11) -- (item8.south);
+
+\end{tikzpicture}
+}%
+\caption{Lược đồ ERD của module Order}
+\label{fig:order-erd}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Danh sách bảng}
+\label{subsec:db-tables}
+
+\begin{table}[htbp]
+\centering
+\caption{Các bảng trong schema \texttt{order}}
+\label{tab:order-tables}
+\small
+\begin{tabular}{@{}p{2.5cm}p{5.5cm}p{5.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Bảng} & \thead{Cột chính} & \thead{Mục đích} \\
+\midrule
+cart\_item & id, account\_id, sku\_id, quantity & Giỏ hàng tạm thời; unique (account\_id, sku\_id) \\
+payment & id, account\_id, option, status, amount, data, date\_expired & Phiên thanh toán; data chứa JSONB provider-specific \\
+transport & id, option, status, cost, data & Vận chuyển; status enum 7 trạng thái lifecycle \\
+order & id, buyer\_id, seller\_id, payment\_id, transport\_id, product\_cost, product\_discount, transport\_cost, total & Đơn hàng; total = cost $-$ discount + transport \\
+item & id, order\_id, account\_id, seller\_id, sku\_id, sku\_name, quantity, unit\_price, paid\_amount, status, serial\_ids & Mục đơn hàng; order\_id NULL khi chờ xác nhận \\
+refund & id, account\_id, order\_id, confirmed\_by\_id, transport\_id, method, status, reason, address & Yêu cầu hoàn trả; method: PickUp/DropOff \\
+refund\_dispute & id, refund\_id, issued\_by\_id, reason, status & Tranh chấp; issued\_by\_id là buyer hoặc seller \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Ràng buộc và chỉ mục}
+\label{subsec:db-constraints}
+
+\begin{itemize}[nosep]
+    \item \textbf{Enum dùng chung:} \texttt{order.status} (Pending, Processing, Success, Cancelled, Failed) được dùng cho payment, order, refund, refund\_dispute.
+    \item \textbf{Partial index:} \texttt{item\_pending\_seller\_idx} và \texttt{item\_pending\_account\_idx} lọc \texttt{WHERE order\_id IS NULL} --- tối ưu truy vấn inbox mục chờ.
+    \item \textbf{FK cascade:} \texttt{item.order\_id} $\to$ \texttt{order.id} (ON DELETE CASCADE); \texttt{refund.order\_id} $\to$ \texttt{order.id} (ON DELETE NO ACTION --- giữ lại refund record).
+    \item \textbf{FK set null:} \texttt{order.payment\_id}, \texttt{order.transport\_id} (ON DELETE SET NULL).
+    \item \textbf{Unique:} \texttt{cart\_item(account\_id, sku\_id)} --- mỗi tài khoản chỉ có 1 dòng/SKU trong giỏ.
+\end{itemize}
+
+% ------------------------------------------------------------------
+\subsection{Tiêu chí kiểm thử thiết kế}
+\label{subsec:design-test}
+
+\begin{table}[htbp]
+\centering
+\caption{Tiêu chí kiểm thử cho phần thiết kế}
+\label{tab:design-test}
+\begin{tabular}{@{}p{2.5cm}p{5.5cm}p{5.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Phép thử} & \thead{Kết quả mong đợi} \\
+\midrule
+Chuẩn hoá (3NF) & Rà soát ERD: không có phụ thuộc bắc cầu & Mỗi cột phụ thuộc trực tiếp vào khoá chính \\
+Tuân thủ SOLID & Review: mỗi module có interface riêng, không phụ thuộc chéo ở tầng DB & Interface segregation, single responsibility \\
+Testability & Walkthrough: mỗi API có input/output rõ ràng, có thể test độc lập & Viết unit test cho từng API không cần mock liên schema \\
+Modularity & Kiểm tra: không có FK liên schema, mỗi module tách biệt hoàn toàn & Có thể triển khai module độc lập \\
+Toàn vẹn dữ liệu & Kịch bản: xoá order $\to$ item cascade, refund giữ lại & Cascade/NO ACTION đúng thiết kế \\
+\bottomrule
+\end{tabular}
+\end{table}

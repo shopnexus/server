@@ -44,33 +44,34 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 		return s.ID, s
 	})
 
-	return restate.Run(ctx, func(ctx restate.RunContext) ([]ordermodel.CartItem, error) {
-		var items []ordermodel.CartItem
-		for _, cartItem := range cartItems {
-			sku := skuMap[cartItem.SkuID]
+	// Batch-fetch all SPU resources in a single call (outside restate.Run)
+	spuIDs := lo.Uniq(lo.Map(skus, func(s catalogmodel.ProductSku, _ int) uuid.UUID { return s.SpuID }))
+	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
+		RefType: commondb.CommonResourceRefTypeProductSpu,
+		RefIDs:  spuIDs,
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("get cart resources", err)
+	}
 
-			var resource *commonmodel.Resource
-			resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
-				RefType: commondb.CommonResourceRefTypeProductSpu,
-				RefIDs:  []uuid.UUID{sku.SpuID},
-			})
-			if err != nil {
-				continue
-			}
-			if res, exists := resourcesMap[sku.SpuID]; exists && len(res) > 0 {
-				resource = &res[0]
-			}
+	items := make([]ordermodel.CartItem, 0, len(cartItems))
+	for _, cartItem := range cartItems {
+		sku := skuMap[cartItem.SkuID]
 
-			items = append(items, ordermodel.CartItem{
-				SpuID:    sku.SpuID,
-				Sku:      sku,
-				Quantity: cartItem.Quantity,
-				Resource: resource,
-			})
+		var resource *commonmodel.Resource
+		if res, exists := resourcesMap[sku.SpuID]; exists && len(res) > 0 {
+			resource = &res[0]
 		}
 
-		return items, nil
-	})
+		items = append(items, ordermodel.CartItem{
+			SpuID:    sku.SpuID,
+			Sku:      sku,
+			Quantity: cartItem.Quantity,
+			Resource: resource,
+		})
+	}
+
+	return items, nil
 }
 
 // UpdateCart adds, updates, or removes a cart item and tracks the interaction.
