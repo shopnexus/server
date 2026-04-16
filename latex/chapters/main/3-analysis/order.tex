@@ -1,5 +1,5 @@
 % ============================================================
-% Phân tích use cases: Mua hàng
+% Phân tích use cases: Mua hàng (Pay-First Checkout)
 % ============================================================
 
 \subsection{Đặc tả use case đặt hàng (UC04)}
@@ -7,17 +7,17 @@
 
 \begin{table}[htbp]
 \centering
-\caption{Đặc tả UC04 --- Đặt hàng từ giỏ hàng}
+\caption{Đặc tả UC04 --- Đặt hàng và thanh toán}
 \label{tab:uc-checkout}
 \small
 \begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
 \toprule
-Mục đích & Tạo mục chờ xử lý, đặt chỗ tồn kho, snapshot giá sản phẩm \\
-Actor & Buyer; liên quan: Catalog, Inventory, Account \\
-Tiền ĐK & Đã đăng nhập; giỏ hàng không rỗng; sản phẩm còn tồn kho \\
-Hậu ĐK & Item status=Pending (order\_id=NULL); tồn kho đặt chỗ; xóa khỏi giỏ; thông báo seller \\
-Luồng chính & Truy vấn SKU $\rightarrow$ ReserveInventory $\rightarrow$ tạo item $\rightarrow$ xóa giỏ $\rightarrow$ thông báo \\
-Ngoại lệ & Hết tồn kho hoặc SKU không tồn tại $\rightarrow$ trả lỗi, không tạo item \\
+Mục đích & Buyer chọn sản phẩm, địa chỉ, đơn vị vận chuyển cho từng item, phương thức thanh toán $\rightarrow$ thanh toán $\rightarrow$ tạo pending items đã thanh toán \\
+Actor & Buyer; liên quan: Catalog, Inventory, Account (Wallet), Transport Provider, Payment Gateway \\
+Tiền ĐK & Đã đăng nhập; giỏ hàng không rỗng hoặc BuyNow; sản phẩm còn tồn kho \\
+Hậu ĐK & Items tạo với \texttt{payment\_id}; tồn kho đặt chỗ; wallet deducted (nếu dùng); payment created; timeout 15 phút (chờ thanh toán) và 48 giờ (chờ seller) đã lên lịch \\
+Luồng chính & Chọn items $\rightarrow$ chọn 1 address + transport option cho từng item $\rightarrow$ báo giá vận chuyển $\rightarrow$ tính tổng $\rightarrow$ trừ ví (nếu dùng) $\rightarrow$ tạo payment $\rightarrow$ tạo items $\rightarrow$ lên lịch timeout $\rightarrow$ thông báo seller \\
+Ngoại lệ & Hết tồn kho $\rightarrow$ trả lỗi; báo giá vận chuyển thất bại $\rightarrow$ trả lỗi; thanh toán thất bại $\rightarrow$ trả lỗi, giải phóng tồn kho \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -32,36 +32,40 @@ Ngoại lệ & Hết tồn kho hoặc SKU không tồn tại $\rightarrow$ trả
 \small
 \begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
 \toprule
-Mục đích & Seller xem xét mục chờ, tạo đơn hàng chính thức kèm vận đơn \\
+Mục đích & Seller xem các mục chờ đã thanh toán, gộp thành đơn hàng chính thức kèm vận đơn \\
 Actor & Seller; liên quan: Transport Provider, Account \\
-Tiền ĐK & Tồn tại item Pending thuộc seller; đã chọn transport provider \\
-Hậu ĐK & Item=Confirmed, gắn order\_id; tạo order+transport; total = cost - discount + transport; thông báo buyer \\
-Luồng chính & Chọn items $\rightarrow$ tạo vận đơn $\rightarrow$ gom thành order $\rightarrow$ tạo payment record $\rightarrow$ thông báo \\
+Tiền ĐK & Items đã thanh toán (\texttt{payment.status=Success}), chưa có \texttt{order\_id}, chưa bị hủy (\texttt{date\_cancelled IS NULL}), cùng \texttt{transport\_option} \\
+Hậu ĐK & Order tạo; transport tạo bởi platform; items gắn \texttt{order\_id}; thông báo buyer \\
+Luồng chính & Chọn items (cùng \texttt{transport\_option}) $\rightarrow$ xác nhận $\rightarrow$ platform tạo vận đơn $\rightarrow$ tạo order $\rightarrow$ gắn items $\rightarrow$ thông báo buyer \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Đặc tả use case thanh toán (UC12)}
+\subsection{Đặc tả use case quản lý ví (UC12)}
 \label{uc:payment}
 
 \begin{table}[htbp]
 \centering
-\caption{Đặc tả UC12 --- Thanh toán đơn hàng}
+\caption{Đặc tả UC12 --- Quản lý ví}
 \label{tab:uc-payment}
 \small
 \begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
 \toprule
-Mục đích & Buyer thanh toán đơn hàng đã xác nhận qua cổng thanh toán \\
-Actor & Buyer; liên quan: Payment Gateway (VNPay, SePay, COD) \\
-Tiền ĐK & Order tồn tại, payment status=Pending, chưa hết hạn \\
-Hậu ĐK & Payment status=Success + provider\_charge\_id; hoặc Failed \\
-Luồng chính & Chọn phương thức $\rightarrow$ redirect/COD $\rightarrow$ webhook callback (UC13) $\rightarrow$ cập nhật status \\
+Mục đích & Buyer xem số dư ví, lịch sử giao dịch \\
+Actor & Buyer \\
+Tiền ĐK & Đã đăng nhập \\
+Hậu ĐK & Hiển thị balance và transaction history \\
+Luồng chính & Xem số dư $\rightarrow$ xem lịch sử giao dịch \\
+Ghi chú & Ví được tự động nạp khi seller reject hoặc timeout; trừ ví khi checkout (tùy chọn). Wallet thuộc module Account, không phải module Order \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Trạng thái đơn hàng}
 \label{subsec:order-state}
+
+Item \textbf{không có cột \texttt{status}} trong cơ sở dữ liệu. Trạng thái được \textbf{suy ra} (inferred)
+từ quan hệ giữa item, payment, order và cột \texttt{date\_cancelled}:
 
 \begin{table}[htbp]
 \centering
@@ -73,11 +77,17 @@ Luồng chính & Chọn phương thức $\rightarrow$ redirect/COD $\rightarrow$
 \rowcolor{headerblue}
 \thead{Thực thể} & \thead{Từ} & \thead{Đến} & \thead{Sự kiện} \\
 \midrule
-Item & --- & Pending & BuyerCheckout \\
-Item & Pending & Confirmed / Cancelled & Confirm / Cancel / Reject \\
-Payment & --- & Pending & Tạo order \\
-Payment & Pending & Processing & PayBuyerOrders \\
-Payment & Processing & Success / Failed & ConfirmPayment \\
+Item (suy ra) & --- & PendingPayment & BuyerCheckout (payment pending) \\
+Item (suy ra) & PendingPayment & Pending & ConfirmPayment webhook (success) \\
+Item (suy ra) & PendingPayment & Cancelled & Payment timeout 15 phút \\
+Item (suy ra) & Pending & Confirmed & ConfirmSellerPending \\
+Item (suy ra) & Pending & Cancelled & RejectSellerPending / AutoCancel 48h \\
+\midrule
+Payment & --- & Pending & BuyerCheckout \\
+Payment & Pending & Processing & Gateway redirect \\
+Payment & Processing & Success / Failed & ConfirmPayment webhook \\
+Payment & Pending & Cancelled & CancelUnpaidCheckout (15 phút) \\
+\midrule
 Transport & --- & Pending $\rightarrow$ InTransit $\rightarrow$ Delivered & Cập nhật từ carrier \\
 \bottomrule
 \end{tabular}
@@ -87,118 +97,98 @@ Transport & --- & Pending $\rightarrow$ InTransit $\rightarrow$ Delivered & Cậ
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{buyer}{Khách hàng}
-\newinst[2.5]{shop}{ShopNexus}
-\newinst[2]{catalog}{Catalog}
-\newinst[1.5]{inv}{Inventory}
+\newinst[2]{shop}{ShopNexus}
+\newinst[1.5]{catalog}{Catalog}
+\newinst[1.2]{inv}{Inventory}
+\newinst[1.2]{tp}{Vận chuyển}
+\newinst[1.5]{wallet}{Ví}
+\newinst[1.5]{pgw}{Cổng TT}
 \newinst[2]{seller}{Người bán}
-\newinst[2]{pgw}{Cổng TT}
 
-\begin{call}{buyer}{checkout(items, buyNow)}{shop}{pendingItems}
-  \begin{call}{shop}{getSKU(skuID)}{catalog}{sku}
+\begin{call}{buyer}{checkout(items, address, transportOpts, paymentOpt, useWallet)}{shop}{pendingItems}
+  \begin{call}{shop}{getSKU(skuIDs)}{catalog}{skus}
   \end{call}
   \begin{call}{shop}{reserve(skuID, qty)}{inv}{ok}
   \end{call}
-\end{call}
-
-\begin{messcall}{shop}{notify(pendingItems)}{seller}
-\end{messcall}
-
-\begin{call}{seller}{confirm(itemIDs, transportOpt)}{shop}{order}
-\end{call}
-
-\begin{call}{buyer}{pay(orderIDs, paymentOpt)}{shop}{redirectUrl}
-  \begin{call}{shop}{createPayment(amount, opt)}{pgw}{paymentIntent}
+  \begin{call}{shop}{quoteFee(item, fromAddr, toAddr)}{tp}{fee}
+  \end{call}
+  \begin{call}{shop}{walletDebit(amount)}{wallet}{ok}
+  \end{call}
+  \begin{call}{shop}{createPayment(remaining)}{pgw}{paymentIntent}
   \end{call}
 \end{call}
+
+\begin{messcall}{shop}{notify(paidPendingItems)}{seller}
+\end{messcall}
+
+\begin{messcall}{shop}{scheduleTimeout(15min, 48h)}{shop}
+\end{messcall}
+
+\postlevel
 
 \begin{call}{pgw}{confirmPayment(refID, status)}{shop}{ok}
 \end{call}
 
-\begin{messcall}{shop}{notify(orderPaid)}{seller}
+\begin{messcall}{shop}{scheduleTimeout(48h)}{shop}
+\end{messcall}
+
+\postlevel
+
+\begin{call}{seller}{confirm(itemIDs)}{shop}{order}
+  \begin{call}{shop}{createShipment(items, address)}{tp}{shipment}
+  \end{call}
+\end{call}
+
+\begin{messcall}{shop}{notify(orderConfirmed)}{buyer}
 \end{messcall}
 
 \end{sequencediagram}
 }%
-\captionof{figure}{Lược đồ tuần tự --- Luồng xử lý đơn hàng}
+\captionof{figure}{Lược đồ tuần tự --- Luồng xử lý đơn hàng (pay-first)}
 \label{fig:order-sequence}
 \end{center}
 
 \subsection{Thành phần nghiệp vụ}
 
-Module phân rã thành: \textbf{Cart} (GetCart, UpdateCart, ClearCart), \textbf{Checkout} (BuyerCheckout, ListBuyerPending, CancelBuyerPending), \textbf{Incoming} (ListSellerPending, QuoteTransport, ConfirmSellerPending, RejectSellerPending), \textbf{Order} (GetBuyerOrder, GetSellerOrder, ListConfirmed, ConfirmPayment), \textbf{Payment} (PayBuyerOrders), \textbf{Dashboard} (Stats, TimeSeries, PendingActions, TopProducts).
+Module phân rã thành: \textbf{Cart} (GetCart, UpdateCart, ClearCart), \textbf{Checkout} (BuyerCheckout, CancelUnpaidCheckout, AutoCancelPendingItems, ListBuyerPending, CancelBuyerPending), \textbf{Incoming} (ListSellerPending, ConfirmSellerPending, RejectSellerPending), \textbf{Order} (GetBuyerOrder, GetSellerOrder, ListConfirmed, ConfirmPayment), \textbf{Dashboard} (Stats, TimeSeries, PendingActions, TopProducts).
 
 % ============================================================
 \section{Sơ đồ chuyển trạng thái đối tượng}
 % ============================================================
 
-Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượng nghiệp vụ cốt lõi trong module đặt hàng: mục đơn hàng (item), đơn hàng (order), thanh toán (payment) và vận chuyển (transport). Các trạng thái và chuyển tiếp được suy ra trực tiếp từ enum trong cơ sở dữ liệu và interface \texttt{OrderBiz}.
+Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượng nghiệp vụ cốt lõi trong module đặt hàng: mục đơn hàng (item), thanh toán (payment) và vận chuyển (transport). Trạng thái item được \textbf{suy ra} từ dữ liệu liên quan (payment status, \texttt{order\_id}, \texttt{date\_cancelled}) thay vì lưu trực tiếp trong cơ sở dữ liệu.
 
 % ------------------------------------------------------------
-\subsection{Trạng thái mục đơn hàng (Item)}
-% ------------------------------------------------------------
-
-\begin{center}
-\begin{tikzpicture}[
-  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
-  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
-  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
-  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
-  >=Stealth,
-  node distance=2cm and 2.5cm,
-]
-  % Nodes
-  \node[start] (s0) {};
-  \node[state, right=1.2cm of s0] (pending) {Pending};
-  \node[state, right=3cm of pending] (confirmed) {Confirmed};
-  \node[state, below=2cm of pending] (cancelled) {Cancelled};
-  \node[finish, right=1.2cm of confirmed] (sf) {};
-
-  % Transitions
-  \draw[trans] (s0) -- (pending);
-  \draw[trans] (pending) -- node[above, font=\scriptsize] {ConfirmSellerPending} (confirmed);
-  \draw[trans] (confirmed) -- (sf);
-  \draw[trans] (pending) -- node[left, font=\scriptsize] {CancelBuyerPending} (cancelled);
-  \draw[trans] (pending.south east) to[out=-30, in=90]
-    node[right, font=\scriptsize, xshift=2pt] {RejectSellerPending} (cancelled.north east);
-\end{tikzpicture}
-\captionof{figure}{Sơ đồ trạng thái mục đơn hàng (\texttt{item\_status})}
-\label{fig:item-state}
-\end{center}
-
-% ------------------------------------------------------------
-\subsection{Trạng thái đơn hàng (Order)}
+\subsection{Trạng thái mục đơn hàng (Item) --- suy ra}
 % ------------------------------------------------------------
 
 \begin{center}
 \begin{tikzpicture}[
-  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.6cm, align=center, font=\scriptsize},
   start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
   finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
   trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
   >=Stealth,
   node distance=2cm and 2.8cm,
 ]
-  % Nodes — row 1: start, Pending, Processing, Success, finish
+  % Nodes
   \node[start] (s0) {};
-  \node[state, right=1.2cm of s0]  (pending)    {Pending};
-  \node[state, right=3cm of pending]  (processing) {Processing};
-  \node[state, right=3cm of processing] (success) {Success};
-  \node[finish, right=1.2cm of success] (sf) {};
-
-  % Row 2: Failed, Cancelled (below Processing)
-  \node[state, below=2cm of processing] (failed)    {Failed};
-  \node[state, left=2.5cm of failed]    (cancelled) {Cancelled};
+  \node[state, right=1.2cm of s0] (pendpay) {Pending\\Payment};
+  \node[state, right=3cm of pendpay] (pending) {Pending};
+  \node[state, right=3cm of pending] (confirmed) {Confirmed};
+  \node[finish, right=1.2cm of confirmed] (sf) {};
+  \node[state, below=2cm of pending] (cancelled) {Cancelled};
 
   % Transitions
-  \draw[trans] (s0) -- (pending);
-  \draw[trans] (pending) -- node[above, font=\scriptsize] {PayBuyerOrders} (processing);
-  \draw[trans] (processing) -- node[above, font=\scriptsize] {ConfirmPayment (success)} (success);
-  \draw[trans] (success) -- (sf);
-  \draw[trans] (processing) -- node[right, font=\scriptsize] {ConfirmPayment (failure)} (failed);
-  \draw[trans] (pending) -- node[below left, font=\scriptsize] {payment timeout} (cancelled);
+  \draw[trans] (s0) -- (pendpay);
+  \draw[trans] (pendpay) -- node[above, font=\scriptsize] {ConfirmPayment} (pending);
+  \draw[trans] (pending) -- node[above, font=\scriptsize] {ConfirmSellerPending} (confirmed);
+  \draw[trans] (confirmed) -- (sf);
+  \draw[trans] (pendpay) -- node[left, font=\scriptsize, xshift=-2pt] {timeout 15 phút} (cancelled);
+  \draw[trans] (pending) -- node[right, font=\scriptsize] {Reject / AutoCancel 48h} (cancelled);
 \end{tikzpicture}
-\captionof{figure}{Sơ đồ trạng thái đơn hàng (\texttt{status})}
-\label{fig:order-state}
+\captionof{figure}{Sơ đồ trạng thái mục đơn hàng (suy ra từ payment, order\_id, date\_cancelled)}
+\label{fig:item-state}
 \end{center}
 
 % ------------------------------------------------------------
@@ -214,7 +204,7 @@ Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượn
   >=Stealth,
   node distance=2cm and 2.8cm,
 ]
-  % Row 1: start → Pending → Processing → Success → finish
+  % Row 1: start -> Pending -> Processing -> Success -> finish
   \node[start] (s0) {};
   \node[state, right=1.2cm of s0]    (pending)    {Pending};
   \node[state, right=3cm of pending]    (processing) {Processing};
@@ -231,7 +221,7 @@ Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượn
   \draw[trans] (processing) -- node[above, font=\scriptsize] {webhook Success} (success);
   \draw[trans] (success) -- (sf);
   \draw[trans] (processing) -- node[right, font=\scriptsize] {webhook Failed} (failed);
-  \draw[trans] (pending) -- node[left, font=\scriptsize] {date\_expired} (cancelled);
+  \draw[trans] (pending) -- node[left, font=\scriptsize] {CancelUnpaidCheckout} (cancelled);
 \end{tikzpicture}
 \captionof{figure}{Sơ đồ trạng thái thanh toán (\texttt{status})}
 \label{fig:payment-state}
@@ -250,7 +240,7 @@ Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượn
   >=Stealth,
   node distance=1.8cm and 2.5cm,
 ]
-  % Happy path row (top): start → Pending → LabelCreated → InTransit → OutForDelivery → Delivered → finish
+  % Happy path row (top): start -> Pending -> LabelCreated -> InTransit -> OutForDelivery -> Delivered -> finish
   \node[start] (s0) {};
   \node[state, right=1.2cm of s0]          (pending)    {Pending};
   \node[state, right=2.5cm of pending]     (label)      {Label\\Created};

@@ -109,10 +109,10 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \midrule
 \textbf{Phương thức} &
   \textit{Giỏ hàng:} \texttt{GetCart}, \texttt{UpdateCart}, \texttt{ClearCart} \newline
-  \textit{Checkout:} \texttt{BuyerCheckout}, \texttt{CancelBuyerPending} \newline
-  \textit{Xác nhận:} \texttt{ConfirmSellerPending}, \texttt{RejectSellerPending},
-    \texttt{QuoteTransport} \newline
-  \textit{Thanh toán:} \texttt{PayBuyerOrders}, \texttt{ConfirmPayment} \newline
+  \textit{Checkout:} \texttt{BuyerCheckout}, \texttt{CancelBuyerPending},
+    \texttt{CancelUnpaidCheckout}, \texttt{AutoCancelPendingItems} \newline
+  \textit{Xác nhận:} \texttt{ConfirmSellerPending}, \texttt{RejectSellerPending} \newline
+  \textit{Thanh toán:} \texttt{ConfirmPayment} \newline
   \textit{Hoàn trả:} \texttt{CreateBuyerRefund}, \texttt{ConfirmSellerRefund},
     \texttt{UpdateBuyerRefund}, \texttt{CancelBuyerRefund}, \texttt{ListBuyerRefunds} \newline
   \textit{Tra cứu:} \texttt{GetBuyerOrder}, \texttt{GetSellerOrder},
@@ -191,7 +191,7 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
   \texttt{GHTKClient} với ba mức dịch vụ: Standard, Express, Economy \\
 \midrule
 \textbf{Cộng tác} &
-  \texttt{OrderHandler} (gọi khi xác nhận đơn và báo giá vận chuyển), GHTK (ngoài) \\
+  \texttt{OrderHandler} (gọi khi checkout báo giá và xác nhận đơn tạo vận đơn), GHTK (ngoài) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -213,7 +213,7 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \midrule
 \textbf{Phương thức} &
   \textit{Đơn hàng:} \texttt{InsertOrder}, \texttt{GetOrder}, \texttt{UpdateOrderStatus} \newline
-  \textit{Mục đơn:} \texttt{InsertItem}, \texttt{UpdateItemStatus},
+  \textit{Mục đơn:} \texttt{InsertItem}, \texttt{CancelItem},
     \texttt{ListPendingItemsBySeller} \newline
   \textit{Thanh toán:} \texttt{InsertPayment}, \texttt{UpdatePaymentStatus} \newline
   \textit{Vận chuyển:} \texttt{InsertTransport}, \texttt{UpdateTransportStatus} \newline
@@ -241,13 +241,13 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \rowcolor{headerblue}
 \thead{Actor} & \thead{Loại} & \thead{UC hỗ trợ} & \thead{Vai trò} \\
 \midrule
-\texttt{AccountBiz}    & Liên module & UC04, UC09, UC12, UC18, UC21 & Lấy thông tin người dùng; gửi thông báo in-app cho buyer/seller \\
+\texttt{AccountBiz}    & Liên module & UC04, UC09, UC12, UC18, UC21 & Lấy thông tin người dùng; wallet debit/credit; gửi thông báo in-app cho buyer/seller \\
 \texttt{CatalogBiz}    & Liên module & UC04                         & Tra cứu SKU (giá, tên, ảnh) tại thời điểm checkout để snapshot \\
-\texttt{InventoryBiz}  & Liên module & UC04, UC18, UC21             & Đặt chỗ tồn kho (BuyerCheckout); hoàn trả tồn kho (hoàn trả) \\
-\texttt{PromotionBiz}  & Liên module & UC09                         & Tính discount và giảm phí vận chuyển khi xác nhận đơn \\
+\texttt{InventoryBiz}  & Liên module & UC04, UC18, UC21             & Đặt chỗ tồn kho (BuyerCheckout); giải phóng khi cancel/timeout; hoàn trả (hoàn trả) \\
+\texttt{PromotionBiz}  & Liên module & UC04                         & Tính discount tại thời điểm checkout \\
 \texttt{CommonBiz}     & Liên module & UC18, UC21, UC22             & Lưu bằng chứng hoàn trả (file resources); gửi SSE real-time \\
-VNPay / SePay          & Ngoài       & UC12, UC13                   & Nhận yêu cầu tạo payment intent; gửi webhook xác nhận kết quả \\
-GHTK                   & Ngoài       & UC09, UC21                   & Tạo vận đơn; báo giá vận chuyển; theo dõi trạng thái giao hàng \\
+VNPay / SePay          & Ngoài       & UC04, UC13                   & Nhận yêu cầu tạo payment intent tại checkout; gửi webhook xác nhận kết quả \\
+GHTK                   & Ngoài       & UC04, UC09, UC21             & Báo giá vận chuyển (checkout); tạo vận đơn (xác nhận); theo dõi trạng thái giao hàng \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -264,16 +264,26 @@ các thành phần phối hợp với nhau để thực hiện UC04. Khác với
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{buyer}{Buyer}
-\newinst[1.8]{oh}{OrderHandler}
-\newinst[2.0]{cat}{CatalogBiz}
-\newinst[2.0]{inv}{InventoryBiz}
-\newinst[2.0]{repo}{OrderRepository}
-\newinst[2.0]{acct}{AccountBiz}
+\newinst[1.5]{oh}{OrderHandler}
+\newinst[1.5]{cat}{CatalogBiz}
+\newinst[1.5]{inv}{InventoryBiz}
+\newinst[1.5]{tp}{TransportProvider}
+\newinst[1.5]{acct}{AccountBiz}
+\newinst[1.5]{pp}{PaymentProvider}
+\newinst[1.5]{repo}{OrderRepository}
 
-\begin{call}{buyer}{BuyerCheckout(items)}{oh}{}
-  \begin{call}{oh}{GetSKU(skuID)}{cat}{sku, price}
+\begin{call}{buyer}{BuyerCheckout(items, addr, transportOpts, payOpt, useWallet)}{oh}{}
+  \begin{call}{oh}{GetSKU(skuIDs)}{cat}{skus, prices}
   \end{call}
   \begin{call}{oh}{ReserveInventory(skuID, qty)}{inv}{ok}
+  \end{call}
+  \begin{call}{oh}{QuoteFee(item, fromAddr, toAddr)}{tp}{transportFee}
+  \end{call}
+  \begin{call}{oh}{WalletDebit(buyerID, amount)}{acct}{ok}
+  \end{call}
+  \begin{call}{oh}{CreatePayment(remaining, refID)}{pp}{paymentIntent}
+  \end{call}
+  \begin{call}{oh}{InsertPayment(payment)}{repo}{paymentID}
   \end{call}
   \begin{call}{oh}{InsertItem(item)}{repo}{itemID}
   \end{call}
@@ -281,14 +291,14 @@ các thành phần phối hợp với nhau để thực hiện UC04. Khác với
   \end{call}
 \end{call}
 
-\begin{messcall}{oh}{NotifySeller(pendingItems)}{acct}
+\begin{messcall}{oh}{NotifySeller(paidPendingItems)}{acct}
 \end{messcall}
 
 \postlevel
-\mess{oh}{pendingItems}{buyer}
+\mess{oh}{pendingItems + redirectURL}{buyer}
 
 \end{sequencediagram}
 }%
-\captionof{figure}{Sơ đồ tương tác thành phần --- luồng BuyerCheckout (UC04)}
+\captionof{figure}{Sơ đồ tương tác thành phần --- luồng BuyerCheckout (UC04, pay-first)}
 \label{fig:component-checkout-seq}
 \end{center}
