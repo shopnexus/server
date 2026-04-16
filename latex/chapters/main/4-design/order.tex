@@ -20,12 +20,11 @@
 \thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
 \midrule
 CartPage           & Buyer  & Checkbox chọn SP, nút +/-, nút Checkout & GetCart, UpdateCart, ClearCart \\
-CheckoutPage       & Buyer  & Danh sách item, input địa chỉ, nút Đặt hàng & BuyerCheckout \\
-BuyerPendingList   & Buyer  & Danh sách mục chờ, nút Huỷ & ListBuyerPending, CancelBuyerPending \\
-SellerInbox        & Seller & Danh sách mục chờ, chọn vận chuyển, nút Xác nhận/Từ chối & ListSellerPending, QuoteTransport, ConfirmSellerPending, RejectSellerPending \\
+CheckoutPage       & Buyer  & Danh sách item, input địa chỉ, chọn vận chuyển/thanh toán, ví, nút Đặt hàng & BuyerCheckout \\
+BuyerPendingList   & Buyer  & Danh sách mục đã thanh toán chờ seller xác nhận & ListBuyerPending \\
+SellerInbox        & Seller & Danh sách mục đã thanh toán, nút Xác nhận/Từ chối & ListSellerPending, ConfirmSellerPending, RejectSellerPending \\
 OrderListPage      & Buyer/Seller & Bộ lọc trạng thái, phân trang & ListBuyerConfirmed, ListSellerConfirmed \\
-OrderDetailPage    & Buyer/Seller & Thông tin đơn, nút Thanh toán & GetBuyerOrder, GetSellerOrder \\
-PaymentPage        & Buyer  & Chọn phương thức, nút Thanh toán & PayBuyerOrders \\
+OrderDetailPage    & Buyer/Seller & Thông tin đơn, theo dõi vận chuyển & GetBuyerOrder, GetSellerOrder \\
 SellerDashboard    & Seller & Thống kê, biểu đồ, top SP & GetSellerOrderStats, GetSellerOrderTimeSeries, GetSellerTopProducts \\
 \bottomrule
 \end{tabular}
@@ -48,20 +47,19 @@ SellerDashboard    & Seller & Thống kê, biểu đồ, top SP & GetSellerOrder
 GetCart          & AccountID & []CartItem & Lấy danh sách giỏ hàng \\
 UpdateCart       & SkuID, Quantity/ DeltaQuantity & -- & Cập nhật số lượng; quantity=0 xoá item \\
 ClearCart        & AccountID & -- & Xoá toàn bộ giỏ hàng \\
-BuyerCheckout    & []CheckoutItem, BuyNow & []OrderItem & Tạo mục chờ xác nhận; BuyNow chỉ 1 item \\
+BuyerCheckout    & Address, PaymentOption, UseWallet, Items[]\{SkuID, Qty, TransportOption, Note\} & Items[], Payment, RedirectUrl, WalletDeducted, Total & Thanh toán trước: reserve inventory, quote transport, trừ ví, tạo payment, tạo items \\
 \addlinespace
-ListBuyerPending & AccountID, Status[], Page & Paginate[OrderItem] & DS mục chờ của buyer \\
-CancelBuyerPending & AccountID, ItemID & -- & Buyer huỷ mục chờ \\
-ListSellerPending & SellerID, Search, Page & Paginate[OrderItem] & DS mục chờ của seller \\
-QuoteTransport   & ItemIDs, TransportOption & QuoteResult (cost) & Báo giá vận chuyển \\
-ConfirmSellerPending & ItemIDs, TransportOption & Order & Seller xác nhận $\to$ tạo Order \\
-RejectSellerPending & ItemIDs & -- & Seller từ chối \\
+ListBuyerPending & AccountID, Status[], Page & Paginate[OrderItem] & DS mục đã thanh toán chờ seller \\
+ListSellerPending & SellerID, Search, Page & Paginate[OrderItem] & DS mục đã thanh toán chờ seller xác nhận \\
+ConfirmSellerPending & ItemIDs[], Note & Order & Seller xác nhận $\to$ tạo Order + Transport \\
+RejectSellerPending & ItemIDs[] & -- & Seller từ chối $\to$ hoàn ví \\
+CancelUnpaidCheckout & PaymentID & -- & Tự động huỷ items sau 15 phút timeout thanh toán \\
+AutoCancelPendingItems & PaymentID & -- & Tự động huỷ items sau 48h seller không phản hồi \\
 \addlinespace
 GetBuyerOrder    & OrderID & Order & Chi tiết đơn (buyer) \\
 GetSellerOrder   & OrderID & Order & Chi tiết đơn (seller) \\
 ListBuyerConfirmed & BuyerID, Status[], Page & Paginate[Order] & DS đơn hàng buyer \\
 ListSellerConfirmed & SellerID, Status[], Page & Paginate[Order] & DS đơn hàng seller \\
-PayBuyerOrders   & OrderIDs, PaymentOption & Payment, RedirectUrl & Thanh toán nhiều đơn \\
 ConfirmPayment   & RefID, Status & -- & Callback từ payment gateway \\
 \addlinespace
 GetSellerOrderStats & SellerID, DateRange & SellerOrderStats & Thống kê tổng hợp \\
@@ -76,49 +74,51 @@ GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{form}{BuyerForm}
-\newinst[1.8]{handler}{OrderHandler}
-\newinst[1.5]{cat}{CatalogProxy}
-\newinst[1.5]{inv}{InventoryProxy}
-\newinst[1.5]{pay}{PaymentProvider}
-\newinst[1.5]{db}{DB (SQLC)}
+\newinst[1.2]{handler}{OrderHandler}
+\newinst[1]{cat}{CatalogProxy}
+\newinst[1]{inv}{InventoryProxy}
+\newinst[1]{tp}{TransportProvider}
+\newinst[1]{acc}{AccountProxy}
+\newinst[1]{pay}{PaymentProvider}
+\newinst[1]{db}{DB (SQLC)}
+\newinst[1]{sform}{SellerForm}
 
-\begin{call}{form}{BuyerCheckout(items, buyNow)}{handler}{[]OrderItem}
-  \begin{call}{handler}{GetProductSKU(skuID)}{cat}{SKU}
+\begin{call}{form}{BuyerCheckout(items, addr, payOpt, useWallet)}{handler}{Items, Payment, RedirectUrl}
+  \begin{call}{handler}{GetProductSKU(skuIDs)}{cat}{[]SKU}
   \end{call}
   \begin{call}{handler}{ReserveInventory(skuID, qty)}{inv}{serialIDs}
   \end{call}
-  \begin{call}{handler}{restate.Run: insertItem()}{db}{item}
+  \begin{call}{handler}{Quote(item, from, to)}{tp}{transportCost}
   \end{call}
-  \begin{call}{handler}{restate.Run: deleteCartItem()}{db}{ok}
+  \begin{call}{handler}{WalletDebit(amount)}{acc}{ok}
+  \end{call}
+  \begin{call}{handler}{CreatePayment(remaining)}{pay}{refID, redirectUrl}
+  \end{call}
+  \begin{call}{handler}{restate.Run: insertItems(payment\_id)}{db}{items}
   \end{call}
 \end{call}
 
 \postlevel
 
-\begin{call}{form}{ConfirmSellerPending(itemIDs, opt)}{handler}{Order}
+\begin{call}{pay}{ConfirmPayment(refID, Success)}{handler}{ok}
+  \begin{call}{handler}{restate.Run: updatePaymentStatus()}{db}{ok}
+  \end{call}
+\end{call}
+
+\postlevel
+
+\begin{call}{sform}{ConfirmSellerPending(itemIDs, note)}{handler}{Order}
+  \begin{call}{handler}{CreateShipment(items)}{tp}{transport}
+  \end{call}
   \begin{call}{handler}{restate.Run: insertOrder()}{db}{order}
   \end{call}
-  \begin{call}{handler}{QuoteTransport(items, opt)}{pay}{cost}
-  \end{call}
-\end{call}
-
-\postlevel
-
-\begin{call}{form}{PayBuyerOrders(orderIDs, opt)}{handler}{redirectUrl}
-  \begin{call}{handler}{CreatePayment(amount)}{pay}{intent}
-  \end{call}
-  \begin{call}{handler}{restate.Run: insertPayment()}{db}{payment}
-  \end{call}
-\end{call}
-
-\begin{call}{pay}{ConfirmPayment(refID, status)}{handler}{ok}
-  \begin{call}{handler}{restate.Run: updateStatus()}{db}{ok}
+  \begin{call}{handler}{restate.Run: setItemsOrderID()}{db}{ok}
   \end{call}
 \end{call}
 
 \end{sequencediagram}
 }%
-\captionof{figure}{Luồng xử lý chính của quy trình mua hàng}
+\captionof{figure}{Luồng xử lý chính của quy trình mua hàng (thanh toán trước)}
 \label{fig:order-sequence}
 \end{center}
 
@@ -126,7 +126,7 @@ GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
 \subsection{Đặc tả chi tiết Form}
 \label{subsec:order-form-detail}
 
-Phần này mô tả chi tiết 4 form quan trọng nhất của module Mua hàng.
+Phần này mô tả chi tiết 3 form quan trọng nhất của module Mua hàng.
 Các form còn lại (\texttt{BuyerPendingList}, \texttt{OrderListPage}, \texttt{OrderDetailPage}, \texttt{SellerDashboard}) có cấu trúc tương tự --- chủ yếu là danh sách read-only kết hợp phân trang; xem đặc tả API tương ứng ở mục~\ref{subsec:order-api-detail}.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -153,11 +153,14 @@ Các form còn lại (\texttt{BuyerPendingList}, \texttt{OrderListPage}, \texttt
   \item \textbf{Users}: Khách hàng (Buyer)
   \item \textbf{Controls chính}:
     \begin{itemize}
-      \item \texttt{ItemList} (danh sách SKU đã chọn): hiển thị snapshot tên, ảnh, giá niêm yết; cho phép chỉnh số lượng lần cuối trước khi đặt.
-      \item \texttt{AddressInput}: nhập địa chỉ giao hàng cho từng seller, validate 1--500 ký tự.
-      \item \texttt{NoteInput}: ghi chú tùy chọn cho người bán, max 500 ký tự.
+      \item \texttt{ItemList}: danh sách SKU đã chọn từ giỏ hàng, hiển thị snapshot tên, ảnh, giá niêm yết, số lượng. Mỗi item có dropdown chọn phương thức vận chuyển riêng.
+      \item \texttt{TransportOptionSelect} (per item): dropdown chọn đơn vị vận chuyển cho từng item (GHTK, Tiết kiệm, Nhanh, v.v.). Phí vận chuyển ước tính hiển thị bên cạnh.
+      \item \texttt{AddressInput}: nhập địa chỉ giao hàng dùng chung cho tất cả items, validate 1--500 ký tự. Hỗ trợ chọn từ danh sách địa chỉ đã lưu.
+      \item \texttt{PaymentMethodSelect}: chọn cổng thanh toán (VNPay, SePay, COD, v.v.).
+      \item \texttt{WalletToggle}: checkbox bật/tắt sử dụng số dư ví để trừ trước. Khi bật, hiển thị số dư hiện tại và số tiền sẽ trừ từ ví.
+      \item \texttt{TotalPreview}: read-only, hiển thị chi tiết: tổng sản phẩm, phí vận chuyển từng item, số tiền trừ ví (nếu có), và tổng cần thanh toán qua cổng.
       \item \texttt{BuyNowFlag}: checkbox ẩn, \texttt{true} khi mua ngay 1 SKU từ trang sản phẩm (bỏ qua giỏ hàng).
-      \item \texttt{SubmitButton}: Nhiệm vụ: tạo pending items. Inputs: \texttt{(items[], address, note, buyNow)}. Outputs: danh sách \texttt{OrderItem} mới ở trạng thái \texttt{Pending}, điều hướng về \texttt{BuyerPendingList}. Xử lý: gọi API \texttt{BuyerCheckout}.
+      \item \texttt{SubmitButton}: Nhiệm vụ: thanh toán và tạo items. Inputs: \texttt{(items[], address, paymentOption, useWallet)}. Outputs: \texttt{Items[]}, \texttt{Payment}, \texttt{RedirectUrl}. Xử lý: gọi API \texttt{BuyerCheckout}; nếu \texttt{RedirectUrl} có giá trị thì redirect browser đến cổng thanh toán; nếu ví đủ trả toàn bộ thì items được tạo trực tiếp và chuyển về \texttt{BuyerPendingList}.
     \end{itemize}
 \end{itemize}
 
@@ -169,27 +172,11 @@ Các form còn lại (\texttt{BuyerPendingList}, \texttt{OrderListPage}, \texttt
   \item \textbf{Users}: Người bán (Seller)
   \item \textbf{Controls chính}:
     \begin{itemize}
-      \item \texttt{PendingItemList}: danh sách items \texttt{order\_id IS NULL} của seller, hỗ trợ tìm kiếm theo tên sản phẩm/SKU và phân trang. Xử lý: gọi API \texttt{ListSellerPending}.
-      \item \texttt{ItemCheckbox}: chọn nhiều items cùng seller để xử lý theo lô.
-      \item \texttt{TransportSelect}: dropdown chọn đơn vị vận chuyển. Khi thay đổi: gọi API \texttt{QuoteTransport} để hiện phí và tổng tiền dự kiến.
-      \item \texttt{QuoteSummary}: read-only, hiển thị \texttt{productCost}, \texttt{transportCost}, \texttt{discount}, \texttt{total} từ kết quả \texttt{QuoteTransport}.
-      \item \texttt{ConfirmButton}: Nhiệm vụ: tạo đơn hàng từ các items đã chọn. Inputs: \texttt{(itemIDs[], transportOption, note)}. Outputs: \texttt{Order} mới trạng thái \texttt{Confirmed}. Xử lý: gọi API \texttt{ConfirmSellerPending}.
-      \item \texttt{RejectButton}: Nhiệm vụ: từ chối items đã chọn. Inputs: \texttt{(itemIDs[])}. Outputs: -. Xử lý: gọi API \texttt{RejectSellerPending}.
-    \end{itemize}
-\end{itemize}
-
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-\subsubsection{Form PaymentPage}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-payment} (Chương 5)
-  \item \textbf{Users}: Khách hàng (Buyer)
-  \item \textbf{Controls chính}:
-    \begin{itemize}
-      \item \texttt{OrderSummaryList}: danh sách các \texttt{Order} trạng thái \texttt{Confirmed} đang chờ thanh toán; hiển thị tổng tiền từng đơn và tổng cộng.
-      \item \texttt{PaymentMethodSelect}: chọn cổng thanh toán (VNPay, MoMo, v.v.).
-      \item \texttt{PayButton}: Nhiệm vụ: khởi tạo phiên thanh toán. Inputs: \texttt{(orderIDs[], paymentOption)}. Outputs: \texttt{Payment} (trạng thái \texttt{Pending}) và \texttt{redirectUrl} đến cổng thanh toán. Xử lý: gọi API \texttt{PayBuyerOrders}, sau đó redirect browser đến \texttt{redirectUrl}.
-      \item \texttt{CallbackHandler} (invisible): nhận redirect từ cổng thanh toán sau khi hoàn tất, hiển thị kết quả thành công/thất bại dựa trên trạng thái thanh toán cập nhật từ webhook.
+      \item \texttt{PendingItemList}: danh sách items đã thanh toán (\texttt{payment.status = Success}) chưa có \texttt{order\_id} của seller, hỗ trợ tìm kiếm theo tên sản phẩm/SKU và phân trang. Mỗi item hiển thị \texttt{transport\_option} mà buyer đã chọn. Xử lý: gọi API \texttt{ListSellerPending}.
+      \item \texttt{ItemCheckbox}: chọn nhiều items cùng \texttt{transport\_option} để xử lý theo lô. Hệ thống validate các items đã chọn phải cùng buyer và cùng \texttt{transport\_option}.
+      \item \texttt{NoteInput}: ghi chú của seller cho buyer (tùy chọn), max 500 ký tự.
+      \item \texttt{ConfirmButton}: Nhiệm vụ: tạo đơn hàng từ các items đã chọn. Inputs: \texttt{(itemIDs[], note)}. Outputs: \texttt{Order} mới. Xử lý: gọi API \texttt{ConfirmSellerPending}; platform tự tạo transport dựa trên \texttt{transport\_option} của item.
+      \item \texttt{RejectButton}: Nhiệm vụ: từ chối items đã chọn, hoàn tiền vào ví buyer. Inputs: \texttt{(itemIDs[])}. Outputs: -. Xử lý: gọi API \texttt{RejectSellerPending}.
     \end{itemize}
 \end{itemize}
 
@@ -197,40 +184,30 @@ Các form còn lại (\texttt{BuyerPendingList}, \texttt{OrderListPage}, \texttt
 \subsection{Đặc tả chi tiết API}
 \label{subsec:order-api-detail}
 
-Phần này mô tả chi tiết 5 API quan trọng nhất của module Mua hàng.
+Phần này mô tả chi tiết 7 API quan trọng nhất của module Mua hàng.
 Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{ClearCart}, \texttt{ListBuyerPending}, \texttt{ListSellerPending}, \texttt{ListBuyerConfirmed}, \texttt{GetBuyerOrder}, \texttt{GetSellerOrder}, \texttt{GetSellerOrderStats}) thực hiện truy vấn thẳng vào bảng tương ứng, không có side effect liên module.
 
 % - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 \subsubsection{API BuyerCheckout}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Nhiệm vụ}: Tạo pending items (\texttt{status=Pending}, \texttt{order\_id=NULL}) cho từng SKU trong request, reserve tồn kho, snapshot giá và tên sản phẩm tại thời điểm mua.
-  \item \textbf{Inputs}: \texttt{\{Account, BuyNow bool, Items []CheckoutItem\}}, mỗi item gồm \texttt{\{SkuID uuid, Quantity int64 > 0, Address string (1--500 ký tự), Note string (0--500 ký tự)\}}.
-  \item \textbf{Outputs}: \texttt{\{Items []OrderItem\}} --- danh sách items vừa tạo ở trạng thái \texttt{Pending}.
+  \item \textbf{Nhiệm vụ}: Quote transport cho từng item, tính tổng tiền, trừ ví (nếu bật), tạo payment qua cổng thanh toán (nếu còn dư), tạo items đã link \texttt{payment\_id} --- tất cả trong một giao dịch durable (Restate).
+  \item \textbf{Inputs}: \texttt{\{Account, BuyNow bool, Address string (1--500), PaymentOption string, UseWallet bool, Items []\{SkuID uuid, Quantity int64 > 0, TransportOption string, Note string (0--500)\}\}}.
+  \item \textbf{Outputs}: \texttt{\{Items []OrderItem, Payment, RedirectUrl *string, WalletDeducted int64, Total int64\}} --- \texttt{RedirectUrl} là \texttt{nil} nếu ví đủ trả toàn bộ hoặc COD.
   \item \textbf{Xử lý}:
     \begin{enumerate}
-      \item Validate input qua struct tag (\texttt{go-playground/validator}).
-      \item Với mỗi item: gọi \texttt{CatalogBiz.GetProductSKU(skuID)} qua Restate proxy để lấy \texttt{unitPrice} và \texttt{skuName} (snapshot tại thời điểm đặt).
-      \item Gọi \texttt{InventoryBiz.ReserveInventory(skuID, qty)} --- nếu bất kỳ item nào fail, toàn bộ request fail với lỗi \texttt{Terminal} (Restate không retry).
-      \item Trong \texttt{restate.Run()}: \texttt{InsertItem} vào \texttt{order.item} với \texttt{unit\_price} và \texttt{sku\_name} đã snapshot; \texttt{seller\_id} lấy từ catalog.
-      \item Trong \texttt{restate.Run()}: \texttt{DeleteCartItem} cho các SKU đã đặt nếu \texttt{BuyNow=false}.
+      \item Validate input qua struct tag (\texttt{go-playground/validator}); đảm bảo mỗi item có \texttt{TransportOption} hợp lệ.
+      \item Với mỗi item: gọi \texttt{CatalogBiz.GetProductSKU(skuID)} qua Restate proxy để lấy \texttt{unitPrice}, \texttt{skuName}, \texttt{sellerID}, \texttt{sellerAddress} (snapshot tại thời điểm đặt).
+      \item Gọi \texttt{InventoryBiz.ReserveInventory(skuID, qty)} cho từng item --- nếu bất kỳ item nào fail, toàn bộ request fail với lỗi \texttt{Terminal} (Restate không retry).
+      \item Với mỗi item: gọi \texttt{TransportProvider.QuoteFee(transportOption, sellerAddress, buyerAddress, weight)} để lấy \texttt{transportCostEstimate}.
+      \item Tính \texttt{total = $\sum$(unitPrice $\times$ quantity + transportCostEstimate)}.
+      \item Nếu \texttt{UseWallet = true}: gọi \texttt{AccountBiz.WalletDebit(min(walletBalance, total))}; tính \texttt{remaining = total - walletDeducted}.
+      \item Nếu \texttt{remaining > 0}: gọi \texttt{PaymentProvider.CreatePayment(paymentOption, remaining)} để lấy \texttt{refID} và \texttt{redirectUrl}.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertPayment} vào \texttt{order.payment} với \texttt{status=Pending} (hoặc \texttt{Success} nếu ví đủ), \texttt{date\_expired = now + 15min}.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertItems} vào \texttt{order.item} cho từng SKU với \texttt{payment\_id}, \texttt{transport\_option}, \texttt{transport\_cost\_estimate}, \texttt{unit\_price}, \texttt{sku\_name} đã snapshot.
+      \item Trong \texttt{restate.Run()}: \texttt{DeleteCartItems} cho các SKU đã đặt nếu \texttt{BuyNow=false}.
+      \item Nếu \texttt{remaining > 0}: đặt Restate delayed call \texttt{CancelUnpaidCheckout(paymentID)} sau 15 phút.
       \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifySellerPending", ...)} để gửi thông báo inbox cho seller.
-    \end{enumerate}
-\end{itemize}
-
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-\subsubsection{API QuoteTransport}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Nhiệm vụ}: Tính phí vận chuyển và chiết khấu dự kiến cho một lô items trước khi seller xác nhận, giúp seller và buyer thấy tổng tiền thực tế.
-  \item \textbf{Inputs}: \texttt{\{Account, ItemIDs []int64, TransportOption string\}}.
-  \item \textbf{Outputs}: \texttt{\{ProductCost, ProductDiscount, TransportCost, Total int64\}}.
-  \item \textbf{Xử lý}:
-    \begin{enumerate}
-      \item Truy vấn \texttt{order.item} lấy \texttt{unit\_price} và \texttt{quantity} của từng \texttt{itemID}; aggregate thành \texttt{productCost}.
-      \item Gọi \texttt{PromotionBiz.CalculateDiscount(sellerID, productCost)} để lấy \texttt{productDiscount}.
-      \item Gọi \texttt{TransportProvider.QuoteFee(transportOption, address, weight)} để lấy \texttt{transportCost}.
-      \item Tính \texttt{total = productCost - productDiscount + transportCost} và trả về.
     \end{enumerate}
 \end{itemize}
 
@@ -238,35 +215,19 @@ Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{Clear
 \subsubsection{API ConfirmSellerPending}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Nhiệm vụ}: Seller xác nhận một lô pending items, hệ thống tạo \texttt{Order} và \texttt{Transport} tương ứng, cập nhật trạng thái items thành \texttt{Confirmed}, thông báo buyer.
-  \item \textbf{Inputs}: \texttt{\{Account, ItemIDs []int64, TransportOption string, Note string\}}.
-  \item \textbf{Outputs}: \texttt{Order} vừa tạo (\texttt{status=Confirmed}).
+  \item \textbf{Nhiệm vụ}: Seller xác nhận một lô items đã thanh toán, hệ thống tạo \texttt{Order} và \texttt{Transport} tương ứng, gán \texttt{order\_id} cho items, thông báo buyer.
+  \item \textbf{Inputs}: \texttt{\{Account, ItemIDs []int64, Note string\}}.
+  \item \textbf{Outputs}: \texttt{Order} vừa tạo.
   \item \textbf{Xử lý}:
     \begin{enumerate}
-      \item Kiểm tra tất cả items thuộc \texttt{seller\_id} của account; item nào đã có \texttt{order\_id} thì báo lỗi.
-      \item Gọi lại \texttt{QuoteTransport} nội bộ để tính \texttt{total} chính xác tại thời điểm xác nhận.
-      \item Trong \texttt{restate.Run()}: \texttt{InsertTransport} vào \texttt{order.transport} với thông tin vận chuyển đã chọn.
-      \item Trong \texttt{restate.Run()}: \texttt{InsertOrder} vào \texttt{order.order} với \texttt{total} vừa tính, \texttt{status=Confirmed}.
-      \item Trong \texttt{restate.Run()}: \texttt{UpdateItems} --- gán \texttt{order\_id} và set \texttt{status=Confirmed} cho tất cả items trong lô.
+      \item Kiểm tra tất cả items thuộc \texttt{seller\_id} của account; item nào đã có \texttt{order\_id} hoặc đã bị huỷ (\texttt{date\_cancelled IS NOT NULL}) thì báo lỗi.
+      \item Validate: tất cả items cùng \texttt{buyer\_id}, cùng \texttt{transport\_option}, và đã thanh toán thành công (\texttt{payment.status = Success}).
+      \item Tính \texttt{total = $\sum$(unit\_price $\times$ quantity + transport\_cost\_estimate)}; \texttt{productDiscount = 0}.
+      \item Trong \texttt{restate.Run()}: gọi \texttt{TransportProvider.CreateShipment(transportOption, sellerAddress, buyerAddress, items)} để tạo vận đơn thực tế, lấy \texttt{transportID} và \texttt{trackingCode}.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertTransport} vào \texttt{order.transport} với thông tin vận đơn.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertOrder} vào \texttt{order.order} với \texttt{total} vừa tính.
+      \item Trong \texttt{restate.Run()}: \texttt{UpdateItems} --- gán \texttt{order\_id} cho tất cả items trong lô.
       \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifyBuyerConfirmed", ...)} để gửi thông báo cho buyer.
-    \end{enumerate}
-\end{itemize}
-
-% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-\subsubsection{API PayBuyerOrders}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Nhiệm vụ}: Buyer khởi tạo phiên thanh toán cho một hoặc nhiều đơn hàng \texttt{Confirmed}, tạo bản ghi \texttt{Payment} và lấy URL redirect đến cổng thanh toán.
-  \item \textbf{Inputs}: \texttt{\{Account, OrderIDs []uuid, PaymentOption string\}}.
-  \item \textbf{Outputs}: \texttt{\{Payment, RedirectUrl *string\}} --- \texttt{RedirectUrl} là \texttt{nil} nếu cổng không yêu cầu redirect (ví dụ: ví nội bộ).
-  \item \textbf{Xử lý}:
-    \begin{enumerate}
-      \item Truy vấn \texttt{order.order} xác nhận tất cả \texttt{orderID} thuộc \texttt{account\_id} của buyer và đang ở \texttt{status=Confirmed}.
-      \item Aggregate \texttt{total} từ tất cả orders; kiểm tra không vượt hạn mức cho phép.
-      \item Trong \texttt{restate.Run()}: \texttt{InsertPayment} vào \texttt{order.payment} với \texttt{status=Pending}, \texttt{date\_expired = now + TTL}.
-      \item Gọi \texttt{PaymentProvider.CreatePayment(paymentOption, total, paymentID)} để lấy \texttt{refID} và \texttt{redirectUrl} từ cổng thanh toán.
-      \item Trong \texttt{restate.Run()}: cập nhật \texttt{payment.ref\_id} với giá trị trả về từ cổng.
-      \item Trả về \texttt{Payment} và \texttt{redirectUrl} cho client.
     \end{enumerate}
 \end{itemize}
 
@@ -274,7 +235,7 @@ Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{Clear
 \subsubsection{API ConfirmPayment (Webhook)}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Nhiệm vụ}: Xử lý callback từ cổng thanh toán sau khi người dùng hoàn tất giao dịch; cập nhật trạng thái \texttt{Payment} và các \texttt{Order} liên quan.
+  \item \textbf{Nhiệm vụ}: Xử lý callback từ cổng thanh toán sau khi người dùng hoàn tất giao dịch; cập nhật trạng thái \texttt{Payment}; khởi động timeout 48h chờ seller xác nhận.
   \item \textbf{Inputs}: \texttt{\{RefID string, Status payment.Status\}} --- do cổng thanh toán gửi qua HTTP POST (webhook).
   \item \textbf{Outputs}: HTTP 200 OK (không có body nghiệp vụ); cổng dùng status code để xác nhận nhận webhook.
   \item \textbf{Xử lý}:
@@ -283,8 +244,46 @@ Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{Clear
       \item Tìm \texttt{Payment} theo \texttt{ref\_id}; nếu không tìm thấy trả 404.
       \item Nếu \texttt{payment.status} đã là terminal (\texttt{Success}/\texttt{Failed}), bỏ qua (idempotent).
       \item Trong \texttt{restate.Run()}: cập nhật \texttt{payment.status} theo \texttt{Status} từ webhook.
-      \item Nếu \texttt{Status=Success}: trong \texttt{restate.Run()} cập nhật tất cả orders liên quan thành \texttt{status=Success}.
-      \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifyPaymentResult", ...)} để thông báo kết quả cho buyer và seller.
+      \item Nếu \texttt{Status=Success}: đặt Restate delayed call \texttt{AutoCancelPendingItems(paymentID)} sau 48h để tự động huỷ nếu seller không phản hồi.
+      \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifyPaymentResult", ...)} để thông báo kết quả cho buyer.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API CancelUnpaidCheckout}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Tự động huỷ items sau 15 phút nếu buyer chưa hoàn tất thanh toán qua cổng; giải phóng tồn kho và hoàn tiền ví (nếu đã trừ).
+  \item \textbf{Inputs}: \texttt{\{PaymentID uuid\}} --- được gọi bởi Restate delayed call, không phải từ client.
+  \item \textbf{Outputs}: -- (internal).
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Tìm \texttt{Payment} theo \texttt{paymentID}; nếu \texttt{status} đã là \texttt{Success} thì bỏ qua (buyer đã thanh toán kịp).
+      \item Trong \texttt{restate.Run()}: cập nhật \texttt{payment.status = Failed}.
+      \item Truy vấn tất cả items có \texttt{payment\_id = paymentID} và \texttt{date\_cancelled IS NULL}.
+      \item Trong \texttt{restate.Run()}: set \texttt{date\_cancelled = now()} cho tất cả items.
+      \item Gọi \texttt{InventoryBiz.ReleaseInventory(skuID, qty)} cho từng item để giải phóng tồn kho đã reserve.
+      \item Nếu payment có \texttt{wallet\_deducted > 0}: gọi \texttt{AccountBiz.WalletCredit(buyerID, walletDeducted)} để hoàn tiền ví.
+      \item Fire-and-forget: thông báo buyer rằng đơn hàng đã bị huỷ do hết hạn thanh toán.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API AutoCancelPendingItems}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Tự động huỷ các items đã thanh toán nhưng seller không xác nhận sau 48 giờ; hoàn tiền vào ví buyer và giải phóng tồn kho.
+  \item \textbf{Inputs}: \texttt{\{PaymentID uuid\}} --- được gọi bởi Restate delayed call, không phải từ client.
+  \item \textbf{Outputs}: -- (internal).
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Truy vấn tất cả items có \texttt{payment\_id = paymentID}, \texttt{order\_id IS NULL}, và \texttt{date\_cancelled IS NULL} (chỉ huỷ items chưa được seller xác nhận).
+      \item Nếu không có item nào thỏa điều kiện: bỏ qua (seller đã xác nhận hết).
+      \item Trong \texttt{restate.Run()}: set \texttt{date\_cancelled = now()} cho các items còn pending.
+      \item Gọi \texttt{InventoryBiz.ReleaseInventory(skuID, qty)} cho từng item bị huỷ.
+      \item Tính \texttt{refundAmount = $\sum$(unit\_price $\times$ quantity + transport\_cost\_estimate)} của các items bị huỷ.
+      \item Gọi \texttt{AccountBiz.WalletCredit(buyerID, refundAmount)} để hoàn tiền vào ví buyer.
+      \item Fire-and-forget: thông báo buyer và seller rằng items đã bị tự động huỷ do seller không phản hồi.
     \end{enumerate}
 \end{itemize}
 
@@ -340,10 +339,9 @@ Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{Clear
 \thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
 \midrule
 Quản lý giỏ hàng & CartPage & GetCart, UpdateCart, ClearCart & order.cart\_item \\
-Đặt hàng (Checkout) & CheckoutPage & BuyerCheckout & order.item \\
+Đặt hàng & CheckoutPage & BuyerCheckout & order.item, order.payment \\
 Xem mục chờ & BuyerPendingList, SellerInbox & ListBuyerPending, ListSellerPending & order.item \\
 Xác nhận đơn & SellerInbox & ConfirmSellerPending, RejectSellerPending & order.order, order.item, order.transport \\
-Thanh toán & PaymentPage & PayBuyerOrders, ConfirmPayment & order.payment, order.order \\
 Xem đơn hàng & OrderListPage, OrderDetailPage & ListBuyerConfirmed, GetBuyerOrder & order.order, order.item \\
 Dashboard & SellerDashboard & GetSellerOrderStats, GetSellerTopProducts & order.order, order.item \\
 \bottomrule
