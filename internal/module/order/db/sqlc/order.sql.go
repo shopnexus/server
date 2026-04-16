@@ -14,23 +14,20 @@ import (
 
 const listCountBuyerOrder = `-- name: ListCountBuyerOrder :many
 
-SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.payment_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
-LEFT JOIN "order"."payment" p ON embed_order."payment_id" = p."id"
 WHERE embed_order."buyer_id" = $1
-    AND (p."status" = ANY($2) OR $2 IS NULL)
-    AND (embed_order."id"::text ILIKE '%' || $3::text || '%' OR $3 IS NULL)
+    AND (embed_order."id"::text ILIKE '%' || $2::text || '%' OR $2 IS NULL)
 ORDER BY embed_order."date_created" DESC
-LIMIT $5::int
-OFFSET $4::int
+LIMIT $4::int
+OFFSET $3::int
 `
 
 type ListCountBuyerOrderParams struct {
-	BuyerID       uuid.UUID     `json:"buyer_id"`
-	PaymentStatus []OrderStatus `json:"payment_status"`
-	Search        null.String   `json:"search"`
-	Offset        null.Int32    `json:"offset"`
-	Limit         null.Int32    `json:"limit"`
+	BuyerID uuid.UUID   `json:"buyer_id"`
+	Search  null.String `json:"search"`
+	Offset  null.Int32  `json:"offset"`
+	Limit   null.Int32  `json:"limit"`
 }
 
 type ListCountBuyerOrderRow struct {
@@ -42,7 +39,6 @@ type ListCountBuyerOrderRow struct {
 func (q *Queries) ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error) {
 	rows, err := q.db.Query(ctx, listCountBuyerOrder,
 		arg.BuyerID,
-		arg.PaymentStatus,
 		arg.Search,
 		arg.Offset,
 		arg.Limit,
@@ -58,7 +54,6 @@ func (q *Queries) ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrd
 			&i.OrderOrder.ID,
 			&i.OrderOrder.BuyerID,
 			&i.OrderOrder.SellerID,
-			&i.OrderOrder.PaymentID,
 			&i.OrderOrder.TransportID,
 			&i.OrderOrder.ConfirmedByID,
 			&i.OrderOrder.Address,
@@ -82,23 +77,20 @@ func (q *Queries) ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrd
 }
 
 const listCountSellerOrder = `-- name: ListCountSellerOrder :many
-SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.payment_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.confirmed_by_id, embed_order.address, embed_order.product_cost, embed_order.product_discount, embed_order.transport_cost, embed_order.total, embed_order.note, embed_order.data, embed_order.date_created, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
-LEFT JOIN "order"."payment" p ON embed_order."payment_id" = p."id"
 WHERE embed_order."seller_id" = $1
-    AND (p."status" = ANY($2) OR $2 IS NULL)
-    AND (embed_order."id"::text ILIKE '%' || $3::text || '%' OR $3 IS NULL)
+    AND (embed_order."id"::text ILIKE '%' || $2::text || '%' OR $2 IS NULL)
 ORDER BY embed_order."date_created" DESC
-LIMIT $5::int
-OFFSET $4::int
+LIMIT $4::int
+OFFSET $3::int
 `
 
 type ListCountSellerOrderParams struct {
-	SellerID      uuid.UUID     `json:"seller_id"`
-	PaymentStatus []OrderStatus `json:"payment_status"`
-	Search        null.String   `json:"search"`
-	Offset        null.Int32    `json:"offset"`
-	Limit         null.Int32    `json:"limit"`
+	SellerID uuid.UUID   `json:"seller_id"`
+	Search   null.String `json:"search"`
+	Offset   null.Int32  `json:"offset"`
+	Limit    null.Int32  `json:"limit"`
 }
 
 type ListCountSellerOrderRow struct {
@@ -109,7 +101,6 @@ type ListCountSellerOrderRow struct {
 func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerOrderParams) ([]ListCountSellerOrderRow, error) {
 	rows, err := q.db.Query(ctx, listCountSellerOrder,
 		arg.SellerID,
-		arg.PaymentStatus,
 		arg.Search,
 		arg.Offset,
 		arg.Limit,
@@ -125,7 +116,6 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 			&i.OrderOrder.ID,
 			&i.OrderOrder.BuyerID,
 			&i.OrderOrder.SellerID,
-			&i.OrderOrder.PaymentID,
 			&i.OrderOrder.TransportID,
 			&i.OrderOrder.ConfirmedByID,
 			&i.OrderOrder.Address,
@@ -146,21 +136,4 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 		return nil, err
 	}
 	return items, nil
-}
-
-const setOrderPayment = `-- name: SetOrderPayment :exec
-UPDATE "order"."order"
-SET "payment_id" = $1
-WHERE "id" = ANY($2::uuid[]) AND "buyer_id" = $3 AND "payment_id" IS NULL
-`
-
-type SetOrderPaymentParams struct {
-	PaymentID null.Int    `json:"payment_id"`
-	Ids       []uuid.UUID `json:"ids"`
-	BuyerID   uuid.UUID   `json:"buyer_id"`
-}
-
-func (q *Queries) SetOrderPayment(ctx context.Context, arg SetOrderPaymentParams) error {
-	_, err := q.db.Exec(ctx, setOrderPayment, arg.PaymentID, arg.Ids, arg.BuyerID)
-	return err
 }

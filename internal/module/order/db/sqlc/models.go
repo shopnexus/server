@@ -14,67 +14,6 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
-type OrderItemStatus string
-
-const (
-	OrderItemStatusPending   OrderItemStatus = "Pending"
-	OrderItemStatusConfirmed OrderItemStatus = "Confirmed"
-	OrderItemStatusCancelled OrderItemStatus = "Cancelled"
-)
-
-func (e *OrderItemStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OrderItemStatus(s)
-	case string:
-		*e = OrderItemStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OrderItemStatus: %T", src)
-	}
-	return nil
-}
-
-type NullOrderItemStatus struct {
-	OrderItemStatus OrderItemStatus `json:"order_item_status"`
-	Valid           bool            `json:"valid"` // Valid is true if OrderItemStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOrderItemStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.OrderItemStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OrderItemStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOrderItemStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OrderItemStatus), nil
-}
-
-func (e OrderItemStatus) Valid() bool {
-	switch e {
-	case OrderItemStatusPending,
-		OrderItemStatusConfirmed,
-		OrderItemStatusCancelled:
-		return true
-	}
-	return false
-}
-
-func AllOrderItemStatusValues() []OrderItemStatus {
-	return []OrderItemStatus{
-		OrderItemStatusPending,
-		OrderItemStatusConfirmed,
-		OrderItemStatusCancelled,
-	}
-}
-
 type OrderRefundMethod string
 
 const (
@@ -281,28 +220,30 @@ type OrderCartItem struct {
 }
 
 type OrderItem struct {
-	ID          int64           `json:"id"`
-	OrderID     uuid.NullUUID   `json:"order_id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	SellerID    uuid.UUID       `json:"seller_id"`
-	SkuID       uuid.UUID       `json:"sku_id"`
-	SkuName     string          `json:"sku_name"`
-	Quantity    int64           `json:"quantity"`
-	UnitPrice   int64           `json:"unit_price"`
-	PaidAmount  int64           `json:"paid_amount"`
-	Address     string          `json:"address"`
-	Status      OrderItemStatus `json:"status"`
-	Note        null.String     `json:"note"`
-	SerialIds   json.RawMessage `json:"serial_ids"`
-	DateCreated time.Time       `json:"date_created"`
-	DateUpdated time.Time       `json:"date_updated"`
+	ID                    int64           `json:"id"`
+	OrderID               uuid.NullUUID   `json:"order_id"`
+	AccountID             uuid.UUID       `json:"account_id"`
+	SellerID              uuid.UUID       `json:"seller_id"`
+	SkuID                 uuid.UUID       `json:"sku_id"`
+	SkuName               string          `json:"sku_name"`
+	Quantity              int64           `json:"quantity"`
+	UnitPrice             int64           `json:"unit_price"`
+	PaidAmount            int64           `json:"paid_amount"`
+	Address               string          `json:"address"`
+	Note                  null.String     `json:"note"`
+	SerialIds             json.RawMessage `json:"serial_ids"`
+	DateCreated           time.Time       `json:"date_created"`
+	DateUpdated           time.Time       `json:"date_updated"`
+	TransportOption       null.String     `json:"transport_option"`
+	TransportCostEstimate int64           `json:"transport_cost_estimate"`
+	PaymentID             null.Int        `json:"payment_id"`
+	DateCancelled         null.Time       `json:"date_cancelled"`
 }
 
 type OrderOrder struct {
 	ID              uuid.UUID       `json:"id"`
 	BuyerID         uuid.UUID       `json:"buyer_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
-	PaymentID       null.Int        `json:"payment_id"`
 	TransportID     uuid.NullUUID   `json:"transport_id"`
 	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
 	Address         string          `json:"address"`

@@ -12,16 +12,13 @@ import (
 )
 
 type Querier interface {
-	CancelItem(ctx context.Context, arg CancelItemParams) error
-	CancelItemsByOrder(ctx context.Context, orderID uuid.NullUUID) error
-	CancelItemsBySeller(ctx context.Context, arg CancelItemsBySellerParams) error
-	ConfirmItems(ctx context.Context, arg ConfirmItemsParams) error
+	CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64, error)
 	CountCartItem(ctx context.Context, arg CountCartItemParams) (int64, error)
 	CountItem(ctx context.Context, arg CountItemParams) (int64, error)
 	CountOrder(ctx context.Context, arg CountOrderParams) (int64, error)
+	CountPaidPendingItemsByBuyer(ctx context.Context, accountID uuid.UUID) (int64, error)
+	CountPaidPendingItemsBySeller(ctx context.Context, sellerID uuid.UUID) (int64, error)
 	CountPayment(ctx context.Context, arg CountPaymentParams) (int64, error)
-	CountPendingItemsByAccount(ctx context.Context, arg CountPendingItemsByAccountParams) (int64, error)
-	CountPendingItemsBySeller(ctx context.Context, arg CountPendingItemsBySellerParams) (int64, error)
 	CountRefund(ctx context.Context, arg CountRefundParams) (int64, error)
 	CountRefundDispute(ctx context.Context, arg CountRefundDisputeParams) (int64, error)
 	CountTransport(ctx context.Context, arg CountTransportParams) (int64, error)
@@ -57,7 +54,6 @@ type Querier interface {
 	CreateItem(ctx context.Context, arg CreateItemParams) (OrderItem, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (OrderOrder, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (OrderPayment, error)
-	CreatePendingItem(ctx context.Context, arg CreatePendingItemParams) (OrderItem, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (OrderRefund, error)
 	CreateRefundDispute(ctx context.Context, arg CreateRefundDisputeParams) (OrderRefundDispute, error)
 	CreateTransport(ctx context.Context, arg CreateTransportParams) (OrderTransport, error)
@@ -110,7 +106,6 @@ type Querier interface {
 	// ========================================
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
 	GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error)
-	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	// Custom order queries
 	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
@@ -124,16 +119,16 @@ type Querier interface {
 	ListCountTransport(ctx context.Context, arg ListCountTransportParams) ([]ListCountTransportRow, error)
 	ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error)
 	ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOrder, error)
-	ListPayment(ctx context.Context, arg ListPaymentParams) ([]OrderPayment, error)
-	ListPendingItemsByAccount(ctx context.Context, arg ListPendingItemsByAccountParams) ([]OrderItem, error)
+	ListPaidPendingItemsByBuyer(ctx context.Context, arg ListPaidPendingItemsByBuyerParams) ([]OrderItem, error)
 	// Custom item queries
-	ListPendingItemsBySeller(ctx context.Context, arg ListPendingItemsBySellerParams) ([]OrderItem, error)
+	ListPaidPendingItemsBySeller(ctx context.Context, arg ListPaidPendingItemsBySellerParams) ([]OrderItem, error)
+	ListPayment(ctx context.Context, arg ListPaymentParams) ([]OrderPayment, error)
+	ListPendingPaymentItemsByPaymentID(ctx context.Context, paymentID null.Int) ([]OrderItem, error)
 	ListRefund(ctx context.Context, arg ListRefundParams) ([]OrderRefund, error)
 	ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error)
-	ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error)
 	ListTransport(ctx context.Context, arg ListTransportParams) ([]OrderTransport, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)
-	SetOrderPayment(ctx context.Context, arg SetOrderPaymentParams) error
+	SetItemsOrderID(ctx context.Context, arg SetItemsOrderIDParams) (int64, error)
 	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCartItem(ctx context.Context, arg UpdateCartItemParams) (OrderCartItem, error)
 	UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderItem, error)
@@ -145,7 +140,6 @@ type Querier interface {
 	// Custom transport queries for webhook-driven status updates.
 	// See: https://docs.giaohangtietkiem.vn/webhook
 	UpdateTransportStatus(ctx context.Context, arg UpdateTransportStatusParams) error
-	ValidateOrderForReview(ctx context.Context, arg ValidateOrderForReviewParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

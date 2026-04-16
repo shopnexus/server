@@ -361,7 +361,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
@@ -391,7 +390,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
@@ -424,7 +422,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
@@ -451,33 +448,32 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateOrder :one
-INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateBatchOrder :batchone
-INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateCopyOrder :copyfrom
-INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: CreateDefaultOrder :one
-INSERT INTO "order"."order" ("buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "order"."order" ("buyer_id", "seller_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyDefaultOrder :copyfrom
-INSERT INTO "order"."order" ("buyer_id", "seller_id", "payment_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "order"."order" ("buyer_id", "seller_id", "transport_id", "confirmed_by_id", "address", "product_cost", "product_discount", "transport_cost", "total", "note", "data")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: UpdateOrder :one
 UPDATE "order"."order"
 SET "buyer_id" = COALESCE(sqlc.narg('buyer_id'), "buyer_id"),
     "seller_id" = COALESCE(sqlc.narg('seller_id'), "seller_id"),
-    "payment_id" = CASE WHEN sqlc.arg('null_payment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_id'), "payment_id") END,
     "transport_id" = CASE WHEN sqlc.arg('null_transport_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('transport_id'), "transport_id") END,
     "confirmed_by_id" = CASE WHEN sqlc.arg('null_confirmed_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id") END,
     "address" = COALESCE(sqlc.narg('address'), "address"),
@@ -497,7 +493,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("buyer_id" = ANY(sqlc.slice('buyer_id')) OR sqlc.slice('buyer_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("confirmed_by_id" = ANY(sqlc.slice('confirmed_by_id')) OR sqlc.slice('confirmed_by_id') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
@@ -547,7 +542,6 @@ WHERE (
     ("unit_price" <= sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -555,7 +549,15 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
 );
 
 -- name: ListItem :many
@@ -576,7 +578,6 @@ WHERE (
     ("unit_price" <= sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -584,7 +585,15 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -608,7 +617,6 @@ WHERE (
     ("unit_price" <= sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -616,34 +624,42 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "status", "note", "serial_ids", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "status", "note", "serial_ids", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: CreateCopyItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "status", "note", "serial_ids", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
 
 -- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "transport_option", "payment_id", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "transport_option", "payment_id", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdateItem :one
 UPDATE "order"."item"
@@ -656,11 +672,14 @@ SET "order_id" = CASE WHEN sqlc.arg('null_order_id')::bool = TRUE THEN NULL ELSE
     "unit_price" = COALESCE(sqlc.narg('unit_price'), "unit_price"),
     "paid_amount" = COALESCE(sqlc.narg('paid_amount'), "paid_amount"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
-    "status" = COALESCE(sqlc.narg('status'), "status"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
     "serial_ids" = CASE WHEN sqlc.arg('null_serial_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('serial_ids'), "serial_ids") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
+    "transport_option" = CASE WHEN sqlc.arg('null_transport_option')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('transport_option'), "transport_option") END,
+    "transport_cost_estimate" = COALESCE(sqlc.narg('transport_cost_estimate'), "transport_cost_estimate"),
+    "payment_id" = CASE WHEN sqlc.arg('null_payment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_id'), "payment_id") END,
+    "date_cancelled" = CASE WHEN sqlc.arg('null_date_cancelled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_cancelled'), "date_cancelled") END
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -681,7 +700,6 @@ WHERE (
     ("unit_price" <= sqlc.narg('unit_price_to') OR sqlc.narg('unit_price_to') IS NULL) AND
     ("paid_amount" = ANY(sqlc.slice('paid_amount')) OR sqlc.slice('paid_amount') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
@@ -689,7 +707,15 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
 );
 
 -- ========================================
