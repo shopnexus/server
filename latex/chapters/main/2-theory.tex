@@ -104,7 +104,7 @@ Khi một bên không đồng ý kết quả, có thể mở \textbf{tranh chấ
 Hệ thống sử dụng bốn kiểu trạng thái được định nghĩa tại tầng cơ sở dữ liệu:
 
 \begin{itemize}
-    \item \textbf{Item Status} (Pending, Confirmed, Cancelled): Trạng thái mục hàng trước khi gắn vào đơn. Chỉ mục Confirmed mới được đưa vào đơn hàng chính thức.
+    \item \textbf{Item Status} (suy ra): Trạng thái item được suy ra từ dữ liệu liên quan: \texttt{payment.status} (thanh toán), \texttt{order\_id} (xác nhận đơn), \texttt{date\_cancelled} (hủy). Không lưu trực tiếp trong cột status.
     \item \textbf{Order/Payment/Refund Status} (Pending, Processing, Success, Cancelled, Failed): Trạng thái chung cho đơn hàng, thanh toán, hoàn trả, và tranh chấp. Chuyển trạng thái được kiểm soát chặt tại tầng nghiệp vụ.
     \item \textbf{Transport Status} (Pending, LabelCreated, InTransit, OutForDelivery, Delivered, Failed, Cancelled): Phản ánh vòng đời giao hàng thực tế.
 \end{itemize}

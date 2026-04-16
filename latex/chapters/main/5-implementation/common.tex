@@ -117,7 +117,7 @@ Snapshot giá tại thời điểm đặt; đặt chỗ kho nguyên tử; exactl
 API idempotent; \texttt{CatalogBiz} + \texttt{InventoryBiz} qua Restate proxy; side-effect trong \texttt{restate.Run()} &
 \texttt{TestPartialRefundItemIDs\-Serialization}; integration test replay journal; kiểm tra tồn kho sau crash \\
 
-\textbf{Thanh toán} \texttt{PayBuyerOrders} &
+\textbf{Thanh toán} \texttt{BuyerCheckout} &
 Bảo mật; exactly-once (không trừ tiền 2 lần dù callback gửi lại) &
 HMAC verify webhook; \texttt{date\_expired} trên payment session; \texttt{payment\_method\_id} reference &
 Test webhook hợp lệ / giả mạo; test timeout phiên; test replay callback \\

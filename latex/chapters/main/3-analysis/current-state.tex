@@ -64,7 +64,7 @@ Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với m
 
 \begin{itemize}
     \item \textbf{Tự động hóa hai giai đoạn}: Giai đoạn Checkout tự động đặt chỗ tồn kho (atomic reservation), snapshot giá/tên sản phẩm, tạo mục chờ. Giai đoạn Confirm để người bán xem xét, tự động tính chi phí (\texttt{total = productCost - productDiscount + transportCost}) và tạo vận đơn.
-    \item \textbf{Hệ thống trạng thái và thông báo}: Trạng thái chi tiết cho item (Pending/Confirmed/Cancelled), order/payment (Pending $\rightarrow$ Processing $\rightarrow$ Success/Failed), transport (Pending $\rightarrow$ InTransit $\rightarrow$ Delivered). Thông báo tự động qua fire-and-forget tại mỗi bước chuyển.
+    \item \textbf{Hệ thống trạng thái và thông báo}: Trạng thái item suy ra (không lưu trực tiếp): chưa xác nhận (\texttt{order\_id IS NULL}), đã xác nhận (\texttt{order\_id IS NOT NULL}), đã hủy (\texttt{date\_cancelled IS NOT NULL}). Trạng thái order/payment: Pending $\rightarrow$ Processing $\rightarrow$ Success/Failed. Transport: Pending $\rightarrow$ InTransit $\rightarrow$ Delivered. Thông báo tự động qua fire-and-forget tại mỗi bước chuyển.
     \item \textbf{Hoàn trả có cấu trúc}: Form hoàn trả chuẩn hóa, hỗ trợ PickUp/DropOff, tự động hoàn tiền qua cổng thanh toán ban đầu. Cơ chế tranh chấp (Dispute) cho phép quản trị viên can thiệp.
     \item \textbf{Dashboard phân tích}: Thống kê doanh thu, biểu đồ xu hướng (day/week/month), sản phẩm bán chạy, hành động chờ xử lý.
     \item \textbf{Giỏ hàng và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD), phiên thanh toán có thời hạn.
