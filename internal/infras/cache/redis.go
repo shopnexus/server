@@ -20,6 +20,7 @@ type RedisClient struct {
 
 type RedisConfig struct {
 	Config
+
 	Addr     []string
 	Password string
 	DB       int64
@@ -142,7 +143,7 @@ func (r *RedisClient) ZRem(ctx context.Context, key string, value any) error {
 	return nil
 }
 
-// decodeSliceMembers decodes a slice of JSON strings into the provided destination slice
+// decodeSliceMembers decodes a slice of JSON strings into the provided destination slice.
 func (r *RedisClient) decodeSliceMembers(members []string, dest any) error {
 	// For other types, decode each member individually from JSON
 	// Use reflection to create slice elements and decode each JSON string
@@ -174,7 +175,14 @@ func (r *RedisClient) ZRangeByScore(ctx context.Context, key string, dest any, o
 	}
 
 	if opts.Limit.Valid && opts.Offset.Valid {
-		cmd = r.Client.B().Zrange().Key(key).Min(startScore).Max(stopScore).Byscore().Limit(opts.Offset.Int64, opts.Limit.Int64).Build()
+		cmd = r.Client.B().
+			Zrange().
+			Key(key).
+			Min(startScore).
+			Max(stopScore).
+			Byscore().
+			Limit(opts.Offset.Int64, opts.Limit.Int64).
+			Build()
 	} else {
 		cmd = r.Client.B().Zrange().Key(key).Min(startScore).Max(stopScore).Byscore().Build()
 	}
@@ -213,7 +221,15 @@ func (r *RedisClient) ZRevRangeByScore(ctx context.Context, key string, dest any
 	}
 
 	if opts.Limit.Valid && opts.Offset.Valid {
-		cmd = r.Client.B().Zrange().Key(key).Min(startScore).Max(stopScore).Byscore().Rev().Limit(opts.Offset.Int64, opts.Limit.Int64).Build()
+		cmd = r.Client.B().
+			Zrange().
+			Key(key).
+			Min(startScore).
+			Max(stopScore).
+			Byscore().
+			Rev().
+			Limit(opts.Offset.Int64, opts.Limit.Int64).
+			Build()
 	} else {
 		cmd = r.Client.B().Zrange().Key(key).Min(startScore).Max(stopScore).Byscore().Rev().Build()
 	}

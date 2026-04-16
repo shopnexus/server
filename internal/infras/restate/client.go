@@ -52,7 +52,7 @@ func Call[O any](ctx context.Context, c *Client, service, method string, input a
 	}
 
 	url := fmt.Sprintf("%s/%s/%s", c.BaseURL, service, method)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return zero, fmt.Errorf("restate: create request: %w", err)
 	}
@@ -68,7 +68,10 @@ func Call[O any](ctx context.Context, c *Client, service, method string, input a
 		respBody, _ := io.ReadAll(resp.Body)
 		// 4xx from Restate ingress means the callee returned a terminal error — propagate as terminal with original code
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			return zero, restate.TerminalError(parseRestateError(resp.StatusCode, respBody, service, method), restate.Code(uint16(resp.StatusCode)))
+			return zero, restate.TerminalError(
+				parseRestateError(resp.StatusCode, respBody, service, method),
+				restate.Code(uint16(resp.StatusCode)),
+			)
 		}
 		return zero, fmt.Errorf("restate: %s/%s returned %d: %s", service, method, resp.StatusCode, string(respBody))
 	}
@@ -88,7 +91,7 @@ func Send(ctx context.Context, c *Client, service, method string, input any) err
 	}
 
 	url := fmt.Sprintf("%s/%s/%s", c.BaseURL, service, method)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("restate: create request: %w", err)
 	}
@@ -103,7 +106,10 @@ func Send(ctx context.Context, c *Client, service, method string, input any) err
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			return restate.TerminalError(parseRestateError(resp.StatusCode, respBody, service, method), restate.Code(uint16(resp.StatusCode)))
+			return restate.TerminalError(
+				parseRestateError(resp.StatusCode, respBody, service, method),
+				restate.Code(uint16(resp.StatusCode)),
+			)
 		}
 		return fmt.Errorf("restate: %s/%s returned %d: %s", service, method, resp.StatusCode, string(respBody))
 	}

@@ -6,9 +6,9 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
-	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -48,7 +48,10 @@ func (b *OrderHandler) GetSellerOrder(ctx restate.Context, orderID uuid.UUID) (o
 }
 
 // ListBuyerConfirmed returns paginated orders with hydrated items, payments, and product resources.
-func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderHandler) ListBuyerConfirmed(
+	ctx restate.Context,
+	params ListBuyerConfirmedParams,
+) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
@@ -89,7 +92,10 @@ func (b *OrderHandler) ListBuyerConfirmed(ctx restate.Context, params ListBuyerC
 }
 
 // ListSellerConfirmed returns paginated orders for the seller with optional payment/order status filters.
-func (b *OrderHandler) ListSellerConfirmed(ctx restate.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+func (b *OrderHandler) ListSellerConfirmed(
+	ctx restate.Context,
+	params ListSellerConfirmedParams,
+) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Order]
 
 	if err := validator.Validate(params); err != nil {
@@ -114,9 +120,12 @@ func (b *OrderHandler) ListSellerConfirmed(ctx restate.Context, params ListSelle
 		total.SetValid(listCountOrder[0].TotalCount)
 	}
 
-	orders, err := b.hydrateOrders(ctx, lo.Map(listCountOrder, func(item orderdb.ListCountSellerOrderRow, _ int) orderdb.OrderOrder {
-		return item.OrderOrder
-	}))
+	orders, err := b.hydrateOrders(
+		ctx,
+		lo.Map(listCountOrder, func(item orderdb.ListCountSellerOrderRow, _ int) orderdb.OrderOrder {
+			return item.OrderOrder
+		}),
+	)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("hydrate seller orders", err)
 	}
@@ -153,8 +162,8 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 
 	// Fetch order items, payments, and transports from DB inside Run
 	type dbResults struct {
-		OrderItems []orderdb.OrderItem     `json:"order_items"`
-		Payments   []orderdb.OrderPayment  `json:"payments"`
+		OrderItems []orderdb.OrderItem      `json:"order_items"`
+		Payments   []orderdb.OrderPayment   `json:"payments"`
 		Transports []orderdb.OrderTransport `json:"transports"`
 	}
 	dbData, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResults, error) {
@@ -402,7 +411,10 @@ func (b *OrderHandler) HasPurchasedProduct(ctx restate.Context, params HasPurcha
 }
 
 // ListReviewableOrders returns successful orders that contain items matching the given SKU IDs.
-func (b *OrderHandler) ListReviewableOrders(ctx restate.Context, params ListReviewableOrdersParams) ([]ReviewableOrder, error) {
+func (b *OrderHandler) ListReviewableOrders(
+	ctx restate.Context,
+	params ListReviewableOrdersParams,
+) ([]ReviewableOrder, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list reviewable orders", err)
 	}

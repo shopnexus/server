@@ -31,6 +31,7 @@ type ListReviewableOrdersParams struct {
 
 type ListCommentParams struct {
 	sharedmodel.PaginationParams
+
 	Account   accountmodel.AuthenticatedAccount
 	RefType   catalogdb.CatalogCommentRefType `validate:"required,validateFn=Valid"`
 	ID        []uuid.UUID                     `validate:"omitempty,dive,gt=0"`
@@ -41,7 +42,10 @@ type ListCommentParams struct {
 }
 
 // ListComment returns paginated comments with author profiles and attached resources.
-func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentParams) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
+func (b *CatalogHandler) ListComment(
+	ctx restate.Context,
+	params ListCommentParams,
+) (sharedmodel.PaginateResult[catalogmodel.Comment], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.Comment]
 
 	if err := validator.Validate(params); err != nil {
@@ -135,7 +139,11 @@ func (b *CatalogHandler) ListComment(ctx restate.Context, params ListCommentPara
 		for _, oid := range lo.Uniq(orderIDs) {
 			order, err := restate.Service[orderEnrich](ctx, "Order", "GetBuyerOrder").Request(oid)
 			if err != nil {
-				slog.Warn("fetch order for comment enrichment", slog.String("order_id", oid.String()), slog.Any("error", err))
+				slog.Warn(
+					"fetch order for comment enrichment",
+					slog.String("order_id", oid.String()),
+					slog.Any("error", err),
+				)
 				continue
 			}
 			orderDate := order.DateCreated
@@ -276,15 +284,44 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 	if params.RefType == catalogdb.CatalogCommentRefTypeProductSpu {
 		refID := params.RefID.String()
 		interactions := []analyticbiz.CreateInteraction{
-			{Account: params.Account, EventType: analyticmodel.EventWriteReview, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID},
+			{
+				Account:   params.Account,
+				EventType: analyticmodel.EventWriteReview,
+				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+				RefID:     refID,
+			},
 		}
 		switch {
 		case params.Score >= 0.8:
-			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingHigh, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+			interactions = append(
+				interactions,
+				analyticbiz.CreateInteraction{
+					Account:   params.Account,
+					EventType: analyticmodel.EventRatingHigh,
+					RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+					RefID:     refID,
+				},
+			)
 		case params.Score >= 0.4:
-			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingMed, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+			interactions = append(
+				interactions,
+				analyticbiz.CreateInteraction{
+					Account:   params.Account,
+					EventType: analyticmodel.EventRatingMed,
+					RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+					RefID:     refID,
+				},
+			)
 		default:
-			interactions = append(interactions, analyticbiz.CreateInteraction{Account: params.Account, EventType: analyticmodel.EventRatingLow, RefType: analyticdb.AnalyticInteractionRefTypeProduct, RefID: refID})
+			interactions = append(
+				interactions,
+				analyticbiz.CreateInteraction{
+					Account:   params.Account,
+					EventType: analyticmodel.EventRatingLow,
+					RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
+					RefID:     refID,
+				},
+			)
 		}
 		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 			Interactions: interactions,
@@ -443,7 +480,10 @@ func (b *CatalogHandler) getSkuIDsForSpu(ctx restate.Context, spuID uuid.UUID) (
 }
 
 // ListReviewableOrders returns completed orders for a product that the user can review.
-func (b *CatalogHandler) ListReviewableOrders(ctx restate.Context, params ListReviewableOrdersParams) ([]catalogmodel.ReviewableOrder, error) {
+func (b *CatalogHandler) ListReviewableOrders(
+	ctx restate.Context,
+	params ListReviewableOrdersParams,
+) ([]catalogmodel.ReviewableOrder, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list reviewable orders", err)
 	}
@@ -457,7 +497,11 @@ func (b *CatalogHandler) ListReviewableOrders(ctx restate.Context, params ListRe
 		AccountID uuid.UUID   `json:"account_id"`
 		SkuIDs    []uuid.UUID `json:"sku_ids"`
 	}
-	orders, err := restate.Service[[]catalogmodel.ReviewableOrder](ctx, "Order", "ListReviewableOrders").Request(listParams{
+	orders, err := restate.Service[[]catalogmodel.ReviewableOrder](
+		ctx,
+		"Order",
+		"ListReviewableOrders",
+	).Request(listParams{
 		AccountID: params.Account.ID,
 		SkuIDs:    skuIDs,
 	})
@@ -467,4 +511,3 @@ func (b *CatalogHandler) ListReviewableOrders(ctx restate.Context, params ListRe
 
 	return orders, nil
 }
-

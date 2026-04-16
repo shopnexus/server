@@ -9,6 +9,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -108,7 +109,8 @@ func loadSchema() Schema {
 
 	out, err := exec.Command("tbls", "out", "-t", "json", dsn).Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			log.Fatalf("tbls out failed: %s\n%s", err, exitErr.Stderr)
 		}
 		log.Fatalf("tbls out: %v", err)

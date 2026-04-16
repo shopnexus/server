@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the inventory module dependencies
+// Module provides the inventory module dependencies.
 var Module = fx.Module("inventory",
 	fx.Provide(
 		NewInventoryStorage,

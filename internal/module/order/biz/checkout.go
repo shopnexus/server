@@ -6,6 +6,7 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
@@ -17,7 +18,6 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
-	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -31,7 +31,10 @@ import (
 
 // BuyerCheckout creates pending order items (no order, no payment, no transport yet).
 // Inventory is reserved. Items are removed from cart unless BuyNow.
-func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutParams) (_ BuyerCheckoutResult, err error) {
+func (b *OrderHandler) BuyerCheckout(
+	ctx restate.Context,
+	params BuyerCheckoutParams,
+) (_ BuyerCheckoutResult, err error) {
 	defer metrics.TrackHandler("order", "BuyerCheckout", &err)()
 
 	var zero BuyerCheckoutResult
@@ -297,7 +300,10 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 }
 
 // ListBuyerPending returns paginated pending items for the buyer.
-func (b *OrderHandler) ListBuyerPending(ctx restate.Context, params ListBuyerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+func (b *OrderHandler) ListBuyerPending(
+	ctx restate.Context,
+	params ListBuyerPendingParams,
+) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {

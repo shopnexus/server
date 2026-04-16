@@ -23,7 +23,10 @@ import (
 )
 
 // ListSellerPending returns paginated pending items for the seller.
-func (b *OrderHandler) ListSellerPending(ctx restate.Context, params ListSellerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+func (b *OrderHandler) ListSellerPending(
+	ctx restate.Context,
+	params ListSellerPendingParams,
+) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
 	if err := validator.Validate(params); err != nil {
@@ -200,7 +203,10 @@ func (b *OrderHandler) QuoteTransport(ctx restate.Context, params QuoteTransport
 }
 
 // ConfirmSellerPending groups selected pending items into an order with transport.
-func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmSellerPendingParams) (_ ordermodel.Order, err error) {
+func (b *OrderHandler) ConfirmSellerPending(
+	ctx restate.Context,
+	params ConfirmSellerPendingParams,
+) (_ ordermodel.Order, err error) {
 	defer metrics.TrackHandler("order", "ConfirmSellerPending", &err)()
 
 	var zero ordermodel.Order

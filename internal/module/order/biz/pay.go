@@ -26,7 +26,10 @@ type orderInfo struct {
 }
 
 // PayBuyerOrders creates a payment for one or more unpaid orders belonging to the buyer.
-func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrdersParams) (_ PayBuyerOrdersResult, err error) {
+func (b *OrderHandler) PayBuyerOrders(
+	ctx restate.Context,
+	params PayBuyerOrdersParams,
+) (_ PayBuyerOrdersResult, err error) {
 	defer metrics.TrackHandler("order", "PayBuyerOrders", &err)()
 
 	var zero PayBuyerOrdersResult
@@ -99,7 +102,12 @@ func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrders
 }
 
 // payWithRedirect handles redirect-based payments (VNPay, SePay, COD).
-func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayBuyerOrdersParams, option string, totalAmount sharedmodel.Concurrency) (PayBuyerOrdersResult, error) {
+func (b *OrderHandler) payWithRedirect(
+	ctx restate.Context,
+	params PayBuyerOrdersParams,
+	option string,
+	totalAmount sharedmodel.Concurrency,
+) (PayBuyerOrdersResult, error) {
 	var zero PayBuyerOrdersResult
 
 	paymentClient, err := b.getPaymentClient(option)
@@ -175,12 +183,21 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayBuyerOrder
 
 // payWithSavedMethod handles charging a saved card.
 // TODO: Complete implementation after account payment method biz is wired (Task 7).
-func (b *OrderHandler) payWithSavedMethod(ctx restate.Context, params PayBuyerOrdersParams, paymentMethodID string, totalAmount sharedmodel.Concurrency) (PayBuyerOrdersResult, error) {
+func (b *OrderHandler) payWithSavedMethod(
+	ctx restate.Context,
+	params PayBuyerOrdersParams,
+	paymentMethodID string,
+	totalAmount sharedmodel.Concurrency,
+) (PayBuyerOrdersResult, error) {
 	return PayBuyerOrdersResult{}, sharedmodel.NewError(501, "saved card payment not yet implemented").Terminal()
 }
 
 // fetchPaymentResult fetches the created payment and builds the response.
-func (b *OrderHandler) fetchPaymentResult(ctx restate.Context, paymentID int64, redirectURL string) (PayBuyerOrdersResult, error) {
+func (b *OrderHandler) fetchPaymentResult(
+	ctx restate.Context,
+	paymentID int64,
+	redirectURL string,
+) (PayBuyerOrdersResult, error) {
 	var zero PayBuyerOrdersResult
 
 	paymentModel, err := restate.Run(ctx, func(ctx restate.RunContext) (ordermodel.Payment, error) {

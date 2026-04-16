@@ -2,6 +2,7 @@ package validator
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -63,9 +64,10 @@ func New() (*CustomValidator, error) {
 	}, nil
 }
 
-func (cv *CustomValidator) Validate(i interface{}) error {
+func (cv *CustomValidator) Validate(i any) error {
 	err := cv.validator.Struct(i)
-	if valErr, ok := err.(validator.ValidationErrors); ok {
+	var valErr validator.ValidationErrors
+	if errors.As(err, &valErr) {
 		trans, _ := cv.uni.GetTranslator("en")
 		text, err := sonic.Marshal(valErr.Translate(trans))
 		if err != nil {
@@ -87,7 +89,7 @@ type Nullable interface {
 // https://github.com/go-playground/validator/issues/1209#issuecomment-1892359649
 var nilValue *struct{}
 
-// ParseNullable implements validator.CustomTypeFunc
+// ParseNullable implements validator.CustomTypeFunc.
 func ParseNullable(field reflect.Value) any {
 	if nullValue, ok := field.Interface().(Nullable); ok {
 		if val, err := nullValue.Value(); err == nil {
@@ -101,7 +103,7 @@ func ParseNullable(field reflect.Value) any {
 	return nil // Return untyped nil means we tell the validator to throw error (because we cannot parse the value)
 }
 
-// Export shortcut to get the singleton validator instance, support restate terminal error
+// Export shortcut to get the singleton validator instance, support restate terminal error.
 func Validate(i any) error {
 	once.Do(func() {
 		var err error
@@ -114,7 +116,7 @@ func Validate(i any) error {
 	return restate.TerminalError(validate.Validate(i), 400)
 }
 
-// Unmarshal unmarshal JSON data into a struct and validate the result
+// Unmarshal unmarshal JSON data into a struct and validate the result.
 func Unmarshal(data []byte, v any) error {
 	err := sonic.Unmarshal(data, v)
 	if err != nil {

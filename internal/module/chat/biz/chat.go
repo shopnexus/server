@@ -21,12 +21,15 @@ type CreateConversationParams struct {
 }
 
 // CreateConversation creates a new conversation between a customer and vendor, or returns the existing one.
-func (b *ChatHandler) CreateConversation(ctx restate.Context, params CreateConversationParams) (chatdb.ChatConversation, error) {
+func (b *ChatHandler) CreateConversation(
+	ctx restate.Context,
+	params CreateConversationParams,
+) (chatdb.ChatConversation, error) {
 	var zero chatdb.ChatConversation
 
 	existing, err := b.storage.Querier().GetConversationByParticipants(ctx, chatdb.GetConversationByParticipantsParams{
-		BuyerID: params.Account.ID,
-		SellerID:   params.SellerID,
+		BuyerID:  params.Account.ID,
+		SellerID: params.SellerID,
 	})
 
 	if err == nil {
@@ -55,13 +58,16 @@ type ListConversationParams struct {
 }
 
 // ListConversation returns a paginated list of conversations for the authenticated account.
-func (b *ChatHandler) ListConversation(ctx restate.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
+func (b *ChatHandler) ListConversation(
+	ctx restate.Context,
+	params ListConversationParams,
+) (sharedmodel.PaginateResult[chatdb.ChatConversation], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatConversation]
 
 	conversations, err := b.storage.Querier().ListConversationByAccount(ctx, chatdb.ListConversationByAccountParams{
 		AccountID: params.Account.ID,
-		Limit:     int32(params.Limit.Int32),
-		Offset:    int32(params.Offset().Int32),
+		Limit:     params.Limit.Int32,
+		Offset:    params.Offset().Int32,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("list conversations", err)
@@ -138,7 +144,10 @@ type ListMessageParams struct {
 }
 
 // ListMessage returns a paginated list of messages in a conversation.
-func (b *ChatHandler) ListMessage(ctx restate.Context, params ListMessageParams) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
+func (b *ChatHandler) ListMessage(
+	ctx restate.Context,
+	params ListMessageParams,
+) (sharedmodel.PaginateResult[chatdb.ChatMessage], error) {
 	var zero sharedmodel.PaginateResult[chatdb.ChatMessage]
 	params.PaginationParams = params.Constrain()
 
@@ -153,8 +162,8 @@ func (b *ChatHandler) ListMessage(ctx restate.Context, params ListMessageParams)
 
 	messages, err := b.storage.Querier().ListMessageByConversation(ctx, chatdb.ListMessageByConversationParams{
 		ConversationID: params.ConversationID,
-		Limit:          int32(params.Limit.Int32),
-		Offset:         int32(params.Offset().Int32),
+		Limit:          params.Limit.Int32,
+		Offset:         params.Offset().Int32,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("list messages", err)

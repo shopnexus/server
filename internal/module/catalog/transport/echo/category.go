@@ -14,7 +14,8 @@ import (
 
 type ListCategoryRequest struct {
 	sharedmodel.PaginationParams
-	ID     []uuid.UUID `query:"id" validate:"omitempty,dive,gt=0"`
+
+	ID     []uuid.UUID `query:"id"     validate:"omitempty,dive,gt=0"`
 	Search null.String `query:"search" validate:"omitnil"`
 }
 

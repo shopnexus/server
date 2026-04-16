@@ -74,7 +74,7 @@ func extractResults(resultSets []milvusclient.ResultSet) ([]SearchResult, error)
 	}
 
 	results := make([]SearchResult, 0, rs.ResultCount)
-	for i := 0; i < rs.ResultCount; i++ {
+	for i := range rs.ResultCount {
 		idStr, err := rs.IDs.GetAsString(i)
 		if err != nil {
 			val, err2 := rs.IDs.Get(i)

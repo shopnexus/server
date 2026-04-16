@@ -6,7 +6,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-// block-level elements that should produce line breaks
+// block-level elements that should produce line breaks.
 var blockTags = map[string]bool{
 	"p": true, "div": true, "br": true, "hr": true,
 	"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
@@ -14,7 +14,7 @@ var blockTags = map[string]bool{
 	"section": true, "article": true, "header": true, "footer": true,
 }
 
-// skip elements whose content is not visible text
+// skip elements whose content is not visible text.
 var skipTags = map[string]bool{
 	"script": true, "style": true, "noscript": true,
 }
@@ -75,16 +75,17 @@ func collapseWhitespace(s string) string {
 	prevSpace := false
 
 	for _, r := range s {
-		if r == '\n' {
+		switch r {
+		case '\n':
 			if !prevNewline {
 				b.WriteByte('\n')
 			}
 			prevNewline = true
 			prevSpace = false
-		} else if r == ' ' || r == '\t' || r == '\r' || r == '\u00a0' {
+		case ' ', '\t', '\r', '\u00a0':
 			prevSpace = true
 			prevNewline = false
-		} else {
+		default:
 			if prevSpace {
 				b.WriteByte(' ')
 			}

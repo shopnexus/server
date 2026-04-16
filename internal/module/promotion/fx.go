@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the promotion module dependencies
+// Module provides the promotion module dependencies.
 var Module = fx.Module("promotion",
 	fx.Provide(
 		NewPromotionStorage,

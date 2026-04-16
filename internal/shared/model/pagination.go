@@ -8,9 +8,9 @@ import (
 )
 
 type PaginationParams struct {
-	Page   null.Int32  `query:"page" validate:"omitnil,gt=0"`
+	Page   null.Int32  `query:"page"   validate:"omitnil,gt=0"`
 	Cursor null.String `query:"cursor" validate:"omitnil"`
-	Limit  null.Int32  `query:"limit" validate:"omitnil,gt=0"`
+	Limit  null.Int32  `query:"limit"  validate:"omitnil,gt=0"`
 }
 
 func (p PaginationParams) Constrain() PaginationParams {

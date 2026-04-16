@@ -18,7 +18,7 @@ func (h *Handler) HandleSSE(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusUnauthorized, "missing token")
 		}
 		header := http.Header{}
-		header.Set("authorization", "Bearer "+token)
+		header.Set("Authorization", "Bearer "+token)
 		claims, err = authclaims.GetClaimsByHeader(header)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")

@@ -67,7 +67,7 @@ func createComments(
 		numComments = min(int(input.Reviews), 15)
 	}
 
-	for i := 0; i < numComments; i++ {
+	for range numComments {
 		accountID := reviewerIDs[fake.IntRange(0, len(reviewerIDs)-1)]
 
 		score := input.Rating

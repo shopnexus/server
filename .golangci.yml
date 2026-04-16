@@ -449,6 +449,10 @@ linters:
       os-temp-dir: true
 
   exclusions:
+    # Exclude generated code (sqlc) and examples.
+    paths:
+      - "db/sqlc"
+      - example
     # Log a warning if an exclusion rule is unused.
     # Default: false
     warn-unused: true

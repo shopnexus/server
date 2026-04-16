@@ -40,7 +40,7 @@ func (b *CatalogHandler) getProductVectors(ctx restate.Context, ids []string) (m
 	}
 
 	result := make(map[string][]float32, rs.ResultCount)
-	for i := 0; i < rs.ResultCount; i++ {
+	for i := range rs.ResultCount {
 		id, err := idCol.GetAsString(i)
 		if err != nil {
 			continue
@@ -74,7 +74,7 @@ func (b *CatalogHandler) getAccountInterests(ctx restate.Context, ids []string) 
 	}
 
 	result := make(map[string]accountInterests, rs.ResultCount)
-	for i := 0; i < rs.ResultCount; i++ {
+	for i := range rs.ResultCount {
 		id, err := idCol.GetAsString(i)
 		if err != nil {
 			continue
@@ -82,7 +82,7 @@ func (b *CatalogHandler) getAccountInterests(ctx restate.Context, ids []string) 
 
 		interests := make([][]float32, catalogutil.NumInterests)
 		strengths := make([]float32, catalogutil.NumInterests)
-		for j := 0; j < catalogutil.NumInterests; j++ {
+		for j := range catalogutil.NumInterests {
 			vecCol := rs.GetColumn(fmt.Sprintf("interest_%d", j+1))
 			strCol := rs.GetColumn(fmt.Sprintf("strength_%d", j+1))
 
@@ -111,13 +111,22 @@ func (b *CatalogHandler) getAccountInterests(ctx restate.Context, ids []string) 
 }
 
 // upsertAccountInterests upserts an account's interest vectors and strengths to Milvus.
-func (b *CatalogHandler) upsertAccountInterests(ctx restate.Context, accountID string, accountNumber int64, interests [][]float32, strengths []float32) error {
+func (b *CatalogHandler) upsertAccountInterests(
+	ctx restate.Context,
+	accountID string,
+	accountNumber int64,
+	interests [][]float32,
+	strengths []float32,
+) error {
 	cols := []column.Column{
 		column.NewColumnVarChar("id", []string{accountID}),
 		column.NewColumnInt64("number", []int64{accountNumber}),
 	}
-	for i := 0; i < catalogutil.NumInterests; i++ {
-		cols = append(cols, column.NewColumnFloatVector(fmt.Sprintf("interest_%d", i+1), ContentVectorDim, [][]float32{interests[i]}))
+	for i := range catalogutil.NumInterests {
+		cols = append(
+			cols,
+			column.NewColumnFloatVector(fmt.Sprintf("interest_%d", i+1), ContentVectorDim, [][]float32{interests[i]}),
+		)
 		cols = append(cols, column.NewColumnFloat(fmt.Sprintf("strength_%d", i+1), []float32{strengths[i]}))
 	}
 
@@ -148,7 +157,7 @@ func (b *CatalogHandler) getProductAllVectors(ctx context.Context, ids []string)
 	}
 
 	result := make(map[string]existingVectors, rs.ResultCount)
-	for i := 0; i < rs.ResultCount; i++ {
+	for i := range rs.ResultCount {
 		id, err := idCol.GetAsString(i)
 		if err != nil {
 			continue
@@ -179,7 +188,12 @@ type existingVectors struct {
 }
 
 // upsertProducts upserts product data (and optionally vectors) to Milvus.
-func (b *CatalogHandler) upsertProducts(ctx context.Context, products []catalogmodel.ProductDetail, embeddings map[string]embeddingResult, metadataOnly bool) error {
+func (b *CatalogHandler) upsertProducts(
+	ctx context.Context,
+	products []catalogmodel.ProductDetail,
+	embeddings map[string]embeddingResult,
+	metadataOnly bool,
+) error {
 	if len(products) == 0 {
 		return nil
 	}
@@ -276,7 +290,11 @@ func (b *CatalogHandler) upsertProducts(ctx context.Context, products []catalogm
 }
 
 // upsertCategories upserts category vectors to the Milvus categories collection.
-func (b *CatalogHandler) upsertCategories(ctx context.Context, categories []catalogdb.CatalogCategory, embeddings map[string]embeddingResult) error {
+func (b *CatalogHandler) upsertCategories(
+	ctx context.Context,
+	categories []catalogdb.CatalogCategory,
+	embeddings map[string]embeddingResult,
+) error {
 	if len(categories) == 0 {
 		return nil
 	}
@@ -316,7 +334,11 @@ func (b *CatalogHandler) upsertCategories(ctx context.Context, categories []cata
 }
 
 // upsertTags upserts tag vectors to the Milvus tags collection.
-func (b *CatalogHandler) upsertTags(ctx context.Context, tags []catalogdb.CatalogTag, embeddings map[string]embeddingResult) error {
+func (b *CatalogHandler) upsertTags(
+	ctx context.Context,
+	tags []catalogdb.CatalogTag,
+	embeddings map[string]embeddingResult,
+) error {
 	if len(tags) == 0 {
 		return nil
 	}
@@ -356,7 +378,7 @@ func (b *CatalogHandler) upsertTags(ctx context.Context, tags []catalogdb.Catalo
 	return nil
 }
 
-// toMilvusStringList formats a string slice as a Milvus filter expression list: ['a','b']
+// toMilvusStringList formats a string slice as a Milvus filter expression list: ['a','b'].
 func toMilvusStringList(ids []string) string {
 	if len(ids) == 0 {
 		return "[]"

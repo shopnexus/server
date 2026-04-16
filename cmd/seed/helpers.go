@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"regexp"
 	"strconv"
@@ -103,7 +103,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 		if err == nil {
 			categoryID = existing.ID
 			idx.add(cat.Name, categoryID)
-			log.Printf("  Category exists: %s (%s)", cat.Name, categoryID)
+			slog.Info("  Category exists", slog.String("name", cat.Name), slog.String("id", categoryID.String()))
 		} else {
 			created, err := store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
 				Name:        cat.Name,
@@ -115,7 +115,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 			}
 			categoryID = created.ID
 			idx.add(cat.Name, categoryID)
-			log.Printf("  Created category: %s (%s)", cat.Name, categoryID)
+			slog.Info("  Created category", slog.String("name", cat.Name), slog.String("id", categoryID.String()))
 		}
 
 		// Ensure search_sync row for this category
@@ -138,7 +138,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 		if err != nil {
 			return nil, fmt.Errorf("create General category: %w", err)
 		}
-		log.Printf("  Created category: General (%s)", general.ID)
+		slog.Info("  Created category: General", slog.String("id", general.ID.String()))
 	}
 	idx.fallback = general.ID
 	idx.add("General", general.ID)
@@ -147,7 +147,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 		RefID:   general.ID,
 	})
 
-	log.Printf("Seeded %d categories (+1 General fallback)", len(categories))
+	slog.Info(fmt.Sprintf("Seeded %d categories (+1 General fallback)", len(categories)))
 	return idx, nil
 }
 
@@ -216,7 +216,7 @@ func createTags(
 	return nil
 }
 
-// generateVariationCombinations generates all combinations of variation options
+// generateVariationCombinations generates all combinations of variation options.
 func generateVariationCombinations(variations []Variation) [][]map[string]string {
 	if len(variations) == 0 {
 		return nil

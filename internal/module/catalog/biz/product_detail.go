@@ -16,7 +16,6 @@ import (
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
-	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -30,7 +29,10 @@ type GetProductDetailParams struct {
 }
 
 // GetProductDetail returns full product detail including SKUs, pricing, ratings, and promotions.
-func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProductDetailParams) (catalogmodel.ProductDetail, error) {
+func (b *CatalogHandler) GetProductDetail(
+	ctx restate.Context,
+	params GetProductDetailParams,
+) (catalogmodel.ProductDetail, error) {
 	var zero catalogmodel.ProductDetail
 
 	spu, err := b.GetProductSpu(ctx, GetProductSpuParams{
@@ -66,22 +68,25 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 		requestPrices = append(requestPrices, catalogmodel.RequestOrderPrice{
 			SkuID:     sku.ID,
 			SpuID:     sku.SpuID,
-			UnitPrice: sharedmodel.Concurrency(sku.Price),
+			UnitPrice: sku.Price,
 			Quantity:  1,
 			ShipCost:  0,
 		})
 	}
 
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: map[uuid.UUID]catalogmodel.ProductSpu{
-		spu.ID: spu,
-	}})
+	priceMap, err := b.promotion.CalculatePromotedPrices(
+		ctx,
+		promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: map[uuid.UUID]catalogmodel.ProductSpu{
+			spu.ID: spu,
+		}},
+	)
 	if err != nil {
 		return zero, err
 	}
 
 	for _, sku := range skus {
-		priceValue := sharedmodel.Concurrency(sku.Price)
-		originalPrice := sharedmodel.Concurrency(sku.Price)
+		priceValue := sku.Price
+		originalPrice := sku.Price
 		if priceInfo, ok := priceMap[sku.ID]; ok && priceInfo != nil {
 			originalPrice = priceInfo.Request.UnitPrice
 			if priceInfo.ProductCost != 0 {
@@ -145,7 +150,10 @@ func (b *CatalogHandler) GetProductDetail(ctx restate.Context, params GetProduct
 	// Check favorite for authenticated user
 	var isFavorite bool
 	if params.Account != nil {
-		favoriteSet, _ := b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: params.Account.ID, SpuIDs: []uuid.UUID{spu.ID}})
+		favoriteSet, _ := b.account.CheckFavorites(
+			ctx,
+			accountbiz.CheckFavoritesParams{AccountID: params.Account.ID, SpuIDs: []uuid.UUID{spu.ID}},
+		)
 		isFavorite = favoriteSet[spu.ID]
 	}
 

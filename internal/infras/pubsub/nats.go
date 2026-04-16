@@ -2,8 +2,8 @@ package pubsub
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"sync"
 
@@ -24,13 +24,14 @@ type NatsClient struct {
 
 type NatsConfig struct {
 	Config
+
 	Group string // Queue group / durable consumer name
 }
 
 // NewNatsClient creates a new NATS JetStream client using Watermill.
 func NewNatsClient(cfg NatsConfig) (*NatsClient, error) {
 	if len(cfg.Brokers) == 0 {
-		return nil, fmt.Errorf("at least one broker must be specified")
+		return nil, errors.New("at least one broker must be specified")
 	}
 	if cfg.Decoder == nil {
 		cfg.Decoder = sonic.Unmarshal
@@ -148,12 +149,12 @@ func (n *NatsClient) Subscribe(topic string, handler func(msg *MessageDecoder) e
 				}
 				if err := handler(NewMessageDecoder(msg.Payload, n.config.Decoder)); err != nil {
 					msg.Nack()
-					log.Printf("Error handling message on topic %s: %v", topic, err)
+					slog.Error("Error handling message", slog.String("topic", topic), slog.Any("error", err))
 				} else {
 					msg.Ack()
 				}
 			case <-n.ctx.Done():
-				log.Printf("Context cancelled, stopping subscription on topic %s", topic)
+				slog.Info("Context cancelled, stopping subscription", slog.String("topic", topic))
 				return
 			}
 		}

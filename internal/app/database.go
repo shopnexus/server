@@ -12,7 +12,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewPgSqlc creates a new database connection
+// NewPgSqlc creates a new database connection.
 func NewPgSqlc(lc fx.Lifecycle, cfg *config.Config) (pgsqlc.TxBeginner, error) {
 	pool, err := pg.New(pg.Options{
 		Url:             cfg.Postgres.Url,

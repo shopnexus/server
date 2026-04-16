@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -79,7 +80,7 @@ func (c *ClientImpl) Config() sharedmodel.OptionConfig {
 }
 
 func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
-	invoiceNumber := fmt.Sprintf("%d", params.RefID)
+	invoiceNumber := strconv.FormatInt(params.RefID, 10)
 
 	// Build form fields in SePay's required order for signature
 	fields := []keyValue{
@@ -123,7 +124,7 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 
 func (c *ClientImpl) Get(ctx context.Context, providerID string) (payment.PaymentInfo, error) {
 	reqURL := fmt.Sprintf("%s/orders/%s", c.apiURL, providerID)
-	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return payment.PaymentInfo{}, fmt.Errorf("build request: %w", err)
 	}

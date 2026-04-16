@@ -8,7 +8,7 @@ import (
 
 // OptionConfig represents the configuration for a payment option, which is a specific way to pay within a payment provider.
 //
-// Note: not in common model because if usage in provider interface
+// Note: not in common model because if usage in provider interface.
 type OptionConfig struct {
 	ID          string          `json:"id"`                 // e.g. "ghtk-express", "vnpay-qr", "sepay-bank-transfer"
 	Provider    string          `json:"provider"`           // "ghtk", "vnpay", "sepay", "card"

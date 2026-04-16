@@ -58,7 +58,10 @@ func SetupRestate(
 
 	// Auto-register with Restate runtime
 	go func() {
-		registerWithRestate(cfg.Restate.AdminAddress, fmt.Sprintf("%s:%s", cfg.Restate.ServiceHost, cfg.Restate.ServicePort))
+		registerWithRestate(
+			cfg.Restate.AdminAddress,
+			fmt.Sprintf("%s:%s", cfg.Restate.ServiceHost, cfg.Restate.ServicePort),
+		)
 	}()
 }
 
@@ -89,7 +92,15 @@ func registerWithRestate(adminAddress, serviceURL string) {
 			return
 		}
 
-		slog.Warn("Restate registration returned non-OK", "attempt", i+1, "status", resp.StatusCode, "body", string(respBody))
+		slog.Warn(
+			"Restate registration returned non-OK",
+			"attempt",
+			i+1,
+			"status",
+			resp.StatusCode,
+			"body",
+			string(respBody),
+		)
 	}
 
 	slog.Error("Failed to register with Restate after retries", "admin", adminAddress)

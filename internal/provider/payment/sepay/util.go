@@ -8,7 +8,7 @@ import (
 )
 
 // signFields builds the SePay signature string from ordered fields and signs with HMAC-SHA256.
-// Format: "field1=value1,field2=value2,..." → HMAC-SHA256 → base64
+// Format: "field1=value1,field2=value2,..." → HMAC-SHA256 → base64.
 func signFields(fields []keyValue, secret string) string {
 	var parts []string
 	for _, kv := range fields {

@@ -1,11 +1,12 @@
 package inventorybiz
 
 import (
-	"github.com/google/uuid"
-	restate "github.com/restatedev/sdk-go"
 	"shopnexus-server/internal/infras/metrics"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
+
+	"github.com/google/uuid"
+	restate "github.com/restatedev/sdk-go"
 )
 
 type ReleaseInventoryParams struct {

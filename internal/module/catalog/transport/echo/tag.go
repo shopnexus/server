@@ -14,6 +14,7 @@ import (
 
 type ListTagRequest struct {
 	sharedmodel.PaginationParams
+
 	Search null.String `query:"search" validate:"omitnil,max=100"`
 }
 

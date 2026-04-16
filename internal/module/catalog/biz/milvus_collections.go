@@ -83,7 +83,12 @@ func accountsSchema() *entity.Schema {
 		WithField(entity.NewField().WithName("id").WithDataType(entity.FieldTypeVarChar).WithMaxLength(36).WithIsPrimaryKey(true)).
 		WithField(entity.NewField().WithName("number").WithDataType(entity.FieldTypeInt64))
 	for i := 1; i <= catalogutil.NumInterests; i++ {
-		schema.WithField(entity.NewField().WithName(fmt.Sprintf("interest_%d", i)).WithDataType(entity.FieldTypeFloatVector).WithDim(ContentVectorDim))
+		schema.WithField(
+			entity.NewField().
+				WithName(fmt.Sprintf("interest_%d", i)).
+				WithDataType(entity.FieldTypeFloatVector).
+				WithDim(ContentVectorDim),
+		)
 		schema.WithField(entity.NewField().WithName(fmt.Sprintf("strength_%d", i)).WithDataType(entity.FieldTypeFloat))
 	}
 	return schema
@@ -109,7 +114,12 @@ func (b *CatalogHandler) SetupMilvusCollections(ctx context.Context) error {
 	if err := b.milvus.EnsureCollection(ctx, CollectionAccounts, accountsSchema(), accountsIndexes()); err != nil {
 		return sharedmodel.WrapErr("setup accounts collection", err)
 	}
-	if err := b.milvus.EnsureCollection(ctx, CollectionCategories, categoriesSchema(), categoriesIndexes()); err != nil {
+	if err := b.milvus.EnsureCollection(
+		ctx,
+		CollectionCategories,
+		categoriesSchema(),
+		categoriesIndexes(),
+	); err != nil {
 		return sharedmodel.WrapErr("setup categories collection", err)
 	}
 	if err := b.milvus.EnsureCollection(ctx, CollectionTags, tagsSchema(), tagsIndexes()); err != nil {

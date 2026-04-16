@@ -2,6 +2,7 @@ package binder
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"reflect"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -11,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// CustomBinder that extends Echo's default binder
+// CustomBinder that extends Echo's default binder.
 type CustomBinder struct {
 	*echo.DefaultBinder
 }
@@ -48,8 +49,8 @@ func (cb *CustomBinder) getCommaSeparatedFieldMap(i any) map[string]bool {
 		rt = rt.Elem()
 	}
 
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
+	for field := range rt.Fields() {
+		field := field
 		if field.Tag.Get("comma_separated") == "true" {
 			if queryTag := field.Tag.Get("query"); queryTag != "" {
 				commaSeparatedFields[queryTag] = true
@@ -93,7 +94,7 @@ func (cb *CustomBinder) bindCommaSeparatedFields(i any, c echo.Context, commaSep
 			// Support both repeated params (?k=a&k=b) and comma-separated (?k=a,b)
 			var allParts []string
 			for _, p := range params {
-				for _, part := range strings.Split(p, ",") {
+				for part := range strings.SplitSeq(p, ",") {
 					part = strings.TrimSpace(part)
 					if part != "" {
 						allParts = append(allParts, part)
@@ -130,7 +131,8 @@ func (cb *CustomBinder) bindRegularFields(i any, c echo.Context, commaSeparatedF
 
 	// Bind body using default binder (JSON errors already include field context)
 	if err := cb.DefaultBinder.BindBody(c, i); err != nil {
-		if he, ok := err.(*echo.HTTPError); ok && he.Internal != nil {
+		he := &echo.HTTPError{}
+		if errors.As(err, &he) {
 			return sharedmodel.ErrValidation.Fmt(he.Internal.Error())
 		}
 		return sharedmodel.ErrValidation.Fmt(err.Error())
@@ -139,7 +141,12 @@ func (cb *CustomBinder) bindRegularFields(i any, c echo.Context, commaSeparatedF
 	return nil
 }
 
-func (cb *CustomBinder) bindStructFields(rv reflect.Value, rt reflect.Type, c echo.Context, commaSeparatedFields map[string]bool) error {
+func (cb *CustomBinder) bindStructFields(
+	rv reflect.Value,
+	rt reflect.Type,
+	c echo.Context,
+	commaSeparatedFields map[string]bool,
+) error {
 	for j := 0; j < rt.NumField(); j++ {
 		field := rv.Field(j)
 		fieldType := rt.Field(j)

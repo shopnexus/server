@@ -124,6 +124,9 @@ func (c *PythonClient) Chat(ctx context.Context, params ChatParams) (ChatMessage
 }
 
 // GenerateStructured is not supported by the Python embedding service.
-func (c *PythonClient) GenerateStructured(ctx context.Context, params GenerateStructuredParams) (json.RawMessage, error) {
+func (c *PythonClient) GenerateStructured(
+	ctx context.Context,
+	params GenerateStructuredParams,
+) (json.RawMessage, error) {
 	return nil, ErrNotSupported
 }

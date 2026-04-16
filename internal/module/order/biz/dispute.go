@@ -32,7 +32,10 @@ func dbToRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
 }
 
 // CreateRefundDispute opens a dispute on a refund. Either the buyer or seller of the order may call this.
-func (b *OrderHandler) CreateRefundDispute(ctx restate.Context, params CreateRefundDisputeParams) (_ ordermodel.RefundDispute, err error) {
+func (b *OrderHandler) CreateRefundDispute(
+	ctx restate.Context,
+	params CreateRefundDisputeParams,
+) (_ ordermodel.RefundDispute, err error) {
 	defer metrics.TrackHandler("order", "CreateRefundDispute", &err)()
 
 	var zero ordermodel.RefundDispute
@@ -131,7 +134,10 @@ func (b *OrderHandler) CreateRefundDispute(ctx restate.Context, params CreateRef
 // ListRefundDisputes lists disputes scoped by the caller's role.
 // If RefundID is set, returns disputes for that refund (caller must be buyer or seller of the order).
 // Otherwise returns all disputes issued by the caller.
-func (b *OrderHandler) ListRefundDisputes(ctx restate.Context, params ListRefundDisputesParams) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error) {
+func (b *OrderHandler) ListRefundDisputes(
+	ctx restate.Context,
+	params ListRefundDisputesParams,
+) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.RefundDispute]
 
 	if err := validator.Validate(params); err != nil {
@@ -203,7 +209,10 @@ func (b *OrderHandler) ListRefundDisputes(ctx restate.Context, params ListRefund
 }
 
 // GetRefundDispute returns a single dispute by ID. The caller must be buyer or seller of the order.
-func (b *OrderHandler) GetRefundDispute(ctx restate.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error) {
+func (b *OrderHandler) GetRefundDispute(
+	ctx restate.Context,
+	params GetRefundDisputeParams,
+) (ordermodel.RefundDispute, error) {
 	var zero ordermodel.RefundDispute
 
 	if err := validator.Validate(params); err != nil {

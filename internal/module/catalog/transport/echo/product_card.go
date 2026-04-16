@@ -15,14 +15,15 @@ import (
 
 type ListProductCardRequest struct {
 	sharedmodel.PaginationParams
-	SellerID        uuid.NullUUID `query:"seller_id" validate:"omitnil"`
-	CategoryID      []uuid.UUID   `query:"category_id" comma_separated:"true" validate:"omitempty"`
-	Tags            []string      `query:"tag" validate:"omitempty"`
-	Search          null.String   `query:"search" validate:"omitnil"`
-	PriceMin        null.Float    `query:"price_min" validate:"omitnil,gte=0"`
-	PriceMax        null.Float    `query:"price_max" validate:"omitnil,gte=0"`
+
+	SellerID        uuid.NullUUID `query:"seller_id"         validate:"omitnil"`
+	CategoryID      []uuid.UUID   `query:"category_id"       validate:"omitempty"     comma_separated:"true"`
+	Tags            []string      `query:"tag"               validate:"omitempty"`
+	Search          null.String   `query:"search"            validate:"omitnil"`
+	PriceMin        null.Float    `query:"price_min"         validate:"omitnil,gte=0"`
+	PriceMax        null.Float    `query:"price_max"         validate:"omitnil,gte=0"`
 	DateCreatedFrom null.Int      `query:"date_created_from" validate:"omitnil,gte=0"`
-	DateCreatedTo   null.Int      `query:"date_created_to" validate:"omitnil,gte=0"`
+	DateCreatedTo   null.Int      `query:"date_created_to"   validate:"omitnil,gte=0"`
 }
 
 func (h *Handler) ListProductCard(c echo.Context) error {

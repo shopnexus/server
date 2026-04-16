@@ -1,6 +1,6 @@
 package main
 
-// InputProduct represents the structure of products from data.json
+// InputProduct represents the structure of products from data.json.
 type InputProduct struct {
 	URL                            string            `json:"url"`
 	ID                             int64             `json:"id"`

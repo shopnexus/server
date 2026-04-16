@@ -41,7 +41,7 @@ func NewHandler(e *echo.Echo, biz promotionbiz.PromotionBiz) *Handler {
 
 type PromotionRefRequest struct {
 	RefType promotiondb.PromotionRefType `json:"ref_type" validate:"required"`
-	RefID   uuid.UUID                    `json:"ref_id" validate:"required"`
+	RefID   uuid.UUID                    `json:"ref_id"   validate:"required"`
 }
 
 func mapRefs(reqs []PromotionRefRequest) []promotionmodel.PromotionRef {
@@ -106,18 +106,18 @@ func (h *Handler) ListPromotion(c echo.Context) error {
 // --- Create ---
 
 type CreatePromotionRequest struct {
-	Code        string                    `json:"code" validate:"required"`
-	Type        promotiondb.PromotionType `json:"type" validate:"required"`
-	Title       string                    `json:"title" validate:"required"`
-	Description null.String               `json:"description" validate:"omitnil"`
+	Code        string                    `json:"code"         validate:"required"`
+	Type        promotiondb.PromotionType `json:"type"         validate:"required"`
+	Title       string                    `json:"title"        validate:"required"`
+	Description null.String               `json:"description"  validate:"omitnil"`
 	IsActive    bool                      `json:"is_active"`
 	AutoApply   bool                      `json:"auto_apply"`
-	Group       string                    `json:"group" validate:"required"`
+	Group       string                    `json:"group"        validate:"required"`
 	Priority    int32                     `json:"priority"`
 	Data        json.RawMessage           `json:"data"`
 	DateStarted time.Time                 `json:"date_started" validate:"required"`
-	DateEnded   null.Time                 `json:"date_ended" validate:"omitnil"`
-	Refs        []PromotionRefRequest     `json:"refs" validate:"dive"`
+	DateEnded   null.Time                 `json:"date_ended"   validate:"omitnil"`
+	Refs        []PromotionRefRequest     `json:"refs"         validate:"dive"`
 }
 
 func (h *Handler) CreatePromotion(c echo.Context) error {
@@ -159,20 +159,20 @@ func (h *Handler) CreatePromotion(c echo.Context) error {
 // --- Update ---
 
 type UpdatePromotionRequest struct {
-	ID            uuid.UUID              `json:"id" validate:"required"`
-	Code          null.String            `json:"code" validate:"omitnil"`
-	OwnerID       uuid.NullUUID          `json:"owner_id" validate:"omitnil"`
+	ID            uuid.UUID              `json:"id"              validate:"required"`
+	Code          null.String            `json:"code"            validate:"omitnil"`
+	OwnerID       uuid.NullUUID          `json:"owner_id"        validate:"omitnil"`
 	NullOwnerID   bool                   `json:"null_owner_id"`
-	Title         null.String            `json:"title" validate:"omitnil"`
-	Description   null.String            `json:"description" validate:"omitnil"`
-	IsActive      null.Bool              `json:"is_active" validate:"omitnil"`
-	AutoApply     null.Bool              `json:"auto_apply" validate:"omitnil"`
-	Group         null.String            `json:"group" validate:"omitnil"`
-	Priority      null.Int32             `json:"priority" validate:"omitnil"`
+	Title         null.String            `json:"title"           validate:"omitnil"`
+	Description   null.String            `json:"description"     validate:"omitnil"`
+	IsActive      null.Bool              `json:"is_active"       validate:"omitnil"`
+	AutoApply     null.Bool              `json:"auto_apply"      validate:"omitnil"`
+	Group         null.String            `json:"group"           validate:"omitnil"`
+	Priority      null.Int32             `json:"priority"        validate:"omitnil"`
 	Data          json.RawMessage        `json:"data"`
 	NullData      bool                   `json:"null_data"`
-	DateStarted   null.Time              `json:"date_started" validate:"omitnil"`
-	DateEnded     null.Time              `json:"date_ended" validate:"omitnil"`
+	DateStarted   null.Time              `json:"date_started"    validate:"omitnil"`
+	DateEnded     null.Time              `json:"date_ended"      validate:"omitnil"`
 	NullDateEnded bool                   `json:"null_date_ended"`
 	Refs          *[]PromotionRefRequest `json:"refs"`
 }

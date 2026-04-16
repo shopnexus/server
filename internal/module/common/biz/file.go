@@ -155,7 +155,12 @@ func (b *CommonHandler) GetFileURL(ctx restate.Context, params GetFileURLParams)
 func (b *CommonHandler) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
-		slog.Error("failed to get file url for object key", slog.String("object_key", objectKey), slog.String("provider", provider), slog.Any("error", err))
+		slog.Error(
+			"failed to get file url for object key",
+			slog.String("object_key", objectKey),
+			slog.String("provider", provider),
+			slog.Any("error", err),
+		)
 		return b.getPlaceholderURL()
 	}
 

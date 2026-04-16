@@ -12,7 +12,7 @@ const (
 	CacheKeyRecommendOffset  = "catalog:recommend:offset:%s"
 )
 
-// OrderPrice is the final price of a order after applying promotions
+// OrderPrice is the final price of a order after applying promotions.
 type OrderPrice struct {
 	Request RequestOrderPrice
 

@@ -43,11 +43,17 @@ type AccountBiz interface {
 	// Favorite
 	AddFavorite(ctx context.Context, params AddFavoriteParams) (accountdb.AccountFavorite, error)
 	RemoveFavorite(ctx context.Context, params RemoveFavoriteParams) error
-	ListFavorite(ctx context.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error)
+	ListFavorite(
+		ctx context.Context,
+		params ListFavoriteParams,
+	) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error)
 	CheckFavorites(ctx context.Context, params CheckFavoritesParams) (map[uuid.UUID]bool, error)
 
 	// Notification
-	ListNotification(ctx context.Context, params ListNotificationParams) (sharedmodel.PaginateResult[accountdb.AccountNotification], error)
+	ListNotification(
+		ctx context.Context,
+		params ListNotificationParams,
+	) (sharedmodel.PaginateResult[accountdb.AccountNotification], error)
 	CountUnread(ctx context.Context, params CountUnreadParams) (int64, error)
 	MarkRead(ctx context.Context, params MarkReadParams) error
 	MarkAllRead(ctx context.Context, params MarkAllReadParams) error
@@ -55,10 +61,16 @@ type AccountBiz interface {
 
 	// Payment Method
 	CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
-	ListPaymentMethod(ctx context.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error)
+	ListPaymentMethod(
+		ctx context.Context,
+		params ListPaymentMethodParams,
+	) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error)
 	UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
 	DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error
-	SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error)
+	SetDefaultPaymentMethod(
+		ctx context.Context,
+		params SetDefaultPaymentMethodParams,
+	) (accountdb.AccountPaymentMethod, error)
 	TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error)
 }
 

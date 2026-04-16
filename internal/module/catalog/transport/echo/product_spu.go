@@ -16,11 +16,12 @@ import (
 
 type ListProductSpuRequest struct {
 	sharedmodel.PaginationParams
-	Search     null.String `query:"search" validate:"omitnil"`
-	Slug       []string    `query:"slug" comma_separated:"true" validate:"omitempty"`
+
+	Search     null.String `query:"search"      validate:"omitnil"`
+	Slug       []string    `query:"slug"        validate:"omitempty" comma_separated:"true"`
 	MyProducts bool        `query:"my_products" validate:"omitempty"`
-	CategoryID []uuid.UUID `query:"category_id" comma_separated:"true" validate:"omitempty"`
-	IsActive   []bool      `query:"is_active" comma_separated:"true" validate:"omitempty"`
+	CategoryID []uuid.UUID `query:"category_id" validate:"omitempty" comma_separated:"true"`
+	IsActive   []bool      `query:"is_active"   validate:"omitempty" comma_separated:"true"`
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
@@ -79,12 +80,12 @@ func (h *Handler) GetProductSpu(c echo.Context) error {
 }
 
 type CreateProductSpuRequest struct {
-	CategoryID     uuid.UUID                           `json:"category_id" validate:"required"`
-	Name           string                              `json:"name" validate:"required,min=1,max=200"`
-	Description    string                              `json:"description" validate:"required,max=1000000"`
-	IsActive       bool                                `json:"is_active" validate:"omitempty"`
-	Tags           []string                            `json:"tags" validate:"required,dive,min=1,max=100"`
-	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
+	CategoryID     uuid.UUID                           `json:"category_id"    validate:"required"`
+	Name           string                              `json:"name"           validate:"required,min=1,max=200"`
+	Description    string                              `json:"description"    validate:"required,max=1000000"`
+	IsActive       bool                                `json:"is_active"      validate:"omitempty"`
+	Tags           []string                            `json:"tags"           validate:"required,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `json:"resource_ids"   validate:"omitempty,dive"`
 	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
 }
 
@@ -119,16 +120,16 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 }
 
 type UpdateProductSpuRequest struct {
-	ID             uuid.UUID                           `json:"id" validate:"required"`
-	CategoryID     uuid.NullUUID                       `json:"category_id" validate:"omitnil"`
+	ID             uuid.UUID                           `json:"id"              validate:"required"`
+	CategoryID     uuid.NullUUID                       `json:"category_id"     validate:"omitnil"`
 	FeaturedSkuID  uuid.NullUUID                       `json:"featured_sku_id" validate:"omitnil"`
-	Name           null.String                         `json:"name" validate:"omitnil,min=1,max=200"`
-	Description    null.String                         `json:"description" validate:"omitnil,max=100000"`
-	IsActive       null.Bool                           `json:"is_active" validate:"omitnil"`
+	Name           null.String                         `json:"name"            validate:"omitnil,min=1,max=200"`
+	Description    null.String                         `json:"description"     validate:"omitnil,max=100000"`
+	IsActive       null.Bool                           `json:"is_active"       validate:"omitnil"`
 	RegenerateSlug bool                                `json:"regenerate_slug"`
-	Tags           []string                            `json:"tags" validate:"omitempty,dive,min=1,max=100"`
-	ResourceIDs    []uuid.UUID                         `json:"resource_ids" validate:"omitempty,dive"`
-	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
+	Tags           []string                            `json:"tags"            validate:"omitempty,dive,min=1,max=100"`
+	ResourceIDs    []uuid.UUID                         `json:"resource_ids"    validate:"omitempty,dive"`
+	Specifications []catalogmodel.ProductSpecification `json:"specifications"  validate:"omitempty,dive"`
 }
 
 func (h *Handler) UpdateProductSpu(c echo.Context) error {

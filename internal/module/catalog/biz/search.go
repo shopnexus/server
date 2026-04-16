@@ -20,6 +20,7 @@ import (
 
 type SearchParams struct {
 	sharedmodel.PaginationParams
+
 	Collection string
 	Query      string
 
@@ -147,7 +148,10 @@ type GetRecommendationsParams struct {
 }
 
 // GetRecommendations returns product recommendations based on the user's interest vectors.
-func (b *CatalogHandler) GetRecommendations(ctx restate.Context, params GetRecommendationsParams) ([]catalogmodel.ProductRecommend, error) {
+func (b *CatalogHandler) GetRecommendations(
+	ctx restate.Context,
+	params GetRecommendationsParams,
+) ([]catalogmodel.ProductRecommend, error) {
 	accountID := params.Account.ID.String()
 
 	// 1. Query account interest vectors from Milvus

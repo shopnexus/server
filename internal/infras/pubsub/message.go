@@ -12,7 +12,7 @@ func NewMessageDecoder(raw []byte, decoder func(data []byte, v any) error) *Mess
 	}
 }
 
-// Decode into any struct, like json.Decoder
+// Decode into any struct, like json.Decoder.
 func (d *MessageDecoder) Decode(v any) error {
 	return d.decoder(d.Raw, v)
 }

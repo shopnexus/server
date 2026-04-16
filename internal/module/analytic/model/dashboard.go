@@ -7,7 +7,7 @@ import (
 )
 
 type GetSellerDashboardParams struct {
-	SellerID    uuid.UUID `json:"seller_id" validate:"required"`
+	SellerID    uuid.UUID `json:"seller_id"   validate:"required"`
 	StartDate   time.Time `json:"start_date"`
 	EndDate     time.Time `json:"end_date"`
 	Granularity string    `json:"granularity" validate:"omitempty,oneof=day week month"`

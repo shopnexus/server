@@ -25,7 +25,7 @@ const (
 	ServiceEconomy  = "economy"
 )
 
-// GHTKClient implements the transport.Client interface for GHTK (fake implementation)
+// GHTKClient implements the transport.Client interface for GHTK (fake implementation).
 type GHTKClient struct {
 	config   sharedmodel.OptionConfig
 	method   string
@@ -38,7 +38,7 @@ type GHTKClient struct {
 	handlers   []transport.ResultHandler
 }
 
-// fakeTransport represents a fake transport in our mock system
+// fakeTransport represents a fake transport in our mock system.
 type fakeTransport struct {
 	ID      string
 	Service string
@@ -54,7 +54,7 @@ type fakeTransport struct {
 	UpdatedAt time.Time
 }
 
-// ghtkData is stored as JSONB in the transport data field
+// ghtkData is stored as JSONB in the transport data field.
 type ghtkData struct {
 	TrackingID string    `json:"tracking_id"`
 	LabelURL   string    `json:"label_url"`
@@ -62,7 +62,7 @@ type ghtkData struct {
 	Location   string    `json:"location,omitempty"`
 }
 
-// packageDetails mirrors the shape stored in ItemMetadata.PackageDetails
+// packageDetails mirrors the shape stored in ItemMetadata.PackageDetails.
 type packageDetails struct {
 	WeightGrams int32 `json:"weight_grams"`
 	LengthCM    int32 `json:"length_cm"`
@@ -277,7 +277,7 @@ func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
 			return ec.NoContent(http.StatusOK)
 		}
 
-		data := map[string]interface{}{
+		data := map[string]any{
 			"label_id":    payload.LabelID,
 			"status_id":   payload.StatusID,
 			"status_name": payload.StatusName,
@@ -320,10 +320,12 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32) sharedmodel.Concur
 
 	var weightCost sharedmodel.Concurrency
 	if weightGrams > 1000 {
-		weightCost = sharedmodel.Int64ToConcurrency((int64(weightGrams) - 1000) / 1000 * 2000) // 2,000 VND per additional kg
+		weightCost = sharedmodel.Int64ToConcurrency(
+			(int64(weightGrams) - 1000) / 1000 * 2000,
+		) // 2,000 VND per additional kg
 	}
 
-	serviceMultiplier := float64(1.0)
+	var serviceMultiplier float64
 	switch g.method {
 	case ServiceExpress:
 		serviceMultiplier = 1.5

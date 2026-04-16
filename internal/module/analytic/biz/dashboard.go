@@ -81,7 +81,10 @@ func percentChange(current, previous int64) *float64 {
 	return &change
 }
 
-func (b *AnalyticHandler) GetSellerDashboard(ctx restate.Context, params analyticmodel.GetSellerDashboardParams) (analyticmodel.SellerDashboard, error) {
+func (b *AnalyticHandler) GetSellerDashboard(
+	ctx restate.Context,
+	params analyticmodel.GetSellerDashboardParams,
+) (analyticmodel.SellerDashboard, error) {
 	var zero analyticmodel.SellerDashboard
 
 	// Defaults

@@ -25,7 +25,10 @@ type CreatePaymentMethodParams struct {
 }
 
 // CreatePaymentMethod creates a new payment method for the authenticated account.
-func (b *AccountHandler) CreatePaymentMethod(ctx restate.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) CreatePaymentMethod(
+	ctx restate.Context,
+	params CreatePaymentMethodParams,
+) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().CreateDefaultPaymentMethod(ctx, accountdb.CreateDefaultPaymentMethodParams{
@@ -68,7 +71,10 @@ type ListPaymentMethodParams struct {
 }
 
 // ListPaymentMethod returns a paginated list of payment methods for the account.
-func (b *AccountHandler) ListPaymentMethod(ctx restate.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
+func (b *AccountHandler) ListPaymentMethod(
+	ctx restate.Context,
+	params ListPaymentMethodParams,
+) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountPaymentMethod]
 	params.PaginationParams = params.Constrain()
 
@@ -104,7 +110,10 @@ type UpdatePaymentMethodParams struct {
 }
 
 // UpdatePaymentMethod updates the specified payment method fields.
-func (b *AccountHandler) UpdatePaymentMethod(ctx restate.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) UpdatePaymentMethod(
+	ctx restate.Context,
+	params UpdatePaymentMethodParams,
+) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	result, err := b.storage.Querier().UpdatePaymentMethod(ctx, accountdb.UpdatePaymentMethodParams{
@@ -152,7 +161,10 @@ type SetDefaultPaymentMethodParams struct {
 }
 
 // SetDefaultPaymentMethod marks the given payment method as the account's default.
-func (b *AccountHandler) SetDefaultPaymentMethod(ctx restate.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
+func (b *AccountHandler) SetDefaultPaymentMethod(
+	ctx restate.Context,
+	params SetDefaultPaymentMethodParams,
+) (accountdb.AccountPaymentMethod, error) {
 	var zero accountdb.AccountPaymentMethod
 
 	if err := b.storage.Querier().UnsetDefaultPaymentMethod(ctx, params.Account.ID); err != nil {
@@ -179,9 +191,12 @@ type TokenizeCardParams struct {
 func (b *AccountHandler) TokenizeCard(ctx restate.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
 	cardCfg := b.config.App.CardPayment
 	if cardCfg.Provider == "" {
-		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card payment not configured").Terminal()
+		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card payment not configured").
+			Terminal()
 	}
 	return payment.TokenizeResult{
-		ClientConfig: json.RawMessage(fmt.Sprintf(`{"provider":"%s","public_key":"%s"}`, cardCfg.Provider, cardCfg.PublicKey)),
+		ClientConfig: json.RawMessage(
+			fmt.Sprintf(`{"provider":"%s","public_key":"%s"}`, cardCfg.Provider, cardCfg.PublicKey),
+		),
 	}, nil
 }

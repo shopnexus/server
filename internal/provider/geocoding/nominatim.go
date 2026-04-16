@@ -78,7 +78,10 @@ type nominatimSearchResponse struct {
 func (p *NominatimClient) ForwardGeocode(ctx context.Context, address string) (Result, error) {
 	var zero Result
 
-	url := fmt.Sprintf("https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=1", neturl.QueryEscape(address))
+	url := fmt.Sprintf(
+		"https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=1",
+		neturl.QueryEscape(address),
+	)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return zero, fmt.Errorf("geocoding: create request: %w", err)
@@ -125,7 +128,11 @@ func (p *NominatimClient) Search(ctx context.Context, query string, limit int) (
 		limit = 5
 	}
 
-	url := fmt.Sprintf("https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=%d", neturl.QueryEscape(query), limit)
+	url := fmt.Sprintf(
+		"https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=%d",
+		neturl.QueryEscape(query),
+		limit,
+	)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("geocoding: create request: %w", err)

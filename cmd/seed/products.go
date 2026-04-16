@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -87,10 +87,7 @@ func processProduct(
 
 	totalStock := pickCurrentStock(input)
 	sold := toBigInt(input.Sold)
-	stockPerSku := totalStock / int64(len(variationCombos))
-	if stockPerSku < 1 {
-		stockPerSku = 1
-	}
+	stockPerSku := max(totalStock/int64(len(variationCombos)), 1)
 	soldPerSku := sold / int64(len(variationCombos))
 
 	var featuredSkuID uuid.UUID
@@ -229,17 +226,17 @@ func processProduct(
 
 	// Create tags
 	if err := createTags(ctx, catalogStore, spu.ID, input); err != nil {
-		log.Printf("Warning: failed to create tags: %v", err)
+		slog.Warn("failed to create tags", slog.Any("error", err))
 	}
 
 	// Create promotions
 	if err := createPromotionsFromVouchers(ctx, input.Vouchers, spu.ID, accountID, promotionStore); err != nil {
-		log.Printf("Warning: failed to create promotions: %v", err)
+		slog.Warn("failed to create promotions", slog.Any("error", err))
 	}
 
 	// Create comments
 	if err := createComments(ctx, fake, catalogStore, accountStore, spu.ID, input, accounts); err != nil {
-		log.Printf("Warning: failed to create comments: %v", err)
+		slog.Warn("failed to create comments", slog.Any("error", err))
 	}
 
 	return nil

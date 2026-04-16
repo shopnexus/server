@@ -16,12 +16,13 @@ import (
 
 type ListCommentRequest struct {
 	sharedmodel.PaginationParams
-	RefType   catalogdb.CatalogCommentRefType `query:"ref_type" validate:"required"`
-	RefID     uuid.UUID                       `query:"ref_id" validate:"required"`
-	ID        []uuid.UUID                     `query:"id" validate:"omitempty"`
+
+	RefType   catalogdb.CatalogCommentRefType `query:"ref_type"   validate:"required"`
+	RefID     uuid.UUID                       `query:"ref_id"     validate:"required"`
+	ID        []uuid.UUID                     `query:"id"         validate:"omitempty"`
 	AccountID []uuid.UUID                     `query:"account_id" validate:"omitempty"`
 	ScoreFrom null.Float                      `query:"score_from" validate:"omitnil"`
-	ScoreTo   null.Float                      `query:"score_to" validate:"omitnil"`
+	ScoreTo   null.Float                      `query:"score_to"   validate:"omitnil"`
 }
 
 func (h *Handler) ListComment(c echo.Context) error {
@@ -55,11 +56,11 @@ func (h *Handler) ListComment(c echo.Context) error {
 }
 
 type CreateCommentRequest struct {
-	RefType     catalogdb.CatalogCommentRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID       uuid.UUID                       `json:"ref_id" validate:"required"`
-	Body        string                          `json:"body" validate:"required"`
-	Score       float64                         `json:"score" validate:"required"`
-	OrderID     uuid.UUID                       `json:"order_id" validate:"required"`
+	RefType     catalogdb.CatalogCommentRefType `json:"ref_type"     validate:"required,validateFn=Valid"`
+	RefID       uuid.UUID                       `json:"ref_id"       validate:"required"`
+	Body        string                          `json:"body"         validate:"required"`
+	Score       float64                         `json:"score"        validate:"required"`
+	OrderID     uuid.UUID                       `json:"order_id"     validate:"required"`
 	ResourceIDs []uuid.UUID                     `json:"resource_ids" validate:"required"`
 }
 
@@ -93,10 +94,10 @@ func (h *Handler) CreateComment(c echo.Context) error {
 }
 
 type UpdateCommentRequest struct {
-	ID             uuid.UUID   `json:"id" validate:"required"`
-	Body           null.String `json:"body" validate:"required"`
-	Score          null.Float  `json:"score" validate:"required"`
-	ResourceIDs    []uuid.UUID `json:"resource_ids" validate:"required"`
+	ID             uuid.UUID   `json:"id"              validate:"required"`
+	Body           null.String `json:"body"            validate:"required"`
+	Score          null.Float  `json:"score"           validate:"required"`
+	ResourceIDs    []uuid.UUID `json:"resource_ids"    validate:"required"`
 	EmptyResources bool        `json:"empty_resources" validate:"omitempty"`
 }
 
@@ -129,7 +130,7 @@ func (h *Handler) UpdateComment(c echo.Context) error {
 
 type VoteCommentRequest struct {
 	CommentID uuid.UUID `json:"comment_id" validate:"required"`
-	Vote      string    `json:"vote" validate:"required,oneof=upvote downvote"`
+	Vote      string    `json:"vote"       validate:"required,oneof=upvote downvote"`
 }
 
 func (h *Handler) VoteComment(c echo.Context) error {
@@ -218,4 +219,3 @@ func (h *Handler) ListReviewableOrders(c echo.Context) error {
 	}
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
-

@@ -82,10 +82,15 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 		}[fake.IntRange(0, 2)]
 
 		_, err = store.CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
-			ID:               account.ID,
-			Gender:           accountdb.NullAccountGender{AccountGender: gender, Valid: true},
-			Name:             null.StringFrom(fake.Name()),
-			DateOfBirth:      null.TimeFrom(fake.DateRange(time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2003, 1, 1, 0, 0, 0, 0, time.UTC))),
+			ID:     account.ID,
+			Gender: accountdb.NullAccountGender{AccountGender: gender, Valid: true},
+			Name:   null.StringFrom(fake.Name()),
+			DateOfBirth: null.TimeFrom(
+				fake.DateRange(
+					time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+					time.Date(2003, 1, 1, 0, 0, 0, 0, time.UTC),
+				),
+			),
 			DefaultContactID: uuid.NullUUID{UUID: contact.ID, Valid: true},
 		})
 		if err != nil {

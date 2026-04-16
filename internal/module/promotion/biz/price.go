@@ -25,6 +25,7 @@ type DiscountData struct {
 // parsedPromotion holds a promotion with its pre-parsed discount data.
 type parsedPromotion struct {
 	promotionmodel.Promotion
+
 	discount *DiscountData // nil if data is empty or unparseable
 }
 
@@ -42,7 +43,10 @@ type CalculatePromotedPricesParams struct {
 
 // CalculatePromotedPrices calculates promoted prices for the given SKUs.
 // Group-based stacking: different groups stack, same group picks the best.
-func (s *PromotionHandler) CalculatePromotedPrices(ctx restate.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
+func (s *PromotionHandler) CalculatePromotedPrices(
+	ctx restate.Context,
+	params CalculatePromotedPricesParams,
+) (map[uuid.UUID]*catalogmodel.OrderPrice, error) {
 	prices := params.Prices
 	spuMap := params.SpuMap
 	// Collect all manually-entered promotion codes
@@ -168,7 +172,11 @@ func pickBestInGroup(group []parsedPromotion, originalProduct, originalShip shar
 }
 
 // applyWinners sets the final price on an OrderPrice from the group winners.
-func applyWinners(op *catalogmodel.OrderPrice, winners []groupWinner, originalProduct, originalShip sharedmodel.Concurrency) {
+func applyWinners(
+	op *catalogmodel.OrderPrice,
+	winners []groupWinner,
+	originalProduct, originalShip sharedmodel.Concurrency,
+) {
 	// Check for exclusive group — only that winner applies
 	for _, w := range winners {
 		if w.promo.Group == PromotionGroupExclusive {

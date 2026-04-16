@@ -123,9 +123,9 @@ func (h *Handler) ListMessage(c echo.Context) error {
 }
 
 type SendMessageRequest struct {
-	ConversationID uuid.UUID              `json:"conversation_id" validate:"required"`
-	Type           chatdb.ChatMessageType `json:"type" validate:"required"`
-	Content        string                 `json:"content" validate:"required"`
+	ConversationID uuid.UUID              `json:"conversation_id"    validate:"required"`
+	Type           chatdb.ChatMessageType `json:"type"               validate:"required"`
+	Content        string                 `json:"content"            validate:"required"`
 	Metadata       json.RawMessage        `json:"metadata,omitempty"`
 }
 

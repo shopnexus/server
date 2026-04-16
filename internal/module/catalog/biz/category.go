@@ -20,12 +20,16 @@ const popularProductLimit = 4
 
 type ListCategoryParams struct {
 	sharedmodel.PaginationParams
+
 	ID     []uuid.UUID `validate:"omitempty,dive,gt=0"`
 	Search null.String `validate:"omitnil"`
 }
 
 // ListCategory returns paginated categories with popular product images.
-func (b *CatalogHandler) ListCategory(ctx restate.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogmodel.Category], error) {
+func (b *CatalogHandler) ListCategory(
+	ctx restate.Context,
+	params ListCategoryParams,
+) (sharedmodel.PaginateResult[catalogmodel.Category], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.Category]
 
 	if err := validator.Validate(params); err != nil {
@@ -52,10 +56,11 @@ func (b *CatalogHandler) ListCategory(ctx restate.Context, params ListCategoryPa
 	})
 
 	// Get popular product SPU IDs per category
-	popularProducts, err := b.storage.Querier().ListPopularProductPerCategory(ctx, catalogdb.ListPopularProductPerCategoryParams{
-		CategoryID:   categoryIDs,
-		ProductLimit: popularProductLimit,
-	})
+	popularProducts, err := b.storage.Querier().
+		ListPopularProductPerCategory(ctx, catalogdb.ListPopularProductPerCategoryParams{
+			CategoryID:   categoryIDs,
+			ProductLimit: popularProductLimit,
+		})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("list popular products per category", err)
 	}

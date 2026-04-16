@@ -7,6 +7,7 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
@@ -14,7 +15,6 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
-	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -27,7 +27,10 @@ import (
 )
 
 // ListBuyerRefunds returns paginated refund requests with attached resources.
-func (b *OrderHandler) ListBuyerRefunds(ctx restate.Context, params ListBuyerRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+func (b *OrderHandler) ListBuyerRefunds(
+	ctx restate.Context,
+	params ListBuyerRefundsParams,
+) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
 	if err := validator.Validate(params); err != nil {
@@ -80,7 +83,10 @@ func (b *OrderHandler) ListBuyerRefunds(ctx restate.Context, params ListBuyerRef
 }
 
 // CreateBuyerRefund creates a new refund request for an order and tracks refund analytics.
-func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyerRefundParams) (_ ordermodel.Refund, err error) {
+func (b *OrderHandler) CreateBuyerRefund(
+	ctx restate.Context,
+	params CreateBuyerRefundParams,
+) (_ ordermodel.Refund, err error) {
 	defer metrics.TrackHandler("order", "CreateBuyerRefund", &err)()
 
 	var zero ordermodel.Refund
@@ -177,7 +183,10 @@ func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyer
 }
 
 // UpdateBuyerRefund updates a pending refund's method, reason, address, or status.
-func (b *OrderHandler) UpdateBuyerRefund(ctx restate.Context, params UpdateBuyerRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) UpdateBuyerRefund(
+	ctx restate.Context,
+	params UpdateBuyerRefundParams,
+) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -297,8 +306,11 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 			Type:      accountmodel.NotiRefundCancelled,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Refund cancelled",
-			Content:   fmt.Sprintf("Refund request for %s has been cancelled by the buyer.", ordermodel.SummarizeItems(order.Items)),
-			Metadata:  meta,
+			Content: fmt.Sprintf(
+				"Refund request for %s has been cancelled by the buyer.",
+				ordermodel.SummarizeItems(order.Items),
+			),
+			Metadata: meta,
 		})
 	}
 
@@ -306,7 +318,10 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 }
 
 // ConfirmSellerRefund marks a refund as confirmed by the vendor and transitions it to processing.
-func (b *OrderHandler) ConfirmSellerRefund(ctx restate.Context, params ConfirmSellerRefundParams) (_ ordermodel.Refund, err error) {
+func (b *OrderHandler) ConfirmSellerRefund(
+	ctx restate.Context,
+	params ConfirmSellerRefundParams,
+) (_ ordermodel.Refund, err error) {
 	defer metrics.TrackHandler("order", "ConfirmSellerRefund", &err)()
 
 	var zero ordermodel.Refund

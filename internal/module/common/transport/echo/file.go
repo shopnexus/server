@@ -1,6 +1,7 @@
 package commonecho
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -47,7 +48,11 @@ func (h *Handler) UploadFile(c echo.Context) error {
 	resourceMap, _ := h.biz.GetResourcesByIDs(c.Request().Context(), []uuid.UUID{result.ResourceID})
 	resource, ok := resourceMap[result.ResourceID]
 	if !ok {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, fmt.Errorf("failed to retrieve uploaded resource"))
+		return response.FromError(
+			c.Response().Writer,
+			http.StatusInternalServerError,
+			errors.New("failed to retrieve uploaded resource"),
+		)
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, resource)

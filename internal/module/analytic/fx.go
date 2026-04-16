@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the analytic module dependencies
+// Module provides the analytic module dependencies.
 var Module = fx.Module("analytic",
 	fx.Provide(
 		NewAnalyticStorage,

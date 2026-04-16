@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,8 +18,8 @@ var _ Client = (*BedrockClient)(nil)
 // BedrockConfig holds configuration for the AWS Bedrock client.
 type BedrockConfig struct {
 	Region       string `yaml:"region"`
-	EmbedModelID string `yaml:"embedModelId"`  // e.g. "amazon.titan-embed-text-v2:0"
-	ChatModelID  string `yaml:"chatModelId"`   // e.g. "anthropic.claude-3-haiku-20240307-v1:0"
+	EmbedModelID string `yaml:"embedModelId"` // e.g. "amazon.titan-embed-text-v2:0"
+	ChatModelID  string `yaml:"chatModelId"`  // e.g. "anthropic.claude-3-haiku-20240307-v1:0"
 }
 
 // BedrockClient is an AWS Bedrock client implementing the llm.Client interface.
@@ -48,8 +49,8 @@ type titanEmbedRequest struct {
 
 // titanEmbedResponse is the JSON response body from Titan Text Embeddings V2.
 type titanEmbedResponse struct {
-	Embedding          []float32 `json:"embedding"`
-	InputTextTokenCount int      `json:"inputTextTokenCount"`
+	Embedding           []float32 `json:"embedding"`
+	InputTextTokenCount int       `json:"inputTextTokenCount"`
 }
 
 // Embed embeds the given texts using Titan Text Embeddings V2 via InvokeModel.
@@ -198,7 +199,10 @@ func (c *BedrockClient) Chat(ctx context.Context, params ChatParams) (ChatMessag
 
 // GenerateStructured generates structured JSON output using the Converse API.
 // The prompt should instruct the model to return JSON matching the provided schema.
-func (c *BedrockClient) GenerateStructured(ctx context.Context, params GenerateStructuredParams) (json.RawMessage, error) {
+func (c *BedrockClient) GenerateStructured(
+	ctx context.Context,
+	params GenerateStructuredParams,
+) (json.RawMessage, error) {
 	input := &bedrockruntime.ConverseInput{
 		ModelId: aws.String(c.cfg.ChatModelID),
 		Messages: []types.Message{
@@ -244,7 +248,7 @@ func extractConverseText(response *bedrockruntime.ConverseOutput) (string, error
 		return "", fmt.Errorf("unexpected output type: %T", response.Output)
 	}
 	if len(outputMsg.Value.Content) == 0 {
-		return "", fmt.Errorf("empty content in response")
+		return "", errors.New("empty content in response")
 	}
 	textBlock, ok := outputMsg.Value.Content[0].(*types.ContentBlockMemberText)
 	if !ok {

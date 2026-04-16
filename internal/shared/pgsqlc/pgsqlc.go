@@ -15,7 +15,12 @@ type TxBeginner interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
-	CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
+	CopyFrom(
+		ctx context.Context,
+		tableName pgx.Identifier,
+		columnNames []string,
+		rowSrc pgx.CopyFromSource,
+	) (int64, error)
 	SendBatch(context.Context, *pgx.Batch) pgx.BatchResults
 }
 
@@ -38,7 +43,7 @@ type Storage[T Querier] interface {
 	BeginTx(ctx context.Context) (*TxStorage[T], error)
 }
 
-// Storage provides database queries with transaction support
+// Storage provides database queries with transaction support.
 type storage[T Querier] struct {
 	queries       T
 	conn          TxBeginner
@@ -53,7 +58,7 @@ func (s *storage[T]) Conn() TxBeginner {
 	return s.conn
 }
 
-// BeginTx starts a new database transaction
+// BeginTx starts a new database transaction.
 func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 	var tx pgx.Tx
 	var err error
@@ -67,7 +72,7 @@ func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 		WithTx(tx pgx.Tx) T
 	})
 	if !ok {
-		return nil, fmt.Errorf("queries does not implement WithTx method")
+		return nil, errors.New("queries does not implement WithTx method")
 	}
 
 	return &TxStorage[T]{
@@ -80,7 +85,7 @@ func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 	}, nil
 }
 
-// TxStorage provides database queries within an active transaction
+// TxStorage provides database queries within an active transaction.
 type TxStorage[T Querier] struct {
 	tx        pgx.Tx
 	committed bool

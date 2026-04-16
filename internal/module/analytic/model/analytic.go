@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// High intent events
+	// High intent events.
 	EventPurchase    = "purchase"
 	EventAddToCart   = "add_to_cart"
 	EventView        = "view"
@@ -18,21 +18,21 @@ const (
 	EventRatingMed   = "rating_medium"
 	EventRatingLow   = "rating_low"
 
-	// Discovery events
+	// Discovery events.
 	EventClickFromSearch     = "click_from_search"
 	EventClickFromRecommend  = "click_from_recommendation"
 	EventClickFromCategory   = "click_from_category"
 	EventViewSimilarProducts = "view_similar_products"
 
-	// Funnel events
+	// Funnel events.
 	EventProductImpression = "product_impression"
 	EventCheckoutStarted   = "checkout_started"
 
-	// Additional signals
+	// Additional signals.
 	EventAddToFavorites = "add_to_favorites"
 	EventAskQuestion    = "ask_question"
 
-	// Negative signals
+	// Negative signals.
 	EventRemoveFromCart = "remove_from_cart"
 	EventCancelOrder    = "cancel_order"
 	EventRefundReq      = "refund_requested"

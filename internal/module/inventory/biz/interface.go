@@ -15,11 +15,17 @@ type InventoryBiz interface {
 	// Stock
 	GetStock(ctx context.Context, params GetStockParams) (inventorydb.InventoryStock, error)
 	UpdateStockSettings(ctx context.Context, params UpdateStockSettingsParams) (inventorydb.InventoryStock, error)
-	ListStock(ctx context.Context, params ListStockParams) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error)
+	ListStock(
+		ctx context.Context,
+		params ListStockParams,
+	) (sharedmodel.PaginateResult[inventorydb.InventoryStock], error)
 	CreateStock(ctx context.Context, params CreateStockParams) (inventorydb.InventoryStock, error)
 
 	// Stock History
-	ListStockHistory(ctx context.Context, params ListStockHistoryParams) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error)
+	ListStockHistory(
+		ctx context.Context,
+		params ListStockHistoryParams,
+	) (sharedmodel.PaginateResult[inventorydb.InventoryStockHistory], error)
 
 	// Import
 	ImportStock(ctx context.Context, params ImportStockParams) error
@@ -30,7 +36,10 @@ type InventoryBiz interface {
 
 	// Serial
 	UpdateSerial(ctx context.Context, params UpdateSerialParams) error
-	ListSerial(ctx context.Context, params ListSerialParams) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error)
+	ListSerial(
+		ctx context.Context,
+		params ListSerialParams,
+	) (sharedmodel.PaginateResult[inventorydb.InventorySerial], error)
 
 	// Most Taken
 	ListMostTakenSku(ctx context.Context, params ListMostTakenSkuParams) ([]inventorydb.InventoryStock, error)

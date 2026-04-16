@@ -35,8 +35,8 @@ func NewHandler(e *echo.Echo, biz analyticbiz.AnalyticBiz) *Handler {
 
 type CreateInteraction struct {
 	EventType string                                `json:"event_type" validate:"required,min=1"`
-	RefType   analyticdb.AnalyticInteractionRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	RefID     string                                `json:"ref_id" validate:"required"`
+	RefType   analyticdb.AnalyticInteractionRefType `json:"ref_type"   validate:"required,validateFn=Valid"`
+	RefID     string                                `json:"ref_id"     validate:"required"`
 }
 
 type CreateInteractionRequest struct {

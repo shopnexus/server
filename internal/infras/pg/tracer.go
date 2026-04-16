@@ -2,7 +2,8 @@ package pg
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -17,11 +18,15 @@ const traceKey contextKey = "tracedata"
 
 type TraceData struct {
 	sql       string
-	args      []interface{}
+	args      []any
 	startTime time.Time
 }
 
-func (ql *QueryLogger) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (ql *QueryLogger) TraceQueryStart(
+	ctx context.Context,
+	conn *pgx.Conn,
+	data pgx.TraceQueryStartData,
+) context.Context {
 	startTime := time.Now()
 	return context.WithValue(ctx, traceKey, TraceData{
 		sql:       data.SQL,
@@ -36,7 +41,7 @@ func (ql *QueryLogger) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data p
 		elapsed := time.Since(traceData.startTime)
 		queryName := strings.Split(traceData.sql, "\n")[0]
 		queryName = strings.TrimPrefix(queryName, "-- name: ")
-		log.Printf("🔨 - %s %v (%sms)\n", queryName, traceData.args, elapsed)
+		slog.Info(fmt.Sprintf("query - %s %v (%s)", queryName, traceData.args, elapsed))
 	}
 }
 

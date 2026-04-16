@@ -26,7 +26,10 @@ type GetPromotionParams struct {
 }
 
 // GetPromotion returns a promotion by ID, including its refs.
-func (s *PromotionHandler) GetPromotion(ctx restate.Context, params GetPromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionHandler) GetPromotion(
+	ctx restate.Context,
+	params GetPromotionParams,
+) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	promo, err := s.storage.Querier().GetPromotion(ctx, promotiondb.GetPromotionParams{
@@ -50,11 +53,15 @@ func (s *PromotionHandler) GetPromotion(ctx restate.Context, params GetPromotion
 
 type ListPromotionParams struct {
 	sharedmodel.PaginationParams
+
 	ID []uuid.UUID `validate:"omitempty,dive,required"`
 }
 
 // ListPromotion returns a paginated list of promotions with their refs.
-func (s *PromotionHandler) ListPromotion(ctx restate.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
+func (s *PromotionHandler) ListPromotion(
+	ctx restate.Context,
+	params ListPromotionParams,
+) (sharedmodel.PaginateResult[promotionmodel.Promotion], error) {
 	var zero sharedmodel.PaginateResult[promotionmodel.Promotion]
 
 	rows, err := s.storage.Querier().ListCountPromotion(ctx, promotiondb.ListCountPromotionParams{
@@ -112,7 +119,10 @@ type CreatePromotionParams struct {
 }
 
 // CreatePromotion creates a new promotion with the given parameters and refs.
-func (b *PromotionHandler) CreatePromotion(ctx restate.Context, params CreatePromotionParams) (promotionmodel.Promotion, error) {
+func (b *PromotionHandler) CreatePromotion(
+	ctx restate.Context,
+	params CreatePromotionParams,
+) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -168,7 +178,10 @@ type UpdatePromotionParams struct {
 }
 
 // UpdatePromotion updates the specified promotion fields and optionally replaces its refs.
-func (s *PromotionHandler) UpdatePromotion(ctx restate.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error) {
+func (s *PromotionHandler) UpdatePromotion(
+	ctx restate.Context,
+	params UpdatePromotionParams,
+) (promotionmodel.Promotion, error) {
 	var zero promotionmodel.Promotion
 
 	if err := validator.Validate(params); err != nil {
@@ -228,17 +241,23 @@ func (s *PromotionHandler) DeletePromotion(ctx restate.Context, params DeletePro
 // --- Helpers ---
 
 // createRefs bulk-inserts refs for a promotion. No-op if refs is empty.
-func createRefs(ctx context.Context, storage PromotionStorage, promoID uuid.UUID, refs []promotionmodel.PromotionRef) error {
+func createRefs(
+	ctx context.Context,
+	storage PromotionStorage,
+	promoID uuid.UUID,
+	refs []promotionmodel.PromotionRef,
+) error {
 	if len(refs) == 0 {
 		return nil
 	}
-	_, err := storage.Querier().CreateCopyDefaultRef(ctx, lo.Map(refs, func(r promotionmodel.PromotionRef, _ int) promotiondb.CreateCopyDefaultRefParams {
-		return promotiondb.CreateCopyDefaultRefParams{
-			PromotionID: promoID,
-			RefType:     r.RefType,
-			RefID:       r.RefID,
-		}
-	}))
+	_, err := storage.Querier().
+		CreateCopyDefaultRef(ctx, lo.Map(refs, func(r promotionmodel.PromotionRef, _ int) promotiondb.CreateCopyDefaultRefParams {
+			return promotiondb.CreateCopyDefaultRefParams{
+				PromotionID: promoID,
+				RefType:     r.RefType,
+				RefID:       r.RefID,
+			}
+		}))
 	if err != nil {
 		return sharedmodel.WrapErr("db create promotion refs", err)
 	}

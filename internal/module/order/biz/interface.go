@@ -31,11 +31,17 @@ type OrderBiz interface {
 	BuyerCheckout(ctx context.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error)
 
 	// Pending Items (buyer)
-	ListBuyerPending(ctx context.Context, params ListBuyerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
+	ListBuyerPending(
+		ctx context.Context,
+		params ListBuyerPendingParams,
+	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error
 
 	// Incoming Items (seller)
-	ListSellerPending(ctx context.Context, params ListSellerPendingParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
+	ListSellerPending(
+		ctx context.Context,
+		params ListSellerPendingParams,
+	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	QuoteTransport(ctx context.Context, params QuoteTransportParams) (QuoteTransportResult, error)
 	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
@@ -43,8 +49,14 @@ type OrderBiz interface {
 	// Orders
 	GetBuyerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
 	GetSellerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
-	ListBuyerConfirmed(ctx context.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
-	ListSellerConfirmed(ctx context.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListBuyerConfirmed(
+		ctx context.Context,
+		params ListBuyerConfirmedParams,
+	) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListSellerConfirmed(
+		ctx context.Context,
+		params ListSellerConfirmedParams,
+	) (sharedmodel.PaginateResult[ordermodel.Order], error)
 
 	// Payment
 	PayBuyerOrders(ctx context.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error)
@@ -61,7 +73,10 @@ type OrderBiz interface {
 	ValidateOrderForReview(ctx context.Context, params ValidateOrderForReviewParams) (bool, error)
 
 	// Refund
-	ListBuyerRefunds(ctx context.Context, params ListBuyerRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error)
+	ListBuyerRefunds(
+		ctx context.Context,
+		params ListBuyerRefundsParams,
+	) (sharedmodel.PaginateResult[ordermodel.Refund], error)
 	CreateBuyerRefund(ctx context.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error)
 	UpdateBuyerRefund(ctx context.Context, params UpdateBuyerRefundParams) (ordermodel.Refund, error)
 	CancelBuyerRefund(ctx context.Context, params CancelBuyerRefundParams) error
@@ -69,7 +84,10 @@ type OrderBiz interface {
 
 	// Dispute
 	CreateRefundDispute(ctx context.Context, params CreateRefundDisputeParams) (ordermodel.RefundDispute, error)
-	ListRefundDisputes(ctx context.Context, params ListRefundDisputesParams) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error)
+	ListRefundDisputes(
+		ctx context.Context,
+		params ListRefundDisputesParams,
+	) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error)
 	GetRefundDispute(ctx context.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error)
 
 	// Transport
@@ -77,7 +95,10 @@ type OrderBiz interface {
 
 	// Dashboard
 	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)
-	GetSellerOrderTimeSeries(ctx context.Context, params GetSellerOrderTimeSeriesParams) ([]SellerOrderTimeSeriesPoint, error)
+	GetSellerOrderTimeSeries(
+		ctx context.Context,
+		params GetSellerOrderTimeSeriesParams,
+	) ([]SellerOrderTimeSeriesPoint, error)
 	GetSellerPendingActions(ctx context.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error)
 	GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error)
 }
@@ -146,10 +167,10 @@ type BuyerCheckoutParams struct {
 }
 
 type CheckoutItem struct {
-	SkuID    uuid.UUID `json:"sku_id" validate:"required"`
+	SkuID    uuid.UUID `json:"sku_id"   validate:"required"`
 	Quantity int64     `json:"quantity" validate:"required,gt=0"`
-	Address  string    `json:"address" validate:"required,min=1,max=500"`
-	Note     string    `json:"note" validate:"max=500"`
+	Address  string    `json:"address"  validate:"required,min=1,max=500"`
+	Note     string    `json:"note"     validate:"max=500"`
 }
 
 type BuyerCheckoutResult struct {
@@ -292,12 +313,12 @@ type CancelBuyerRefundParams struct {
 
 type HasPurchasedProductParams struct {
 	AccountID uuid.UUID   `json:"account_id" validate:"required"`
-	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
+	SkuIDs    []uuid.UUID `json:"sku_ids"    validate:"required,min=1"`
 }
 
 type ListReviewableOrdersParams struct {
 	AccountID uuid.UUID   `json:"account_id" validate:"required"`
-	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
+	SkuIDs    []uuid.UUID `json:"sku_ids"    validate:"required,min=1"`
 }
 
 type ReviewableOrder struct {
@@ -308,8 +329,8 @@ type ReviewableOrder struct {
 
 type ValidateOrderForReviewParams struct {
 	AccountID uuid.UUID   `json:"account_id" validate:"required"`
-	OrderID   uuid.UUID   `json:"order_id" validate:"required"`
-	SkuIDs    []uuid.UUID `json:"sku_ids" validate:"required,min=1"`
+	OrderID   uuid.UUID   `json:"order_id"   validate:"required"`
+	SkuIDs    []uuid.UUID `json:"sku_ids"    validate:"required,min=1"`
 }
 
 type ConfirmSellerRefundParams struct {
@@ -337,5 +358,5 @@ type GetRefundDisputeParams struct {
 type UpdateTransportStatusParams struct {
 	TransportID uuid.UUID                    `validate:"required"`
 	Status      orderdb.OrderTransportStatus `validate:"required,validateFn=Valid"`
-	Data        map[string]interface{}       `validate:"omitempty"`
+	Data        map[string]any               `validate:"omitempty"`
 }

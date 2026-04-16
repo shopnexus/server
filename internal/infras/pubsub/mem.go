@@ -2,17 +2,17 @@ package pubsub
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 )
 
-// subscription represents a single subscription
+// subscription represents a single subscription.
 type subscription struct {
 	handler func(msg *MessageDecoder) error
 	done    chan struct{}
 }
 
-// MemoryClient implements the Client interface for in-memory pub/sub
+// MemoryClient implements the Client interface for in-memory pub/sub.
 type MemoryClient struct {
 	config        Config
 	group         string
@@ -21,7 +21,7 @@ type MemoryClient struct {
 	closed        bool
 }
 
-// NewMemoryClient creates a new in-memory pub/sub client
+// NewMemoryClient creates a new in-memory pub/sub client.
 func NewMemoryClient(config Config) *MemoryClient {
 	return &MemoryClient{
 		config:        config,
@@ -40,12 +40,12 @@ func (c *MemoryClient) Group(name string) Client {
 	}
 }
 
-// Publish sends a message to all subscribers of the given topic
+// Publish sends a message to all subscribers of the given topic.
 func (c *MemoryClient) Publish(topic string, value any) error {
 	c.mu.RLock()
 	if c.closed {
 		c.mu.RUnlock()
-		return fmt.Errorf("client is closed")
+		return errors.New("client is closed")
 	}
 
 	subs := c.subscriptions[topic]
@@ -106,13 +106,13 @@ func (c *MemoryClient) Publish(topic string, value any) error {
 	return nil
 }
 
-// Subscribe registers a handler for messages on the given topic
+// Subscribe registers a handler for messages on the given topic.
 func (c *MemoryClient) Subscribe(topic string, handler func(msg *MessageDecoder) error) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.closed {
-		return fmt.Errorf("client is closed")
+		return errors.New("client is closed")
 	}
 
 	sub := &subscription{
@@ -125,28 +125,7 @@ func (c *MemoryClient) Subscribe(topic string, handler func(msg *MessageDecoder)
 	return nil
 }
 
-// removeSubscription removes a subscription from the topic
-func (c *MemoryClient) removeSubscription(topic string, targetSub *subscription) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	subs := c.subscriptions[topic]
-	for i, sub := range subs {
-		if sub == targetSub {
-			// Remove subscription by swapping with last element
-			c.subscriptions[topic][i] = c.subscriptions[topic][len(subs)-1]
-			c.subscriptions[topic] = c.subscriptions[topic][:len(subs)-1]
-			break
-		}
-	}
-
-	// Clean up empty topic
-	if len(c.subscriptions[topic]) == 0 {
-		delete(c.subscriptions, topic)
-	}
-}
-
-// Close closes the client and all active subscriptions
+// Close closes the client and all active subscriptions.
 func (c *MemoryClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

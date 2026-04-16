@@ -62,10 +62,24 @@ func filterWhereClause(table *Table) string {
 
 		// Add range conditions if applicable.
 		if col.IsRangeFilterable() {
-			conditions = append(conditions,
-				fmt.Sprintf(`(%s >= sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)`, col.Quoted(), col.Name, col.Name))
-			conditions = append(conditions,
-				fmt.Sprintf(`(%s <= sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)`, col.Quoted(), col.Name, col.Name))
+			conditions = append(
+				conditions,
+				fmt.Sprintf(
+					`(%s >= sqlc.narg('%s_from') OR sqlc.narg('%s_from') IS NULL)`,
+					col.Quoted(),
+					col.Name,
+					col.Name,
+				),
+			)
+			conditions = append(
+				conditions,
+				fmt.Sprintf(
+					`(%s <= sqlc.narg('%s_to') OR sqlc.narg('%s_to') IS NULL)`,
+					col.Quoted(),
+					col.Name,
+					col.Name,
+				),
+			)
 		}
 	}
 
@@ -114,8 +128,12 @@ func (g *Generator) generateList(table *Table) string {
 	name := g.queryName("List", table)
 	where := filterWhereClause(table)
 
-	return fmt.Sprintf("-- name: %s :many\nSELECT *\nFROM %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
-		name, table.FullName(), where)
+	return fmt.Sprintf(
+		"-- name: %s :many\nSELECT *\nFROM %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
+		name,
+		table.FullName(),
+		where,
+	)
 }
 
 // generateListCount builds the LISTCOUNT query.
@@ -124,8 +142,14 @@ func (g *Generator) generateListCount(table *Table) string {
 	where := filterWhereClause(table)
 	embedAlias := "embed_" + table.Name
 
-	return fmt.Sprintf("-- name: %s :many\nSELECT sqlc.embed(%s), COUNT(*) OVER() as total_count\nFROM %s %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
-		name, embedAlias, table.FullName(), embedAlias, where)
+	return fmt.Sprintf(
+		"-- name: %s :many\nSELECT sqlc.embed(%s), COUNT(*) OVER() as total_count\nFROM %s %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
+		name,
+		embedAlias,
+		table.FullName(),
+		embedAlias,
+		where,
+	)
 }
 
 // columnList returns quoted column names joined with ", ".
@@ -209,9 +233,16 @@ func (g *Generator) generateUpdate(table *Table) string {
 	var setClauses []string
 	for _, col := range cols {
 		if col.Nullable {
-			setClauses = append(setClauses,
-				fmt.Sprintf(`%s = CASE WHEN sqlc.arg('null_%s')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('%s'), %s) END`,
-					col.Quoted(), col.Name, col.Name, col.Quoted()))
+			setClauses = append(
+				setClauses,
+				fmt.Sprintf(
+					`%s = CASE WHEN sqlc.arg('null_%s')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('%s'), %s) END`,
+					col.Quoted(),
+					col.Name,
+					col.Name,
+					col.Quoted(),
+				),
+			)
 		} else {
 			setClauses = append(setClauses,
 				fmt.Sprintf(`%s = COALESCE(sqlc.narg('%s'), %s)`,

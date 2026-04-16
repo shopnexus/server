@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	pgv6 "github.com/pganalyze/pg_query_go/v6"
@@ -165,8 +166,8 @@ func ParseSchemaFiles(filenames []string) ([]*Table, error) {
 			return nil, fmt.Errorf("parsing %s: %w", filename, err)
 		}
 
-		for _, rawStmt := range tree.Stmts {
-			switch n := rawStmt.Stmt.Node.(type) {
+		for _, rawStmt := range tree.GetStmts() {
+			switch n := rawStmt.GetStmt().GetNode().(type) {
 			case *pgv6.Node_CreateStmt:
 				tbl := parseCreateStmt(n.CreateStmt, serialCols)
 				if tbl != nil {
@@ -237,18 +238,18 @@ func prescanSerials(sql string) map[string]bool {
 
 // parseCreateStmt extracts a Table from a CREATE TABLE AST node.
 func parseCreateStmt(cs *pgv6.CreateStmt, serialCols map[string]bool) *Table {
-	if cs.Relation == nil {
+	if cs.GetRelation() == nil {
 		return nil
 	}
 
 	tbl := &Table{
-		Schema: cs.Relation.Schemaname,
-		Name:   cs.Relation.Relname,
+		Schema: cs.GetRelation().GetSchemaname(),
+		Name:   cs.GetRelation().GetRelname(),
 	}
 
 	// First pass: parse columns.
-	for _, elt := range cs.TableElts {
-		switch n := elt.Node.(type) {
+	for _, elt := range cs.GetTableElts() {
+		switch n := elt.GetNode().(type) {
 		case *pgv6.Node_ColumnDef:
 			col := parseColumnDef(n.ColumnDef, tbl.Schema, tbl.Name, serialCols)
 			if col != nil {
@@ -261,8 +262,8 @@ func parseCreateStmt(cs *pgv6.CreateStmt, serialCols map[string]bool) *Table {
 	}
 
 	// Second pass: parse table-level constraints (PRIMARY KEY, UNIQUE).
-	for _, elt := range cs.TableElts {
-		switch n := elt.Node.(type) {
+	for _, elt := range cs.GetTableElts() {
+		switch n := elt.GetNode().(type) {
 		case *pgv6.Node_Constraint:
 			parseTableConstraint(n.Constraint, tbl)
 		}
@@ -274,33 +275,33 @@ func parseCreateStmt(cs *pgv6.CreateStmt, serialCols map[string]bool) *Table {
 // parseAlterTableStmt handles ALTER TABLE ADD COLUMN statements,
 // merging new columns into existing tables.
 func parseAlterTableStmt(stmt *pgv6.AlterTableStmt, tableMap map[string]*Table, serialCols map[string]bool) {
-	if stmt.Relation == nil {
+	if stmt.GetRelation() == nil {
 		return
 	}
 
-	tableKey := stmt.Relation.Schemaname + "." + stmt.Relation.Relname
+	tableKey := stmt.GetRelation().GetSchemaname() + "." + stmt.GetRelation().GetRelname()
 	tbl, ok := tableMap[tableKey]
 	if !ok {
 		return
 	}
 
-	for _, cmd := range stmt.Cmds {
-		atCmd, ok := cmd.Node.(*pgv6.Node_AlterTableCmd)
+	for _, cmd := range stmt.GetCmds() {
+		atCmd, ok := cmd.GetNode().(*pgv6.Node_AlterTableCmd)
 		if !ok {
 			continue
 		}
 
 		// AT_AddColumn
-		if atCmd.AlterTableCmd.Subtype != pgv6.AlterTableType_AT_AddColumn {
+		if atCmd.AlterTableCmd.GetSubtype() != pgv6.AlterTableType_AT_AddColumn {
 			continue
 		}
 
-		defNode := atCmd.AlterTableCmd.Def
+		defNode := atCmd.AlterTableCmd.GetDef()
 		if defNode == nil {
 			continue
 		}
 
-		colDefNode, ok := defNode.Node.(*pgv6.Node_ColumnDef)
+		colDefNode, ok := defNode.GetNode().(*pgv6.Node_ColumnDef)
 		if !ok {
 			continue
 		}
@@ -311,7 +312,7 @@ func parseAlterTableStmt(stmt *pgv6.AlterTableStmt, tableMap map[string]*Table, 
 		}
 
 		// Check for GENERATED AS IDENTITY via the identity field
-		if colDefNode.ColumnDef.Identity != "" {
+		if colDefNode.ColumnDef.GetIdentity() != "" {
 			col.Serial = true
 			col.Nullable = false
 			if !col.HasDefault {
@@ -329,13 +330,13 @@ func parseAlterTableStmt(stmt *pgv6.AlterTableStmt, tableMap map[string]*Table, 
 // parseColumnDef extracts a Column from a ColumnDef AST node.
 func parseColumnDef(cd *pgv6.ColumnDef, schema, table string, serialCols map[string]bool) *Column {
 	col := &Column{
-		Name:     cd.Colname,
+		Name:     cd.GetColname(),
 		Nullable: true, // default to nullable
 	}
 
 	// Resolve type name.
-	if cd.TypeName != nil {
-		col.Type = resolveTypeName(cd.TypeName)
+	if cd.GetTypeName() != nil {
+		col.Type = resolveTypeName(cd.GetTypeName())
 	}
 
 	// Check if this was a SERIAL column in the original SQL.
@@ -345,21 +346,21 @@ func parseColumnDef(cd *pgv6.ColumnDef, schema, table string, serialCols map[str
 	}
 
 	// Check ColumnDef.IsNotNull field.
-	if cd.IsNotNull {
+	if cd.GetIsNotNull() {
 		col.Nullable = false
 	}
 
 	// Check for GENERATED AS IDENTITY.
-	if cd.Identity != "" {
+	if cd.GetIdentity() != "" {
 		col.Serial = true
 		col.Nullable = false
 		col.HasDefault = true
 	}
 
 	// Walk column-level constraints.
-	for _, cNode := range cd.Constraints {
-		if cn, ok := cNode.Node.(*pgv6.Node_Constraint); ok {
-			switch cn.Constraint.Contype {
+	for _, cNode := range cd.GetConstraints() {
+		if cn, ok := cNode.GetNode().(*pgv6.Node_Constraint); ok {
+			switch cn.Constraint.GetContype() {
 			case pgv6.ConstrType_CONSTR_NOTNULL:
 				col.Nullable = false
 			case pgv6.ConstrType_CONSTR_DEFAULT:
@@ -381,9 +382,9 @@ func parseColumnDef(cd *pgv6.ColumnDef, schema, table string, serialCols map[str
 // resolveTypeName converts a TypeName AST node into a string representation.
 func resolveTypeName(tn *pgv6.TypeName) string {
 	var parts []string
-	for _, nameNode := range tn.Names {
-		if s, ok := nameNode.Node.(*pgv6.Node_String_); ok {
-			parts = append(parts, s.String_.Sval)
+	for _, nameNode := range tn.GetNames() {
+		if s, ok := nameNode.GetNode().(*pgv6.Node_String_); ok {
+			parts = append(parts, s.String_.GetSval())
 		}
 	}
 
@@ -395,15 +396,15 @@ func resolveTypeName(tn *pgv6.TypeName) string {
 	typeName := strings.Join(parts, ".")
 
 	// Append type modifiers like (100) for VARCHAR(100) or (3) for TIMESTAMPTZ(3).
-	if len(tn.Typmods) > 0 {
+	if len(tn.GetTypmods()) > 0 {
 		var mods []string
-		for _, modNode := range tn.Typmods {
-			switch v := modNode.Node.(type) {
+		for _, modNode := range tn.GetTypmods() {
+			switch v := modNode.GetNode().(type) {
 			case *pgv6.Node_Integer:
-				mods = append(mods, fmt.Sprintf("%d", v.Integer.Ival))
+				mods = append(mods, strconv.Itoa(int(v.Integer.GetIval())))
 			case *pgv6.Node_AConst:
-				if ival, ok := v.AConst.Val.(*pgv6.A_Const_Ival); ok {
-					mods = append(mods, fmt.Sprintf("%d", ival.Ival.Ival))
+				if ival, ok := v.AConst.GetVal().(*pgv6.A_Const_Ival); ok {
+					mods = append(mods, strconv.Itoa(int(ival.Ival.GetIval())))
 				}
 			}
 		}
@@ -417,11 +418,11 @@ func resolveTypeName(tn *pgv6.TypeName) string {
 
 // parseTableConstraint handles table-level PRIMARY KEY and UNIQUE constraints.
 func parseTableConstraint(c *pgv6.Constraint, tbl *Table) {
-	switch c.Contype {
+	switch c.GetContype() {
 	case pgv6.ConstrType_CONSTR_PRIMARY:
-		for _, keyNode := range c.Keys {
-			if s, ok := keyNode.Node.(*pgv6.Node_String_); ok {
-				colName := s.String_.Sval
+		for _, keyNode := range c.GetKeys() {
+			if s, ok := keyNode.GetNode().(*pgv6.Node_String_); ok {
+				colName := s.String_.GetSval()
 				for _, col := range tbl.Columns {
 					if col.Name == colName {
 						col.PrimaryKey = true
@@ -434,10 +435,10 @@ func parseTableConstraint(c *pgv6.Constraint, tbl *Table) {
 		}
 
 	case pgv6.ConstrType_CONSTR_UNIQUE:
-		uc := &UniqueConstraint{Name: c.Conname}
-		for _, keyNode := range c.Keys {
-			if s, ok := keyNode.Node.(*pgv6.Node_String_); ok {
-				uc.Columns = append(uc.Columns, s.String_.Sval)
+		uc := &UniqueConstraint{Name: c.GetConname()}
+		for _, keyNode := range c.GetKeys() {
+			if s, ok := keyNode.GetNode().(*pgv6.Node_String_); ok {
+				uc.Columns = append(uc.Columns, s.String_.GetSval())
 			}
 		}
 		if len(uc.Columns) > 0 {
@@ -448,23 +449,23 @@ func parseTableConstraint(c *pgv6.Constraint, tbl *Table) {
 
 // parseIndexStmt handles CREATE UNIQUE INDEX statements.
 func parseIndexStmt(idx *pgv6.IndexStmt, tableMap map[string]*Table) {
-	if !idx.Unique {
+	if !idx.GetUnique() {
 		return
 	}
-	if idx.Relation == nil {
+	if idx.GetRelation() == nil {
 		return
 	}
 
-	tableKey := idx.Relation.Schemaname + "." + idx.Relation.Relname
+	tableKey := idx.GetRelation().GetSchemaname() + "." + idx.GetRelation().GetRelname()
 	tbl, ok := tableMap[tableKey]
 	if !ok {
 		return
 	}
 
-	uc := &UniqueConstraint{Name: idx.Idxname}
-	for _, paramNode := range idx.IndexParams {
-		if ie, ok := paramNode.Node.(*pgv6.Node_IndexElem); ok {
-			uc.Columns = append(uc.Columns, ie.IndexElem.Name)
+	uc := &UniqueConstraint{Name: idx.GetIdxname()}
+	for _, paramNode := range idx.GetIndexParams() {
+		if ie, ok := paramNode.GetNode().(*pgv6.Node_IndexElem); ok {
+			uc.Columns = append(uc.Columns, ie.IndexElem.GetName())
 		}
 	}
 

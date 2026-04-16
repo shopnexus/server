@@ -59,9 +59,9 @@ func (h *Handler) GetContact(c echo.Context) error {
 }
 
 type CreateContactRequest struct {
-	FullName    string                       `json:"full_name" validate:"required"`
-	Phone       string                       `json:"phone" validate:"required"`
-	Address     string                       `json:"address" validate:"required"`
+	FullName    string                       `json:"full_name"    validate:"required"`
+	Phone       string                       `json:"phone"        validate:"required"`
+	Address     string                       `json:"address"      validate:"required"`
 	AddressType accountdb.AccountAddressType `json:"address_type" validate:"required,validateFn=Valid"`
 }
 
@@ -94,11 +94,11 @@ func (h *Handler) CreateContact(c echo.Context) error {
 }
 
 type UpdateContactRequest struct {
-	ContactID     uuid.UUID                    `json:"contact_id" validate:"required"`
-	FullName      null.String                  `json:"full_name" validate:"omitnil"`
-	Phone         null.String                  `json:"phone" validate:"omitnil"`
-	Address       null.String                  `json:"address" validate:"omitnil"`
-	AddressType   accountdb.AccountAddressType `json:"address_type" validate:"omitempty,validateFn=Valid"`
+	ContactID     uuid.UUID                    `json:"contact_id"     validate:"required"`
+	FullName      null.String                  `json:"full_name"      validate:"omitnil"`
+	Phone         null.String                  `json:"phone"          validate:"omitnil"`
+	Address       null.String                  `json:"address"        validate:"omitnil"`
+	AddressType   accountdb.AccountAddressType `json:"address_type"   validate:"omitempty,validateFn=Valid"`
 	PhoneVerified null.Bool                    `json:"phone_verified" validate:"omitnil"`
 }
 

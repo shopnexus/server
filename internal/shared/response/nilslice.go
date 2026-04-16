@@ -5,12 +5,12 @@ import (
 	"reflect"
 )
 
-func MarshalJSONWithEmptyArrays(v interface{}) ([]byte, error) {
+func MarshalJSONWithEmptyArrays(v any) ([]byte, error) {
 	processed := replaceNilSlices(v)
 	return json.Marshal(processed)
 }
 
-func replaceNilSlices(data interface{}) interface{} {
+func replaceNilSlices(data any) any {
 	if data == nil {
 		return data
 	}
@@ -86,7 +86,7 @@ func replaceNilSlicesRecursive(val reflect.Value) reflect.Value {
 
 	case reflect.Interface:
 		if val.IsNil() {
-			return reflect.ValueOf([]interface{}{})
+			return reflect.ValueOf([]any{})
 		}
 		return replaceNilSlicesRecursive(val.Elem())
 
@@ -95,7 +95,7 @@ func replaceNilSlicesRecursive(val reflect.Value) reflect.Value {
 	}
 }
 
-// Helper function to set values safely
+// Helper function to set values safely.
 func setValue(dest, src reflect.Value) {
 	if !dest.IsValid() || !src.IsValid() {
 		return
@@ -129,7 +129,7 @@ func setValue(dest, src reflect.Value) {
 	}
 }
 
-// Helper function to set struct fields
+// Helper function to set struct fields.
 func setField(field reflect.Value, value reflect.Value) {
 	if !field.CanSet() || !value.IsValid() {
 		return

@@ -11,7 +11,7 @@ import (
 )
 
 type LoginBasicRequest struct {
-	ID       string `json:"id" validate:"required"`
+	ID       string `json:"id"       validate:"required"`
 	Password string `json:"password" validate:"required"`
 }
 
@@ -47,8 +47,8 @@ func (h *Handler) LoginBasic(c echo.Context) error {
 
 type RegisterBasicRequest struct {
 	Username null.String `json:"username" validate:"omitnil"`
-	Email    null.String `json:"email" validate:"omitnil"`
-	Phone    null.String `json:"phone" validate:"omitnil"`
+	Email    null.String `json:"email"    validate:"omitnil"`
+	Phone    null.String `json:"phone"    validate:"omitnil"`
 	Password string      `json:"password" validate:"required"`
 }
 

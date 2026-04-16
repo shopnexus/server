@@ -1,16 +1,18 @@
-package catalogutil
+package catalogutil_test
 
 import (
 	"testing"
+
+	catalogutil "shopnexus-server/internal/module/catalog/util"
 )
 
 // ---------- AssignPositive: empty slots ----------
 
 func TestAssignPositive_EmptySlot(t *testing.T) {
-	interests, strengths := DefaultInterests(3)
+	interests, strengths := catalogutil.DefaultInterests(3)
 	vec := []float32{1, 0, 0}
 
-	AssignPositive(interests, strengths, vec, 0.5)
+	catalogutil.AssignPositive(interests, strengths, vec, 0.5)
 
 	// Should land in slot 0 (first empty)
 	if strengths[0] != 0.5 {
@@ -22,7 +24,7 @@ func TestAssignPositive_EmptySlot(t *testing.T) {
 
 	// Second different vector should go into slot 1
 	vec2 := []float32{0, 1, 0}
-	AssignPositive(interests, strengths, vec2, 0.3)
+	catalogutil.AssignPositive(interests, strengths, vec2, 0.3)
 	if strengths[1] != 0.3 {
 		t.Fatalf("expected strength 0.3 in slot 1, got %f", strengths[1])
 	}
@@ -31,21 +33,21 @@ func TestAssignPositive_EmptySlot(t *testing.T) {
 // ---------- AssignPositive: merge above threshold ----------
 
 func TestAssignPositive_MergeAboveThreshold(t *testing.T) {
-	interests, strengths := DefaultInterests(3)
+	interests, strengths := catalogutil.DefaultInterests(3)
 
 	// Seed slot 0 with a known vector
-	vec := VectorNormalize([]float32{1, 0.1, 0})
-	AssignPositive(interests, strengths, vec, 1.0)
+	vec := catalogutil.VectorNormalize([]float32{1, 0.1, 0})
+	catalogutil.AssignPositive(interests, strengths, vec, 1.0)
 	origStrength := strengths[0]
 
 	// Feed a very similar vector — should merge into slot 0
-	similar := VectorNormalize([]float32{1, 0.15, 0})
-	sim := CosineSim(vec, similar)
-	if sim <= MergeThreshold {
+	similar := catalogutil.VectorNormalize([]float32{1, 0.15, 0})
+	sim := catalogutil.CosineSim(vec, similar)
+	if sim <= catalogutil.MergeThreshold {
 		t.Fatalf("test setup error: vectors not similar enough (sim=%f)", sim)
 	}
 
-	AssignPositive(interests, strengths, similar, 0.5)
+	catalogutil.AssignPositive(interests, strengths, similar, 0.5)
 
 	if strengths[0] <= origStrength {
 		t.Fatalf("expected strength to increase from %f, got %f", origStrength, strengths[0])
@@ -59,21 +61,21 @@ func TestAssignPositive_MergeAboveThreshold(t *testing.T) {
 // ---------- AssignNegative: push away ----------
 
 func TestAssignNegative_PushAway(t *testing.T) {
-	interests, strengths := DefaultInterests(3)
+	interests, strengths := catalogutil.DefaultInterests(3)
 
 	// Seed slot 0
-	vec := VectorNormalize([]float32{1, 0.1, 0})
-	AssignPositive(interests, strengths, vec, 5.0)
+	vec := catalogutil.VectorNormalize([]float32{1, 0.1, 0})
+	catalogutil.AssignPositive(interests, strengths, vec, 5.0)
 	origStrength := strengths[0]
 
 	// Negative signal with a very similar vector
-	negVec := VectorNormalize([]float32{1, 0.12, 0})
-	sim := CosineSim(interests[0], negVec)
-	if sim <= MergeThreshold {
+	negVec := catalogutil.VectorNormalize([]float32{1, 0.12, 0})
+	sim := catalogutil.CosineSim(interests[0], negVec)
+	if sim <= catalogutil.MergeThreshold {
 		t.Fatalf("test setup error: vectors not similar enough (sim=%f)", sim)
 	}
 
-	AssignNegative(interests, strengths, negVec, -0.6)
+	catalogutil.AssignNegative(interests, strengths, negVec, -0.6)
 
 	if strengths[0] >= origStrength {
 		t.Fatalf("expected strength to decrease from %f, got %f", origStrength, strengths[0])
@@ -83,21 +85,21 @@ func TestAssignNegative_PushAway(t *testing.T) {
 // ---------- AssignPositive: MaxStrength cap ----------
 
 func TestAssignPositive_MaxStrengthCap(t *testing.T) {
-	interests, strengths := DefaultInterests(3)
+	interests, strengths := catalogutil.DefaultInterests(3)
 
 	// Seed slot 0 near the cap
-	vec := VectorNormalize([]float32{1, 0, 0})
+	vec := catalogutil.VectorNormalize([]float32{1, 0, 0})
 	interests[0] = make([]float32, 3)
 	copy(interests[0], vec)
-	strengths[0] = MaxStrength - 0.1
+	strengths[0] = catalogutil.MaxStrength - 0.1
 
 	// Merge a similar vector with weight that would exceed the cap
-	AssignPositive(interests, strengths, vec, 5.0)
+	catalogutil.AssignPositive(interests, strengths, vec, 5.0)
 
-	if strengths[0] > MaxStrength {
-		t.Fatalf("strength %f exceeds MaxStrength %f", strengths[0], MaxStrength)
+	if strengths[0] > catalogutil.MaxStrength {
+		t.Fatalf("strength %f exceeds MaxStrength %f", strengths[0], catalogutil.MaxStrength)
 	}
-	if strengths[0] != MaxStrength {
-		t.Fatalf("expected strength capped at %f, got %f", MaxStrength, strengths[0])
+	if strengths[0] != catalogutil.MaxStrength {
+		t.Fatalf("expected strength capped at %f, got %f", catalogutil.MaxStrength, strengths[0])
 	}
 }

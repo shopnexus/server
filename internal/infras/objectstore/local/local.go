@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,7 +28,7 @@ type LocalConfig struct {
 
 func NewClient(cfg LocalConfig) (*ClientImpl, error) {
 	if cfg.Root == "" {
-		return nil, fmt.Errorf("local root is required")
+		return nil, errors.New("local root is required")
 	}
 	if err := os.MkdirAll(cfg.Root, 0o755); err != nil {
 		return nil, fmt.Errorf("create root: %w", err)
@@ -53,7 +54,7 @@ func (c *ClientImpl) Config() sharedmodel.OptionConfig {
 func (c *ClientImpl) GetURL(ctx context.Context, key string) (string, error) {
 	_ = ctx
 	if c.baseURL == "" {
-		return "", fmt.Errorf("baseURL not configured for local objectstore")
+		return "", errors.New("baseURL not configured for local objectstore")
 	}
 	return fmt.Sprintf("%s/%s", c.baseURL, key), nil
 }

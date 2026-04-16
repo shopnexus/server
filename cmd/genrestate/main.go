@@ -208,7 +208,13 @@ func main() {
 
 // renderType converts an AST type expression to a string, qualifying
 // unqualified exported identifiers with srcPkg (unless samePackage) and tracking used imports.
-func renderType(fset *token.FileSet, expr ast.Expr, srcPkg string, samePackage bool, usedImports, importMap map[string]string) string {
+func renderType(
+	fset *token.FileSet,
+	expr ast.Expr,
+	srcPkg string,
+	samePackage bool,
+	usedImports, importMap map[string]string,
+) string {
 	switch t := expr.(type) {
 	case *ast.Ident:
 		if !samePackage && len(t.Name) > 0 && unicode.IsUpper(rune(t.Name[0])) {

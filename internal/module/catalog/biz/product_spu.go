@@ -33,10 +33,16 @@ func (b *CatalogHandler) getTagsMap(ctx restate.Context, spuID []uuid.UUID) map[
 		}
 		return zero
 	}
-	return lo.GroupByMap(tags, func(tag catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return tag.SpuID, tag.Tag })
+	return lo.GroupByMap(
+		tags,
+		func(tag catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return tag.SpuID, tag.Tag },
+	)
 }
 
-func (b *CatalogHandler) getRatingsMap(ctx restate.Context, spuIDs []uuid.UUID) (map[uuid.UUID]catalogdb.ListRatingRow, error) {
+func (b *CatalogHandler) getRatingsMap(
+	ctx restate.Context,
+	spuIDs []uuid.UUID,
+) (map[uuid.UUID]catalogdb.ListRatingRow, error) {
 	ratings, err := b.storage.Querier().ListRating(ctx, catalogdb.ListRatingParams{
 		RefType: catalogdb.CatalogCommentRefTypeProductSpu,
 		RefID:   spuIDs,
@@ -55,7 +61,10 @@ func (b *CatalogHandler) getCategory(ctx restate.Context, categoryID uuid.UUID) 
 }
 
 // getCategoriesMap batch-fetches categories by IDs and returns a map keyed by category ID.
-func (b *CatalogHandler) getCategoriesMap(ctx restate.Context, categoryIDs []uuid.UUID) map[uuid.UUID]catalogdb.CatalogCategory {
+func (b *CatalogHandler) getCategoriesMap(
+	ctx restate.Context,
+	categoryIDs []uuid.UUID,
+) map[uuid.UUID]catalogdb.CatalogCategory {
 	if len(categoryIDs) == 0 {
 		return map[uuid.UUID]catalogdb.CatalogCategory{}
 	}
@@ -74,7 +83,10 @@ type GetProductSpuParams struct {
 }
 
 // GetProductSpu returns a single product SPU by ID or slug.
-func (b *CatalogHandler) GetProductSpu(ctx restate.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogHandler) GetProductSpu(
+	ctx restate.Context,
+	params GetProductSpuParams,
+) (catalogmodel.ProductSpu, error) {
 	var (
 		listSpu sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 		err     error
@@ -104,6 +116,7 @@ func (b *CatalogHandler) GetProductSpu(ctx restate.Context, params GetProductSpu
 
 type ListProductSpuParams struct {
 	sharedmodel.PaginationParams
+
 	Account    accountmodel.AuthenticatedAccount `validate:"omitempty"`
 	ID         []uuid.UUID                       `validate:"omitempty,dive"`
 	Slug       []string                          `validate:"omitempty,dive"`
@@ -114,7 +127,10 @@ type ListProductSpuParams struct {
 }
 
 // ListProductSpu returns paginated product SPUs with optional filters for category and active status.
-func (b *CatalogHandler) ListProductSpu(ctx restate.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
+func (b *CatalogHandler) ListProductSpu(
+	ctx restate.Context,
+	params ListProductSpuParams,
+) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductSpu]
 
 	if err := validator.Validate(params); err != nil {
@@ -232,7 +248,10 @@ type CreateProductSpuParams struct {
 }
 
 // CreateProductSpu creates a new product SPU with tags, resources, and search sync entry.
-func (b *CatalogHandler) CreateProductSpu(ctx restate.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogHandler) CreateProductSpu(
+	ctx restate.Context,
+	params CreateProductSpuParams,
+) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
@@ -307,7 +326,10 @@ type UpdateProductSpuParams struct {
 }
 
 // UpdateProductSpu updates an existing product SPU and marks the search index as stale.
-func (b *CatalogHandler) UpdateProductSpu(ctx restate.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error) {
+func (b *CatalogHandler) UpdateProductSpu(
+	ctx restate.Context,
+	params UpdateProductSpuParams,
+) (catalogmodel.ProductSpu, error) {
 	var zero catalogmodel.ProductSpu
 
 	if err := validator.Validate(params); err != nil {
@@ -479,7 +501,10 @@ func (b *CatalogHandler) updateTags(ctx restate.Context, q *catalogdb.Queries, p
 
 // dbToProductSpuWithCategory maps a DB CatalogProductSpu row to the model type using a pre-fetched category.
 // Callers should set Rating, Tags, Resources, and Specifications as needed.
-func (b *CatalogHandler) dbToProductSpuWithCategory(spu catalogdb.CatalogProductSpu, category catalogdb.CatalogCategory) catalogmodel.ProductSpu {
+func (b *CatalogHandler) dbToProductSpuWithCategory(
+	spu catalogdb.CatalogProductSpu,
+	category catalogdb.CatalogCategory,
+) catalogmodel.ProductSpu {
 	return catalogmodel.ProductSpu{
 		ID:            spu.ID,
 		AccountID:     spu.AccountID,

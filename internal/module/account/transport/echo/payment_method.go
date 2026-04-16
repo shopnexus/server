@@ -16,8 +16,8 @@ import (
 
 type CreatePaymentMethodRequest struct {
 	ServiceOptionID string          `json:"service_option_id" validate:"required"`
-	Label           string          `json:"label" validate:"required"`
-	Data            json.RawMessage `json:"data" validate:"required"`
+	Label           string          `json:"label"             validate:"required"`
+	Data            json.RawMessage `json:"data"              validate:"required"`
 	IsDefault       bool            `json:"is_default"`
 }
 
@@ -79,10 +79,10 @@ func (h *Handler) ListPaymentMethod(c echo.Context) error {
 }
 
 type UpdatePaymentMethodRequest struct {
-	ID              uuid.UUID       `json:"id" validate:"required"`
+	ID              uuid.UUID       `json:"id"                validate:"required"`
 	ServiceOptionID null.String     `json:"service_option_id" validate:"omitnil"`
-	Label           null.String     `json:"label" validate:"omitnil"`
-	Data            json.RawMessage `json:"data" validate:"omitempty"`
+	Label           null.String     `json:"label"             validate:"omitnil"`
+	Data            json.RawMessage `json:"data"              validate:"omitempty"`
 }
 
 func (h *Handler) UpdatePaymentMethod(c echo.Context) error {

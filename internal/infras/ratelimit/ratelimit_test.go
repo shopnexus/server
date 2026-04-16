@@ -1,4 +1,4 @@
-package ratelimit
+package ratelimit_test
 
 import (
 	"net/http"
@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"shopnexus-server/internal/infras/ratelimit"
 )
 
 // TestFactoryMemoryFallback verifies that when no Redis client is available,
@@ -17,7 +19,7 @@ import (
 // With limit=3 over 1 minute, burst of 3 is allowed, 4th request gets 429.
 func TestFactoryMemoryFallback(t *testing.T) {
 	// Nil cache → factory uses memory store
-	f := NewFactory(nil)
+	f := ratelimit.NewFactory(nil)
 
 	e := echo.New()
 	e.GET("/x", func(c echo.Context) error {
@@ -48,7 +50,7 @@ func TestFactoryMemoryFallback(t *testing.T) {
 // TestFactoryIsolatesIPs verifies different clients get independent quotas
 // even when they hit the same route (same scope).
 func TestFactoryIsolatesIPs(t *testing.T) {
-	f := NewFactory(nil)
+	f := ratelimit.NewFactory(nil)
 	e := echo.New()
 	e.GET("/x", func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")

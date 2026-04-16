@@ -31,16 +31,16 @@ func (h *Handler) GetMe(c echo.Context) error {
 
 type UpdateMeRequest struct {
 	// Account base fields
-	Status   accountdb.AccountStatus `json:"status" validate:"omitempty,validateFn=Valid"`
+	Status   accountdb.AccountStatus `json:"status"   validate:"omitempty,validateFn=Valid"`
 	Username null.String             `json:"username" validate:"omitempty,min=3,max=30,alphanum"`
-	Phone    null.String             `json:"phone" validate:"omitempty,e164"`
-	Email    null.String             `json:"email" validate:"omitempty,email"`
+	Phone    null.String             `json:"phone"    validate:"omitempty,e164"`
+	Email    null.String             `json:"email"    validate:"omitempty,email"`
 
 	// Profile fields
-	Gender           accountdb.AccountGender `json:"gender" validate:"omitempty,validateFn=Valid"`
-	Name             null.String             `json:"name" validate:"omitnil"`
-	DateOfBirth      null.Time               `json:"date_of_birth" validate:"omitnil"`
-	AvatarRsID       uuid.NullUUID           `json:"avatar_rs_id" validate:"omitnil"`
+	Gender           accountdb.AccountGender `json:"gender"             validate:"omitempty,validateFn=Valid"`
+	Name             null.String             `json:"name"               validate:"omitnil"`
+	DateOfBirth      null.Time               `json:"date_of_birth"      validate:"omitnil"`
+	AvatarRsID       uuid.NullUUID           `json:"avatar_rs_id"       validate:"omitnil"`
 	DefaultContactID uuid.NullUUID           `json:"default_contact_id" validate:"omitnil"`
 
 	// Vendor fields

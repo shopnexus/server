@@ -1,4 +1,4 @@
-package orderbiz
+package orderbiz_test
 
 import (
 	"encoding/json"
@@ -45,9 +45,9 @@ func TestPartialRefundItemIDsSerialization(t *testing.T) {
 // used inside CreateBuyerRefund rejects repeated item IDs in the same request.
 func TestPartialRefundDuplicateItemRejection(t *testing.T) {
 	cases := []struct {
-		name     string
-		input    []int64
-		wantDup  bool
+		name    string
+		input   []int64
+		wantDup bool
 	}{
 		{name: "no duplicates", input: []int64{1, 2, 3}, wantDup: false},
 		{name: "adjacent duplicate", input: []int64{1, 1, 2}, wantDup: true},

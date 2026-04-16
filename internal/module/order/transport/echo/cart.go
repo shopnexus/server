@@ -41,8 +41,8 @@ func (h *Handler) GetCart(c echo.Context) error {
 }
 
 type UpdateCartRequest struct {
-	SkuID         uuid.UUID  `json:"sku_id" validate:"required"`
-	Quantity      null.Int64 `json:"quantity" validate:"omitnil"`
+	SkuID         uuid.UUID  `json:"sku_id"         validate:"required"`
+	Quantity      null.Int64 `json:"quantity"       validate:"omitnil"`
 	DeltaQuantity null.Int64 `json:"delta_quantity" validate:"omitnil"`
 }
 

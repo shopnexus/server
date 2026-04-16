@@ -14,9 +14,9 @@ import (
 // --- Param/Result structs ---
 
 type GetSellerOrderStatsParams struct {
-	SellerID  uuid.UUID `json:"seller_id" validate:"required"`
+	SellerID  uuid.UUID `json:"seller_id"  validate:"required"`
 	StartDate time.Time `json:"start_date" validate:"required"`
-	EndDate   time.Time `json:"end_date" validate:"required"`
+	EndDate   time.Time `json:"end_date"   validate:"required"`
 }
 
 type SellerOrderStats struct {
@@ -26,9 +26,9 @@ type SellerOrderStats struct {
 }
 
 type GetSellerOrderTimeSeriesParams struct {
-	SellerID    uuid.UUID `json:"seller_id" validate:"required"`
-	StartDate   time.Time `json:"start_date" validate:"required"`
-	EndDate     time.Time `json:"end_date" validate:"required"`
+	SellerID    uuid.UUID `json:"seller_id"   validate:"required"`
+	StartDate   time.Time `json:"start_date"  validate:"required"`
+	EndDate     time.Time `json:"end_date"    validate:"required"`
 	Granularity string    `json:"granularity" validate:"required,oneof=day week month"`
 }
 
@@ -48,9 +48,9 @@ type SellerPendingActions struct {
 }
 
 type GetSellerTopProductsParams struct {
-	SellerID  uuid.UUID `json:"seller_id" validate:"required"`
+	SellerID  uuid.UUID `json:"seller_id"  validate:"required"`
 	StartDate time.Time `json:"start_date" validate:"required"`
-	EndDate   time.Time `json:"end_date" validate:"required"`
+	EndDate   time.Time `json:"end_date"   validate:"required"`
 	Limit     int32     `json:"limit"`
 }
 
@@ -63,7 +63,10 @@ type SellerTopProduct struct {
 
 // --- Implementations ---
 
-func (b *OrderHandler) GetSellerOrderStats(ctx restate.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error) {
+func (b *OrderHandler) GetSellerOrderStats(
+	ctx restate.Context,
+	params GetSellerOrderStatsParams,
+) (SellerOrderStats, error) {
 	row, err := b.storage.Querier().GetSellerOrderStats(ctx, orderdb.GetSellerOrderStatsParams{
 		SellerID:  params.SellerID,
 		StartDate: params.StartDate,
@@ -79,7 +82,10 @@ func (b *OrderHandler) GetSellerOrderStats(ctx restate.Context, params GetSeller
 	}, nil
 }
 
-func (b *OrderHandler) GetSellerOrderTimeSeries(ctx restate.Context, params GetSellerOrderTimeSeriesParams) ([]SellerOrderTimeSeriesPoint, error) {
+func (b *OrderHandler) GetSellerOrderTimeSeries(
+	ctx restate.Context,
+	params GetSellerOrderTimeSeriesParams,
+) ([]SellerOrderTimeSeriesPoint, error) {
 	rows, err := b.storage.Querier().GetSellerOrderTimeSeries(ctx, orderdb.GetSellerOrderTimeSeriesParams{
 		Granularity: params.Granularity,
 		SellerID:    params.SellerID,
@@ -101,7 +107,10 @@ func (b *OrderHandler) GetSellerOrderTimeSeries(ctx restate.Context, params GetS
 	return points, nil
 }
 
-func (b *OrderHandler) GetSellerPendingActions(ctx restate.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error) {
+func (b *OrderHandler) GetSellerPendingActions(
+	ctx restate.Context,
+	params GetSellerPendingActionsParams,
+) (SellerPendingActions, error) {
 	row, err := b.storage.Querier().GetSellerPendingActions(ctx, params.SellerID)
 	if err != nil {
 		return SellerPendingActions{}, sharedmodel.WrapErr("get seller pending actions", err)
@@ -112,7 +121,10 @@ func (b *OrderHandler) GetSellerPendingActions(ctx restate.Context, params GetSe
 	}, nil
 }
 
-func (b *OrderHandler) GetSellerTopProducts(ctx restate.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error) {
+func (b *OrderHandler) GetSellerTopProducts(
+	ctx restate.Context,
+	params GetSellerTopProductsParams,
+) ([]SellerTopProduct, error) {
 	limit := params.Limit
 	if limit <= 0 {
 		limit = 5

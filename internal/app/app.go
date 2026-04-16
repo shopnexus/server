@@ -13,8 +13,8 @@ import (
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/milvus"
-	"shopnexus-server/internal/infras/ratelimit"
 	"shopnexus-server/internal/infras/pubsub"
+	"shopnexus-server/internal/infras/ratelimit"
 	restateclient "shopnexus-server/internal/infras/restate"
 	"shopnexus-server/internal/module/account"
 	"shopnexus-server/internal/module/analytic"
@@ -29,7 +29,7 @@ import (
 	"shopnexus-server/internal/provider/llm"
 )
 
-// Module combines all internal modules
+// Module combines all internal modules.
 var Module = fx.Module("main",
 	// Infrastructure
 	fx.Provide(
@@ -64,7 +64,7 @@ var Module = fx.Module("main",
 	),
 )
 
-// NewConfig provides the application configuration
+// NewConfig provides the application configuration.
 func NewConfig() *config.Config {
 	return config.GetConfig()
 }

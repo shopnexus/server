@@ -210,14 +210,14 @@ func (h *Handler) ListSellerConfirmed(c echo.Context) error {
 
 type BuyerCheckoutRequest struct {
 	BuyNow bool                  `json:"buy_now" validate:"omitempty"`
-	Items  []CheckoutItemRequest `json:"items" validate:"required,min=1,dive"`
+	Items  []CheckoutItemRequest `json:"items"   validate:"required,min=1,dive"`
 }
 
 type CheckoutItemRequest struct {
-	SkuID    uuid.UUID `json:"sku_id" validate:"required"`
+	SkuID    uuid.UUID `json:"sku_id"   validate:"required"`
 	Quantity int64     `json:"quantity" validate:"required,gt=0"`
-	Address  string    `json:"address" validate:"required,min=1,max=500"`
-	Note     string    `json:"note" validate:"max=500"`
+	Address  string    `json:"address"  validate:"required,min=1,max=500"`
+	Note     string    `json:"note"     validate:"max=500"`
 }
 
 func (h *Handler) BuyerCheckout(c echo.Context) error {
@@ -312,7 +312,7 @@ func (h *Handler) CancelBuyerPending(c echo.Context) error {
 // --- Payment ---
 
 type PayBuyerOrdersRequest struct {
-	OrderIDs      []uuid.UUID `json:"order_ids" validate:"required,min=1"`
+	OrderIDs      []uuid.UUID `json:"order_ids"      validate:"required,min=1"`
 	PaymentOption string      `json:"payment_option" validate:"required,min=1,max=100"`
 }
 
@@ -341,4 +341,3 @@ func (h *Handler) PayBuyerOrders(c echo.Context) error {
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
-

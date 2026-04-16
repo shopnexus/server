@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/openai/openai-go/v3"
@@ -45,7 +46,7 @@ func NewOpenAIClient(cfg OpenAIConfig) *OpenAIClient {
 // OpenAI only returns dense embeddings; Sparse will be nil.
 func (c *OpenAIClient) Embed(ctx context.Context, texts []string) ([]EmbedResult, error) {
 	resp, err := c.client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(c.embedModel),
+		Model: c.embedModel,
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: texts,
 		},
@@ -71,7 +72,7 @@ func (c *OpenAIClient) Embed(ctx context.Context, texts []string) ([]EmbedResult
 // GenerateText calls the chat completions API with a single user message.
 func (c *OpenAIClient) GenerateText(ctx context.Context, params GenerateTextParams) (string, error) {
 	p := openai.ChatCompletionNewParams{
-		Model: openai.ChatModel(c.chatModel),
+		Model: c.chatModel,
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage(params.Prompt),
 		},
@@ -88,7 +89,7 @@ func (c *OpenAIClient) GenerateText(ctx context.Context, params GenerateTextPara
 		return "", fmt.Errorf("llm/openai: generate text: %w", err)
 	}
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("llm/openai: generate text: no choices returned")
+		return "", errors.New("llm/openai: generate text: no choices returned")
 	}
 	return resp.Choices[0].Message.Content, nil
 }
@@ -110,7 +111,7 @@ func (c *OpenAIClient) Chat(ctx context.Context, params ChatParams) (ChatMessage
 	}
 
 	p := openai.ChatCompletionNewParams{
-		Model:    openai.ChatModel(c.chatModel),
+		Model:    c.chatModel,
 		Messages: msgs,
 	}
 	if params.MaxTokens > 0 {
@@ -125,7 +126,7 @@ func (c *OpenAIClient) Chat(ctx context.Context, params ChatParams) (ChatMessage
 		return ChatMessage{}, fmt.Errorf("llm/openai: chat: %w", err)
 	}
 	if len(resp.Choices) == 0 {
-		return ChatMessage{}, fmt.Errorf("llm/openai: chat: no choices returned")
+		return ChatMessage{}, errors.New("llm/openai: chat: no choices returned")
 	}
 	msg := resp.Choices[0].Message
 	return ChatMessage{
@@ -136,9 +137,12 @@ func (c *OpenAIClient) Chat(ctx context.Context, params ChatParams) (ChatMessage
 
 // GenerateStructured calls the chat completions API with JSON object response format.
 // The schema is expected to be embedded in the prompt by the caller.
-func (c *OpenAIClient) GenerateStructured(ctx context.Context, params GenerateStructuredParams) (json.RawMessage, error) {
+func (c *OpenAIClient) GenerateStructured(
+	ctx context.Context,
+	params GenerateStructuredParams,
+) (json.RawMessage, error) {
 	p := openai.ChatCompletionNewParams{
-		Model: openai.ChatModel(c.chatModel),
+		Model: c.chatModel,
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage(params.Prompt),
 		},
@@ -158,7 +162,7 @@ func (c *OpenAIClient) GenerateStructured(ctx context.Context, params GenerateSt
 		return nil, fmt.Errorf("llm/openai: generate structured: %w", err)
 	}
 	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("llm/openai: generate structured: no choices returned")
+		return nil, errors.New("llm/openai: generate structured: no choices returned")
 	}
 	return json.RawMessage(resp.Choices[0].Message.Content), nil
 }

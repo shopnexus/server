@@ -59,12 +59,18 @@ func (b *AnalyticHandler) HandlePopularityEvent(ctx restate.Context, event analy
 }
 
 // GetProductPopularity returns the popularity metrics for the given product SPU.
-func (b *AnalyticHandler) GetProductPopularity(ctx restate.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticHandler) GetProductPopularity(
+	ctx restate.Context,
+	spuID uuid.UUID,
+) (analyticdb.AnalyticProductPopularity, error) {
 	return b.storage.Querier().GetProductPopularityByID(ctx, spuID)
 }
 
 // ListTopProductPopularity returns the top products ranked by popularity score.
-func (b *AnalyticHandler) ListTopProductPopularity(ctx restate.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error) {
+func (b *AnalyticHandler) ListTopProductPopularity(
+	ctx restate.Context,
+	params sharedmodel.PaginationParams,
+) ([]analyticdb.AnalyticProductPopularity, error) {
 	params = params.Constrain()
 	return b.storage.Querier().ListTopProductPopularity(ctx, analyticdb.ListTopProductPopularityParams{
 		Limit:  params.Limit,

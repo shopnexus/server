@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-// cacheItem holds the cached value and its expiration time
+// cacheItem holds the cached value and its expiration time.
 type cacheItem struct {
 	value      any
 	expiration time.Time
 }
 
-// isExpired checks if the item has expired
+// isExpired checks if the item has expired.
 func (item *cacheItem) isExpired() bool {
 	return !item.expiration.IsZero() && time.Now().After(item.expiration)
 }
 
-// InMemoryCache implements the Client interface using a simple map
+// InMemoryCache implements the Client interface using a simple map.
 type InMemoryCache struct {
 	mu    sync.RWMutex
 	items map[string]*cacheItem
@@ -29,7 +29,7 @@ type InMemoryCache struct {
 	stopCleanup   chan struct{}
 }
 
-// NewInMemoryClient creates a new in-memory cache instance
+// NewInMemoryClient creates a new in-memory cache instance.
 func NewInMemoryClient() *InMemoryCache {
 	cache := &InMemoryCache{
 		items:       make(map[string]*cacheItem),
@@ -43,7 +43,7 @@ func NewInMemoryClient() *InMemoryCache {
 	return cache
 }
 
-// Get retrieves a value from cache and copies it to dest
+// Get retrieves a value from cache and copies it to dest.
 func (c *InMemoryCache) Get(ctx context.Context, key string, dest any) error {
 	// Check if context is cancelled
 	select {
@@ -73,7 +73,7 @@ func (c *InMemoryCache) Get(ctx context.Context, key string, dest any) error {
 	return c.copyValue(item.value, dest)
 }
 
-// Set stores a value in cache with expiration
+// Set stores a value in cache with expiration.
 func (c *InMemoryCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	// Check if context is cancelled
 	select {
@@ -98,7 +98,7 @@ func (c *InMemoryCache) Set(ctx context.Context, key string, value any, expirati
 	return nil
 }
 
-// Delete removes a key from cache
+// Delete removes a key from cache.
 func (c *InMemoryCache) Delete(ctx context.Context, key string) error {
 	// Check if context is cancelled
 	select {
@@ -114,7 +114,7 @@ func (c *InMemoryCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// Exists checks if a key exists and is not expired
+// Exists checks if a key exists and is not expired.
 func (c *InMemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 	// Check if context is cancelled
 	select {
@@ -143,7 +143,7 @@ func (c *InMemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 	return true, nil
 }
 
-// cleanupExpired runs in background to remove expired items
+// cleanupExpired runs in background to remove expired items.
 func (c *InMemoryCache) cleanupExpired() {
 	for {
 		select {
@@ -155,7 +155,7 @@ func (c *InMemoryCache) cleanupExpired() {
 	}
 }
 
-// removeExpiredItems removes all expired items from cache
+// removeExpiredItems removes all expired items from cache.
 func (c *InMemoryCache) removeExpiredItems() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -167,7 +167,7 @@ func (c *InMemoryCache) removeExpiredItems() {
 	}
 }
 
-// copyValue copies source value to destination using reflection
+// copyValue copies source value to destination using reflection.
 func (c *InMemoryCache) copyValue(src, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if destVal.Kind() != reflect.Ptr {

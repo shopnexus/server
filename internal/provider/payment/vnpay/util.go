@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-// formatTime formats time to string in format yyyyMMddHHmmss
+// formatTime formats time to string in format yyyyMMddHHmmss.
 func formatTime(t time.Time) string {
 	return t.Format("20060102150405")
 }
 
-// sign generates a HMAC signature (SHA512) for the given message using the provided key
+// sign generates a HMAC signature (SHA512) for the given message using the provided key.
 func sign(message string, key []byte) string {
 	sig := hmac.New(sha512.New, key)
 	sig.Write([]byte(message))
@@ -32,14 +32,16 @@ func buildSortedQuery(inputData map[string]any) string {
 	sort.Strings(keys) // To ensure consistent ordering
 
 	hashData := ""
+	var hashDataSb35 strings.Builder
 	for i, k := range keys {
 		encoded := url.QueryEscape(k) + "=" + url.QueryEscape(inputData[k].(string))
 		if i == 0 {
-			hashData += encoded
+			hashDataSb35.WriteString(encoded)
 		} else {
-			hashData += "&" + encoded
+			hashDataSb35.WriteString("&" + encoded)
 		}
 	}
+	hashData += hashDataSb35.String()
 
 	//! We have to replace the space with + sign because vnpay use + sign :D
 	return strings.ReplaceAll(hashData, " ", "+")

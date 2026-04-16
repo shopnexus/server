@@ -132,7 +132,11 @@ func (b *CatalogHandler) syncStaleEntities(ctx context.Context, metadataOnly boo
 
 // syncProducts fetches product details directly from DB, embeds if needed,
 // upserts to Milvus, and clears stale flags.
-func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+func (b *CatalogHandler) syncProducts(
+	ctx context.Context,
+	stales []catalogdb.ListStaleSearchSyncRow,
+	metadataOnly bool,
+) error {
 	log.Printf("Syncing %d stale products (metadataOnly=%v)...", len(stales), metadataOnly)
 
 	// Batch-fetch product details directly from DB (avoids N+1 HTTP via Restate ingress)
@@ -160,7 +164,10 @@ func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.Li
 	if err != nil {
 		return sharedmodel.WrapErr("list tags for sync", err)
 	}
-	tagsBySpuID := lo.GroupByMap(tags, func(t catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return t.SpuID, t.Tag })
+	tagsBySpuID := lo.GroupByMap(
+		tags,
+		func(t catalogdb.CatalogProductSpuTag) (uuid.UUID, string) { return t.SpuID, t.Tag },
+	)
 
 	categoryIDs := lo.Uniq(lo.Map(dbSpus, func(s catalogdb.CatalogProductSpu, _ int) uuid.UUID { return s.CategoryID }))
 	categories, err := b.storage.Querier().ListCategory(ctx, catalogdb.ListCategoryParams{ID: categoryIDs})
@@ -182,9 +189,9 @@ func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.Li
 			})
 		}
 		products = append(products, catalogmodel.ProductDetail{
-			ID:       spu.ID,
-			SellerID: spu.AccountID,
-			Name:     spu.Name,
+			ID:          spu.ID,
+			SellerID:    spu.AccountID,
+			Name:        spu.Name,
 			Description: spu.Description,
 			IsActive:    spu.IsActive,
 			Category:    categoryMap[spu.CategoryID],
@@ -228,7 +235,11 @@ func (b *CatalogHandler) syncProducts(ctx context.Context, stales []catalogdb.Li
 
 // syncCategories embeds categories and upserts to the categories collection.
 // Categories have no scalar metadata in Milvus, so metadata-only syncs just clear flags.
-func (b *CatalogHandler) syncCategories(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+func (b *CatalogHandler) syncCategories(
+	ctx context.Context,
+	stales []catalogdb.ListStaleSearchSyncRow,
+	metadataOnly bool,
+) error {
 	if metadataOnly {
 		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
 	}
@@ -280,7 +291,11 @@ func (b *CatalogHandler) syncCategories(ctx context.Context, stales []catalogdb.
 
 // syncTags embeds tags and upserts to the tags collection.
 // Tags have no scalar metadata in Milvus, so metadata-only syncs just clear flags.
-func (b *CatalogHandler) syncTags(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+func (b *CatalogHandler) syncTags(
+	ctx context.Context,
+	stales []catalogdb.ListStaleSearchSyncRow,
+	metadataOnly bool,
+) error {
 	if metadataOnly {
 		return b.clearStaleFlagsByRows(ctx, stales, metadataOnly)
 	}
@@ -344,7 +359,11 @@ func (b *CatalogHandler) syncTags(ctx context.Context, stales []catalogdb.ListSt
 // clearStaleFlagsByRows builds batch update args and clears the appropriate stale flags.
 // If metadataOnly, sets is_stale_metadata=false but keeps is_stale_embedding as-is.
 // If !metadataOnly, sets is_stale_embedding=false but keeps is_stale_metadata as-is.
-func (b *CatalogHandler) clearStaleFlagsByRows(ctx context.Context, stales []catalogdb.ListStaleSearchSyncRow, metadataOnly bool) error {
+func (b *CatalogHandler) clearStaleFlagsByRows(
+	ctx context.Context,
+	stales []catalogdb.ListStaleSearchSyncRow,
+	metadataOnly bool,
+) error {
 	args := make([]catalogdb.UpdateBatchStaleSearchSyncParams, len(stales))
 	for i, s := range stales {
 		arg := catalogdb.UpdateBatchStaleSearchSyncParams{

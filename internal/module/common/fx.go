@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the common module dependencies
+// Module provides the common module dependencies.
 var Module = fx.Module("common",
 	fx.Provide(
 		NewCommonStorage,

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// Module provides the account module dependencies
+// Module provides the account module dependencies.
 var Module = fx.Module("account",
 	fx.Provide(
 		NewAccountStorage,

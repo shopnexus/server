@@ -84,7 +84,10 @@ type ListServiceOptionParams struct {
 }
 
 // ListServiceOption returns active service options filtered by category.
-func (b *CommonHandler) ListServiceOption(ctx restate.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
+func (b *CommonHandler) ListServiceOption(
+	ctx restate.Context,
+	params ListServiceOptionParams,
+) ([]sharedmodel.OptionConfig, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list service option", err)
 	}

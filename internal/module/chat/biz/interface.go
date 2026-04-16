@@ -18,7 +18,10 @@ type ChatBiz interface {
 	// Conversation
 	CreateConversation(ctx context.Context, params CreateConversationParams) (chatdb.ChatConversation, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (chatdb.ChatConversation, error)
-	ListConversation(ctx context.Context, params ListConversationParams) (sharedmodel.PaginateResult[chatdb.ChatConversation], error)
+	ListConversation(
+		ctx context.Context,
+		params ListConversationParams,
+	) (sharedmodel.PaginateResult[chatdb.ChatConversation], error)
 
 	// Message
 	SendMessage(ctx context.Context, params SendMessageParams) (chatdb.ChatMessage, error)

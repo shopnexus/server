@@ -3,7 +3,6 @@ package authclaims
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -16,19 +15,19 @@ import (
 )
 
 const (
-	tokenHeader        = "authorization"
+	tokenHeader        = "Authorization"
 	tokenPrefix        = "Bearer "
 	tokenCacheDuration = 5 * 60 * time.Second
 )
 
 var claimsCache = cache.NewInMemoryClient()
 
-// GetClaimsByHeader retrieves and validates JWT claims from the token, using an in-memory cache
+// GetClaimsByHeader retrieves and validates JWT claims from the token, using an in-memory cache.
 func GetClaimsByHeader(header http.Header) (accountmodel.Claims, error) {
 	token := header.Get(tokenHeader)
 
 	if token == "" {
-		return accountmodel.Claims{}, fmt.Errorf("missing authorization header")
+		return accountmodel.Claims{}, errors.New("missing authorization header")
 	}
 
 	// Try to get claims from cache first

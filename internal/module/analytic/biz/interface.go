@@ -24,10 +24,16 @@ type AnalyticBiz interface {
 	// Popularity
 	HandlePopularityEvent(ctx context.Context, event analyticmodel.Interaction) error
 	GetProductPopularity(ctx context.Context, spuID uuid.UUID) (analyticdb.AnalyticProductPopularity, error)
-	ListTopProductPopularity(ctx context.Context, params sharedmodel.PaginationParams) ([]analyticdb.AnalyticProductPopularity, error)
+	ListTopProductPopularity(
+		ctx context.Context,
+		params sharedmodel.PaginationParams,
+	) ([]analyticdb.AnalyticProductPopularity, error)
 
 	// Dashboard
-	GetSellerDashboard(ctx context.Context, params analyticmodel.GetSellerDashboardParams) (analyticmodel.SellerDashboard, error)
+	GetSellerDashboard(
+		ctx context.Context,
+		params analyticmodel.GetSellerDashboardParams,
+	) (analyticmodel.SellerDashboard, error)
 }
 
 type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]

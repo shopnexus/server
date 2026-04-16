@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// HTTP metrics (populated by middleware)
+// HTTP metrics (populated by middleware).
 var (
 	HTTPRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -27,7 +27,7 @@ var (
 	)
 )
 
-// Order module metrics
+// Order module metrics.
 var (
 	OrdersCreatedTotal = promauto.NewCounter(
 		prometheus.CounterOpts{

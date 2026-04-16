@@ -63,7 +63,10 @@ type ListFavoriteParams struct {
 }
 
 // ListFavorite returns a paginated list of the account's favorited products.
-func (b *AccountHandler) ListFavorite(ctx restate.Context, params ListFavoriteParams) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
+func (b *AccountHandler) ListFavorite(
+	ctx restate.Context,
+	params ListFavoriteParams,
+) (sharedmodel.PaginateResult[accountdb.AccountFavorite], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountFavorite]
 	params.PaginationParams = params.Constrain()
 

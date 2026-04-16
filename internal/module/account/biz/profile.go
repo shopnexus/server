@@ -16,12 +16,16 @@ import (
 
 type ListProfileParams struct {
 	sharedmodel.PaginationParams
+
 	Issuer     accountmodel.AuthenticatedAccount // Who is requesting the profiles
 	AccountIDs []uuid.UUID                       `validate:"dive,required"`
 }
 
 // ListProfile returns a paginated list of profiles for the given account IDs.
-func (b *AccountHandler) ListProfile(ctx restate.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
+func (b *AccountHandler) ListProfile(
+	ctx restate.Context,
+	params ListProfileParams,
+) (sharedmodel.PaginateResult[accountmodel.Profile], error) {
 	var result sharedmodel.PaginateResult[accountmodel.Profile]
 	if err := validator.Validate(params); err != nil {
 		return result, sharedmodel.WrapErr("list profiles", err)
@@ -152,7 +156,11 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 }
 
 // dbToProfile maps DB account + profile rows to the model type.
-func (b *AccountHandler) dbToProfile(ctx restate.Context, account accountdb.AccountAccount, profile accountdb.AccountProfile) accountmodel.Profile {
+func (b *AccountHandler) dbToProfile(
+	ctx restate.Context,
+	account accountdb.AccountAccount,
+	profile accountdb.AccountProfile,
+) accountmodel.Profile {
 	avatar, _ := b.common.GetResourceByID(ctx, profile.AvatarRsID.UUID)
 	var url null.String
 	if avatar != nil {

@@ -21,7 +21,10 @@ type ListNotificationParams struct {
 }
 
 // ListNotification returns paginated notifications for the authenticated account.
-func (b *AccountHandler) ListNotification(ctx restate.Context, params ListNotificationParams) (sharedmodel.PaginateResult[accountdb.AccountNotification], error) {
+func (b *AccountHandler) ListNotification(
+	ctx restate.Context,
+	params ListNotificationParams,
+) (sharedmodel.PaginateResult[accountdb.AccountNotification], error) {
 	var zero sharedmodel.PaginateResult[accountdb.AccountNotification]
 	params.PaginationParams = params.Constrain()
 
@@ -101,7 +104,10 @@ type CreateNotificationParams struct {
 }
 
 // CreateNotification creates a new notification for the given account.
-func (b *AccountHandler) CreateNotification(ctx restate.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
+func (b *AccountHandler) CreateNotification(
+	ctx restate.Context,
+	params CreateNotificationParams,
+) (accountdb.AccountNotification, error) {
 	noti, err := b.storage.Querier().CreateDefaultNotification(ctx, accountdb.CreateDefaultNotificationParams{
 		AccountID: params.AccountID,
 		Type:      string(params.Type),

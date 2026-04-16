@@ -16,9 +16,9 @@ import (
 )
 
 type ListProductSkuRequest struct {
-	SpuID      uuid.UUID  `query:"spu_id" validate:"omitempty"`
+	SpuID      uuid.UUID  `query:"spu_id"     validate:"omitempty"`
 	PriceFrom  null.Int64 `query:"price_from" validate:"omitnil,gt=0"`
-	PriceTo    null.Int64 `query:"price_to" validate:"omitnil,gt=0,gtefield=PriceFrom"`
+	PriceTo    null.Int64 `query:"price_to"   validate:"omitnil,gt=0,gtefield=PriceFrom"`
 	Combinable null.Bool  `query:"combinable" validate:"omitnil"`
 }
 
@@ -44,10 +44,10 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 }
 
 type CreateProductSkuRequest struct {
-	SpuID          uuid.UUID                       `json:"spu_id" validate:"required"`
-	Price          sharedmodel.Concurrency         `json:"price" validate:"required,gt=0"`
-	Combinable     bool                            `json:"combinable" validate:"omitempty"`
-	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	SpuID          uuid.UUID                       `json:"spu_id"          validate:"required"`
+	Price          sharedmodel.Concurrency         `json:"price"           validate:"required,gt=0"`
+	Combinable     bool                            `json:"combinable"      validate:"omitempty"`
+	Attributes     []catalogmodel.ProductAttribute `json:"attributes"      validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"required"`
 }
 
@@ -80,10 +80,10 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 }
 
 type UpdateProductSkuRequest struct {
-	ID             uuid.UUID                       `json:"id" validate:"required"`
-	Price          sharedmodel.NullConcurrency     `json:"price" validate:"omitnil,gt=0"`
-	Combinable     null.Bool                       `json:"combinable" validate:"omitnil"`
-	Attributes     []catalogmodel.ProductAttribute `json:"attributes" validate:"omitempty,dive"`
+	ID             uuid.UUID                       `json:"id"              validate:"required"`
+	Price          sharedmodel.NullConcurrency     `json:"price"           validate:"omitnil,gt=0"`
+	Combinable     null.Bool                       `json:"combinable"      validate:"omitnil"`
+	Attributes     []catalogmodel.ProductAttribute `json:"attributes"      validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"omitempty"`
 }
 

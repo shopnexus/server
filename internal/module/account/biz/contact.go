@@ -19,7 +19,10 @@ type ListContactParams struct {
 }
 
 // ListContact returns contacts matching the given account and contact IDs.
-func (b *AccountHandler) ListContact(ctx restate.Context, params ListContactParams) ([]accountdb.AccountContact, error) {
+func (b *AccountHandler) ListContact(
+	ctx restate.Context,
+	params ListContactParams,
+) ([]accountdb.AccountContact, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list contact", err)
 	}
@@ -74,7 +77,10 @@ type CreateContactParams struct {
 }
 
 // CreateContact creates a new contact for the authenticated account.
-func (b *AccountHandler) CreateContact(ctx restate.Context, params CreateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountHandler) CreateContact(
+	ctx restate.Context,
+	params CreateContactParams,
+) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -126,7 +132,10 @@ type UpdateContactParams struct {
 }
 
 // UpdateContact updates the specified contact fields.
-func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContactParams) (accountdb.AccountContact, error) {
+func (b *AccountHandler) UpdateContact(
+	ctx restate.Context,
+	params UpdateContactParams,
+) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
 
 	if err := validator.Validate(params); err != nil {
@@ -134,13 +143,16 @@ func (b *AccountHandler) UpdateContact(ctx restate.Context, params UpdateContact
 	}
 
 	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
-		ID:          params.ContactID,
-		FullName:    params.FullName,
-		Phone:       params.Phone,
-		Address:     params.Address,
-		AddressType: accountdb.NullAccountAddressType{AccountAddressType: params.AddressType, Valid: params.AddressType.Valid()},
-		Latitude:    params.Latitude,
-		Longitude:   params.Longitude,
+		ID:       params.ContactID,
+		FullName: params.FullName,
+		Phone:    params.Phone,
+		Address:  params.Address,
+		AddressType: accountdb.NullAccountAddressType{
+			AccountAddressType: params.AddressType,
+			Valid:              params.AddressType.Valid(),
+		},
+		Latitude:  params.Latitude,
+		Longitude: params.Longitude,
 
 		PhoneVerified: params.PhoneVerified,
 	})
@@ -171,7 +183,8 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 	}
 
 	// Check if we're deleting the default contact
-	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
+	profile, err := b.storage.Querier().
+		GetProfile(ctx, accountdb.GetProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
 	isDefault := err == nil && profile.DefaultContactID.Valid && profile.DefaultContactID.UUID == params.ContactID
 
 	// Delete the contact
@@ -199,7 +212,10 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 }
 
 // GetDefaultContact returns the default contact for each of the given account IDs.
-func (b *AccountHandler) GetDefaultContact(ctx restate.Context, accountIDs []uuid.UUID) (map[uuid.UUID]accountdb.AccountContact, error) {
+func (b *AccountHandler) GetDefaultContact(
+	ctx restate.Context,
+	accountIDs []uuid.UUID,
+) (map[uuid.UUID]accountdb.AccountContact, error) {
 	contacts, err := b.storage.Querier().ListDefaultContact(ctx, accountIDs)
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db list default contact", err)

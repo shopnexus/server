@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the order module dependencies
+// Module provides the order module dependencies.
 var Module = fx.Module("order",
 	fx.Provide(
 		NewOrderStorage,

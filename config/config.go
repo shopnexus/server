@@ -1,8 +1,8 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"strings"
@@ -18,7 +18,7 @@ var (
 	validate *validator.Validate
 )
 
-// GetConfig returns the global config instance, initializing it if necessary
+// GetConfig returns the global config instance, initializing it if necessary.
 func GetConfig() *Config {
 	once.Do(func() {
 		validate = validator.New()
@@ -27,7 +27,7 @@ func GetConfig() *Config {
 	return config
 }
 
-// ReloadConfig forces a reload of the configuration (useful for testing)
+// ReloadConfig forces a reload of the configuration (useful for testing).
 func ReloadConfig() *Config {
 	if validate == nil {
 		validate = validator.New()
@@ -36,7 +36,7 @@ func ReloadConfig() *Config {
 	return config
 }
 
-// loadConfig loads configuration from various sources
+// loadConfig loads configuration from various sources.
 func loadConfig() *Config {
 	v := viper.New()
 
@@ -47,29 +47,31 @@ func loadConfig() *Config {
 
 	// Load default configuration first
 	if err := loadDefaultConfig(v); err != nil {
-		log.Printf("Warning: Could not load default config: %v", err)
+		slog.Warn("Could not load default config", slog.Any("error", err))
 	}
 
 	// Load main config files
 	if err := loadConfigFile(v); err != nil {
-		log.Printf("Warning: Could not load config file: %v", err)
+		slog.Warn("Could not load config file", slog.Any("error", err))
 	}
 
 	// Unmarshal into struct
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		log.Fatalf("Unable to decode config into struct: %v", err)
+		slog.Error("Unable to decode config into struct", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	// Validate configuration
 	if err := validateConfig(&cfg); err != nil {
-		log.Fatalf("Configuration validation failed: %v", err)
+		slog.Error("Configuration validation failed", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	return &cfg
 }
 
-// loadDefaultConfig loads the default configuration file
+// loadDefaultConfig loads the default configuration file.
 func loadDefaultConfig(v *viper.Viper) error {
 	defaultPaths := []string{
 		"config/config.default.yml",
@@ -80,16 +82,16 @@ func loadDefaultConfig(v *viper.Viper) error {
 			// Use MergeInConfig to allow subsequent configs to override these defaults
 			v.SetConfigFile(path)
 			if err := v.ReadInConfig(); err == nil {
-				log.Printf("Loaded default config from: %s", path)
+				slog.Info("Loaded default config", slog.String("path", path))
 				return nil
 			}
 		}
 	}
 
-	return fmt.Errorf("no default config file found")
+	return errors.New("no default config file found")
 }
 
-// loadConfigFile tries to load a config file from various sources
+// loadConfigFile tries to load a config file from various sources.
 func loadConfigFile(v *viper.Viper) error {
 	// 1. Check if CONFIG_FILE environment variable is set (for Jenkins credentials)
 	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
@@ -132,7 +134,7 @@ func loadConfigFile(v *viper.Viper) error {
 		slog.Info("Checking for config file", slog.String("path", path))
 		if fileExists(path) {
 			if err := mergeConfigFile(v, path); err == nil {
-				log.Printf("Loaded config from: %s", path)
+				slog.Info("Loaded config", slog.String("path", path))
 				return nil
 			} else {
 				lastErr = err
@@ -140,10 +142,10 @@ func loadConfigFile(v *viper.Viper) error {
 		}
 	}
 
-	return fmt.Errorf("no valid config file found, last error: %v", lastErr)
+	return fmt.Errorf("no valid config file found, last error: %w", lastErr)
 }
 
-// mergeConfigFile merges a config file into the existing viper instance
+// mergeConfigFile merges a config file into the existing viper instance.
 func mergeConfigFile(v *viper.Viper, configFile string) error {
 	v.SetConfigFile(configFile)
 
@@ -156,22 +158,23 @@ func mergeConfigFile(v *viper.Viper, configFile string) error {
 	return v.MergeInConfig()
 }
 
-// validateConfig performs validation using go-playground/validator
+// validateConfig performs validation using go-playground/validator.
 func validateConfig(cfg *Config) error {
 	if err := validate.Struct(cfg); err != nil {
-		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
 			var errorMessages []string
 			for _, e := range validationErrors {
 				errorMessages = append(errorMessages, e.Error())
 			}
 			return fmt.Errorf("validation errors: %s", strings.Join(errorMessages, "; "))
 		}
-		return fmt.Errorf("validation error: %v", err)
+		return fmt.Errorf("validation error: %w", err)
 	}
 	return nil
 }
 
-// fileExists checks if a file exists and is not a directory
+// fileExists checks if a file exists and is not a directory.
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -180,7 +183,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-// Environment-specific helper functions
+// Environment-specific helper functions.
 func (c *Config) IsDevelopment() bool {
 	return c.Env == "development" || c.Env == "dev"
 }

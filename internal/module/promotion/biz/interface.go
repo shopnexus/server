@@ -18,11 +18,17 @@ import (
 type PromotionBiz interface {
 	// Promotion
 	GetPromotion(ctx context.Context, params GetPromotionParams) (promotionmodel.Promotion, error)
-	ListPromotion(ctx context.Context, params ListPromotionParams) (sharedmodel.PaginateResult[promotionmodel.Promotion], error)
+	ListPromotion(
+		ctx context.Context,
+		params ListPromotionParams,
+	) (sharedmodel.PaginateResult[promotionmodel.Promotion], error)
 	CreatePromotion(ctx context.Context, params CreatePromotionParams) (promotionmodel.Promotion, error)
 	UpdatePromotion(ctx context.Context, params UpdatePromotionParams) (promotionmodel.Promotion, error)
 	DeletePromotion(ctx context.Context, params DeletePromotionParams) error
-	CalculatePromotedPrices(ctx context.Context, params CalculatePromotedPricesParams) (map[uuid.UUID]*catalogmodel.OrderPrice, error)
+	CalculatePromotedPrices(
+		ctx context.Context,
+		params CalculatePromotedPricesParams,
+	) (map[uuid.UUID]*catalogmodel.OrderPrice, error)
 }
 
 type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]

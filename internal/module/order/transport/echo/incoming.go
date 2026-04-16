@@ -44,7 +44,7 @@ func (h *Handler) ListSellerPending(c echo.Context) error {
 }
 
 type QuoteTransportRequest struct {
-	ItemIDs         []int64 `json:"item_ids" validate:"required,min=1"`
+	ItemIDs         []int64 `json:"item_ids"         validate:"required,min=1"`
 	TransportOption string  `json:"transport_option" validate:"required,min=1,max=100"`
 }
 
@@ -75,9 +75,9 @@ func (h *Handler) QuoteTransport(c echo.Context) error {
 }
 
 type ConfirmSellerPendingRequest struct {
-	ItemIDs         []int64 `json:"item_ids" validate:"required,min=1"`
+	ItemIDs         []int64 `json:"item_ids"         validate:"required,min=1"`
 	TransportOption string  `json:"transport_option" validate:"required,min=1,max=100"`
-	Note            string  `json:"note" validate:"max=500"`
+	Note            string  `json:"note"             validate:"max=500"`
 }
 
 func (h *Handler) ConfirmSellerPending(c echo.Context) error {

@@ -3,7 +3,7 @@ package catalogbiz
 import (
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
@@ -45,8 +45,15 @@ func (b *CatalogHandler) AddInteraction(ctx restate.Context, params analyticmode
 			continue
 		}
 		seen[ev.AccountID.UUID] = struct{}{}
-		if err := b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, ev.AccountID.UUID.String())); err != nil {
-			slog.Error("failed to reset feed offset for account", slog.String("account_id", ev.AccountID.UUID.String()), slog.Any("error", err))
+		if err := b.cache.Delete(
+			ctx,
+			fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, ev.AccountID.UUID.String()),
+		); err != nil {
+			slog.Error(
+				"failed to reset feed offset for account",
+				slog.String("account_id", ev.AccountID.UUID.String()),
+				slog.Any("error", err),
+			)
 		}
 	}
 	return nil
@@ -120,7 +127,13 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 		}
 
 		// 6. Upsert updated account
-		if err := b.upsertAccountInterests(ctx, accountID, acctEvents[0].AccountNumber, interests, strengths); err != nil {
+		if err := b.upsertAccountInterests(
+			ctx,
+			accountID,
+			acctEvents[0].AccountNumber,
+			interests,
+			strengths,
+		); err != nil {
 			return sharedmodel.WrapErr(fmt.Sprintf("upsert account %s", accountID), err)
 		}
 	}
@@ -174,7 +187,7 @@ func InterleaveShuffle[T any](numParts int, groups ...[]T) []T {
 		partSize := len(items) / numParts
 		remainder := len(items) % numParts
 		idx := 0
-		for i := 0; i < numParts; i++ {
+		for i := range numParts {
 			size := partSize
 			if i < remainder {
 				size++
@@ -192,7 +205,7 @@ func InterleaveShuffle[T any](numParts int, groups ...[]T) []T {
 
 	result := make([]T, 0, total)
 
-	for i := 0; i < numParts; i++ {
+	for i := range numParts {
 		var part []T
 		for _, s := range splits {
 			part = append(part, s[i]...)

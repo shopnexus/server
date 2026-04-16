@@ -26,7 +26,10 @@ type UpdateResourcesParams struct {
 }
 
 // UpdateResources replaces all resource references for a given entity and returns the updated list.
-func (b *CommonHandler) UpdateResources(ctx restate.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
+func (b *CommonHandler) UpdateResources(
+	ctx restate.Context,
+	params UpdateResourcesParams,
+) ([]commonmodel.Resource, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate update resources", err)
 	}
@@ -138,7 +141,10 @@ type GetResourcesParams struct {
 }
 
 // GetResources returns resources grouped by reference ID for the given ref type and IDs.
-func (b *CommonHandler) GetResources(ctx restate.Context, params GetResourcesParams) (map[uuid.UUID][]commonmodel.Resource, error) {
+func (b *CommonHandler) GetResources(
+	ctx restate.Context,
+	params GetResourcesParams,
+) (map[uuid.UUID][]commonmodel.Resource, error) {
 	var err error
 
 	resources, err := b.storage.Querier().ListSortedResources(ctx, commondb.ListSortedResourcesParams{
@@ -161,7 +167,10 @@ func (b *CommonHandler) GetResources(ctx restate.Context, params GetResourcesPar
 }
 
 // GetResourcesByIDs returns a map of resources keyed by their IDs, falling back to placeholder URLs on error.
-func (b *CommonHandler) GetResourcesByIDs(ctx restate.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]commonmodel.Resource, error) {
+func (b *CommonHandler) GetResourcesByIDs(
+	ctx restate.Context,
+	resourceIDs []uuid.UUID,
+) (map[uuid.UUID]commonmodel.Resource, error) {
 	result := make(map[uuid.UUID]commonmodel.Resource)
 	for _, rsID := range resourceIDs {
 		result[rsID] = commonmodel.Resource{

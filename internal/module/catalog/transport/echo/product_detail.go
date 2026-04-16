@@ -13,7 +13,7 @@ import (
 )
 
 type GetProductDetailRequest struct {
-	ID   uuid.NullUUID `query:"id" validate:"omitnil"`
+	ID   uuid.NullUUID `query:"id"   validate:"omitnil"`
 	Slug null.String   `query:"slug" validate:"omitnil"`
 }
 

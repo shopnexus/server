@@ -25,7 +25,11 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UUID, accountID uuid.NullUUID) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
+func (b *CatalogHandler) buildProductCards(
+	ctx restate.Context,
+	spuIDs []uuid.UUID,
+	accountID uuid.NullUUID,
+) (map[uuid.UUID]*catalogmodel.ProductCard, error) {
 	var zero map[uuid.UUID]*catalogmodel.ProductCard
 	var productMap = make(map[uuid.UUID]*catalogmodel.ProductCard)
 
@@ -81,13 +85,16 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		requestPrices = append(requestPrices, catalogmodel.RequestOrderPrice{
 			SkuID:     sku.ID,
 			SpuID:     sku.SpuID,
-			UnitPrice: sharedmodel.Concurrency(sku.Price),
+			UnitPrice: sku.Price,
 			Quantity:  1,
 			ShipCost:  0,
 		})
 	}
 
-	priceMap, err := b.promotion.CalculatePromotedPrices(ctx, promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: spuMap})
+	priceMap, err := b.promotion.CalculatePromotedPrices(
+		ctx,
+		promotionbiz.CalculatePromotedPricesParams{Prices: requestPrices, SpuMap: spuMap},
+	)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("calculate promoted prices", err)
 	}
@@ -114,17 +121,23 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 			continue
 		}
 
-		promoCardsMap[featured.SpuID] = lo.Map(price.PromotionCodes, func(code string, _ int) catalogmodel.ProductCardPromo {
-			return catalogmodel.ProductCardPromo{
-				Title: code,
-			}
-		})
+		promoCardsMap[featured.SpuID] = lo.Map(
+			price.PromotionCodes,
+			func(code string, _ int) catalogmodel.ProductCardPromo {
+				return catalogmodel.ProductCardPromo{
+					Title: code,
+				}
+			},
+		)
 	}
 
 	// Check favorites for authenticated user
 	var favoriteSet map[uuid.UUID]bool
 	if accountID.Valid {
-		favoriteSet, _ = b.account.CheckFavorites(ctx, accountbiz.CheckFavoritesParams{AccountID: accountID.UUID, SpuIDs: spuIDs})
+		favoriteSet, _ = b.account.CheckFavorites(
+			ctx,
+			accountbiz.CheckFavoritesParams{AccountID: accountID.UUID, SpuIDs: spuIDs},
+		)
 	}
 
 	for _, spu := range spus {
@@ -132,8 +145,8 @@ func (b *CatalogHandler) buildProductCards(ctx restate.Context, spuIDs []uuid.UU
 		rating := ratingMap[spu.ID]
 		resources := resourcesMap[spu.ID]
 
-		priceValue := sharedmodel.Concurrency(featured.Price)
-		originalPrice := sharedmodel.Concurrency(featured.Price)
+		priceValue := featured.Price
+		originalPrice := featured.Price
 		if priceInfo := priceMap[featured.ID]; priceInfo != nil {
 			originalPrice = priceInfo.Request.UnitPrice
 			if priceInfo.ProductCost != 0 {
@@ -174,7 +187,10 @@ type GetProductCardParams struct {
 }
 
 // GetProductCard returns a single product card by SPU ID.
-func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error) {
+func (b *CatalogHandler) GetProductCard(
+	ctx restate.Context,
+	params GetProductCardParams,
+) (*catalogmodel.ProductCard, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate get product card", err)
 	}
@@ -194,6 +210,7 @@ func (b *CatalogHandler) GetProductCard(ctx restate.Context, params GetProductCa
 
 type ListProductCardParams struct {
 	sharedmodel.PaginationParams
+
 	AccountID       uuid.NullUUID `validate:"omitnil"` // optional, for is_favorite
 	SellerID        uuid.NullUUID `validate:"omitnil"`
 	CategoryID      []uuid.UUID   `validate:"omitempty"`
@@ -208,7 +225,10 @@ type ListProductCardParams struct {
 // ListProductCard returns paginated product cards with optional search and vendor filter.
 // When a search query is provided, Milvus handles both semantic ranking and scalar filtering
 // in a single pass. When browsing (no search), Postgres handles filtering and pagination.
-func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (b *CatalogHandler) ListProductCard(
+	ctx restate.Context,
+	params ListProductCardParams,
+) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
 
 	if err := validator.Validate(params); err != nil {
@@ -288,7 +308,10 @@ func (b *CatalogHandler) ListProductCard(ctx restate.Context, params ListProduct
 }
 
 // listProductCardFromDB is the Postgres-only path for browsing (no search query) or as fallback.
-func (b *CatalogHandler) listProductCardFromDB(ctx restate.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
+func (b *CatalogHandler) listProductCardFromDB(
+	ctx restate.Context,
+	params ListProductCardParams,
+) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error) {
 	var zero sharedmodel.PaginateResult[catalogmodel.ProductCard]
 
 	searchArg := catalogdb.SearchCountProductSpuParams{
@@ -304,12 +327,13 @@ func (b *CatalogHandler) listProductCardFromDB(ctx restate.Context, params ListP
 
 	// Tag pre-filter via join table
 	if len(params.Tags) > 0 {
-		tagRows, err := b.storage.Querier().SearchCountProductSpuByTags(ctx, catalogdb.SearchCountProductSpuByTagsParams{
-			Tags:     params.Tags,
-			TagCount: int32(len(params.Tags)),
-			Limit:    params.Limit,
-			Offset:   params.Offset(),
-		})
+		tagRows, err := b.storage.Querier().
+			SearchCountProductSpuByTags(ctx, catalogdb.SearchCountProductSpuByTagsParams{
+				Tags:     params.Tags,
+				TagCount: int32(len(params.Tags)),
+				Limit:    params.Limit,
+				Offset:   params.Offset(),
+			})
 		if err != nil {
 			return zero, sharedmodel.WrapErr("db search by tags", err)
 		}
@@ -320,7 +344,10 @@ func (b *CatalogHandler) listProductCardFromDB(ctx restate.Context, params ListP
 				Total:      null.IntFrom(0),
 			}, nil
 		}
-		searchArg.ID = lo.Map(tagRows, func(r catalogdb.SearchCountProductSpuByTagsRow, _ int) uuid.UUID { return r.ID })
+		searchArg.ID = lo.Map(
+			tagRows,
+			func(r catalogdb.SearchCountProductSpuByTagsRow, _ int) uuid.UUID { return r.ID },
+		)
 	}
 
 	// ILIKE fallback when search is set but Milvus failed
@@ -340,7 +367,10 @@ func (b *CatalogHandler) listProductCardFromDB(ctx restate.Context, params ListP
 		total.SetValid(rows[0].TotalCount)
 	}
 
-	spuIDs := lo.Map(rows, func(r catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return r.CatalogProductSpu.ID })
+	spuIDs := lo.Map(
+		rows,
+		func(r catalogdb.SearchCountProductSpuRow, _ int) uuid.UUID { return r.CatalogProductSpu.ID },
+	)
 
 	productCardMap, err := b.buildProductCards(ctx, spuIDs, params.AccountID)
 	if err != nil {
@@ -367,7 +397,10 @@ type ListRecommendedProductCardParams struct {
 }
 
 // ListRecommendedProductCard returns personalized product card recommendations for the authenticated user.
-func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error) {
+func (b *CatalogHandler) ListRecommendedProductCard(
+	ctx restate.Context,
+	params ListRecommendedProductCardParams,
+) ([]catalogmodel.ProductCard, error) {
 	var zero []catalogmodel.ProductCard
 	var rcmProducts []catalogmodel.ProductRecommend
 	var err error
@@ -378,17 +411,26 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 
 	// Get current feed offset
 	var feedOffset int64 = 0
-	if err = b.cache.Get(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), &feedOffset); err != nil {
+	if err = b.cache.Get(
+		ctx,
+		fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID),
+		&feedOffset,
+	); err != nil {
 		slog.Error("failed to get feed offset for account",
 			slog.String("account_id", params.Account.ID.String()),
 			slog.Any("error", err),
 		)
 	}
 	// Retrieve all recommended products from cache
-	if err := b.cache.ZRevRangeByScore(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), &rcmProducts, cache.ZRangeOptions{
-		Offset: null.IntFrom(feedOffset),
-		Limit:  null.IntFrom(int64(params.Limit)),
-	}); err != nil {
+	if err := b.cache.ZRevRangeByScore(
+		ctx,
+		fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID),
+		&rcmProducts,
+		cache.ZRangeOptions{
+			Offset: null.IntFrom(feedOffset),
+			Limit:  null.IntFrom(int64(params.Limit)),
+		},
+	); err != nil {
 		return zero, sharedmodel.WrapErr("get recommended products", err)
 	}
 	feedOffset += int64(len(rcmProducts))
@@ -409,21 +451,42 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		feedOffset = 0
 
 		// Remove all old recommendations
-		if err = b.cache.Delete(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID)); err != nil {
-			slog.Error("failed to reset feed offset for account", slog.String("account_id", params.Account.ID.String()), slog.Any("error", err))
+		if err = b.cache.Delete(
+			ctx,
+			fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID),
+		); err != nil {
+			slog.Error(
+				"failed to reset feed offset for account",
+				slog.String("account_id", params.Account.ID.String()),
+				slog.Any("error", err),
+			)
 		}
 
 		// Adding new feed
 		for _, p := range recommendations {
-			if err = b.cache.ZAdd(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID), p, float64(p.Score)); err != nil {
+			if err = b.cache.ZAdd(
+				ctx,
+				fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID),
+				p,
+				float64(p.Score),
+			); err != nil {
 				return zero, sharedmodel.WrapErr("cache recommended product", err)
 			}
 		}
 	}
 
 	// Update feed offset in cache
-	if err = b.cache.Set(ctx, fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID), feedOffset, 0); err != nil {
-		slog.Error("failed to update feed offset for account", slog.String("account_id", params.Account.ID.String()), slog.Any("error", err))
+	if err = b.cache.Set(
+		ctx,
+		fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID),
+		feedOffset,
+		0,
+	); err != nil {
+		slog.Error(
+			"failed to update feed offset for account",
+			slog.String("account_id", params.Account.ID.String()),
+			slog.Any("error", err),
+		)
 	}
 
 	// Amount of most sold products to fill the recommendations
@@ -431,7 +494,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 	if amount > 0 {
 		mostSolds, err := b.inventory.ListMostTakenSku(ctx, inventorybiz.ListMostTakenSkuParams{
 			PaginationParams: sharedmodel.PaginationParams{
-				Limit: null.Int32From(int32(amount * 100)),
+				Limit: null.Int32From(amount * 100),
 			},
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
 		})
@@ -453,12 +516,14 @@ func (b *CatalogHandler) ListRecommendedProductCard(ctx restate.Context, params 
 		}
 
 		uniqueSpuIDs := lo.UniqMap(skus, func(s catalogdb.CatalogProductSku, _ int) uuid.UUID { return s.SpuID })
-		rcmProducts = append(rcmProducts, lo.Map(uniqueSpuIDs, func(spuID uuid.UUID, _ int) catalogmodel.ProductRecommend {
-			return catalogmodel.ProductRecommend{
-				ID:    spuID,
-				Score: 0, // most sold has score 0
-			}
-		})...)
+		rcmProducts = append(
+			rcmProducts,
+			lo.Map(uniqueSpuIDs, func(spuID uuid.UUID, _ int) catalogmodel.ProductRecommend {
+				return catalogmodel.ProductRecommend{
+					ID:    spuID,
+					Score: 0, // most sold has score 0
+				}
+			})...)
 	}
 
 	productCardMap, err := b.buildProductCards(

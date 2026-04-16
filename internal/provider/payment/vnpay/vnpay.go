@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"shopnexus-server/internal/provider/payment"
@@ -13,7 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Type guard
+// Type guard.
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
@@ -67,7 +68,7 @@ func (c *ClientImpl) Config() sharedmodel.OptionConfig {
 func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
 	var zero payment.CreateResult
 
-	req, err := http.NewRequest("GET", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", nil)
+	req, err := http.NewRequest(http.MethodGet, "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", nil)
 	if err != nil {
 		return zero, err
 	}
@@ -91,14 +92,14 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 	q.Add("vnp_OrderType", "billpayment")
 	q.Add("vnp_ReturnUrl", returnURL)
 	q.Add("vnp_ExpireDate", formatTime(time.Now().Add(30*time.Minute)))
-	q.Add("vnp_TxnRef", fmt.Sprintf("%d", params.RefID))
+	q.Add("vnp_TxnRef", strconv.FormatInt(params.RefID, 10))
 
 	encodedQuery := q.Encode()
 	secureHash := sign(encodedQuery, []byte(c.hashSecret))
 	redirectURL := req.URL.String() + "?" + encodedQuery + "&vnp_SecureHash=" + secureHash
 
 	return payment.CreateResult{
-		ProviderID:  fmt.Sprintf("%d", params.RefID),
+		ProviderID:  strconv.FormatInt(params.RefID, 10),
 		RedirectURL: redirectURL,
 	}, nil
 }

@@ -10,7 +10,7 @@ import (
 	"shopnexus-server/internal/shared/pgsqlc"
 )
 
-// Module provides the catalog module dependencies
+// Module provides the catalog module dependencies.
 var Module = fx.Module("catalog",
 	fx.Provide(
 		NewCatalogStorage,

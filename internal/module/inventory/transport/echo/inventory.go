@@ -36,7 +36,7 @@ func NewHandler(e *echo.Echo, biz inventorybiz.InventoryBiz) *Handler {
 }
 
 type GetStockRequest struct {
-	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
+	RefID   uuid.UUID                         `query:"ref_id"   validate:"required"`
 	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
 
@@ -62,7 +62,8 @@ func (h *Handler) GetStock(c echo.Context) error {
 
 type ListStockHistoryRequest struct {
 	sharedmodel.PaginationParams
-	RefID   uuid.UUID                         `query:"ref_id" validate:"required"`
+
+	RefID   uuid.UUID                         `query:"ref_id"   validate:"required"`
 	RefType inventorydb.InventoryStockRefType `query:"ref_type" validate:"required,validateFn=Valid"`
 }
 
@@ -88,8 +89,8 @@ func (h *Handler) ListStockHistory(c echo.Context) error {
 }
 
 type UpdateStockSettingsRequest struct {
-	RefID          uuid.UUID                         `json:"ref_id" validate:"required"`
-	RefType        inventorydb.InventoryStockRefType `json:"ref_type" validate:"required,validateFn=Valid"`
+	RefID          uuid.UUID                         `json:"ref_id"          validate:"required"`
+	RefType        inventorydb.InventoryStockRefType `json:"ref_type"        validate:"required,validateFn=Valid"`
 	SerialRequired null.Bool                         `json:"serial_required" validate:"omitnil"`
 }
 
@@ -115,9 +116,9 @@ func (h *Handler) UpdateStockSettings(c echo.Context) error {
 }
 
 type ImportStockRequest struct {
-	RefID     uuid.UUID                         `json:"ref_id" validate:"required"`
-	RefType   inventorydb.InventoryStockRefType `json:"ref_type" validate:"required,validateFn=Valid"`
-	Change    int64                             `json:"change" validate:"required,gt=0"`
+	RefID     uuid.UUID                         `json:"ref_id"     validate:"required"`
+	RefType   inventorydb.InventoryStockRefType `json:"ref_type"   validate:"required,validateFn=Valid"`
+	Change    int64                             `json:"change"     validate:"required,gt=0"`
 	SerialIDs []string                          `json:"serial_ids" validate:"dive,required"`
 }
 
@@ -144,6 +145,7 @@ func (h *Handler) ImportStock(c echo.Context) error {
 
 type ListProductSerialRequest struct {
 	sharedmodel.PaginationParams
+
 	StockID int64 `query:"stock_id" validate:"required,gt=0"`
 }
 
@@ -169,7 +171,7 @@ func (h *Handler) ListSerial(c echo.Context) error {
 
 type UpdateSerialRequest struct {
 	SerialIDs []string                    `json:"serial_ids" validate:"required,dive,required"`
-	Status    inventorydb.InventoryStatus `json:"status" validate:"required,validateFn=Valid"`
+	Status    inventorydb.InventoryStatus `json:"status"     validate:"required,validateFn=Valid"`
 }
 
 func (h *Handler) UpdateSerial(c echo.Context) error {

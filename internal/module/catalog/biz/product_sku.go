@@ -29,7 +29,10 @@ type ListProductSkuParams struct {
 }
 
 // ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
-func (b *CatalogHandler) ListProductSku(ctx restate.Context, params ListProductSkuParams) ([]catalogmodel.ProductSku, error) {
+func (b *CatalogHandler) ListProductSku(
+	ctx restate.Context,
+	params ListProductSkuParams,
+) ([]catalogmodel.ProductSku, error) {
 	var zero []catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {
@@ -81,7 +84,10 @@ type CreateProductSkuParams struct {
 }
 
 // CreateProductSku creates a new product SKU and initializes its inventory stock.
-func (b *CatalogHandler) CreateProductSku(ctx restate.Context, params CreateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogHandler) CreateProductSku(
+	ctx restate.Context,
+	params CreateProductSkuParams,
+) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	attributesBytes, err := sonic.Marshal(params.Attributes)
@@ -129,7 +135,10 @@ type UpdateProductSkuParams struct {
 }
 
 // UpdateProductSku updates a product SKU and invalidates the parent SPU search index.
-func (b *CatalogHandler) UpdateProductSku(ctx restate.Context, params UpdateProductSkuParams) (catalogmodel.ProductSku, error) {
+func (b *CatalogHandler) UpdateProductSku(
+	ctx restate.Context,
+	params UpdateProductSkuParams,
+) (catalogmodel.ProductSku, error) {
 	var zero catalogmodel.ProductSku
 
 	if err := validator.Validate(params); err != nil {

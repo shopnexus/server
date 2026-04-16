@@ -31,12 +31,21 @@ type CatalogBiz interface {
 
 	// Product Card
 	GetProductCard(ctx context.Context, params GetProductCardParams) (*catalogmodel.ProductCard, error)
-	ListProductCard(ctx context.Context, params ListProductCardParams) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error)
-	ListRecommendedProductCard(ctx context.Context, params ListRecommendedProductCardParams) ([]catalogmodel.ProductCard, error)
+	ListProductCard(
+		ctx context.Context,
+		params ListProductCardParams,
+	) (sharedmodel.PaginateResult[catalogmodel.ProductCard], error)
+	ListRecommendedProductCard(
+		ctx context.Context,
+		params ListRecommendedProductCardParams,
+	) ([]catalogmodel.ProductCard, error)
 
 	// Product SPU
 	GetProductSpu(ctx context.Context, params GetProductSpuParams) (catalogmodel.ProductSpu, error)
-	ListProductSpu(ctx context.Context, params ListProductSpuParams) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error)
+	ListProductSpu(
+		ctx context.Context,
+		params ListProductSpuParams,
+	) (sharedmodel.PaginateResult[catalogmodel.ProductSpu], error)
 	CreateProductSpu(ctx context.Context, params CreateProductSpuParams) (catalogmodel.ProductSpu, error)
 	UpdateProductSpu(ctx context.Context, params UpdateProductSpuParams) (catalogmodel.ProductSpu, error)
 	DeleteProductSpu(ctx context.Context, params DeleteProductSpuParams) error
@@ -59,7 +68,10 @@ type CatalogBiz interface {
 	GetTag(ctx context.Context, params GetTagParams) (catalogdb.CatalogTag, error)
 
 	// Category
-	ListCategory(ctx context.Context, params ListCategoryParams) (sharedmodel.PaginateResult[catalogmodel.Category], error)
+	ListCategory(
+		ctx context.Context,
+		params ListCategoryParams,
+	) (sharedmodel.PaginateResult[catalogmodel.Category], error)
 
 	// Search
 	Search(ctx context.Context, params SearchParams) ([]catalogmodel.ProductRecommend, error)
@@ -95,10 +107,6 @@ type CatalogHandler struct {
 	syncLock sync.Mutex
 }
 
-func (h *CatalogHandler) ServiceName() string {
-	return "Catalog"
-}
-
 // NewCatalogHandler creates a new CatalogHandler with the given dependencies.
 func NewCatalogHandler(
 	cfg *config.Config,
@@ -112,7 +120,6 @@ func NewCatalogHandler(
 	milvusClient *milvus.Client,
 	llmClient llm.Client,
 ) *CatalogHandler {
-
 	b := &CatalogHandler{
 		config:        cfg,
 		cache:         cache,
@@ -140,4 +147,8 @@ func NewCatalogHandler(
 	}
 
 	return b
+}
+
+func (h *CatalogHandler) ServiceName() string {
+	return "Catalog"
 }

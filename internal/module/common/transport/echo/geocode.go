@@ -10,7 +10,7 @@ import (
 )
 
 type ReverseGeocodeRequest struct {
-	Latitude  float64 `json:"latitude" validate:"required"`
+	Latitude  float64 `json:"latitude"  validate:"required"`
 	Longitude float64 `json:"longitude" validate:"required"`
 }
 
@@ -60,7 +60,7 @@ func (h *Handler) ForwardGeocode(c echo.Context) error {
 }
 
 type SearchGeocodeRequest struct {
-	Query string `query:"q" validate:"required,min=2"`
+	Query string `query:"q"     validate:"required,min=2"`
 	Limit int    `query:"limit"`
 }
 

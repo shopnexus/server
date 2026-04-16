@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -112,13 +113,13 @@ func migrateModule(dbURL, module string, down bool) error {
 	defer m.Close()
 
 	if down {
-		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
+		if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("migrate down: %w", err)
 		}
 		return nil
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		// Auto-recover from dirty state: roll back the failed version and retry
 		version, dirty, verr := m.Version()
 		if verr == nil && dirty {
@@ -126,10 +127,10 @@ func migrateModule(dbURL, module string, down bool) error {
 			// Force to -1 (no migrations) to clear dirty flag cleanly.
 			// We can't force to version-1 because that version's down file may not exist.
 			if ferr := m.Force(-1); ferr != nil {
-				return fmt.Errorf("migrate up: %w (auto-fix failed: %v)", err, ferr)
+				return fmt.Errorf("migrate up: %w (auto-fix failed: %w)", err, ferr)
 			}
 			// Retry
-			if rerr := m.Up(); rerr != nil && rerr != migrate.ErrNoChange {
+			if rerr := m.Up(); rerr != nil && !errors.Is(rerr, migrate.ErrNoChange) {
 				return fmt.Errorf("migrate up (retry): %w", rerr)
 			}
 			log.Printf("✓ %s recovered from dirty state and migrated successfully", module)

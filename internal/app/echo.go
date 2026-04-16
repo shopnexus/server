@@ -16,12 +16,12 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewEcho creates a new Echo instance
+// NewEcho creates a new Echo instance.
 func NewEcho() *echo.Echo {
 	e := echo.New()
 
 	// Middleware
-	//e.Use(middleware.Logger())
+	// e.Use(middleware.Logger())
 	// e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 	e.Use(metrics.EchoMiddleware())
@@ -29,13 +29,14 @@ func NewEcho() *echo.Echo {
 	return e
 }
 
-// RouteParams holds all the dependencies needed for route registration
+// RouteParams holds all the dependencies needed for route registration.
 type RouteParams struct {
 	fx.In
+
 	Echo *echo.Echo
 }
 
-// SetupEcho registers all application routes
+// SetupEcho registers all application routes.
 func SetupEcho(params RouteParams) {
 	// Set the custom validator
 	customVal, err := validator.New()
@@ -55,7 +56,7 @@ func SetupEcho(params RouteParams) {
 	})
 }
 
-// SetupHTTPServer starts the HTTP server with lifecycle management
+// SetupHTTPServer starts the HTTP server with lifecycle management.
 func SetupHTTPServer(lc fx.Lifecycle, e *echo.Echo, cfg *config.Config) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

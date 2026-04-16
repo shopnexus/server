@@ -13,11 +13,11 @@ import (
 type SSEEventType string
 
 const (
-	// Chat events
+	// Chat events.
 	SSENewMessage  SSEEventType = "new_message"
 	SSEReadReceipt SSEEventType = "read_receipt"
 
-	// Notification events
+	// Notification events.
 	SSENotification SSEEventType = "notification"
 )
 

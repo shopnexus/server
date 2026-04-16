@@ -15,10 +15,10 @@ import (
 )
 
 type CreateBuyerRefundRequest struct {
-	OrderID     uuid.UUID                 `json:"order_id" validate:"required"`
-	Method      orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
-	Reason      string                    `json:"reason" validate:"required,max=500"`
-	Address     null.String               `json:"address" validate:"omitnil,max=500"`
+	OrderID     uuid.UUID                 `json:"order_id"     validate:"required"`
+	Method      orderdb.OrderRefundMethod `json:"method"       validate:"required,validateFn=Valid"`
+	Reason      string                    `json:"reason"       validate:"required,max=500"`
+	Address     null.String               `json:"address"      validate:"omitnil,max=500"`
 	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"dive"`
 }
 
@@ -75,10 +75,10 @@ func (h *Handler) ListBuyerRefunds(c echo.Context) error {
 }
 
 type UpdateBuyerRefundRequest struct {
-	RefundID    uuid.UUID                 `json:"id" validate:"required"`
-	Method      orderdb.OrderRefundMethod `json:"method" validate:"omitempty,validateFn=Valid"`
-	Address     null.String               `json:"address" validate:"omitnil,max=500"`
-	Reason      null.String               `json:"reason" validate:"omitnil,max=500"`
+	RefundID    uuid.UUID                 `json:"id"           validate:"required"`
+	Method      orderdb.OrderRefundMethod `json:"method"       validate:"omitempty,validateFn=Valid"`
+	Address     null.String               `json:"address"      validate:"omitnil,max=500"`
+	Reason      null.String               `json:"reason"       validate:"omitnil,max=500"`
 	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"required,dive"`
 }
 
