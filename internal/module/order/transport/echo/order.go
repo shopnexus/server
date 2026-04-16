@@ -201,15 +201,18 @@ func (h *Handler) ListSellerConfirmed(c echo.Context) error {
 // --- Buyer Checkout ---
 
 type BuyerCheckoutRequest struct {
-	BuyNow bool                  `json:"buy_now" validate:"omitempty"`
-	Items  []CheckoutItemRequest `json:"items"   validate:"required,min=1,dive"`
+	BuyNow        bool                  `json:"buy_now" validate:"omitempty"`
+	Address       string                `json:"address" validate:"required,min=1,max=500"`
+	PaymentOption string                `json:"payment_option" validate:"max=100"`
+	UseWallet     bool                  `json:"use_wallet"`
+	Items         []CheckoutItemRequest `json:"items"   validate:"required,min=1,dive"`
 }
 
 type CheckoutItemRequest struct {
-	SkuID    uuid.UUID `json:"sku_id"   validate:"required"`
-	Quantity int64     `json:"quantity" validate:"required,gt=0"`
-	Address  string    `json:"address"  validate:"required,min=1,max=500"`
-	Note     string    `json:"note"     validate:"max=500"`
+	SkuID           uuid.UUID `json:"sku_id"           validate:"required"`
+	Quantity        int64     `json:"quantity"          validate:"required,gt=0"`
+	TransportOption string    `json:"transport_option"  validate:"required,min=1,max=100"`
+	Note            string    `json:"note"              validate:"max=500"`
 }
 
 func (h *Handler) BuyerCheckout(c echo.Context) error {
@@ -229,17 +232,20 @@ func (h *Handler) BuyerCheckout(c echo.Context) error {
 	items := make([]orderbiz.CheckoutItem, 0, len(req.Items))
 	for _, item := range req.Items {
 		items = append(items, orderbiz.CheckoutItem{
-			SkuID:    item.SkuID,
-			Quantity: item.Quantity,
-			Address:  item.Address,
-			Note:     item.Note,
+			SkuID:           item.SkuID,
+			Quantity:        item.Quantity,
+			TransportOption: item.TransportOption,
+			Note:            item.Note,
 		})
 	}
 
 	result, err := h.biz.BuyerCheckout(c.Request().Context(), orderbiz.BuyerCheckoutParams{
-		Account: claims.Account,
-		BuyNow:  req.BuyNow,
-		Items:   items,
+		Account:       claims.Account,
+		BuyNow:        req.BuyNow,
+		Address:       req.Address,
+		PaymentOption: req.PaymentOption,
+		UseWallet:     req.UseWallet,
+		Items:         items,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

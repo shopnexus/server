@@ -106,6 +106,7 @@ type Querier interface {
 	// ========================================
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
 	GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error)
+	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	// Custom order queries
 	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
@@ -126,6 +127,7 @@ type Querier interface {
 	ListPendingPaymentItemsByPaymentID(ctx context.Context, paymentID null.Int) ([]OrderItem, error)
 	ListRefund(ctx context.Context, arg ListRefundParams) ([]OrderRefund, error)
 	ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error)
+	ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error)
 	ListTransport(ctx context.Context, arg ListTransportParams) ([]OrderTransport, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)
 	SetItemsOrderID(ctx context.Context, arg SetItemsOrderIDParams) (int64, error)
@@ -140,6 +142,7 @@ type Querier interface {
 	// Custom transport queries for webhook-driven status updates.
 	// See: https://docs.giaohangtietkiem.vn/webhook
 	UpdateTransportStatus(ctx context.Context, arg UpdateTransportStatusParams) error
+	ValidateOrderForReview(ctx context.Context, arg ValidateOrderForReviewParams) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)
