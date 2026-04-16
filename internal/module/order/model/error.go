@@ -40,7 +40,6 @@ var (
 	ErrMissingPromotedPrice   = sharedmodel.NewError(http.StatusNotFound, "Promoted price not found for SKU")
 	ErrUnknownPaymentOption   = sharedmodel.NewError(http.StatusBadRequest, "Unknown payment option: %s")
 
-	// New errors for checkout/order refactor.
 	ErrItemsNotSameBuyer = sharedmodel.NewError(http.StatusBadRequest, "all items must belong to the same buyer").
 				Terminal()
 	ErrItemsNotSameAddress = sharedmodel.NewError(http.StatusBadRequest, "all items must have the same address").
@@ -67,4 +66,10 @@ var (
 		http.StatusForbidden,
 		"you are not authorized to access this dispute",
 	)
+
+	ErrItemAlreadyCancelled   = sharedmodel.NewError(http.StatusConflict, "item already cancelled")
+	ErrItemAlreadyConfirmed   = sharedmodel.NewError(http.StatusConflict, "item already confirmed in an order")
+	ErrItemsTransportMismatch = sharedmodel.NewError(http.StatusBadRequest, "all items must have the same transport option")
+	ErrPaymentTimeout         = sharedmodel.NewError(http.StatusConflict, "payment session expired")
+	ErrSellerConfirmTimeout   = sharedmodel.NewError(http.StatusConflict, "seller confirmation expired")
 )

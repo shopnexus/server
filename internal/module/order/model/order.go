@@ -19,22 +19,25 @@ const (
 )
 
 type OrderItem struct {
-	ID          int64                   `json:"id"`
-	OrderID     *uuid.UUID              `json:"order_id"`
-	AccountID   uuid.UUID               `json:"account_id"`
-	SellerID    uuid.UUID               `json:"seller_id"`
-	Address     string                  `json:"address"`
-	Status      orderdb.OrderItemStatus `json:"status"`
-	SkuID       uuid.UUID               `json:"sku_id"`
-	SpuID       uuid.UUID               `json:"spu_id"`
-	SkuName     string                  `json:"sku_name"`
-	Quantity    int64                   `json:"quantity"`
-	UnitPrice   sharedmodel.Concurrency `json:"unit_price"`
-	PaidAmount  int64                   `json:"paid_amount"`
-	Note        *string                 `json:"note"`
-	SerialIds   json.RawMessage         `json:"serial_ids"`
-	DateCreated time.Time               `json:"date_created"`
-	Resources   []commonmodel.Resource  `json:"resources"`
+	ID                    int64                   `json:"id"`
+	OrderID               *uuid.UUID              `json:"order_id"`
+	AccountID             uuid.UUID               `json:"account_id"`
+	SellerID              uuid.UUID               `json:"seller_id"`
+	Address               string                  `json:"address"`
+	SkuID                 uuid.UUID               `json:"sku_id"`
+	SpuID                 uuid.UUID               `json:"spu_id"`
+	SkuName               string                  `json:"sku_name"`
+	Quantity              int64                   `json:"quantity"`
+	UnitPrice             sharedmodel.Concurrency `json:"unit_price"`
+	PaidAmount            int64                   `json:"paid_amount"`
+	Note                  *string                 `json:"note"`
+	SerialIds             json.RawMessage         `json:"serial_ids"`
+	TransportOption       string                  `json:"transport_option"`
+	TransportCostEstimate int64                   `json:"transport_cost_estimate"`
+	PaymentID             *int64                  `json:"payment_id,omitempty"`
+	DateCancelled         *time.Time              `json:"date_cancelled,omitempty"`
+	DateCreated           time.Time               `json:"date_created"`
+	Resources             []commonmodel.Resource  `json:"resources"`
 }
 
 type Order struct {

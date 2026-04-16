@@ -42,7 +42,6 @@ type OrderBiz interface {
 		ctx context.Context,
 		params ListSellerPendingParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
-	QuoteTransport(ctx context.Context, params QuoteTransportParams) (QuoteTransportResult, error)
 	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
 
@@ -59,8 +58,9 @@ type OrderBiz interface {
 	) (sharedmodel.PaginateResult[ordermodel.Order], error)
 
 	// Payment
-	PayBuyerOrders(ctx context.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error)
 	ConfirmPayment(ctx context.Context, params ConfirmPaymentParams) error
+	CancelUnpaidCheckout(ctx context.Context, paymentID int64) error
+	AutoCancelPendingItems(ctx context.Context, paymentID int64) error
 
 	// Cart (unchanged)
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
@@ -161,25 +161,31 @@ func NewOrderHandler(
 // --- Param structs ---
 
 type BuyerCheckoutParams struct {
-	Account accountmodel.AuthenticatedAccount
-	BuyNow  bool           `validate:"omitempty"`
-	Items   []CheckoutItem `validate:"required,min=1,dive"`
+	Account       accountmodel.AuthenticatedAccount `json:"-"`
+	BuyNow        bool                              `json:"buy_now"`
+	Address       string                            `json:"address" validate:"required,min=1,max=500"`
+	PaymentOption string                            `json:"payment_option" validate:"max=100"`
+	UseWallet     bool                              `json:"use_wallet"`
+	Items         []CheckoutItem                    `json:"items" validate:"required,min=1,dive"`
 }
 
 type CheckoutItem struct {
-	SkuID    uuid.UUID `json:"sku_id"   validate:"required"`
-	Quantity int64     `json:"quantity" validate:"required,gt=0"`
-	Address  string    `json:"address"  validate:"required,min=1,max=500"`
-	Note     string    `json:"note"     validate:"max=500"`
+	SkuID           uuid.UUID `json:"sku_id" validate:"required"`
+	Quantity        int64     `json:"quantity" validate:"required,gt=0"`
+	TransportOption string    `json:"transport_option" validate:"required,min=1,max=100"`
+	Note            string    `json:"note" validate:"max=500"`
 }
 
 type BuyerCheckoutResult struct {
-	Items []ordermodel.OrderItem `json:"items"`
+	Items          []ordermodel.OrderItem `json:"items"`
+	Payment        *ordermodel.Payment    `json:"payment,omitempty"`
+	RedirectUrl    *string                `json:"redirect_url,omitempty"`
+	WalletDeducted int64                  `json:"wallet_deducted"`
+	Total          int64                  `json:"total"`
 }
 
 type ListBuyerPendingParams struct {
-	AccountID uuid.UUID                 `validate:"required"`
-	Status    []orderdb.OrderItemStatus `validate:"omitempty"`
+	AccountID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 
@@ -194,24 +200,10 @@ type ListSellerPendingParams struct {
 	sharedmodel.PaginationParams
 }
 
-type QuoteTransportParams struct {
-	Account         accountmodel.AuthenticatedAccount
-	ItemIDs         []int64 `validate:"required,min=1"`
-	TransportOption string  `validate:"required,min=1,max=100"`
-}
-
-type QuoteTransportResult struct {
-	ProductCost     sharedmodel.Concurrency `json:"product_cost"`
-	ProductDiscount sharedmodel.Concurrency `json:"product_discount"`
-	TransportCost   sharedmodel.Concurrency `json:"transport_cost"`
-	Total           sharedmodel.Concurrency `json:"total"`
-}
-
 type ConfirmSellerPendingParams struct {
-	Account         accountmodel.AuthenticatedAccount
-	ItemIDs         []int64 `validate:"required,min=1"`
-	TransportOption string  `validate:"required,min=1,max=100"`
-	Note            string  `validate:"max=500"`
+	Account accountmodel.AuthenticatedAccount `json:"-"`
+	ItemIDs []int64                           `json:"item_ids" validate:"required,min=1"`
+	Note    string                            `json:"note" validate:"max=500"`
 }
 
 type RejectSellerPendingParams struct {
@@ -230,17 +222,6 @@ type ListSellerConfirmedParams struct {
 	Search        null.String           `validate:"omitnil"`
 	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
 	sharedmodel.PaginationParams
-}
-
-type PayBuyerOrdersParams struct {
-	Account       accountmodel.AuthenticatedAccount
-	OrderIDs      []uuid.UUID `validate:"required,min=1"`
-	PaymentOption string      `validate:"max=100"`
-}
-
-type PayBuyerOrdersResult struct {
-	Payment     ordermodel.Payment `json:"payment"`
-	RedirectUrl *string            `json:"redirect_url"`
 }
 
 type ConfirmPaymentParams struct {
