@@ -12,6 +12,7 @@ var (
 	ErrPaymentGatewayNotFound = sharedmodel.NewError(http.StatusNotFound, "Sorry, we couldn't find the payment gateway you requested")
 	ErrRefundAddressRequired  = sharedmodel.NewError(http.StatusBadRequest, "Address is required for pick up method")
 	ErrRefundCannotBeUpdated  = sharedmodel.NewError(http.StatusConflict, "Refund cannot be updated in its current status")
+	ErrRefundDuplicateItem    = sharedmodel.NewError(http.StatusBadRequest, "Duplicate item IDs in refund request")
 	ErrBuyNowSingleSkuOnly    = sharedmodel.NewError(http.StatusBadRequest, "Buy now is only available for a single product")
 	ErrOrderNotFound          = sharedmodel.NewError(http.StatusNotFound, "The order could not be found")
 	ErrQuantityParamRequired  = sharedmodel.NewError(http.StatusBadRequest, "Either quantity or delta_quantity must be provided")
@@ -34,4 +35,9 @@ var (
 	ErrUnknownTransportOption     = sharedmodel.NewError(http.StatusBadRequest, "unknown transport option").Terminal()
 	ErrNoDefaultPaymentMethod     = sharedmodel.NewError(http.StatusBadRequest, "no default payment method configured")
 	ErrPaymentMethodNotFound      = sharedmodel.NewError(http.StatusNotFound, "payment method not found")
+
+	ErrDisputeNotFound          = sharedmodel.NewError(http.StatusNotFound, "dispute not found")
+	ErrDisputeRefundResolved    = sharedmodel.NewError(http.StatusConflict, "cannot dispute a refund that has already been resolved or cancelled")
+	ErrDisputeAlreadyActive     = sharedmodel.NewError(http.StatusConflict, "an active dispute already exists for this refund")
+	ErrDisputeNotAuthorized     = sharedmodel.NewError(http.StatusForbidden, "you are not authorized to access this dispute")
 )

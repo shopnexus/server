@@ -339,6 +339,10 @@ type OrderRefund struct {
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
 	DateCreated   time.Time         `json:"date_created"`
+	// Array of item IDs being refunded; NULL means refund all items of the order (full refund)
+	ItemIds json.RawMessage `json:"item_ids"`
+	// Partial refund amount in smallest currency unit; NULL means use order total (full refund)
+	Amount null.Int `json:"amount"`
 }
 
 type OrderRefundDispute struct {
@@ -349,6 +353,12 @@ type OrderRefundDispute struct {
 	Status      OrderStatus `json:"status"`
 	DateCreated time.Time   `json:"date_created"`
 	DateUpdated time.Time   `json:"date_updated"`
+	// Account that resolved the dispute (platform staff with elevated permissions)
+	ResolvedByID uuid.NullUUID `json:"resolved_by_id"`
+	// Free-form note explaining the resolution decision
+	ResolutionNote null.String `json:"resolution_note"`
+	// When resolution was recorded
+	DateResolved null.Time `json:"date_resolved"`
 }
 
 type OrderTransport struct {

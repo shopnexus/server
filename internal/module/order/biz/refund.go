@@ -14,6 +14,7 @@ import (
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -79,7 +80,9 @@ func (b *OrderHandler) ListBuyerRefunds(ctx restate.Context, params ListBuyerRef
 }
 
 // CreateBuyerRefund creates a new refund request for an order and tracks refund analytics.
-func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyerRefundParams) (_ ordermodel.Refund, err error) {
+	defer metrics.TrackHandler("order", "CreateBuyerRefund", &err)()
+
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -90,6 +93,26 @@ func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyer
 		return zero, ordermodel.ErrRefundAddressRequired.Terminal()
 	}
 
+	// Partial refund: serialize item_ids to JSONB (null = full refund)
+	var itemIdsJSON json.RawMessage
+	if len(params.ItemIDs) > 0 {
+		// Reject duplicates
+		seen := make(map[int64]bool, len(params.ItemIDs))
+		for _, id := range params.ItemIDs {
+			if seen[id] {
+				return zero, ordermodel.ErrRefundDuplicateItem.Terminal()
+			}
+			seen[id] = true
+		}
+		itemIdsJSON, _ = json.Marshal(params.ItemIDs)
+	}
+
+	// Partial amount: wrap in null.Int (null = compute from order total)
+	var amount null.Int
+	if params.Amount > 0 {
+		amount = null.IntFrom(params.Amount)
+	}
+
 	// Create refund in durable step
 	dbRefund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
 		return b.storage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
@@ -98,11 +121,15 @@ func (b *OrderHandler) CreateBuyerRefund(ctx restate.Context, params CreateBuyer
 			Method:    params.Method,
 			Reason:    params.Reason,
 			Address:   params.Address,
+			ItemIds:   itemIdsJSON,
+			Amount:    amount,
 		})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db create refund", err)
 	}
+
+	metrics.RefundsCreatedTotal.Inc()
 
 	// Update resources outside Run (cross-module Restate call)
 	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
@@ -279,7 +306,9 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 }
 
 // ConfirmSellerRefund marks a refund as confirmed by the vendor and transitions it to processing.
-func (b *OrderHandler) ConfirmSellerRefund(ctx restate.Context, params ConfirmSellerRefundParams) (ordermodel.Refund, error) {
+func (b *OrderHandler) ConfirmSellerRefund(ctx restate.Context, params ConfirmSellerRefundParams) (_ ordermodel.Refund, err error) {
+	defer metrics.TrackHandler("order", "ConfirmSellerRefund", &err)()
+
 	var zero ordermodel.Refund
 
 	if err := validator.Validate(params); err != nil {
@@ -322,10 +351,15 @@ func (b *OrderHandler) ConfirmSellerRefund(ctx restate.Context, params ConfirmSe
 		if data.ProviderChargeID != "" {
 			cardClient, err := b.getPaymentClientByProvider(data.Provider)
 			if err == nil {
+				// Partial refund: use refund.Amount if set, else full payment amount
+				refundAmount := refundOrder.Payment.Amount
+				if refund.Amount > 0 {
+					refundAmount = sharedmodel.Concurrency(refund.Amount)
+				}
 				restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 					_, refundErr := cardClient.Refund(ctx, payment.RefundParams{
 						ProviderChargeID: data.ProviderChargeID,
-						Amount:           refundOrder.Payment.Amount,
+						Amount:           refundAmount,
 					})
 					if refundErr != nil {
 						slog.Error("auto-refund failed",

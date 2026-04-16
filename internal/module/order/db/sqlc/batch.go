@@ -344,9 +344,9 @@ func (b *CreateBatchPaymentBatchResults) Close() error {
 }
 
 const createBatchRefund = `-- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 `
 
 type CreateBatchRefundBatchResults struct {
@@ -366,6 +366,8 @@ type CreateBatchRefundParams struct {
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
 	DateCreated   time.Time         `json:"date_created"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 }
 
 func (q *Queries) CreateBatchRefund(ctx context.Context, arg []CreateBatchRefundParams) *CreateBatchRefundBatchResults {
@@ -382,6 +384,8 @@ func (q *Queries) CreateBatchRefund(ctx context.Context, arg []CreateBatchRefund
 			a.Reason,
 			a.Address,
 			a.DateCreated,
+			a.ItemIds,
+			a.Amount,
 		}
 		batch.Queue(createBatchRefund, vals...)
 	}
@@ -411,6 +415,8 @@ func (b *CreateBatchRefundBatchResults) QueryRow(f func(int, OrderRefund, error)
 			&i.Reason,
 			&i.Address,
 			&i.DateCreated,
+			&i.ItemIds,
+			&i.Amount,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -424,9 +430,9 @@ func (b *CreateBatchRefundBatchResults) Close() error {
 }
 
 const createBatchRefundDispute = `-- name: CreateBatchRefundDispute :batchone
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 `
 
 type CreateBatchRefundDisputeBatchResults struct {
@@ -436,13 +442,16 @@ type CreateBatchRefundDisputeBatchResults struct {
 }
 
 type CreateBatchRefundDisputeParams struct {
-	ID          uuid.UUID   `json:"id"`
-	RefundID    uuid.UUID   `json:"refund_id"`
-	IssuedByID  uuid.UUID   `json:"issued_by_id"`
-	Reason      string      `json:"reason"`
-	Status      OrderStatus `json:"status"`
-	DateCreated time.Time   `json:"date_created"`
-	DateUpdated time.Time   `json:"date_updated"`
+	ID             uuid.UUID     `json:"id"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	Status         OrderStatus   `json:"status"`
+	DateCreated    time.Time     `json:"date_created"`
+	DateUpdated    time.Time     `json:"date_updated"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 func (q *Queries) CreateBatchRefundDispute(ctx context.Context, arg []CreateBatchRefundDisputeParams) *CreateBatchRefundDisputeBatchResults {
@@ -456,6 +465,9 @@ func (q *Queries) CreateBatchRefundDispute(ctx context.Context, arg []CreateBatc
 			a.Status,
 			a.DateCreated,
 			a.DateUpdated,
+			a.ResolvedByID,
+			a.ResolutionNote,
+			a.DateResolved,
 		}
 		batch.Queue(createBatchRefundDispute, vals...)
 	}
@@ -482,6 +494,9 @@ func (b *CreateBatchRefundDisputeBatchResults) QueryRow(f func(int, OrderRefundD
 			&i.Status,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.ResolvedByID,
+			&i.ResolutionNote,
+			&i.DateResolved,
 		)
 		if f != nil {
 			f(t, i, err)

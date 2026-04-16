@@ -308,7 +308,11 @@ WHERE (
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("item_ids" = ANY($13) OR $13 IS NULL) AND
+    ("amount" = ANY($14) OR $14 IS NULL) AND
+    ("amount" >= $15 OR $15 IS NULL) AND
+    ("amount" <= $16 OR $16 IS NULL)
 )
 `
 
@@ -325,6 +329,10 @@ type CountRefundParams struct {
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
+	ItemIds         []json.RawMessage   `json:"item_ids"`
+	Amount          []null.Int          `json:"amount"`
+	AmountFrom      null.Int            `json:"amount_from"`
+	AmountTo        null.Int            `json:"amount_to"`
 }
 
 func (q *Queries) CountRefund(ctx context.Context, arg CountRefundParams) (int64, error) {
@@ -341,6 +349,10 @@ func (q *Queries) CountRefund(ctx context.Context, arg CountRefundParams) (int64
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.ItemIds,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -361,22 +373,32 @@ WHERE (
     ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
     ("date_updated" >= $10 OR $10 IS NULL) AND
-    ("date_updated" <= $11 OR $11 IS NULL)
+    ("date_updated" <= $11 OR $11 IS NULL) AND
+    ("resolved_by_id" = ANY($12) OR $12 IS NULL) AND
+    ("resolution_note" = ANY($13) OR $13 IS NULL) AND
+    ("date_resolved" = ANY($14) OR $14 IS NULL) AND
+    ("date_resolved" >= $15 OR $15 IS NULL) AND
+    ("date_resolved" <= $16 OR $16 IS NULL)
 )
 `
 
 type CountRefundDisputeParams struct {
-	ID              []uuid.UUID   `json:"id"`
-	RefundID        []uuid.UUID   `json:"refund_id"`
-	IssuedByID      []uuid.UUID   `json:"issued_by_id"`
-	Reason          []string      `json:"reason"`
-	Status          []OrderStatus `json:"status"`
-	DateCreated     []time.Time   `json:"date_created"`
-	DateCreatedFrom null.Time     `json:"date_created_from"`
-	DateCreatedTo   null.Time     `json:"date_created_to"`
-	DateUpdated     []time.Time   `json:"date_updated"`
-	DateUpdatedFrom null.Time     `json:"date_updated_from"`
-	DateUpdatedTo   null.Time     `json:"date_updated_to"`
+	ID               []uuid.UUID     `json:"id"`
+	RefundID         []uuid.UUID     `json:"refund_id"`
+	IssuedByID       []uuid.UUID     `json:"issued_by_id"`
+	Reason           []string        `json:"reason"`
+	Status           []OrderStatus   `json:"status"`
+	DateCreated      []time.Time     `json:"date_created"`
+	DateCreatedFrom  null.Time       `json:"date_created_from"`
+	DateCreatedTo    null.Time       `json:"date_created_to"`
+	DateUpdated      []time.Time     `json:"date_updated"`
+	DateUpdatedFrom  null.Time       `json:"date_updated_from"`
+	DateUpdatedTo    null.Time       `json:"date_updated_to"`
+	ResolvedByID     []uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote   []null.String   `json:"resolution_note"`
+	DateResolved     []null.Time     `json:"date_resolved"`
+	DateResolvedFrom null.Time       `json:"date_resolved_from"`
+	DateResolvedTo   null.Time       `json:"date_resolved_to"`
 }
 
 func (q *Queries) CountRefundDispute(ctx context.Context, arg CountRefundDisputeParams) (int64, error) {
@@ -392,6 +414,11 @@ func (q *Queries) CountRefundDispute(ctx context.Context, arg CountRefundDispute
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
+		arg.DateResolvedFrom,
+		arg.DateResolvedTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -527,12 +554,17 @@ type CreateCopyDefaultRefundParams struct {
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 }
 
 type CreateCopyDefaultRefundDisputeParams struct {
-	RefundID   uuid.UUID `json:"refund_id"`
-	IssuedByID uuid.UUID `json:"issued_by_id"`
-	Reason     string    `json:"reason"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 type CreateCopyItemParams struct {
@@ -592,16 +624,21 @@ type CreateCopyRefundParams struct {
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
 	DateCreated   time.Time         `json:"date_created"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 }
 
 type CreateCopyRefundDisputeParams struct {
-	ID          uuid.UUID   `json:"id"`
-	RefundID    uuid.UUID   `json:"refund_id"`
-	IssuedByID  uuid.UUID   `json:"issued_by_id"`
-	Reason      string      `json:"reason"`
-	Status      OrderStatus `json:"status"`
-	DateCreated time.Time   `json:"date_created"`
-	DateUpdated time.Time   `json:"date_updated"`
+	ID             uuid.UUID     `json:"id"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	Status         OrderStatus   `json:"status"`
+	DateCreated    time.Time     `json:"date_created"`
+	DateUpdated    time.Time     `json:"date_updated"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 type CreateCopyTransportParams struct {
@@ -787,9 +824,9 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 }
 
 const createDefaultRefund = `-- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 `
 
 type CreateDefaultRefundParams struct {
@@ -800,6 +837,8 @@ type CreateDefaultRefundParams struct {
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 }
 
 func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefundParams) (OrderRefund, error) {
@@ -811,6 +850,8 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 		arg.Method,
 		arg.Reason,
 		arg.Address,
+		arg.ItemIds,
+		arg.Amount,
 	)
 	var i OrderRefund
 	err := row.Scan(
@@ -824,24 +865,36 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 		&i.Reason,
 		&i.Address,
 		&i.DateCreated,
+		&i.ItemIds,
+		&i.Amount,
 	)
 	return i, err
 }
 
 const createDefaultRefundDispute = `-- name: CreateDefaultRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason")
-VALUES ($1, $2, $3)
-RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated
+INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 `
 
 type CreateDefaultRefundDisputeParams struct {
-	RefundID   uuid.UUID `json:"refund_id"`
-	IssuedByID uuid.UUID `json:"issued_by_id"`
-	Reason     string    `json:"reason"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 func (q *Queries) CreateDefaultRefundDispute(ctx context.Context, arg CreateDefaultRefundDisputeParams) (OrderRefundDispute, error) {
-	row := q.db.QueryRow(ctx, createDefaultRefundDispute, arg.RefundID, arg.IssuedByID, arg.Reason)
+	row := q.db.QueryRow(ctx, createDefaultRefundDispute,
+		arg.RefundID,
+		arg.IssuedByID,
+		arg.Reason,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
+	)
 	var i OrderRefundDispute
 	err := row.Scan(
 		&i.ID,
@@ -851,6 +904,9 @@ func (q *Queries) CreateDefaultRefundDispute(ctx context.Context, arg CreateDefa
 		&i.Status,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.ResolvedByID,
+		&i.ResolutionNote,
+		&i.DateResolved,
 	)
 	return i, err
 }
@@ -1043,9 +1099,9 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (O
 }
 
 const createRefund = `-- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 `
 
 type CreateRefundParams struct {
@@ -1059,6 +1115,8 @@ type CreateRefundParams struct {
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
 	DateCreated   time.Time         `json:"date_created"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 }
 
 func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (OrderRefund, error) {
@@ -1073,6 +1131,8 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 		arg.Reason,
 		arg.Address,
 		arg.DateCreated,
+		arg.ItemIds,
+		arg.Amount,
 	)
 	var i OrderRefund
 	err := row.Scan(
@@ -1086,24 +1146,29 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 		&i.Reason,
 		&i.Address,
 		&i.DateCreated,
+		&i.ItemIds,
+		&i.Amount,
 	)
 	return i, err
 }
 
 const createRefundDispute = `-- name: CreateRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 `
 
 type CreateRefundDisputeParams struct {
-	ID          uuid.UUID   `json:"id"`
-	RefundID    uuid.UUID   `json:"refund_id"`
-	IssuedByID  uuid.UUID   `json:"issued_by_id"`
-	Reason      string      `json:"reason"`
-	Status      OrderStatus `json:"status"`
-	DateCreated time.Time   `json:"date_created"`
-	DateUpdated time.Time   `json:"date_updated"`
+	ID             uuid.UUID     `json:"id"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	Status         OrderStatus   `json:"status"`
+	DateCreated    time.Time     `json:"date_created"`
+	DateUpdated    time.Time     `json:"date_updated"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 func (q *Queries) CreateRefundDispute(ctx context.Context, arg CreateRefundDisputeParams) (OrderRefundDispute, error) {
@@ -1115,6 +1180,9 @@ func (q *Queries) CreateRefundDispute(ctx context.Context, arg CreateRefundDispu
 		arg.Status,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
 	)
 	var i OrderRefundDispute
 	err := row.Scan(
@@ -1125,6 +1193,9 @@ func (q *Queries) CreateRefundDispute(ctx context.Context, arg CreateRefundDispu
 		&i.Status,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.ResolvedByID,
+		&i.ResolutionNote,
+		&i.DateResolved,
 	)
 	return i, err
 }
@@ -1446,7 +1517,11 @@ WHERE (
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("item_ids" = ANY($13) OR $13 IS NULL) AND
+    ("amount" = ANY($14) OR $14 IS NULL) AND
+    ("amount" >= $15 OR $15 IS NULL) AND
+    ("amount" <= $16 OR $16 IS NULL)
 )
 `
 
@@ -1463,6 +1538,10 @@ type DeleteRefundParams struct {
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
+	ItemIds         []json.RawMessage   `json:"item_ids"`
+	Amount          []null.Int          `json:"amount"`
+	AmountFrom      null.Int            `json:"amount_from"`
+	AmountTo        null.Int            `json:"amount_to"`
 }
 
 func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) error {
@@ -1479,6 +1558,10 @@ func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) erro
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.ItemIds,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
 	)
 	return err
 }
@@ -1496,22 +1579,32 @@ WHERE (
     ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
     ("date_updated" >= $10 OR $10 IS NULL) AND
-    ("date_updated" <= $11 OR $11 IS NULL)
+    ("date_updated" <= $11 OR $11 IS NULL) AND
+    ("resolved_by_id" = ANY($12) OR $12 IS NULL) AND
+    ("resolution_note" = ANY($13) OR $13 IS NULL) AND
+    ("date_resolved" = ANY($14) OR $14 IS NULL) AND
+    ("date_resolved" >= $15 OR $15 IS NULL) AND
+    ("date_resolved" <= $16 OR $16 IS NULL)
 )
 `
 
 type DeleteRefundDisputeParams struct {
-	ID              []uuid.UUID   `json:"id"`
-	RefundID        []uuid.UUID   `json:"refund_id"`
-	IssuedByID      []uuid.UUID   `json:"issued_by_id"`
-	Reason          []string      `json:"reason"`
-	Status          []OrderStatus `json:"status"`
-	DateCreated     []time.Time   `json:"date_created"`
-	DateCreatedFrom null.Time     `json:"date_created_from"`
-	DateCreatedTo   null.Time     `json:"date_created_to"`
-	DateUpdated     []time.Time   `json:"date_updated"`
-	DateUpdatedFrom null.Time     `json:"date_updated_from"`
-	DateUpdatedTo   null.Time     `json:"date_updated_to"`
+	ID               []uuid.UUID     `json:"id"`
+	RefundID         []uuid.UUID     `json:"refund_id"`
+	IssuedByID       []uuid.UUID     `json:"issued_by_id"`
+	Reason           []string        `json:"reason"`
+	Status           []OrderStatus   `json:"status"`
+	DateCreated      []time.Time     `json:"date_created"`
+	DateCreatedFrom  null.Time       `json:"date_created_from"`
+	DateCreatedTo    null.Time       `json:"date_created_to"`
+	DateUpdated      []time.Time     `json:"date_updated"`
+	DateUpdatedFrom  null.Time       `json:"date_updated_from"`
+	DateUpdatedTo    null.Time       `json:"date_updated_to"`
+	ResolvedByID     []uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote   []null.String   `json:"resolution_note"`
+	DateResolved     []null.Time     `json:"date_resolved"`
+	DateResolvedFrom null.Time       `json:"date_resolved_from"`
+	DateResolvedTo   null.Time       `json:"date_resolved_to"`
 }
 
 func (q *Queries) DeleteRefundDispute(ctx context.Context, arg DeleteRefundDisputeParams) error {
@@ -1527,6 +1620,11 @@ func (q *Queries) DeleteRefundDispute(ctx context.Context, arg DeleteRefundDispu
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
+		arg.DateResolvedFrom,
+		arg.DateResolvedTo,
 	)
 	return err
 }
@@ -1703,7 +1801,7 @@ func (q *Queries) GetPayment(ctx context.Context, id null.Int) (OrderPayment, er
 
 const getRefund = `-- name: GetRefund :one
 
-SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 FROM "order"."refund"
 WHERE ("id" = $1)
 `
@@ -1725,13 +1823,15 @@ func (q *Queries) GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund,
 		&i.Reason,
 		&i.Address,
 		&i.DateCreated,
+		&i.ItemIds,
+		&i.Amount,
 	)
 	return i, err
 }
 
 const getRefundDispute = `-- name: GetRefundDispute :one
 
-SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated
+SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 FROM "order"."refund_dispute"
 WHERE ("id" = $1)
 `
@@ -1750,6 +1850,9 @@ func (q *Queries) GetRefundDispute(ctx context.Context, id uuid.NullUUID) (Order
 		&i.Status,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.ResolvedByID,
+		&i.ResolutionNote,
+		&i.DateResolved,
 	)
 	return i, err
 }
@@ -2270,7 +2373,7 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 }
 
 const listCountRefund = `-- name: ListCountRefund :many
-SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_id, embed_refund.confirmed_by_id, embed_refund.transport_id, embed_refund.method, embed_refund.status, embed_refund.reason, embed_refund.address, embed_refund.date_created, COUNT(*) OVER() as total_count
+SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_id, embed_refund.confirmed_by_id, embed_refund.transport_id, embed_refund.method, embed_refund.status, embed_refund.reason, embed_refund.address, embed_refund.date_created, embed_refund.item_ids, embed_refund.amount, COUNT(*) OVER() as total_count
 FROM "order"."refund" embed_refund
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2284,11 +2387,15 @@ WHERE (
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("item_ids" = ANY($13) OR $13 IS NULL) AND
+    ("amount" = ANY($14) OR $14 IS NULL) AND
+    ("amount" >= $15 OR $15 IS NULL) AND
+    ("amount" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListCountRefundParams struct {
@@ -2304,6 +2411,10 @@ type ListCountRefundParams struct {
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
+	ItemIds         []json.RawMessage   `json:"item_ids"`
+	Amount          []null.Int          `json:"amount"`
+	AmountFrom      null.Int            `json:"amount_from"`
+	AmountTo        null.Int            `json:"amount_to"`
 	Offset          null.Int32          `json:"offset"`
 	Limit           null.Int32          `json:"limit"`
 }
@@ -2327,6 +2438,10 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.ItemIds,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2348,6 +2463,8 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 			&i.OrderRefund.Reason,
 			&i.OrderRefund.Address,
 			&i.OrderRefund.DateCreated,
+			&i.OrderRefund.ItemIds,
+			&i.OrderRefund.Amount,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2361,7 +2478,7 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 }
 
 const listCountRefundDispute = `-- name: ListCountRefundDispute :many
-SELECT embed_refund_dispute.id, embed_refund_dispute.refund_id, embed_refund_dispute.issued_by_id, embed_refund_dispute.reason, embed_refund_dispute.status, embed_refund_dispute.date_created, embed_refund_dispute.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_refund_dispute.id, embed_refund_dispute.refund_id, embed_refund_dispute.issued_by_id, embed_refund_dispute.reason, embed_refund_dispute.status, embed_refund_dispute.date_created, embed_refund_dispute.date_updated, embed_refund_dispute.resolved_by_id, embed_refund_dispute.resolution_note, embed_refund_dispute.date_resolved, COUNT(*) OVER() as total_count
 FROM "order"."refund_dispute" embed_refund_dispute
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2374,27 +2491,37 @@ WHERE (
     ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
     ("date_updated" >= $10 OR $10 IS NULL) AND
-    ("date_updated" <= $11 OR $11 IS NULL)
+    ("date_updated" <= $11 OR $11 IS NULL) AND
+    ("resolved_by_id" = ANY($12) OR $12 IS NULL) AND
+    ("resolution_note" = ANY($13) OR $13 IS NULL) AND
+    ("date_resolved" = ANY($14) OR $14 IS NULL) AND
+    ("date_resolved" >= $15 OR $15 IS NULL) AND
+    ("date_resolved" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $13::int
-OFFSET $12::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListCountRefundDisputeParams struct {
-	ID              []uuid.UUID   `json:"id"`
-	RefundID        []uuid.UUID   `json:"refund_id"`
-	IssuedByID      []uuid.UUID   `json:"issued_by_id"`
-	Reason          []string      `json:"reason"`
-	Status          []OrderStatus `json:"status"`
-	DateCreated     []time.Time   `json:"date_created"`
-	DateCreatedFrom null.Time     `json:"date_created_from"`
-	DateCreatedTo   null.Time     `json:"date_created_to"`
-	DateUpdated     []time.Time   `json:"date_updated"`
-	DateUpdatedFrom null.Time     `json:"date_updated_from"`
-	DateUpdatedTo   null.Time     `json:"date_updated_to"`
-	Offset          null.Int32    `json:"offset"`
-	Limit           null.Int32    `json:"limit"`
+	ID               []uuid.UUID     `json:"id"`
+	RefundID         []uuid.UUID     `json:"refund_id"`
+	IssuedByID       []uuid.UUID     `json:"issued_by_id"`
+	Reason           []string        `json:"reason"`
+	Status           []OrderStatus   `json:"status"`
+	DateCreated      []time.Time     `json:"date_created"`
+	DateCreatedFrom  null.Time       `json:"date_created_from"`
+	DateCreatedTo    null.Time       `json:"date_created_to"`
+	DateUpdated      []time.Time     `json:"date_updated"`
+	DateUpdatedFrom  null.Time       `json:"date_updated_from"`
+	DateUpdatedTo    null.Time       `json:"date_updated_to"`
+	ResolvedByID     []uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote   []null.String   `json:"resolution_note"`
+	DateResolved     []null.Time     `json:"date_resolved"`
+	DateResolvedFrom null.Time       `json:"date_resolved_from"`
+	DateResolvedTo   null.Time       `json:"date_resolved_to"`
+	Offset           null.Int32      `json:"offset"`
+	Limit            null.Int32      `json:"limit"`
 }
 
 type ListCountRefundDisputeRow struct {
@@ -2415,6 +2542,11 @@ func (q *Queries) ListCountRefundDispute(ctx context.Context, arg ListCountRefun
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
+		arg.DateResolvedFrom,
+		arg.DateResolvedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2433,6 +2565,9 @@ func (q *Queries) ListCountRefundDispute(ctx context.Context, arg ListCountRefun
 			&i.OrderRefundDispute.Status,
 			&i.OrderRefundDispute.DateCreated,
 			&i.OrderRefundDispute.DateUpdated,
+			&i.OrderRefundDispute.ResolvedByID,
+			&i.OrderRefundDispute.ResolutionNote,
+			&i.OrderRefundDispute.DateResolved,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2872,7 +3007,7 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 }
 
 const listRefund = `-- name: ListRefund :many
-SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+SELECT id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2886,11 +3021,15 @@ WHERE (
     ("address" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL) AND
+    ("item_ids" = ANY($13) OR $13 IS NULL) AND
+    ("amount" = ANY($14) OR $14 IS NULL) AND
+    ("amount" >= $15 OR $15 IS NULL) AND
+    ("amount" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $14::int
-OFFSET $13::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListRefundParams struct {
@@ -2906,6 +3045,10 @@ type ListRefundParams struct {
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
+	ItemIds         []json.RawMessage   `json:"item_ids"`
+	Amount          []null.Int          `json:"amount"`
+	AmountFrom      null.Int            `json:"amount_from"`
+	AmountTo        null.Int            `json:"amount_to"`
 	Offset          null.Int32          `json:"offset"`
 	Limit           null.Int32          `json:"limit"`
 }
@@ -2924,6 +3067,10 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
+		arg.ItemIds,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2945,6 +3092,8 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 			&i.Reason,
 			&i.Address,
 			&i.DateCreated,
+			&i.ItemIds,
+			&i.Amount,
 		); err != nil {
 			return nil, err
 		}
@@ -2957,7 +3106,7 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 }
 
 const listRefundDispute = `-- name: ListRefundDispute :many
-SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated
+SELECT id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 FROM "order"."refund_dispute"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2970,27 +3119,37 @@ WHERE (
     ("date_created" <= $8 OR $8 IS NULL) AND
     ("date_updated" = ANY($9) OR $9 IS NULL) AND
     ("date_updated" >= $10 OR $10 IS NULL) AND
-    ("date_updated" <= $11 OR $11 IS NULL)
+    ("date_updated" <= $11 OR $11 IS NULL) AND
+    ("resolved_by_id" = ANY($12) OR $12 IS NULL) AND
+    ("resolution_note" = ANY($13) OR $13 IS NULL) AND
+    ("date_resolved" = ANY($14) OR $14 IS NULL) AND
+    ("date_resolved" >= $15 OR $15 IS NULL) AND
+    ("date_resolved" <= $16 OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $13::int
-OFFSET $12::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListRefundDisputeParams struct {
-	ID              []uuid.UUID   `json:"id"`
-	RefundID        []uuid.UUID   `json:"refund_id"`
-	IssuedByID      []uuid.UUID   `json:"issued_by_id"`
-	Reason          []string      `json:"reason"`
-	Status          []OrderStatus `json:"status"`
-	DateCreated     []time.Time   `json:"date_created"`
-	DateCreatedFrom null.Time     `json:"date_created_from"`
-	DateCreatedTo   null.Time     `json:"date_created_to"`
-	DateUpdated     []time.Time   `json:"date_updated"`
-	DateUpdatedFrom null.Time     `json:"date_updated_from"`
-	DateUpdatedTo   null.Time     `json:"date_updated_to"`
-	Offset          null.Int32    `json:"offset"`
-	Limit           null.Int32    `json:"limit"`
+	ID               []uuid.UUID     `json:"id"`
+	RefundID         []uuid.UUID     `json:"refund_id"`
+	IssuedByID       []uuid.UUID     `json:"issued_by_id"`
+	Reason           []string        `json:"reason"`
+	Status           []OrderStatus   `json:"status"`
+	DateCreated      []time.Time     `json:"date_created"`
+	DateCreatedFrom  null.Time       `json:"date_created_from"`
+	DateCreatedTo    null.Time       `json:"date_created_to"`
+	DateUpdated      []time.Time     `json:"date_updated"`
+	DateUpdatedFrom  null.Time       `json:"date_updated_from"`
+	DateUpdatedTo    null.Time       `json:"date_updated_to"`
+	ResolvedByID     []uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote   []null.String   `json:"resolution_note"`
+	DateResolved     []null.Time     `json:"date_resolved"`
+	DateResolvedFrom null.Time       `json:"date_resolved_from"`
+	DateResolvedTo   null.Time       `json:"date_resolved_to"`
+	Offset           null.Int32      `json:"offset"`
+	Limit            null.Int32      `json:"limit"`
 }
 
 func (q *Queries) ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error) {
@@ -3006,6 +3165,11 @@ func (q *Queries) ListRefundDispute(ctx context.Context, arg ListRefundDisputePa
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.ResolvedByID,
+		arg.ResolutionNote,
+		arg.DateResolved,
+		arg.DateResolvedFrom,
+		arg.DateResolvedTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -3024,6 +3188,9 @@ func (q *Queries) ListRefundDispute(ctx context.Context, arg ListRefundDisputePa
 			&i.Status,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.ResolvedByID,
+			&i.ResolutionNote,
+			&i.DateResolved,
 		); err != nil {
 			return nil, err
 		}
@@ -3378,9 +3545,11 @@ SET "account_id" = COALESCE($1, "account_id"),
     "status" = COALESCE($8, "status"),
     "reason" = COALESCE($9, "reason"),
     "address" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "address") END,
-    "date_created" = COALESCE($12, "date_created")
-WHERE id = $13
-RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created
+    "date_created" = COALESCE($12, "date_created"),
+    "item_ids" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "item_ids") END,
+    "amount" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "amount") END
+WHERE id = $17
+RETURNING id, account_id, order_id, confirmed_by_id, transport_id, method, status, reason, address, date_created, item_ids, amount
 `
 
 type UpdateRefundParams struct {
@@ -3396,6 +3565,10 @@ type UpdateRefundParams struct {
 	NullAddress       bool                  `json:"null_address"`
 	Address           null.String           `json:"address"`
 	DateCreated       null.Time             `json:"date_created"`
+	NullItemIds       bool                  `json:"null_item_ids"`
+	ItemIds           json.RawMessage       `json:"item_ids"`
+	NullAmount        bool                  `json:"null_amount"`
+	Amount            null.Int              `json:"amount"`
 	ID                uuid.UUID             `json:"id"`
 }
 
@@ -3413,6 +3586,10 @@ func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (Ord
 		arg.NullAddress,
 		arg.Address,
 		arg.DateCreated,
+		arg.NullItemIds,
+		arg.ItemIds,
+		arg.NullAmount,
+		arg.Amount,
 		arg.ID,
 	)
 	var i OrderRefund
@@ -3427,6 +3604,8 @@ func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (Ord
 		&i.Reason,
 		&i.Address,
 		&i.DateCreated,
+		&i.ItemIds,
+		&i.Amount,
 	)
 	return i, err
 }
@@ -3438,19 +3617,28 @@ SET "refund_id" = COALESCE($1, "refund_id"),
     "reason" = COALESCE($3, "reason"),
     "status" = COALESCE($4, "status"),
     "date_created" = COALESCE($5, "date_created"),
-    "date_updated" = COALESCE($6, "date_updated")
-WHERE id = $7
-RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated
+    "date_updated" = COALESCE($6, "date_updated"),
+    "resolved_by_id" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "resolved_by_id") END,
+    "resolution_note" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "resolution_note") END,
+    "date_resolved" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "date_resolved") END
+WHERE id = $13
+RETURNING id, refund_id, issued_by_id, reason, status, date_created, date_updated, resolved_by_id, resolution_note, date_resolved
 `
 
 type UpdateRefundDisputeParams struct {
-	RefundID    uuid.NullUUID   `json:"refund_id"`
-	IssuedByID  uuid.NullUUID   `json:"issued_by_id"`
-	Reason      null.String     `json:"reason"`
-	Status      NullOrderStatus `json:"status"`
-	DateCreated null.Time       `json:"date_created"`
-	DateUpdated null.Time       `json:"date_updated"`
-	ID          uuid.UUID       `json:"id"`
+	RefundID           uuid.NullUUID   `json:"refund_id"`
+	IssuedByID         uuid.NullUUID   `json:"issued_by_id"`
+	Reason             null.String     `json:"reason"`
+	Status             NullOrderStatus `json:"status"`
+	DateCreated        null.Time       `json:"date_created"`
+	DateUpdated        null.Time       `json:"date_updated"`
+	NullResolvedByID   bool            `json:"null_resolved_by_id"`
+	ResolvedByID       uuid.NullUUID   `json:"resolved_by_id"`
+	NullResolutionNote bool            `json:"null_resolution_note"`
+	ResolutionNote     null.String     `json:"resolution_note"`
+	NullDateResolved   bool            `json:"null_date_resolved"`
+	DateResolved       null.Time       `json:"date_resolved"`
+	ID                 uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdateRefundDispute(ctx context.Context, arg UpdateRefundDisputeParams) (OrderRefundDispute, error) {
@@ -3461,6 +3649,12 @@ func (q *Queries) UpdateRefundDispute(ctx context.Context, arg UpdateRefundDispu
 		arg.Status,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.NullResolvedByID,
+		arg.ResolvedByID,
+		arg.NullResolutionNote,
+		arg.ResolutionNote,
+		arg.NullDateResolved,
+		arg.DateResolved,
 		arg.ID,
 	)
 	var i OrderRefundDispute
@@ -3472,6 +3666,9 @@ func (q *Queries) UpdateRefundDispute(ctx context.Context, arg UpdateRefundDispu
 		&i.Status,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.ResolvedByID,
+		&i.ResolutionNote,
+		&i.DateResolved,
 	)
 	return i, err
 }

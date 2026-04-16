@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
+	"shopnexus-server/internal/infras/ratelimit"
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	"shopnexus-server/internal/provider/payment"
@@ -23,9 +25,17 @@ type Handler struct {
 }
 
 // NewHandler registers order module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler) *Handler {
+func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory) *Handler {
 	h := &Handler{biz: biz}
 	g := e.Group("/api/v1/order")
+
+	// Per-endpoint rate limits on write-heavy / abuse-prone operations. Read
+	// endpoints are uncapped. Limits are per authenticated account (or IP if
+	// unauthenticated) and reset every minute.
+	rlCheckout := rl.Middleware("checkout", 10, time.Minute)
+	rlPay := rl.Middleware("pay", 20, time.Minute)
+	rlRefund := rl.Middleware("refund", 5, time.Minute)
+	rlDispute := rl.Middleware("dispute", 3, time.Minute)
 
 	// Cart (unchanged)
 	g.GET("/cart", h.GetCart)
@@ -33,19 +43,19 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.DELETE("/cart", h.ClearCart)
 
 	// Buyer - Pending
-	g.POST("/buyer/checkout", h.BuyerCheckout)
+	g.POST("/buyer/checkout", h.BuyerCheckout, rlCheckout)
 	g.GET("/buyer/pending", h.ListBuyerPending)
 	g.DELETE("/buyer/pending/:id", h.CancelBuyerPending)
 
 	// Buyer - Confirmed
 	g.GET("/buyer/confirmed", h.ListBuyerConfirmed)
 	g.GET("/buyer/confirmed/:id", h.GetBuyerOrder)
-	g.POST("/buyer/pay", h.PayBuyerOrders)
+	g.POST("/buyer/pay", h.PayBuyerOrders, rlPay)
 
 	// Buyer - Refund
 	buyerRefund := g.Group("/buyer/refund")
 	buyerRefund.GET("", h.ListBuyerRefunds)
-	buyerRefund.POST("", h.CreateBuyerRefund)
+	buyerRefund.POST("", h.CreateBuyerRefund, rlRefund)
 	buyerRefund.PATCH("", h.UpdateBuyerRefund)
 	buyerRefund.DELETE("", h.CancelBuyerRefund)
 
@@ -61,6 +71,12 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 
 	// Seller - Refund
 	g.POST("/seller/refund/confirm", h.ConfirmSellerRefund)
+
+	// Dispute
+	g.GET("/disputes", h.ListRefundDisputes)
+	g.GET("/disputes/:disputeID", h.GetRefundDispute)
+	g.POST("/refunds/:refundID/disputes", h.CreateRefundDispute, rlDispute)
+	g.GET("/refunds/:refundID/disputes", h.ListRefundDisputesByRefund)
 
 	// Payment webhooks — register OnResult then mount routes
 	onResult := func(ctx context.Context, result payment.WebhookResult) error {

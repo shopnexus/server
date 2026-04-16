@@ -134,3 +134,19 @@ func (p *OrderRestateClient) GetSellerPendingActions(ctx context.Context, params
 func (p *OrderRestateClient) GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error) {
 	return restateclient.Call[[]SellerTopProduct](ctx, p.client, serviceName, "GetSellerTopProducts", params)
 }
+
+func (p *OrderRestateClient) CreateRefundDispute(ctx context.Context, params CreateRefundDisputeParams) (ordermodel.RefundDispute, error) {
+	return restateclient.Call[ordermodel.RefundDispute](ctx, p.client, serviceName, "CreateRefundDispute", params)
+}
+
+func (p *OrderRestateClient) ListRefundDisputes(ctx context.Context, params ListRefundDisputesParams) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.RefundDispute]](ctx, p.client, serviceName, "ListRefundDisputes", params)
+}
+
+func (p *OrderRestateClient) GetRefundDispute(ctx context.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error) {
+	return restateclient.Call[ordermodel.RefundDispute](ctx, p.client, serviceName, "GetRefundDispute", params)
+}
+
+func (p *OrderRestateClient) UpdateTransportStatus(ctx context.Context, params UpdateTransportStatusParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "UpdateTransportStatus", params)
+}

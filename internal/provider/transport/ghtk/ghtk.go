@@ -1,3 +1,4 @@
+// See: https://docs.giaohangtietkiem.vn/webhook
 package ghtk
 
 import (
@@ -6,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -28,8 +32,10 @@ type GHTKClient struct {
 	baseURL  string
 	apiKey   string
 	clientID string
+	secret   string // HMAC secret for webhook signature verification (optional)
 
 	transports map[string]*fakeTransport // In-memory storage for fake tracking
+	handlers   []transport.ResultHandler
 }
 
 // fakeTransport represents a fake transport in our mock system
@@ -64,10 +70,16 @@ type packageDetails struct {
 	HeightCM    int32 `json:"height_cm"`
 }
 
-// NewClients creates new GHTK transport clients — one per service variant
-func NewClients(baseURL, apiKey, clientID string) []*GHTKClient {
+// NewClients creates new GHTK transport clients — one per service variant.
+// secret is used for HMAC webhook verification; pass empty string to skip verification.
+func NewClients(baseURL, apiKey, clientID string, secret ...string) []*GHTKClient {
 	var clients []*GHTKClient
 	methods := []string{ServiceExpress, ServiceStandard, ServiceEconomy}
+
+	webhookSecret := ""
+	if len(secret) > 0 {
+		webhookSecret = secret[0]
+	}
 
 	for _, method := range methods {
 		clients = append(clients, &GHTKClient{
@@ -81,6 +93,7 @@ func NewClients(baseURL, apiKey, clientID string) []*GHTKClient {
 			baseURL:    baseURL,
 			apiKey:     apiKey,
 			clientID:   clientID,
+			secret:     webhookSecret,
 			transports: make(map[string]*fakeTransport),
 		})
 	}
@@ -190,6 +203,103 @@ func (g *GHTKClient) Cancel(ctx context.Context, id string) error {
 	ship.Status = "Cancelled"
 	ship.UpdatedAt = time.Now()
 	return nil
+}
+
+// OnResult registers a callback invoked when a webhook event is verified.
+// Multiple handlers can be registered and are called in fan-out fashion.
+func (g *GHTKClient) OnResult(handler transport.ResultHandler) {
+	g.handlers = append(g.handlers, handler)
+}
+
+// ghtkWebhookPayload is the expected JSON body from GHTK status webhooks.
+// See: https://docs.giaohangtietkiem.vn/webhook
+type ghtkWebhookPayload struct {
+	LabelID    string `json:"label_id"`    // GHTK tracking label ID
+	StatusID   int    `json:"status_id"`   // GHTK numeric status code
+	StatusName string `json:"status_name"` // Human-readable status from GHTK
+	PartnerID  string `json:"partner_id"`  // Our partner/client ID
+	OrderID    string `json:"order_id"`    // Provider-side order ID
+}
+
+// mapGHTKStatus converts a GHTK numeric status_id to our OrderTransportStatus string.
+func mapGHTKStatus(statusID int) string {
+	switch statusID {
+	case 1, 2:
+		return "LabelCreated"
+	case 3, 4, 5:
+		return "InTransit"
+	case 6:
+		return "OutForDelivery"
+	case 7, 45:
+		return "Delivered"
+	case 9, 12, 13:
+		return "Failed"
+	case 8, 11:
+		return "Cancelled"
+	default:
+		return ""
+	}
+}
+
+// InitializeWebhook registers the GHTK webhook route on Echo.
+// Route: POST /api/v1/transport/webhook/ghtk
+// Only the first GHTKClient (express) actually registers the route to avoid duplicate registration.
+// All clients share the same webhook secret and fan-out their own handlers.
+func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
+	// Only register the route once (the first method variant handles it).
+	// All GHTKClient instances share the same webhook endpoint since GHTK
+	// does not distinguish service variants in webhook callbacks.
+	if g.method != ServiceExpress {
+		return
+	}
+
+	e.POST("/api/v1/transport/webhook/ghtk", func(ec echo.Context) error {
+		// TODO: Verify HMAC signature when GHTK provides webhook signing.
+		// Example: compare X-GHTK-Signature header against HMAC-SHA256(secret, body).
+		// For now, skip verification since GHTK fake/sandbox does not sign payloads.
+		_ = g.secret
+
+		var payload ghtkWebhookPayload
+		if err := ec.Bind(&payload); err != nil {
+			slog.Error("ghtk webhook: bind payload", slog.Any("error", err))
+			return ec.NoContent(http.StatusBadRequest)
+		}
+
+		if payload.LabelID == "" {
+			slog.Error("ghtk webhook: missing label_id")
+			return ec.NoContent(http.StatusBadRequest)
+		}
+
+		status := mapGHTKStatus(payload.StatusID)
+		if status == "" {
+			slog.Warn("ghtk webhook: unrecognized status_id", slog.Int("status_id", payload.StatusID))
+			// Return 200 so GHTK does not retry unknown statuses
+			return ec.NoContent(http.StatusOK)
+		}
+
+		data := map[string]interface{}{
+			"label_id":    payload.LabelID,
+			"status_id":   payload.StatusID,
+			"status_name": payload.StatusName,
+			"partner_id":  payload.PartnerID,
+			"order_id":    payload.OrderID,
+		}
+
+		result := transport.WebhookResult{
+			TransportID: payload.LabelID,
+			Status:      status,
+			Data:        data,
+		}
+
+		ctx := ec.Request().Context()
+		for _, fn := range g.handlers {
+			if err := fn(ctx, result); err != nil {
+				slog.Error("ghtk webhook: handler error", slog.Any("error", err))
+			}
+		}
+
+		return ec.NoContent(http.StatusOK)
+	})
 }
 
 // extractWeight pulls WeightGrams from the PackageDetails of the first item, defaulting to 500g.

@@ -86,6 +86,18 @@ type Refund struct {
 	Status        orderdb.OrderStatus       `json:"status"`
 	Reason        string                    `json:"reason"`
 	Address       *string                   `json:"address"`
+	ItemIDs       []int64                   `json:"item_ids,omitempty"`
+	Amount        int64                     `json:"amount,omitempty"`
 	DateCreated   time.Time                 `json:"date_created"`
 	Resources     []commonmodel.Resource    `json:"resources"`
+}
+
+type RefundDispute struct {
+	ID          uuid.UUID           `json:"id"`
+	RefundID    uuid.UUID           `json:"refund_id"`
+	IssuedByID  uuid.UUID           `json:"issued_by_id"`
+	Reason      string              `json:"reason"`
+	Status      orderdb.OrderStatus `json:"status"`
+	DateCreated time.Time           `json:"date_created"`
+	DateUpdated time.Time           `json:"date_updated"`
 }

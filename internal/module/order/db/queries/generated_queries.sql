@@ -716,7 +716,11 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
+    ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
 );
 
 -- name: ListRefund :many
@@ -734,7 +738,11 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
+    ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -755,34 +763,38 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
+    ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyRefund :copyfrom
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultRefund :copyfrom
-INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."refund" ("account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address", "item_ids", "amount")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateRefund :one
 UPDATE "order"."refund"
@@ -794,7 +806,9 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "address" = CASE WHEN sqlc.arg('null_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('address'), "address") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "item_ids" = CASE WHEN sqlc.arg('null_item_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('item_ids'), "item_ids") END,
+    "amount" = CASE WHEN sqlc.arg('null_amount')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('amount'), "amount") END
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -812,7 +826,11 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
+    ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
+    ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
 );
 
 -- ========================================
@@ -838,7 +856,12 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
+    ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
+    ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
+    ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
 );
 
 -- name: ListRefundDispute :many
@@ -855,7 +878,12 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
+    ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
+    ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
+    ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -875,34 +903,39 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
+    ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
+    ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
+    ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchRefundDispute :batchone
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyRefundDispute :copyfrom
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason")
-VALUES ($1, $2, $3)
+INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultRefundDispute :copyfrom
-INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason")
-VALUES ($1, $2, $3);
+INSERT INTO "order"."refund_dispute" ("refund_id", "issued_by_id", "reason", "resolved_by_id", "resolution_note", "date_resolved")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateRefundDispute :one
 UPDATE "order"."refund_dispute"
@@ -911,7 +944,10 @@ SET "refund_id" = COALESCE(sqlc.narg('refund_id'), "refund_id"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
+    "resolved_by_id" = CASE WHEN sqlc.arg('null_resolved_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('resolved_by_id'), "resolved_by_id") END,
+    "resolution_note" = CASE WHEN sqlc.arg('null_resolution_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('resolution_note'), "resolution_note") END,
+    "date_resolved" = CASE WHEN sqlc.arg('null_date_resolved')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_resolved'), "date_resolved") END
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -928,5 +964,10 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
+    ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
+    ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
+    ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
 );

@@ -67,6 +67,14 @@ type OrderBiz interface {
 	CancelBuyerRefund(ctx context.Context, params CancelBuyerRefundParams) error
 	ConfirmSellerRefund(ctx context.Context, params ConfirmSellerRefundParams) (ordermodel.Refund, error)
 
+	// Dispute
+	CreateRefundDispute(ctx context.Context, params CreateRefundDisputeParams) (ordermodel.RefundDispute, error)
+	ListRefundDisputes(ctx context.Context, params ListRefundDisputesParams) (sharedmodel.PaginateResult[ordermodel.RefundDispute], error)
+	GetRefundDispute(ctx context.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error)
+
+	// Transport
+	UpdateTransportStatus(ctx context.Context, params UpdateTransportStatusParams) error
+
 	// Dashboard
 	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)
 	GetSellerOrderTimeSeries(ctx context.Context, params GetSellerOrderTimeSeriesParams) ([]SellerOrderTimeSeriesPoint, error)
@@ -96,6 +104,11 @@ func (b *OrderHandler) ServiceName() string {
 // PaymentClients returns the registered payment clients.
 func (b *OrderHandler) PaymentClients() map[string]payment.Client {
 	return b.paymentMap
+}
+
+// TransportClients returns the registered transport clients.
+func (b *OrderHandler) TransportClients() map[string]transport.Client {
+	return b.transportMap
 }
 
 // NewOrderHandler creates a new OrderHandler with the given dependencies.
@@ -241,6 +254,15 @@ type CreateBuyerRefundParams struct {
 	Reason      string                    `validate:"required,max=500"`
 	Address     null.String               `validate:"omitempty,max=500"`
 	ResourceIDs []uuid.UUID               `validate:"dive"`
+
+	// ItemIDs: if non-empty, refund only these specific items of the order (partial refund).
+	// If empty/nil, refund all items (full refund).
+	ItemIDs []int64 `validate:"omitempty,dive,gt=0"`
+
+	// Amount: explicit refund amount in smallest currency unit.
+	// If zero/not set, computed as sum(paid_amount) of items being refunded.
+	// Cannot exceed sum of the specified items\' paid_amount.
+	Amount int64 `validate:"omitempty,gte=0"`
 }
 
 type UpdateBuyerRefundParams struct {
@@ -249,6 +271,13 @@ type UpdateBuyerRefundParams struct {
 	Method   orderdb.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
 	Address  null.String               `validate:"omitnil,max=500"`
 	Reason   null.String               `validate:"omitnil,max=500"`
+
+	// ItemIDs: if non-empty, update the items being refunded.
+	// Same validation rules as CreateBuyerRefundParams.ItemIDs.
+	ItemIDs []int64 `validate:"omitempty,dive,gt=0"`
+
+	// Amount: update the explicit refund amount. Same rules as CreateBuyerRefundParams.Amount.
+	Amount int64 `validate:"omitempty,gte=0"`
 
 	// Fields below are only updated after vendor confirms
 	Status        orderdb.OrderStatus `validate:"omitempty,validateFn=Valid"`
@@ -286,4 +315,27 @@ type ValidateOrderForReviewParams struct {
 type ConfirmSellerRefundParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
+}
+
+type CreateRefundDisputeParams struct {
+	Account  accountmodel.AuthenticatedAccount
+	RefundID uuid.UUID `validate:"required"`
+	Reason   string    `validate:"required,min=1,max=1000"`
+}
+
+type ListRefundDisputesParams struct {
+	Account  accountmodel.AuthenticatedAccount
+	RefundID uuid.NullUUID `validate:"omitnil"`
+	sharedmodel.PaginationParams
+}
+
+type GetRefundDisputeParams struct {
+	Account   accountmodel.AuthenticatedAccount
+	DisputeID uuid.UUID `validate:"required"`
+}
+
+type UpdateTransportStatusParams struct {
+	TransportID uuid.UUID                    `validate:"required"`
+	Status      orderdb.OrderTransportStatus `validate:"required,validateFn=Valid"`
+	Data        map[string]interface{}       `validate:"omitempty"`
 }

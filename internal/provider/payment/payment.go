@@ -91,15 +91,14 @@ type Client interface {
 	Create(ctx context.Context, params CreateParams) (CreateResult, error)
 	Get(ctx context.Context, providerID string) (PaymentInfo, error)
 
+	Charge(ctx context.Context, params ChargeParams) (ChargeResult, error)
+	Refund(ctx context.Context, params RefundParams) (RefundResult, error)
+	Tokenize(ctx context.Context, params TokenizeParams) (TokenizeResult, error)
+
 	// OnResult registers a handler that is called when a webhook is verified.
 	// Multiple handlers can be registered; all are called (fan-out).
 	OnResult(fn ResultHandler)
 
 	// InitializeWebhook registers the provider's webhook route on Echo.
-	// Must be called after OnResult handlers are registered.
 	InitializeWebhook(e *echo.Echo)
-
-	Charge(ctx context.Context, params ChargeParams) (ChargeResult, error)
-	Refund(ctx context.Context, params RefundParams) (RefundResult, error)
-	Tokenize(ctx context.Context, params TokenizeParams) (TokenizeResult, error)
 }

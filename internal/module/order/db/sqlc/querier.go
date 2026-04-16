@@ -109,6 +109,7 @@ type Querier interface {
 	// Queries for table: order.transport
 	// ========================================
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
+	GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error)
 	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	// Custom order queries
@@ -141,6 +142,9 @@ type Querier interface {
 	UpdateRefund(ctx context.Context, arg UpdateRefundParams) (OrderRefund, error)
 	UpdateRefundDispute(ctx context.Context, arg UpdateRefundDisputeParams) (OrderRefundDispute, error)
 	UpdateTransport(ctx context.Context, arg UpdateTransportParams) (OrderTransport, error)
+	// Custom transport queries for webhook-driven status updates.
+	// See: https://docs.giaohangtietkiem.vn/webhook
+	UpdateTransportStatus(ctx context.Context, arg UpdateTransportStatusParams) error
 	ValidateOrderForReview(ctx context.Context, arg ValidateOrderForReviewParams) (bool, error)
 }
 

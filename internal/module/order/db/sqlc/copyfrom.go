@@ -225,6 +225,8 @@ func (r iteratorForCreateCopyDefaultRefund) Values() ([]interface{}, error) {
 		r.rows[0].Method,
 		r.rows[0].Reason,
 		r.rows[0].Address,
+		r.rows[0].ItemIds,
+		r.rows[0].Amount,
 	}, nil
 }
 
@@ -233,7 +235,7 @@ func (r iteratorForCreateCopyDefaultRefund) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultRefund(ctx context.Context, arg []CreateCopyDefaultRefundParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address"}, &iteratorForCreateCopyDefaultRefund{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"account_id", "order_id", "confirmed_by_id", "transport_id", "method", "reason", "address", "item_ids", "amount"}, &iteratorForCreateCopyDefaultRefund{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultRefundDispute implements pgx.CopyFromSource.
@@ -259,6 +261,9 @@ func (r iteratorForCreateCopyDefaultRefundDispute) Values() ([]interface{}, erro
 		r.rows[0].RefundID,
 		r.rows[0].IssuedByID,
 		r.rows[0].Reason,
+		r.rows[0].ResolvedByID,
+		r.rows[0].ResolutionNote,
+		r.rows[0].DateResolved,
 	}, nil
 }
 
@@ -267,7 +272,7 @@ func (r iteratorForCreateCopyDefaultRefundDispute) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultRefundDispute(ctx context.Context, arg []CreateCopyDefaultRefundDisputeParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund_dispute"}, []string{"refund_id", "issued_by_id", "reason"}, &iteratorForCreateCopyDefaultRefundDispute{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund_dispute"}, []string{"refund_id", "issued_by_id", "reason", "resolved_by_id", "resolution_note", "date_resolved"}, &iteratorForCreateCopyDefaultRefundDispute{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultTransport implements pgx.CopyFromSource.
@@ -462,6 +467,8 @@ func (r iteratorForCreateCopyRefund) Values() ([]interface{}, error) {
 		r.rows[0].Reason,
 		r.rows[0].Address,
 		r.rows[0].DateCreated,
+		r.rows[0].ItemIds,
+		r.rows[0].Amount,
 	}, nil
 }
 
@@ -470,7 +477,7 @@ func (r iteratorForCreateCopyRefund) Err() error {
 }
 
 func (q *Queries) CreateCopyRefund(ctx context.Context, arg []CreateCopyRefundParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created"}, &iteratorForCreateCopyRefund{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund"}, []string{"id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount"}, &iteratorForCreateCopyRefund{rows: arg})
 }
 
 // iteratorForCreateCopyRefundDispute implements pgx.CopyFromSource.
@@ -500,6 +507,9 @@ func (r iteratorForCreateCopyRefundDispute) Values() ([]interface{}, error) {
 		r.rows[0].Status,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
+		r.rows[0].ResolvedByID,
+		r.rows[0].ResolutionNote,
+		r.rows[0].DateResolved,
 	}, nil
 }
 
@@ -508,7 +518,7 @@ func (r iteratorForCreateCopyRefundDispute) Err() error {
 }
 
 func (q *Queries) CreateCopyRefundDispute(ctx context.Context, arg []CreateCopyRefundDisputeParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "refund_dispute"}, []string{"id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated"}, &iteratorForCreateCopyRefundDispute{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "refund_dispute"}, []string{"id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved"}, &iteratorForCreateCopyRefundDispute{rows: arg})
 }
 
 // iteratorForCreateCopyTransport implements pgx.CopyFromSource.

@@ -60,7 +60,7 @@ func (h *Handler) UpdateCart(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := h.biz.UpdateCart(c.Request().Context(), orderbiz.UpdateCartParams{
+	if err = h.biz.UpdateCart(c.Request().Context(), orderbiz.UpdateCartParams{
 		Account:       claims.Account,
 		SkuID:         req.SkuID,
 		Quantity:      req.Quantity,
