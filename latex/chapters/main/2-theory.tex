@@ -147,29 +147,38 @@ Triển khai & Binary duy nhất, Docker-friendly & Cần JVM runtime \\
 
 \textbf{Trong ShopNexus:} Go cho toàn bộ backend. Entry point \texttt{cmd/server/main.go}, sử dụng Uber fx cho dependency injection. Mỗi module theo vertical-slice pattern: \texttt{biz/} (logic), \texttt{db/} (truy vấn), \texttt{model/} (cấu trúc dữ liệu), \texttt{transport/echo/} (HTTP handlers).
 
-\subsection{Kiến trúc: Modular Monolith}
+\subsection{Kiến trúc: Durable Microservices}
+
+ShopNexus sử dụng mô hình \textbf{durable microservices}: toàn bộ mã nguồn nằm trong một repository duy nhất, nhưng mỗi module được tổ chức theo vertical-slice và \textit{đã sẵn sàng} triển khai độc lập như microservice --- database riêng (schema isolation), execution riêng (Restate service handler), giao tiếp qua HTTP proxy. Đây không phải mô hình ``modular monolith truyền thống'' (single deployable) mà cũng không phải ``microservices thuần'' (N repo riêng biệt). Bảng~\ref{tab:arch-compare} so sánh ba cách tiếp cận:
 
 \begin{table}[htbp]
 \centering
 \caption{So sánh kiến trúc phần mềm}
 \label{tab:arch-compare}
-\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\begin{tabular}{p{2.8cm}p{3.5cm}p{3.5cm}p{3.5cm}}
 \toprule
 \rowcolor{headerblue}
-\thead{Tiêu chí} & \thead{Modular Monolith} & \thead{Microservices} \\
+\thead{Tiêu chí} & \thead{Monolith truyền thống} & \thead{Microservices thuần} & \thead{ShopNexus (Durable Microservices)} \\
 \midrule
-Triển khai & Đơn giản, 1 artifact & Phức tạp, nhiều artifact \\
-Ranh giới module & Schema isolation, interface & Service boundaries \\
-Giao tiếp & HTTP qua Restate (in-process) & HTTP/gRPC qua network \\
-Chi phí vận hành & Thấp & Cao (orchestration, monitoring) \\
-Mở rộng & Dễ tách thành microservice & Đã tách sẵn \\
+Mã nguồn & 1 repo, 1 codebase & N repo riêng biệt & 1 repo, N module tự trị \\
+Database & 1 schema chung & N database riêng & 1 PostgreSQL, N schema riêng (không FK xuyên schema) \\
+Triển khai & 1 artifact & N artifact, orchestration phức tạp & 1 binary \textit{hoặc} N binary --- linh hoạt \\
+Giao tiếp & Gọi hàm trực tiếp & HTTP/gRPC qua network & HTTP qua Restate Ingress (cùng protocol dù co-located hay distributed) \\
+Chi phí vận hành & Thấp & Cao & Trung bình (Restate quản lý routing + retry) \\
+Tách module & Khó (coupled) & Đã tách & Đã tách --- chỉ cần deploy binary riêng + đổi URL Restate \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Lý do chọn Modular Monolith:} Quy mô team nhỏ -- microservices đầy đủ tốn nhiều công sức vận hành. Giao tiếp qua Restate HTTP ingress nên bất kỳ module nào cũng có thể tách thành service riêng khi cần mở rộng. Schema isolation (mỗi module có PostgreSQL schema riêng, không foreign key xuyên schema) giữ ranh giới rõ ràng.
+\textbf{Lý do chọn mô hình này:} Monorepo giữ developer experience đơn giản (1 \texttt{go.mod}, 1 CI pipeline, refactor xuyên module trong 1 commit). Đồng thời, ba cơ chế đảm bảo mỗi module \textit{đã sẵn sàng} triển khai độc lập ngay từ đầu:
 
-\textbf{Trong ShopNexus:} Hệ thống có 8 module: \textit{account}, \textit{catalog}, \textit{order}, \textit{inventory}, \textit{promotion}, \textit{analytic}, \textit{chat}, \textit{common}. Mỗi module có cấu trúc vertical-slice đồng nhất gồm 4 lớp: \texttt{biz/} chứa logic nghiệp vụ, \texttt{db/} chứa truy vấn SQLC, \texttt{model/} chứa kiểu dữ liệu, \texttt{transport/echo/} chứa HTTP handlers. Schema isolation được thực thi tại tầng database: mỗi module tạo schema riêng trong PostgreSQL (ví dụ \texttt{CREATE SCHEMA IF NOT EXISTS "order"} tại \texttt{internal/module/order/db/migrations/0001\_init.up.sql}) và không có foreign key xuyên schema -- đây là điều kiện để tách module thành microservice độc lập khi cần. Giao tiếp giữa module thực hiện qua interface \texttt{XxxBiz} được inject bằng Uber fx; khi chạy trong Restate handler, interface này được resolve thành Restate proxy client (sinh tự động bởi \texttt{cmd/genrestate}), đảm bảo mọi cross-module call đều có retry và deduplication.
+\begin{enumerate}
+    \item \textbf{Schema isolation}: mỗi module tạo schema riêng trong PostgreSQL (\texttt{CREATE SCHEMA IF NOT EXISTS "order"}), không có foreign key xuyên schema. Nếu tách module, chỉ cần migrate schema sang database riêng.
+    \item \textbf{Restate service handler}: mỗi module đăng ký làm một service riêng trong Restate cluster (\texttt{OrderHandler.ServiceName() = "Order"}). Giao tiếp liên module luôn qua HTTP ingress, không bao giờ gọi hàm trực tiếp --- cùng protocol bất kể module chạy cùng process hay khác server.
+    \item \textbf{Interface + DI}: giao tiếp qua interface \texttt{XxxBiz} được inject bằng Uber~fx. Khi resolve, fx trả về \texttt{XxxRestateClient} (proxy HTTP sinh tự động bởi \texttt{cmd/genrestate}). Module gọi không biết (và không cần biết) module đích chạy ở đâu.
+\end{enumerate}
+
+\textbf{Trong ShopNexus:} Hệ thống có 8 module: \textit{account}, \textit{catalog}, \textit{order}, \textit{inventory}, \textit{promotion}, \textit{analytic}, \textit{chat}, \textit{common}. Mỗi module có cấu trúc vertical-slice đồng nhất gồm 4 lớp: \texttt{biz/} (logic nghiệp vụ), \texttt{db/} (truy vấn SQLC + migration), \texttt{model/} (kiểu dữ liệu + errors), \texttt{transport/echo/} (HTTP handlers). Hiện tại triển khai dưới dạng 1 binary (cho dev/staging), nhưng mọi ranh giới đã sẵn sàng để tách thành N binary khi quy mô team hoặc traffic yêu cầu.
 
 \subsection{Durable Execution: Restate}
 
@@ -215,7 +224,7 @@ Schema migration & Mature tooling (golang-migrate) & Schema-less, khó validate 
 \end{tabular}
 \end{table}
 
-\textbf{Lý do chọn PostgreSQL:} ACID đầy đủ cho giao dịch tài chính. Schema isolation cho modular monolith. JSONB cho dữ liệu linh hoạt (payment data, transport tracking). Partial indexes tối ưu truy vấn pending items.
+\textbf{Lý do chọn PostgreSQL:} ACID đầy đủ cho giao dịch tài chính. Schema isolation cho microservices (mỗi module = 1 schema riêng). JSONB cho dữ liệu linh hoạt (payment data, transport tracking). Partial indexes tối ưu truy vấn pending items.
 
 \textbf{SQLC} sinh mã Go type-safe từ SQL queries thuần -- thay vì dùng ORM. Mỗi module có thư mục \texttt{db/queries/} chứa SQL annotated (ví dụ \texttt{-- name: GetOrder :one}), SQLC đọc và sinh file \texttt{db/sqlc/generated\_queries.sql.go} với các hàm Go strongly-typed. Công cụ nội bộ \texttt{pgtempl} (chạy qua \texttt{make pgtempl}) sinh template CRUD cơ bản từ migration files, giảm boilerplate. Driver \texttt{pgx/v5} với connection pooling được khởi tạo tại \texttt{internal/infras/pg/pg.go}: pool được cấu hình \texttt{MaxConns} và \texttt{MaxConnIdleTime}, và tự động đăng ký custom PostgreSQL types (enum, composite) cho mọi connection mới qua hook \texttt{AfterConnect} -- cần thiết vì SQLC generate code dùng kiểu enum schema-qualified như \texttt{"order"."status"}.
 

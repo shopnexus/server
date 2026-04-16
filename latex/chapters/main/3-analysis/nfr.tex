@@ -39,7 +39,7 @@ O03 & Sẵn sàng \& phục hồi & Uptime $\geq$ 99.5\%; Restate 3-node fault t
 O04 & Khả năng mở rộng & $\geq$ 100 concurrent checkout; pagination mọi API danh sách; partial index tối ưu & Load test \\
 O05 & Ghi nhận hành vi & Sự kiện add\_to\_cart, purchase, refund\_requested; fire-and-forget không ảnh hưởng hiệu suất & Kiểm tra log analytics \\
 \rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Phát triển}}} \\
-D01 & Modular Monolith & Module độc lập (biz/db/model/transport); giao tiếp qua interface + Restate proxy & Review kiến trúc \\
+D01 & Durable Microservices & Module độc lập (biz/db/model/transport); giao tiếp qua interface + Restate proxy & Review kiến trúc \\
 D02 & Type Safety (SQLC) & 100\% query sinh mã từ SQL; enum PostgreSQL ánh xạ Go type-safe & Kiểm tra SQLC output \\
 D03 & Durable Execution & DB ops trong restate.Run(); cross-module ngoài Run(); return JSON-serializable & Code review \\
 D04 & Code Generation & Restate proxy sinh tự động; 1 param/method; validate tags cho input & Kiểm tra go:generate \\
@@ -52,59 +52,13 @@ D06 & Khả năng quan sát hệ thống (Observability) & Mọi handler nghiệ
 \normalsize
 
 % ============================================================
-\subsection{Tiêu chí chất lượng theo mức phát triển}
-\label{sec:nfr-quality-levels}
 
-Bảng~\ref{tab:nfr-quality-levels} trình bày tiêu chí chất lượng theo ba mức độ phát triển — \textit{ý niệm} (phân tích nghiệp vụ), \textit{thiết kế} (kiến trúc và API), và \textit{hiện thực} (kiểm thử cụ thể) — cho năm chức năng cốt lõi của ShopNexus.
-
-\begin{table}[htbp]
-  \centering
-  \caption{Tiêu chí chất lượng theo mức phát triển}\label{tab:nfr-quality-levels}
-  \small
-  \begin{tabular}{@{} p{3cm} p{4cm} p{4cm} p{4cm} @{}}
-    \toprule
-    \rowcolor{headerblue}
-    \thead{Chức năng} & \thead{Tiêu chí Ý niệm (phân tích)} & \thead{Tiêu chí Thiết kế} & \thead{Tiêu chí Hiện thực} \\
-    \midrule
-    %
-    \textbf{Đặt hàng} \newline \texttt{BuyerCheckout()} &
-    Nghiệp vụ đúng: snapshot giá tại thời điểm đặt, đặt chỗ kho nguyên tử, toàn bộ luồng thực thi exactly-once &
-    API idempotent; gọi \texttt{InventoryBiz} và \texttt{CatalogBiz} qua Restate proxy; mọi side-effect trong \texttt{restate.Run()} &
-    Unit test checkout thành công/thất bại; integration test replay Restate journal; kiểm tra tồn kho sau crash \\
-    \addlinespace
-    %
-    \textbf{Thanh toán} \newline \texttt{PayBuyerOrders()} &
-    Bảo mật và exactly-once: không trừ tiền hai lần dù callback được gửi lại &
-    Webhook RefID xác thực bằng HMAC; payment session có trường \texttt{date\_expired}; liên kết \texttt{payment\_method\_id} &
-    Test webhook hợp lệ / giả mạo; test timeout phiên thanh toán; test replay callback Restate \\
-    \addlinespace
-    %
-    \textbf{Xác nhận đơn} \newline \texttt{ConfirmSellerPending()} &
-    Phân quyền đúng: chỉ seller sở hữu SKU mới được xác nhận; tính tổng chi phí chính xác &
-    Kiểm tra \texttt{seller\_id} trong \texttt{AuthenticatedAccount}; công thức \texttt{total = product\_cost - product\_discount + transport\_cost} &
-    Test seller confirm đơn của seller khác (phải trả lỗi); unit test công thức tính tổng \\
-    \addlinespace
-    %
-    \textbf{Hoàn trả} \newline \texttt{CreateBuyerRefund()} &
-    Chỉ hoàn trả đơn đã \textit{Success}; tại một thời điểm chỉ tồn tại một refund \textit{Pending} trên một đơn &
-    Ràng buộc tại biz layer: kiểm tra \texttt{order.status = Success}, truy vấn refund Pending trước khi tạo; resource ID bằng chứng qua \texttt{CommonBiz} &
-    Negative test: tạo refund cho đơn chưa Success; test đồng thời tạo hai refund cùng lúc (concurrent) \\
-    \addlinespace
-    %
-    \textbf{Dashboard thống kê} \newline \texttt{GetSellerOrderStats()} &
-    Thời gian phản hồi \textless{}1s cho trải nghiệm người dùng tốt &
-    Partial index trên bảng \texttt{item} \texttt{WHERE order\_id IS NULL}; truy vấn aggregate trong SQL thay vì vòng lặp Go &
-    Benchmark với 10.000+ đơn hàng; kiểm tra response time dưới tải cao \\
-    %
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 % ============================================================
-\section{Tiêu chí kiểm thử phần phân tích}
+\subsection{Tiêu chí kiểm thử phần phân tích}
 \label{sec:analysis-test}
 
-Bảng~\ref{tab:analysis-test} liệt kê các tiêu chí dùng để đánh giá chất lượng kết quả phân tích của Chương~\ref{chap:analysis}, bao gồm phép thử thực hiện và kết quả kỳ vọng cho từng tiêu chí.
+Bảng~\ref{tab:analysis-test} liệt kê các tiêu chí dùng để đánh giá chất lượng kết quả phân tích của chương Phân tích hệ thống, bao gồm phép thử thực hiện và kết quả kỳ vọng cho từng tiêu chí.
 
 \begin{table}[htbp]
   \centering

@@ -2,7 +2,7 @@
 
 \section{Mục đích}
 
-Thương mại điện tử tại Việt Nam đạt hơn 20 tỷ USD doanh thu năm 2023 và tăng trưởng trung bình 25\% mỗi năm, đặt ra thách thức lớn cho việc quản lý đơn hàng -- từ đặt hàng, thanh toán, xác nhận từ người bán, giao vận, đến hoàn trả và giải quyết tranh chấp. Đề tài \textit{ShopNexus} xây dựng nền tảng thương mại điện tử dạng marketplace phục vụ ba nhóm đối tượng: \textbf{người mua} (trải nghiệm mua sắm liền mạch, theo dõi đơn hàng, hoàn trả minh bạch), \textbf{người bán} (quản lý mặt hàng chờ xác nhận, xử lý đơn hàng và hoàn trả), và \textbf{quản trị viên} (giám sát giao dịch, phán quyết tranh chấp). Hệ thống áp dụng kiến trúc \textit{modular monolith} kết hợp \textit{durable execution} qua Restate framework, đảm bảo mọi giao dịch được xử lý chính xác một lần (exactly-once) ngay cả khi xảy ra sự cố.
+Thương mại điện tử tại Việt Nam đạt hơn 20 tỷ USD doanh thu năm 2023 và tăng trưởng trung bình 25\% mỗi năm, đặt ra thách thức lớn cho việc quản lý đơn hàng -- từ đặt hàng, thanh toán, xác nhận từ người bán, giao vận, đến hoàn trả và giải quyết tranh chấp. Đề tài xây dựng nền tảng thương mại điện tử dạng marketplace phục vụ ba nhóm đối tượng: \textbf{người mua} (trải nghiệm mua sắm liền mạch, theo dõi đơn hàng, hoàn trả minh bạch), \textbf{người bán} (quản lý mặt hàng chờ xác nhận, xử lý đơn hàng và hoàn trả), và \textbf{quản trị viên} (giám sát giao dịch, phán quyết tranh chấp). Hệ thống áp dụng kiến trúc \textit{durable microservices} kết hợp \textit{durable execution} qua Restate framework, đảm bảo mọi giao dịch được xử lý chính xác một lần (exactly-once) ngay cả khi xảy ra sự cố.
 
 \section{Mục tiêu}
 
@@ -29,7 +29,25 @@ Việc thực hiện đề tài tuân theo quy trình bốn giai đoạn:
 
     \item \textbf{Tìm hiểu nghiệp vụ và quy định:} Nghiên cứu Nghị định 52/2013/NĐ-CP về thương mại điện tử (yêu cầu lưu trữ lịch sử giao dịch, thông tin người bán), Luật Bảo vệ quyền lợi người tiêu dùng 2023 (quyền hoàn trả trong 14 ngày, cơ chế giải quyết tranh chấp), quy định thanh toán trực tuyến của Ngân hàng Nhà nước (xác thực hai yếu tố, giới hạn giao dịch), và các quy tắc nghiệp vụ tiêu chuẩn (snapshot giá tại thời điểm đặt hàng, xác nhận đơn hàng hai bước từ người bán, cơ chế escrow giữ tiền đến khi giao hàng thành công).
 
-    \item \textbf{Tìm hiểu mô hình và công nghệ:} So sánh có hệ thống các phương án kiến trúc (monolith, modular monolith, microservices), mô hình đảm bảo tính nhất quán giao dịch (Restate durable execution, Temporal workflow, Saga pattern), tìm kiếm ngữ nghĩa (Milvus hybrid search, Elasticsearch), và lựa chọn stack phù hợp với quy mô team nhỏ: Go 1.26 cho backend, PostgreSQL 18 với SQLC cho type-safe queries, Redis cho cache, NATS JetStream cho pub/sub, Milvus 2.6 cho semantic search, Next.js 16 cho frontend.
+    \item \textbf{Tìm hiểu mô hình và công nghệ:} So sánh có hệ thống các phương án kiến trúc (monolith, modular monolith, durable microservices), mô hình đảm bảo tính nhất quán giao dịch (Restate durable execution, Temporal workflow, Saga pattern), tìm kiếm ngữ nghĩa (Milvus hybrid search, Elasticsearch), và lựa chọn stack phù hợp với quy mô team nhỏ: Go 1.26 cho backend, PostgreSQL 18 với SQLC cho type-safe queries, Redis cho cache, NATS JetStream cho pub/sub, Milvus 2.6 cho semantic search, Next.js 16 cho frontend.
 
-    \item \textbf{Phân tích, thiết kế, hiện thực, đánh giá:} Xác định yêu cầu chi tiết qua use case diagram và activity diagram cho từng luồng nghiệp vụ (đặt hàng, thanh toán, hoàn trả, tranh chấp); thiết kế kiến trúc modular monolith với 8 module độc lập, mỗi module có schema PostgreSQL riêng; lập trình backend bằng Go với Restate durable execution -- mỗi side effect (trừ kho, tạo đơn, gọi cổng thanh toán) đều wrap trong \texttt{restate.Run()} để đảm bảo exactly-once; lập trình frontend bằng Next.js 16 với TanStack Query; kiểm thử chức năng từng luồng và kiểm thử tính bền vững (crash recovery -- dừng process giữa luồng checkout, khởi động lại, xác nhận Restate replay đúng bước).
+    \item \textbf{Phân tích, thiết kế, hiện thực, đánh giá:} Xác định yêu cầu chi tiết qua use case diagram và activity diagram cho từng luồng nghiệp vụ (đặt hàng, thanh toán, hoàn trả, tranh chấp); thiết kế kiến trúc durable microservices (monorepo) với 8 module độc lập, mỗi module có schema PostgreSQL riêng; lập trình backend bằng Go với Restate durable execution -- mỗi side effect (trừ kho, tạo đơn, gọi cổng thanh toán) đều wrap trong \texttt{restate.Run()} để đảm bảo exactly-once; lập trình frontend bằng Next.js 16 với TanStack Query; kiểm thử chức năng từng luồng và kiểm thử tính bền vững (crash recovery -- dừng process giữa luồng checkout, khởi động lại, xác nhận Restate replay đúng bước).
 \end{enumerate}
+
+\section{Phân công thành viên}
+
+\begin{table}[htbp]
+\centering
+\caption{Phân công công việc kiểm thử}
+\label{tab:member-assignment}
+\begin{tabular}{@{}clp{7.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Thành viên (MSSV)} & \thead{Nhiệm vụ} \\
+\midrule
+1 & Đậu Văn Đăng Khoa (N22DCCN040) & Kiểm thử hộp trắng (white box) toàn bộ hệ thống: phân tích luồng xử lý biz layer, kiểm tra phủ nhánh (branch coverage), kiểm tra state machine, unit test cho logic nghiệp vụ \\
+2 & Nguyễn Tấn Khoa (N22DCCN042) & Kiểm thử hộp đen (black box) module Đặt hàng: kiểm thử chức năng giỏ hàng, checkout, xác nhận đơn, thanh toán, dashboard seller \\
+3 & Hồ Công Toản (N22DCCN086) & Kiểm thử hộp đen (black box) module Hoàn trả và Tranh chấp: kiểm thử tạo/sửa/hủy hoàn trả, duyệt hoàn trả, mở tranh chấp, hoàn trả một phần (partial refund) \\
+\bottomrule
+\end{tabular}
+\end{table}

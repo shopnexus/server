@@ -1,26 +1,20 @@
-# LaTeX build artifacts
-*.aux
-*.log
-*.out
-*.toc
-*.lof
-*.lot
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-*.synctex(busy)
-*.bbl
-*.blg
-*.bcf
-*.run.xml
-*.nav
-*.snm
-*.vrb
-
-# Output PDF (optional — remove this line if you want to track the PDF)
-*.pdf
-
-# Editor files
-*.swp
-*~
-.vscode/
+*
+!*/
+!.gitignore
+!*.tex
+!*.ltx
+!*.xtx
+!*.sty
+!*.cls
+!*.bib
+!*.bst
+!*.bbx
+!*.cbx
+!*.cfg
+!*.lua
+!*.tikz
+!*.md
+!*.txt
+!*.yaml
+!*.yml
+!*.json

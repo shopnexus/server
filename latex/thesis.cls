@@ -77,7 +77,7 @@
 \newcommand{\@stuname}{Sinh viên}
 \newcommand{\stuname}[1]{\renewcommand{\@stuname}{#1}}
 
-\newcommand{\@reportplace}{Hà Nội}
+\newcommand{\@reportplace}{TP.HCM}
 \newcommand{\reportplace}[1]{\renewcommand{\@reportplace}{#1}}
 
 \newcommand{\@reporttime}{\Month{} năm \the\year}

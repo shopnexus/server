@@ -6,7 +6,7 @@
 \section{Thiết kế kiến trúc}
 \label{sec:architecture}
 
-Hệ thống ShopNexus được thiết kế theo kiến trúc \textbf{modular monolith} --- kết hợp tính đơn giản trong triển khai của monolith truyền thống với tính phân tách miền nghiệp vụ (bounded context) của microservices. Phần mềm được xây dựng bằng Go~1.26, sử dụng framework \textbf{Restate} cho thực thi bền vững (durable execution) và \textbf{Uber~fx} cho dependency injection. Kiến trúc được phân rã theo ba kỹ thuật: \textit{phân tầng} (layering), \textit{phân vùng} (segmentation), và \textit{trích lớp cơ bản} (factoring).
+Hệ thống ShopNexus được tổ chức theo mô hình \textbf{durable microservices}: toàn bộ mã nguồn trong một repository, nhưng mỗi module đã sẵn sàng triển khai độc lập như microservice --- database riêng (schema isolation), execution riêng (Restate service handler), giao tiếp qua HTTP proxy (cùng protocol bất kể co-located hay distributed). Phần mềm được xây dựng bằng Go~1.26, sử dụng framework \textbf{Restate} cho thực thi bền vững (durable execution) và \textbf{Uber~fx} cho dependency injection. Kiến trúc được phân rã theo ba kỹ thuật: \textit{phân tầng} (layering), \textit{phân vùng} (segmentation), và \textit{trích lớp cơ bản} (factoring).
 
 Hệ thống tổ chức theo mô hình ba tầng: (1)~\textbf{Tầng giao diện} sử dụng Echo~v4 để tiếp nhận HTTP request, phân tích tham số và gọi xuống tầng nghiệp vụ; (2)~\textbf{Tầng nghiệp vụ} chứa toàn bộ logic xử lý dưới dạng Restate service handler, sử dụng \texttt{restate.Context} để ghi journal và replay tự động; (3)~\textbf{Tầng truy cập dữ liệu} sử dụng SQLC sinh mã Go type-safe từ SQL query, với driver \texttt{pgx/v5} và connection pooling. Mỗi module sở hữu một PostgreSQL schema riêng, không có foreign key liên schema.
 

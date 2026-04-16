@@ -25,7 +25,7 @@ Ngoại lệ & Chưa thanh toán hoặc đã có refund đang xử lý $\rightar
 \subsection{Đặc tả use case duyệt hoàn trả (UC21)}
 \label{uc:confirm-refund}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Đặc tả UC21 --- Duyệt yêu cầu hoàn trả}
 \label{tab:uc-confirm-refund}
@@ -44,7 +44,7 @@ Luồng chính & Xem lý do + bằng chứng $\rightarrow$ chấp nhận (trigge
 \subsection{Đặc tả use case tranh chấp (UC22)}
 \label{uc:open-dispute}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Đặc tả UC22 --- Mở tranh chấp hoàn trả}
 \label{tab:uc-open-dispute}
@@ -62,7 +62,7 @@ Luồng chính & Chọn ``Mở tranh chấp'' $\rightarrow$ nhập lý do $\righ
 
 \subsection{Trạng thái hoàn trả và tranh chấp}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Chuyển trạng thái --- Hoàn trả và tranh chấp}
 \label{tab:refund-states}
@@ -128,9 +128,8 @@ Dispute & Pending & Processing $\rightarrow$ Success / Cancelled & Admin xem xé
 
 \textbf{Refund}: ListBuyerRefunds, CreateBuyerRefund, UpdateBuyerRefund, CancelBuyerRefund, ConfirmSellerRefund. \textbf{Dispute}: CreateRefundDispute, ListRefundDisputes, GetRefundDispute. Helper: Payment Gateway (auto-refund), Transport Provider (vận đơn trả hàng PickUp).
 
-\subsection*{Mở rộng: hoàn trả một phần (Partial Refund)}
+\subsection*{Hoàn trả một phần (Partial Refund)}
 
-Migration 0002 bổ sung hai trường nullable vào bảng \texttt{order.refund}:
 
 \begin{itemize}
   \item \texttt{item\_ids JSONB} (nullable) — danh sách \texttt{SKU ID} được hoàn trả. Khi \texttt{NULL}: toàn bộ đơn hàng được hoàn trả (hành vi cũ, đảm bảo tương thích ngược). Khi có giá trị: chỉ hoàn trả các sản phẩm được liệt kê; hệ thống kiểm tra trùng lặp và xác nhận các SKU phải thuộc đơn hàng.

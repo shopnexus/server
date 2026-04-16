@@ -408,7 +408,7 @@ O03 & Sẵn sàng \& phục hồi & Restate 3-node cluster + journal replay + \t
 O06 & Chống lạm dụng endpoint & \texttt{ratelimit.Factory} + Redis INCR+EXPIRE NX + Echo middleware & \texttt{TestFactoryMemoryFallback} + \texttt{TestFactoryIsolatesIPs} & Unit + Load Test \\
 \addlinespace
 \rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Phát triển (Development NFR)}}} \\
-D01 & Modular Monolith & Interface \texttt{XxxBiz} + Restate proxy + schema isolation & Inspection: dependency graph & Static Analysis \\
+D01 & Durable Microservices & Interface \texttt{XxxBiz} + Restate proxy + schema isolation & Inspection: dependency graph & Static Analysis \\
 D03 & Durable Execution & Mọi side effect trong \texttt{restate.Run}, cross-module qua proxy & \texttt{TestDurableReplay} + code review checklist & Inspection + Unit \\
 D06 & Observability & \texttt{metrics.TrackHandler} ở 10 handler + Prometheus + Grafana dashboard & Kiểm tra \texttt{/metrics} endpoint trả về đúng format & Inspection \\
 \addlinespace
