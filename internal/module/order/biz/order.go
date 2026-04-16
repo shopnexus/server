@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -60,10 +61,9 @@ func (b *OrderHandler) ListBuyerConfirmed(
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountBuyerOrderRow, error) {
 		return b.storage.Querier().ListCountBuyerOrder(ctx, orderdb.ListCountBuyerOrderParams{
-			BuyerID:       params.BuyerID,
-			PaymentStatus: params.PaymentStatus,
-			Limit:         params.Limit,
-			Offset:        params.Offset(),
+			BuyerID: params.BuyerID,
+			Limit:   params.Limit,
+			Offset:  params.Offset(),
 		})
 	})
 
@@ -104,11 +104,10 @@ func (b *OrderHandler) ListSellerConfirmed(
 
 	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountSellerOrderRow, error) {
 		return b.storage.Querier().ListCountSellerOrder(ctx, orderdb.ListCountSellerOrderParams{
-			SellerID:      params.SellerID,
-			Search:        params.Search,
-			PaymentStatus: params.PaymentStatus,
-			Offset:        params.Offset(),
-			Limit:         params.Limit,
+			SellerID: params.SellerID,
+			Search:   params.Search,
+			Offset:   params.Offset(),
+			Limit:    params.Limit,
 		})
 	})
 	if err != nil {
@@ -144,14 +143,6 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 
 	orderIDs := lo.Map(orders, func(o orderdb.OrderOrder, _ int) uuid.UUID { return o.ID })
 
-	// Collect payment IDs (only valid ones)
-	var paymentIDs []int64
-	for _, o := range orders {
-		if o.PaymentID.Valid {
-			paymentIDs = append(paymentIDs, o.PaymentID.Int64)
-		}
-	}
-
 	// Collect transport IDs (only valid ones)
 	var transportIDs []uuid.UUID
 	for _, o := range orders {
@@ -160,10 +151,9 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		}
 	}
 
-	// Fetch order items, payments, and transports from DB inside Run
+	// Fetch order items and transports from DB inside Run
 	type dbResults struct {
 		OrderItems []orderdb.OrderItem      `json:"order_items"`
-		Payments   []orderdb.OrderPayment   `json:"payments"`
 		Transports []orderdb.OrderTransport `json:"transports"`
 	}
 	dbData, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResults, error) {
@@ -176,16 +166,6 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			return dbResults{}, err
 		}
 
-		var payments []orderdb.OrderPayment
-		if len(paymentIDs) > 0 {
-			payments, err = b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
-				ID: paymentIDs,
-			})
-			if err != nil {
-				return dbResults{}, err
-			}
-		}
-
 		var transports []orderdb.OrderTransport
 		if len(transportIDs) > 0 {
 			transports, err = b.storage.Querier().ListTransport(ctx, orderdb.ListTransportParams{
@@ -196,10 +176,36 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 			}
 		}
 
-		return dbResults{OrderItems: orderItems, Payments: payments, Transports: transports}, nil
+		return dbResults{OrderItems: orderItems, Transports: transports}, nil
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db fetch order data", err)
+	}
+
+	// Collect payment IDs from items (orders no longer have payment_id)
+	paymentIDSet := make(map[int64]struct{})
+	orderPaymentMap := make(map[uuid.UUID]int64) // order_id -> payment_id (from first item)
+	for _, item := range dbData.OrderItems {
+		if item.OrderID.Valid && item.PaymentID.Valid {
+			if _, exists := orderPaymentMap[item.OrderID.UUID]; !exists {
+				orderPaymentMap[item.OrderID.UUID] = item.PaymentID.Int64
+			}
+			paymentIDSet[item.PaymentID.Int64] = struct{}{}
+		}
+	}
+	paymentIDs := lo.Keys(paymentIDSet)
+
+	// Fetch payments
+	var payments []orderdb.OrderPayment
+	if len(paymentIDs) > 0 {
+		payments, err = restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPayment, error) {
+			return b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+				ID: paymentIDs,
+			})
+		})
+		if err != nil {
+			return nil, sharedmodel.WrapErr("db fetch payments", err)
+		}
 	}
 
 	// Enrich all items in one batch (single ListProductSku + GetResources call)
@@ -216,14 +222,14 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		}
 	}
 
-	paymentMap := lo.KeyBy(dbData.Payments, func(p orderdb.OrderPayment) int64 { return p.ID })
+	paymentMap := lo.KeyBy(payments, func(p orderdb.OrderPayment) int64 { return p.ID })
 	transportMap := lo.KeyBy(dbData.Transports, func(t orderdb.OrderTransport) uuid.UUID { return t.ID })
 
 	result := make([]ordermodel.Order, 0, len(orders))
 	for _, o := range orders {
 		var paymentPtr *ordermodel.Payment
-		if o.PaymentID.Valid {
-			if p, ok := paymentMap[o.PaymentID.Int64]; ok {
+		if pid, ok := orderPaymentMap[o.ID]; ok {
+			if p, found := paymentMap[pid]; found {
 				pm := dbToPayment(p)
 				paymentPtr = &pm
 			}
@@ -300,6 +306,7 @@ func dbToTransport(t orderdb.OrderTransport) ordermodel.Transport {
 
 // ConfirmPayment updates the payment status based on a webhook callback result.
 // Called by the transport layer after provider-specific webhook verification.
+// RefID is the payment ID (int64 serialized as string).
 func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPaymentParams) (err error) {
 	defer metrics.TrackHandler("order", "ConfirmPayment", &err)()
 
@@ -307,9 +314,9 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 		return sharedmodel.WrapErr("validate confirm payment", err)
 	}
 
-	refUUID, err := uuid.Parse(params.RefID)
+	paymentID, err := strconv.ParseInt(params.RefID, 10, 64)
 	if err != nil {
-		return sharedmodel.WrapErr("parse ref id", err)
+		return sharedmodel.WrapErr("parse payment ref id", err)
 	}
 
 	var dbStatus orderdb.OrderStatus
@@ -327,17 +334,8 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 		RedirectURL string `json:"redirect_url"`
 	}
 	cr, err := restate.Run(ctx, func(ctx restate.RunContext) (confirmResult, error) {
-		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refUUID, Valid: true})
-		if err != nil {
-			return confirmResult{}, err
-		}
-
-		if !order.PaymentID.Valid {
-			return confirmResult{}, ordermodel.ErrMissingPayment.Terminal()
-		}
-
-		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
-			ID:     order.PaymentID.Int64,
+		updated, err := b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+			ID:     paymentID,
 			Status: orderdb.NullOrderStatus{OrderStatus: dbStatus, Valid: true},
 		})
 		if err != nil {
@@ -346,18 +344,13 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 
 		// Extract redirect_url from payment data for notification metadata
 		var redirectURL string
-		payments, pErr := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
-			ID: []int64{order.PaymentID.Int64},
-		})
-		if pErr == nil && len(payments) > 0 {
-			var data struct {
-				RedirectURL string `json:"redirect_url"`
-			}
-			_ = json.Unmarshal(payments[0].Data, &data)
-			redirectURL = data.RedirectURL
+		var data struct {
+			RedirectURL string `json:"redirect_url"`
 		}
+		_ = json.Unmarshal(updated.Data, &data)
+		redirectURL = data.RedirectURL
 
-		return confirmResult{BuyerID: order.BuyerID.String(), RedirectURL: redirectURL}, nil
+		return confirmResult{BuyerID: updated.AccountID.String(), RedirectURL: redirectURL}, nil
 	})
 	if err != nil {
 		return err
@@ -370,7 +363,7 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	buyerID, _ := uuid.Parse(cr.BuyerID)
 	switch params.Status {
 	case payment.StatusSuccess:
-		meta, _ := json.Marshal(map[string]string{"order_id": refUUID.String()})
+		meta, _ := json.Marshal(map[string]string{"payment_id": strconv.FormatInt(paymentID, 10)})
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: buyerID,
 			Type:      accountmodel.NotiPaymentSuccess,
@@ -379,8 +372,13 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 			Content:   "Your payment has been confirmed successfully.",
 			Metadata:  meta,
 		})
+
+		// Start 48h seller timeout — auto-cancel pending items if seller doesn't confirm
+		restate.ServiceSend(ctx, "Order", "AutoCancelPendingItems").
+			Send(paymentID, restate.WithDelay(48*time.Hour))
+
 	case payment.StatusFailed:
-		metaMap := map[string]string{"order_id": refUUID.String()}
+		metaMap := map[string]string{"payment_id": strconv.FormatInt(paymentID, 10)}
 		if cr.RedirectURL != "" {
 			metaMap["redirect_url"] = cr.RedirectURL
 		}

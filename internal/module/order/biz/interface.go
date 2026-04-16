@@ -195,8 +195,7 @@ type CancelBuyerPendingParams struct {
 }
 
 type ListSellerPendingParams struct {
-	SellerID uuid.UUID   `validate:"required"`
-	Search   null.String `validate:"omitnil"`
+	SellerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 
@@ -212,15 +211,13 @@ type RejectSellerPendingParams struct {
 }
 
 type ListBuyerConfirmedParams struct {
-	BuyerID       uuid.UUID             `validate:"required"`
-	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
+	BuyerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 
 type ListSellerConfirmedParams struct {
-	SellerID      uuid.UUID             `validate:"required"`
-	Search        null.String           `validate:"omitnil"`
-	PaymentStatus []orderdb.OrderStatus `validate:"omitempty"`
+	SellerID uuid.UUID   `validate:"required"`
+	Search   null.String `validate:"omitnil"`
 	sharedmodel.PaginationParams
 }
 
