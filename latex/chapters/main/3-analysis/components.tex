@@ -1,0 +1,294 @@
+% ============================================================
+% 3.5 Định nghĩa thành phần phần mềm — Module Quản lý Đơn hàng
+% Kỹ thuật: CRC (Class–Responsibility–Collaborator)
+% ============================================================
+
+\section{Định nghĩa thành phần phần mềm}
+\label{sec:components}
+
+Sau khi xác định các use case, bước tiếp theo là phân rã module thành các thành phần cụ thể
+và làm rõ trách nhiệm, thuộc tính, phương thức của từng thành phần --- sử dụng kỹ thuật
+\textbf{CRC} (Class--Responsibility--Collaborator).
+
+Module Quản lý Đơn hàng được phân rã thành \textbf{bốn thành phần chính}: (1)~\texttt{OrderHandler}
+là service Restate trung tâm chứa toàn bộ logic nghiệp vụ; (2)~\texttt{PaymentProvider} là giao
+diện trừu tượng hóa các cổng thanh toán (VNPay, COD, SePay); (3)~\texttt{TransportProvider} là
+giao diện trừu tượng hóa nhà vận chuyển (GHTK); và (4)~\texttt{OrderRepository} là lớp truy cập
+dữ liệu được sinh tự động từ SQLC. Ngoài ra, module còn phụ thuộc vào \textbf{năm actor liên
+module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \texttt{PromotionBiz},
+\texttt{CommonBiz}) và \textbf{hai dịch vụ ngoài} (VNPay/SePay, GHTK) thông qua các proxy Restate
+được sinh tự động.
+
+% ------------------------------------------------------------------
+\subsection{Sơ đồ thành phần}
+\label{subsec:component-diagram}
+
+\begin{center}
+\begin{tikzpicture}[
+  core/.style={rectangle, rounded corners=3pt, draw=headerblue, fill=headerblue!20,
+               minimum width=2.8cm, minimum height=0.7cm, align=center, font=\small\bfseries},
+  dep/.style={rectangle, rounded corners=3pt, draw=headerblue!60, fill=rowgray,
+              minimum width=2.4cm, minimum height=0.6cm, align=center, font=\scriptsize},
+  ext/.style={rectangle, rounded corners=3pt, draw=orange!70!black, fill=orange!10,
+              minimum width=2.4cm, minimum height=0.6cm, align=center, font=\scriptsize},
+  grpbox/.style={draw=headerblue!30, fill=headerblue!5, rounded corners=5pt, inner sep=6pt},
+  lbl/.style={font=\scriptsize\bfseries, color=headerblue},
+  arr/.style={-{Stealth[length=4pt]}, thick, headerblue!70},
+  darr/.style={-{Stealth[length=4pt]}, thick, orange!70!black, dashed},
+]
+
+% Central component
+\node[core] (oh) at (0,0) {OrderHandler};
+
+% Internal components (right side)
+\node[dep] (pp) at (4.2, 1.2)  {PaymentProvider};
+\node[dep] (tp) at (4.2, 0.0)  {TransportProvider};
+\node[dep] (or) at (4.2,-1.2)  {OrderRepository};
+
+% Cross-module actors (left side)
+\node[dep] (acct) at (-4.2, 2.0)  {AccountBiz};
+\node[dep] (cat)  at (-4.2, 1.0)  {CatalogBiz};
+\node[dep] (inv)  at (-4.2, 0.0)  {InventoryBiz};
+\node[dep] (promo)at (-4.2,-1.0)  {PromotionBiz};
+\node[dep] (com)  at (-4.2,-2.0)  {CommonBiz};
+
+% External actors (bottom)
+\node[ext] (vnpay) at (-1.2,-2.8) {VNPay / SePay};
+\node[ext] (ghtk)  at ( 2.2,-2.8) {GHTK};
+
+% Group boxes
+\begin{scope}[on background layer]
+  \node[grpbox, fit=(pp)(tp)(or), label={[lbl]above:Nội bộ module}] {};
+  \node[grpbox, fit=(acct)(cat)(inv)(promo)(com), label={[lbl]above:Actor liên module (Restate proxy)}] {};
+  \node[grpbox, fit=(vnpay)(ghtk), label={[lbl]below:Dịch vụ bên ngoài}] {};
+\end{scope}
+
+% Arrows — OrderHandler <-> internal
+\draw[arr] (oh.east) -- (pp.west);
+\draw[arr] (oh.east) -- (tp.west);
+\draw[arr] (oh.east) -- (or.west);
+
+% Arrows — cross-module -> OrderHandler
+\draw[arr] (oh.west) -- (acct.east);
+\draw[arr] (oh.west) -- (cat.east);
+\draw[arr] (oh.west) -- (inv.east);
+\draw[arr] (oh.west) -- (promo.east);
+\draw[arr] (oh.west) -- (com.east);
+
+% Arrows — external
+\draw[darr] (oh.south) -- (vnpay.north);
+\draw[darr] (oh.south) -- (ghtk.north);
+
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ thành phần module Quản lý Đơn hàng}
+\label{fig:order-component-diagram}
+\end{center}
+
+% ------------------------------------------------------------------
+\subsection{Đặc tả các thành phần theo UML-class}
+\label{subsec:crc-classes}
+
+% ---- OrderHandler ----
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả thành phần \texttt{OrderHandler}}
+\label{tab:crc-orderhandler}
+\small
+\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{OrderHandler — Restate Service}}} \\
+\midrule
+\textbf{Thuộc tính} &
+  \texttt{config} \textit{*config.Config};
+  \texttt{storage} \textit{OrderStorage};
+  \texttt{paymentMap} \textit{map[string]payment.Client};
+  \texttt{transportMap} \textit{map[string]transport.Client};
+  \texttt{account}, \texttt{catalog}, \texttt{inventory}, \texttt{promotion}, \texttt{common}
+  \textit{(proxy liên module)} \\
+\midrule
+\textbf{Phương thức} &
+  \textit{Giỏ hàng:} \texttt{GetCart}, \texttt{UpdateCart}, \texttt{ClearCart} \newline
+  \textit{Checkout:} \texttt{BuyerCheckout}, \texttt{CancelBuyerPending} \newline
+  \textit{Xác nhận:} \texttt{ConfirmSellerPending}, \texttt{RejectSellerPending},
+    \texttt{QuoteTransport} \newline
+  \textit{Thanh toán:} \texttt{PayBuyerOrders}, \texttt{ConfirmPayment} \newline
+  \textit{Hoàn trả:} \texttt{CreateBuyerRefund}, \texttt{ConfirmSellerRefund},
+    \texttt{UpdateBuyerRefund}, \texttt{CancelBuyerRefund}, \texttt{ListBuyerRefunds} \newline
+  \textit{Tra cứu:} \texttt{GetBuyerOrder}, \texttt{GetSellerOrder},
+    \texttt{ListBuyerConfirmed}, \texttt{ListSellerConfirmed},
+    \texttt{ListBuyerPending}, \texttt{ListSellerPending},
+    \texttt{GetSellerPendingActions} \newline
+  \textit{Dashboard:} \texttt{GetSellerOrderStats}, \texttt{GetSellerOrderTimeSeries},
+    \texttt{GetSellerTopProducts} \newline
+  \textit{Đánh giá:} \texttt{HasPurchasedProduct}, \texttt{ListReviewableOrders},
+    \texttt{ValidateOrderForReview} \\
+\midrule
+\textbf{Cộng tác} &
+  \texttt{PaymentProvider}, \texttt{TransportProvider}, \texttt{OrderRepository},
+  \texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz},
+  \texttt{PromotionBiz}, \texttt{CommonBiz} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---- PaymentProvider ----
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả thành phần \texttt{PaymentProvider}}
+\label{tab:crc-payment}
+\small
+\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{PaymentProvider — Interface (Strategy Pattern)}}} \\
+\midrule
+\textbf{Thuộc tính} &
+  \texttt{config} \textit{PaymentConfig}:
+  \texttt{ID} (mã nhà cung cấp), \texttt{Name} (tên hiển thị),
+  \texttt{Sandbox} (chế độ kiểm thử), \texttt{ReturnURL} (URL callback) \\
+\midrule
+\textbf{Phương thức} &
+  \texttt{CreatePayment(ctx, amount, refID, metadata)} $\to$ \textit{(intent, redirectURL, error)} \newline
+  \texttt{VerifyWebhook(rawBody, signature)} $\to$ \textit{(*Event, error)} \newline
+  \texttt{Refund(paymentID, amount)} $\to$ \textit{error} \newline
+  \texttt{Config()} $\to$ \textit{PaymentConfig} \\
+\midrule
+\textbf{Cài đặt cụ thể} &
+  \texttt{VNPayClient} (QR / ATM / Internet Banking);
+  \texttt{CODClient} (thanh toán khi nhận hàng);
+  \texttt{SePayClient} (thẻ ngân hàng qua SePay) \\
+\midrule
+\textbf{Cộng tác} &
+  \texttt{OrderHandler} (gọi khi tạo/xác nhận thanh toán), VNPay / SePay (ngoài) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---- TransportProvider ----
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả thành phần \texttt{TransportProvider}}
+\label{tab:crc-transport}
+\small
+\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{TransportProvider — Interface (Strategy Pattern)}}} \\
+\midrule
+\textbf{Thuộc tính} &
+  \texttt{config} \textit{TransportConfig}:
+  \texttt{ID} (mã nhà vận chuyển), \texttt{Name} (tên hiển thị),
+  \texttt{ServiceLevel} (Standard / Express / Economy) \\
+\midrule
+\textbf{Phương thức} &
+  \texttt{CreateShipment(items, address, option)} $\to$ \textit{(*Shipment, error)} \newline
+  \texttt{QuoteFee(items, address, option)} $\to$ \textit{(cost, error)} \newline
+  \texttt{GetTrackingStatus(shipmentID)} $\to$ \textit{(TransportStatus, error)} \newline
+  \texttt{Config()} $\to$ \textit{TransportConfig} \\
+\midrule
+\textbf{Cài đặt cụ thể} &
+  \texttt{GHTKClient} với ba mức dịch vụ: Standard, Express, Economy \\
+\midrule
+\textbf{Cộng tác} &
+  \texttt{OrderHandler} (gọi khi xác nhận đơn và báo giá vận chuyển), GHTK (ngoài) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---- OrderRepository ----
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả thành phần \texttt{OrderRepository}}
+\label{tab:crc-repo}
+\small
+\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{OrderRepository — DAO (SQLC-generated)}}} \\
+\midrule
+\textbf{Thuộc tính} &
+  \texttt{queries} \textit{*Queries} (mã SQLC sinh tự động);
+  \texttt{pool} \textit{*pgxpool.Pool} (connection pool tới PostgreSQL) \\
+\midrule
+\textbf{Phương thức} &
+  \textit{Đơn hàng:} \texttt{InsertOrder}, \texttt{GetOrder}, \texttt{UpdateOrderStatus} \newline
+  \textit{Mục đơn:} \texttt{InsertItem}, \texttt{UpdateItemStatus},
+    \texttt{ListPendingItemsBySeller} \newline
+  \textit{Thanh toán:} \texttt{InsertPayment}, \texttt{UpdatePaymentStatus} \newline
+  \textit{Vận chuyển:} \texttt{InsertTransport}, \texttt{UpdateTransportStatus} \newline
+  \textit{Hoàn trả:} \texttt{InsertRefund}, \texttt{UpdateRefundStatus},
+    \texttt{InsertRefundDispute} \\
+\midrule
+\textbf{Cộng tác} &
+  \texttt{OrderHandler} (gọi qua interface \texttt{OrderStorage});
+  PostgreSQL schema \texttt{order.*} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Actor hỗ trợ cho module}
+\label{subsec:support-actors}
+
+\begin{table}[htbp]
+\centering
+\caption{Danh sách actor hỗ trợ module Quản lý Đơn hàng}
+\label{tab:support-actors}
+\small
+\begin{tabular}{@{} p{2.8cm} l p{3.2cm} p{5.5cm} @{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Actor} & \thead{Loại} & \thead{UC hỗ trợ} & \thead{Vai trò} \\
+\midrule
+\texttt{AccountBiz}    & Liên module & UC04, UC09, UC12, UC18, UC21 & Lấy thông tin người dùng; gửi thông báo in-app cho buyer/seller \\
+\texttt{CatalogBiz}    & Liên module & UC04                         & Tra cứu SKU (giá, tên, ảnh) tại thời điểm checkout để snapshot \\
+\texttt{InventoryBiz}  & Liên module & UC04, UC18, UC21             & Đặt chỗ tồn kho (BuyerCheckout); hoàn trả tồn kho (hoàn trả) \\
+\texttt{PromotionBiz}  & Liên module & UC09                         & Tính discount và giảm phí vận chuyển khi xác nhận đơn \\
+\texttt{CommonBiz}     & Liên module & UC18, UC21, UC22             & Lưu bằng chứng hoàn trả (file resources); gửi SSE real-time \\
+VNPay / SePay          & Ngoài       & UC12, UC13                   & Nhận yêu cầu tạo payment intent; gửi webhook xác nhận kết quả \\
+GHTK                   & Ngoài       & UC09, UC21                   & Tạo vận đơn; báo giá vận chuyển; theo dõi trạng thái giao hàng \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Sơ đồ tương tác trên các thành phần --- Luồng Checkout}
+\label{subsec:component-sequence}
+
+Sơ đồ dưới đây mô tả luồng \textbf{BuyerCheckout} ở mức thiết kế (design-level), thể hiện cách
+các thành phần phối hợp với nhau để thực hiện UC04. Khác với sơ đồ phân tích tổng quan
+ở Hình~\ref{fig:order-sequence}, sơ đồ này hiển thị rõ thành phần nào chịu trách nhiệm từng bước.
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{sequencediagram}
+\newinst{buyer}{Buyer}
+\newinst[1.8]{oh}{OrderHandler}
+\newinst[2.0]{cat}{CatalogBiz}
+\newinst[2.0]{inv}{InventoryBiz}
+\newinst[2.0]{repo}{OrderRepository}
+\newinst[2.0]{acct}{AccountBiz}
+
+\begin{call}{buyer}{BuyerCheckout(items)}{oh}{}
+  \begin{call}{oh}{GetSKU(skuID)}{cat}{sku, price}
+  \end{call}
+  \begin{call}{oh}{ReserveInventory(skuID, qty)}{inv}{ok}
+  \end{call}
+  \begin{call}{oh}{InsertItem(item)}{repo}{itemID}
+  \end{call}
+  \begin{call}{oh}{ClearCart(buyerID)}{repo}{}
+  \end{call}
+\end{call}
+
+\begin{messcall}{oh}{NotifySeller(pendingItems)}{acct}
+\end{messcall}
+
+\postlevel
+\mess{oh}{pendingItems}{buyer}
+
+\end{sequencediagram}
+}%
+\captionof{figure}{Sơ đồ tương tác thành phần --- luồng BuyerCheckout (UC04)}
+\label{fig:component-checkout-seq}
+\end{center}

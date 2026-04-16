@@ -156,23 +156,269 @@ refund\_dispute & id, refund\_id, issued\_by\_id, reason, status & Tranh chấp;
 \end{itemize}
 
 % ------------------------------------------------------------------
-\subsection{Tiêu chí kiểm thử thiết kế}
-\label{subsec:design-test}
+\subsection{Truy vấn dữ liệu (SQLC queries thay cho Stored Procedure)}
+\label{subsec:db-sqlc}
+
+ShopNexus không dùng Stored Procedure (SP) truyền thống. Thay vào đó, toàn bộ truy vấn được quản lý bằng \textbf{SQLC} --- công cụ sinh code Go type-safe trực tiếp từ SQL thuần. Lý do lựa chọn:
+
+\begin{itemize}[nosep]
+    \item \textbf{Code-first, version control}: file \texttt{.sql} nằm cùng repo, được review qua Pull Request như mọi thay đổi code khác.
+    \item \textbf{Type-safe}: SQLC sinh Go struct khớp schema, lỗi được phát hiện ở compile time thay vì runtime như SP.
+    \item \textbf{CI/CD}: deploy queries cùng code qua \texttt{make generate}, không cần migration riêng cho SP.
+    \item \textbf{Cùng mục tiêu đóng gói}: tầng \texttt{db/sqlc/*.go} đóng vai trò Repository/DAO --- code nghiệp vụ chỉ gọi hàm Go, không viết SQL trực tiếp; DB Admin có thể điều chỉnh cấu trúc bảng, chỉ cần regenerate SQLC code.
+    \item \textbf{Trade-off}: mất một số tính năng SP (cached execution plan, DB-level permission). Bù lại: đơn giản, testable, phù hợp workflow Go.
+\end{itemize}
 
 \begin{table}[htbp]
 \centering
-\caption{Tiêu chí kiểm thử cho phần thiết kế}
-\label{tab:design-test}
-\begin{tabular}{@{}p{2.5cm}p{5.5cm}p{5.5cm}@{}}
+\caption{Các query SQLC chính (tương đương Stored Procedure)}
+\label{tab:db-sqlc-queries}
+\small
+\begin{tabular}{@{}p{3.8cm}p{3.5cm}p{2.8cm}p{3.2cm}@{}}
 \toprule
 \rowcolor{headerblue}
-\thead{Tiêu chí} & \thead{Phép thử} & \thead{Kết quả mong đợi} \\
+\thead{Query} & \thead{Nhiệm vụ} & \thead{Inputs} & \thead{Outputs} \\
 \midrule
-Chuẩn hoá (3NF) & Rà soát ERD: không có phụ thuộc bắc cầu & Mỗi cột phụ thuộc trực tiếp vào khoá chính \\
-Tuân thủ SOLID & Review: mỗi module có interface riêng, không phụ thuộc chéo ở tầng DB & Interface segregation, single responsibility \\
-Testability & Walkthrough: mỗi API có input/output rõ ràng, có thể test độc lập & Viết unit test cho từng API không cần mock liên schema \\
-Modularity & Kiểm tra: không có FK liên schema, mỗi module tách biệt hoàn toàn & Có thể triển khai module độc lập \\
-Toàn vẹn dữ liệu & Kịch bản: xoá order $\to$ item cascade, refund giữ lại & Cascade/NO ACTION đúng thiết kế \\
+\texttt{GetPendingItemsBySeller} & Lấy inbox mục chờ của seller & \texttt{seller\_id UUID}, pagination & \texttt{[]OrderItem} (dùng partial index \texttt{item\_pending\_seller\_idx}) \\
+\texttt{ReserveInventory} & Đặt chỗ tồn kho cho SKU (module inventory) & \texttt{sku\_id UUID}, \texttt{quantity int64} & ok/err (terminal nếu hết kho) \\
+\texttt{InsertOrder} & Tạo đơn hàng khi seller xác nhận & \texttt{buyer\_id}, \texttt{seller\_id}, \texttt{transport\_id}, costs, address & \texttt{Order} \\
+\texttt{PayOrders} (multi-step) & Khởi tạo phiên thanh toán & \texttt{order\_ids []UUID}, \texttt{payment\_option} & \texttt{Payment}, redirect\_url \\
+\texttt{ConfirmPaymentByRefID} & Xử lý webhook, cập nhật trạng thái thanh toán & \texttt{ref\_id string}, \texttt{status} & --- \\
+\texttt{GetSellerStats} & Aggregate thống kê doanh thu & \texttt{seller\_id}, date\_range & totalRevenue, orderCount, avgValue \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+Mỗi query ánh xạ 1:1 sang hàm Go do SQLC sinh ra. Ví dụ: \texttt{GetPendingItemsBySeller} tạo ra hàm \texttt{(q *Queries) GetPendingItemsBySeller(ctx, params) ([]OrderItem, error)} trong file \texttt{internal/module/order/db/sqlc/generated\_queries.sql.go}.
+
+% ------------------------------------------------------------------
+\subsection{Ràng buộc toàn vẹn dữ liệu (DB constraints)}
+\label{subsec:db-integrity}
+
+ShopNexus không dùng TRIGGER. Thay vào đó, toàn vẹn dữ liệu được đảm bảo qua ba cơ chế phối hợp:
+
+\begin{enumerate}[nosep]
+    \item \textbf{DB-level constraints} (FK, UNIQUE, enum, partial index) --- nêu trong phần này.
+    \item \textbf{Business rules ở tầng biz} --- xem phần~\ref{subsec:db-biz-rules}.
+    \item \textbf{Durable execution qua Restate} --- đảm bảo exactly-once cho side effects.
+\end{enumerate}
+
+Lý do chọn constraint thay trigger:
+
+\begin{itemize}[nosep]
+    \item \textbf{Auditable}: constraint nằm trong migration file, review được qua Pull Request.
+    \item \textbf{Transactional}: tự động bảo vệ trong transaction, không race condition.
+    \item \textbf{Debug dễ}: lỗi constraint violation rõ ràng, không ẩn sau trigger logic.
+    \item \textbf{Tránh lock contention}: trigger có thể gây lock chéo và khó viết test đơn vị.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Các constraint và index chính trong schema \texttt{order}}
+\label{tab:db-constraints-detail}
+\small
+\begin{tabular}{@{}p{4.2cm}p{2.2cm}p{2.6cm}p{4.2cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Ràng buộc} & \thead{Loại} & \thead{Trên bảng} & \thead{Mô tả} \\
+\midrule
+\texttt{cart\_item\_account\_id\_sku\_id\_key} & UNIQUE & \texttt{cart\_item} & Một tài khoản chỉ có 1 dòng/SKU trong giỏ (idempotent UpdateCart) \\
+\texttt{item\_order\_id\_fkey} & FK ON DELETE CASCADE & \texttt{item} $\to$ \texttt{order} & Xóa order xóa hết item liên quan; không tồn tại item mồ côi \\
+\texttt{refund\_order\_id\_fkey} & FK ON DELETE NO ACTION & \texttt{refund} $\to$ \texttt{order} & Giữ lại refund record khi order bị xóa --- hỗ trợ audit/legal compliance \\
+\texttt{order\_payment\_id\_fkey} & FK ON DELETE SET NULL & \texttt{order} $\to$ \texttt{payment} & Xóa payment không xóa order, chỉ unlink \\
+\texttt{order\_transport\_id\_fkey} & FK ON DELETE SET NULL & \texttt{order} $\to$ \texttt{transport} & Tương tự: unlink transport khi xóa \\
+\texttt{item\_pending\_seller\_idx} & Partial INDEX & \texttt{item (seller\_id, status)} WHERE \texttt{order\_id IS NULL} & Tối ưu truy vấn inbox mục chờ, giảm kích thước index \\
+\texttt{item\_pending\_account\_idx} & Partial INDEX & \texttt{item (account\_id, status)} WHERE \texttt{order\_id IS NULL} & Tương tự cho buyer inbox \\
+\texttt{order.status} enum & TYPE CHECK & payment, order, refund, refund\_dispute & Giới hạn giá trị: Pending, Processing, Success, Cancelled, Failed \\
+\texttt{transport\_status} enum & TYPE CHECK & \texttt{transport} & 7 trạng thái lifecycle giao vận \\
+\texttt{refund\_method} enum & TYPE CHECK & \texttt{refund} & PickUp hoặc DropOff \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Ràng buộc nghiệp vụ ở tầng Biz (thay cho Trigger)}
+\label{subsec:db-biz-rules}
+
+Các ràng buộc không thể biểu diễn qua constraint DB (state transition rules, cross-table invariants, gọi API bên ngoài) được thực thi ở tầng biz (Go handler). Đặc điểm nổi bật: rule chạy bên trong \texttt{restate.Run()} --- durable, idempotent, retry tự động khi có lỗi transient.
+
+Lý do chọn biz rules thay trigger:
+
+\begin{itemize}[nosep]
+    \item \textbf{Testable}: unit test rule độc lập với DB state, không cần spin up database.
+    \item \textbf{Rõ ràng}: logic trong Go dễ đọc/review hơn PL/pgSQL trigger.
+    \item \textbf{Flexibility}: rule phức tạp (gọi API bên ngoài, cross-module) không thể viết trong trigger.
+    \item \textbf{Observable}: log, metric, trace đầy đủ qua tầng biz; trigger thường không có.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Các business rule ở tầng biz (tương đương Trigger)}
+\label{tab:db-biz-rules}
+\small
+\begin{tabular}{@{}p{3.5cm}p{3cm}p{3cm}p{3.8cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Rule} & \thead{Thay thế cho} & \thead{File/Module} & \thead{Mô tả} \\
+\midrule
+State transition Item & TRIGGER BEFORE UPDATE & \texttt{order/biz/checkout.go}, \texttt{incoming.go} & Item chỉ chuyển Pending $\to$ Confirmed khi có order hợp lệ; Pending $\to$ Cancelled khi buyer/seller hủy; transition khác từ chối \\
+Snapshot giá & TRIGGER BEFORE INSERT & \texttt{order/biz/checkout.go} & Khi InsertItem, \texttt{unit\_price} và \texttt{sku\_name} copy từ catalog tại thời điểm đặt hàng, bảo vệ khỏi thay đổi giá sau mua \\
+Refund eligibility & TRIGGER BEFORE INSERT refund & \texttt{order/biz/refund.go} & Chỉ tạo refund khi \texttt{order.payment.status = Success} và không có refund Pending/Processing cho cùng order \\
+Payment exactly-once & TRIGGER + retry queue & \texttt{order/biz/pay.go} + \texttt{restate.Run()} & Webhook callback idempotent --- replay không trừ tiền hai lần nhờ journal của Restate \\
+Tồn kho atomic & TRIGGER BEFORE UPDATE item & \texttt{inventory/biz/reserve.go} & ReserveInventory và ReleaseInventory chạy nguyên tử qua \texttt{restate.Run()}, fail thì rollback toàn bộ \\
+Notification sau state change & TRIGGER AFTER UPDATE & \texttt{order/biz/*.go} với \texttt{restate.ServiceSend()} & Fire-and-forget notification tới buyer/seller qua SSE sau mọi state change quan trọng \\
+Auto-refund khi seller xác nhận & TRIGGER AFTER UPDATE refund & \texttt{order/biz/refund.go} & ConfirmSellerRefund gọi PaymentProvider.Refund(), tạo shipment, cập nhật \texttt{refund.status=Success} --- toàn bộ trong 1 durable handler \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Bảng tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
+\label{subsec:db-uc-crossref}
+
+Bảng~\ref{tab:db-uc-crossref} tổng hợp các use case chính, form tương ứng, API endpoint và bảng/query SQLC liên quan --- phục vụ như điểm điều hướng traceability toàn hệ thống. Chi tiết từng module xem tại Bảng~\ref{tab:order-crossref} (module Order) và Bảng~\ref{tab:refund-crossref} (module Refund).
+
+\begin{table}[htbp]
+\centering
+\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Bảng/Query chính}
+\label{tab:db-uc-crossref}
+\small
+\begin{tabular}{@{}p{1.5cm}p{3cm}p{3.5cm}p{5.2cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{UC} & \thead{Form} & \thead{API} & \thead{Bảng/Query chính} \\
+\midrule
+UC04 & CartPage & UpdateCart, ClearCart & \texttt{order.cart\_item} (UNIQUE sku/account) \\
+UC09 & CheckoutPage, SellerInbox & BuyerCheckout, ConfirmSellerPending & \texttt{order.item}, \texttt{order.order} (\texttt{InsertOrder}, \texttt{ReserveInventory}) \\
+UC12 & PaymentPage & PayBuyerOrders, ConfirmPayment & \texttt{order.payment} (\texttt{PayOrders}, \texttt{ConfirmPaymentByRefID}) \\
+UC18 & SellerDashboard & GetSellerOrderStats & \texttt{order.order}, \texttt{order.item} (\texttt{GetSellerStats}) \\
+UC21 & RefundRequestForm, SellerRefundReview & CreateBuyerRefund, ConfirmSellerRefund & \texttt{order.refund}, \texttt{order.transport} (refund eligibility rule) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ------------------------------------------------------------------
+\subsection{Tiêu chí kiểm thử thiết kế}
+\label{subsec:design-test}
+
+Các tiêu chí kiểm thử thiết kế được phân thành bốn nhóm, mỗi nhóm tương ứng với một góc nhìn chất lượng khác nhau: (A)~cấu trúc và chuẩn hoá, (B)~độ tin cậy và tương tranh, (C)~bảo mật và tuân thủ, (D)~hiệu năng và khả năng quan sát. Phương pháp V\&V (Verification \& Validation) được chọn phù hợp với bản chất từng tiêu chí --- từ rà soát ngang hàng (peer review), thanh tra chính thức (Fagan inspection), đến phân tích tự động (static analysis) và mô hình hoá (model checking).
+
+\subsubsection{Phương pháp V\&V áp dụng}
+\label{subsubsec:vnv-methods}
+
+\begin{table}[htbp]
+\centering
+\caption{Các phương pháp V\&V trong thiết kế ShopNexus}
+\label{tab:vnv-methods}
+\small
+\begin{tabular}{@{}p{3.2cm}p{4.5cm}p{5.5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Phương pháp} & \thead{Bản chất} & \thead{Áp dụng trong ShopNexus} \\
+\midrule
+Peer Review & Kiểm tra chéo giữa đồng nghiệp & Pull Request bắt buộc trước merge \\
+Walkthrough & Tác giả trình bày thiết kế cho team & Design review meeting cho kiến trúc \\
+Fagan Inspection & Thanh tra chính thức có moderator / reader / author / recorder với checklist chuẩn & Áp dụng cho critical path: checkout, thanh toán, dispute resolution \\
+Static Analysis & Kiểm tra tự động không chạy chương trình & \texttt{golangci-lint}, \texttt{staticcheck}, \texttt{gosec}, chạy trong CI \\
+Model Checking & Chứng minh đúng đắn state machine & Transport state machine (đã có unit test \texttt{TestTransportStatusTransitions}) \\
+Threat Modeling (STRIDE) & Phân tích đối nghịch 6 loại mối đe doạ & Webhook thanh toán, xác thực JWT \\
+FMEA & Failure Modes \& Effects Analysis & Các thành phần critical trong durable execution \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Bảng tiêu chí kiểm thử thiết kế chi tiết}
+
+\begin{longtable}{@{}p{3.3cm}p{5.3cm}p{4.2cm}p{2.2cm}@{}}
+\caption{Tiêu chí kiểm thử thiết kế (15 tiêu chí, 4 nhóm)}\label{tab:design-test}\\
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Phép thử / Đối tượng} & \thead{Kết quả mong đợi} & \thead{Phương pháp} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Phép thử / Đối tượng} & \thead{Kết quả mong đợi} & \thead{Phương pháp} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm A --- Cấu trúc và chuẩn hoá (Static structural review)}}} \\
+Chuẩn hoá 3NF & Rà soát ERD: kiểm tra không có phụ thuộc bắc cầu, mỗi bảng có khoá chính rõ ràng & Mỗi cột non-key phụ thuộc trực tiếp vào khoá chính; không dư thừa dữ liệu & Walkthrough \\
+Tuân thủ SOLID & Review interface.go: mỗi module expose 1 interface, không có interface \textquotedblleft god\textquotedblright{} & Single Responsibility, Interface Segregation đạt yêu cầu & Inspection + Peer Review \\
+Coupling / Cohesion & Phân tích dependency graph: đếm afferent/efferent coupling mỗi module & Afferent $\leq$ 5, Efferent $\leq$ 8; không có circular dep (Go compiler enforce) & Static Analysis \\
+Testability & Walkthrough: mỗi public method có input/output rõ ràng, không phụ thuộc global state & Unit test được viết mà không cần mock liên schema & Walkthrough \\
+Modularity & Kiểm tra: không FK xuyên schema, giao tiếp module chỉ qua \texttt{XxxBiz} interface & Có thể tách module thành microservice chỉ đổi URL Restate & Inspection \\
+\addlinespace
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm B --- Độ tin cậy và tương tranh (Reliability \& concurrency)}}} \\
+FMEA --- Failure Modes & Với mỗi component critical (OrderHandler, PaymentProvider, InventoryBiz), liệt kê what-if-fails và mitigation & Mỗi failure mode có retry / compensation rõ ràng & FMEA Table \\
+Crash recovery & Kịch bản: crash giữa \texttt{BuyerCheckout} ngay sau \texttt{ReserveInventory}; Restate replay journal & Không double-reserve, không orphan item; state final nhất quán & Fault Injection + Inspection \\
+Idempotency & Rà soát: mọi side effect nằm trong \texttt{restate.Run()}; webhook kiểm tra \texttt{ref\_id} trùng & Replay cùng event không đổi state; webhook duplicate không trừ tiền 2 lần & Inspection + Unit Test \\
+Race condition \& lock ordering & Phân tích: xác định các truy cập đồng thời (cart, inventory); thứ tự lock (buyer $\to$ seller) & Không deadlock; không lost update; inventory reserve nguyên tử & Walkthrough + Concurrency Test \\
+\addlinespace
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm C --- Bảo mật và tuân thủ (Security \& compliance)}}} \\
+STRIDE threat model & Phân tích 6 loại mối đe doạ cho webhook thanh toán, xác thực JWT, dispute submission & Mỗi đe doạ có mitigation (HMAC verify, token expiry, rate limit, audit log) & Threat Modeling \\
+Input validation coverage & Rà soát: 100\% endpoint có tag \texttt{validate:} trên params struct; middleware \texttt{validator.Validate(params)} & Reject input không hợp lệ trước khi vào biz logic & Static Analysis + Inspection \\
+AuthN/AuthZ matrix & Checklist: mọi endpoint phi-public yêu cầu JWT; matrix \texttt{(endpoint, role, check)} cho buyer/seller/admin & Không có endpoint bypass; buyer không truy cập đơn của account khác & Inspection + Pen-test \\
+Compliance checklist & Kiểm tra: NĐ 52/2013 (audit trail), Luật BVQLNTD 2023 (14-ngày hoàn trả), PCI-DSS (không lưu card data) & Đạt đủ yêu cầu pháp lý cho TMĐT tại Việt Nam & Peer Review + Legal Review \\
+\addlinespace
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm D --- Hiệu năng và khả năng quan sát (Performance \& observability)}}} \\
+Complexity \& query plan & Rà soát big-O từng API; EXPLAIN ANALYZE cho query hot path; kiểm tra partial index được dùng & API read $\leq O(\log n)$; query dùng index, không seq scan trên bảng lớn & Inspection + EXPLAIN \\
+Observability readiness & Rà soát: mọi handler quan trọng có \texttt{metrics.TrackHandler()}; error có context; log có trace ID & 100\% handler critical được đo; p99 latency từ dashboard & Inspection + Static Analysis \\
+Toàn vẹn dữ liệu & Kịch bản: xoá order $\to$ item CASCADE, refund NO ACTION giữ lại; enum chặn giá trị không hợp lệ & FK rule + enum + partial index đúng thiết kế & Inspection + Integration Test \\
+
+\end{longtable}
+
+\subsubsection{Ma trận truy vết yêu cầu --- thiết kế --- kiểm thử (Traceability Matrix)}
+\label{subsubsec:traceability}
+
+Ma trận truy vết (traceability matrix) liên kết mỗi yêu cầu (NFR hoặc Use Case) tới thành phần thiết kế hiện thực nó và tới test case kiểm chứng nó. Mục đích: (a)~phát hiện yêu cầu \textit{không được thực hiện} (orphan requirement); (b)~phát hiện thiết kế \textit{không phục vụ yêu cầu nào} (over-engineering); (c)~khi yêu cầu thay đổi, xác định nhanh vùng ảnh hưởng.
+
+\begin{longtable}{@{}p{1.3cm}p{3.5cm}p{4.2cm}p{3cm}p{2.3cm}@{}}
+\caption{Ma trận truy vết: NFR/UC $\to$ Thiết kế $\to$ Kiểm thử $\to$ V\&V}\label{tab:traceability}\\
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Yêu cầu} & \thead{Thiết kế hiện thực} & \thead{Test case} & \thead{V\&V} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Yêu cầu} & \thead{Thiết kế hiện thực} & \thead{Test case} & \thead{V\&V} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Nghiệp vụ (Business NFR)}}} \\
+B02 & Tồn kho chính xác, không overselling & \texttt{InventoryBiz.ReserveInventory}, partial index \texttt{item\_pending\_*\_idx}, \texttt{restate.Run} atomic & \texttt{TestReserveInventoryRollback} + integration test overselling & Unit + Inspection \\
+B04 & Nhất quán chi phí & Công thức \texttt{total = product\_cost $-$ discount + transport\_cost} trong \texttt{ConfirmSellerPending} + snapshot giá ở \texttt{InsertItem} & \texttt{TestCostFormula} + \texttt{TestPriceSnapshot} & Unit + Walkthrough \\
+B05 & Phân tích kinh doanh $\leq$ 1s & \texttt{GetSellerOrderStats} dùng SQL aggregate + partial index, không loop Go & Benchmark 10K orders & Performance Test \\
+\addlinespace
+\rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Vận hành (Operational NFR)}}} \\
+O01 & Xác thực \& phân quyền & Middleware JWT + \texttt{AuthenticatedAccount} + kiểm tra ownership ở biz & \texttt{TestOwnershipViolation} + pen-test bypass & Inspection + Pen-test \\
+O02 & Bảo mật thanh toán & HMAC verify webhook, \texttt{date\_expired}, \texttt{payment\_method\_id} reference & \texttt{TestWebhookReplay} + \texttt{TestExpiredSession} & Threat Model + Unit \\
+O03 & Sẵn sàng \& phục hồi & Restate 3-node cluster + journal replay + \texttt{restate.Run} idempotent & Chaos test: kill node giữa \texttt{BuyerCheckout} & Fault Injection \\
+O06 & Chống lạm dụng endpoint & \texttt{ratelimit.Factory} + Redis INCR+EXPIRE NX + Echo middleware & \texttt{TestFactoryMemoryFallback} + \texttt{TestFactoryIsolatesIPs} & Unit + Load Test \\
+\addlinespace
+\rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Phát triển (Development NFR)}}} \\
+D01 & Modular Monolith & Interface \texttt{XxxBiz} + Restate proxy + schema isolation & Inspection: dependency graph & Static Analysis \\
+D03 & Durable Execution & Mọi side effect trong \texttt{restate.Run}, cross-module qua proxy & \texttt{TestDurableReplay} + code review checklist & Inspection + Unit \\
+D06 & Observability & \texttt{metrics.TrackHandler} ở 10 handler + Prometheus + Grafana dashboard & Kiểm tra \texttt{/metrics} endpoint trả về đúng format & Inspection \\
+\addlinespace
+\rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Use cases critical}}} \\
+UC04 & Đặt hàng từ giỏ hàng & \texttt{BuyerCheckout} + \texttt{CatalogBiz.GetProductSKU} + \texttt{InventoryBiz.ReserveInventory} & \texttt{TestPartialRefundItemIDsSerialization} (schema), integration test full flow & Unit + Integration \\
+UC09 & Xác nhận đơn & \texttt{ConfirmSellerPending} + transaction: \texttt{InsertTransport} $\to$ \texttt{InsertOrder} $\to$ \texttt{UpdateItems} & Integration: seller khác confirm đơn $\to$ reject & Unit + Authorization Test \\
+UC12 & Thanh toán & \texttt{PayBuyerOrders} + \texttt{PaymentProvider.CreatePayment} + \texttt{ConfirmPayment} webhook & E2E: VNPay sandbox + webhook replay & Integration + Pen-test \\
+UC18 & Tạo hoàn trả & \texttt{CreateBuyerRefund} + item\_ids validation + status guard & \texttt{TestPartialRefund*} + integration concurrent refund & Unit + Integration \\
+UC22 & Mở tranh chấp & \texttt{CreateRefundDispute} + rate limit 3/min + fire-and-forget notify & Rate limit test + authorization test & Unit + Load Test \\
+
+\end{longtable}
+
+\textbf{Phân tích coverage}: 5 NFR critical (B02, O01, O02, O03, D03) và 5 UC critical đều có thiết kế rõ ràng và ít nhất một test case. Các NFR phạm vi rộng (B01 xử lý nhanh, O04 khả năng mở rộng, D02 type safety) được chứng minh qua static analysis và benchmarking thay vì test case riêng.

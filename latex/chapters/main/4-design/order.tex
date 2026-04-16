@@ -72,8 +72,7 @@ GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{form}{BuyerForm}
@@ -119,9 +118,213 @@ GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
 
 \end{sequencediagram}
 }%
-\caption{Luồng xử lý chính của quy trình mua hàng}
+\captionof{figure}{Luồng xử lý chính của quy trình mua hàng}
 \label{fig:order-sequence}
-\end{figure}
+\end{center}
+
+% ------------------------------------------------------------------
+\subsection{Đặc tả chi tiết Form}
+\label{subsec:order-form-detail}
+
+Phần này mô tả chi tiết 4 form quan trọng nhất của module Mua hàng.
+Các form còn lại (\texttt{BuyerPendingList}, \texttt{OrderListPage}, \texttt{OrderDetailPage}, \texttt{SellerDashboard}) có cấu trúc tương tự --- chủ yếu là danh sách read-only kết hợp phân trang; xem đặc tả API tương ứng ở mục~\ref{subsec:order-api-detail}.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{Form CartPage}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-cart} (Chương 5)
+  \item \textbf{Users}: Khách hàng (Buyer)
+  \item \textbf{Controls chính}:
+    \begin{itemize}
+      \item \texttt{ItemCheckbox}: chọn/bỏ chọn từng SKU trong giỏ để thanh toán; thay đổi không gọi API --- lưu trạng thái ở client.
+      \item \texttt{QuantityInput} (nút +/-): chỉnh số lượng từng dòng. Nhiệm vụ: cập nhật số lượng. Inputs: \texttt{(skuID, quantity)}. Outputs: cart\_item mới. Xử lý: gọi API \texttt{UpdateCart}.
+      \item \texttt{DeleteButton}: xoá một SKU khỏi giỏ. Nhiệm vụ: xoá item. Inputs: \texttt{skuID}. Outputs: -. Xử lý: gọi API \texttt{UpdateCart} với \texttt{quantity=0} hoặc \texttt{ClearCart}.
+      \item \texttt{SelectAllCheckbox}: chọn/bỏ chọn toàn bộ dòng --- client-only, không gọi API.
+      \item \texttt{CheckoutButton}: chuyển sang \texttt{CheckoutPage} kèm danh sách \texttt{skuID} đã chọn. Inputs: danh sách \texttt{skuID} được check. Outputs: điều hướng sang \texttt{CheckoutPage}. Xử lý: không gọi API, truyền state qua route/query.
+    \end{itemize}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{Form CheckoutPage}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-checkout} (Chương 5)
+  \item \textbf{Users}: Khách hàng (Buyer)
+  \item \textbf{Controls chính}:
+    \begin{itemize}
+      \item \texttt{ItemList} (danh sách SKU đã chọn): hiển thị snapshot tên, ảnh, giá niêm yết; cho phép chỉnh số lượng lần cuối trước khi đặt.
+      \item \texttt{AddressInput}: nhập địa chỉ giao hàng cho từng seller, validate 1--500 ký tự.
+      \item \texttt{NoteInput}: ghi chú tùy chọn cho người bán, max 500 ký tự.
+      \item \texttt{BuyNowFlag}: checkbox ẩn, \texttt{true} khi mua ngay 1 SKU từ trang sản phẩm (bỏ qua giỏ hàng).
+      \item \texttt{SubmitButton}: Nhiệm vụ: tạo pending items. Inputs: \texttt{(items[], address, note, buyNow)}. Outputs: danh sách \texttt{OrderItem} mới ở trạng thái \texttt{Pending}, điều hướng về \texttt{BuyerPendingList}. Xử lý: gọi API \texttt{BuyerCheckout}.
+    \end{itemize}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{Form SellerInbox}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-seller-inbox} (Chương 5)
+  \item \textbf{Users}: Người bán (Seller)
+  \item \textbf{Controls chính}:
+    \begin{itemize}
+      \item \texttt{PendingItemList}: danh sách items \texttt{order\_id IS NULL} của seller, hỗ trợ tìm kiếm theo tên sản phẩm/SKU và phân trang. Xử lý: gọi API \texttt{ListSellerPending}.
+      \item \texttt{ItemCheckbox}: chọn nhiều items cùng seller để xử lý theo lô.
+      \item \texttt{TransportSelect}: dropdown chọn đơn vị vận chuyển. Khi thay đổi: gọi API \texttt{QuoteTransport} để hiện phí và tổng tiền dự kiến.
+      \item \texttt{QuoteSummary}: read-only, hiển thị \texttt{productCost}, \texttt{transportCost}, \texttt{discount}, \texttt{total} từ kết quả \texttt{QuoteTransport}.
+      \item \texttt{ConfirmButton}: Nhiệm vụ: tạo đơn hàng từ các items đã chọn. Inputs: \texttt{(itemIDs[], transportOption, note)}. Outputs: \texttt{Order} mới trạng thái \texttt{Confirmed}. Xử lý: gọi API \texttt{ConfirmSellerPending}.
+      \item \texttt{RejectButton}: Nhiệm vụ: từ chối items đã chọn. Inputs: \texttt{(itemIDs[])}. Outputs: -. Xử lý: gọi API \texttt{RejectSellerPending}.
+    \end{itemize}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{Form PaymentPage}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-payment} (Chương 5)
+  \item \textbf{Users}: Khách hàng (Buyer)
+  \item \textbf{Controls chính}:
+    \begin{itemize}
+      \item \texttt{OrderSummaryList}: danh sách các \texttt{Order} trạng thái \texttt{Confirmed} đang chờ thanh toán; hiển thị tổng tiền từng đơn và tổng cộng.
+      \item \texttt{PaymentMethodSelect}: chọn cổng thanh toán (VNPay, MoMo, v.v.).
+      \item \texttt{PayButton}: Nhiệm vụ: khởi tạo phiên thanh toán. Inputs: \texttt{(orderIDs[], paymentOption)}. Outputs: \texttt{Payment} (trạng thái \texttt{Pending}) và \texttt{redirectUrl} đến cổng thanh toán. Xử lý: gọi API \texttt{PayBuyerOrders}, sau đó redirect browser đến \texttt{redirectUrl}.
+      \item \texttt{CallbackHandler} (invisible): nhận redirect từ cổng thanh toán sau khi hoàn tất, hiển thị kết quả thành công/thất bại dựa trên trạng thái thanh toán cập nhật từ webhook.
+    \end{itemize}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\subsection{Đặc tả chi tiết API}
+\label{subsec:order-api-detail}
+
+Phần này mô tả chi tiết 5 API quan trọng nhất của module Mua hàng.
+Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{ClearCart}, \texttt{ListBuyerPending}, \texttt{ListSellerPending}, \texttt{ListBuyerConfirmed}, \texttt{GetBuyerOrder}, \texttt{GetSellerOrder}, \texttt{GetSellerOrderStats}) thực hiện truy vấn thẳng vào bảng tương ứng, không có side effect liên module.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API BuyerCheckout}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Tạo pending items (\texttt{status=Pending}, \texttt{order\_id=NULL}) cho từng SKU trong request, reserve tồn kho, snapshot giá và tên sản phẩm tại thời điểm mua.
+  \item \textbf{Inputs}: \texttt{\{Account, BuyNow bool, Items []CheckoutItem\}}, mỗi item gồm \texttt{\{SkuID uuid, Quantity int64 > 0, Address string (1--500 ký tự), Note string (0--500 ký tự)\}}.
+  \item \textbf{Outputs}: \texttt{\{Items []OrderItem\}} --- danh sách items vừa tạo ở trạng thái \texttt{Pending}.
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Validate input qua struct tag (\texttt{go-playground/validator}).
+      \item Với mỗi item: gọi \texttt{CatalogBiz.GetProductSKU(skuID)} qua Restate proxy để lấy \texttt{unitPrice} và \texttt{skuName} (snapshot tại thời điểm đặt).
+      \item Gọi \texttt{InventoryBiz.ReserveInventory(skuID, qty)} --- nếu bất kỳ item nào fail, toàn bộ request fail với lỗi \texttt{Terminal} (Restate không retry).
+      \item Trong \texttt{restate.Run()}: \texttt{InsertItem} vào \texttt{order.item} với \texttt{unit\_price} và \texttt{sku\_name} đã snapshot; \texttt{seller\_id} lấy từ catalog.
+      \item Trong \texttt{restate.Run()}: \texttt{DeleteCartItem} cho các SKU đã đặt nếu \texttt{BuyNow=false}.
+      \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifySellerPending", ...)} để gửi thông báo inbox cho seller.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API QuoteTransport}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Tính phí vận chuyển và chiết khấu dự kiến cho một lô items trước khi seller xác nhận, giúp seller và buyer thấy tổng tiền thực tế.
+  \item \textbf{Inputs}: \texttt{\{Account, ItemIDs []int64, TransportOption string\}}.
+  \item \textbf{Outputs}: \texttt{\{ProductCost, ProductDiscount, TransportCost, Total int64\}}.
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Truy vấn \texttt{order.item} lấy \texttt{unit\_price} và \texttt{quantity} của từng \texttt{itemID}; aggregate thành \texttt{productCost}.
+      \item Gọi \texttt{PromotionBiz.CalculateDiscount(sellerID, productCost)} để lấy \texttt{productDiscount}.
+      \item Gọi \texttt{TransportProvider.QuoteFee(transportOption, address, weight)} để lấy \texttt{transportCost}.
+      \item Tính \texttt{total = productCost - productDiscount + transportCost} và trả về.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API ConfirmSellerPending}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Seller xác nhận một lô pending items, hệ thống tạo \texttt{Order} và \texttt{Transport} tương ứng, cập nhật trạng thái items thành \texttt{Confirmed}, thông báo buyer.
+  \item \textbf{Inputs}: \texttt{\{Account, ItemIDs []int64, TransportOption string, Note string\}}.
+  \item \textbf{Outputs}: \texttt{Order} vừa tạo (\texttt{status=Confirmed}).
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Kiểm tra tất cả items thuộc \texttt{seller\_id} của account; item nào đã có \texttt{order\_id} thì báo lỗi.
+      \item Gọi lại \texttt{QuoteTransport} nội bộ để tính \texttt{total} chính xác tại thời điểm xác nhận.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertTransport} vào \texttt{order.transport} với thông tin vận chuyển đã chọn.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertOrder} vào \texttt{order.order} với \texttt{total} vừa tính, \texttt{status=Confirmed}.
+      \item Trong \texttt{restate.Run()}: \texttt{UpdateItems} --- gán \texttt{order\_id} và set \texttt{status=Confirmed} cho tất cả items trong lô.
+      \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifyBuyerConfirmed", ...)} để gửi thông báo cho buyer.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API PayBuyerOrders}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Buyer khởi tạo phiên thanh toán cho một hoặc nhiều đơn hàng \texttt{Confirmed}, tạo bản ghi \texttt{Payment} và lấy URL redirect đến cổng thanh toán.
+  \item \textbf{Inputs}: \texttt{\{Account, OrderIDs []uuid, PaymentOption string\}}.
+  \item \textbf{Outputs}: \texttt{\{Payment, RedirectUrl *string\}} --- \texttt{RedirectUrl} là \texttt{nil} nếu cổng không yêu cầu redirect (ví dụ: ví nội bộ).
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Truy vấn \texttt{order.order} xác nhận tất cả \texttt{orderID} thuộc \texttt{account\_id} của buyer và đang ở \texttt{status=Confirmed}.
+      \item Aggregate \texttt{total} từ tất cả orders; kiểm tra không vượt hạn mức cho phép.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertPayment} vào \texttt{order.payment} với \texttt{status=Pending}, \texttt{date\_expired = now + TTL}.
+      \item Gọi \texttt{PaymentProvider.CreatePayment(paymentOption, total, paymentID)} để lấy \texttt{refID} và \texttt{redirectUrl} từ cổng thanh toán.
+      \item Trong \texttt{restate.Run()}: cập nhật \texttt{payment.ref\_id} với giá trị trả về từ cổng.
+      \item Trả về \texttt{Payment} và \texttt{redirectUrl} cho client.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API ConfirmPayment (Webhook)}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Xử lý callback từ cổng thanh toán sau khi người dùng hoàn tất giao dịch; cập nhật trạng thái \texttt{Payment} và các \texttt{Order} liên quan.
+  \item \textbf{Inputs}: \texttt{\{RefID string, Status payment.Status\}} --- do cổng thanh toán gửi qua HTTP POST (webhook).
+  \item \textbf{Outputs}: HTTP 200 OK (không có body nghiệp vụ); cổng dùng status code để xác nhận nhận webhook.
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Xác minh chữ ký HMAC của webhook để đảm bảo nguồn hợp lệ; trả lỗi 401 nếu không hợp lệ.
+      \item Tìm \texttt{Payment} theo \texttt{ref\_id}; nếu không tìm thấy trả 404.
+      \item Nếu \texttt{payment.status} đã là terminal (\texttt{Success}/\texttt{Failed}), bỏ qua (idempotent).
+      \item Trong \texttt{restate.Run()}: cập nhật \texttt{payment.status} theo \texttt{Status} từ webhook.
+      \item Nếu \texttt{Status=Success}: trong \texttt{restate.Run()} cập nhật tất cả orders liên quan thành \texttt{status=Success}.
+      \item Fire-and-forget: \texttt{restate.ServiceSend(ctx, "Order", "NotifyPaymentResult", ...)} để thông báo kết quả cho buyer và seller.
+    \end{enumerate}
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API CreateRefundDispute}
+\label{subsubsec:api-create-refund-dispute}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Buyer hoặc Seller mở tranh chấp trên một yêu cầu hoàn trả khi không đồng ý quyết định; hệ thống lưu dispute và thông báo bên còn lại.
+  \item \textbf{Inputs}: \texttt{\{Account, RefundID uuid, Reason string\}}.
+  \item \textbf{Outputs}: \texttt{RefundDispute} — bản ghi với \texttt{status=Pending}.
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Validate: caller là buyer hoặc seller của đơn hàng liên quan đến \texttt{RefundID}.
+      \item Validate: \texttt{refund.status} không phải \texttt{Success} hoặc \texttt{Cancelled}.
+      \item Validate: không tồn tại dispute nào đang ở trạng thái \texttt{Pending} cho cùng \texttt{RefundID}.
+      \item Trong \texttt{restate.Run()}: \texttt{InsertRefundDispute} vào bảng \texttt{order.refund\_dispute} với \texttt{issued\_by\_id = account.ID}, \texttt{status=Pending}.
+      \item Fire-and-forget: \texttt{restate.ServiceSend} gửi thông báo đến bên còn lại (nếu caller là buyer thì thông báo seller và ngược lại).
+    \end{enumerate}
+  \item \textbf{Rate limit}: 3 yêu cầu/phút per user (trả về 429 kèm \texttt{Retry-After} khi vượt ngưỡng).
+\end{itemize}
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsubsection{API UpdateTransportStatus (GHTK Webhook)}
+\label{subsubsec:api-update-transport-status}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Nhiệm vụ}: Nhận webhook từ GHTK để cập nhật trạng thái giao vận; áp dụng state machine đảm bảo chuyển trạng thái hợp lệ; thông báo buyer và seller khi đơn giao thành công hoặc thất bại.
+  \item \textbf{Inputs}: \texttt{\{TransportID, Status, Data JSONB\}} — gọi nội bộ sau khi GHTK webhook handler ánh xạ 13 mã trạng thái GHTK về 7 enum nội bộ.
+  \item \textbf{Outputs}: \texttt{Transport} đã cập nhật trạng thái.
+  \item \textbf{Xử lý}:
+    \begin{enumerate}
+      \item Tra cứu transport record theo \texttt{TransportID}; trả lỗi nếu không tồn tại.
+      \item Kiểm tra idempotency: nếu \texttt{transport.status == Status} thì bỏ qua (đã xử lý).
+      \item Validate state machine: chỉ cho phép các chuyển trạng thái hợp lệ\\
+            (\texttt{Pending$\to$LabelCreated$\to$InTransit$\to$OutForDelivery$\to$Delivered}; \texttt{any$\to$Failed/Cancelled}); trạng thái terminal (\texttt{Delivered}, \texttt{Failed}, \texttt{Cancelled}) từ chối mọi chuyển trạng thái tiếp theo.
+      \item Trong \texttt{restate.Run()}: cập nhật \texttt{transport.status} và merge \texttt{Data} vào \texttt{transport.data} (JSONB).
+      \item Nếu trạng thái mới là \texttt{Delivered}, \texttt{Failed}, hoặc \texttt{Cancelled}: fire-and-forget thông báo đến cả buyer và seller.
+    \end{enumerate}
+\end{itemize}
 
 % ------------------------------------------------------------------
 \subsection{Bảng tham chiếu --- Mua hàng}

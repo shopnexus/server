@@ -26,8 +26,7 @@
 
 \subsection{Lược đồ use case tổng quan}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \begin{tikzpicture}[
   uc/.style={ellipse, draw=headerblue, fill=rowgray, text width=2.6cm, align=center, font=\footnotesize, minimum height=0.9cm, inner sep=3pt},
   actor/.style={font=\footnotesize\bfseries},
@@ -112,9 +111,9 @@
 \draw[ext] (g7) -- (g6) node[lbl, midway, above] {$\ll$extend$\gg$};
 
 \end{tikzpicture}
-\caption{Lược đồ use case tổng quan --- Module quản lý đơn hàng}
+\captionof{figure}{Lược đồ use case tổng quan --- Module quản lý đơn hàng}
 \label{fig:overall-usecase}
-\end{figure}
+\end{center}
 
 \subsection{Danh sách tình huống sử dụng}
 
@@ -165,7 +164,7 @@ UC20 & Hủy hoàn trả & Buyer \\
 UC21 & Duyệt hoàn trả & Seller \\
 \rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Tranh chấp}}} \\
 UC22 & Mở tranh chấp & Buyer, Seller \\
-UC23 & Giải quyết tranh chấp & Admin \\
+UC23 & Giải quyết tranh chấp & Admin\textsuperscript{*} \\
 \rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Dashboard}}} \\
 UC24 & Xem thống kê & Seller \\
 UC25 & Xem xu hướng & Seller \\
@@ -177,6 +176,8 @@ UC29 & Xem đơn có thể đánh giá & Buyer \\
 UC30 & Xác thực đơn cho đánh giá & Buyer \\
 \end{longtable}
 \rowcolors{1}{}{}
+
+\noindent\textsuperscript{*}UC23 (Giải quyết tranh chấp) yêu cầu vai trò Admin. Trong phạm vi đồ án, Admin giải quyết thủ công ngoài hệ thống; cơ sở dữ liệu đã dự phòng các trường \texttt{resolved\_by\_id}, \texttt{resolution\_note}, \texttt{date\_resolved} để hỗ trợ triển khai đầy đủ trong tương lai.
 
 \subsection{Quan hệ và tương tác liên module}
 

@@ -43,8 +43,7 @@ Mỗi module tuân theo cấu trúc vertical-slice: \texttt{biz/} (interface + h
 
 Mọi lời gọi liên module đều đi qua \textbf{Restate Ingress} thay vì gọi hàm trực tiếp. Khi \texttt{OrderHandler} cần gọi \texttt{CatalogBiz}, Uber~fx resolve interface thành \texttt{CatalogRestateClient} (proxy HTTP tự động sinh), proxy gửi request đến Restate Ingress, Restate ghi journal và định tuyến đến \texttt{CatalogHandler}. Cơ chế này đảm bảo: (a)~\textit{exactly-once delivery} ngay cả khi crash giữa chừng, (b)~\textit{automatic retry} với exponential backoff cho lỗi tạm thời, (c)~\textit{fire-and-forget} qua \texttt{restate.ServiceSend()} cho thao tác bất đồng bộ, và (d)~\textit{microservice extraction path} --- chỉ cần thay đổi URL đăng ký Restate để tách module thành service độc lập.
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
   mod/.style={rectangle, rounded corners=3pt, draw=headerblue, fill=rowgray, minimum width=1.6cm, minimum height=0.7cm, align=center, font=\scriptsize},
@@ -100,12 +99,22 @@ Mọi lời gọi liên module đều đi qua \textbf{Restate Ingress} thay vì 
 
 \end{tikzpicture}
 }%
-\caption{Kiến trúc tổng thể hệ thống ShopNexus}
+\captionof{figure}{Kiến trúc tổng thể hệ thống ShopNexus}
 \label{fig:architecture}
-\end{figure}
+\end{center}
 
 % ------------------------------------------------------------------
 \subsection{Hạ tầng và nhà cung cấp dịch vụ}
 \label{subsec:infra}
 
 Hệ thống triển khai qua Docker Compose gồm: PostgreSQL~18 (CSDL chính), Redis~8 (cache), Restate 3-node cluster (durable execution, replication factor = 2), Milvus~2.6 (vector search), MinIO (object storage + Restate snapshot), etcd (Milvus metadata), NATS JetStream (message queue). Các nhà cung cấp dịch vụ bên ngoài sử dụng mẫu Strategy (\texttt{map[string]Client}): VNPay/COD cho thanh toán, GHTK cho vận chuyển, Nominatim cho geocoding, OpenAI/Bedrock cho LLM.
+
+% ------------------------------------------------------------------
+\subsection{Các mối quan tâm xuyên suốt (Cross-cutting Concerns)}
+\label{subsec:crosscutting}
+
+Ngoài các lớp nghiệp vụ, hệ thống bổ sung hai middleware xuyên suốt được gắn vào Echo HTTP server trước khi yêu cầu đến handler:
+
+\textbf{Rate limiting} (gói \texttt{internal/infras/ratelimit/}): triển khai interface \texttt{middleware.RateLimiterStore} của Echo với Redis-backed fixed-window counter (lệnh \texttt{INCR} + \texttt{EXPIRE NX}). Mỗi route nhạy cảm được gắn middleware riêng với ngưỡng khác nhau (checkout 10/min, thanh toán 20/min, hoàn trả 5/min, tranh chấp 3/min). Khóa định danh là account ID của người dùng đã xác thực; fallback về địa chỉ IP khi chưa đăng nhập. Chiến lược \textit{fail-open}: khi Redis không khả dụng, hệ thống tự động chuyển sang in-memory store (Echo \texttt{NewRateLimiterMemoryStoreWithConfig}) thay vì từ chối toàn bộ yêu cầu. Phản hồi vượt ngưỡng trả về \texttt{429 Too Many Requests} kèm header \texttt{Retry-After}.
+
+\textbf{Observability} (gói \texttt{internal/infras/metrics/}): Echo HTTP middleware tự động ghi nhận mọi request vào Prometheus (\texttt{shopnexus\_http\_requests\_total}, \texttt{shopnexus\_http\_request\_duration\_seconds}). Các handler nghiệp vụ sử dụng pattern \texttt{defer metrics.TrackHandler(module, handler, \&err)()} để đo invocations, duration, và error rate. Endpoint \texttt{/metrics} được Prometheus scrape mỗi 15 giây; Grafana (cổng 3001) hiển thị dashboard SLO với datasource tự động cấu hình. Chi tiết các metric và SLO query xem tại mục~\ref{sec:observability}.

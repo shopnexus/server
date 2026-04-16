@@ -143,7 +143,7 @@ Triển khai & Binary duy nhất, Docker-friendly & Cần JVM runtime \\
 \end{tabular}
 \end{table}
 
-\textbf{Lý do chọn Go:} Goroutines phù hợp cho e-commerce (xử lý đồng thời nhiều checkout, thanh toán). Biên dịch tĩnh tạo binary duy nhất, đơn giản hóa triển khai Docker. Type safety phát hiện lỗi tại compile time -- quan trọng cho logic thanh toán. Restate, Milvus, và pgx đều cung cấp SDK chính thức cho Go.
+\textbf{Lý do chọn Go:} Goroutines (stack $\sim$2KB) cho phép ShopNexus chạy nhiều tác vụ nền đồng thời mà không tốn tài nguyên -- trong codebase, goroutine được dùng để: (1)~khởi động song song Echo HTTP server và Restate server lúc bootstrap (\texttt{internal/app/echo.go}, \texttt{restate.go}); (2)~chạy 2 cron job đồng bộ sản phẩm vào Milvus (metadata và embedding, \texttt{catalog/biz/search\_cron.go}); (3)~đăng ký payment/transport provider options trong nền sau khi Restate sẵn sàng (\texttt{order/biz/payment\_map.go}, \texttt{transport\_map.go}); (4)~dispatch message pub/sub bất đồng bộ (\texttt{infras/pubsub/nats.go}, \texttt{mem.go}); (5)~dọn cache hết hạn trong nền (\texttt{infras/cache/mem.go}). Luồng checkout và thanh toán chính \textit{không} dùng goroutine thủ công -- chúng chạy trong Restate durable handler để đảm bảo exactly-once. Ngoài goroutines, Go có biên dịch tĩnh tạo binary duy nhất (đơn giản hóa triển khai Docker), type safety phát hiện lỗi tại compile time (quan trọng cho logic thanh toán), và Restate, Milvus, pgx đều có SDK chính thức cho Go.
 
 \textbf{Trong ShopNexus:} Go cho toàn bộ backend. Entry point \texttt{cmd/server/main.go}, sử dụng Uber fx cho dependency injection. Mỗi module theo vertical-slice pattern: \texttt{biz/} (logic), \texttt{db/} (truy vấn), \texttt{model/} (cấu trúc dữ liệu), \texttt{transport/echo/} (HTTP handlers).
 
@@ -169,7 +169,7 @@ Mở rộng & Dễ tách thành microservice & Đã tách sẵn \\
 
 \textbf{Lý do chọn Modular Monolith:} Quy mô team nhỏ -- microservices đầy đủ tốn nhiều công sức vận hành. Giao tiếp qua Restate HTTP ingress nên bất kỳ module nào cũng có thể tách thành service riêng khi cần mở rộng. Schema isolation (mỗi module có PostgreSQL schema riêng, không foreign key xuyên schema) giữ ranh giới rõ ràng.
 
-\textbf{Trong ShopNexus:} 8 module: \textit{account}, \textit{catalog}, \textit{order}, \textit{inventory}, \textit{promotion}, \textit{analytic}, \textit{chat}, \textit{common}. Mỗi module có cấu trúc vertical-slice đồng nhất, giao tiếp qua interface \texttt{XxxBiz} được resolve thành Restate proxy client.
+\textbf{Trong ShopNexus:} Hệ thống có 8 module: \textit{account}, \textit{catalog}, \textit{order}, \textit{inventory}, \textit{promotion}, \textit{analytic}, \textit{chat}, \textit{common}. Mỗi module có cấu trúc vertical-slice đồng nhất gồm 4 lớp: \texttt{biz/} chứa logic nghiệp vụ, \texttt{db/} chứa truy vấn SQLC, \texttt{model/} chứa kiểu dữ liệu, \texttt{transport/echo/} chứa HTTP handlers. Schema isolation được thực thi tại tầng database: mỗi module tạo schema riêng trong PostgreSQL (ví dụ \texttt{CREATE SCHEMA IF NOT EXISTS "order"} tại \texttt{internal/module/order/db/migrations/0001\_init.up.sql}) và không có foreign key xuyên schema -- đây là điều kiện để tách module thành microservice độc lập khi cần. Giao tiếp giữa module thực hiện qua interface \texttt{XxxBiz} được inject bằng Uber fx; khi chạy trong Restate handler, interface này được resolve thành Restate proxy client (sinh tự động bởi \texttt{cmd/genrestate}), đảm bảo mọi cross-module call đều có retry và deduplication.
 
 \subsection{Durable Execution: Restate}
 
@@ -194,7 +194,7 @@ Chi phí vận hành & Thấp (3 node cluster) & Cao \\
 
 \textbf{Lý do chọn Restate:} Không cần học workflow DSL -- chỉ wrap side effects trong \texttt{restate.Run()}. Nhẹ (không yêu cầu Cassandra/Elasticsearch). Cross-module calls tự động retry và deduplicate (exactly-once). Fire-and-forget qua \texttt{restate.ServiceSend()} cho tác vụ bất đồng bộ.
 
-\textbf{Trong ShopNexus:} Mỗi module có \texttt{interface.go} định nghĩa interface, công cụ \texttt{genrestate} sinh proxy client. Luồng checkout (tạo item $\rightarrow$ trừ kho $\rightarrow$ tạo payment $\rightarrow$ gọi cổng thanh toán) được thực thi durable qua cơ chế này.
+\textbf{Trong ShopNexus:} Mỗi module có \texttt{interface.go} định nghĩa interface \texttt{XxxBiz} kèm chỉ thị \texttt{//go:generate go run shopnexus-server/cmd/genrestate}; công cụ \texttt{genrestate} đọc interface và sinh ra \texttt{restate\_gen.go} -- một struct proxy client gọi Restate HTTP ingress thay vì gọi trực tiếp. Luồng checkout trong \texttt{internal/module/order/biz/checkout.go} thực thi qua \texttt{BuyerCheckout(ctx restate.Context, ...)}: mỗi side effect được wrap trong \texttt{restate.Run()} riêng -- tạo checkout items, trừ tồn kho, snapshot giá -- sao cho nếu process crash giữa chừng, Restate replay journal và bỏ qua các bước đã hoàn thành. Luồng thanh toán trong \texttt{internal/module/order/biz/pay.go} dùng \texttt{restate.Run()} để fetch và lock đơn hàng trước khi gọi cổng thanh toán, đảm bảo không tạo hai session thanh toán cho cùng một đơn. Tác vụ bất đồng bộ (thông báo, cập nhật analytic) gọi qua \texttt{restate.ServiceSend()} -- fire-and-forget có retry tự động, không block handler chính.
 
 \subsection{Cơ sở dữ liệu: PostgreSQL với SQLC}
 
@@ -217,7 +217,9 @@ Schema migration & Mature tooling (golang-migrate) & Schema-less, khó validate 
 
 \textbf{Lý do chọn PostgreSQL:} ACID đầy đủ cho giao dịch tài chính. Schema isolation cho modular monolith. JSONB cho dữ liệu linh hoạt (payment data, transport tracking). Partial indexes tối ưu truy vấn pending items.
 
-\textbf{SQLC} sinh mã Go type-safe từ SQL queries thuần -- thay vì dùng ORM. Kết hợp \texttt{pgtempl} (công cụ nội bộ sinh CRUD từ migration files) và driver \texttt{pgx/v5} với connection pooling cho hiệu năng cao.
+\textbf{SQLC} sinh mã Go type-safe từ SQL queries thuần -- thay vì dùng ORM. Mỗi module có thư mục \texttt{db/queries/} chứa SQL annotated (ví dụ \texttt{-- name: GetOrder :one}), SQLC đọc và sinh file \texttt{db/sqlc/generated\_queries.sql.go} với các hàm Go strongly-typed. Công cụ nội bộ \texttt{pgtempl} (chạy qua \texttt{make pgtempl}) sinh template CRUD cơ bản từ migration files, giảm boilerplate. Driver \texttt{pgx/v5} với connection pooling được khởi tạo tại \texttt{internal/infras/pg/pg.go}: pool được cấu hình \texttt{MaxConns} và \texttt{MaxConnIdleTime}, và tự động đăng ký custom PostgreSQL types (enum, composite) cho mọi connection mới qua hook \texttt{AfterConnect} -- cần thiết vì SQLC generate code dùng kiểu enum schema-qualified như \texttt{"order"."status"}.
+
+\textbf{Trong ShopNexus:} PostgreSQL và SQLC được dùng xuyên suốt tất cả 8 module. Schema isolation áp dụng nhất quán: module \textit{order} dùng schema \texttt{"order"}, module \textit{catalog} dùng schema \texttt{"catalog"}, v.v. Không có JOIN xuyên schema trong bất kỳ query nào -- thay vào đó, khi cần dữ liệu từ module khác, handler gọi qua interface \texttt{XxxBiz} tương ứng (và qua Restate proxy trong runtime). Luồng checkout dùng batch insert (\texttt{db/sqlc/batch.go} với \texttt{pgx.Batch}) để tạo nhiều checkout items trong một round-trip database, giảm latency. JSONB được dùng để lưu dữ liệu linh hoạt như payment callback payload từ VNPay và thông tin tracking từ GHTK mà không cần thêm cột.
 
 \subsection{Tìm kiếm sản phẩm: Milvus Vector Database}
 
@@ -240,10 +242,9 @@ Sử dụng bộ nhớ & Tối ưu cho vector & Cao (inverted + vector index) \\
 
 \textbf{Lý do chọn Milvus:} Hybrid search native (dense vectors cho ngữ nghĩa + sparse vectors BM25 cho keyword matching). Scalar filtering kết hợp (category, price, tags) trong cùng query. Thiết kế chuyên biệt cho vector search với index HNSW, IVF.
 
-\textbf{Trong ShopNexus:} Module \textit{catalog} đồng bộ dữ liệu sản phẩm vào Milvus qua cron job. Mỗi sản phẩm có dense vector (OpenAI/Bedrock embeddings) và sparse vector (BM25). Query hybrid search kết hợp scalar filter, kết quả enriched từ PostgreSQL.
+\textbf{Trong ShopNexus:} Module \textit{catalog} chịu trách nhiệm đồng bộ dữ liệu sản phẩm vào Milvus. Hàm \texttt{SetupCron()} trong \texttt{internal/module/catalog/biz/search\_sync.go} khởi động 2 goroutine song song: \texttt{go b.startSyncCron(..., metadataInterval, true)} đồng bộ metadata sản phẩm (tên, danh mục, giá, tags) với batch size 1000, và \texttt{go b.startSyncCron(..., embeddingInterval, false)} tính embedding và đồng bộ vector với batch size 32 (nhỏ hơn do chi phí LLM). Mỗi sản phẩm trong Milvus có hai vector: \texttt{content\_vector} là dense vector 1536 chiều từ OpenAI/Bedrock embeddings (nắm bắt ngữ nghĩa), và \texttt{sparse\_vector} là sparse embedding cho keyword matching. Khi người dùng tìm kiếm, handler trong \texttt{internal/module/catalog/biz/search\_milvus.go} gọi \texttt{b.milvus.HybridSearch(ctx, CollectionProducts, ...)} kết hợp cả hai loại vector -- kết quả ANN search được rerank, sau đó enrich với dữ liệu đầy đủ từ PostgreSQL (giá hiện tại, tồn kho, ảnh).
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \begin{tikzpicture}[
   layer/.style={minimum width=14cm, minimum height=1.1cm, text=white, font=\small\bfseries, rounded corners=3pt, align=center},
   tech/.style={font=\footnotesize, text=black, fill=white, rounded corners=2pt, inner sep=3pt, minimum height=0.6cm},
@@ -285,6 +286,6 @@ Sử dụng bộ nhớ & Tối ưu cho vector & Cao (inverted + vector index) \\
 \node[tech] at ([xshift=2cm]infra.center) {NATS JetStream};
 \node[tech] at ([xshift=5cm]infra.center) {Restate Cluster};
 \end{tikzpicture}
-\caption{Tổng quan technology stack của ShopNexus}
+\captionof{figure}{Tổng quan technology stack của ShopNexus}
 \label{fig:tech-stack}
-\end{figure}
+\end{center}

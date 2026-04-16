@@ -1,0 +1,42 @@
+% ============================================================
+\section{Bảo mật và chống lạm dụng}
+\label{sec:security}
+% ============================================================
+
+\subsection{Kiến trúc rate limiting}
+
+Gói \texttt{internal/infras/ratelimit/} triển khai \texttt{Factory} với phương thức \texttt{Middleware(scope, limit, window)} trả về Echo middleware. Mỗi route nhạy cảm được gắn một middleware độc lập — không dùng global rate limit để tránh ảnh hưởng đến các endpoint read-only có tần suất cao.
+
+\textbf{Redis store}: sử dụng cặp lệnh \texttt{INCR} + \texttt{EXPIRE NX} (atomic trong Redis single-threaded). Với mỗi request, key có dạng \texttt{<scope>:<actorID>} được tăng 1; nếu đây là lần đầu trong cửa sổ thời gian thì set TTL = \texttt{window}. Nếu giá trị counter vượt \texttt{limit}, trả về \texttt{429} với header \texttt{Retry-After: <remaining\_seconds>}.
+
+\textbf{Fail-open}: nếu Redis không phản hồi, \texttt{Factory} tự động fallback sang \texttt{middleware.NewRateLimiterMemoryStoreWithConfig} của Echo (in-memory per-instance). Hệ thống vẫn xử lý bình thường --- chấp nhận rủi ro rate limit không chính xác trong kịch bản Redis lỗi thay vì từ chối toàn bộ traffic.
+
+\subsection{Giới hạn per-endpoint}
+
+\begin{table}[htbp]
+\centering
+\caption{Cấu hình rate limit theo endpoint}
+\label{tab:ratelimit-config}
+\begin{tabular}{@{} l c c l @{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Endpoint} & \thead{Giới hạn} & \thead{Cửa sổ} & \thead{Lý do} \\
+\midrule
+\texttt{POST /checkout}          & 10  & 1 phút & Tránh tạo pending item ảo hàng loạt \\
+\texttt{POST /payment}           & 20  & 1 phút & Tránh spam khởi tạo phiên thanh toán \\
+\texttt{POST /refund}            & 5   & 1 phút & Tránh lạm dụng yêu cầu hoàn trả \\
+\texttt{POST /refund/dispute}    & 3   & 1 phút & Tránh mở tranh chấp trùng lặp \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Định danh người dùng}
+
+Middleware lấy định danh theo thứ tự ưu tiên:
+
+\begin{enumerate}
+  \item \textbf{Account ID} từ JWT đã xác thực (\texttt{AuthenticatedAccount.ID}) — chính xác, không thể giả mạo bằng cách đổi IP.
+  \item \textbf{Địa chỉ IP} (header \texttt{X-Real-IP} hoặc \texttt{RemoteAddr}) — fallback cho các endpoint không yêu cầu đăng nhập (hiện tại không áp dụng cho các endpoint bị rate limit).
+\end{enumerate}
+
+Key Redis có dạng \texttt{<scope>:<actorID>}, ví dụ \texttt{dispute:acc\_01JXYZ...} hoặc \texttt{checkout:acc\_01JABC...}, đảm bảo các giới hạn hoàn toàn độc lập giữa các endpoint và giữa các người dùng.

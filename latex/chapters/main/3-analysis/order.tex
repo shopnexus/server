@@ -83,8 +83,7 @@ Transport & --- & Pending $\rightarrow$ InTransit $\rightarrow$ Delivered & Cậ
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{buyer}{Khách hàng}
@@ -120,10 +119,162 @@ Transport & --- & Pending $\rightarrow$ InTransit $\rightarrow$ Delivered & Cậ
 
 \end{sequencediagram}
 }%
-\caption{Lược đồ tuần tự --- Luồng xử lý đơn hàng}
+\captionof{figure}{Lược đồ tuần tự --- Luồng xử lý đơn hàng}
 \label{fig:order-sequence}
-\end{figure}
+\end{center}
 
 \subsection{Thành phần nghiệp vụ}
 
 Module phân rã thành: \textbf{Cart} (GetCart, UpdateCart, ClearCart), \textbf{Checkout} (BuyerCheckout, ListBuyerPending, CancelBuyerPending), \textbf{Incoming} (ListSellerPending, QuoteTransport, ConfirmSellerPending, RejectSellerPending), \textbf{Order} (GetBuyerOrder, GetSellerOrder, ListConfirmed, ConfirmPayment), \textbf{Payment} (PayBuyerOrders), \textbf{Dashboard} (Stats, TimeSeries, PendingActions, TopProducts).
+
+% ============================================================
+\section{Sơ đồ chuyển trạng thái đối tượng}
+% ============================================================
+
+Phần này trình bày sơ đồ chuyển trạng thái cho các đối tượng nghiệp vụ cốt lõi trong module đặt hàng: mục đơn hàng (item), đơn hàng (order), thanh toán (payment) và vận chuyển (transport). Các trạng thái và chuyển tiếp được suy ra trực tiếp từ enum trong cơ sở dữ liệu và interface \texttt{OrderBiz}.
+
+% ------------------------------------------------------------
+\subsection{Trạng thái mục đơn hàng (Item)}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=2cm and 2.5cm,
+]
+  % Nodes
+  \node[start] (s0) {};
+  \node[state, right=1.2cm of s0] (pending) {Pending};
+  \node[state, right=3cm of pending] (confirmed) {Confirmed};
+  \node[state, below=2cm of pending] (cancelled) {Cancelled};
+  \node[finish, right=1.2cm of confirmed] (sf) {};
+
+  % Transitions
+  \draw[trans] (s0) -- (pending);
+  \draw[trans] (pending) -- node[above, font=\scriptsize] {ConfirmSellerPending} (confirmed);
+  \draw[trans] (confirmed) -- (sf);
+  \draw[trans] (pending) -- node[left, font=\scriptsize] {CancelBuyerPending} (cancelled);
+  \draw[trans] (pending.south east) to[out=-30, in=90]
+    node[right, font=\scriptsize, xshift=2pt] {RejectSellerPending} (cancelled.north east);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ trạng thái mục đơn hàng (\texttt{item\_status})}
+\label{fig:item-state}
+\end{center}
+
+% ------------------------------------------------------------
+\subsection{Trạng thái đơn hàng (Order)}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=2cm and 2.8cm,
+]
+  % Nodes — row 1: start, Pending, Processing, Success, finish
+  \node[start] (s0) {};
+  \node[state, right=1.2cm of s0]  (pending)    {Pending};
+  \node[state, right=3cm of pending]  (processing) {Processing};
+  \node[state, right=3cm of processing] (success) {Success};
+  \node[finish, right=1.2cm of success] (sf) {};
+
+  % Row 2: Failed, Cancelled (below Processing)
+  \node[state, below=2cm of processing] (failed)    {Failed};
+  \node[state, left=2.5cm of failed]    (cancelled) {Cancelled};
+
+  % Transitions
+  \draw[trans] (s0) -- (pending);
+  \draw[trans] (pending) -- node[above, font=\scriptsize] {PayBuyerOrders} (processing);
+  \draw[trans] (processing) -- node[above, font=\scriptsize] {ConfirmPayment (success)} (success);
+  \draw[trans] (success) -- (sf);
+  \draw[trans] (processing) -- node[right, font=\scriptsize] {ConfirmPayment (failure)} (failed);
+  \draw[trans] (pending) -- node[below left, font=\scriptsize] {payment timeout} (cancelled);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ trạng thái đơn hàng (\texttt{status})}
+\label{fig:order-state}
+\end{center}
+
+% ------------------------------------------------------------
+\subsection{Trạng thái thanh toán (Payment)}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=2cm and 2.8cm,
+]
+  % Row 1: start → Pending → Processing → Success → finish
+  \node[start] (s0) {};
+  \node[state, right=1.2cm of s0]    (pending)    {Pending};
+  \node[state, right=3cm of pending]    (processing) {Processing};
+  \node[state, right=3cm of processing] (success)    {Success};
+  \node[finish, right=1.2cm of success] (sf) {};
+
+  % Row 2: Cancelled (below Pending), Failed (below Processing)
+  \node[state, below=2cm of pending]    (cancelled) {Cancelled};
+  \node[state, below=2cm of processing] (failed)    {Failed};
+
+  % Transitions
+  \draw[trans] (s0) -- (pending);
+  \draw[trans] (pending) -- node[above, font=\scriptsize] {gateway redirect} (processing);
+  \draw[trans] (processing) -- node[above, font=\scriptsize] {webhook Success} (success);
+  \draw[trans] (success) -- (sf);
+  \draw[trans] (processing) -- node[right, font=\scriptsize] {webhook Failed} (failed);
+  \draw[trans] (pending) -- node[left, font=\scriptsize] {date\_expired} (cancelled);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ trạng thái thanh toán (\texttt{status})}
+\label{fig:payment-state}
+\end{center}
+
+% ------------------------------------------------------------
+\subsection{Trạng thái vận chuyển (Transport)}
+% ------------------------------------------------------------
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=1.8cm and 2.5cm,
+]
+  % Happy path row (top): start → Pending → LabelCreated → InTransit → OutForDelivery → Delivered → finish
+  \node[start] (s0) {};
+  \node[state, right=1.2cm of s0]          (pending)    {Pending};
+  \node[state, right=2.5cm of pending]     (label)      {Label\\Created};
+  \node[state, right=2.5cm of label]       (intransit)  {InTransit};
+  \node[state, right=2.5cm of intransit]   (outfor)     {OutFor\\Delivery};
+  \node[state, right=2.5cm of outfor]      (delivered)  {Delivered};
+  \node[finish, right=1.2cm of delivered]  (sf) {};
+
+  % Terminal failure states (below)
+  \node[state, below=2cm of intransit]     (failed)     {Failed};
+  \node[state, below=2cm of label]         (cancelled)  {Cancelled};
+
+  % Happy-path transitions
+  \draw[trans] (s0) -- (pending);
+  \draw[trans] (pending)   -- node[above, font=\scriptsize] {GHTK: label} (label);
+  \draw[trans] (label)     -- node[above, font=\scriptsize] {GHTK: in transit} (intransit);
+  \draw[trans] (intransit) -- node[above, font=\scriptsize] {GHTK: out for delivery} (outfor);
+  \draw[trans] (outfor)    -- node[above, font=\scriptsize] {GHTK: delivered} (delivered);
+  \draw[trans] (delivered) -- (sf);
+
+  % Failure transitions
+  \draw[trans] (intransit) -- node[right, font=\scriptsize] {GHTK: failed} (failed);
+  \draw[trans] (label)     -- node[left,  font=\scriptsize] {GHTK: cancel} (cancelled);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ trạng thái vận chuyển (\texttt{transport\_status})}
+\label{fig:transport-state}
+\end{center}

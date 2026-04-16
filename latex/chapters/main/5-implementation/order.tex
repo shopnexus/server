@@ -9,30 +9,27 @@
 
 Quy trình mua hàng trên ShopNexus gồm ba giai đoạn chính: giỏ hàng, checkout, và thanh toán. Buyer chọn sản phẩm (SKU) và thêm vào giỏ, sau đó tiến hành checkout để tạo pending items (hệ thống tự động reserve inventory). Seller xem inbox pending, báo giá vận chuyển và xác nhận. Cuối cùng buyer thanh toán qua VNPay hoặc COD để hoàn tất đơn hàng.
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang giỏ hàng --- danh sách sản phẩm, số lượng, tổng tiền, nút Checkout\vspace{3cm}}}
-\caption{Trang giỏ hàng của người mua}
+\captionof{figure}{Trang giỏ hàng của người mua}
 \label{fig:impl-cart}
-\end{figure}
+\end{center}
 
 Trang giỏ hàng hiển thị danh sách sản phẩm đã chọn, cho phép buyer điều chỉnh số lượng hoặc xóa sản phẩm. Nhấn ``Checkout'' để gửi yêu cầu tạo pending items cho seller.
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang checkout/thanh toán --- chọn phương thức thanh toán (VNPay QR, Bank, COD), thông tin giao hàng\vspace{3cm}}}
-\caption{Trang checkout và thanh toán}
+\captionof{figure}{Trang checkout và thanh toán}
 \label{fig:impl-checkout}
-\end{figure}
+\end{center}
 
 Sau khi seller xác nhận và báo giá vận chuyển, buyer chọn phương thức thanh toán. Với VNPay, hệ thống chuyển hướng đến cổng thanh toán và xử lý callback tự động. Đơn hàng được tạo khi thanh toán thành công.
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang danh sách đơn hàng --- trạng thái đơn, thông tin sản phẩm, nút hành động\vspace{3cm}}}
-\caption{Danh sách đơn hàng của người mua}
+\captionof{figure}{Danh sách đơn hàng của người mua}
 \label{fig:impl-order-list}
-\end{figure}
+\end{center}
 
 Trang đơn hàng cho phép buyer theo dõi trạng thái và thực hiện các thao tác như hủy đơn hoặc yêu cầu hoàn trả.
 

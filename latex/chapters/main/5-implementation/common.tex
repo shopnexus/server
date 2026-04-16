@@ -34,3 +34,119 @@ Frontend & Next.js 16, React 19, shadcn/ui & Giao diện người dùng \\
 \label{subsec:deployment}
 
 Môi trường phát triển sử dụng \textbf{Docker Compose} (\texttt{deployment/docker-compose.yml}) để quản lý hạ tầng gồm: PostgreSQL, Redis, Restate cluster 3 node (replication factor 2, snapshot lưu trên MinIO), Milvus standalone với etcd, và MinIO cho object storage. Tất cả container nằm trong Docker network chung. Go server chạy trên host với hot-reload qua \texttt{air} (\texttt{make dev}), kết nối các service qua port mapping. Quy trình khởi tạo: \texttt{docker compose up} $\rightarrow$ \texttt{make migrate} $\rightarrow$ \texttt{make seed} $\rightarrow$ \texttt{make dev} $\rightarrow$ \texttt{make register}.
+
+% ============================================================
+\section{Chiến lược kiểm thử}
+\label{sec:test-strategy}
+
+Phần này trình bày chiến lược kiểm thử toàn diện cho ShopNexus theo mô hình \textbf{Test Pyramid} --- nguyên tắc SQA nhằm tối ưu tỷ lệ giữa chi phí test và độ tin cậy mà nó cung cấp.
+
+\subsection{Mô hình Test Pyramid}
+\label{subsec:test-pyramid}
+
+\begin{center}
+\begin{tikzpicture}[
+  layer/.style={trapezium, trapezium left angle=70, trapezium right angle=110, draw=headerblue, align=center, font=\footnotesize},
+  lbl/.style={font=\scriptsize, text=gray!50!black, align=left, anchor=west},
+]
+\node[layer, fill=red!30,    minimum width=3cm, minimum height=0.8cm] (e2e)  at (0, 3.5) {E2E / Chaos\\\scriptsize 10\%};
+\node[layer, fill=orange!40, minimum width=5.5cm, minimum height=0.9cm] (int)  at (0, 2.3) {Integration\\\scriptsize 20\%};
+\node[layer, fill=headerblue!30, minimum width=8.5cm, minimum height=1.2cm] (unit) at (0, 0.8) {Unit tests\\\scriptsize 70\%};
+
+\node[lbl] at (4.7, 3.5) {Ít --- chậm --- đắt};
+\node[lbl] at (4.7, 2.3) {Trung bình};
+\node[lbl] at (4.7, 0.8) {Nhiều --- nhanh --- rẻ};
+\end{tikzpicture}
+\captionof{figure}{Test Pyramid --- phân bổ tỷ lệ test theo cấp độ}
+\label{fig:test-pyramid}
+\end{center}
+
+\textbf{Tỷ lệ mục tiêu}: \textbf{70\% unit / 20\% integration / 10\% E2E}. Unit test nhanh (mili-giây), chạy mỗi lần commit qua \texttt{go test}; integration test vừa phải (giây), chạy trước khi merge; E2E test chậm (chục giây đến phút), chạy nightly và pre-release.
+
+\subsection{Phân loại test theo cấp độ}
+\label{subsec:test-types}
+
+\begin{table}[htbp]
+\centering
+\caption{Phân loại test áp dụng cho ShopNexus}
+\label{tab:test-types}
+\small
+\begin{tabular}{@{}p{2.8cm}p{4.5cm}p{3cm}p{3cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Loại test} & \thead{Phạm vi kiểm thử} & \thead{Công cụ} & \thead{Ví dụ} \\
+\midrule
+Unit test & Một hàm / method, không truy cập DB / network & \texttt{go test} + table-driven & \texttt{TestPartialRefundItemIDsSerialization}, \texttt{TestTransportStatusTransitions} \\
+Integration test & Biz layer + DB thật (test container), không UI & \texttt{dockertest} + PostgreSQL container & Checkout full flow: reserve $\to$ insert item $\to$ confirm $\to$ order \\
+Contract test & Cross-module qua Restate proxy & Restate test harness & CatalogBiz.GetProductSKU trả đúng shape \\
+E2E test & Full stack: HTTP $\to$ biz $\to$ DB $\to$ external provider & Postman / k6 scripts & VNPay sandbox thanh toán thành công \\
+Load / Performance & Hệ thống chịu tải N concurrent users & \texttt{k6}, \texttt{vegeta} & 100 checkout đồng thời, đo p99 latency \\
+Chaos / Fault Injection & Hệ thống phục hồi khi component fail & \texttt{pumba} kill container & Kill Restate node giữa \texttt{BuyerCheckout} $\to$ replay tự động \\
+Security / Pen-test & Khai thác lỗ hổng chủ động & \texttt{gosec}, OWASP ZAP, manual & SQL injection, JWT bypass, webhook forgery \\
+Static Analysis & Lỗi compile time + quality smells & \texttt{golangci-lint}, \texttt{staticcheck} & Import cycle, ineffective assignment, unused code \\
+Mutation test & Đo độ mạnh của test suite & \texttt{go-mutesting} & Đổi \texttt{<} thành \texttt{>} trong formula $\to$ test phải fail \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Mục tiêu coverage và chất lượng}
+\label{subsec:quality-targets}
+
+\begin{table}[htbp]
+\centering
+\caption{Mục tiêu chất lượng code và test}
+\label{tab:quality-targets}
+\small
+\begin{tabular}{@{}p{4cm}p{3.5cm}p{6cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Chỉ số} & \thead{Mục tiêu} & \thead{Cách đo} \\
+\midrule
+Line coverage (unit test) & $\geq$ 70\% & \texttt{go test -cover ./...} \\
+Branch coverage (critical path) & $\geq$ 60\% & \texttt{go test -covermode=count} \\
+Cyclomatic complexity & $\leq$ 10 / function & \texttt{gocyclo} \\
+LCOM (lack of cohesion) & $\leq$ 0.5 & Phân tích tĩnh \\
+Function length & $\leq$ 80 dòng & Review guideline \\
+File length & $\leq$ 500 dòng & Soft limit (split nếu vượt) \\
+Mutation score (critical) & $\geq$ 60\% & \texttt{go-mutesting} trên module order/biz \\
+Số lỗi nghiêm trọng (\texttt{gosec}) & 0 & CI bắt buộc pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tiêu chí kiểm thử hiện thực}
+\label{subsec:impl-test-criteria}
+
+\begin{table}[htbp]
+\centering
+\caption{Tiêu chí kiểm thử cho phần hiện thực (theo instruct Section V)}
+\label{tab:impl-test-criteria}
+\small
+\begin{tabular}{@{}p{2.5cm}p{5cm}p{3.5cm}p{2.8cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Phép thử / Test-inputs} & \thead{Kết quả mong đợi} & \thead{Cấp độ} \\
+\midrule
+Xử lý chính xác & Black box: test input hợp lệ / không hợp lệ; White box: phủ branch của biz logic & Đạt spec thiết kế; tất cả branch quan trọng được test & Unit + Integration \\
+Hiệu năng & Stress test: 100 concurrent checkout, 500 rps read; đo p50/p95/p99 & p99 read $\leq$ 500ms, p99 write $\leq$ 2s; không có memory leak & Load test \\
+Bảo mật & Code review (\texttt{gosec}); pen-test: SQL injection, JWT forge, webhook replay & Không lỗi nghiêm trọng; mọi endpoint reject tấn công biết trước & Security test \\
+Phục hồi (Durability) & Chaos: kill Restate node hoặc DB giữa durable step; quan sát replay & State final nhất quán sau replay; không double-side-effect & Chaos test \\
+Regression & Chạy full test suite pre-release; so sánh coverage với baseline & Không giảm coverage; 0 test mới fail & CI gate \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Quy trình kiểm thử trong CI/CD}
+\label{subsec:ci-testing}
+
+Mọi Pull Request đều chạy qua pipeline sau trước khi được merge:
+
+\begin{enumerate}
+    \item \textbf{Static analysis}: \texttt{golangci-lint run} + \texttt{staticcheck ./...} + \texttt{gosec ./...} --- dừng nếu có lỗi nghiêm trọng.
+    \item \textbf{Unit tests}: \texttt{go test -race -cover ./...} --- race detector bật để bắt concurrency bug; coverage không được giảm.
+    \item \textbf{Integration tests}: spawn PostgreSQL / Redis / Restate qua \texttt{dockertest}; chạy test hit DB thật.
+    \item \textbf{Build}: \texttt{go build ./...} --- đảm bảo compile sạch trên mọi nhánh code.
+    \item \textbf{Peer review}: ít nhất 1 reviewer approve; áp dụng checklist thiết kế (SOLID, testability, modularity) cho file mới.
+\end{enumerate}
+
+Các loại test nặng (E2E, load, chaos, mutation) chạy theo lịch: E2E nightly trên staging, load test mỗi release, mutation test mỗi sprint cho module thay đổi nhiều.

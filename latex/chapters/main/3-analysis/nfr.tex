@@ -44,6 +44,100 @@ D02 & Type Safety (SQLC) & 100\% query sinh mã từ SQL; enum PostgreSQL ánh x
 D03 & Durable Execution & DB ops trong restate.Run(); cross-module ngoài Run(); return JSON-serializable & Code review \\
 D04 & Code Generation & Restate proxy sinh tự động; 1 param/method; validate tags cho input & Kiểm tra go:generate \\
 D05 & Tổ chức mã nguồn & File tách theo chức năng: cart, checkout, incoming, order, pay, refund, dashboard & Review cấu trúc thư mục \\
+\rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Vận hành (bổ sung)}}} \\
+O06 & Chống lạm dụng endpoint & Rate limit per-endpoint per-user (checkout 10/min, pay 20/min, refund 5/min, dispute 3/min); fail-open khi backend Redis lỗi & 429 Too Many Requests với \texttt{Retry-After} header; kiểm tra qua load test \\
+D06 & Khả năng quan sát hệ thống (Observability) & Mọi handler nghiệp vụ được đo qua Prometheus (invocations, duration, error rate); dashboard Grafana cho SLO & Scrape \texttt{/metrics} mỗi 15s; latency p99 $<$ 500ms cho read endpoint, $<$ 2s cho write \\
 \end{longtable}
 \rowcolors{1}{}{}
 \normalsize
+
+% ============================================================
+\subsection{Tiêu chí chất lượng theo mức phát triển}
+\label{sec:nfr-quality-levels}
+
+Bảng~\ref{tab:nfr-quality-levels} trình bày tiêu chí chất lượng theo ba mức độ phát triển — \textit{ý niệm} (phân tích nghiệp vụ), \textit{thiết kế} (kiến trúc và API), và \textit{hiện thực} (kiểm thử cụ thể) — cho năm chức năng cốt lõi của ShopNexus.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Tiêu chí chất lượng theo mức phát triển}\label{tab:nfr-quality-levels}
+  \small
+  \begin{tabular}{@{} p{3cm} p{4cm} p{4cm} p{4cm} @{}}
+    \toprule
+    \rowcolor{headerblue}
+    \thead{Chức năng} & \thead{Tiêu chí Ý niệm (phân tích)} & \thead{Tiêu chí Thiết kế} & \thead{Tiêu chí Hiện thực} \\
+    \midrule
+    %
+    \textbf{Đặt hàng} \newline \texttt{BuyerCheckout()} &
+    Nghiệp vụ đúng: snapshot giá tại thời điểm đặt, đặt chỗ kho nguyên tử, toàn bộ luồng thực thi exactly-once &
+    API idempotent; gọi \texttt{InventoryBiz} và \texttt{CatalogBiz} qua Restate proxy; mọi side-effect trong \texttt{restate.Run()} &
+    Unit test checkout thành công/thất bại; integration test replay Restate journal; kiểm tra tồn kho sau crash \\
+    \addlinespace
+    %
+    \textbf{Thanh toán} \newline \texttt{PayBuyerOrders()} &
+    Bảo mật và exactly-once: không trừ tiền hai lần dù callback được gửi lại &
+    Webhook RefID xác thực bằng HMAC; payment session có trường \texttt{date\_expired}; liên kết \texttt{payment\_method\_id} &
+    Test webhook hợp lệ / giả mạo; test timeout phiên thanh toán; test replay callback Restate \\
+    \addlinespace
+    %
+    \textbf{Xác nhận đơn} \newline \texttt{ConfirmSellerPending()} &
+    Phân quyền đúng: chỉ seller sở hữu SKU mới được xác nhận; tính tổng chi phí chính xác &
+    Kiểm tra \texttt{seller\_id} trong \texttt{AuthenticatedAccount}; công thức \texttt{total = product\_cost - product\_discount + transport\_cost} &
+    Test seller confirm đơn của seller khác (phải trả lỗi); unit test công thức tính tổng \\
+    \addlinespace
+    %
+    \textbf{Hoàn trả} \newline \texttt{CreateBuyerRefund()} &
+    Chỉ hoàn trả đơn đã \textit{Success}; tại một thời điểm chỉ tồn tại một refund \textit{Pending} trên một đơn &
+    Ràng buộc tại biz layer: kiểm tra \texttt{order.status = Success}, truy vấn refund Pending trước khi tạo; resource ID bằng chứng qua \texttt{CommonBiz} &
+    Negative test: tạo refund cho đơn chưa Success; test đồng thời tạo hai refund cùng lúc (concurrent) \\
+    \addlinespace
+    %
+    \textbf{Dashboard thống kê} \newline \texttt{GetSellerOrderStats()} &
+    Thời gian phản hồi \textless{}1s cho trải nghiệm người dùng tốt &
+    Partial index trên bảng \texttt{item} \texttt{WHERE order\_id IS NULL}; truy vấn aggregate trong SQL thay vì vòng lặp Go &
+    Benchmark với 10.000+ đơn hàng; kiểm tra response time dưới tải cao \\
+    %
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ============================================================
+\section{Tiêu chí kiểm thử phần phân tích}
+\label{sec:analysis-test}
+
+Bảng~\ref{tab:analysis-test} liệt kê các tiêu chí dùng để đánh giá chất lượng kết quả phân tích của Chương~\ref{chap:analysis}, bao gồm phép thử thực hiện và kết quả kỳ vọng cho từng tiêu chí.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Tiêu chí kiểm thử phần phân tích}\label{tab:analysis-test}
+  \small
+  \begin{tabular}{@{} p{3cm} p{5.5cm} p{5.5cm} @{}}
+    \toprule
+    \rowcolor{headerblue}
+    \thead{Tiêu chí} & \thead{Phép thử trên đối tượng} & \thead{Kết quả mong đợi} \\
+    \midrule
+    \textbf{Toàn diện} (coverage) &
+    Rà soát tài liệu khảo sát, danh sách use case và đặc tả UC; checklist: có mục đích, actor, tiền/hậu điều kiện, luồng chính, luồng ngoại lệ &
+    Không bỏ sót use case quan trọng; mọi UC đều có đặc tả đầy đủ theo checklist \\
+    \addlinespace
+    \textbf{Nhất quán} &
+    Rà soát chéo: tên class/actor trong sequence diagram, state diagram và đặc tả use case phải thống nhất nhau &
+    Không mâu thuẫn về tên, trạng thái hoặc luồng giữa các lược đồ \\
+    \addlinespace
+    \textbf{Thực tiễn} &
+    Đối chiếu với hiện trạng thương mại điện tử Việt Nam (Shopee, Lazada) và quy định pháp luật (Nghị định 52/2013/NĐ-CP) &
+    Use case phản ánh đúng nhu cầu thực tế và tuân thủ quy định hiện hành \\
+    \addlinespace
+    \textbf{Phủ kịch bản} &
+    Đối chiếu activity diagram với sequence diagram cho cùng một use case &
+    Mọi bước trong activity diagram đều có tương tác tương ứng trong sequence diagram \\
+    \addlinespace
+    \textbf{Dữ liệu hóa thông điệp} &
+    Kiểm tra: mọi thông điệp gửi đến Presentation Manager (PM) trong sequence diagram đều có tham số dữ liệu kèm theo &
+    Không có message nào thiếu tham số dữ liệu; các params phản ánh đúng model \\
+    \addlinespace
+    \textbf{Đầy đủ NFR} &
+    Checklist ba loại NFR (nghiệp vụ / vận hành / phát triển) đều có ít nhất ba yêu cầu mỗi loại &
+    Bao phủ đủ ba môi trường; không có loại nào bị bỏ trống \\
+    \bottomrule
+  \end{tabular}
+\end{table}

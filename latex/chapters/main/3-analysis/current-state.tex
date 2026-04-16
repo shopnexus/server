@@ -15,8 +15,7 @@ Thương mại điện tử (TMĐT) tại Việt Nam tăng trưởng trung bình
     \item \textbf{Giỏ hàng/thanh toán hạn chế}: Không hỗ trợ ``Mua ngay'', chỉ một cổng thanh toán, phiên thanh toán không có thời hạn hết hạn.
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \begin{tikzpicture}[
   node distance=0.9cm and 2cm,
   act/.style={rectangle, rounded corners=4pt, draw=headerblue, fill=rowgray, text width=3.2cm, minimum height=0.8cm, align=center, font=\footnotesize},
@@ -53,9 +52,9 @@ Thương mại điện tử (TMĐT) tại Việt Nam tăng trưởng trung bình
 \node[warn, left=0.3cm of refund] {thủ công\\chậm trễ};
 \node[warn, right=0.3cm of pack] {không snapshot\\giá sản phẩm};
 \end{tikzpicture}
-\caption{Lược đồ hoạt động --- Quy trình xử lý đơn hàng truyền thống}
+\captionof{figure}{Lược đồ hoạt động --- Quy trình xử lý đơn hàng truyền thống}
 \label{fig:workflow-truyen-thong}
-\end{figure}
+\end{center}
 
 % ============================================================
 \section{Đề xuất giải pháp của đề tài}
@@ -71,8 +70,7 @@ Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với m
     \item \textbf{Giỏ hàng và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD), phiên thanh toán có thời hạn.
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \begin{tikzpicture}[
   actor/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=rowgray, minimum width=2.8cm, minimum height=1cm, align=center, font=\small\bfseries},
   system/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=headerblue!15, minimum width=3.2cm, minimum height=1.2cm, align=center, font=\small\bfseries, line width=1.5pt},
@@ -93,6 +91,6 @@ Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với m
 \draw[msg] (shipping) -- node[lbl, above, sloped, near end] {6. Giao hàng} (buyer);
 \draw[msg, dashed] (buyer) to[bend right=20] node[lbl, below, sloped] {7. Hoàn trả} (shop);
 \end{tikzpicture}
-\caption{Lược đồ cộng tác --- Mô hình vận hành mới với ShopNexus}
+\captionof{figure}{Lược đồ cộng tác --- Mô hình vận hành mới với ShopNexus}
 \label{fig:workflow-shopnexus}
-\end{figure}
+\end{center}

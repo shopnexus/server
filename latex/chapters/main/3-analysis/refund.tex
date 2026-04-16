@@ -81,8 +81,7 @@ Dispute & Pending & Processing $\rightarrow$ Success / Cancelled & Admin xem xé
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
+\begin{center}
 \resizebox{\textwidth}{!}{%
 \begin{sequencediagram}
 \newinst{buyer}{Khách hàng}
@@ -121,10 +120,103 @@ Dispute & Pending & Processing $\rightarrow$ Success / Cancelled & Admin xem xé
 
 \end{sequencediagram}
 }%
-\caption{Lược đồ tuần tự --- Luồng hoàn trả và tranh chấp}
+\captionof{figure}{Lược đồ tuần tự --- Luồng hoàn trả và tranh chấp}
 \label{fig:refund-sequence}
-\end{figure}
+\end{center}
 
 \subsection{Thành phần nghiệp vụ}
 
-\textbf{Refund}: ListBuyerRefunds, CreateBuyerRefund, UpdateBuyerRefund, CancelBuyerRefund, ConfirmSellerRefund. \textbf{Dispute}: CreateRefundDispute, ResolveRefundDispute. Helper: Payment Gateway (auto-refund), Transport Provider (vận đơn trả hàng PickUp).
+\textbf{Refund}: ListBuyerRefunds, CreateBuyerRefund, UpdateBuyerRefund, CancelBuyerRefund, ConfirmSellerRefund. \textbf{Dispute}: CreateRefundDispute, ListRefundDisputes, GetRefundDispute. Helper: Payment Gateway (auto-refund), Transport Provider (vận đơn trả hàng PickUp).
+
+\subsection*{Mở rộng: hoàn trả một phần (Partial Refund)}
+
+Migration 0002 bổ sung hai trường nullable vào bảng \texttt{order.refund}:
+
+\begin{itemize}
+  \item \texttt{item\_ids JSONB} (nullable) — danh sách \texttt{SKU ID} được hoàn trả. Khi \texttt{NULL}: toàn bộ đơn hàng được hoàn trả (hành vi cũ, đảm bảo tương thích ngược). Khi có giá trị: chỉ hoàn trả các sản phẩm được liệt kê; hệ thống kiểm tra trùng lặp và xác nhận các SKU phải thuộc đơn hàng.
+  \item \texttt{amount BIGINT} (nullable) — số tiền hoàn trả theo yêu cầu. Khi \texttt{NULL}: \texttt{PaymentProvider.Refund()} dùng tổng tiền thanh toán gốc. Khi có giá trị: dùng đúng số tiền được chỉ định (phù hợp cho hoàn trả từng phần theo giá trị).
+\end{itemize}
+
+Hai trường có thể dùng độc lập hoặc kết hợp. Buyer chỉ định \texttt{ItemIDs} khi muốn trả một số sản phẩm; Admin/Seller có thể điều chỉnh \texttt{Amount} khi cần hoàn trả theo tỷ lệ.
+
+\subsection*{Xử lý tranh chấp (Dispute)}
+
+Khi hai bên không đồng ý quyết định hoàn trả, Buyer hoặc Seller có thể mở tranh chấp qua \texttt{CreateRefundDispute(refundID, reason)}. Hệ thống áp đặt rate limit 3 yêu cầu/phút để tránh lạm dụng.
+
+\textbf{Điều kiện mở tranh chấp}: refund phải tồn tại; bên mở tranh chấp phải là buyer hoặc seller của đơn hàng; refund không ở trạng thái \texttt{Success} hoặc \texttt{Cancelled}; không có tranh chấp đang hoạt động (trạng thái \texttt{Pending}) trên cùng refund.
+
+\textbf{Luồng xử lý}: sau khi tạo dispute (\texttt{status=Pending}), hệ thống gửi thông báo fire-and-forget đến bên còn lại. Migration 0002 bổ sung các trường \texttt{resolved\_by\_id}, \texttt{resolution\_note}, \texttt{date\_resolved} vào bảng \texttt{order.refund\_dispute} để ghi lại kết quả khi Admin giải quyết (UC23 --- hiện tại Admin xử lý thủ công ngoài hệ thống).
+
+% ============================================================
+\section{Sơ đồ chuyển trạng thái đối tượng}
+% ============================================================
+
+\subsection{Trạng thái hoàn trả (Refund)}
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=2cm and 2.5cm,
+]
+  % Nodes
+  \node[start]                          (init)      {};
+  \node[state, right=1.5cm of init]     (pending)   {Pending};
+  \node[state, right=2.5cm of pending]  (processing){Processing};
+  \node[state, right=2.5cm of processing] (success) {Success};
+  \node[state, below=1.8cm of pending]  (cancelled) {Cancelled};
+  \node[state, below=1.8cm of processing](failed)   {Failed};
+  \node[finish, right=1.2cm of success] (fsuccess)  {};
+  \node[finish, right=1.2cm of cancelled](fcancelled){};
+  \node[finish, right=1.2cm of failed]  (ffailed)   {};
+
+  % Transitions
+  \draw[trans] (init)       -- node[above]{\textit{CreateBuyerRefund}}   (pending);
+  \draw[trans] (pending)    -- node[above]{\textit{ConfirmSellerRefund}} (processing);
+  \draw[trans] (processing) -- node[above]{\textit{auto-refund OK}}      (success);
+  \draw[trans] (processing) -- node[right]{\textit{payment fails}}       (failed);
+  \draw[trans] (pending)    -- node[left] {\textit{CancelBuyerRefund}}   (cancelled);
+  \draw[trans] (processing) to[out=250, in=10]
+                               node[below right, xshift=-4pt]{\textit{CancelBuyerRefund}} (cancelled);
+  \draw[trans] (success)    -- (fsuccess);
+  \draw[trans] (cancelled)  -- (fcancelled);
+  \draw[trans] (failed)     -- (ffailed);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ chuyển trạng thái đối tượng \textit{Refund}}
+\label{fig:refund-state}
+\end{center}
+
+\subsection{Trạng thái tranh chấp (Dispute)}
+
+\begin{center}
+\begin{tikzpicture}[
+  state/.style={circle, draw=headerblue, fill=rowgray, minimum size=1.4cm, align=center, font=\scriptsize},
+  start/.style={circle, fill=black, minimum size=5pt, inner sep=0pt},
+  finish/.style={circle, fill=black, draw=black, minimum size=5pt, inner sep=0pt, double, double distance=1.5pt},
+  trans/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black, font=\scriptsize},
+  >=Stealth,
+  node distance=2cm and 2.5cm,
+]
+  % Nodes
+  \node[start]                           (init)      {};
+  \node[state, right=1.5cm of init]      (pending)   {Pending};
+  \node[state, right=2.5cm of pending]   (processing){Processing};
+  \node[state, above right=1.4cm and 2cm of processing] (success)   {Success};
+  \node[state, below right=1.4cm and 2cm of processing] (cancelled) {Cancelled};
+  \node[finish, right=1.2cm of success]   (fsuccess)  {};
+  \node[finish, right=1.2cm of cancelled] (fcancelled){};
+
+  % Transitions
+  \draw[trans] (init)       -- node[above]{\textit{CreateRefundDispute}}  (pending);
+  \draw[trans] (pending)    -- node[above]{\textit{admin begins review}}  (processing);
+  \draw[trans] (processing) -- node[above left] {\textit{admin rules in favor}} (success);
+  \draw[trans] (processing) -- node[below left] {\textit{admin rejects}}  (cancelled);
+  \draw[trans] (success)    -- (fsuccess);
+  \draw[trans] (cancelled)  -- (fcancelled);
+\end{tikzpicture}
+\captionof{figure}{Sơ đồ chuyển trạng thái đối tượng \textit{Dispute}}
+\label{fig:dispute-state}
+\end{center}
