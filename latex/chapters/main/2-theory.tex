@@ -38,54 +38,64 @@ Khi một bên không đồng ý kết quả, có thể mở \textbf{tranh chấ
   arr/.style={-{Stealth[length=4pt]}, thick, headerblue!80!black},
   lane/.style={font=\footnotesize\bfseries, headerblue},
 ]
-% Swimlanes — wider layout, shorter height
-\draw[dashed, gray!50] (4.2,0.3) -- (4.2,-19);
-\draw[dashed, gray!50] (9,0.3) -- (9,-19);
+% Swimlanes
+\draw[dashed, gray!50] (4.2,0.3) -- (4.2,-21);
+\draw[dashed, gray!50] (9,0.3) -- (9,-21);
 \node[lane] at (2,0) {Buyer};
 \node[lane] at (6.5,0) {ShopNexus};
 \node[lane] at (11,0) {Seller};
 
-% Phase 1: Checkout
+% Phase 1: Pay-first Checkout
 \node[start] (s) at (2,-0.5) {};
 \node[act, below=of s] (cart) {Thêm vào giỏ hàng};
-\node[act, below=of cart] (checkout) {Checkout};
-\node[act, below=of checkout, xshift=4.5cm] (reserve) {Reserve Inventory + Snapshot giá};
-\node[act, below=of reserve, xshift=4.5cm] (inbox) {Xem inbox pending items};
+\node[act, below=of cart] (checkout) {Checkout\\(địa chỉ + vận chuyển)};
+\node[act, below=of checkout, xshift=4.5cm] (reserve) {Reserve kho + Báo giá\\vận chuyển + Tính tổng};
+\node[act, below=of reserve, xshift=-4.5cm] (pay) {Thanh toán\\(Ví + VNPay/COD)};
+\node[act, below=of pay, xshift=4.5cm] (createitems) {Tạo paid items\\+ Lên lịch timeout};
 
-% Phase 2: Confirm
+% Phase 2: Payment callback
+\node[act, below=of createitems] (callback) {Webhook xác nhận TT\\$\to$ timeout 48h seller};
+
+% Phase 3: Seller confirm
+\node[act, below=of callback, xshift=4.5cm] (inbox) {Xem mục đã TT};
 \node[dec, below=0.6cm of inbox] (d1) {Xác nhận?};
-\node[act, right=1cm of d1] (reject) {Từ chối (giải phóng kho)};
-\node[act, below=0.6cm of d1, xshift=-4.5cm] (create) {Tạo Order + Transport};
+\node[act, right=1cm of d1] (reject) {Từ chối\\(hoàn ví + giải phóng kho)};
+\node[act, below=0.6cm of d1, xshift=-4.5cm] (create) {Tạo Order + Transport\\(platform tạo vận đơn)};
 
-% Phase 3: Payment
-\node[act, below=of create, xshift=-4.5cm] (pay) {Thanh toán (VNPay/COD)};
-\node[act, below=of pay, xshift=4.5cm] (confirm) {Callback xác nhận TT};
-\node[act, below=of confirm] (ship) {Giao vận};
+% Phase 4: Delivery
+\node[act, below=of create] (ship) {Giao vận};
 
-% Phase 4: Refund
-\node[dec, below=0.6cm of ship, xshift=-4.5cm] (d2) {Hoàn trả?};
+% Phase 5: Refund
+\node[dec, below=0.6cm of ship, xshift=4.5cm] (d2) {Hoàn trả?};
 \node[act, below=0.6cm of d2] (refund) {Tạo yêu cầu hoàn trả};
 \node[act, below=of refund, xshift=4.5cm] (review) {Seller duyệt hoàn trả};
 \node[dec, below=0.6cm of review] (d3) {Chấp nhận?};
-\node[act, below left=0.5cm and 1cm of d3] (autorefund) {Auto-refund qua cổng TT};
+\node[act, below left=0.5cm and 1cm of d3] (autorefund) {Hoàn tiền vào ví};
 \node[act, below right=0.5cm and 0.5cm of d3] (dispute) {Dispute (Admin)};
-\node[finish] (e) at (6.5,-19) {};
+\node[finish] (e) at (6.5,-21) {};
 
-% Arrows
+% Arrows — Phase 1: Checkout + Payment
 \draw[arr] (s) -- (cart);
 \draw[arr] (cart) -- (checkout);
 \draw[arr] (checkout) -- (reserve);
-\draw[arr] (reserve) -- (inbox);
+\draw[arr] (reserve) -- (pay);
+\draw[arr] (pay) -- (createitems);
+\draw[arr] (createitems) -- (callback);
+
+% Arrows — Phase 3: Seller
+\draw[arr] (callback) -- (inbox);
 \draw[arr] (inbox) -- (d1);
 \draw[arr] (d1) -- node[font=\scriptsize, above] {Không} (reject);
 \draw[arr] (d1) -- node[font=\scriptsize, left] {Có} (create);
 \draw[arr] (reject.south) |- (e);
-\draw[arr] (create) -- (pay);
-\draw[arr] (pay) -- (confirm);
-\draw[arr] (confirm) -- (ship);
+
+% Arrows — Phase 4: Delivery
+\draw[arr] (create) -- (ship);
 \draw[arr] (ship) -- (d2);
 \draw[arr] (d2) -- node[font=\scriptsize, left] {Có} (refund);
 \draw[arr] (d2.east) -- ++(1.5,0) |- (e) node[font=\scriptsize, near start, above] {Không};
+
+% Arrows — Phase 5: Refund
 \draw[arr] (refund) -- (review);
 \draw[arr] (review) -- (d3);
 \draw[arr] (d3) -- node[font=\scriptsize, above left] {Có} (autorefund);
@@ -93,7 +103,7 @@ Khi một bên không đồng ý kết quả, có thể mở \textbf{tranh chấ
 \draw[arr] (autorefund) |- (e);
 \draw[arr] (dispute) |- (e);
 \end{tikzpicture}
-\caption{Quy trình đặt hàng, thanh toán, và hoàn trả trong ShopNexus}
+\caption{Quy trình đặt hàng, thanh toán, và hoàn trả trong ShopNexus (pay-first)}
 \label{fig:order-flow}
 \end{figure}
 
