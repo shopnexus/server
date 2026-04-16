@@ -63,11 +63,11 @@ Thương mại điện tử (TMĐT) tại Việt Nam tăng trưởng trung bình
 Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với module quản lý đơn hàng tự động hóa toàn bộ quy trình từ đặt hàng đến hoàn trả. Các giải pháp tương ứng với từng vấn đề:
 
 \begin{itemize}
-    \item \textbf{Tự động hóa hai giai đoạn}: Giai đoạn Checkout tự động đặt chỗ tồn kho (atomic reservation), snapshot giá/tên sản phẩm, tạo mục chờ. Giai đoạn Confirm để người bán xem xét, tự động tính chi phí (\texttt{total = productCost - productDiscount + transportCost}) và tạo vận đơn.
+    \item \textbf{Thanh toán trước (Pay-first Checkout)}: Buyer thanh toán ngay tại checkout --- hệ thống báo giá vận chuyển, trừ ví (nếu dùng), tạo payment, đặt chỗ tồn kho và tạo mục chờ trong cùng một luồng durable. Seller chỉ cần xác nhận/từ chối mục đã thanh toán; platform tự tạo vận đơn. Timeout 15 phút (thanh toán) và 48 giờ (xác nhận seller) tự động hủy và hoàn ví.
     \item \textbf{Hệ thống trạng thái và thông báo}: Trạng thái item suy ra (không lưu trực tiếp): chưa xác nhận (\texttt{order\_id IS NULL}), đã xác nhận (\texttt{order\_id IS NOT NULL}), đã hủy (\texttt{date\_cancelled IS NOT NULL}). Trạng thái order/payment: Pending $\rightarrow$ Processing $\rightarrow$ Success/Failed. Transport: Pending $\rightarrow$ InTransit $\rightarrow$ Delivered. Thông báo tự động qua fire-and-forget tại mỗi bước chuyển.
     \item \textbf{Hoàn trả có cấu trúc}: Form hoàn trả chuẩn hóa, hỗ trợ PickUp/DropOff, tự động hoàn tiền qua cổng thanh toán ban đầu. Cơ chế tranh chấp (Dispute) cho phép quản trị viên can thiệp.
     \item \textbf{Dashboard phân tích}: Thống kê doanh thu, biểu đồ xu hướng (day/week/month), sản phẩm bán chạy, hành động chờ xử lý.
-    \item \textbf{Giỏ hàng và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD), phiên thanh toán có thời hạn.
+    \item \textbf{Giỏ hàng, ví và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD) kết hợp ví nội bộ. Phí vận chuyển do platform quản lý (buyer trả phí ước tính, platform trả phí thực tế cho đơn vị vận chuyển).
 \end{itemize}
 
 \begin{center}
@@ -83,10 +83,10 @@ Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với m
 \node[actor]  (payment)  at (-4,-2.5) {Cổng thanh toán};
 \node[actor]  (shipping) at ( 4,-2.5) {Đơn vị vận chuyển};
 
-\draw[msg] (buyer)   -- node[lbl, above, sloped] {1. Đặt hàng} (shop);
-\draw[msg] (shop)    -- node[lbl, above, sloped] {2. Xác nhận đơn} (seller);
-\draw[msg] (buyer)   -- node[lbl, below, sloped] {3. Thanh toán} (payment);
-\draw[msg] (payment) -- node[lbl, below] {4. Callback xác nhận} (shop);
+\draw[msg] (buyer)   -- node[lbl, above, sloped] {1. Checkout + TT} (shop);
+\draw[msg] (shop)    -- node[lbl, below, sloped, near start] {2. Tạo payment} (payment);
+\draw[msg] (payment) -- node[lbl, below] {3. Callback} (shop);
+\draw[msg] (shop)    -- node[lbl, above, sloped] {4. Xác nhận đơn} (seller);
 \draw[msg] (shop)    -- node[lbl, below, sloped] {5. Tạo vận đơn} (shipping);
 \draw[msg] (shipping) -- node[lbl, above, sloped, near end] {6. Giao hàng} (buyer);
 \draw[msg, dashed] (buyer) to[bend right=20] node[lbl, below, sloped] {7. Hoàn trả} (shop);

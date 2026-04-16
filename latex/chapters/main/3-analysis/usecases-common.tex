@@ -75,7 +75,7 @@
 \node[uc] (g3) at (9,0) {Xử lý đơn};
 \node[cnt] at (g3.south) {UC07--11};
 
-\node[uc] (g4) at (2,-2.5) {Thanh toán};
+\node[uc] (g4) at (2,-2.5) {Ví \& TT};
 \node[cnt] at (g4.south) {UC12--13};
 
 \node[uc] (g5) at (6,-2.5) {Theo dõi};
@@ -145,12 +145,12 @@ UC05 & Mua ngay (Buy Now) & Buyer \\
 UC06 & Hủy mục chờ xử lý & Buyer \\
 \rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Xử lý đơn (Seller)}}} \\
 UC07 & Xem danh sách mục chờ & Seller \\
-UC08 & Báo giá vận chuyển & Seller \\
+UC08 & Xem chi tiết mục chờ & Seller \\
 UC09 & Xác nhận đơn hàng & Seller \\
 UC10 & Từ chối đơn hàng & Seller \\
 UC11 & Xem đơn đã xác nhận & Seller \\
-\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Thanh toán}}} \\
-UC12 & Thanh toán đơn hàng & Buyer \\
+\rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Ví \& Thanh toán}}} \\
+UC12 & Quản lý ví (xem số dư, lịch sử) & Buyer \\
 UC13 & Xác nhận TT (webhook) & Hệ thống \\
 \rowcolor{white}\multicolumn{3}{@{}l}{\textit{\textbf{Theo dõi}}} \\
 UC14 & Xem đơn hàng (Buyer) & Buyer \\
@@ -181,6 +181,6 @@ UC30 & Xác thực đơn cho đánh giá & Buyer \\
 
 \subsection{Quan hệ và tương tác liên module}
 
-\textbf{Generalization}: UC05 đặc biệt hóa UC04; UC14/UC15 tổng quát hóa ``Xem đơn hàng''. \textbf{$\ll$include$\gg$}: UC04 $\rightarrow$ đặt chỗ tồn kho; UC06/UC10 $\rightarrow$ giải phóng tồn kho; UC09 $\rightarrow$ tạo vận đơn; UC21 $\rightarrow$ auto-refund. \textbf{$\ll$extend$\gg$}: UC05 mở rộng UC04; UC22 mở rộng UC21; UC13 mở rộng UC12.
+\textbf{Generalization}: UC05 đặc biệt hóa UC04; UC14/UC15 tổng quát hóa ``Xem đơn hàng''. \textbf{$\ll$include$\gg$}: UC04 $\rightarrow$ đặt chỗ tồn kho + báo giá vận chuyển + thanh toán (bao gồm trừ ví); UC06/UC10 $\rightarrow$ giải phóng tồn kho + hoàn ví; UC09 $\rightarrow$ tạo vận đơn; UC21 $\rightarrow$ auto-refund. \textbf{$\ll$extend$\gg$}: UC05 mở rộng UC04; UC22 mở rộng UC21; UC13 mở rộng UC04 (webhook xác nhận thanh toán checkout).
 
-Tương tác liên module qua Restate proxy: Catalog (tra cứu SKU), Inventory (tồn kho), Account (thông báo, địa chỉ), Common (tài nguyên), Analytic (hành vi). Catalog gọi ngược Order để xác thực quyền đánh giá.
+Tương tác liên module qua Restate proxy: Catalog (tra cứu SKU), Inventory (tồn kho), Account (thông báo, địa chỉ, ví), Common (tài nguyên), Analytic (hành vi). Catalog gọi ngược Order để xác thực quyền đánh giá.
