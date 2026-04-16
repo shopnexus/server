@@ -3,6 +3,7 @@ package inventorybiz
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	"shopnexus-server/internal/infras/metrics"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -249,8 +250,16 @@ type ReserveInventoryParams struct {
 }
 
 // ReserveInventory reserves stock for the given items and assigns serial IDs when required.
-func (b *InventoryHandler) ReserveInventory(ctx restate.Context, params ReserveInventoryParams) ([]ReserveInventoryResult, error) {
-	var results []ReserveInventoryResult
+func (b *InventoryHandler) ReserveInventory(ctx restate.Context, params ReserveInventoryParams) (results []ReserveInventoryResult, err error) {
+	defer metrics.TrackHandler("inventory", "ReserveInventory", &err)()
+	defer func() {
+		result := "success"
+		if err != nil {
+			result = "failure"
+		}
+		metrics.InventoryReservesTotal.WithLabelValues(result).Add(float64(len(params.Items)))
+	}()
+
 	q := b.storage.Querier()
 
 	for _, item := range params.Items {

@@ -20,6 +20,10 @@ volumes:
     name: shopnexus-milvus-data-dev
   milvus-minio-data:
     name: shopnexus-milvus-minio-data-dev
+  prometheus-data:
+    name: shopnexus-prometheus-data-dev
+  grafana-data:
+    name: shopnexus-grafana-data-dev
 
 x-restate-environment: &restate-common-env
   RESTATE_CLUSTER_NAME: "restate-cluster"
@@ -219,6 +223,44 @@ services:
       - MILVUS_URL=http://milvus:19530
     depends_on:
       - "milvus"
+    restart: unless-stopped
+
+  # Prometheus: scrapes /metrics from the Go server and stores time series.
+  # UI: http://localhost:9090 (query) or use Grafana below for dashboards.
+  # To scrape the Go server running on the host, the scrape target uses
+  # host.docker.internal which resolves to the host from inside the container.
+  prometheus:
+    container_name: shopnexus-prometheus
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Grafana: preconfigured with Prometheus datasource. Default login admin/admin.
+  # UI: http://localhost:3001 (3000 is used by other tools; remap to 3001).
+  grafana:
+    container_name: shopnexus-grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
   # server:

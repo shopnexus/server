@@ -5,12 +5,14 @@ import (
 	"log/slog"
 
 	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/metrics"
 	"shopnexus-server/internal/shared/binder"
 
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 )
 
@@ -22,6 +24,7 @@ func NewEcho() *echo.Echo {
 	//e.Use(middleware.Logger())
 	// e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(metrics.EchoMiddleware())
 
 	return e
 }
@@ -42,6 +45,9 @@ func SetupEcho(params RouteParams) {
 	}
 	params.Echo.Validator = customVal
 	params.Echo.Binder = binder.NewCustomBinder()
+
+	// Metrics endpoint (no auth — must be registered before auth middleware on routes)
+	params.Echo.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	// Health check
 	params.Echo.GET("/health", func(c echo.Context) error {

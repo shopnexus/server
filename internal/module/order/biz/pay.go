@@ -10,6 +10,7 @@ import (
 
 	"github.com/guregu/null/v6"
 
+	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
@@ -25,7 +26,9 @@ type orderInfo struct {
 }
 
 // PayBuyerOrders creates a payment for one or more unpaid orders belonging to the buyer.
-func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrdersParams) (PayBuyerOrdersResult, error) {
+func (b *OrderHandler) PayBuyerOrders(ctx restate.Context, params PayBuyerOrdersParams) (_ PayBuyerOrdersResult, err error) {
+	defer metrics.TrackHandler("order", "PayBuyerOrders", &err)()
+
 	var zero PayBuyerOrdersResult
 
 	if err := validator.Validate(params); err != nil {
@@ -164,6 +167,8 @@ func (b *OrderHandler) payWithRedirect(ctx restate.Context, params PayBuyerOrder
 	}); err != nil {
 		return zero, sharedmodel.WrapErr("db set order payment", err)
 	}
+
+	metrics.PaymentsTotal.WithLabelValues("Pending", params.PaymentOption).Inc()
 
 	return b.fetchPaymentResult(ctx, payInfo.PaymentID, payInfo.RedirectURL)
 }

@@ -8,6 +8,7 @@ import (
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
@@ -290,7 +291,9 @@ func dbToTransport(t orderdb.OrderTransport) ordermodel.Transport {
 
 // ConfirmPayment updates the payment status based on a webhook callback result.
 // Called by the transport layer after provider-specific webhook verification.
-func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPaymentParams) error {
+func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPaymentParams) (err error) {
+	defer metrics.TrackHandler("order", "ConfirmPayment", &err)()
+
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate confirm payment", err)
 	}
@@ -350,6 +353,9 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	if err != nil {
 		return err
 	}
+
+	// Record payment metric
+	metrics.PaymentsTotal.WithLabelValues(string(params.Status), "webhook").Inc()
 
 	// Notify buyer about payment result
 	buyerID, _ := uuid.Parse(cr.BuyerID)

@@ -17,6 +17,7 @@ import (
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	"shopnexus-server/internal/infras/metrics"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -30,7 +31,9 @@ import (
 
 // BuyerCheckout creates pending order items (no order, no payment, no transport yet).
 // Inventory is reserved. Items are removed from cart unless BuyNow.
-func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error) {
+func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutParams) (_ BuyerCheckoutResult, err error) {
+	defer metrics.TrackHandler("order", "BuyerCheckout", &err)()
+
 	var zero BuyerCheckoutResult
 
 	if err := validator.Validate(params); err != nil {
@@ -76,6 +79,7 @@ func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutPa
 		}),
 	})
 	if err != nil {
+		metrics.CheckoutItemsCreatedTotal.WithLabelValues("failure").Inc()
 		return zero, sharedmodel.WrapErr("reserve inventory", err)
 	}
 
@@ -138,8 +142,11 @@ func (b *OrderHandler) BuyerCheckout(ctx restate.Context, params BuyerCheckoutPa
 		return items, nil
 	})
 	if err != nil {
+		metrics.CheckoutItemsCreatedTotal.WithLabelValues("failure").Inc()
 		return zero, sharedmodel.WrapErr("create pending items", err)
 	}
+
+	metrics.CheckoutItemsCreatedTotal.WithLabelValues("success").Add(float64(len(createdItems)))
 
 	// Step 4: Remove from cart (skip if BuyNow)
 	if !params.BuyNow {

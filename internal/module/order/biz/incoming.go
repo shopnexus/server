@@ -6,6 +6,7 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
@@ -199,7 +200,9 @@ func (b *OrderHandler) QuoteTransport(ctx restate.Context, params QuoteTransport
 }
 
 // ConfirmSellerPending groups selected pending items into an order with transport.
-func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error) {
+func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmSellerPendingParams) (_ ordermodel.Order, err error) {
+	defer metrics.TrackHandler("order", "ConfirmSellerPending", &err)()
+
 	var zero ordermodel.Order
 
 	if err := validator.Validate(params); err != nil {
@@ -387,6 +390,8 @@ func (b *OrderHandler) ConfirmSellerPending(ctx restate.Context, params ConfirmS
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create order", err)
 	}
+
+	metrics.OrdersCreatedTotal.Inc()
 
 	orderID, _ := uuid.Parse(oResult.OrderID)
 
