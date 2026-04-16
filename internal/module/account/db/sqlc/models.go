@@ -191,6 +191,67 @@ func AllAccountStatusValues() []AccountStatus {
 	}
 }
 
+type AccountWalletTransactionType string
+
+const (
+	AccountWalletTransactionTypeRefund  AccountWalletTransactionType = "Refund"
+	AccountWalletTransactionTypePayment AccountWalletTransactionType = "Payment"
+	AccountWalletTransactionTypeTopUp   AccountWalletTransactionType = "TopUp"
+)
+
+func (e *AccountWalletTransactionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccountWalletTransactionType(s)
+	case string:
+		*e = AccountWalletTransactionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccountWalletTransactionType: %T", src)
+	}
+	return nil
+}
+
+type NullAccountWalletTransactionType struct {
+	AccountWalletTransactionType AccountWalletTransactionType `json:"account_wallet_transaction_type"`
+	Valid                        bool                         `json:"valid"` // Valid is true if AccountWalletTransactionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccountWalletTransactionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccountWalletTransactionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccountWalletTransactionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccountWalletTransactionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccountWalletTransactionType), nil
+}
+
+func (e AccountWalletTransactionType) Valid() bool {
+	switch e {
+	case AccountWalletTransactionTypeRefund,
+		AccountWalletTransactionTypePayment,
+		AccountWalletTransactionTypeTopUp:
+		return true
+	}
+	return false
+}
+
+func AllAccountWalletTransactionTypeValues() []AccountWalletTransactionType {
+	return []AccountWalletTransactionType{
+		AccountWalletTransactionTypeRefund,
+		AccountWalletTransactionTypePayment,
+		AccountWalletTransactionTypeTopUp,
+	}
+}
+
 type AccountAccount struct {
 	ID          uuid.UUID     `json:"id"`
 	Number      int64         `json:"number"`
@@ -272,4 +333,19 @@ type AccountProfile struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
+}
+
+type AccountWallet struct {
+	AccountID uuid.UUID `json:"account_id"`
+	Balance   int64     `json:"balance"`
+}
+
+type AccountWalletTransaction struct {
+	ID          int64                        `json:"id"`
+	AccountID   uuid.UUID                    `json:"account_id"`
+	Type        AccountWalletTransactionType `json:"type"`
+	Amount      int64                        `json:"amount"`
+	ReferenceID null.String                  `json:"reference_id"`
+	Note        null.String                  `json:"note"`
+	DateCreated time.Time                    `json:"date_created"`
 }

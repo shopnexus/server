@@ -55,6 +55,10 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
 	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (AccountPaymentMethod, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
+	CreateWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error)
+	CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error)
+	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountWallet, error)
+	DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountWallet, error)
 	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error
@@ -92,6 +96,7 @@ type Querier interface {
 	// Queries for table: account.profile
 	// ========================================
 	GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error)
+	GetWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error)
 	ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error)
 	ListContact(ctx context.Context, arg ListContactParams) ([]AccountContact, error)
 	ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error)
@@ -110,6 +115,7 @@ type Querier interface {
 	ListNotificationByAccount(ctx context.Context, arg ListNotificationByAccountParams) ([]ListNotificationByAccountRow, error)
 	ListPaymentMethod(ctx context.Context, arg ListPaymentMethodParams) ([]AccountPaymentMethod, error)
 	ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error)
+	ListWalletTransactions(ctx context.Context, arg ListWalletTransactionsParams) ([]AccountWalletTransaction, error)
 	MarkAllNotificationRead(ctx context.Context, accountID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (AccountPaymentMethod, error)

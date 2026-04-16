@@ -72,6 +72,11 @@ type AccountBiz interface {
 		params SetDefaultPaymentMethodParams,
 	) (accountdb.AccountPaymentMethod, error)
 	TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error)
+
+	// Wallet
+	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
+	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
+	WalletCredit(ctx context.Context, params WalletCreditParams) error
 }
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]

@@ -136,3 +136,15 @@ func (p *AccountRestateClient) SetDefaultPaymentMethod(ctx context.Context, para
 func (p *AccountRestateClient) TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
 	return restateclient.Call[payment.TokenizeResult](ctx, p.client, serviceName, "TokenizeCard", params)
 }
+
+func (p *AccountRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	return restateclient.Call[int64](ctx, p.client, serviceName, "GetWalletBalance", accountID)
+}
+
+func (p *AccountRestateClient) WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error) {
+	return restateclient.Call[WalletDebitResult](ctx, p.client, serviceName, "WalletDebit", params)
+}
+
+func (p *AccountRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
+}
