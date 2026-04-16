@@ -13,6 +13,7 @@ import (
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/milvus"
+	"shopnexus-server/internal/infras/ratelimit"
 	"shopnexus-server/internal/infras/pubsub"
 	restateclient "shopnexus-server/internal/infras/restate"
 	"shopnexus-server/internal/module/account"
@@ -41,6 +42,7 @@ var Module = fx.Module("main",
 		NewLLMClient,
 		NewRestateClient,
 		NewGeocodingProvider,
+		NewRateLimitFactory,
 	),
 
 	// Business modules
@@ -65,6 +67,12 @@ var Module = fx.Module("main",
 // NewConfig provides the application configuration
 func NewConfig() *config.Config {
 	return config.GetConfig()
+}
+
+// NewRateLimitFactory wires a Factory that produces Echo rate-limit middlewares
+// backed by Redis (or memory fallback if Redis is not configured).
+func NewRateLimitFactory(cacheClient cache.Client) *ratelimit.Factory {
+	return ratelimit.NewFactory(cacheClient)
 }
 
 func NewCacheStruct() (cache.Client, error) {
