@@ -148,3 +148,7 @@ func (p *AccountRestateClient) WalletDebit(ctx context.Context, params WalletDeb
 func (p *AccountRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
 }
+
+func (p *AccountRestateClient) ListWalletTransactions(ctx context.Context, params ListWalletTransactionsParams) ([]WalletTransactionResult, error) {
+	return restateclient.Call[[]WalletTransactionResult](ctx, p.client, serviceName, "ListWalletTransactions", params)
+}

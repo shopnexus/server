@@ -58,6 +58,11 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
 	paymentApi.POST("/tokenize", h.TokenizeCard)
 
+	// Wallet endpoints
+	walletApi := api.Group("/wallet")
+	walletApi.GET("", h.GetWalletBalance)
+	walletApi.GET("/transactions", h.ListWalletTransactions)
+
 	// Notification endpoints
 	notifApi := api.Group("/notification")
 	notifApi.GET("", h.ListNotification)

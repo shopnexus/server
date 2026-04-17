@@ -135,6 +135,44 @@ func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditPa
 }
 
 // nullableString returns a pointer to s if non-empty, otherwise nil.
+// ListWalletTransactions returns paginated wallet transactions for the given account.
+func (b *AccountHandler) ListWalletTransactions(ctx restate.Context, params ListWalletTransactionsParams) ([]WalletTransactionResult, error) {
+	txs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]WalletTransactionResult, error) {
+		dbTxs, err := b.storage.Querier().ListWalletTransactions(ctx, accountdb.ListWalletTransactionsParams{
+			AccountID: params.AccountID,
+			Limit:     int32(params.Limit),
+			Offset:    int32(params.Offset),
+		})
+		if err != nil {
+			return nil, err
+		}
+		results := make([]WalletTransactionResult, len(dbTxs))
+		for i, tx := range dbTxs {
+			var refID, note *string
+			if tx.ReferenceID.Valid {
+				refID = &tx.ReferenceID.String
+			}
+			if tx.Note.Valid {
+				note = &tx.Note.String
+			}
+			results[i] = WalletTransactionResult{
+				ID:          tx.ID,
+				AccountID:   tx.AccountID.String(),
+				Type:        string(tx.Type),
+				Amount:      tx.Amount,
+				ReferenceID: refID,
+				Note:        note,
+				DateCreated: tx.DateCreated.Format("2006-01-02T15:04:05Z07:00"),
+			}
+		}
+		return results, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return txs, nil
+}
+
 func nullableString(s string) *string {
 	if s == "" {
 		return nil

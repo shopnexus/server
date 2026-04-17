@@ -77,6 +77,7 @@ type AccountBiz interface {
 	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
 	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
 	WalletCredit(ctx context.Context, params WalletCreditParams) error
+	ListWalletTransactions(ctx context.Context, params ListWalletTransactionsParams) ([]WalletTransactionResult, error)
 }
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]
@@ -113,4 +114,20 @@ func NewAccountHandler(
 		storage: storage,
 		common:  common,
 	}
+}
+
+type ListWalletTransactionsParams struct {
+	AccountID uuid.UUID `validate:"required"`
+	Limit     int64     `validate:"min=1,max=100"`
+	Offset    int64     `validate:"min=0"`
+}
+
+type WalletTransactionResult struct {
+	ID          int64   `json:"id"`
+	AccountID   string  `json:"account_id"`
+	Type        string  `json:"type"`
+	Amount      int64   `json:"amount"`
+	ReferenceID *string `json:"reference_id,omitempty"`
+	Note        *string `json:"note,omitempty"`
+	DateCreated string  `json:"date_created"`
 }
