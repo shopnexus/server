@@ -10,7 +10,7 @@
 \subsection{Giao diện (Lớp biên)}
 \label{subsec:refund-forms}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Danh sách form --- module Hoàn trả}
 \label{tab:refund-forms}
@@ -32,7 +32,7 @@ SellerRefundReview & Seller & Xem chi tiết refund, nút Chấp nhận & Confir
 \subsection{API (Lớp xử lý)}
 \label{subsec:refund-apis}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Danh sách API --- module Hoàn trả}
 \label{tab:refund-apis}
@@ -99,15 +99,12 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{Ảnh}: xem Hình~\ref{fig:impl-refund-form} (Chương 5)
-  \item \textbf{Users}: Khách hàng (Buyer)
-  \item \textbf{Controls chính}:
-    \begin{itemize}
-      \item \texttt{MethodRadio}: RadioGroup chọn \texttt{PickUp} (GHTK đến lấy hàng tại địa chỉ người mua) hoặc \texttt{DropOff} (người mua tự gửi bưu kiện)
-      \item \texttt{ReasonTextArea}: mô tả lý do hoàn trả, bắt buộc, độ dài 1--500 ký tự
-      \item \texttt{EvidenceUpload}: FileUpload nhiều ảnh/video làm bằng chứng, sinh \texttt{ResourceID} qua \texttt{CommonBiz} (MinIO presigned URL)
-      \item \texttt{AddressInput}: địa chỉ lấy hàng, bắt buộc khi \texttt{Method=PickUp}; ẩn khi \texttt{DropOff}
-      \item \texttt{SubmitButton}: Nhiệm vụ: tạo yêu cầu hoàn trả. Inputs: \texttt{(orderID, method, reason, address, resourceIDs)}. Outputs: \texttt{Refund} ở trạng thái \texttt{Pending} (chuyển về \texttt{RefundListPage}). Xử lý: gọi API \texttt{CreateBuyerRefund}.
-    \end{itemize}
+  \item \textbf{Actor}: Khách hàng (Buyer)
+  \item \textbf{Mô tả}:
+
+Biểu mẫu yêu cầu hoàn trả cho phép người mua chọn phương thức trả hàng: PickUp (nhà vận chuyển đến lấy tại địa chỉ người mua) hoặc DropOff (người mua tự gửi bưu kiện tại điểm gửi). Nếu chọn PickUp, người mua nhập hoặc chọn địa chỉ lấy hàng.
+
+Người mua mô tả lý do hoàn trả (bắt buộc, 1--500 ký tự) và có thể tải lên ảnh hoặc video làm bằng chứng. Khi nhấn gửi, hệ thống gọi \texttt{CreateBuyerRefund} và tạo yêu cầu ở trạng thái Pending.
 \end{itemize}
 
 % --- RefundListPage ---
@@ -115,15 +112,12 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 \label{subsubsec:form-refund-list}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Users}: Khách hàng (Buyer)
-  \item \textbf{Controls chính}:
-    \begin{itemize}
-      \item \texttt{StatusFilter}: Bộ lọc trạng thái (\texttt{Pending}, \texttt{Processing}, \texttt{Success}, \texttt{Cancelled}); không chọn = hiển thị tất cả
-      \item \texttt{RefundTable}: danh sách yêu cầu hoàn trả của buyer, hiển thị \texttt{orderID}, trạng thái, ngày tạo, phương thức
-      \item \texttt{PaginationBar}: điều hướng trang theo \texttt{PaginationParams} (page, limit)
-      \item \texttt{DetailLink}: nhấn vào hàng để xem chi tiết; nếu trạng thái \texttt{Pending} hiển thị thêm nút Chỉnh sửa và Huỷ
-    \end{itemize}
-  \item \textbf{API được gọi}: \texttt{ListBuyerRefunds}
+  \item \textbf{Actor}: Khách hàng (Buyer)
+  \item \textbf{Mô tả}:
+
+Trang danh sách hiển thị tất cả yêu cầu hoàn trả của người mua, gồm mã đơn hàng, trạng thái, ngày tạo, và phương thức trả hàng. Người dùng có thể lọc theo trạng thái (Pending, Processing, Success, Cancelled) và phân trang. Nhấn vào một yêu cầu để xem chi tiết; nếu yêu cầu đang ở trạng thái Pending, giao diện hiển thị thêm nút chỉnh sửa và hủy.
+
+  \item \textbf{API}: \texttt{ListBuyerRefunds}
 \end{itemize}
 
 % --- RefundEditForm ---
@@ -131,16 +125,11 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 \label{subsubsec:form-refund-edit}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Users}: Khách hàng (Buyer)
-  \item \textbf{Điều kiện hiển thị}: chỉ khả dụng khi \texttt{refund.status = Pending}
-  \item \textbf{Controls chính}:
-    \begin{itemize}
-      \item \texttt{MethodRadio}: thay đổi phương thức \texttt{PickUp}/\texttt{DropOff}
-      \item \texttt{ReasonTextArea}: chỉnh sửa lý do hoàn trả (1--500 ký tự)
-      \item \texttt{AddressInput}: cập nhật địa chỉ lấy hàng (bắt buộc khi \texttt{Method=PickUp})
-      \item \texttt{EvidenceUpload}: upload thêm ảnh/video bằng chứng; danh sách \texttt{ResourceID} mới sẽ thay thế hoàn toàn danh sách cũ
-      \item \texttt{SaveButton}: Nhiệm vụ: lưu thay đổi. Inputs: \texttt{(refundID, method?, reason?, address?, resourceIDs)}. Outputs: \texttt{Refund} đã cập nhật. Xử lý: gọi API \texttt{UpdateBuyerRefund}.
-    \end{itemize}
+  \item \textbf{Actor}: Khách hàng (Buyer)
+  \item \textbf{Điều kiện}: chỉ khả dụng khi hoàn trả đang ở trạng thái Pending.
+  \item \textbf{Mô tả}:
+
+Biểu mẫu chỉnh sửa cho phép người mua thay đổi phương thức trả hàng, lý do, địa chỉ lấy hàng (nếu PickUp), và tải lại bằng chứng (danh sách mới thay thế hoàn toàn danh sách cũ). Khi lưu, hệ thống gọi \texttt{UpdateBuyerRefund}.
 \end{itemize}
 
 % --- RefundCancelBtn ---
@@ -148,14 +137,11 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 \label{subsubsec:form-refund-cancel}
 
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Users}: Khách hàng (Buyer)
-  \item \textbf{Điều kiện hiển thị}: hiển thị khi \texttt{refund.status} là \texttt{Pending} hoặc \texttt{Processing}
-  \item \textbf{Controls chính}:
-    \begin{itemize}
-      \item \texttt{CancelButton}: Nút \enquote{Huỷ yêu cầu hoàn trả}; kích hoạt hộp thoại xác nhận trước khi thực hiện
-      \item \texttt{ConfirmDialog}: hộp thoại xác nhận hành động huỷ để tránh nhấn nhầm
-    \end{itemize}
-  \item \textbf{Hành động}: Inputs: \texttt{(refundID)}. Outputs: không (refund chuyển sang \texttt{Cancelled}). Xử lý: gọi API \texttt{CancelBuyerRefund}.
+  \item \textbf{Actor}: Khách hàng (Buyer)
+  \item \textbf{Điều kiện}: hiển thị khi hoàn trả đang ở trạng thái Pending hoặc Processing.
+  \item \textbf{Mô tả}:
+
+Nút hủy yêu cầu hoàn trả, kèm hộp thoại xác nhận để tránh nhấn nhầm. Khi xác nhận, hệ thống gọi \texttt{CancelBuyerRefund} và hoàn trả chuyển sang trạng thái Cancelled.
 \end{itemize}
 
 % --- SellerRefundReview ---
@@ -184,7 +170,7 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 \begin{itemize}[leftmargin=*]
   \item \textbf{Nhiệm vụ}: Buyer tạo yêu cầu hoàn trả cho đơn hàng đã thanh toán thành công, kèm bằng chứng.
   \item \textbf{Inputs}: \texttt{\{Account, OrderID uuid, Method (PickUp|DropOff), Reason string(1--500), Address null.String, ResourceIDs []uuid, ItemIDs []int64 (tùy chọn), Amount int64 (tùy chọn)\}}.
-  \item \textbf{Partial Refund}: \texttt{ItemIDs} và \texttt{Amount} đều nullable để đảm bảo tương thích ngược. Khi \texttt{ItemIDs} được cung cấp, hệ thống kiểm tra trùng lặp và xác nhận tất cả SKU phải thuộc \texttt{OrderID}; chỉ các sản phẩm trong danh sách được hoàn trả. Khi \texttt{Amount} được cung cấp, giá trị này được dùng trực tiếp trong \texttt{PaymentProvider.Refund()} thay vì tổng tiền đơn hàng.
+  \item \textbf{Partial Refund}: danh sách sản phẩm và số tiền hoàn đều là tùy chọn. Khi chỉ định danh sách sản phẩm, hệ thống kiểm tra trùng lặp và xác nhận tất cả sản phẩm phải thuộc đơn hàng gốc; chỉ các sản phẩm trong danh sách được hoàn trả. Khi chỉ định số tiền, giá trị này được dùng để hoàn tiền thay vì tổng tiền đơn hàng.
   \item \textbf{Outputs}: \texttt{Refund} — bản ghi với \texttt{status=Pending}.
   \item \textbf{Xử lý}:
     \begin{enumerate}
@@ -192,7 +178,7 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
       \item Validate: \texttt{order.payment.status == Success}
       \item Kiểm tra: không tồn tại refund nào đang \texttt{Pending} hoặc \texttt{Processing} cho cùng \texttt{orderID}
       \item Trong \texttt{restate.Run()}: \texttt{InsertRefund} vào bảng \texttt{order.refund} với \texttt{status=Pending}
-      \item Liên kết bằng chứng: \texttt{CommonBiz.LinkResources(refund\_id, resourceIDs)} (polymorphic resource reference)
+      \item Liên kết bằng chứng (ảnh, video) với yêu cầu hoàn trả qua module tài nguyên chung
       \item Fire-and-forget: \texttt{restate.ServiceSend(Order, "NotifySellerRefundRequested", ...)} gửi thông báo đến seller
     \end{enumerate}
 \end{itemize}
@@ -210,7 +196,7 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
       \item Validate: \texttt{refund.account\_id == account.ID}
       \item Validate: \texttt{refund.status == Pending} (không cho phép chỉnh sửa sau khi seller đã xem xét)
       \item Trong \texttt{restate.Run()}: cập nhật các trường được cung cấp (\texttt{Method}, \texttt{Reason}, \texttt{Address}) vào \texttt{order.refund}
-      \item Thay thế toàn bộ danh sách bằng chứng: xoá \texttt{ResourceID} cũ và liên kết lại \texttt{ResourceIDs} mới qua \texttt{CommonBiz.ReplaceResources(refund\_id, resourceIDs)}
+      \item Thay thế toàn bộ danh sách bằng chứng: xoá bằng chứng cũ và liên kết danh sách mới qua module tài nguyên chung
     \end{enumerate}
 \end{itemize}
 
@@ -242,10 +228,10 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
     \begin{enumerate}
       \item Validate: \texttt{account} là seller của đơn hàng liên quan
       \item Lấy thông tin refund và payment từ DB
-      \item Gọi \texttt{PaymentProvider.Refund(payment\_id, amount)}: hoàn tiền tự động với thanh toán thẻ; với COD chuyển sang xử lý thủ công. \textbf{Partial refund}: nếu \texttt{refund.amount} được đặt thì dùng giá trị đó; nếu \texttt{NULL} thì dùng \texttt{payment.amount} (toàn bộ đơn hàng)
-      \item Gọi \texttt{TransportProvider.CreateShipment(...)}: tạo vận đơn trả hàng; nếu \texttt{Method=PickUp} tạo nhãn lấy hàng GHTK, nếu \texttt{DropOff} tạo địa chỉ điểm gửi
+      \item Hoàn tiền qua cổng thanh toán ban đầu: hoàn tự động với thanh toán thẻ; với COD chuyển sang xử lý thủ công. Nếu là hoàn trả một phần, dùng số tiền đã chỉ định; ngược lại hoàn toàn bộ đơn hàng
+      \item Tạo vận đơn trả hàng qua nhà vận chuyển: nếu PickUp thì tạo nhãn lấy hàng tại địa chỉ người mua, nếu DropOff thì tạo địa chỉ điểm gửi
       \item Trong \texttt{restate.Run()}: cập nhật \texttt{refund.confirmed\_by\_id = account.ID}, gán \texttt{refund.transport\_id}, cập nhật \texttt{refund.status}
-      \item Gọi \texttt{InventoryBiz.RestoreStock(orderItems)}: khôi phục tồn kho cho các sản phẩm trong đơn
+      \item Khôi phục tồn kho cho các sản phẩm trong đơn qua module Inventory
       \item Fire-and-forget: thông báo buyer về kết quả xử lý hoàn trả
     \end{enumerate}
 \end{itemize}
@@ -271,7 +257,7 @@ Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) vớ
 \subsection{Bảng tham chiếu --- Hoàn trả và Tranh chấp}
 \label{subsec:refund-crossref}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
 \label{tab:refund-crossref}

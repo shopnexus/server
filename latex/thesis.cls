@@ -217,7 +217,7 @@
   {\noindent \bfseries \Huge #1}%
 
   \vspace{1em}
-  \par\noindent
+  \par\indent
 }{%
   \clearpage%
 }

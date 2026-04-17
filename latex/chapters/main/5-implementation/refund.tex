@@ -9,27 +9,31 @@
 
 Buyer có thể yêu cầu hoàn trả cho đơn hàng đã thanh toán thành công. Quy trình gồm: buyer tạo yêu cầu hoàn trả (chọn phương thức PickUp hoặc DropOff, nhập lý do và ảnh minh chứng), seller xem xét và chấp nhận/từ chối. Nếu seller từ chối, buyer có quyền mở tranh chấp (dispute) để admin phân xử.
 
-\begin{center}
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot form yêu cầu hoàn trả --- chọn phương thức trả hàng (PickUp/DropOff), lý do, upload ảnh minh chứng\vspace{3cm}}}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth,keepaspectratio]{uploads/refund.png}
 \captionof{figure}{Form tạo yêu cầu hoàn trả}
 \label{fig:impl-refund-form}
-\end{center}
+\end{figure}
 
 Buyer điền form hoàn trả gồm phương thức trả hàng, lý do chi tiết và ảnh minh chứng. Hệ thống tự động gửi thông báo cho seller qua SSE.
 
+\iffalse
 \begin{center}
 \fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang tranh chấp --- hiển thị lý do từ chối của seller, form mở dispute với bằng chứng bổ sung\vspace{3cm}}}
 \captionof{figure}{Trang tranh chấp hoàn trả (Refund Dispute)}
 \label{fig:impl-refund-dispute}
 \end{center}
+\fi
 
 Khi seller từ chối hoàn trả, buyer có thể mở tranh chấp bằng cách cung cấp bằng chứng bổ sung. Admin sẽ xem xét và đưa ra phán quyết chấp nhận hoặc từ chối.
+
 
 % ------------------------------------------------------------------
 \subsection{Đánh giá}
 \label{subsec:refund-eval}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Đánh giá chức năng hoàn trả và tranh chấp}
 \label{tab:refund-eval}
@@ -50,7 +54,7 @@ Khi seller từ chối hoàn trả, buyer có thể mở tranh chấp bằng cá
 \subsection{Kiểm thử}
 \label{subsec:refund-test}
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Các trường hợp kiểm thử chức năng hoàn trả và tranh chấp}
 \label{tab:refund-test}

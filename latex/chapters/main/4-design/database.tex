@@ -54,24 +54,25 @@ Module Order sử dụng schema \texttt{order.*} trên PostgreSQL~18, gồm 7 b�
 \node[attr] (ord1) at (ord_h.south) {\textbf{id} UUID PK};
 \node[attr] (ord2) at (ord1.south) {buyer\_id UUID};
 \node[attr] (ord3) at (ord2.south) {seller\_id UUID};
-\node[attr] (ord4) at (ord3.south) {payment\_id BIGINT FK};
-\node[attr] (ord5) at (ord4.south) {transport\_id UUID FK};
-\node[attr] (ord6) at (ord5.south) {product\_cost / discount};
-\node[attr] (ord7) at (ord6.south) {transport\_cost, total};
-\node[attr] (ord8) at (ord7.south) {data JSONB};
-\node[entity, fit=(ord_h)(ord8)] {};
+\node[attr] (ord4) at (ord3.south) {transport\_id UUID FK};
+\node[attr] (ord5) at (ord4.south) {product\_cost / discount};
+\node[attr] (ord6) at (ord5.south) {transport\_cost, total};
+\node[attr] (ord7) at (ord6.south) {address TEXT, data JSONB};
+\node[entity, fit=(ord_h)(ord7)] {};
 
 % === item ===
 \node[header] (item_h) at (0,-6) {item};
 \node[attr] (item1) at (item_h.south) {\textbf{id} BIGSERIAL PK};
 \node[attr] (item2) at (item1.south) {order\_id UUID FK};
-\node[attr] (item3) at (item2.south) {account\_id UUID};
-\node[attr] (item4) at (item3.south) {seller\_id UUID};
+\node[attr] (item3) at (item2.south) {payment\_id BIGINT FK};
+\node[attr] (item4) at (item3.south) {account\_id, seller\_id UUID};
 \node[attr] (item5) at (item4.south) {sku\_id UUID, sku\_name};
 \node[attr] (item6) at (item5.south) {quantity, unit\_price};
-\node[attr] (item7) at (item6.south) {paid\_amount, status};
-\node[attr] (item8) at (item7.south) {serial\_ids JSONB};
-\node[entity, fit=(item_h)(item8)] {};
+\node[attr] (item7) at (item6.south) {transport\_option TEXT};
+\node[attr] (item8) at (item7.south) {transport\_cost\_estimate BIGINT};
+\node[attr] (item9) at (item8.south) {date\_cancelled TIMESTAMPTZ};
+\node[attr] (item10) at (item9.south) {serial\_ids JSONB};
+\node[entity, fit=(item_h)(item10)] {};
 
 % === refund ===
 \node[header] (ref_h) at (12,-6) {refund};
@@ -101,16 +102,16 @@ Module Order sử dụng schema \texttt{order.*} trên PostgreSQL~18, gồm 7 b�
 \node[enum] (e4) at (15.5,-9.5) {\textbf{refund\_method}\\PickUp\\DropOff};
 
 % === Relationships ===
-\draw[rel] (ord4.east) -- ++(0.5,0) |- (pay7.east) node[near start, right, font=\tiny] {SET NULL};
-\draw[rel] (ord5.east) -- ++(1.2,0) |- (tp5.east) node[near start, right, font=\tiny] {SET NULL};
+\draw[rel] (ord4.east) -- ++(1.2,0) |- (tp5.east) node[near start, right, font=\tiny] {SET NULL};
 \draw[rel] (item2.east) -- (ord1.west) node[midway, above, font=\tiny] {N:1 CASCADE};
+\draw[rel] (item3.east) -- ++(2.5,0) |- (pay7.east) node[near start, right, font=\tiny] {N:1 SET NULL};
 \draw[rel] (ref3.west) -- (ord1.east) node[midway, above, font=\tiny] {N:1 NO ACTION};
 \draw[rel] (ref5.north) -- ++(0,0.5) -| (tp5.south) node[near end, right, font=\tiny] {0..1};
 \draw[rel] (disp2.north) -- ++(0,0.4) -| (ref8.south) node[near end, right, font=\tiny] {N:1};
 
 % Partial index annotation
-\node[rectangle, draw=red!50, dashed, rounded corners=2pt, fill=red!5, font=\tiny\itshape, text width=3.2cm, align=center] at (0,-11.5) {Partial index:\\WHERE order\_id IS NULL\\(pending item inbox)};
-\draw[-{Stealth[length=3pt]}, dashed, red!50] (0,-11) -- (item8.south);
+\node[rectangle, draw=red!50, dashed, rounded corners=2pt, fill=red!5, font=\tiny\itshape, text width=3.2cm, align=center] at (0,-12.5) {Partial index:\\WHERE order\_id IS NULL\\(pending item inbox)};
+\draw[-{Stealth[length=3pt]}, dashed, red!50] (0,-12) -- (item10.south);
 
 \end{tikzpicture}
 }%
@@ -135,8 +136,8 @@ Module Order sử dụng schema \texttt{order.*} trên PostgreSQL~18, gồm 7 b�
 cart\_item & id, account\_id, sku\_id, quantity & Giỏ hàng tạm thời; unique (account\_id, sku\_id) \\
 payment & id, account\_id, option, status, amount, data, date\_expired & Phiên thanh toán; data chứa JSONB provider-specific \\
 transport & id, option, status, cost, data & Vận chuyển; status enum 7 trạng thái lifecycle \\
-order & id, buyer\_id, seller\_id, payment\_id, transport\_id, product\_cost, product\_discount, transport\_cost, total & Đơn hàng; total = cost $-$ discount + transport \\
-item & id, order\_id, account\_id, seller\_id, sku\_id, sku\_name, quantity, unit\_price, paid\_amount, status, serial\_ids & Mục đơn hàng; order\_id NULL khi chờ xác nhận \\
+order & id, buyer\_id, seller\_id, transport\_id, product\_cost, product\_discount, transport\_cost, total, address & Đơn hàng; total = cost $-$ discount + transport \\
+item & id, order\_id, payment\_id, account\_id, seller\_id, sku\_id, sku\_name, quantity, unit\_price, transport\_option, transport\_cost\_estimate, date\_cancelled, serial\_ids & Mục đơn hàng; trạng thái suy ra từ payment.status, order\_id, date\_cancelled \\
 refund & id, account\_id, order\_id, confirmed\_by\_id, transport\_id, method, status, reason, address & Yêu cầu hoàn trả; method: PickUp/DropOff \\
 refund\_dispute & id, refund\_id, issued\_by\_id, reason, status & Tranh chấp; issued\_by\_id là buyer hoặc seller \\
 \bottomrule
@@ -151,7 +152,7 @@ refund\_dispute & id, refund\_id, issued\_by\_id, reason, status & Tranh chấp;
     \item \textbf{Enum dùng chung:} \texttt{order.status} (Pending, Processing, Success, Cancelled, Failed) được dùng cho payment, order, refund, refund\_dispute.
     \item \textbf{Partial index:} \texttt{item\_pending\_seller\_idx} và \texttt{item\_pending\_account\_idx} lọc \texttt{WHERE order\_id IS NULL} --- tối ưu truy vấn inbox mục chờ.
     \item \textbf{FK cascade:} \texttt{item.order\_id} $\to$ \texttt{order.id} (ON DELETE CASCADE); \texttt{refund.order\_id} $\to$ \texttt{order.id} (ON DELETE NO ACTION --- giữ lại refund record).
-    \item \textbf{FK set null:} \texttt{order.payment\_id}, \texttt{order.transport\_id} (ON DELETE SET NULL).
+    \item \textbf{FK set null:} \texttt{order.transport\_id} (ON DELETE SET NULL); \texttt{item.payment\_id} $\to$ \texttt{payment.id} (ON DELETE SET NULL).
     \item \textbf{Unique:} \texttt{cart\_item(account\_id, sku\_id)} --- mỗi tài khoản chỉ có 1 dòng/SKU trong giỏ.
 \end{itemize}
 
@@ -159,14 +160,14 @@ refund\_dispute & id, refund\_id, issued\_by\_id, reason, status & Tranh chấp;
 \subsection{Truy vấn dữ liệu (SQLC queries thay cho Stored Procedure)}
 \label{subsec:db-sqlc}
 
-ShopNexus không dùng Stored Procedure (SP) truyền thống. Thay vào đó, toàn bộ truy vấn được quản lý bằng \textbf{SQLC} --- công cụ sinh code Go type-safe trực tiếp từ SQL thuần. Lý do lựa chọn:
+ShopNexus không dùng Stored Procedure truyền thống. Thay vào đó, toàn bộ truy vấn được quản lý bằng \textbf{SQLC} --- công cụ sinh mã nguồn type-safe trực tiếp từ SQL thuần. So với Stored Procedure:
 
 \begin{itemize}[nosep]
-    \item \textbf{Code-first, version control}: file \texttt{.sql} nằm cùng repo, được review qua Pull Request như mọi thay đổi code khác.
-    \item \textbf{Type-safe}: SQLC sinh Go struct khớp schema, lỗi được phát hiện ở compile time thay vì runtime như SP.
-    \item \textbf{CI/CD}: deploy queries cùng code qua \texttt{make generate}, không cần migration riêng cho SP.
-    \item \textbf{Cùng mục tiêu đóng gói}: tầng \texttt{db/sqlc/*.go} đóng vai trò Repository/DAO --- code nghiệp vụ chỉ gọi hàm Go, không viết SQL trực tiếp; DB Admin có thể điều chỉnh cấu trúc bảng, chỉ cần regenerate SQLC code.
-    \item \textbf{Trade-off}: mất một số tính năng SP (cached execution plan, DB-level permission). Bù lại: đơn giản, testable, phù hợp workflow Go.
+    \item \textbf{Quản lý phiên bản}: các file SQL nằm cùng mã nguồn, được rà soát qua Pull Request như mọi thay đổi khác.
+    \item \textbf{An toàn kiểu}: SQLC sinh struct tương ứng với schema, phát hiện lỗi tại thời điểm biên dịch thay vì lúc chạy.
+    \item \textbf{Triển khai tự động}: truy vấn được sinh và triển khai cùng mã nguồn, không cần migration riêng.
+    \item \textbf{Phân tách rõ ràng}: tầng truy vấn đóng vai trò Repository --- logic nghiệp vụ chỉ gọi hàm đã sinh, không viết SQL trực tiếp.
+    \item \textbf{Đánh đổi}: mất cached execution plan và phân quyền ở tầng DB; bù lại bằng sự đơn giản và khả năng kiểm thử.
 \end{itemize}
 
 \begin{table}[htbp]
@@ -179,10 +180,10 @@ ShopNexus không dùng Stored Procedure (SP) truyền thống. Thay vào đó, t
 \rowcolor{headerblue}
 \thead{Query} & \thead{Nhiệm vụ} & \thead{Inputs} & \thead{Outputs} \\
 \midrule
-\texttt{GetPendingItemsBySeller} & Lấy inbox mục chờ của seller & \texttt{seller\_id UUID}, pagination & \texttt{[]OrderItem} (dùng partial index \texttt{item\_pending\_seller\_idx}) \\
-\texttt{ReserveInventory} & Đặt chỗ tồn kho cho SKU (module inventory) & \texttt{sku\_id UUID}, \texttt{quantity int64} & ok/err (terminal nếu hết kho) \\
+\texttt{ListSellerPendingItems} & Lấy inbox mục chờ của seller (đã thanh toán, chưa có order\_id) & \texttt{seller\_id UUID}, pagination & \texttt{[]OrderItem} (dùng partial index \texttt{item\_pending\_seller\_idx}) \\
+\texttt{ListBuyerPendingItems} & Lấy danh sách mục chờ của buyer & \texttt{account\_id UUID}, pagination & \texttt{[]OrderItem} (dùng partial index \texttt{item\_pending\_account\_idx}) \\
 \texttt{InsertOrder} & Tạo đơn hàng khi seller xác nhận items đã thanh toán & \texttt{buyer\_id}, \texttt{seller\_id}, \texttt{transport\_id}, costs, address & \texttt{Order} \\
-\texttt{PayOrders} (multi-step) & Khởi tạo phiên thanh toán & \texttt{order\_ids []UUID}, \texttt{payment\_option} & \texttt{Payment}, redirect\_url \\
+\texttt{InsertPayment} & Tạo phiên thanh toán tại checkout & \texttt{account\_id}, \texttt{option}, \texttt{amount}, \texttt{date\_expired} & \texttt{Payment} \\
 \texttt{ConfirmPaymentByRefID} & Xử lý webhook, cập nhật trạng thái thanh toán & \texttt{ref\_id string}, \texttt{status} & --- \\
 \texttt{GetSellerStats} & Aggregate thống kê doanh thu & \texttt{seller\_id}, date\_range & totalRevenue, orderCount, avgValue \\
 \bottomrule
@@ -225,10 +226,10 @@ Lý do chọn constraint thay trigger:
 \texttt{cart\_item\_account\_id\_sku\_id\_key} & UNIQUE & \texttt{cart\_item} & Một tài khoản chỉ có 1 dòng/SKU trong giỏ (idempotent UpdateCart) \\
 \texttt{item\_order\_id\_fkey} & FK ON DELETE CASCADE & \texttt{item} $\to$ \texttt{order} & Xóa order xóa hết item liên quan; không tồn tại item mồ côi \\
 \texttt{refund\_order\_id\_fkey} & FK ON DELETE NO ACTION & \texttt{refund} $\to$ \texttt{order} & Giữ lại refund record khi order bị xóa --- hỗ trợ audit/legal compliance \\
-\texttt{order\_payment\_id\_fkey} & FK ON DELETE SET NULL & \texttt{order} $\to$ \texttt{payment} & Xóa payment không xóa order, chỉ unlink \\
-\texttt{order\_transport\_id\_fkey} & FK ON DELETE SET NULL & \texttt{order} $\to$ \texttt{transport} & Tương tự: unlink transport khi xóa \\
-\texttt{item\_pending\_seller\_idx} & Partial INDEX & \texttt{item (seller\_id, status)} WHERE \texttt{order\_id IS NULL} & Tối ưu truy vấn inbox mục chờ, giảm kích thước index \\
-\texttt{item\_pending\_account\_idx} & Partial INDEX & \texttt{item (account\_id, status)} WHERE \texttt{order\_id IS NULL} & Tương tự cho buyer inbox \\
+\texttt{item\_payment\_id\_fkey} & FK ON DELETE SET NULL & \texttt{item} $\to$ \texttt{payment} & Liên kết item với phiên thanh toán tại checkout \\
+\texttt{order\_transport\_id\_fkey} & FK ON DELETE SET NULL & \texttt{order} $\to$ \texttt{transport} & Unlink transport khi xóa \\
+\texttt{item\_pending\_seller\_idx} & Partial INDEX & \texttt{item (seller\_id)} WHERE \texttt{order\_id IS NULL} & Tối ưu truy vấn inbox mục chờ, giảm kích thước index \\
+\texttt{item\_pending\_account\_idx} & Partial INDEX & \texttt{item (account\_id)} WHERE \texttt{order\_id IS NULL} & Tương tự cho buyer inbox \\
 \texttt{order.status} enum & TYPE CHECK & payment, order, refund, refund\_dispute & Giới hạn giá trị: Pending, Processing, Success, Cancelled, Failed \\
 \texttt{transport\_status} enum & TYPE CHECK & \texttt{transport} & 7 trạng thái lifecycle giao vận \\
 \texttt{refund\_method} enum & TYPE CHECK & \texttt{refund} & PickUp hoặc DropOff \\
@@ -261,13 +262,13 @@ Lý do chọn biz rules thay trigger:
 \rowcolor{headerblue}
 \thead{Rule} & \thead{Thay thế cho} & \thead{File/Module} & \thead{Mô tả} \\
 \midrule
-State transition Item & TRIGGER BEFORE UPDATE & \texttt{order/biz/checkout.go}, \texttt{incoming.go} & Item không có cột status --- trạng thái suy ra: \texttt{order\_id IS NULL} = chờ xác nhận, \texttt{order\_id IS NOT NULL} = đã xác nhận, \texttt{date\_cancelled IS NOT NULL} = đã hủy \\
-Snapshot giá & TRIGGER BEFORE INSERT & \texttt{order/biz/checkout.go} & Khi InsertItem, \texttt{unit\_price} và \texttt{sku\_name} copy từ catalog tại thời điểm đặt hàng, bảo vệ khỏi thay đổi giá sau mua \\
-Refund eligibility & TRIGGER BEFORE INSERT refund & \texttt{order/biz/refund.go} & Chỉ tạo refund khi \texttt{order.payment.status = Success} và không có refund Pending/Processing cho cùng order \\
-Payment exactly-once & TRIGGER + retry queue & \texttt{order/biz/pay.go} + \texttt{restate.Run()} & Webhook callback idempotent --- replay không trừ tiền hai lần nhờ journal của Restate \\
-Tồn kho atomic & TRIGGER BEFORE UPDATE item & \texttt{inventory/biz/reserve.go} & ReserveInventory và ReleaseInventory chạy nguyên tử qua \texttt{restate.Run()}, fail thì rollback toàn bộ \\
-Notification sau state change & TRIGGER AFTER UPDATE & \texttt{order/biz/*.go} với \texttt{restate.ServiceSend()} & Fire-and-forget notification tới buyer/seller qua SSE sau mọi state change quan trọng \\
-Auto-refund khi seller xác nhận & TRIGGER AFTER UPDATE refund & \texttt{order/biz/refund.go} & ConfirmSellerRefund gọi PaymentProvider.Refund(), tạo shipment, cập nhật \texttt{refund.status=Success} --- toàn bộ trong 1 durable handler \\
+Chuyển trạng thái item & TRIGGER BEFORE UPDATE & Module Order (checkout, xác nhận) & Item không lưu cột status --- trạng thái suy ra: chưa có đơn = chờ xác nhận, đã có đơn = đã xác nhận, có ngày hủy = đã hủy \\
+Snapshot giá & TRIGGER BEFORE INSERT & Module Order (checkout) & Khi tạo mục đơn hàng, giá và tên sản phẩm được sao chép từ catalog, bảo vệ khỏi thay đổi giá sau mua \\
+Điều kiện hoàn trả & TRIGGER BEFORE INSERT refund & Module Order (hoàn trả) & Chỉ cho phép tạo hoàn trả khi đơn đã thanh toán thành công và không có hoàn trả đang xử lý \\
+Thanh toán exactly-once & TRIGGER + retry queue & Module Order (thanh toán) + durable execution & Webhook callback idempotent --- replay không trừ tiền hai lần nhờ journal bền vững \\
+Tồn kho nguyên tử & TRIGGER BEFORE UPDATE item & Module Inventory & Đặt chỗ và giải phóng tồn kho thực hiện nguyên tử trong giao dịch durable; thất bại thì rollback toàn bộ \\
+Thông báo sau chuyển trạng thái & TRIGGER AFTER UPDATE & Module Order & Gửi thông báo bất đồng bộ tới buyer/seller qua SSE sau mọi thay đổi trạng thái quan trọng \\
+Hoàn tiền khi seller duyệt & TRIGGER AFTER UPDATE refund & Module Order (hoàn trả) & Khi seller duyệt hoàn trả: hoàn tiền qua cổng ban đầu, tạo vận đơn ngược, cập nhật trạng thái --- toàn bộ trong một handler durable \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -290,7 +291,7 @@ Bảng~\ref{tab:db-uc-crossref} tổng hợp các use case chính, form tương 
 \midrule
 UC04 & CartPage & UpdateCart, ClearCart & \texttt{order.cart\_item} (UNIQUE sku/account) \\
 UC09 & CheckoutPage, SellerInbox & BuyerCheckout, ConfirmSellerPending & \texttt{order.item}, \texttt{order.order} (\texttt{InsertOrder}, \texttt{ReserveInventory}) \\
-UC12 & CheckoutPage & BuyerCheckout, ConfirmPayment & \texttt{order.payment} (\texttt{PayOrders}, \texttt{ConfirmPaymentByRefID}) \\
+UC12 & CheckoutPage & BuyerCheckout, ConfirmPayment & \texttt{order.payment} (\texttt{InsertPayment}, \texttt{ConfirmPaymentByRefID}) \\
 UC18 & SellerDashboard & GetSellerOrderStats & \texttt{order.order}, \texttt{order.item} (\texttt{GetSellerStats}) \\
 UC21 & RefundRequestForm, SellerRefundReview & CreateBuyerRefund, ConfirmSellerRefund & \texttt{order.refund}, \texttt{order.transport} (refund eligibility rule) \\
 \bottomrule
@@ -349,26 +350,26 @@ FMEA & Failure Modes \& Effects Analysis & Các thành phần critical trong dur
 
 \rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm A --- Cấu trúc và chuẩn hoá (Static structural review)}}} \\
 Chuẩn hoá 3NF & Rà soát ERD: kiểm tra không có phụ thuộc bắc cầu, mỗi bảng có khoá chính rõ ràng & Mỗi cột non-key phụ thuộc trực tiếp vào khoá chính; không dư thừa dữ liệu & Walkthrough \\
-Tuân thủ SOLID & Review interface.go: mỗi module expose 1 interface, không có interface \textquotedblleft god\textquotedblright{} & Single Responsibility, Interface Segregation đạt yêu cầu & Inspection + Peer Review \\
-Coupling / Cohesion & Phân tích dependency graph: đếm afferent/efferent coupling mỗi module & Afferent $\leq$ 5, Efferent $\leq$ 8; không có circular dep (Go compiler enforce) & Static Analysis \\
-Testability & Walkthrough: mỗi public method có input/output rõ ràng, không phụ thuộc global state & Unit test được viết mà không cần mock liên schema & Walkthrough \\
-Modularity & Kiểm tra: không FK xuyên schema, giao tiếp module chỉ qua \texttt{XxxBiz} interface & Có thể tách module thành microservice chỉ đổi URL Restate & Inspection \\
+Tuân thủ SOLID & Rà soát interface: mỗi module chỉ expose một interface nghiệp vụ, không có interface quá lớn & Single Responsibility, Interface Segregation đạt yêu cầu & Inspection + Peer Review \\
+Coupling / Cohesion & Phân tích đồ thị phụ thuộc: đếm afferent/efferent coupling mỗi module & Afferent $\leq$ 5, Efferent $\leq$ 8; không có phụ thuộc vòng & Static Analysis \\
+Testability & Walkthrough: mỗi phương thức public có đầu vào/đầu ra rõ ràng, không phụ thuộc trạng thái toàn cục & Viết unit test mà không cần mock liên schema & Walkthrough \\
+Modularity & Kiểm tra: không FK xuyên schema, giao tiếp module chỉ qua interface nghiệp vụ & Có thể tách module thành microservice chỉ đổi địa chỉ service & Inspection \\
 \addlinespace
 \rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm B --- Độ tin cậy và tương tranh (Reliability \& concurrency)}}} \\
-FMEA --- Failure Modes & Với mỗi component critical (OrderHandler, PaymentProvider, InventoryBiz), liệt kê what-if-fails và mitigation & Mỗi failure mode có retry / compensation rõ ràng & FMEA Table \\
-Crash recovery & Kịch bản: crash giữa \texttt{BuyerCheckout} ngay sau \texttt{ReserveInventory}; Restate replay journal & Không double-reserve, không orphan item; state final nhất quán & Fault Injection + Inspection \\
-Idempotency & Rà soát: mọi side effect nằm trong \texttt{restate.Run()}; webhook kiểm tra \texttt{ref\_id} trùng & Replay cùng event không đổi state; webhook duplicate không trừ tiền 2 lần & Inspection + Unit Test \\
+FMEA --- Failure Modes & Với mỗi thành phần quan trọng (xử lý đơn, cổng thanh toán, tồn kho), liệt kê kịch bản lỗi và biện pháp khắc phục & Mỗi failure mode có retry hoặc compensation rõ ràng & FMEA Table \\
+Crash recovery & Kịch bản: crash giữa luồng checkout ngay sau khi đặt chỗ tồn kho; hệ thống replay journal & Không đặt chỗ trùng, không có mục mồ côi; trạng thái cuối nhất quán & Fault Injection + Inspection \\
+Idempotency & Rà soát: mọi side effect nằm trong giao dịch durable; webhook kiểm tra mã tham chiếu trùng & Replay cùng event không thay đổi trạng thái; webhook gửi lại không trừ tiền 2 lần & Inspection + Unit Test \\
 Race condition \& lock ordering & Phân tích: xác định các truy cập đồng thời (cart, inventory); thứ tự lock (buyer $\to$ seller) & Không deadlock; không lost update; inventory reserve nguyên tử & Walkthrough + Concurrency Test \\
 \addlinespace
 \rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm C --- Bảo mật và tuân thủ (Security \& compliance)}}} \\
 STRIDE threat model & Phân tích 6 loại mối đe doạ cho webhook thanh toán, xác thực JWT, dispute submission & Mỗi đe doạ có mitigation (HMAC verify, token expiry, rate limit, audit log) & Threat Modeling \\
-Input validation coverage & Rà soát: 100\% endpoint có tag \texttt{validate:} trên params struct; middleware \texttt{validator.Validate(params)} & Reject input không hợp lệ trước khi vào biz logic & Static Analysis + Inspection \\
-AuthN/AuthZ matrix & Checklist: mọi endpoint phi-public yêu cầu JWT; matrix \texttt{(endpoint, role, check)} cho buyer/seller/admin & Không có endpoint bypass; buyer không truy cập đơn của account khác & Inspection + Pen-test \\
+Input validation coverage & Rà soát: 100\% endpoint có kiểm tra dữ liệu đầu vào tại middleware & Từ chối dữ liệu không hợp lệ trước khi vào tầng nghiệp vụ & Static Analysis + Inspection \\
+AuthN/AuthZ matrix & Checklist: mọi endpoint phi-public yêu cầu JWT; ma trận (endpoint, vai trò, kiểm tra) cho buyer/seller/admin & Không có endpoint bỏ sót; buyer không truy cập đơn của tài khoản khác & Inspection + Pen-test \\
 Compliance checklist & Kiểm tra: NĐ 52/2013 (audit trail), Luật BVQLNTD 2023 (14-ngày hoàn trả), PCI-DSS (không lưu card data) & Đạt đủ yêu cầu pháp lý cho TMĐT tại Việt Nam & Peer Review + Legal Review \\
 \addlinespace
 \rowcolor{white}\multicolumn{4}{@{}l}{\textit{\textbf{Nhóm D --- Hiệu năng và khả năng quan sát (Performance \& observability)}}} \\
 Complexity \& query plan & Rà soát big-O từng API; EXPLAIN ANALYZE cho query hot path; kiểm tra partial index được dùng & API read $\leq O(\log n)$; query dùng index, không seq scan trên bảng lớn & Inspection + EXPLAIN \\
-Observability readiness & Rà soát: mọi handler quan trọng có \texttt{metrics.TrackHandler()}; error có context; log có trace ID & 100\% handler critical được đo; p99 latency từ dashboard & Inspection + Static Analysis \\
+Observability readiness & Rà soát: mọi handler quan trọng được đo hiệu năng; lỗi có ngữ cảnh đầy đủ; log có trace ID & 100\% handler quan trọng được giám sát; p99 latency từ dashboard & Inspection + Static Analysis \\
 Toàn vẹn dữ liệu & Kịch bản: xoá order $\to$ item CASCADE, refund NO ACTION giữ lại; enum chặn giá trị không hợp lệ & FK rule + enum + partial index đúng thiết kế & Inspection + Integration Test \\
 
 \end{longtable}
@@ -397,27 +398,27 @@ Ma trận truy vết (traceability matrix) liên kết mỗi yêu cầu (NFR ho�
 \endlastfoot
 
 \rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Nghiệp vụ (Business NFR)}}} \\
-B02 & Tồn kho chính xác, không overselling & \texttt{InventoryBiz.ReserveInventory}, partial index \texttt{item\_pending\_*\_idx}, \texttt{restate.Run} atomic & \texttt{TestReserveInventoryRollback} + integration test overselling & Unit + Inspection \\
-B04 & Nhất quán chi phí & Công thức \texttt{total = product\_cost $-$ discount + transport\_cost} trong \texttt{ConfirmSellerPending} + snapshot giá ở \texttt{InsertItem} & \texttt{TestCostFormula} + \texttt{TestPriceSnapshot} & Unit + Walkthrough \\
-B05 & Phân tích kinh doanh $\leq$ 1s & \texttt{GetSellerOrderStats} dùng SQL aggregate + partial index, không loop Go & Benchmark 10K orders & Performance Test \\
+B02 & Tồn kho chính xác, không overselling & Đặt chỗ tồn kho nguyên tử trong giao dịch durable; partial index cho inbox mục chờ & Test rollback tồn kho + integration test mua đồng thời & Unit + Inspection \\
+B04 & Nhất quán chi phí & Công thức tổng tiền thống nhất khi xác nhận đơn + snapshot giá tại checkout & Test công thức + test snapshot giá & Unit + Walkthrough \\
+B05 & Phân tích kinh doanh $\leq$ 1s & Truy vấn aggregate trực tiếp trên DB + partial index, không xử lý vòng lặp ở tầng ứng dụng & Benchmark 10K đơn hàng & Performance Test \\
 \addlinespace
 \rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Vận hành (Operational NFR)}}} \\
-O01 & Xác thực \& phân quyền & Middleware JWT + \texttt{AuthenticatedAccount} + kiểm tra ownership ở biz & \texttt{TestOwnershipViolation} + pen-test bypass & Inspection + Pen-test \\
-O02 & Bảo mật thanh toán & HMAC verify webhook, \texttt{date\_expired}, \texttt{payment\_method\_id} reference & \texttt{TestWebhookReplay} + \texttt{TestExpiredSession} & Threat Model + Unit \\
-O03 & Sẵn sàng \& phục hồi & Restate 3-node cluster + journal replay + \texttt{restate.Run} idempotent & Chaos test: kill node giữa \texttt{BuyerCheckout} & Fault Injection \\
-O06 & Chống lạm dụng endpoint & \texttt{ratelimit.Factory} + Redis INCR+EXPIRE NX + Echo middleware & \texttt{TestFactoryMemoryFallback} + \texttt{TestFactoryIsolatesIPs} & Unit + Load Test \\
+O01 & Xác thực \& phân quyền & Middleware JWT + kiểm tra quyền sở hữu tại tầng nghiệp vụ & Test vi phạm quyền sở hữu + kiểm thử xâm nhập & Inspection + Pen-test \\
+O02 & Bảo mật thanh toán & Xác minh chữ ký HMAC webhook, thời hạn phiên thanh toán & Test replay webhook + test phiên hết hạn & Threat Model + Unit \\
+O03 & Sẵn sàng \& phục hồi & Cụm Restate 3 node + replay journal + idempotent & Chaos test: dừng node giữa luồng checkout & Fault Injection \\
+O06 & Chống lạm dụng endpoint & Rate limiter dựa trên Redis + middleware HTTP & Test fallback bộ nhớ + test cách ly theo IP & Unit + Load Test \\
 \addlinespace
 \rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Phát triển (Development NFR)}}} \\
-D01 & Durable Microservices & Interface \texttt{XxxBiz} + Restate proxy + schema isolation & Inspection: dependency graph & Static Analysis \\
-D03 & Durable Execution & Mọi side effect trong \texttt{restate.Run}, cross-module qua proxy & \texttt{TestDurableReplay} + code review checklist & Inspection + Unit \\
-D06 & Observability & \texttt{metrics.TrackHandler} ở 10 handler + Prometheus + Grafana dashboard & Kiểm tra \texttt{/metrics} endpoint trả về đúng format & Inspection \\
+D01 & Durable Microservices & Interface nghiệp vụ + proxy liên module + schema isolation & Rà soát đồ thị phụ thuộc & Static Analysis \\
+D03 & Durable Execution & Mọi side effect trong giao dịch durable, gọi liên module qua proxy & Test replay journal + checklist rà soát & Inspection + Unit \\
+D06 & Observability & Mọi handler quan trọng đo hiệu năng + dashboard giám sát & Kiểm tra endpoint metrics trả đúng format & Inspection \\
 \addlinespace
 \rowcolor{white}\multicolumn{5}{@{}l}{\textit{\textbf{Use cases critical}}} \\
-UC04 & Đặt hàng từ giỏ hàng & \texttt{BuyerCheckout} + \texttt{CatalogBiz.GetProductSKU} + \texttt{InventoryBiz.ReserveInventory} & \texttt{TestPartialRefundItemIDsSerialization} (schema), integration test full flow & Unit + Integration \\
-UC09 & Xác nhận đơn & \texttt{ConfirmSellerPending} + transaction: \texttt{InsertTransport} $\to$ \texttt{InsertOrder} $\to$ \texttt{UpdateItems} & Integration: seller khác confirm đơn $\to$ reject & Unit + Authorization Test \\
-UC12 & Thanh toán & \texttt{BuyerCheckout} + \texttt{PaymentProvider.CreatePayment} + \texttt{ConfirmPayment} webhook & E2E: VNPay sandbox + webhook replay & Integration + Pen-test \\
-UC18 & Tạo hoàn trả & \texttt{CreateBuyerRefund} + item\_ids validation + status guard & \texttt{TestPartialRefund*} + integration concurrent refund & Unit + Integration \\
-UC22 & Mở tranh chấp & \texttt{CreateRefundDispute} + rate limit 3/min + fire-and-forget notify & Rate limit test + authorization test & Unit + Load Test \\
+UC04 & Đặt hàng từ giỏ hàng & Checkout: tra cứu catalog + đặt chỗ tồn kho + thanh toán + tạo mục chờ & Integration test luồng đầy đủ + test serialization schema & Unit + Integration \\
+UC09 & Xác nhận đơn & Xác nhận: tạo vận đơn $\to$ tạo đơn hàng $\to$ gắn mục vào đơn & Test seller khác xác nhận đơn $\to$ bị từ chối & Unit + Authorization Test \\
+UC12 & Thanh toán & Checkout + tạo phiên qua cổng + xử lý webhook & E2E: VNPay sandbox + replay webhook & Integration + Pen-test \\
+UC18 & Tạo hoàn trả & Kiểm tra điều kiện hoàn trả + partial refund theo item & Test hoàn trả trùng + hoàn trả đồng thời & Unit + Integration \\
+UC22 & Mở tranh chấp & Kiểm tra quyền + giới hạn tốc độ 3 lần/phút + thông báo bất đồng bộ & Test giới hạn tốc độ + test phân quyền & Unit + Load Test \\
 
 \end{longtable}
 

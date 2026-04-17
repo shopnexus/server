@@ -69,28 +69,3 @@ Nhóm đề xuất xây dựng \textbf{ShopNexus} --- nền tảng TMĐT với m
     \item \textbf{Dashboard phân tích}: Thống kê doanh thu, biểu đồ xu hướng (day/week/month), sản phẩm bán chạy, hành động chờ xử lý.
     \item \textbf{Giỏ hàng, ví và thanh toán linh hoạt}: Giỏ hàng đồng bộ với unique constraint, hỗ trợ Buy Now, đa cổng thanh toán (VNPay, SePay, COD) kết hợp ví nội bộ. Phí vận chuyển do platform quản lý (buyer trả phí ước tính, platform trả phí thực tế cho đơn vị vận chuyển).
 \end{itemize}
-
-\begin{center}
-\begin{tikzpicture}[
-  actor/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=rowgray, minimum width=2.8cm, minimum height=1cm, align=center, font=\small\bfseries},
-  system/.style={rectangle, rounded corners=6pt, draw=headerblue, fill=headerblue!15, minimum width=3.2cm, minimum height=1.2cm, align=center, font=\small\bfseries, line width=1.5pt},
-  msg/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black},
-  lbl/.style={font=\scriptsize, fill=white, inner sep=2pt, align=center},
-]
-\node[system] (shop) at (0,0) {ShopNexus};
-\node[actor]  (buyer)    at (-5, 1.5) {Khách hàng};
-\node[actor]  (seller)   at ( 5, 1.5) {Người bán};
-\node[actor]  (payment)  at (-4,-2.5) {Cổng thanh toán};
-\node[actor]  (shipping) at ( 4,-2.5) {Đơn vị vận chuyển};
-
-\draw[msg] (buyer)   -- node[lbl, above, sloped] {1. Checkout + TT} (shop);
-\draw[msg] (shop)    -- node[lbl, below, sloped, near start] {2. Tạo payment} (payment);
-\draw[msg] (payment) -- node[lbl, below] {3. Callback} (shop);
-\draw[msg] (shop)    -- node[lbl, above, sloped] {4. Xác nhận đơn} (seller);
-\draw[msg] (shop)    -- node[lbl, below, sloped] {5. Tạo vận đơn} (shipping);
-\draw[msg] (shipping) -- node[lbl, above, sloped, near end] {6. Giao hàng} (buyer);
-\draw[msg, dashed] (buyer) to[bend right=20] node[lbl, below, sloped] {7. Hoàn trả} (shop);
-\end{tikzpicture}
-\captionof{figure}{Lược đồ cộng tác --- Mô hình vận hành mới với ShopNexus}
-\label{fig:workflow-shopnexus}
-\end{center}

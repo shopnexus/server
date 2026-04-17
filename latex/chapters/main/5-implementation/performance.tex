@@ -1,0 +1,71 @@
+% ============================================================
+% 5.5 Đánh giá hiệu năng
+% ============================================================
+
+\section{Đánh giá hiệu năng}
+\label{sec:impl-performance}
+
+Phần này trình bày đánh giá hiệu năng của hệ thống ShopNexus dưới góc độ chịu tải và ổn định khi số lượng người dùng đồng thời tăng cao. Mục tiêu của kiểm thử hiệu năng không chỉ là đo thời gian phản hồi trung bình, mà còn xác nhận hệ thống vẫn duy trì đúng nghiệp vụ trong điều kiện tải lớn, không phát sinh lỗi mất dữ liệu, không tạo đơn trùng lặp và không làm sai lệch trạng thái thanh toán hay tồn kho.
+
+\subsection{Mục tiêu kiểm thử hiệu năng}
+\label{subsec:perf-goals}
+
+Các kịch bản hiệu năng tập trung vào những luồng nghiệp vụ có tần suất cao và ảnh hưởng trực tiếp đến trải nghiệm người dùng, bao gồm: truy cập danh sách sản phẩm, thêm sản phẩm vào giỏ hàng, thực hiện checkout, thanh toán và tạo yêu cầu hoàn trả. Với đặc thù hệ thống thương mại điện tử, hai chỉ số được ưu tiên theo dõi là \textit{throughput} (số request xử lý mỗi giây) và \textit{latency} ở mức P95/P99, vì đây là các chỉ số phản ánh rõ nhất khả năng đáp ứng của hệ thống trong điều kiện thực tế.
+
+Ngưỡng mục tiêu được đặt ra như sau: các API đọc dữ liệu phổ biến phải duy trì thời gian phản hồi P95 dưới 300 ms; các API ghi dữ liệu như checkout, thanh toán và hoàn trả phải duy trì P95 dưới 1000 ms; tỷ lệ lỗi hệ thống phải nhỏ hơn 1\%; và trong suốt quá trình stress test không được xuất hiện lỗi vi phạm tính nhất quán nghiệp vụ như tạo đơn hàng trùng, trừ tồn kho âm hoặc callback thanh toán được xử lý nhiều lần.
+
+\subsection{Kịch bản stress test}
+\label{subsec:stress-test-scenarios}
+
+Kiểm thử được thiết kế theo hướng tăng tải tuần tự để quan sát giới hạn chịu tải của hệ thống. Công cụ phù hợp cho loại kiểm thử này là \texttt{k6} hoặc \texttt{vegeta}, cho phép mô phỏng số lượng lớn người dùng đồng thời với các mô hình tải khác nhau như ramp-up, spike và sustained load.
+
+\begin{table}[H]
+\centering
+\caption{Các kịch bản stress test chính}
+\label{tab:stress-test-scenarios}
+\begin{tabular}{@{}p{3.2cm}p{3.8cm}p{3.2cm}p{4.2cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Kịch bản} & \thead{Mô tả tải} & \thead{Chỉ số theo dõi} & \thead{Kết quả mong đợi} \\
+\midrule
+Duyệt sản phẩm & 300--500 người dùng đồng thời gửi request đọc danh sách và chi tiết sản phẩm & RPS, P95 latency, CPU API, cache hit rate & Hệ thống phản hồi ổn định, không timeout, P95 dưới 300 ms \\
+Checkout đồng thời & 100--150 người dùng đồng thời thực hiện thêm giỏ hàng, reserve inventory và checkout & P95/P99 latency, error rate, số đơn tạo thành công & Không oversell, không deadlock, P95 dưới 1000 ms \\
+Thanh toán callback dồn dập & Gateway gửi callback với tần suất cao, có cả callback lặp lại & Tỷ lệ xử lý thành công, số giao dịch trùng, độ ổn định workflow & Không tạo đơn trùng, callback lặp được loại bỏ đúng cơ chế exactly-once \\
+Hoàn trả và tranh chấp & 50--100 người dùng đồng thời tạo yêu cầu hoàn trả và cập nhật trạng thái & Latency, error rate, tính đúng đắn trạng thái & Trạng thái hoàn trả nhất quán, không mất thông báo hay cập nhật sai \\
+Spike test toàn hệ thống & Tăng đột ngột lượng truy cập trong thời gian ngắn & CPU, RAM, số connection DB, tỷ lệ lỗi & Hệ thống giảm hiệu năng có kiểm soát nhưng vẫn đạt ngưỡng chấp nhận được \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tiêu chí đánh giá}
+\label{subsec:perf-criteria}
+
+Việc đánh giá kết quả stress test không chỉ dựa trên tốc độ phản hồi, mà còn dựa trên tính đúng đắn của dữ liệu sau kiểm thử. Sau mỗi lượt kiểm thử, cần đối soát số lượng đơn hàng, bản ghi thanh toán, trạng thái pending item, tồn kho sản phẩm và trạng thái hoàn trả để bảo đảm không có sai lệch phát sinh do tải lớn. Đây là tiêu chí đặc biệt quan trọng đối với hệ thống áp dụng \textit{durable execution}, bởi lợi thế chính của kiến trúc này nằm ở khả năng duy trì tính nhất quán khi có retry, crash hoặc callback lặp.
+
+\begin{table}[H]
+\centering
+\caption{Ngưỡng chấp nhận cho kiểm thử hiệu năng}
+\label{tab:perf-thresholds}
+\begin{tabular}{@{}p{4.8cm}p{4cm}p{5cm}@{}}
+\toprule
+\rowcolor{headerblue}
+\thead{Chỉ số} & \thead{Ngưỡng mục tiêu} & \thead{Ý nghĩa} \\
+\midrule
+P95 latency cho API đọc & $< 300$ ms & Bảo đảm trải nghiệm duyệt sản phẩm mượt \\
+P95 latency cho API checkout / payment / refund & $< 1000$ ms & Bảo đảm các thao tác nghiệp vụ chính phản hồi nhanh \\
+Tỷ lệ lỗi HTTP 5xx & $< 1\%$ & Hệ thống ổn định dưới tải lớn \\
+Tỷ lệ timeout & $< 0.5\%$ & Giới hạn số request bị treo hoặc quá hạn \\
+Sai lệch dữ liệu sau kiểm thử & 0 & Không tạo đơn trùng, không âm tồn kho, không sai trạng thái \\
+Khả năng phục hồi sau spike & $< 2$ phút & Hệ thống nhanh chóng trở về trạng thái ổn định \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Kết quả mong đợi}
+\label{subsec:perf-expected-result}
+
+Kết quả mong đợi của phần kiểm thử hiệu năng là hệ thống \textbf{đạt ngưỡng hiệu năng đã đề ra} ở các luồng nghiệp vụ quan trọng. Cụ thể, các API đọc vẫn duy trì phản hồi nhanh khi tải tăng cao; các API ghi như checkout, thanh toán và hoàn trả vẫn xử lý đúng logic nghiệp vụ với tỷ lệ lỗi thấp; đồng thời cơ chế durable execution của Restate giúp hệ thống tránh được các lỗi thường gặp trong môi trường stress như tạo giao dịch lặp, mất trạng thái trung gian hoặc xử lý callback không idempotent.
+
+Trong trường hợp tải vượt quá ngưỡng thiết kế, kết quả mong đợi không phải là hệ thống tiếp tục mở rộng vô hạn, mà là hệ thống suy giảm hiệu năng theo cách có kiểm soát: thời gian phản hồi tăng dần nhưng không sập toàn bộ, các request mới có thể bị giới hạn theo backpressure, và dữ liệu nghiệp vụ vẫn giữ được tính nhất quán. Điều này phù hợp với mục tiêu chất lượng của đề tài, trong đó độ tin cậy và tính đúng đắn của giao dịch được ưu tiên cao hơn việc tối đa hóa thông lượng bằng mọi giá.
+
+Từ góc độ đánh giá tổng thể, nếu các kịch bản stress test cho thấy hệ thống duy trì được ngưỡng latency mục tiêu, tỷ lệ lỗi thấp và không phát sinh sai lệch dữ liệu, có thể kết luận rằng giải pháp kiến trúc được lựa chọn đáp ứng tốt yêu cầu hiệu năng ở quy mô triển khai của đồ án. Đây là cơ sở quan trọng để tiếp tục mở rộng hệ thống trong tương lai theo hướng tăng số lượng dịch vụ, bổ sung autoscaling, tách tải đọc/ghi và tối ưu sâu hơn ở tầng cơ sở dữ liệu, cache và hàng đợi thông điệp.

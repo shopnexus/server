@@ -27,86 +27,100 @@
 \subsection{Lược đồ use case tổng quan}
 
 \begin{center}
+\hspace*{-1cm} % <-- chỉnh giá trị âm tại đây
 \begin{tikzpicture}[
-  uc/.style={ellipse, draw=headerblue, fill=rowgray, text width=2.6cm, align=center, font=\footnotesize, minimum height=0.9cm, inner sep=3pt},
+  x=1.05cm, y=1.15cm, % scale nhẹ, tăng Y cho thoáng hàng
+  uc/.style={
+    ellipse, draw=headerblue, fill=rowgray, 
+    text width=2.2cm, % giảm width cho gọn
+    align=center, font=\footnotesize, 
+    minimum height=0.8cm, inner sep=2.5pt
+  },
   actor/.style={font=\footnotesize\bfseries},
   arr/.style={-, headerblue!60},
   inc/.style={-{Stealth[length=4pt]}, dashed, headerblue!60},
   ext/.style={-{Stealth[length=4pt]}, dotted, headerblue!60},
   lbl/.style={font=\scriptsize\itshape, headerblue!70!black},
-  cnt/.style={font=\tiny, gray, anchor=south},
+  cnt/.style={font=\tiny, gray, anchor=north},
 ]
 
-% System boundary
-\draw[headerblue, thick, rounded corners=8pt] (-0.5,0.8) rectangle (10.5,-11.5);
-\node[font=\small\bfseries, headerblue, anchor=north west] at (-0.2,0.6) {Module Quản lý Đơn hàng};
+% System boundary (nới nhẹ)
+\draw[headerblue, thick, rounded corners=8pt] (-0.5,0.8) rectangle (10.8,-11);
 
-% Actors — Buyer (left)
-\node[actor] at (-2.5,-3) {Khách hàng};
-\draw (-2.5,-3.5) circle(0.25);
-\draw (-2.5,-3.75) -- (-2.5,-4.4);
-\draw (-2.9,-4) -- (-2.1,-4);
-\draw (-2.5,-4.4) -- (-2.9,-4.9);
-\draw (-2.5,-4.4) -- (-2.1,-4.9);
+% Actors — Buyer
+\node[actor] at (-2.3,-3) {Khách hàng};
+\draw (-2.3,-3.5) circle(0.25);
+\draw (-2.3,-3.75) -- (-2.3,-4.4);
+\draw (-2.7,-4) -- (-1.9,-4);
+\draw (-2.3,-4.4) -- (-2.7,-4.9);
+\draw (-2.3,-4.4) -- (-1.9,-4.9);
 
-% Actors — Seller (right)
-\node[actor] at (13,-3) {Người bán};
-\draw (13,-3.5) circle(0.25);
-\draw (13,-3.75) -- (13,-4.4);
-\draw (12.6,-4) -- (13.4,-4);
-\draw (13,-4.4) -- (12.6,-4.9);
-\draw (13,-4.4) -- (13.4,-4.9);
+% Seller
+\node[actor] at (12.6,-3) {Người bán};
+\draw (12.6,-3.5) circle(0.25);
+\draw (12.6,-3.75) -- (12.6,-4.4);
+\draw (12.2,-4) -- (13,-4);
+\draw (12.6,-4.4) -- (12.2,-4.9);
+\draw (12.6,-4.4) -- (13,-4.9);
 
-% Actors — Admin (bottom right)
-\node[actor] at (13,-9.5) {Quản trị viên};
-\draw (13,-10) circle(0.25);
-\draw (13,-10.25) -- (13,-10.9);
-\draw (12.6,-10.5) -- (13.4,-10.5);
-\draw (13,-10.9) -- (12.6,-11.4);
-\draw (13,-10.9) -- (13.4,-11.4);
+% Admin
+\node[actor] at (12.6,-9.3) {Quản trị viên};
+\draw (12.6,-9.8) circle(0.25);
+\draw (12.6,-10.05) -- (12.6,-10.7);
+\draw (12.2,-10.3) -- (13,-10.3);
+\draw (12.6,-10.7) -- (12.2,-11.2);
+\draw (12.6,-10.7) -- (13,-11.2);
 
-% Use case groups — 9 ellipses with UC count
-\node[uc] (g1) at (2,0) {Giỏ hàng};
+% ===== GRID GỌN & ĐỀU =====
+
+% Row 1
+\node[uc] (g1) at (1.8,0) {Giỏ hàng};
 \node[cnt] at (g1.south) {UC01--03};
 
-\node[uc] (g2) at (5.5,0) {Đặt hàng};
+\node[uc] (g2) at (5.4,0) {Đặt hàng};
 \node[cnt] at (g2.south) {UC04--06};
 
 \node[uc] (g3) at (9,0) {Xử lý đơn};
 \node[cnt] at (g3.south) {UC07--11};
 
-\node[uc] (g4) at (2,-2.5) {Ví \& TT};
+% Row 2
+\node[uc] (g4) at (1.8,-2.8) {Ví \& TT};
 \node[cnt] at (g4.south) {UC12--13};
 
-\node[uc] (g5) at (6,-2.5) {Theo dõi};
+\node[uc] (g5) at (5.4,-2.8) {Theo dõi};
 \node[cnt] at (g5.south) {UC14--16};
 
-\node[uc] (g6) at (2,-5.5) {Hoàn trả};
+% Row 3
+% Row 3 (fix spacing)
+\node[uc] (g6) at (1.8,-5.8) {Hoàn trả};
 \node[cnt] at (g6.south) {UC17--21};
 
-\node[uc] (g7) at (6,-5.5) {Tranh chấp};
+\node[uc] (g7) at (6.6,-5.8) {Tranh chấp}; % <-- đẩy sang phải
 \node[cnt] at (g7.south) {UC22--23};
 
-\node[uc] (g8) at (5,-8.5) {Dashboard};
-\node[cnt] at (g8.south) {UC24--27};
-
-\node[uc] (g9) at (2,-8.5) {Đánh giá};
+% Row 4
+\node[uc] (g9) at (1.8,-8.8) {Đánh giá};
 \node[cnt] at (g9.south) {UC28--30};
 
-% Buyer connections
+\node[uc] (g8) at (5.4,-8.8) {Dashboard};
+\node[cnt] at (g8.south) {UC24--27};
+
+% ===== CONNECTIONS =====
+
+% Buyer
 \foreach \n in {g1,g2,g4,g5,g6,g9}
-  \draw[arr] (-2.5,-4.2) -- (\n);
-\draw[arr] (-2.5,-4.2) -- (g7);
+  \draw[arr] (-2.3,-4.2) -- (\n);
+\draw[arr] (-2.3,-4.2) -- (g7);
 
-% Seller connections
+% Seller
 \foreach \n in {g3,g5,g6,g8}
-  \draw[arr] (13,-4.2) -- (\n);
-\draw[arr] (13,-4.2) -- (g7);
+  \draw[arr] (12.6,-4.2) -- (\n);
+\draw[arr] (12.6,-4.2) -- (g7);
 
-% Admin connections
-\draw[arr] (13,-10.2) -- (g7);
+% Admin
+\draw[arr] (12.6,-10) -- (g7);
 
-% Relations between groups
+% Relations
 \draw[inc] (g2) -- (g4) node[lbl, midway, right] {$\ll$include$\gg$};
 \draw[ext] (g7) -- (g6) node[lbl, midway, above] {$\ll$extend$\gg$};
 

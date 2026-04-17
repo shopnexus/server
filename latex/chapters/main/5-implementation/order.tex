@@ -7,29 +7,33 @@
 
 \subsection{Mô tả cách sử dụng}
 
-Quy trình mua hàng trên ShopNexus gồm hai giai đoạn chính: checkout và xác nhận. Buyer chọn sản phẩm (SKU), địa chỉ giao hàng và phương thức vận chuyển cho từng item, sau đó thanh toán ngay tại checkout (kết hợp ví và cổng thanh toán). Hệ thống tự động reserve inventory và tạo items với \texttt{payment\_id}. Seller xem inbox các mục đã thanh toán, xác nhận hoặc từ chối. Khi xác nhận, platform tạo vận đơn và đơn hàng. Nếu seller từ chối hoặc quá 48 giờ không xử lý, tiền hoàn vào ví người mua.
+Quy trình mua hàng trên ShopNexus gồm hai giai đoạn chính. Trong giai đoạn \textbf{checkout}, người mua chọn sản phẩm, địa chỉ giao hàng và đơn vị vận chuyển cho từng item, sau đó thanh toán ngay (kết hợp ví nội bộ và cổng thanh toán). Hệ thống đặt chỗ tồn kho, snapshot giá, và tạo các mục chờ liên kết với phiên thanh toán. Trong giai đoạn \textbf{xác nhận}, người bán xem danh sách các mục đã thanh toán, gộp và xác nhận hoặc từ chối. Khi xác nhận, hệ thống tạo vận đơn và đơn hàng chính thức. Nếu người bán không phản hồi trong 48 giờ, hệ thống tự động hủy và hoàn tiền vào ví.
 
-\begin{center}
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang giỏ hàng --- danh sách sản phẩm, số lượng, tổng tiền, nút Checkout\vspace{3cm}}}
-\captionof{figure}{Trang giỏ hàng của người mua}
-\label{fig:impl-cart}
-\end{center}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth,keepaspectratio]{uploads/viewcart.png}
+\caption{Trang giỏ hàng của người mua}
+\label{fig:view-cart-page}
+\end{figure}
 
-Trang giỏ hàng hiển thị danh sách sản phẩm đã chọn, cho phép buyer điều chỉnh số lượng hoặc xóa sản phẩm. Nhấn ``Checkout'' để gửi yêu cầu tạo pending items cho seller.
+Trang giỏ hàng hiển thị danh sách sản phẩm đã chọn, cho phép người mua điều chỉnh số lượng hoặc xóa sản phẩm trước khi chuyển sang trang checkout.
 
-\begin{center}
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang checkout/thanh toán --- chọn phương thức thanh toán (VNPay QR, Bank, COD), thông tin giao hàng\vspace{3cm}}}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth,keepaspectratio]{uploads/checkout.png}
 \captionof{figure}{Trang checkout và thanh toán}
 \label{fig:impl-checkout}
-\end{center}
+\end{figure}
 
-Buyer chọn sản phẩm, địa chỉ giao hàng và phương thức vận chuyển cho từng item, sau đó thanh toán ngay tại checkout (kết hợp ví và cổng thanh toán). Items được tạo ngay với \texttt{payment\_id}. Seller xem các mục đã thanh toán và xác nhận/từ chối. Khi xác nhận, platform tạo vận đơn và đơn hàng. Nếu seller từ chối hoặc quá 48 giờ, tiền hoàn vào ví người mua.
+Trang checkout cho phép buyer chọn địa chỉ giao hàng, đơn vị vận chuyển cho từng item, và phương thức thanh toán. Sau khi thanh toán, hệ thống tạo các mục chờ seller xác nhận.
 
-\begin{center}
-\fbox{\parbox{0.85\textwidth}{\centering\vspace{3cm}TODO: Screenshot trang danh sách đơn hàng --- trạng thái đơn, thông tin sản phẩm, nút hành động\vspace{3cm}}}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth,keepaspectratio]{uploads/buyervieworders.png}
 \captionof{figure}{Danh sách đơn hàng của người mua}
 \label{fig:impl-order-list}
-\end{center}
+\end{figure}
+
 
 Trang đơn hàng cho phép buyer theo dõi trạng thái và thực hiện các thao tác như hủy đơn hoặc yêu cầu hoàn trả.
 
@@ -71,11 +75,11 @@ TC-01 & Thêm sản phẩm vào giỏ hàng & Giỏ hàng cập nhật đúng SK
 TC-02 & Thêm sản phẩm hết hàng & Hiển thị lỗi ``Sản phẩm hết hàng'' \\
 TC-03 & Checkout tạo pending items & Pending items được tạo, inventory reserved \\
 TC-04 & Buyer hủy pending item & Item bị hủy, inventory hoàn trả \\
-TC-05 & Seller xác nhận pending item & Trạng thái chuyển sang chờ thanh toán \\
-TC-06 & Seller từ chối pending item & Item bị từ chối, inventory hoàn trả \\
-TC-07 & Thanh toán VNPay thành công & Đơn hàng tạo thành công, trạng thái Paid \\
-TC-08 & Thanh toán VNPay thất bại & Đơn hàng không tạo, pending items giữ nguyên \\
-TC-09 & Thanh toán COD & Đơn hàng tạo với trạng thái Unpaid \\
+TC-05 & Seller xác nhận pending items & Order và transport được tạo, items gắn order\_id \\
+TC-06 & Seller từ chối pending items & Items bị hủy, tiền hoàn vào ví buyer \\
+TC-07 & Thanh toán VNPay thành công (webhook) & Payment chuyển Success, timeout 48h seller được lên lịch \\
+TC-08 & Thanh toán VNPay thất bại (webhook) & Payment chuyển Failed, items bị hủy, inventory hoàn trả \\
+TC-09 & Checkout kết hợp ví + VNPay & Ví bị trừ, phần còn lại qua cổng, items tạo đúng tổng \\
 TC-10 & Xem danh sách đơn hàng với filter & Danh sách trả về đúng theo bộ lọc trạng thái \\
 \bottomrule
 \end{tabular}

@@ -4,15 +4,13 @@
 
 \subsection{Quy trình đặt hàng và thanh toán}
 
-Quy trình đặt hàng trong mô hình marketplace có sự tham gia của nhiều bên: người mua, nhiều người bán, cổng thanh toán, và đơn vị vận chuyển. Trong ShopNexus, quy trình gồm sáu bước:
+Quy trình đặt hàng trong mô hình marketplace có sự tham gia của nhiều bên: người mua, nhiều người bán, cổng thanh toán, và đơn vị vận chuyển. Trong ShopNexus, quy trình theo mô hình \textit{pay-first checkout} gồm bốn giai đoạn:
 
 \begin{enumerate}
-    \item \textbf{Giỏ hàng:} Người mua thêm sản phẩm vào giỏ hàng -- mỗi mục là bộ (account\_id, sku\_id, quantity).
-    \item \textbf{Checkout:} Hệ thống tạo các \textit{checkout items} trạng thái Pending, snapshot giá và tên SKU, nhóm theo seller\_id.
-    \item \textbf{Xác nhận từ người bán:} Người bán xác nhận hoặc từ chối từng mục trong danh sách pending items.
-    \item \textbf{Tạo đơn hàng:} Hệ thống tạo đơn chính thức chứa các mục đã xác nhận, tính toán: \texttt{total = product\_cost - product\_discount + transport\_cost}.
-    \item \textbf{Thanh toán:} Tạo phiên thanh toán có thời hạn. Người mua chọn phương thức (VNPay QR, chuyển khoản, ATM, COD). Cổng thanh toán gửi callback xác nhận.
-    \item \textbf{Giao vận:} Sau thanh toán, tạo phiên vận chuyển với GHTK. Trạng thái: Pending $\rightarrow$ LabelCreated $\rightarrow$ InTransit $\rightarrow$ OutForDelivery $\rightarrow$ Delivered.
+    \item \textbf{Giỏ hàng:} Người mua thêm sản phẩm vào giỏ hàng; mỗi mục gồm mã SKU, tài khoản và số lượng. Hỗ trợ mua ngay (Buy Now) bỏ qua giỏ hàng.
+    \item \textbf{Checkout và thanh toán:} Người mua chọn địa chỉ giao hàng, đơn vị vận chuyển cho từng item, và phương thức thanh toán (VNPay, SePay, COD). Có thể kết hợp số dư ví nội bộ. Hệ thống đặt chỗ tồn kho, báo giá vận chuyển, trừ ví (nếu dùng), tạo phiên thanh toán, snapshot giá tại thời điểm mua, và tạo các mục chờ. Nếu cần thanh toán qua cổng, người mua có 15 phút để hoàn tất; quá hạn thì hệ thống tự động hủy và hoàn trả.
+    \item \textbf{Xác nhận từ người bán:} Người bán xem danh sách các mục đã thanh toán, gộp các mục cùng đơn vị vận chuyển và xác nhận hoặc từ chối. Khi xác nhận, hệ thống tạo vận đơn thực tế và đơn hàng chính thức. Nếu người bán không phản hồi trong 48 giờ, hệ thống tự động hủy và hoàn tiền vào ví.
+    \item \textbf{Giao vận:} Đơn vị vận chuyển cập nhật trạng thái qua webhook; người mua và người bán được thông báo tự động khi đơn giao thành công hoặc thất bại.
 \end{enumerate}
 
 \subsection{Quy trình hoàn trả và tranh chấp}
@@ -48,25 +46,25 @@ Khi một bên không đồng ý kết quả, có thể mở \textbf{tranh chấ
 % Phase 1: Pay-first Checkout
 \node[start] (s) at (2,-0.5) {};
 \node[act, below=of s] (checkout) {Checkout (giỏ hàng,\\địa chỉ, vận chuyển)};
-\node[act, below=of checkout, xshift=4.5cm] (reserve) {Reserve kho + Báo giá\\+ Tính tổng};
+\node[act, below=of checkout, xshift=4cm] (reserve) {Reserve kho + Báo giá\\+ Tính tổng};
 \node[act, below=of reserve, xshift=-4.5cm] (pay) {Thanh toán\\(Ví + VNPay/COD)};
-\node[act, below=of pay, xshift=4.5cm] (createitems) {Tạo paid items\\+ Webhook TT + Timeout};
+\node[act, below=of pay, xshift=4cm] (createitems) {Tạo paid items\\+ Webhook TT + Timeout};
 
 % Phase 2: Seller confirm
-\node[act, below=of createitems, xshift=4.5cm] (inbox) {Xem mục đã TT};
+\node[act, below=of createitems, xshift=4cm] (inbox) {Xem mục đã TT};
 \node[dec, below=0.5cm of inbox] (d1) {Xác nhận?};
 \node[act, right=0.8cm of d1] (reject) {Từ chối\\(hoàn ví)};
 \node[act, below=0.5cm of d1, xshift=-4.5cm] (create) {Tạo Order + Vận đơn};
 
 % Phase 3: Delivery + Refund
 \node[act, below=of create] (ship) {Giao vận};
-\node[dec, below=0.5cm of ship, xshift=4.5cm] (d2) {Hoàn trả?};
+\node[dec, below=0.5cm of ship, xshift=4cm] (d2) {Hoàn trả?};
 \node[act, below=0.5cm of d2] (refund) {Tạo hoàn trả};
-\node[act, below=of refund, xshift=4.5cm] (review) {Seller duyệt};
+\node[act, below=of refund, xshift=4cm] (review) {Seller duyệt};
 \node[dec, below=0.5cm of review] (d3) {Chấp nhận?};
 \node[act, below left=0.4cm and 0.8cm of d3] (autorefund) {Hoàn ví};
 \node[act, below right=0.4cm and 0.4cm of d3] (dispute) {Dispute};
-\node[finish] (e) at (6.5,-16.5) {};
+\node[finish] (e) at (5,-20) {};
 
 % Arrows
 \draw[arr] (s) -- (checkout);
@@ -198,7 +196,7 @@ Chi phí vận hành & Thấp (3 node cluster) & Cao \\
 
 \textbf{Durable execution} là mô hình trong đó mỗi bước thực thi được ghi vào journal bền vững. Nếu process crash, hệ thống replay từ bước cuối đã hoàn thành thay vì bắt đầu lại.
 
-\textbf{Lý do chọn Restate:} Không cần học workflow DSL -- chỉ wrap side effects trong \texttt{restate.Run()}. Nhẹ (không yêu cầu Cassandra/Elasticsearch). Cross-module calls tự động retry và deduplicate (exactly-once). Fire-and-forget qua \texttt{restate.ServiceSend()} cho tác vụ bất đồng bộ.
+\textbf{Lý do chọn Restate:} Không cần học workflow DSL -- chỉ wrap side effects trong \texttt{restate.Run()}. Nhẹ (không yêu cầu Cassandra/Elasticsearch). Cross-module calls tự động retry và deduplicate (exactly-once).
 
 \subsection{Cơ sở dữ liệu: PostgreSQL}
 

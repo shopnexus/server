@@ -13,7 +13,7 @@ và làm rõ trách nhiệm, thuộc tính, phương thức của từng thành 
 Module Quản lý Đơn hàng được phân rã thành \textbf{bốn thành phần chính}: (1)~\texttt{OrderHandler}
 là service Restate trung tâm chứa toàn bộ logic nghiệp vụ; (2)~\texttt{PaymentProvider} là giao
 diện trừu tượng hóa các cổng thanh toán (VNPay, COD, SePay); (3)~\texttt{TransportProvider} là
-giao diện trừu tượng hóa nhà vận chuyển (GHTK); và (4)~\texttt{OrderRepository} là lớp truy cập
+giao diện trừu tượng hóa nhà vận chuyển (hiện tại cài đặt GHTK); và (4)~\texttt{OrderRepository} là lớp truy cập
 dữ liệu được sinh tự động từ SQLC. Ngoài ra, module còn phụ thuộc vào \textbf{năm actor liên
 module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \texttt{PromotionBiz},
 \texttt{CommonBiz}) và \textbf{hai dịch vụ ngoài} (VNPay/SePay, GHTK) thông qua các proxy Restate
@@ -117,7 +117,7 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
     \texttt{UpdateBuyerRefund}, \texttt{CancelBuyerRefund}, \texttt{ListBuyerRefunds} \newline
   \textit{Tra cứu:} \texttt{GetBuyerOrder}, \texttt{GetSellerOrder},
     \texttt{ListBuyerConfirmed}, \texttt{ListSellerConfirmed},
-    \texttt{ListBuyerPending}, \texttt{ListSellerPending},
+    \texttt{ListBuyerPendingItems}, \texttt{ListSellerPendingItems},
     \texttt{GetSellerPendingActions} \newline
   \textit{Dashboard:} \texttt{GetSellerOrderStats}, \texttt{GetSellerOrderTimeSeries},
     \texttt{GetSellerTopProducts} \newline
@@ -214,7 +214,7 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \textbf{Phương thức} &
   \textit{Đơn hàng:} \texttt{InsertOrder}, \texttt{GetOrder}, \texttt{UpdateOrderStatus} \newline
   \textit{Mục đơn:} \texttt{InsertItem}, \texttt{CancelItem},
-    \texttt{ListPendingItemsBySeller} \newline
+    \texttt{ListSellerPendingItems}, \texttt{ListBuyerPendingItems} \newline
   \textit{Thanh toán:} \texttt{InsertPayment}, \texttt{UpdatePaymentStatus} \newline
   \textit{Vận chuyển:} \texttt{InsertTransport}, \texttt{UpdateTransportStatus} \newline
   \textit{Hoàn trả:} \texttt{InsertRefund}, \texttt{UpdateRefundStatus},

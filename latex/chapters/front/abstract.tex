@@ -1,3 +1,7 @@
 \begin{preface}{Tóm tắt}
-% TODO: Viết tóm tắt đề tài
+Đề tài ``Đảm bảo chất lượng hệ thống thương mại điện tử'' tập trung phân tích, thiết kế và hiện thực hệ thống quản lý đơn hàng cho nền tảng marketplace ShopNexus. Bài toán đặt ra xuất phát từ đặc thù thương mại điện tử hiện đại với nhiều bên tham gia, gồm người mua, người bán và quản trị viên, cùng các yêu cầu khắt khe về tính nhất quán dữ liệu, độ tin cậy của thanh toán, khả năng theo dõi giao vận, cũng như quy trình hoàn trả và giải quyết tranh chấp minh bạch.
+
+Trên cơ sở khảo sát hiện trạng các nền tảng phổ biến và nghiên cứu các quy định pháp lý liên quan, nhóm xác định các yêu cầu cốt lõi của hệ thống gồm: xử lý giỏ hàng đa người bán, tách và quản lý đơn hàng theo từng nhà bán, hỗ trợ nhiều phương thức thanh toán, theo dõi trạng thái giao vận, tiếp nhận và phê duyệt yêu cầu hoàn trả, đồng thời hỗ trợ cơ chế tranh chấp có sự tham gia của quản trị viên. Để đáp ứng các yêu cầu này, đề tài lựa chọn kiến trúc 	extit{durable microservices} dựa trên Restate, kết hợp Go cho backend, PostgreSQL cho lưu trữ dữ liệu và Next.js cho giao diện người dùng.
+
+Kết quả thực hiện cho thấy hệ thống có khả năng tổ chức quy trình đặt hàng và hậu mãi một cách rõ ràng, hỗ trợ xử lý các luồng nghiệp vụ quan trọng như checkout, thanh toán, xác nhận đơn, giao vận, hoàn trả và tranh chấp. Cách tiếp cận durable execution góp phần tăng độ bền vững của hệ thống trước các lỗi phát sinh giữa chừng, hạn chế trùng lặp giao dịch và giảm nguy cơ sai lệch trạng thái giữa các thành phần. Đề tài là cơ sở cho việc phát triển một nền tảng thương mại điện tử có chất lượng, an toàn và thuận tiện hơn cho cả người dùng lẫn đơn vị vận hành.
 \end{preface}
