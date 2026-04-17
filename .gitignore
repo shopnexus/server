@@ -33,7 +33,6 @@ node_modules/
 
 tmp/
 tmpclaude*
-docs/
 internal/module/embedding
 
 # Compiled tool binaries
