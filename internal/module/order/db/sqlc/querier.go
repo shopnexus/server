@@ -13,14 +13,14 @@ import (
 
 type Querier interface {
 	CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64, error)
+	CountBuyerPendingItems(ctx context.Context, accountID uuid.UUID) (int64, error)
 	CountCartItem(ctx context.Context, arg CountCartItemParams) (int64, error)
 	CountItem(ctx context.Context, arg CountItemParams) (int64, error)
 	CountOrder(ctx context.Context, arg CountOrderParams) (int64, error)
-	CountPaidPendingItemsByBuyer(ctx context.Context, accountID uuid.UUID) (int64, error)
-	CountPaidPendingItemsBySeller(ctx context.Context, sellerID uuid.UUID) (int64, error)
 	CountPayment(ctx context.Context, arg CountPaymentParams) (int64, error)
 	CountRefund(ctx context.Context, arg CountRefundParams) (int64, error)
 	CountRefundDispute(ctx context.Context, arg CountRefundDisputeParams) (int64, error)
+	CountSellerPendingItems(ctx context.Context, sellerID uuid.UUID) (int64, error)
 	CountTransport(ctx context.Context, arg CountTransportParams) (int64, error)
 	CreateBatchCartItem(ctx context.Context, arg []CreateBatchCartItemParams) *CreateBatchCartItemBatchResults
 	CreateBatchItem(ctx context.Context, arg []CreateBatchItemParams) *CreateBatchItemBatchResults
@@ -107,6 +107,8 @@ type Querier interface {
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
 	GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error)
 	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
+	// Returns all buyer's pending items (any payment state: Pending, Processing, Success)
+	ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendingItemsParams) ([]OrderItem, error)
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	// Custom order queries
 	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
@@ -120,13 +122,12 @@ type Querier interface {
 	ListCountTransport(ctx context.Context, arg ListCountTransportParams) ([]ListCountTransportRow, error)
 	ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error)
 	ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOrder, error)
-	ListPaidPendingItemsByBuyer(ctx context.Context, arg ListPaidPendingItemsByBuyerParams) ([]OrderItem, error)
-	// Custom item queries
-	ListPaidPendingItemsBySeller(ctx context.Context, arg ListPaidPendingItemsBySellerParams) ([]OrderItem, error)
 	ListPayment(ctx context.Context, arg ListPaymentParams) ([]OrderPayment, error)
 	ListPendingPaymentItemsByPaymentID(ctx context.Context, paymentID null.Int) ([]OrderItem, error)
 	ListRefund(ctx context.Context, arg ListRefundParams) ([]OrderRefund, error)
 	ListRefundDispute(ctx context.Context, arg ListRefundDisputeParams) ([]OrderRefundDispute, error)
+	// Custom item queries
+	ListSellerPendingItems(ctx context.Context, arg ListSellerPendingItemsParams) ([]OrderItem, error)
 	ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error)
 	ListTransport(ctx context.Context, arg ListTransportParams) ([]OrderTransport, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)

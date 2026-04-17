@@ -42,7 +42,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 
 	// Buyer - Pending
 	g.POST("/buyer/checkout", h.BuyerCheckout, rlCheckout)
-	g.GET("/buyer/pending", h.ListBuyerPending)
+	g.GET("/buyer/pending", h.ListBuyerPendingItems)
 	g.DELETE("/buyer/pending/:id", h.CancelBuyerPending)
 
 	// Buyer - Confirmed
@@ -57,7 +57,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	buyerRefund.DELETE("", h.CancelBuyerRefund)
 
 	// Seller - Pending
-	g.GET("/seller/pending", h.ListSellerPending)
+	g.GET("/seller/pending", h.ListSellerPendingItems)
 	g.POST("/seller/pending/confirm", h.ConfirmSellerPending)
 	g.POST("/seller/pending/reject", h.RejectSellerPending)
 
@@ -256,12 +256,12 @@ func (h *Handler) BuyerCheckout(c echo.Context) error {
 
 // --- Buyer Pending Items ---
 
-type ListBuyerPendingRequest struct {
+type ListBuyerPendingItemsRequest struct {
 	sharedmodel.PaginationParams
 }
 
-func (h *Handler) ListBuyerPending(c echo.Context) error {
-	var req ListBuyerPendingRequest
+func (h *Handler) ListBuyerPendingItems(c echo.Context) error {
+	var req ListBuyerPendingItemsRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -274,7 +274,7 @@ func (h *Handler) ListBuyerPending(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.ListBuyerPending(c.Request().Context(), orderbiz.ListBuyerPendingParams{
+	result, err := h.biz.ListBuyerPendingItems(c.Request().Context(), orderbiz.ListBuyerPendingItemsParams{
 		AccountID:        claims.Account.ID,
 		PaginationParams: req.PaginationParams.Constrain(),
 	})

@@ -31,16 +31,16 @@ type OrderBiz interface {
 	BuyerCheckout(ctx context.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error)
 
 	// Pending Items (buyer)
-	ListBuyerPending(
+	ListBuyerPendingItems(
 		ctx context.Context,
-		params ListBuyerPendingParams,
+		params ListBuyerPendingItemsParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error
 
 	// Incoming Items (seller)
-	ListSellerPending(
+	ListSellerPendingItems(
 		ctx context.Context,
-		params ListSellerPendingParams,
+		params ListSellerPendingItemsParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
@@ -161,7 +161,7 @@ func NewOrderHandler(
 // --- Param structs ---
 
 type BuyerCheckoutParams struct {
-	Account       accountmodel.AuthenticatedAccount `json:"-"`
+	Account       accountmodel.AuthenticatedAccount
 	BuyNow        bool                              `json:"buy_now"`
 	Address       string                            `json:"address" validate:"required,min=1,max=500"`
 	PaymentOption string                            `json:"payment_option" validate:"max=100"`
@@ -184,7 +184,7 @@ type BuyerCheckoutResult struct {
 	Total          int64                  `json:"total"`
 }
 
-type ListBuyerPendingParams struct {
+type ListBuyerPendingItemsParams struct {
 	AccountID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
@@ -194,13 +194,13 @@ type CancelBuyerPendingParams struct {
 	ItemID    int64     `validate:"required"`
 }
 
-type ListSellerPendingParams struct {
+type ListSellerPendingItemsParams struct {
 	SellerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 
 type ConfirmSellerPendingParams struct {
-	Account accountmodel.AuthenticatedAccount `json:"-"`
+	Account accountmodel.AuthenticatedAccount
 	ItemIDs []int64                           `json:"item_ids" validate:"required,min=1"`
 	Note    string                            `json:"note" validate:"max=500"`
 }

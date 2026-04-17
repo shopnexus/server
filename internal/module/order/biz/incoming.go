@@ -23,10 +23,10 @@ import (
 	"github.com/samber/lo"
 )
 
-// ListSellerPending returns paginated pending items for the seller.
-func (b *OrderHandler) ListSellerPending(
+// ListSellerPendingItems returns paginated pending items for the seller.
+func (b *OrderHandler) ListSellerPendingItems(
 	ctx restate.Context,
-	params ListSellerPendingParams,
+	params ListSellerPendingItemsParams,
 ) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
@@ -40,7 +40,7 @@ func (b *OrderHandler) ListSellerPending(
 	}
 
 	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (incomingResult, error) {
-		items, err := b.storage.Querier().ListPaidPendingItemsBySeller(ctx, orderdb.ListPaidPendingItemsBySellerParams{
+		items, err := b.storage.Querier().ListSellerPendingItems(ctx, orderdb.ListSellerPendingItemsParams{
 			SellerID: params.SellerID,
 			Off:      params.Offset().Int32,
 			Lim:      params.Limit.Int32,
@@ -49,7 +49,7 @@ func (b *OrderHandler) ListSellerPending(
 			return incomingResult{}, err
 		}
 
-		total, err := b.storage.Querier().CountPaidPendingItemsBySeller(ctx, params.SellerID)
+		total, err := b.storage.Querier().CountSellerPendingItems(ctx, params.SellerID)
 		if err != nil {
 			return incomingResult{}, err
 		}

@@ -11,12 +11,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ListSellerPendingRequest struct {
+type ListSellerPendingItemsRequest struct {
 	sharedmodel.PaginationParams
 }
 
-func (h *Handler) ListSellerPending(c echo.Context) error {
-	var req ListSellerPendingRequest
+func (h *Handler) ListSellerPendingItems(c echo.Context) error {
+	var req ListSellerPendingItemsRequest
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -29,7 +29,7 @@ func (h *Handler) ListSellerPending(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.ListSellerPending(c.Request().Context(), orderbiz.ListSellerPendingParams{
+	result, err := h.biz.ListSellerPendingItems(c.Request().Context(), orderbiz.ListSellerPendingItemsParams{
 		SellerID:         claims.Account.ID,
 		PaginationParams: req.PaginationParams.Constrain(),
 	})

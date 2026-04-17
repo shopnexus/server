@@ -545,10 +545,10 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 	return result, nil
 }
 
-// ListBuyerPending returns paginated paid pending items for the buyer.
-func (b *OrderHandler) ListBuyerPending(
+// ListBuyerPendingItems returns paginated paid pending items for the buyer.
+func (b *OrderHandler) ListBuyerPendingItems(
 	ctx restate.Context,
-	params ListBuyerPendingParams,
+	params ListBuyerPendingItemsParams,
 ) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
 
@@ -562,7 +562,7 @@ func (b *OrderHandler) ListBuyerPending(
 	}
 
 	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (pendingResult, error) {
-		items, err := b.storage.Querier().ListPaidPendingItemsByBuyer(ctx, orderdb.ListPaidPendingItemsByBuyerParams{
+		items, err := b.storage.Querier().ListBuyerPendingItems(ctx, orderdb.ListBuyerPendingItemsParams{
 			AccountID: params.AccountID,
 			Off:       params.Offset().Int32,
 			Lim:       params.Limit.Int32,
@@ -571,7 +571,7 @@ func (b *OrderHandler) ListBuyerPending(
 			return pendingResult{}, err
 		}
 
-		total, err := b.storage.Querier().CountPaidPendingItemsByBuyer(ctx, params.AccountID)
+		total, err := b.storage.Querier().CountBuyerPendingItems(ctx, params.AccountID)
 		if err != nil {
 			return pendingResult{}, err
 		}
