@@ -166,9 +166,9 @@ func (b *CreateBatchCommentBatchResults) Close() error {
 }
 
 const createBatchProductSku = `-- name: CreateBatchProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 `
 
 type CreateBatchProductSkuBatchResults struct {
@@ -186,6 +186,7 @@ type CreateBatchProductSkuParams struct {
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateDeleted    null.Time       `json:"date_deleted"`
+	Currency       string          `json:"currency"`
 }
 
 func (q *Queries) CreateBatchProductSku(ctx context.Context, arg []CreateBatchProductSkuParams) *CreateBatchProductSkuBatchResults {
@@ -200,6 +201,7 @@ func (q *Queries) CreateBatchProductSku(ctx context.Context, arg []CreateBatchPr
 			a.PackageDetails,
 			a.DateCreated,
 			a.DateDeleted,
+			a.Currency,
 		}
 		batch.Queue(createBatchProductSku, vals...)
 	}
@@ -227,6 +229,7 @@ func (b *CreateBatchProductSkuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.PackageDetails,
 			&i.DateCreated,
 			&i.DateDeleted,
+			&i.Currency,
 		)
 		if f != nil {
 			f(t, i, err)

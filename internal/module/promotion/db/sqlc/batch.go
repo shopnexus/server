@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchPromotion = `-- name: CreateBatchPromotion :batchone
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
 `
 
 type CreateBatchPromotionBatchResults struct {
@@ -48,6 +48,7 @@ type CreateBatchPromotionParams struct {
 	DateEnded   null.Time       `json:"date_ended"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
+	Currency    string          `json:"currency"`
 }
 
 func (q *Queries) CreateBatchPromotion(ctx context.Context, arg []CreateBatchPromotionParams) *CreateBatchPromotionBatchResults {
@@ -69,6 +70,7 @@ func (q *Queries) CreateBatchPromotion(ctx context.Context, arg []CreateBatchPro
 			a.DateEnded,
 			a.DateCreated,
 			a.DateUpdated,
+			a.Currency,
 		}
 		batch.Queue(createBatchPromotion, vals...)
 	}
@@ -103,6 +105,7 @@ func (b *CreateBatchPromotionBatchResults) QueryRow(f func(int, PromotionPromoti
 			&i.DateEnded,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Currency,
 		)
 		if f != nil {
 			f(t, i, err)

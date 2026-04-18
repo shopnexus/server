@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type OrderRefundMethod string
@@ -232,12 +233,12 @@ type OrderItem struct {
 	Address               string          `json:"address"`
 	Note                  null.String     `json:"note"`
 	SerialIds             json.RawMessage `json:"serial_ids"`
-	DateCreated           time.Time       `json:"date_created"`
-	DateUpdated           time.Time       `json:"date_updated"`
+	PaymentID             null.Int        `json:"payment_id"`
 	TransportOption       null.String     `json:"transport_option"`
 	TransportCostEstimate int64           `json:"transport_cost_estimate"`
-	PaymentID             null.Int        `json:"payment_id"`
 	DateCancelled         null.Time       `json:"date_cancelled"`
+	DateCreated           time.Time       `json:"date_created"`
+	DateUpdated           time.Time       `json:"date_updated"`
 }
 
 type OrderOrder struct {
@@ -267,6 +268,9 @@ type OrderPayment struct {
 	DateCreated     time.Time       `json:"date_created"`
 	DatePaid        null.Time       `json:"date_paid"`
 	DateExpired     time.Time       `json:"date_expired"`
+	BuyerCurrency   string          `json:"buyer_currency"`
+	SellerCurrency  string          `json:"seller_currency"`
+	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
 }
 
 type OrderRefund struct {
@@ -279,27 +283,22 @@ type OrderRefund struct {
 	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
+	ItemIds       json.RawMessage   `json:"item_ids"`
+	Amount        null.Int          `json:"amount"`
 	DateCreated   time.Time         `json:"date_created"`
-	// Array of item IDs being refunded; NULL means refund all items of the order (full refund)
-	ItemIds json.RawMessage `json:"item_ids"`
-	// Partial refund amount in smallest currency unit; NULL means use order total (full refund)
-	Amount null.Int `json:"amount"`
 }
 
 type OrderRefundDispute struct {
-	ID          uuid.UUID   `json:"id"`
-	RefundID    uuid.UUID   `json:"refund_id"`
-	IssuedByID  uuid.UUID   `json:"issued_by_id"`
-	Reason      string      `json:"reason"`
-	Status      OrderStatus `json:"status"`
-	DateCreated time.Time   `json:"date_created"`
-	DateUpdated time.Time   `json:"date_updated"`
-	// Account that resolved the dispute (platform staff with elevated permissions)
-	ResolvedByID uuid.NullUUID `json:"resolved_by_id"`
-	// Free-form note explaining the resolution decision
-	ResolutionNote null.String `json:"resolution_note"`
-	// When resolution was recorded
-	DateResolved null.Time `json:"date_resolved"`
+	ID             uuid.UUID     `json:"id"`
+	RefundID       uuid.UUID     `json:"refund_id"`
+	IssuedByID     uuid.UUID     `json:"issued_by_id"`
+	Reason         string        `json:"reason"`
+	Status         OrderStatus   `json:"status"`
+	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
+	ResolutionNote null.String   `json:"resolution_note"`
+	DateCreated    time.Time     `json:"date_created"`
+	DateUpdated    time.Time     `json:"date_updated"`
+	DateResolved   null.Time     `json:"date_resolved"`
 }
 
 type OrderTransport struct {

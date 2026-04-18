@@ -123,7 +123,12 @@ WHERE (
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
     ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL) AND
+    ("buyer_currency" = ANY(sqlc.slice('buyer_currency')) OR sqlc.slice('buyer_currency') IS NULL) AND
+    ("seller_currency" = ANY(sqlc.slice('seller_currency')) OR sqlc.slice('seller_currency') IS NULL) AND
+    ("exchange_rate" = ANY(sqlc.slice('exchange_rate')) OR sqlc.slice('exchange_rate') IS NULL) AND
+    ("exchange_rate" >= sqlc.narg('exchange_rate_from') OR sqlc.narg('exchange_rate_from') IS NULL) AND
+    ("exchange_rate" <= sqlc.narg('exchange_rate_to') OR sqlc.narg('exchange_rate_to') IS NULL)
 );
 
 -- name: ListPayment :many
@@ -145,7 +150,12 @@ WHERE (
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
     ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL) AND
+    ("buyer_currency" = ANY(sqlc.slice('buyer_currency')) OR sqlc.slice('buyer_currency') IS NULL) AND
+    ("seller_currency" = ANY(sqlc.slice('seller_currency')) OR sqlc.slice('seller_currency') IS NULL) AND
+    ("exchange_rate" = ANY(sqlc.slice('exchange_rate')) OR sqlc.slice('exchange_rate') IS NULL) AND
+    ("exchange_rate" >= sqlc.narg('exchange_rate_from') OR sqlc.narg('exchange_rate_from') IS NULL) AND
+    ("exchange_rate" <= sqlc.narg('exchange_rate_to') OR sqlc.narg('exchange_rate_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -170,25 +180,30 @@ WHERE (
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
     ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL) AND
+    ("buyer_currency" = ANY(sqlc.slice('buyer_currency')) OR sqlc.slice('buyer_currency') IS NULL) AND
+    ("seller_currency" = ANY(sqlc.slice('seller_currency')) OR sqlc.slice('seller_currency') IS NULL) AND
+    ("exchange_rate" = ANY(sqlc.slice('exchange_rate')) OR sqlc.slice('exchange_rate') IS NULL) AND
+    ("exchange_rate" >= sqlc.narg('exchange_rate_from') OR sqlc.narg('exchange_rate_from') IS NULL) AND
+    ("exchange_rate" <= sqlc.narg('exchange_rate_to') OR sqlc.narg('exchange_rate_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreatePayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchPayment :batchone
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyPayment :copyfrom
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultPayment :one
 INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
@@ -209,7 +224,10 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "payment_method_id" = CASE WHEN sqlc.arg('null_payment_method_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_method_id'), "payment_method_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_paid" = CASE WHEN sqlc.arg('null_date_paid')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_paid'), "date_paid") END,
-    "date_expired" = COALESCE(sqlc.narg('date_expired'), "date_expired")
+    "date_expired" = COALESCE(sqlc.narg('date_expired'), "date_expired"),
+    "buyer_currency" = COALESCE(sqlc.narg('buyer_currency'), "buyer_currency"),
+    "seller_currency" = COALESCE(sqlc.narg('seller_currency'), "seller_currency"),
+    "exchange_rate" = COALESCE(sqlc.narg('exchange_rate'), "exchange_rate")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -231,7 +249,12 @@ WHERE (
     ("date_paid" = ANY(sqlc.slice('date_paid')) OR sqlc.slice('date_paid') IS NULL) AND
     ("date_expired" = ANY(sqlc.slice('date_expired')) OR sqlc.slice('date_expired') IS NULL) AND
     ("date_expired" >= sqlc.narg('date_expired_from') OR sqlc.narg('date_expired_from') IS NULL) AND
-    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL)
+    ("date_expired" <= sqlc.narg('date_expired_to') OR sqlc.narg('date_expired_to') IS NULL) AND
+    ("buyer_currency" = ANY(sqlc.slice('buyer_currency')) OR sqlc.slice('buyer_currency') IS NULL) AND
+    ("seller_currency" = ANY(sqlc.slice('seller_currency')) OR sqlc.slice('seller_currency') IS NULL) AND
+    ("exchange_rate" = ANY(sqlc.slice('exchange_rate')) OR sqlc.slice('exchange_rate') IS NULL) AND
+    ("exchange_rate" >= sqlc.narg('exchange_rate_from') OR sqlc.narg('exchange_rate_from') IS NULL) AND
+    ("exchange_rate" <= sqlc.narg('exchange_rate_to') OR sqlc.narg('exchange_rate_to') IS NULL)
 );
 
 -- ========================================
@@ -544,20 +567,20 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
-    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
-    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
-    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
-    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
-    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
-    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- name: ListItem :many
@@ -580,20 +603,20 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
-    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
-    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
-    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
-    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
-    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
-    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -619,46 +642,46 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
-    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
-    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
-    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
-    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
-    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
-    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: CreateCopyItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "date_created", "date_updated", "transport_option", "transport_cost_estimate", "payment_id", "date_cancelled")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
 
 -- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "transport_option", "payment_id", "date_cancelled")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "transport_option", "payment_id", "date_cancelled")
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdateItem :one
@@ -674,12 +697,12 @@ SET "order_id" = CASE WHEN sqlc.arg('null_order_id')::bool = TRUE THEN NULL ELSE
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
     "serial_ids" = CASE WHEN sqlc.arg('null_serial_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('serial_ids'), "serial_ids") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
+    "payment_id" = CASE WHEN sqlc.arg('null_payment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_id'), "payment_id") END,
     "transport_option" = CASE WHEN sqlc.arg('null_transport_option')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('transport_option'), "transport_option") END,
     "transport_cost_estimate" = COALESCE(sqlc.narg('transport_cost_estimate'), "transport_cost_estimate"),
-    "payment_id" = CASE WHEN sqlc.arg('null_payment_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_id'), "payment_id") END,
-    "date_cancelled" = CASE WHEN sqlc.arg('null_date_cancelled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_cancelled'), "date_cancelled") END
+    "date_cancelled" = CASE WHEN sqlc.arg('null_date_cancelled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_cancelled'), "date_cancelled") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -702,20 +725,20 @@ WHERE (
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("serial_ids" = ANY(sqlc.slice('serial_ids')) OR sqlc.slice('serial_ids') IS NULL) AND
+    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
+    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
+    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
+    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
+    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
+    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
+    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
+    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("transport_option" = ANY(sqlc.slice('transport_option')) OR sqlc.slice('transport_option') IS NULL) AND
-    ("transport_cost_estimate" = ANY(sqlc.slice('transport_cost_estimate')) OR sqlc.slice('transport_cost_estimate') IS NULL) AND
-    ("transport_cost_estimate" >= sqlc.narg('transport_cost_estimate_from') OR sqlc.narg('transport_cost_estimate_from') IS NULL) AND
-    ("transport_cost_estimate" <= sqlc.narg('transport_cost_estimate_to') OR sqlc.narg('transport_cost_estimate_to') IS NULL) AND
-    ("payment_id" = ANY(sqlc.slice('payment_id')) OR sqlc.slice('payment_id') IS NULL) AND
-    ("date_cancelled" = ANY(sqlc.slice('date_cancelled')) OR sqlc.slice('date_cancelled') IS NULL) AND
-    ("date_cancelled" >= sqlc.narg('date_cancelled_from') OR sqlc.narg('date_cancelled_from') IS NULL) AND
-    ("date_cancelled" <= sqlc.narg('date_cancelled_to') OR sqlc.narg('date_cancelled_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- ========================================
@@ -740,13 +763,13 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListRefund :many
@@ -762,13 +785,13 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -787,30 +810,30 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "item_ids", "amount", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "item_ids", "amount", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyRefund :copyfrom
-INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "date_created", "item_ids", "amount")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "confirmed_by_id", "transport_id", "method", "status", "reason", "address", "item_ids", "amount", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultRefund :one
@@ -832,9 +855,9 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "address" = CASE WHEN sqlc.arg('null_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('address'), "address") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "item_ids" = CASE WHEN sqlc.arg('null_item_ids')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('item_ids'), "item_ids") END,
-    "amount" = CASE WHEN sqlc.arg('null_amount')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('amount'), "amount") END
+    "amount" = CASE WHEN sqlc.arg('null_amount')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('amount'), "amount") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -850,13 +873,13 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("item_ids" = ANY(sqlc.slice('item_ids')) OR sqlc.slice('item_ids') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
-    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL)
+    ("amount" <= sqlc.narg('amount_to') OR sqlc.narg('amount_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- ========================================
@@ -877,14 +900,14 @@ WHERE (
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
     ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
-    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
     ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
     ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
@@ -899,14 +922,14 @@ WHERE (
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
     ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
-    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
     ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
     ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
@@ -924,14 +947,14 @@ WHERE (
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
     ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
-    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
     ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
     ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)
@@ -941,17 +964,17 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefundDispute :one
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "resolved_by_id", "resolution_note", "date_created", "date_updated", "date_resolved")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateBatchRefundDispute :batchone
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "resolved_by_id", "resolution_note", "date_created", "date_updated", "date_resolved")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyRefundDispute :copyfrom
-INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "date_created", "date_updated", "resolved_by_id", "resolution_note", "date_resolved")
+INSERT INTO "order"."refund_dispute" ("id", "refund_id", "issued_by_id", "reason", "status", "resolved_by_id", "resolution_note", "date_created", "date_updated", "date_resolved")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: CreateDefaultRefundDispute :one
@@ -969,10 +992,10 @@ SET "refund_id" = COALESCE(sqlc.narg('refund_id'), "refund_id"),
     "issued_by_id" = COALESCE(sqlc.narg('issued_by_id'), "issued_by_id"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "resolved_by_id" = CASE WHEN sqlc.arg('null_resolved_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('resolved_by_id'), "resolved_by_id") END,
     "resolution_note" = CASE WHEN sqlc.arg('null_resolution_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('resolution_note'), "resolution_note") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_resolved" = CASE WHEN sqlc.arg('null_date_resolved')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_resolved'), "date_resolved") END
 WHERE id = sqlc.arg('id')
 RETURNING *;
@@ -985,14 +1008,14 @@ WHERE (
     ("issued_by_id" = ANY(sqlc.slice('issued_by_id')) OR sqlc.slice('issued_by_id') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
+    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
+    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
     ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
-    ("resolved_by_id" = ANY(sqlc.slice('resolved_by_id')) OR sqlc.slice('resolved_by_id') IS NULL) AND
-    ("resolution_note" = ANY(sqlc.slice('resolution_note')) OR sqlc.slice('resolution_note') IS NULL) AND
     ("date_resolved" = ANY(sqlc.slice('date_resolved')) OR sqlc.slice('date_resolved') IS NULL) AND
     ("date_resolved" >= sqlc.narg('date_resolved_from') OR sqlc.narg('date_resolved_from') IS NULL) AND
     ("date_resolved" <= sqlc.narg('date_resolved_to') OR sqlc.narg('date_resolved_to') IS NULL)

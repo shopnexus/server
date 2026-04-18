@@ -39,7 +39,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
 );
 
 -- name: ListPromotion :many
@@ -70,7 +71,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -104,25 +106,26 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreatePromotion :one
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: CreateBatchPromotion :batchone
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: CreateCopyPromotion :copyfrom
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
 
 -- name: CreateDefaultPromotion :one
 INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "data", "date_started", "date_ended")
@@ -148,7 +151,8 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_started" = COALESCE(sqlc.narg('date_started'), "date_started"),
     "date_ended" = CASE WHEN sqlc.arg('null_date_ended')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_ended'), "date_ended") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
+    "currency" = COALESCE(sqlc.narg('currency'), "currency")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -179,7 +183,8 @@ WHERE (
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
     ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
 );
 
 -- ========================================

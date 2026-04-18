@@ -32,26 +32,28 @@ WHERE (
     ("date_created" <= $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
     ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("settings" = ANY($16) OR $16 IS NULL)
 )
 `
 
 type CountAccountParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Number          []int64         `json:"number"`
-	NumberFrom      null.Int        `json:"number_from"`
-	NumberTo        null.Int        `json:"number_to"`
-	Status          []AccountStatus `json:"status"`
-	Phone           []null.String   `json:"phone"`
-	Email           []null.String   `json:"email"`
-	Username        []null.String   `json:"username"`
-	Password        []null.String   `json:"password"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
+	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
+	Status          []AccountStatus   `json:"status"`
+	Phone           []null.String     `json:"phone"`
+	Email           []null.String     `json:"email"`
+	Username        []null.String     `json:"username"`
+	Password        []null.String     `json:"password"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Settings        []json.RawMessage `json:"settings"`
 }
 
 func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int64, error) {
@@ -71,6 +73,7 @@ func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Settings,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -446,21 +449,107 @@ func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int
 	return count, err
 }
 
+const countWallet = `-- name: CountWallet :one
+
+SELECT COUNT(*)
+FROM "account"."wallet"
+WHERE (
+    ("account_id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL)
+)
+`
+
+type CountWalletParams struct {
+	AccountID   []uuid.UUID `json:"account_id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+}
+
+// ========================================
+// Queries for table: account.wallet
+// ========================================
+func (q *Queries) CountWallet(ctx context.Context, arg CountWalletParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWallet,
+		arg.AccountID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWalletTransaction = `-- name: CountWalletTransaction :one
+SELECT COUNT(*)
+FROM "account"."wallet_transaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("amount" = ANY($4) OR $4 IS NULL) AND
+    ("amount" >= $5 OR $5 IS NULL) AND
+    ("amount" <= $6 OR $6 IS NULL) AND
+    ("reference_id" = ANY($7) OR $7 IS NULL) AND
+    ("note" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL)
+)
+`
+
+type CountWalletTransactionParams struct {
+	ID              []int64                        `json:"id"`
+	AccountID       []uuid.UUID                    `json:"account_id"`
+	Type            []AccountWalletTransactionType `json:"type"`
+	Amount          []int64                        `json:"amount"`
+	AmountFrom      null.Int                       `json:"amount_from"`
+	AmountTo        null.Int                       `json:"amount_to"`
+	ReferenceID     []null.String                  `json:"reference_id"`
+	Note            []null.String                  `json:"note"`
+	DateCreated     []time.Time                    `json:"date_created"`
+	DateCreatedFrom null.Time                      `json:"date_created_from"`
+	DateCreatedTo   null.Time                      `json:"date_created_to"`
+}
+
+func (q *Queries) CountWalletTransaction(ctx context.Context, arg CountWalletTransactionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWalletTransaction,
+		arg.ID,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
+		arg.ReferenceID,
+		arg.Note,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccount = `-- name: CreateAccount :one
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, number, status, phone, email, username, password, date_created, date_updated
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated", "settings")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, number, status, phone, email, username, password, date_created, date_updated, settings
 `
 
 type CreateAccountParams struct {
-	ID          uuid.UUID     `json:"id"`
-	Status      AccountStatus `json:"status"`
-	Phone       null.String   `json:"phone"`
-	Email       null.String   `json:"email"`
-	Username    null.String   `json:"username"`
-	Password    null.String   `json:"password"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID          uuid.UUID       `json:"id"`
+	Status      AccountStatus   `json:"status"`
+	Phone       null.String     `json:"phone"`
+	Email       null.String     `json:"email"`
+	Username    null.String     `json:"username"`
+	Password    null.String     `json:"password"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
+	Settings    json.RawMessage `json:"settings"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error) {
@@ -473,6 +562,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		arg.Password,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.Settings,
 	)
 	var i AccountAccount
 	err := row.Scan(
@@ -485,6 +575,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Settings,
 	)
 	return i, err
 }
@@ -541,14 +632,15 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (A
 }
 
 type CreateCopyAccountParams struct {
-	ID          uuid.UUID     `json:"id"`
-	Status      AccountStatus `json:"status"`
-	Phone       null.String   `json:"phone"`
-	Email       null.String   `json:"email"`
-	Username    null.String   `json:"username"`
-	Password    null.String   `json:"password"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID          uuid.UUID       `json:"id"`
+	Status      AccountStatus   `json:"status"`
+	Phone       null.String     `json:"phone"`
+	Email       null.String     `json:"email"`
+	Username    null.String     `json:"username"`
+	Password    null.String     `json:"password"`
+	DateCreated time.Time       `json:"date_created"`
+	DateUpdated time.Time       `json:"date_updated"`
+	Settings    json.RawMessage `json:"settings"`
 }
 
 type CreateCopyContactParams struct {
@@ -622,6 +714,14 @@ type CreateCopyDefaultProfileParams struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 }
 
+type CreateCopyDefaultWalletTransactionParams struct {
+	AccountID   uuid.UUID                    `json:"account_id"`
+	Type        AccountWalletTransactionType `json:"type"`
+	Amount      int64                        `json:"amount"`
+	ReferenceID null.String                  `json:"reference_id"`
+	Note        null.String                  `json:"note"`
+}
+
 type CreateCopyFavoriteParams struct {
 	AccountID   uuid.UUID `json:"account_id"`
 	SpuID       uuid.UUID `json:"spu_id"`
@@ -676,10 +776,24 @@ type CreateCopyProfileParams struct {
 	DateUpdated      time.Time         `json:"date_updated"`
 }
 
+type CreateCopyWalletParams struct {
+	AccountID uuid.UUID `json:"account_id"`
+	Balance   int64     `json:"balance"`
+}
+
+type CreateCopyWalletTransactionParams struct {
+	AccountID   uuid.UUID                    `json:"account_id"`
+	Type        AccountWalletTransactionType `json:"type"`
+	Amount      int64                        `json:"amount"`
+	ReferenceID null.String                  `json:"reference_id"`
+	Note        null.String                  `json:"note"`
+	DateCreated time.Time                    `json:"date_created"`
+}
+
 const createDefaultAccount = `-- name: CreateDefaultAccount :one
 INSERT INTO "account"."account" ("phone", "email", "username", "password")
 VALUES ($1, $2, $3, $4)
-RETURNING id, number, status, phone, email, username, password, date_created, date_updated
+RETURNING id, number, status, phone, email, username, password, date_created, date_updated, settings
 `
 
 type CreateDefaultAccountParams struct {
@@ -707,6 +821,7 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Settings,
 	)
 	return i, err
 }
@@ -929,6 +1044,54 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
+	)
+	return i, err
+}
+
+const createDefaultWallet = `-- name: CreateDefaultWallet :one
+INSERT INTO "account"."wallet" ("account_id")
+VALUES ($1)
+RETURNING account_id, balance
+`
+
+func (q *Queries) CreateDefaultWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error) {
+	row := q.db.QueryRow(ctx, createDefaultWallet, accountID)
+	var i AccountWallet
+	err := row.Scan(&i.AccountID, &i.Balance)
+	return i, err
+}
+
+const createDefaultWalletTransaction = `-- name: CreateDefaultWalletTransaction :one
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, account_id, type, amount, reference_id, note, date_created
+`
+
+type CreateDefaultWalletTransactionParams struct {
+	AccountID   uuid.UUID                    `json:"account_id"`
+	Type        AccountWalletTransactionType `json:"type"`
+	Amount      int64                        `json:"amount"`
+	ReferenceID null.String                  `json:"reference_id"`
+	Note        null.String                  `json:"note"`
+}
+
+func (q *Queries) CreateDefaultWalletTransaction(ctx context.Context, arg CreateDefaultWalletTransactionParams) (AccountWalletTransaction, error) {
+	row := q.db.QueryRow(ctx, createDefaultWalletTransaction,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.ReferenceID,
+		arg.Note,
+	)
+	var i AccountWalletTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.Amount,
+		&i.ReferenceID,
+		&i.Note,
+		&i.DateCreated,
 	)
 	return i, err
 }
@@ -1156,26 +1319,28 @@ WHERE (
     ("date_created" <= $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
     ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("settings" = ANY($16) OR $16 IS NULL)
 )
 `
 
 type DeleteAccountParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Number          []int64         `json:"number"`
-	NumberFrom      null.Int        `json:"number_from"`
-	NumberTo        null.Int        `json:"number_to"`
-	Status          []AccountStatus `json:"status"`
-	Phone           []null.String   `json:"phone"`
-	Email           []null.String   `json:"email"`
-	Username        []null.String   `json:"username"`
-	Password        []null.String   `json:"password"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
+	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
+	Status          []AccountStatus   `json:"status"`
+	Phone           []null.String     `json:"phone"`
+	Email           []null.String     `json:"email"`
+	Username        []null.String     `json:"username"`
+	Password        []null.String     `json:"password"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Settings        []json.RawMessage `json:"settings"`
 }
 
 func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) error {
@@ -1195,6 +1360,7 @@ func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) er
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Settings,
 	)
 	return err
 }
@@ -1550,11 +1716,86 @@ func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) er
 	return err
 }
 
+const deleteWallet = `-- name: DeleteWallet :exec
+DELETE FROM "account"."wallet"
+WHERE (
+    ("account_id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL)
+)
+`
+
+type DeleteWalletParams struct {
+	AccountID   []uuid.UUID `json:"account_id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+}
+
+func (q *Queries) DeleteWallet(ctx context.Context, arg DeleteWalletParams) error {
+	_, err := q.db.Exec(ctx, deleteWallet,
+		arg.AccountID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+	)
+	return err
+}
+
+const deleteWalletTransaction = `-- name: DeleteWalletTransaction :exec
+DELETE FROM "account"."wallet_transaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("amount" = ANY($4) OR $4 IS NULL) AND
+    ("amount" >= $5 OR $5 IS NULL) AND
+    ("amount" <= $6 OR $6 IS NULL) AND
+    ("reference_id" = ANY($7) OR $7 IS NULL) AND
+    ("note" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL)
+)
+`
+
+type DeleteWalletTransactionParams struct {
+	ID              []int64                        `json:"id"`
+	AccountID       []uuid.UUID                    `json:"account_id"`
+	Type            []AccountWalletTransactionType `json:"type"`
+	Amount          []int64                        `json:"amount"`
+	AmountFrom      null.Int                       `json:"amount_from"`
+	AmountTo        null.Int                       `json:"amount_to"`
+	ReferenceID     []null.String                  `json:"reference_id"`
+	Note            []null.String                  `json:"note"`
+	DateCreated     []time.Time                    `json:"date_created"`
+	DateCreatedFrom null.Time                      `json:"date_created_from"`
+	DateCreatedTo   null.Time                      `json:"date_created_to"`
+}
+
+func (q *Queries) DeleteWalletTransaction(ctx context.Context, arg DeleteWalletTransactionParams) error {
+	_, err := q.db.Exec(ctx, deleteWalletTransaction,
+		arg.ID,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
+		arg.ReferenceID,
+		arg.Note,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+	)
+	return err
+}
+
 const getAccount = `-- name: GetAccount :one
 
 
 
-SELECT id, number, status, phone, email, username, password, date_created, date_updated
+SELECT id, number, status, phone, email, username, password, date_created, date_updated, settings
 FROM "account"."account"
 WHERE ("id" = $1) OR ("phone" = $2) OR ("email" = $3) OR ("username" = $4)
 `
@@ -1589,6 +1830,7 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Settings,
 	)
 	return i, err
 }
@@ -1771,8 +2013,33 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (Account
 	return i, err
 }
 
+const getWalletTransaction = `-- name: GetWalletTransaction :one
+
+SELECT id, account_id, type, amount, reference_id, note, date_created
+FROM "account"."wallet_transaction"
+WHERE ("id" = $1)
+`
+
+// ========================================
+// Queries for table: account.wallet_transaction
+// ========================================
+func (q *Queries) GetWalletTransaction(ctx context.Context, id null.Int) (AccountWalletTransaction, error) {
+	row := q.db.QueryRow(ctx, getWalletTransaction, id)
+	var i AccountWalletTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.Amount,
+		&i.ReferenceID,
+		&i.Note,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
 const listAccount = `-- name: ListAccount :many
-SELECT id, number, status, phone, email, username, password, date_created, date_updated
+SELECT id, number, status, phone, email, username, password, date_created, date_updated, settings
 FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1789,31 +2056,33 @@ WHERE (
     ("date_created" <= $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
     ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("settings" = ANY($16) OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17::int
-OFFSET $16::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListAccountParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Number          []int64         `json:"number"`
-	NumberFrom      null.Int        `json:"number_from"`
-	NumberTo        null.Int        `json:"number_to"`
-	Status          []AccountStatus `json:"status"`
-	Phone           []null.String   `json:"phone"`
-	Email           []null.String   `json:"email"`
-	Username        []null.String   `json:"username"`
-	Password        []null.String   `json:"password"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
-	Offset          null.Int32      `json:"offset"`
-	Limit           null.Int32      `json:"limit"`
+	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
+	Status          []AccountStatus   `json:"status"`
+	Phone           []null.String     `json:"phone"`
+	Email           []null.String     `json:"email"`
+	Username        []null.String     `json:"username"`
+	Password        []null.String     `json:"password"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Settings        []json.RawMessage `json:"settings"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error) {
@@ -1833,6 +2102,7 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Settings,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1853,6 +2123,7 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 			&i.Password,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Settings,
 		); err != nil {
 			return nil, err
 		}
@@ -1972,7 +2243,7 @@ func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]Acc
 }
 
 const listCountAccount = `-- name: ListCountAccount :many
-SELECT embed_account.id, embed_account.number, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_account.id, embed_account.number, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.date_updated, embed_account.settings, COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1989,31 +2260,33 @@ WHERE (
     ("date_created" <= $12 OR $12 IS NULL) AND
     ("date_updated" = ANY($13) OR $13 IS NULL) AND
     ("date_updated" >= $14 OR $14 IS NULL) AND
-    ("date_updated" <= $15 OR $15 IS NULL)
+    ("date_updated" <= $15 OR $15 IS NULL) AND
+    ("settings" = ANY($16) OR $16 IS NULL)
 )
 ORDER BY "id"
-LIMIT $17::int
-OFFSET $16::int
+LIMIT $18::int
+OFFSET $17::int
 `
 
 type ListCountAccountParams struct {
-	ID              []uuid.UUID     `json:"id"`
-	Number          []int64         `json:"number"`
-	NumberFrom      null.Int        `json:"number_from"`
-	NumberTo        null.Int        `json:"number_to"`
-	Status          []AccountStatus `json:"status"`
-	Phone           []null.String   `json:"phone"`
-	Email           []null.String   `json:"email"`
-	Username        []null.String   `json:"username"`
-	Password        []null.String   `json:"password"`
-	DateCreated     []time.Time     `json:"date_created"`
-	DateCreatedFrom null.Time       `json:"date_created_from"`
-	DateCreatedTo   null.Time       `json:"date_created_to"`
-	DateUpdated     []time.Time     `json:"date_updated"`
-	DateUpdatedFrom null.Time       `json:"date_updated_from"`
-	DateUpdatedTo   null.Time       `json:"date_updated_to"`
-	Offset          null.Int32      `json:"offset"`
-	Limit           null.Int32      `json:"limit"`
+	ID              []uuid.UUID       `json:"id"`
+	Number          []int64           `json:"number"`
+	NumberFrom      null.Int          `json:"number_from"`
+	NumberTo        null.Int          `json:"number_to"`
+	Status          []AccountStatus   `json:"status"`
+	Phone           []null.String     `json:"phone"`
+	Email           []null.String     `json:"email"`
+	Username        []null.String     `json:"username"`
+	Password        []null.String     `json:"password"`
+	DateCreated     []time.Time       `json:"date_created"`
+	DateCreatedFrom null.Time         `json:"date_created_from"`
+	DateCreatedTo   null.Time         `json:"date_created_to"`
+	DateUpdated     []time.Time       `json:"date_updated"`
+	DateUpdatedFrom null.Time         `json:"date_updated_from"`
+	DateUpdatedTo   null.Time         `json:"date_updated_to"`
+	Settings        []json.RawMessage `json:"settings"`
+	Offset          null.Int32        `json:"offset"`
+	Limit           null.Int32        `json:"limit"`
 }
 
 type ListCountAccountRow struct {
@@ -2038,6 +2311,7 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
+		arg.Settings,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2058,6 +2332,7 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 			&i.AccountAccount.Password,
 			&i.AccountAccount.DateCreated,
 			&i.AccountAccount.DateUpdated,
+			&i.AccountAccount.Settings,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2654,6 +2929,146 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 	return items, nil
 }
 
+const listCountWallet = `-- name: ListCountWallet :many
+SELECT embed_wallet.account_id, embed_wallet.balance, COUNT(*) OVER() as total_count
+FROM "account"."wallet" embed_wallet
+WHERE (
+    ("account_id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL)
+)
+ORDER BY "account_id"
+LIMIT $6::int
+OFFSET $5::int
+`
+
+type ListCountWalletParams struct {
+	AccountID   []uuid.UUID `json:"account_id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Offset      null.Int32  `json:"offset"`
+	Limit       null.Int32  `json:"limit"`
+}
+
+type ListCountWalletRow struct {
+	AccountWallet AccountWallet `json:"account_wallet"`
+	TotalCount    int64         `json:"total_count"`
+}
+
+func (q *Queries) ListCountWallet(ctx context.Context, arg ListCountWalletParams) ([]ListCountWalletRow, error) {
+	rows, err := q.db.Query(ctx, listCountWallet,
+		arg.AccountID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountWalletRow{}
+	for rows.Next() {
+		var i ListCountWalletRow
+		if err := rows.Scan(&i.AccountWallet.AccountID, &i.AccountWallet.Balance, &i.TotalCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCountWalletTransaction = `-- name: ListCountWalletTransaction :many
+SELECT embed_wallet_transaction.id, embed_wallet_transaction.account_id, embed_wallet_transaction.type, embed_wallet_transaction.amount, embed_wallet_transaction.reference_id, embed_wallet_transaction.note, embed_wallet_transaction.date_created, COUNT(*) OVER() as total_count
+FROM "account"."wallet_transaction" embed_wallet_transaction
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("amount" = ANY($4) OR $4 IS NULL) AND
+    ("amount" >= $5 OR $5 IS NULL) AND
+    ("amount" <= $6 OR $6 IS NULL) AND
+    ("reference_id" = ANY($7) OR $7 IS NULL) AND
+    ("note" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL)
+)
+ORDER BY "id"
+LIMIT $13::int
+OFFSET $12::int
+`
+
+type ListCountWalletTransactionParams struct {
+	ID              []int64                        `json:"id"`
+	AccountID       []uuid.UUID                    `json:"account_id"`
+	Type            []AccountWalletTransactionType `json:"type"`
+	Amount          []int64                        `json:"amount"`
+	AmountFrom      null.Int                       `json:"amount_from"`
+	AmountTo        null.Int                       `json:"amount_to"`
+	ReferenceID     []null.String                  `json:"reference_id"`
+	Note            []null.String                  `json:"note"`
+	DateCreated     []time.Time                    `json:"date_created"`
+	DateCreatedFrom null.Time                      `json:"date_created_from"`
+	DateCreatedTo   null.Time                      `json:"date_created_to"`
+	Offset          null.Int32                     `json:"offset"`
+	Limit           null.Int32                     `json:"limit"`
+}
+
+type ListCountWalletTransactionRow struct {
+	AccountWalletTransaction AccountWalletTransaction `json:"account_wallet_transaction"`
+	TotalCount               int64                    `json:"total_count"`
+}
+
+func (q *Queries) ListCountWalletTransaction(ctx context.Context, arg ListCountWalletTransactionParams) ([]ListCountWalletTransactionRow, error) {
+	rows, err := q.db.Query(ctx, listCountWalletTransaction,
+		arg.ID,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
+		arg.ReferenceID,
+		arg.Note,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountWalletTransactionRow{}
+	for rows.Next() {
+		var i ListCountWalletTransactionRow
+		if err := rows.Scan(
+			&i.AccountWalletTransaction.ID,
+			&i.AccountWalletTransaction.AccountID,
+			&i.AccountWalletTransaction.Type,
+			&i.AccountWalletTransaction.Amount,
+			&i.AccountWalletTransaction.ReferenceID,
+			&i.AccountWalletTransaction.Note,
+			&i.AccountWalletTransaction.DateCreated,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFavorite = `-- name: ListFavorite :many
 SELECT id, account_id, spu_id, date_created
 FROM "account"."favorite"
@@ -3095,6 +3510,135 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 	return items, nil
 }
 
+const listWallet = `-- name: ListWallet :many
+SELECT account_id, balance
+FROM "account"."wallet"
+WHERE (
+    ("account_id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL)
+)
+ORDER BY "account_id"
+LIMIT $6::int
+OFFSET $5::int
+`
+
+type ListWalletParams struct {
+	AccountID   []uuid.UUID `json:"account_id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Offset      null.Int32  `json:"offset"`
+	Limit       null.Int32  `json:"limit"`
+}
+
+func (q *Queries) ListWallet(ctx context.Context, arg ListWalletParams) ([]AccountWallet, error) {
+	rows, err := q.db.Query(ctx, listWallet,
+		arg.AccountID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccountWallet{}
+	for rows.Next() {
+		var i AccountWallet
+		if err := rows.Scan(&i.AccountID, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWalletTransaction = `-- name: ListWalletTransaction :many
+SELECT id, account_id, type, amount, reference_id, note, date_created
+FROM "account"."wallet_transaction"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("amount" = ANY($4) OR $4 IS NULL) AND
+    ("amount" >= $5 OR $5 IS NULL) AND
+    ("amount" <= $6 OR $6 IS NULL) AND
+    ("reference_id" = ANY($7) OR $7 IS NULL) AND
+    ("note" = ANY($8) OR $8 IS NULL) AND
+    ("date_created" = ANY($9) OR $9 IS NULL) AND
+    ("date_created" >= $10 OR $10 IS NULL) AND
+    ("date_created" <= $11 OR $11 IS NULL)
+)
+ORDER BY "id"
+LIMIT $13::int
+OFFSET $12::int
+`
+
+type ListWalletTransactionParams struct {
+	ID              []int64                        `json:"id"`
+	AccountID       []uuid.UUID                    `json:"account_id"`
+	Type            []AccountWalletTransactionType `json:"type"`
+	Amount          []int64                        `json:"amount"`
+	AmountFrom      null.Int                       `json:"amount_from"`
+	AmountTo        null.Int                       `json:"amount_to"`
+	ReferenceID     []null.String                  `json:"reference_id"`
+	Note            []null.String                  `json:"note"`
+	DateCreated     []time.Time                    `json:"date_created"`
+	DateCreatedFrom null.Time                      `json:"date_created_from"`
+	DateCreatedTo   null.Time                      `json:"date_created_to"`
+	Offset          null.Int32                     `json:"offset"`
+	Limit           null.Int32                     `json:"limit"`
+}
+
+func (q *Queries) ListWalletTransaction(ctx context.Context, arg ListWalletTransactionParams) ([]AccountWalletTransaction, error) {
+	rows, err := q.db.Query(ctx, listWalletTransaction,
+		arg.ID,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.AmountFrom,
+		arg.AmountTo,
+		arg.ReferenceID,
+		arg.Note,
+		arg.DateCreated,
+		arg.DateCreatedFrom,
+		arg.DateCreatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccountWalletTransaction{}
+	for rows.Next() {
+		var i AccountWalletTransaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Type,
+			&i.Amount,
+			&i.ReferenceID,
+			&i.Note,
+			&i.DateCreated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE "account"."account"
 SET "status" = COALESCE($1, "status"),
@@ -3103,9 +3647,10 @@ SET "status" = COALESCE($1, "status"),
     "username" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "username") END,
     "password" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "password") END,
     "date_created" = COALESCE($10, "date_created"),
-    "date_updated" = COALESCE($11, "date_updated")
-WHERE id = $12
-RETURNING id, number, status, phone, email, username, password, date_created, date_updated
+    "date_updated" = COALESCE($11, "date_updated"),
+    "settings" = COALESCE($12, "settings")
+WHERE id = $13
+RETURNING id, number, status, phone, email, username, password, date_created, date_updated, settings
 `
 
 type UpdateAccountParams struct {
@@ -3120,6 +3665,7 @@ type UpdateAccountParams struct {
 	Password     null.String       `json:"password"`
 	DateCreated  null.Time         `json:"date_created"`
 	DateUpdated  null.Time         `json:"date_updated"`
+	Settings     json.RawMessage   `json:"settings"`
 	ID           uuid.UUID         `json:"id"`
 }
 
@@ -3136,6 +3682,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		arg.Password,
 		arg.DateCreated,
 		arg.DateUpdated,
+		arg.Settings,
 		arg.ID,
 	)
 	var i AccountAccount
@@ -3149,6 +3696,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.Password,
 		&i.DateCreated,
 		&i.DateUpdated,
+		&i.Settings,
 	)
 	return i, err
 }
@@ -3485,6 +4033,74 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,
+	)
+	return i, err
+}
+
+const updateWallet = `-- name: UpdateWallet :one
+UPDATE "account"."wallet"
+SET "balance" = COALESCE($1, "balance")
+WHERE "account_id" = $2
+RETURNING account_id, balance
+`
+
+type UpdateWalletParams struct {
+	Balance   null.Int  `json:"balance"`
+	AccountID uuid.UUID `json:"account_id"`
+}
+
+func (q *Queries) UpdateWallet(ctx context.Context, arg UpdateWalletParams) (AccountWallet, error) {
+	row := q.db.QueryRow(ctx, updateWallet, arg.Balance, arg.AccountID)
+	var i AccountWallet
+	err := row.Scan(&i.AccountID, &i.Balance)
+	return i, err
+}
+
+const updateWalletTransaction = `-- name: UpdateWalletTransaction :one
+UPDATE "account"."wallet_transaction"
+SET "account_id" = COALESCE($1, "account_id"),
+    "type" = COALESCE($2, "type"),
+    "amount" = COALESCE($3, "amount"),
+    "reference_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "reference_id") END,
+    "note" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "note") END,
+    "date_created" = COALESCE($8, "date_created")
+WHERE id = $9
+RETURNING id, account_id, type, amount, reference_id, note, date_created
+`
+
+type UpdateWalletTransactionParams struct {
+	AccountID       uuid.NullUUID                    `json:"account_id"`
+	Type            NullAccountWalletTransactionType `json:"type"`
+	Amount          null.Int                         `json:"amount"`
+	NullReferenceID bool                             `json:"null_reference_id"`
+	ReferenceID     null.String                      `json:"reference_id"`
+	NullNote        bool                             `json:"null_note"`
+	Note            null.String                      `json:"note"`
+	DateCreated     null.Time                        `json:"date_created"`
+	ID              int64                            `json:"id"`
+}
+
+func (q *Queries) UpdateWalletTransaction(ctx context.Context, arg UpdateWalletTransactionParams) (AccountWalletTransaction, error) {
+	row := q.db.QueryRow(ctx, updateWalletTransaction,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.NullReferenceID,
+		arg.ReferenceID,
+		arg.NullNote,
+		arg.Note,
+		arg.DateCreated,
+		arg.ID,
+	)
+	var i AccountWalletTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.Amount,
+		&i.ReferenceID,
+		&i.Note,
+		&i.DateCreated,
 	)
 	return i, err
 }

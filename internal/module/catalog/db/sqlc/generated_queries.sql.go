@@ -142,7 +142,8 @@ WHERE (
     ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
     ("date_deleted" >= $13 OR $13 IS NULL) AND
-    ("date_deleted" <= $14 OR $14 IS NULL)
+    ("date_deleted" <= $14 OR $14 IS NULL) AND
+    ("currency" = ANY($15) OR $15 IS NULL)
 )
 `
 
@@ -161,6 +162,7 @@ type CountProductSkuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
+	Currency        []string          `json:"currency"`
 }
 
 func (q *Queries) CountProductSku(ctx context.Context, arg CountProductSkuParams) (int64, error) {
@@ -179,6 +181,7 @@ func (q *Queries) CountProductSku(ctx context.Context, arg CountProductSkuParams
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
+		arg.Currency,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -534,6 +537,7 @@ type CreateCopyProductSkuParams struct {
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateDeleted    null.Time       `json:"date_deleted"`
+	Currency       string          `json:"currency"`
 }
 
 type CreateCopyProductSpuParams struct {
@@ -640,7 +644,7 @@ func (q *Queries) CreateDefaultComment(ctx context.Context, arg CreateDefaultCom
 const createDefaultProductSku = `-- name: CreateDefaultProductSku :one
 INSERT INTO "catalog"."product_sku" ("spu_id", "price", "combinable", "attributes", "package_details", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 `
 
 type CreateDefaultProductSkuParams struct {
@@ -671,6 +675,7 @@ func (q *Queries) CreateDefaultProductSku(ctx context.Context, arg CreateDefault
 		&i.PackageDetails,
 		&i.DateCreated,
 		&i.DateDeleted,
+		&i.Currency,
 	)
 	return i, err
 }
@@ -799,9 +804,9 @@ func (q *Queries) CreateDefaultTag(ctx context.Context, arg CreateDefaultTagPara
 }
 
 const createProductSku = `-- name: CreateProductSku :one
-INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted", "currency")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 `
 
 type CreateProductSkuParams struct {
@@ -813,6 +818,7 @@ type CreateProductSkuParams struct {
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateDeleted    null.Time       `json:"date_deleted"`
+	Currency       string          `json:"currency"`
 }
 
 func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuParams) (CatalogProductSku, error) {
@@ -825,6 +831,7 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 		arg.PackageDetails,
 		arg.DateCreated,
 		arg.DateDeleted,
+		arg.Currency,
 	)
 	var i CatalogProductSku
 	err := row.Scan(
@@ -836,6 +843,7 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 		&i.PackageDetails,
 		&i.DateCreated,
 		&i.DateDeleted,
+		&i.Currency,
 	)
 	return i, err
 }
@@ -1101,7 +1109,8 @@ WHERE (
     ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
     ("date_deleted" >= $13 OR $13 IS NULL) AND
-    ("date_deleted" <= $14 OR $14 IS NULL)
+    ("date_deleted" <= $14 OR $14 IS NULL) AND
+    ("currency" = ANY($15) OR $15 IS NULL)
 )
 `
 
@@ -1120,6 +1129,7 @@ type DeleteProductSkuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
+	Currency        []string          `json:"currency"`
 }
 
 func (q *Queries) DeleteProductSku(ctx context.Context, arg DeleteProductSkuParams) error {
@@ -1138,6 +1148,7 @@ func (q *Queries) DeleteProductSku(ctx context.Context, arg DeleteProductSkuPara
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
+		arg.Currency,
 	)
 	return err
 }
@@ -1377,7 +1388,7 @@ func (q *Queries) GetComment(ctx context.Context, id uuid.NullUUID) (CatalogComm
 
 const getProductSku = `-- name: GetProductSku :one
 
-SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 FROM "catalog"."product_sku"
 WHERE ("id" = $1)
 `
@@ -1397,6 +1408,7 @@ func (q *Queries) GetProductSku(ctx context.Context, id uuid.NullUUID) (CatalogP
 		&i.PackageDetails,
 		&i.DateCreated,
 		&i.DateDeleted,
+		&i.Currency,
 	)
 	return i, err
 }
@@ -1863,7 +1875,7 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 }
 
 const listCountProductSku = `-- name: ListCountProductSku :many
-SELECT embed_product_sku.id, embed_product_sku.spu_id, embed_product_sku.price, embed_product_sku.combinable, embed_product_sku.attributes, embed_product_sku.package_details, embed_product_sku.date_created, embed_product_sku.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_sku.id, embed_product_sku.spu_id, embed_product_sku.price, embed_product_sku.combinable, embed_product_sku.attributes, embed_product_sku.package_details, embed_product_sku.date_created, embed_product_sku.date_deleted, embed_product_sku.currency, COUNT(*) OVER() as total_count
 FROM "catalog"."product_sku" embed_product_sku
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1879,11 +1891,12 @@ WHERE (
     ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
     ("date_deleted" >= $13 OR $13 IS NULL) AND
-    ("date_deleted" <= $14 OR $14 IS NULL)
+    ("date_deleted" <= $14 OR $14 IS NULL) AND
+    ("currency" = ANY($15) OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $17::int
+OFFSET $16::int
 `
 
 type ListCountProductSkuParams struct {
@@ -1901,6 +1914,7 @@ type ListCountProductSkuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
+	Currency        []string          `json:"currency"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -1926,6 +1940,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
+		arg.Currency,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1945,6 +1960,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSku.PackageDetails,
 			&i.CatalogProductSku.DateCreated,
 			&i.CatalogProductSku.DateDeleted,
+			&i.CatalogProductSku.Currency,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2282,7 +2298,7 @@ func (q *Queries) ListCountTag(ctx context.Context, arg ListCountTagParams) ([]L
 }
 
 const listProductSku = `-- name: ListProductSku :many
-SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2298,11 +2314,12 @@ WHERE (
     ("date_created" <= $11 OR $11 IS NULL) AND
     ("date_deleted" = ANY($12) OR $12 IS NULL) AND
     ("date_deleted" >= $13 OR $13 IS NULL) AND
-    ("date_deleted" <= $14 OR $14 IS NULL)
+    ("date_deleted" <= $14 OR $14 IS NULL) AND
+    ("currency" = ANY($15) OR $15 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $17::int
+OFFSET $16::int
 `
 
 type ListProductSkuParams struct {
@@ -2320,6 +2337,7 @@ type ListProductSkuParams struct {
 	DateDeleted     []null.Time       `json:"date_deleted"`
 	DateDeletedFrom null.Time         `json:"date_deleted_from"`
 	DateDeletedTo   null.Time         `json:"date_deleted_to"`
+	Currency        []string          `json:"currency"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -2340,6 +2358,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 		arg.DateDeleted,
 		arg.DateDeletedFrom,
 		arg.DateDeletedTo,
+		arg.Currency,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2359,6 +2378,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 			&i.PackageDetails,
 			&i.DateCreated,
 			&i.DateDeleted,
+			&i.Currency,
 		); err != nil {
 			return nil, err
 		}
@@ -2772,9 +2792,10 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "attributes" = COALESCE($4, "attributes"),
     "package_details" = COALESCE($5, "package_details"),
     "date_created" = COALESCE($6, "date_created"),
-    "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END
-WHERE id = $9
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+    "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END,
+    "currency" = COALESCE($9, "currency")
+WHERE id = $10
+RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted, currency
 `
 
 type UpdateProductSkuParams struct {
@@ -2786,6 +2807,7 @@ type UpdateProductSkuParams struct {
 	DateCreated     null.Time       `json:"date_created"`
 	NullDateDeleted bool            `json:"null_date_deleted"`
 	DateDeleted     null.Time       `json:"date_deleted"`
+	Currency        null.String     `json:"currency"`
 	ID              uuid.UUID       `json:"id"`
 }
 
@@ -2799,6 +2821,7 @@ func (q *Queries) UpdateProductSku(ctx context.Context, arg UpdateProductSkuPara
 		arg.DateCreated,
 		arg.NullDateDeleted,
 		arg.DateDeleted,
+		arg.Currency,
 		arg.ID,
 	)
 	var i CatalogProductSku
@@ -2811,6 +2834,7 @@ func (q *Queries) UpdateProductSku(ctx context.Context, arg UpdateProductSkuPara
 		&i.PackageDetails,
 		&i.DateCreated,
 		&i.DateDeleted,
+		&i.Currency,
 	)
 	return i, err
 }

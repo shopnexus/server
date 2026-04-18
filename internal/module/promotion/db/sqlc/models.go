@@ -158,6 +158,7 @@ type PromotionPromotion struct {
 	DateEnded   null.Time       `json:"date_ended"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
+	Currency    string          `json:"currency"`
 }
 
 type PromotionRef struct {

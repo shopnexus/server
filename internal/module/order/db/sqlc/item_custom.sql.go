@@ -59,7 +59,7 @@ func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUI
 }
 
 const listBuyerPendingItems = `-- name: ListBuyerPendingItems :many
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.date_created, i.date_updated, i.transport_option, i.transport_cost_estimate, i.payment_id, i.date_cancelled FROM "order".item i
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
 WHERE i.account_id = $1
   AND i.order_id IS NULL
   AND i.date_cancelled IS NULL
@@ -96,12 +96,12 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendin
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.DateCreated,
-			&i.DateUpdated,
+			&i.PaymentID,
 			&i.TransportOption,
 			&i.TransportCostEstimate,
-			&i.PaymentID,
 			&i.DateCancelled,
+			&i.DateCreated,
+			&i.DateUpdated,
 		); err != nil {
 			return nil, err
 		}
@@ -114,7 +114,7 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendin
 }
 
 const listPendingPaymentItemsByPaymentID = `-- name: ListPendingPaymentItemsByPaymentID :many
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.date_created, i.date_updated, i.transport_option, i.transport_cost_estimate, i.payment_id, i.date_cancelled FROM "order".item i
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
 WHERE i.payment_id = $1
   AND i.order_id IS NULL
   AND i.date_cancelled IS NULL
@@ -142,12 +142,12 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.DateCreated,
-			&i.DateUpdated,
+			&i.PaymentID,
 			&i.TransportOption,
 			&i.TransportCostEstimate,
-			&i.PaymentID,
 			&i.DateCancelled,
+			&i.DateCreated,
+			&i.DateUpdated,
 		); err != nil {
 			return nil, err
 		}
@@ -161,7 +161,7 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 
 const listSellerPendingItems = `-- name: ListSellerPendingItems :many
 
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.date_created, i.date_updated, i.transport_option, i.transport_cost_estimate, i.payment_id, i.date_cancelled FROM "order".item i
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
 JOIN "order".payment p ON p.id = i.payment_id
 WHERE i.seller_id = $1
   AND i.order_id IS NULL
@@ -200,12 +200,12 @@ func (q *Queries) ListSellerPendingItems(ctx context.Context, arg ListSellerPend
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.DateCreated,
-			&i.DateUpdated,
+			&i.PaymentID,
 			&i.TransportOption,
 			&i.TransportCostEstimate,
-			&i.PaymentID,
 			&i.DateCancelled,
+			&i.DateCreated,
+			&i.DateUpdated,
 		); err != nil {
 			return nil, err
 		}

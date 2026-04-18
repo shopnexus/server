@@ -163,6 +163,7 @@ type CatalogProductSku struct {
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateDeleted    null.Time       `json:"date_deleted"`
+	Currency       string          `json:"currency"`
 }
 
 type CatalogProductSpu struct {

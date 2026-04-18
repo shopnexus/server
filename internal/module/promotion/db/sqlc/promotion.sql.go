@@ -13,7 +13,7 @@ import (
 )
 
 const listActivePromotion = `-- name: ListActivePromotion :many
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
 FROM promotion.promotion
 WHERE is_active = true
   AND date_started <= NOW()
@@ -66,6 +66,7 @@ func (q *Queries) ListActivePromotion(ctx context.Context, arg ListActivePromoti
 			&i.DateEnded,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Currency,
 		); err != nil {
 			return nil, err
 		}
