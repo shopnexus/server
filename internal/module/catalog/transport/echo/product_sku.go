@@ -7,7 +7,6 @@ import (
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	authclaims "shopnexus-server/internal/shared/claims"
-	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
@@ -45,7 +44,7 @@ func (h *Handler) ListProductSku(c echo.Context) error {
 
 type CreateProductSkuRequest struct {
 	SpuID          uuid.UUID                       `json:"spu_id"          validate:"required"`
-	Price          sharedmodel.Concurrency         `json:"price"           validate:"required,gt=0"`
+	Price          int64                           `json:"price"           validate:"required,gt=0"`
 	Combinable     bool                            `json:"combinable"      validate:"omitempty"`
 	Attributes     []catalogmodel.ProductAttribute `json:"attributes"      validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"required"`
@@ -81,7 +80,7 @@ func (h *Handler) CreateProductSku(c echo.Context) error {
 
 type UpdateProductSkuRequest struct {
 	ID             uuid.UUID                       `json:"id"              validate:"required"`
-	Price          sharedmodel.NullConcurrency     `json:"price"           validate:"omitnil,gt=0"`
+	Price          null.Int                        `json:"price"           validate:"omitnil,gt=0"`
 	Combinable     null.Bool                       `json:"combinable"      validate:"omitnil"`
 	Attributes     []catalogmodel.ProductAttribute `json:"attributes"      validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `json:"package_details" validate:"omitempty"`

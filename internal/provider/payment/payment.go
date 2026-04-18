@@ -26,7 +26,7 @@ const (
 // CreateParams contains the parameters needed to create a payment with any provider.
 type CreateParams struct {
 	RefID       int64                   // internal payment record ID
-	Amount      sharedmodel.Concurrency // payment amount
+	Amount      int64 // payment amount
 	Description string                  // human-readable description
 	ReturnURL   string                  // where to redirect after payment (provider may override)
 }
@@ -56,7 +56,7 @@ type ResultHandler func(ctx context.Context, result WebhookResult) error
 
 type ChargeParams struct {
 	Token       string
-	Amount      sharedmodel.Concurrency
+	Amount      int64
 	Description string
 }
 
@@ -67,7 +67,7 @@ type ChargeResult struct {
 
 type RefundParams struct {
 	ProviderChargeID string
-	Amount           sharedmodel.Concurrency
+	Amount           int64
 }
 
 type RefundResult struct {

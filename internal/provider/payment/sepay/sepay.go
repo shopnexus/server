@@ -87,7 +87,7 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 		{"merchant", c.merchantID},
 		{"operation", "PURCHASE"},
 		{"payment_method", "BANK_TRANSFER"},
-		{"order_amount", fmt.Sprintf("%.0f", params.Amount.Float64())},
+		{"order_amount", fmt.Sprintf("%.0f", float64(params.Amount))},
 		{"currency", "VND"},
 		{"order_invoice_number", invoiceNumber},
 		{"order_description", params.Description},

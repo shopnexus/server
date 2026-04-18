@@ -82,8 +82,8 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 	q.Add("vnp_Version", "2.1.0")
 	q.Add("vnp_Command", "pay")
 	q.Add("vnp_TmnCode", c.tmnCode)
-	// TODO: add currency conversion in concurrency struct, currently hard coded 27000
-	q.Add("vnp_Amount", fmt.Sprintf("%.0f", params.Amount.Mul(100).Mul(27000).Float64()))
+	// TODO: add currency conversion, currently hard coded 27000
+	q.Add("vnp_Amount", fmt.Sprintf("%.0f", float64(params.Amount*100*27000)))
 	q.Add("vnp_CreateDate", formatTime(time.Now()))
 	q.Add("vnp_CurrCode", "VND")
 	q.Add("vnp_IpAddr", "192.168.1.1")

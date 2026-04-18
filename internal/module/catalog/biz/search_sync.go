@@ -184,7 +184,7 @@ func (b *CatalogHandler) syncProducts(
 			sonic.Unmarshal(sku.Attributes, &attrs)
 			skuDetails = append(skuDetails, catalogmodel.ProductDetailSku{
 				ID:         sku.ID,
-				Price:      sharedmodel.Concurrency(sku.Price),
+				Price:      sku.Price,
 				Attributes: attrs,
 			})
 		}

@@ -2,7 +2,6 @@ package catalogmodel
 
 import (
 	commonmodel "shopnexus-server/internal/module/common/model"
-	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,8 +20,8 @@ type ProductCard struct {
 	DateUpdated time.Time `json:"date_updated"`
 	DateDeleted null.Time `json:"date_deleted"`
 
-	Price         sharedmodel.Concurrency `json:"price"`
-	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
+	Price         int64 `json:"price"`
+	OriginalPrice int64 `json:"original_price"`
 	Rating        Rating                  `json:"rating"`
 	IsFavorite    bool                    `json:"is_favorite"`
 	Resources     []commonmodel.Resource  `json:"resources"`

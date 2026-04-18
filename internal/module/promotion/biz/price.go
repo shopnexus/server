@@ -32,8 +32,8 @@ type parsedPromotion struct {
 // groupWinner is the best promotion selected within a single stacking group.
 type groupWinner struct {
 	promo       parsedPromotion
-	productCost sharedmodel.Concurrency
-	shipCost    sharedmodel.Concurrency
+	productCost int64
+	shipCost    int64
 }
 
 type CalculatePromotedPricesParams struct {
@@ -73,7 +73,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(
 		// No active promotions — set original prices and return early
 		for _, p := range prices {
 			op := priceMap[p.SkuID]
-			op.ProductCost = p.UnitPrice.Mul(p.Quantity)
+			op.ProductCost = p.UnitPrice * p.Quantity
 			op.ShipCost = p.ShipCost
 		}
 		return priceMap, nil
@@ -102,7 +102,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(
 	for _, price := range prices {
 		op := priceMap[price.SkuID]
 		spu := spuMap[price.SpuID]
-		originalProduct := price.UnitPrice.Mul(price.Quantity)
+		originalProduct := price.UnitPrice * price.Quantity
 		originalShip := price.ShipCost
 
 		// Filter applicable promotions (reuse slice)
@@ -139,7 +139,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(
 
 // pickBestInGroup selects the promotion that gives the biggest total savings.
 // On equal savings, higher priority wins.
-func pickBestInGroup(group []parsedPromotion, originalProduct, originalShip sharedmodel.Concurrency) *groupWinner {
+func pickBestInGroup(group []parsedPromotion, originalProduct, originalShip int64) *groupWinner {
 	var best *groupWinner
 
 	for _, promo := range group {
@@ -175,7 +175,7 @@ func pickBestInGroup(group []parsedPromotion, originalProduct, originalShip shar
 func applyWinners(
 	op *catalogmodel.OrderPrice,
 	winners []groupWinner,
-	originalProduct, originalShip sharedmodel.Concurrency,
+	originalProduct, originalShip int64,
 ) {
 	// Check for exclusive group — only that winner applies
 	for _, w := range winners {
@@ -229,23 +229,23 @@ func isApplicable(promo promotionmodel.Promotion, spu catalogmodel.ProductSpu, s
 }
 
 // applyDiscount calculates the price after applying a discount.
-func applyDiscount(originalPrice sharedmodel.Concurrency, d *DiscountData) sharedmodel.Concurrency {
+func applyDiscount(originalPrice int64, d *DiscountData) int64 {
 	if d == nil {
 		return originalPrice
 	}
 
-	minSpend := sharedmodel.Concurrency(d.MinSpend)
+	minSpend := d.MinSpend
 	if originalPrice < minSpend {
 		return originalPrice
 	}
 
-	maxDiscount := sharedmodel.Concurrency(d.MaxDiscount)
-	var discount sharedmodel.Concurrency
+	maxDiscount := d.MaxDiscount
+	var discount int64
 
 	if d.DiscountPercent != nil {
-		discount = min(sharedmodel.Concurrency(float64(originalPrice)*(*d.DiscountPercent)), maxDiscount)
+		discount = min(int64(float64(originalPrice)*(*d.DiscountPercent)), maxDiscount)
 	} else if d.DiscountPrice != nil {
-		discount = min(sharedmodel.Concurrency(*d.DiscountPrice), maxDiscount)
+		discount = min(*d.DiscountPrice, maxDiscount)
 	}
 
 	return max(originalPrice-discount, 0)

@@ -3,7 +3,6 @@ package catalogmodel
 import (
 	"encoding/json"
 	commonmodel "shopnexus-server/internal/module/common/model"
-	sharedmodel "shopnexus-server/internal/shared/model"
 	"time"
 
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
@@ -35,7 +34,7 @@ type ProductSpu struct {
 type ProductSku struct {
 	ID          uuid.UUID               `json:"id"`
 	SpuID       uuid.UUID               `json:"spu_id"`
-	Price       sharedmodel.Concurrency `json:"price"`
+	Price       int64                   `json:"price"`
 	Combinable  bool                    `json:"combinable"`
 	DateCreated time.Time               `json:"date_created"`
 	Stock       int64                   `json:"stock"`

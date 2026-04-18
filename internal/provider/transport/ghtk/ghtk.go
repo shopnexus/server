@@ -43,7 +43,7 @@ type fakeTransport struct {
 	ID      string
 	Service string
 	Status  string
-	Cost    sharedmodel.Concurrency
+	Cost    int64
 
 	FromAddress string
 	ToAddress   string
@@ -315,14 +315,12 @@ func (g *GHTKClient) extractWeight(items []transport.ItemMetadata) int32 {
 }
 
 // calculateShippingCost calculates shipping cost based on weight and service type.
-func (g *GHTKClient) calculateShippingCost(weightGrams int32) sharedmodel.Concurrency {
-	baseCost := sharedmodel.Int64ToConcurrency(15000) // 15,000 VND base cost
+func (g *GHTKClient) calculateShippingCost(weightGrams int32) int64 {
+	baseCost := int64(15000) // 15,000 VND base cost
 
-	var weightCost sharedmodel.Concurrency
+	var weightCost int64
 	if weightGrams > 1000 {
-		weightCost = sharedmodel.Int64ToConcurrency(
-			(int64(weightGrams) - 1000) / 1000 * 2000,
-		) // 2,000 VND per additional kg
+		weightCost = (int64(weightGrams) - 1000) / 1000 * 2000 // 2,000 VND per additional kg
 	}
 
 	var serviceMultiplier float64
@@ -337,8 +335,8 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32) sharedmodel.Concur
 		serviceMultiplier = 1.0
 	}
 
-	totalCost := sharedmodel.FloatToConcurrency((baseCost + weightCost).Float64() * serviceMultiplier)
-	// TODO: add currency conversion in concurrency struct
+	totalCost := int64(float64(baseCost+weightCost) * serviceMultiplier)
+	// TODO: add currency conversion
 	return totalCost / 27000 // temporary convert to usdt
 }
 

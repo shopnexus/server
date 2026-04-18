@@ -3,7 +3,6 @@ package catalogmodel
 import (
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
-	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 )
@@ -33,8 +32,8 @@ type ProductRating struct {
 
 type ProductDetailSku struct {
 	ID            uuid.UUID               `json:"id"`
-	Price         sharedmodel.Concurrency `json:"price"`
-	OriginalPrice sharedmodel.Concurrency `json:"original_price"`
+	Price         int64 `json:"price"`
+	OriginalPrice int64 `json:"original_price"`
 	Attributes    []ProductAttribute      `json:"attributes"`
 	Taken         int64                   `json:"taken"`
 	Stock         int64                   `json:"stock"`

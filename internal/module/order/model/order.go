@@ -6,7 +6,6 @@ import (
 
 	commonmodel "shopnexus-server/internal/module/common/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
-	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
@@ -28,7 +27,7 @@ type OrderItem struct {
 	SpuID                 uuid.UUID               `json:"spu_id"`
 	SkuName               string                  `json:"sku_name"`
 	Quantity              int64                   `json:"quantity"`
-	UnitPrice             sharedmodel.Concurrency `json:"unit_price"`
+	UnitPrice             int64                   `json:"unit_price"`
 	PaidAmount            int64                   `json:"paid_amount"`
 	Note                  *string                 `json:"note"`
 	SerialIds             json.RawMessage         `json:"serial_ids"`
@@ -47,10 +46,10 @@ type Order struct {
 	Transport       *Transport              `json:"transport"`
 	Payment         *Payment                `json:"payment"`
 	Address         string                  `json:"address"`
-	ProductCost     sharedmodel.Concurrency `json:"product_cost"`
-	ProductDiscount sharedmodel.Concurrency `json:"product_discount"`
-	TransportCost   sharedmodel.Concurrency `json:"transport_cost"`
-	Total           sharedmodel.Concurrency `json:"total"`
+	ProductCost     int64       `json:"product_cost"`
+	ProductDiscount int64       `json:"product_discount"`
+	TransportCost   int64       `json:"transport_cost"`
+	Total           int64       `json:"total"`
 	Note            null.String             `json:"note"`
 	Data            json.RawMessage         `json:"data"`
 	DateCreated     time.Time               `json:"date_created"`
@@ -63,7 +62,7 @@ type Payment struct {
 	Option          string                  `json:"option"`
 	PaymentMethodID *uuid.UUID              `json:"payment_method_id,omitempty"`
 	Status          orderdb.OrderStatus     `json:"status"`
-	Amount          sharedmodel.Concurrency `json:"amount"`
+	Amount          int64                   `json:"amount"`
 	Data            json.RawMessage         `json:"data"`
 	DateCreated     time.Time               `json:"date_created"`
 	DatePaid        *time.Time              `json:"date_paid"`
@@ -74,7 +73,7 @@ type Transport struct {
 	ID          uuid.UUID                    `json:"id"`
 	Option      string                       `json:"option"`
 	Status      orderdb.OrderTransportStatus `json:"status"`
-	Cost        sharedmodel.Concurrency      `json:"cost"`
+	Cost        int64                        `json:"cost"`
 	Data        json.RawMessage              `json:"data"`
 	DateCreated time.Time                    `json:"date_created"`
 }

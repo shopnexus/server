@@ -369,7 +369,7 @@ func (b *OrderHandler) ConfirmSellerRefund(
 				// Partial refund: use refund.Amount if set, else full payment amount
 				refundAmount := refundOrder.Payment.Amount
 				if refund.Amount > 0 {
-					refundAmount = sharedmodel.Concurrency(refund.Amount)
+					refundAmount = refund.Amount
 				}
 				restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 					_, refundErr := cardClient.Refund(ctx, payment.RefundParams{

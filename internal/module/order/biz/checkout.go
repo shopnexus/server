@@ -211,7 +211,7 @@ func (b *OrderHandler) BuyerCheckout(
 
 			createdPayment, err := paymentClient.Create(ctx, payment.CreateParams{
 				RefID:       dbPayment.ID,
-				Amount:      sharedmodel.Concurrency(remaining),
+				Amount:      remaining,
 				Description: fmt.Sprintf("Payment %d", dbPayment.ID),
 			})
 			if err != nil {
@@ -529,7 +529,7 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 			SpuID:                 spuID,
 			SkuName:               oi.SkuName,
 			Quantity:              oi.Quantity,
-			UnitPrice:             sharedmodel.Concurrency(oi.UnitPrice),
+			UnitPrice:             oi.UnitPrice,
 			PaidAmount:            oi.PaidAmount,
 			Note:                  note,
 			SerialIds:             oi.SerialIds,

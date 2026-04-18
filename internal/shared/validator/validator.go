@@ -55,7 +55,6 @@ func New() (*CustomValidator, error) {
 		null.Time{},
 		// uuid.UUID{}, // uuid.UUID has TextUnmarshaler implemented, no need to register
 		uuid.NullUUID{},
-		sharedmodel.NullConcurrency{},
 	)
 
 	return &CustomValidator{

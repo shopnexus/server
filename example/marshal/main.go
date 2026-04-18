@@ -20,9 +20,9 @@ func (m MyInt) MarshalJSON() ([]byte, error) {
 }
 
 func main() {
-	var x sharedmodel.Concurrency = 4212312312123123
+	var x int64 = 4212312312123123
 	data, _ := sonic.Marshal(x)
-	fmt.Println(string(data)) // "custom:42"
+	fmt.Println(string(data))
 
 	data, _ = sonic.Marshal(CommonResponse{
 		Data: MyInt(123),

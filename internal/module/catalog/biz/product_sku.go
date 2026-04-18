@@ -77,7 +77,7 @@ func (b *CatalogHandler) ListProductSku(
 type CreateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	SpuID          uuid.UUID                       `validate:"required"`
-	Price          sharedmodel.Concurrency         `validate:"required,gt=0"`
+	Price          int64                           `validate:"required,gt=0"`
 	Combinable     bool                            `validate:"required"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `validate:"required"`
@@ -102,7 +102,7 @@ func (b *CatalogHandler) CreateProductSku(
 	// Create sku
 	sku, err := b.storage.Querier().CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
 		SpuID:          params.SpuID,
-		Price:          int64(params.Price),
+		Price:          params.Price,
 		Combinable:     params.Combinable,
 		Attributes:     attributesBytes,
 		PackageDetails: packagedetailsBytes,
@@ -128,7 +128,7 @@ func (b *CatalogHandler) CreateProductSku(
 type UpdateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	ID             uuid.UUID                       `validate:"required"`
-	Price          sharedmodel.NullConcurrency     `validate:"omitnil"`
+	Price          null.Int                        `validate:"omitnil"`
 	Combinable     null.Bool                       `validate:"omitnil"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
 	PackageDetails json.RawMessage                 `validate:"omitempty"`
@@ -157,7 +157,7 @@ func (b *CatalogHandler) UpdateProductSku(
 
 	sku, err := b.storage.Querier().UpdateProductSku(ctx, catalogdb.UpdateProductSkuParams{
 		ID:             params.ID,
-		Price:          params.Price.ToNullInt64(),
+		Price:          params.Price,
 		Combinable:     params.Combinable,
 		Attributes:     attributesBytes,
 		PackageDetails: packageDetailsBytes,
@@ -195,7 +195,7 @@ func dbToProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
 	return catalogmodel.ProductSku{
 		ID:             sku.ID,
 		SpuID:          sku.SpuID,
-		Price:          sharedmodel.Int64ToConcurrency(sku.Price),
+		Price:          sku.Price,
 		Combinable:     sku.Combinable,
 		DateCreated:    sku.DateCreated,
 		PackageDetails: sku.PackageDetails,
