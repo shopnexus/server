@@ -67,6 +67,22 @@ var (
 		"you are not authorized to access this dispute",
 	)
 
+	ErrRefundAmountExceedsPaid = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"refund amount exceeds the total paid amount of the specified items",
+	)
+	ErrItemNotInOrder = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"one or more item IDs do not belong to the specified order",
+	)
+	ErrPaymentNotSuccess = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"payment has not been completed successfully",
+	)
+	ErrPaymentExpired = sharedmodel.NewError(
+		http.StatusConflict,
+		"payment session has expired",
+	)
 	ErrItemAlreadyCancelled   = sharedmodel.NewError(http.StatusConflict, "item already cancelled")
 	ErrItemAlreadyConfirmed   = sharedmodel.NewError(http.StatusConflict, "item already confirmed in an order")
 	ErrItemsTransportMismatch = sharedmodel.NewError(http.StatusBadRequest, "all items must have the same transport option")

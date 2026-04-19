@@ -14,42 +14,17 @@ import (
 var _ Client = (*RedisClient)(nil)
 
 type RedisClient struct {
-	config RedisConfig
+	config Config
 	Client rueidis.Client
 }
 
-type RedisConfig struct {
-	Config
-
-	Addr     []string
-	Password string
-	DB       int64
-}
-
 // NewRedisStructClient initializes a new Redis client for structured data caching.
-func NewRedisStructClient(cfg RedisConfig) (*RedisClient, error) {
-	rdb, err := rueidis.NewClient(rueidis.ClientOption{
-		InitAddress: cfg.Addr,
-		// Add password if needed
-		Password: cfg.Password,
-		// DB selection in rueidis is done via SELECT command after connect
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Redis client: %w", err)
-	}
-
+func NewRedisStructClient(rdb rueidis.Client, cfg Config) (*RedisClient, error) {
 	if cfg.Encoder != nil {
 		cfg.Encoder = sonic.Marshal
 	}
 	if cfg.Decoder != nil {
 		cfg.Decoder = sonic.Unmarshal
-	}
-
-	// Select DB if not zero
-	if cfg.DB != 0 {
-		if err := rdb.Do(context.Background(), rdb.B().Select().Index(cfg.DB).Build()).Error(); err != nil {
-			return nil, fmt.Errorf("failed to select Redis DB %d: %w", cfg.DB, err)
-		}
 	}
 
 	return &RedisClient{

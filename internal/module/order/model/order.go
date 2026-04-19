@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -64,6 +65,9 @@ type Payment struct {
 	Status          orderdb.OrderStatus     `json:"status"`
 	Amount          int64                   `json:"amount"`
 	Data            json.RawMessage         `json:"data"`
+	BuyerCurrency   string                  `json:"buyer_currency"`
+	SellerCurrency  string                  `json:"seller_currency"`
+	ExchangeRate    pgtype.Numeric          `json:"exchange_rate"`
 	DateCreated     time.Time               `json:"date_created"`
 	DatePaid        *time.Time              `json:"date_paid"`
 	DateExpired     time.Time               `json:"date_expired"`

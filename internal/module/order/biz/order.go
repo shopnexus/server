@@ -285,6 +285,9 @@ func dbToPayment(p orderdb.OrderPayment) ordermodel.Payment {
 		Status:          p.Status,
 		Amount:          p.Amount,
 		Data:            p.Data,
+		BuyerCurrency:   p.BuyerCurrency,
+		SellerCurrency:  p.SellerCurrency,
+		ExchangeRate:    p.ExchangeRate,
 		DateCreated:     p.DateCreated,
 		DatePaid:        datePaid,
 		DateExpired:     p.DateExpired,
@@ -319,12 +322,30 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 
 	paymentID, err := strconv.ParseInt(params.RefID, 10, 64)
 	if err != nil {
-		return sharedmodel.WrapErr("parse payment ref id", err)
+		return fmt.Errorf("parse payment ref id %q: %w", params.RefID, err)
 	}
 
 	// Distributed lock per payment — prevents race with CancelUnpaidCheckout
 	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:payment:%d", paymentID))
 	defer unlock()
+
+	// Check if payment has expired
+	type expiryCheck struct {
+		Expired bool `json:"expired"`
+	}
+	ec, err := restate.Run(ctx, func(ctx restate.RunContext) (expiryCheck, error) {
+		p, err := b.storage.Querier().GetPayment(ctx, null.IntFrom(paymentID))
+		if err != nil {
+			return expiryCheck{}, sharedmodel.WrapErr("get payment for expiry check", err)
+		}
+		return expiryCheck{Expired: p.DateExpired.Before(time.Now())}, nil
+	})
+	if err != nil {
+		return err
+	}
+	if ec.Expired {
+		return nil // skip — payment already expired
+	}
 
 	var dbStatus orderdb.OrderStatus
 	switch params.Status {

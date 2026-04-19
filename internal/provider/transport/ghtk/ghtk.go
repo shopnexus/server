@@ -9,8 +9,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -289,7 +289,7 @@ func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
 
 		status := mapGHTKStatus(payload.StatusID)
 		if status == "" {
-			slog.Warn("ghtk webhook: unrecognized status_id", slog.Int("status_id", payload.StatusID))
+			slog.Warn("ghtk webhook: unrecognized status_id", slog.Int("status_id", payload.StatusID), slog.String("label_id", payload.LabelID))
 			// Return 200 so GHTK does not retry unknown statuses
 			return ec.NoContent(http.StatusOK)
 		}
@@ -353,8 +353,7 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32) int64 {
 	}
 
 	totalCost := int64(float64(baseCost+weightCost) * serviceMultiplier)
-	// TODO: add currency conversion
-	return totalCost / 27000 // temporary convert to usdt
+	return totalCost
 }
 
 // calculateETA calculates estimated time of arrival.

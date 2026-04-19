@@ -107,6 +107,8 @@ func (b *OrderHandler) ConfirmSellerPending(
 		TransportCostEstimate int64  `json:"transport_cost_estimate"`
 		OrderIDValid          bool   `json:"order_id_valid"`
 		DateCancelledValid    bool   `json:"date_cancelled_valid"`
+		PaymentID             int64  `json:"payment_id"`
+		PaymentIDValid        bool   `json:"payment_id_valid"`
 	}
 	type fetchResult struct {
 		Items []fetchedItem `json:"items"`
@@ -139,12 +141,34 @@ func (b *OrderHandler) ConfirmSellerPending(
 				TransportCostEstimate: item.TransportCostEstimate,
 				OrderIDValid:          item.OrderID.Valid,
 				DateCancelledValid:    item.DateCancelled.Valid,
+				PaymentID:             item.PaymentID.Int64,
+				PaymentIDValid:        item.PaymentID.Valid,
 			})
 		}
 		return fetchResult{Items: result}, nil
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("fetch items", err)
+	}
+
+	// Verify that items' payment status is Success before confirming
+	if len(fetched.Items) > 0 && fetched.Items[0].PaymentIDValid {
+		type paymentCheck struct {
+			Status string `json:"status"`
+		}
+		pc, err := restate.Run(ctx, func(ctx restate.RunContext) (paymentCheck, error) {
+			p, err := b.storage.Querier().GetPayment(ctx, null.IntFrom(fetched.Items[0].PaymentID))
+			if err != nil {
+				return paymentCheck{}, sharedmodel.WrapErr("get payment", err)
+			}
+			return paymentCheck{Status: string(p.Status)}, nil
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("check payment status", err)
+		}
+		if pc.Status != string(orderdb.OrderStatusSuccess) {
+			return zero, ordermodel.ErrPaymentNotSuccess.Terminal()
+		}
 	}
 
 	// Validate all items: not yet in an order, not cancelled, same seller, same buyer, same transport option
@@ -154,14 +178,14 @@ func (b *OrderHandler) ConfirmSellerPending(
 	var transportOption string
 	for i, item := range fetched.Items {
 		if item.OrderIDValid {
-			return zero, ordermodel.ErrItemAlreadyConfirmed
+			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyConfirmed)
 		}
 		if item.DateCancelledValid {
-			return zero, ordermodel.ErrItemAlreadyCancelled
+			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyCancelled)
 		}
 		itemSellerID, _ := uuid.Parse(item.SellerID)
 		if itemSellerID != sellerID {
-			return zero, ordermodel.ErrItemNotOwnedBySeller
+			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemNotOwnedBySeller)
 		}
 		itemBuyerID, _ := uuid.Parse(item.AccountID)
 		if i == 0 {
@@ -170,13 +194,13 @@ func (b *OrderHandler) ConfirmSellerPending(
 			transportOption = item.TransportOption
 		} else {
 			if itemBuyerID != buyerID {
-				return zero, ordermodel.ErrItemsNotSameBuyer
+				return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameBuyer)
 			}
 			if item.Address != address {
-				return zero, ordermodel.ErrItemsNotSameAddress
+				return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameAddress)
 			}
 			if item.TransportOption != transportOption {
-				return zero, ordermodel.ErrItemsTransportMismatch
+				return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsTransportMismatch)
 			}
 		}
 	}
@@ -396,42 +420,50 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		return sharedmodel.WrapErr("db cancel items", err)
 	}
 
-	// Refund wallet for each item's paid_amount + transport_cost_estimate
+	// Refund wallet for each item's paid_amount + transport_cost_estimate, grouped by buyer
 	if len(items) > 0 {
-		buyerID, _ := uuid.Parse(items[0].BuyerID)
-
-		var totalRefund int64
+		// Group items by buyer
+		buyerItems := make(map[string][]itemInfo)
 		for _, item := range items {
-			totalRefund += item.PaidAmount + item.TransportCostEstimate
-		}
-		if totalRefund > 0 {
-			if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-				AccountID: buyerID,
-				Amount:    totalRefund,
-				Type:      "Refund",
-				Reference: fmt.Sprintf("seller-reject-items-%v", params.ItemIDs),
-				Note:      "Refund for seller-rejected items",
-			}); err != nil {
-				return sharedmodel.WrapErr("wallet refund", err)
-			}
+			buyerItems[item.BuyerID] = append(buyerItems[item.BuyerID], item)
 		}
 
-		// Notify buyer (fire-and-forget)
-		rejectedNames := make([]string, 0, len(items))
-		for _, it := range items {
-			if it.SkuName != "" {
-				rejectedNames = append(rejectedNames, it.SkuName)
+		for buyerIDStr, buyerItemList := range buyerItems {
+			buyerID, _ := uuid.Parse(buyerIDStr)
+
+			var totalRefund int64
+			for _, item := range buyerItemList {
+				totalRefund += item.PaidAmount + item.TransportCostEstimate
 			}
+			if totalRefund > 0 {
+				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+					AccountID: buyerID,
+					Amount:    totalRefund,
+					Type:      "Refund",
+					Reference: fmt.Sprintf("seller-reject-items-%v", lo.Map(buyerItemList, func(it itemInfo, _ int) int64 { return it.ID })),
+					Note:      "Refund for seller-rejected items",
+				}); err != nil {
+					return sharedmodel.WrapErr("wallet refund", err)
+				}
+			}
+
+			// Notify buyer (fire-and-forget)
+			rejectedNames := make([]string, 0, len(buyerItemList))
+			for _, it := range buyerItemList {
+				if it.SkuName != "" {
+					rejectedNames = append(rejectedNames, it.SkuName)
+				}
+			}
+			rejectSummary := ordermodel.SummarizeNames(rejectedNames)
+			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+				AccountID: buyerID,
+				Type:      accountmodel.NotiItemsRejected,
+				Channel:   accountmodel.ChannelInApp,
+				Title:     "Items rejected",
+				Content:   fmt.Sprintf("%s has been rejected by the seller.", rejectSummary),
+				Metadata:  json.RawMessage(`{}`),
+			})
 		}
-		rejectSummary := ordermodel.SummarizeNames(rejectedNames)
-		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-			AccountID: buyerID,
-			Type:      accountmodel.NotiItemsRejected,
-			Channel:   accountmodel.ChannelInApp,
-			Title:     "Items rejected",
-			Content:   fmt.Sprintf("%s has been rejected by the seller.", rejectSummary),
-			Metadata:  json.RawMessage(`{}`),
-		})
 	}
 
 	return nil

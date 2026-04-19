@@ -19,6 +19,7 @@ const (
 	NotiNewPendingItems          NotificationType = "new_pending_items"
 	NotiPendingItemCancelled     NotificationType = "pending_item_cancelled"
 	NotiRefundRequested          NotificationType = "refund_requested"
+	NotiDisputeOpened            NotificationType = "dispute_opened"
 	NotiRefundCancelled          NotificationType = "refund_cancelled"
 	NotiSellerTransportFailed    NotificationType = "seller_transport_failed"
 	NotiSellerTransportCancelled NotificationType = "seller_transport_cancelled"

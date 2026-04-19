@@ -44,21 +44,22 @@ func (b *OrderHandler) CreateRefundDispute(
 		return zero, sharedmodel.WrapErr("validate create dispute", err)
 	}
 
-	// Fetch refund + order to check ownership and refund status.
-	// uuid.UUID is [16]byte which round-trips through JSON cleanly.
-	type disputePrecheck struct {
-		BuyerID  uuid.UUID `json:"buyer_id"`
-		SellerID uuid.UUID `json:"seller_id"`
+	// Fetch refund + order, check ownership, count active disputes, and insert — all in one
+	// durable step to eliminate the race window between count and insert.
+	type disputeRunResult struct {
+		BuyerID  uuid.UUID                 `json:"buyer_id"`
+		SellerID uuid.UUID                 `json:"seller_id"`
+		Dispute  orderdb.OrderRefundDispute `json:"dispute"`
 	}
-	pre, err := restate.Run(ctx, func(ctx restate.RunContext) (disputePrecheck, error) {
+	result, err := restate.Run(ctx, func(ctx restate.RunContext) (disputeRunResult, error) {
 		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
-			return disputePrecheck{}, sharedmodel.WrapErr("get refund", err)
+			return disputeRunResult{}, sharedmodel.WrapErr("get refund", err)
 		}
 
 		// Refund must not be resolved (Success) or Cancelled.
 		if refund.Status == orderdb.OrderStatusSuccess || refund.Status == orderdb.OrderStatusCancelled {
-			return disputePrecheck{}, ordermodel.ErrDisputeRefundResolved.Terminal()
+			return disputeRunResult{}, ordermodel.ErrDisputeRefundResolved.Terminal()
 		}
 
 		// Check for an existing active dispute on this refund.
@@ -67,51 +68,50 @@ func (b *OrderHandler) CreateRefundDispute(
 			Status:   []orderdb.OrderStatus{orderdb.OrderStatusPending, orderdb.OrderStatusProcessing},
 		})
 		if err != nil {
-			return disputePrecheck{}, sharedmodel.WrapErr("count active disputes", err)
+			return disputeRunResult{}, sharedmodel.WrapErr("count active disputes", err)
 		}
 		if activeCount > 0 {
-			return disputePrecheck{}, ordermodel.ErrDisputeAlreadyActive.Terminal()
+			return disputeRunResult{}, ordermodel.ErrDisputeAlreadyActive.Terminal()
 		}
 
 		// Fetch order to verify caller is buyer or seller.
 		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
 		if err != nil {
-			return disputePrecheck{}, sharedmodel.WrapErr("get order", err)
+			return disputeRunResult{}, sharedmodel.WrapErr("get order", err)
 		}
 
-		return disputePrecheck{
+		if params.Account.ID != order.BuyerID && params.Account.ID != order.SellerID {
+			return disputeRunResult{}, ordermodel.ErrDisputeNotAuthorized.Terminal()
+		}
+
+		// Insert dispute in the same transaction-like block.
+		dbDispute, err := b.storage.Querier().CreateDefaultRefundDispute(ctx, orderdb.CreateDefaultRefundDisputeParams{
+			RefundID:   params.RefundID,
+			IssuedByID: params.Account.ID,
+			Reason:     params.Reason,
+		})
+		if err != nil {
+			return disputeRunResult{}, sharedmodel.WrapErr("db create dispute", err)
+		}
+
+		return disputeRunResult{
 			BuyerID:  order.BuyerID,
 			SellerID: order.SellerID,
+			Dispute:  dbDispute,
 		}, nil
 	})
 	if err != nil {
 		return zero, err
 	}
 
-	if params.Account.ID != pre.BuyerID && params.Account.ID != pre.SellerID {
-		return zero, ordermodel.ErrDisputeNotAuthorized.Terminal()
-	}
-
-	// Insert the dispute record in a durable step.
-	dbDispute, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefundDispute, error) {
-		return b.storage.Querier().CreateDefaultRefundDispute(ctx, orderdb.CreateDefaultRefundDisputeParams{
-			RefundID:   params.RefundID,
-			IssuedByID: params.Account.ID,
-			Reason:     params.Reason,
-		})
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db create dispute", err)
-	}
-
-	dispute := dbToRefundDispute(dbDispute)
+	dispute := dbToRefundDispute(result.Dispute)
 
 	// Notify the other party (fire-and-forget).
 	var notifyAccountID uuid.UUID
-	if params.Account.ID == pre.BuyerID {
-		notifyAccountID = pre.SellerID
+	if params.Account.ID == result.BuyerID {
+		notifyAccountID = result.SellerID
 	} else {
-		notifyAccountID = pre.BuyerID
+		notifyAccountID = result.BuyerID
 	}
 	meta, _ := json.Marshal(map[string]string{
 		"refund_id":  params.RefundID.String(),
@@ -119,7 +119,7 @@ func (b *OrderHandler) CreateRefundDispute(
 	})
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: notifyAccountID,
-		Type:      accountmodel.NotiRefundRequested,
+		Type:      accountmodel.NotiDisputeOpened,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Refund dispute opened",
 		Content:   "A dispute has been opened on a refund request.",

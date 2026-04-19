@@ -3,8 +3,11 @@ package orderbiz
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	restate "github.com/restatedev/sdk-go"
 
 	"github.com/google/uuid"
@@ -42,9 +45,12 @@ var validTransitions = map[orderdb.OrderTransportStatus]map[orderdb.OrderTranspo
 		orderdb.OrderTransportStatusFailed:    true,
 		orderdb.OrderTransportStatusCancelled: true,
 	},
-	// Terminal states — no further transitions allowed
+	// Terminal states
 	orderdb.OrderTransportStatusDelivered: {},
-	orderdb.OrderTransportStatusFailed:    {},
+	orderdb.OrderTransportStatusFailed: {
+		orderdb.OrderTransportStatusInTransit:    true, // redelivery
+		orderdb.OrderTransportStatusLabelCreated: true, // relabelled for redelivery
+	},
 	orderdb.OrderTransportStatusCancelled: {},
 }
 
@@ -72,7 +78,10 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 			return b.storage.Querier().GetTransportByTrackingID(ctx, params.TrackingID)
 		})
 		if err != nil {
-			return ordermodel.ErrOrderNotFound.Terminal()
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ordermodel.ErrOrderNotFound.Terminal()
+			}
+			return sharedmodel.WrapErr("get transport by tracking id", err)
 		}
 		params.TransportID = t.ID
 	}
@@ -87,7 +96,10 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
 		row, err := b.storage.Querier().GetTransportWithOrder(ctx, params.TransportID)
 		if err != nil {
-			return fetchResult{}, ordermodel.ErrOrderNotFound.Terminal()
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fetchResult{}, ordermodel.ErrOrderNotFound.Terminal()
+			}
+			return fetchResult{}, sharedmodel.WrapErr("get transport with order", err)
 		}
 
 		// Validate state transition
@@ -152,63 +164,83 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 	switch params.Status {
 	case orderdb.OrderTransportStatusDelivered:
 		if info.BuyerID != "" {
-			buyerID, _ := uuid.Parse(info.BuyerID)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: buyerID,
-				Type:      accountmodel.NotiTransportDelivered,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã được giao",
-				Content:   "Đơn hàng của bạn đã được giao thành công.",
-				Metadata:  meta,
-			})
+			buyerID, err := uuid.Parse(info.BuyerID)
+			if err != nil {
+				slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", info.BuyerID), slog.Any("error", err))
+			} else {
+				restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+					AccountID: buyerID,
+					Type:      accountmodel.NotiTransportDelivered,
+					Channel:   accountmodel.ChannelInApp,
+					Title:     "Đơn hàng đã được giao",
+					Content:   "Đơn hàng của bạn đã được giao thành công.",
+					Metadata:  meta,
+				})
+			}
 		}
 
 	case orderdb.OrderTransportStatusFailed:
 		if info.BuyerID != "" {
-			buyerID, _ := uuid.Parse(info.BuyerID)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: buyerID,
-				Type:      accountmodel.NotiTransportFailed,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Giao hàng thất bại",
-				Content:   "Đơn hàng của bạn giao không thành công. Vui lòng liên hệ hỗ trợ.",
-				Metadata:  meta,
-			})
+			buyerID, err := uuid.Parse(info.BuyerID)
+			if err != nil {
+				slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", info.BuyerID), slog.Any("error", err))
+			} else {
+				restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+					AccountID: buyerID,
+					Type:      accountmodel.NotiTransportFailed,
+					Channel:   accountmodel.ChannelInApp,
+					Title:     "Giao hàng thất bại",
+					Content:   "Đơn hàng của bạn giao không thành công. Vui lòng liên hệ hỗ trợ.",
+					Metadata:  meta,
+				})
+			}
 		}
 		if info.SellerID != "" {
-			sellerID, _ := uuid.Parse(info.SellerID)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: sellerID,
-				Type:      accountmodel.NotiSellerTransportFailed,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Giao hàng thất bại",
-				Content:   "Đơn hàng đã giao không thành công.",
-				Metadata:  meta,
-			})
+			sellerID, err := uuid.Parse(info.SellerID)
+			if err != nil {
+				slog.Warn("skip seller notification: invalid seller UUID", slog.String("seller_id", info.SellerID), slog.Any("error", err))
+			} else {
+				restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+					AccountID: sellerID,
+					Type:      accountmodel.NotiSellerTransportFailed,
+					Channel:   accountmodel.ChannelInApp,
+					Title:     "Giao hàng thất bại",
+					Content:   "Đơn hàng đã giao không thành công.",
+					Metadata:  meta,
+				})
+			}
 		}
 
 	case orderdb.OrderTransportStatusCancelled:
 		if info.BuyerID != "" {
-			buyerID, _ := uuid.Parse(info.BuyerID)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: buyerID,
-				Type:      accountmodel.NotiTransportCancelled,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã bị hủy vận chuyển",
-				Content:   "Đơn vận chuyển của bạn đã bị hủy.",
-				Metadata:  meta,
-			})
+			buyerID, err := uuid.Parse(info.BuyerID)
+			if err != nil {
+				slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", info.BuyerID), slog.Any("error", err))
+			} else {
+				restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+					AccountID: buyerID,
+					Type:      accountmodel.NotiTransportCancelled,
+					Channel:   accountmodel.ChannelInApp,
+					Title:     "Đơn hàng đã bị hủy vận chuyển",
+					Content:   "Đơn vận chuyển của bạn đã bị hủy.",
+					Metadata:  meta,
+				})
+			}
 		}
 		if info.SellerID != "" {
-			sellerID, _ := uuid.Parse(info.SellerID)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: sellerID,
-				Type:      accountmodel.NotiSellerTransportCancelled,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã bị hủy vận chuyển",
-				Content:   "Đơn vận chuyển đã bị hủy.",
-				Metadata:  meta,
-			})
+			sellerID, err := uuid.Parse(info.SellerID)
+			if err != nil {
+				slog.Warn("skip seller notification: invalid seller UUID", slog.String("seller_id", info.SellerID), slog.Any("error", err))
+			} else {
+				restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+					AccountID: sellerID,
+					Type:      accountmodel.NotiSellerTransportCancelled,
+					Channel:   accountmodel.ChannelInApp,
+					Title:     "Đơn hàng đã bị hủy vận chuyển",
+					Content:   "Đơn vận chuyển đã bị hủy.",
+					Metadata:  meta,
+				})
+			}
 		}
 	}
 

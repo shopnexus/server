@@ -20,6 +20,8 @@ type CreateBuyerRefundRequest struct {
 	Reason      string                    `json:"reason"       validate:"required,max=500"`
 	Address     null.String               `json:"address"      validate:"omitnil,max=500"`
 	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"dive"`
+	ItemIDs     []int64                   `json:"item_ids"     validate:"omitempty,dive,gt=0"`
+	Amount      int64                     `json:"amount"       validate:"omitempty,gte=0"`
 }
 
 func (h *Handler) CreateBuyerRefund(c echo.Context) error {
@@ -43,6 +45,8 @@ func (h *Handler) CreateBuyerRefund(c echo.Context) error {
 		Reason:      req.Reason,
 		Address:     req.Address,
 		ResourceIDs: req.ResourceIDs,
+		ItemIDs:     req.ItemIDs,
+		Amount:      req.Amount,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

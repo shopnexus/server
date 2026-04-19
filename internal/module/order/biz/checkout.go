@@ -19,6 +19,7 @@ import (
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	commonmodel "shopnexus-server/internal/module/common/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -229,7 +230,7 @@ func (b *OrderHandler) BuyerCheckout(
 
 		paymentClient, err := b.getPaymentClient(paymentOption)
 		if err != nil {
-			return zero, err
+			return zero, sharedmodel.WrapErr("get payment client", err)
 		}
 
 		type paymentResult struct {
@@ -565,6 +566,11 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 			dateCancelled = &oi.DateCancelled.Time
 		}
 
+		resources := resourcesMap[spuID]
+		if resources == nil {
+			resources = []commonmodel.Resource{}
+		}
+
 		result = append(result, ordermodel.OrderItem{
 			ID:                    oi.ID,
 			OrderID:               orderID,
@@ -584,7 +590,7 @@ func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderI
 			PaymentID:             paymentIDPtr,
 			DateCancelled:         dateCancelled,
 			DateCreated:           oi.DateCreated,
-			Resources:             resourcesMap[spuID],
+			Resources:             resources,
 		})
 	}
 

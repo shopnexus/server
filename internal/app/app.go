@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/redis/rueidis"
 	"go.uber.org/fx"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
+	"shopnexus-server/internal/infras/locker"
 	"shopnexus-server/internal/infras/milvus"
 	"shopnexus-server/internal/infras/pubsub"
 	"shopnexus-server/internal/infras/ratelimit"
@@ -36,6 +38,7 @@ var Module = fx.Module("main",
 		NewConfig,
 		NewPgSqlc,
 		NewEcho,
+		NewRedis,
 		NewCacheStruct,
 		NewPubsubClient,
 		NewMilvusClient,
@@ -43,6 +46,7 @@ var Module = fx.Module("main",
 		NewRestateClient,
 		NewGeocodingProvider,
 		NewRateLimitFactory,
+		NewLocker,
 	),
 
 	// Business modules
@@ -75,16 +79,32 @@ func NewRateLimitFactory(cacheClient cache.Client) *ratelimit.Factory {
 	return ratelimit.NewFactory(cacheClient)
 }
 
-func NewCacheStruct() (cache.Client, error) {
-	addr := fmt.Sprintf("%s:%s", config.GetConfig().Redis.Host, config.GetConfig().Redis.Port)
-	return cache.NewRedisStructClient(cache.RedisConfig{
-		Config: cache.Config{
-			Decoder: sonic.Unmarshal,
-			Encoder: sonic.Marshal,
-		},
-		Addr:     []string{addr},
-		Password: config.GetConfig().Redis.Password,
-		DB:       config.GetConfig().Redis.DB,
+func NewRedis(cfg *config.Config) (rueidis.Client, error) {
+	addr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
+	rdb, err := rueidis.NewClient(rueidis.ClientOption{
+		InitAddress: []string{addr},
+		// Add password if needed
+		Password: cfg.Redis.Password,
+		// DB selection in rueidis is done via SELECT command after connect
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Redis client: %w", err)
+	}
+
+	// Select DB if not zero
+	if cfg.Redis.DB != 0 {
+		if err := rdb.Do(context.Background(), rdb.B().Select().Index(cfg.Redis.DB).Build()).Error(); err != nil {
+			return nil, fmt.Errorf("failed to select Redis DB %d: %w", cfg.Redis.DB, err)
+		}
+	}
+
+	return rdb, nil
+}
+
+func NewCacheStruct(rdb rueidis.Client) (cache.Client, error) {
+	return cache.NewRedisStructClient(rdb, cache.Config{
+		Decoder: sonic.Unmarshal,
+		Encoder: sonic.Marshal,
 	})
 }
 
@@ -170,4 +190,10 @@ func NewLLMClient(cfg *config.Config) (llm.Client, error) {
 	default:
 		return nil, fmt.Errorf("unknown LLM provider: %s", cfg.LLM.Provider)
 	}
+}
+
+func NewLocker(rdb rueidis.Client) locker.Client {
+	return locker.NewRedisLocker(rdb, locker.Config{
+		TTL: 30 * time.Second,
+	})
 }

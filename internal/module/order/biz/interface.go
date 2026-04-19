@@ -205,13 +205,13 @@ type ListSellerPendingItemsParams struct {
 
 type ConfirmSellerPendingParams struct {
 	Account accountmodel.AuthenticatedAccount
-	ItemIDs []int64                           `json:"item_ids" validate:"required,min=1"`
+	ItemIDs []int64                           `json:"item_ids" validate:"required,min=1,max=1000"`
 	Note    string                            `json:"note" validate:"max=500"`
 }
 
 type RejectSellerPendingParams struct {
 	Account accountmodel.AuthenticatedAccount
-	ItemIDs []int64 `validate:"required,min=1"`
+	ItemIDs []int64 `validate:"required,min=1,max=1000"`
 }
 
 type ListBuyerConfirmedParams struct {

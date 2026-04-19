@@ -109,6 +109,40 @@ func (b *OrderHandler) CreateBuyerRefund(
 		return zero, ordermodel.ErrOrderNotFound.Terminal()
 	}
 
+	// Validate that all params.ItemIDs belong to the order
+	if len(params.ItemIDs) > 0 {
+		orderItemSet := make(map[int64]struct{}, len(order.Items))
+		for _, item := range order.Items {
+			orderItemSet[item.ID] = struct{}{}
+		}
+		for _, id := range params.ItemIDs {
+			if _, ok := orderItemSet[id]; !ok {
+				return zero, fmt.Errorf("item %d does not belong to order %s: %w", id, params.OrderID, ordermodel.ErrOrderItemNotFound)
+			}
+		}
+	}
+
+	// Validate that params.Amount does not exceed the sum of the items' paid_amount
+	{
+		var maxRefund int64
+		if len(params.ItemIDs) > 0 {
+			itemPaidMap := make(map[int64]int64, len(order.Items))
+			for _, item := range order.Items {
+				itemPaidMap[item.ID] = item.PaidAmount
+			}
+			for _, id := range params.ItemIDs {
+				maxRefund += itemPaidMap[id]
+			}
+		} else {
+			for _, item := range order.Items {
+				maxRefund += item.PaidAmount
+			}
+		}
+		if params.Amount > maxRefund {
+			return zero, ordermodel.ErrRefundAmountExceedsPaid.Terminal()
+		}
+	}
+
 	// Partial refund: serialize item_ids to JSONB (null = full refund)
 	var itemIdsJSON json.RawMessage
 	if len(params.ItemIDs) > 0 {
@@ -371,7 +405,10 @@ func (b *OrderHandler) ConfirmSellerRefund(
 	}
 
 	// Notify customer: refund confirmed + check for auto-refund
-	refundOrder, _ := b.GetBuyerOrder(ctx, refund.OrderID)
+	refundOrder, orderErr := b.GetBuyerOrder(ctx, refund.OrderID)
+	if orderErr != nil {
+		slog.Warn("get order for refund notification", slog.Any("error", orderErr))
+	}
 	refundSummary := "your order"
 	if refundOrder.Items != nil {
 		refundSummary = ordermodel.SummarizeItems(refundOrder.Items)
