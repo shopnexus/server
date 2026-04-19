@@ -16,8 +16,6 @@ CREATE TYPE "order"."refund_method" AS ENUM ('PickUp', 'DropOff');
 CREATE TYPE "order"."transport_status" AS ENUM ('Pending', 'LabelCreated', 'InTransit', 'OutForDelivery', 'Delivered', 'Failed', 'Cancelled');
 -- Generic status used by payment, order, refund, and refund_dispute tables
 CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Cancelled', 'Failed');
--- Per-item confirmation state before an order is created
-CREATE TYPE "order"."item_status" AS ENUM ('Pending', 'Confirmed', 'Cancelled');
 
 -- Tables
 
@@ -46,6 +44,9 @@ CREATE TABLE IF NOT EXISTS "order"."payment" (
     -- Provider-specific payment intent, token, or QR code data
     "data" JSONB NOT NULL,
     "payment_method_id" UUID,
+    "buyer_currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
+    "seller_currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
+    "exchange_rate" NUMERIC NOT NULL DEFAULT 1,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_paid" TIMESTAMPTZ(3),
     -- Payment session expiry; unpaid after this timestamp are voided
@@ -73,14 +74,13 @@ CREATE TABLE IF NOT EXISTS "order"."transport" (
 -- the same seller into a single fulfillable unit. product_discount is the total
 -- promotion savings; total = product_cost - product_discount + transport_cost.
 -- confirmed_by_id is the account (seller or admin) who confirmed the order.
+-- Pay-first: payment lives on items, not orders.
 CREATE TABLE IF NOT EXISTS "order"."order" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     -- The account that purchased (buyer)
     "buyer_id" UUID NOT NULL,
     -- The account fulfilling the order (seller)
     "seller_id" UUID NOT NULL,
-    -- NULL until payment is initiated
-    "payment_id" BIGINT,
     -- NULL until a shipping label is created
     "transport_id" UUID,
     -- Account that confirmed the order (usually the seller)
@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS "order"."order" (
 -- Checkout item: starts as an unconfirmed line item (order_id IS NULL) and is
 -- linked to an order once the seller confirms it. sku_name is a snapshot of the
 -- product name at purchase time. serial_ids records assigned serial numbers for
--- serialized inventory.
+-- serialized inventory. Item status is inferred: payment_id NOT NULL + order_id
+-- IS NULL → paid/pending seller confirmation; date_cancelled NOT NULL → cancelled.
 CREATE TABLE IF NOT EXISTS "order"."item" (
     "id" BIGSERIAL NOT NULL,
     -- NULL until the seller confirms and an order is created
@@ -121,10 +122,17 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
     "paid_amount" BIGINT NOT NULL DEFAULT 0,
     -- Snapshot of the delivery address
     "address" TEXT NOT NULL DEFAULT '',
-    "status" "order"."item_status" NOT NULL DEFAULT 'Pending',
     "note" TEXT,
     -- Array of assigned serial number IDs from inventory.serial
     "serial_ids" JSONB,
+    -- Pay-first: each item references its payment session
+    "payment_id" BIGINT,
+    -- Selected transport option at checkout time
+    "transport_option" TEXT,
+    -- Estimated transport cost quoted at checkout
+    "transport_cost_estimate" BIGINT NOT NULL DEFAULT 0,
+    -- Set when buyer or system cancels an unpaid/unconfirmed item
+    "date_cancelled" TIMESTAMPTZ(3),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "item_pkey" PRIMARY KEY ("id")
@@ -133,6 +141,8 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
 -- Refund request raised by the buyer after a completed order. transport_id is set
 -- when the return transport is created (for PickUp/DropOff methods).
 -- confirmed_by_id is the seller or admin who approved the refund.
+-- item_ids: NULL = refund all items; array = specific items being refunded.
+-- amount: NULL = full order total; value = custom partial amount.
 CREATE TABLE IF NOT EXISTS "order"."refund" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "account_id" UUID NOT NULL,
@@ -146,12 +156,17 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
     "reason" TEXT NOT NULL,
     -- Return pickup/dropoff address; required for PickUp/DropOff methods
     "address" TEXT,
+    -- Array of item IDs being refunded; NULL means full refund
+    "item_ids" JSONB,
+    -- Partial refund amount in smallest currency unit; NULL means full refund
+    "amount" BIGINT,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "refund_pkey" PRIMARY KEY ("id")
 );
 
 -- Formal dispute raised against a refund decision (by buyer or seller).
 -- issued_by_id is the account that opened the dispute (either party).
+-- resolved_by_id is the platform staff who resolved it.
 CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "refund_id" UUID NOT NULL,
@@ -159,8 +174,14 @@ CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (
     "issued_by_id" UUID NOT NULL,
     "reason" TEXT NOT NULL,
     "status" "order"."status" NOT NULL DEFAULT 'Pending',
+    -- Account that resolved the dispute (platform staff)
+    "resolved_by_id" UUID,
+    -- Free-form note explaining the resolution decision
+    "resolution_note" TEXT,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- When resolution was recorded
+    "date_resolved" TIMESTAMPTZ(3),
     CONSTRAINT "refund_dispute_pkey" PRIMARY KEY ("id")
 );
 
@@ -171,21 +192,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS "cart_item_account_id_sku_id_key" ON "order"."
 CREATE INDEX IF NOT EXISTS "order_seller_id_idx" ON "order"."order" ("seller_id");
 CREATE INDEX IF NOT EXISTS "item_order_id_idx" ON "order"."item" ("order_id");
 CREATE INDEX IF NOT EXISTS "item_sku_id_idx" ON "order"."item" ("sku_id");
--- Partial indexes for the pending-item inbox (items not yet attached to an order)
-CREATE INDEX IF NOT EXISTS "item_pending_seller_idx" ON "order"."item" ("seller_id", "status") WHERE "order_id" IS NULL;
-CREATE INDEX IF NOT EXISTS "item_pending_account_idx" ON "order"."item" ("account_id", "status") WHERE "order_id" IS NULL;
+-- Find items by payment_id (for webhook confirmation)
+CREATE INDEX IF NOT EXISTS "idx_item_payment_id" ON "order"."item" ("payment_id") WHERE "payment_id" IS NOT NULL;
+-- Seller's pending inbox: paid items awaiting confirmation
+CREATE INDEX IF NOT EXISTS "idx_item_seller_pending" ON "order"."item" ("seller_id", "transport_option") WHERE "order_id" IS NULL AND "date_cancelled" IS NULL;
 CREATE INDEX IF NOT EXISTS "refund_account_id_idx" ON "order"."refund" ("account_id");
 CREATE INDEX IF NOT EXISTS "refund_order_id_idx" ON "order"."refund" ("order_id");
 CREATE INDEX IF NOT EXISTS "refund_confirmed_by_id_idx" ON "order"."refund" ("confirmed_by_id");
 CREATE INDEX IF NOT EXISTS "refund_transport_id_idx" ON "order"."refund" ("transport_id");
 CREATE INDEX IF NOT EXISTS "refund_dispute_refund_id_idx" ON "order"."refund_dispute" ("refund_id");
 CREATE INDEX IF NOT EXISTS "refund_dispute_issued_by_id_idx" ON "order"."refund_dispute" ("issued_by_id");
+CREATE INDEX IF NOT EXISTS "refund_dispute_resolved_by_id_idx" ON "order"."refund_dispute" ("resolved_by_id");
 
 -- Foreign keys
-
-ALTER TABLE "order"."order"
-    ADD CONSTRAINT "order_payment_id_fkey"
-    FOREIGN KEY ("payment_id") REFERENCES "order"."payment" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "order"."order"
     ADD CONSTRAINT "order_transport_id_fkey"
@@ -194,6 +213,10 @@ ALTER TABLE "order"."order"
 ALTER TABLE "order"."item"
     ADD CONSTRAINT "item_order_id_fkey"
     FOREIGN KEY ("order_id") REFERENCES "order"."order" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "order"."item"
+    ADD CONSTRAINT "item_payment_id_fkey"
+    FOREIGN KEY ("payment_id") REFERENCES "order"."payment" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- NO ACTION: keep refund records even if the order is somehow deleted
 ALTER TABLE "order"."refund"

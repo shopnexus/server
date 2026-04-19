@@ -2,7 +2,7 @@
 -- Module: Account
 -- Schema: account
 -- Description: User accounts, profiles, contacts, notifications,
---              payment methods, favorites, and income history.
+--              payment methods, favorites, income history, and wallet.
 --              Any account can act as both buyer and seller.
 -- =============================================
 
@@ -16,6 +16,8 @@ CREATE TYPE "account"."status" AS ENUM ('Active', 'Suspended');
 CREATE TYPE "account"."gender" AS ENUM ('Male', 'Female', 'Other');
 -- Address classification for contacts
 CREATE TYPE "account"."address_type" AS ENUM ('Home', 'Work');
+-- Wallet transaction type
+CREATE TYPE "account"."wallet_transaction_type" AS ENUM ('Refund', 'Payment', 'TopUp');
 
 -- Tables
 
@@ -31,6 +33,7 @@ CREATE TABLE IF NOT EXISTS "account"."account" (
     "password" VARCHAR(255),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "settings" JSONB NOT NULL DEFAULT '{}',
     CONSTRAINT "account_pkey" PRIMARY KEY ("id")
 );
 
@@ -136,6 +139,25 @@ CREATE TABLE IF NOT EXISTS "account"."payment_method" (
     CONSTRAINT "payment_method_pkey" PRIMARY KEY ("id")
 );
 
+-- Buyer wallet for balance-based payments (top-up, refund credits, etc.).
+-- Balance is enforced non-negative at the DB level.
+CREATE TABLE IF NOT EXISTS "account"."wallet" (
+    "account_id" UUID PRIMARY KEY,
+    "balance" BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT "wallet_balance_non_negative" CHECK ("balance" >= 0)
+);
+
+-- Append-only ledger of wallet balance changes.
+CREATE TABLE IF NOT EXISTS "account"."wallet_transaction" (
+    "id" BIGSERIAL PRIMARY KEY,
+    "account_id" UUID NOT NULL,
+    "type" "account"."wallet_transaction_type" NOT NULL,
+    "amount" BIGINT NOT NULL,
+    "reference_id" TEXT,
+    "note" TEXT,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT now()
+);
+
 -- Indexes
 
 CREATE UNIQUE INDEX IF NOT EXISTS "account_phone_key" ON "account"."account" ("phone");
@@ -157,6 +179,7 @@ CREATE INDEX IF NOT EXISTS "payment_method_account_id_idx" ON "account"."payment
 -- At most one default payment method per account
 CREATE UNIQUE INDEX IF NOT EXISTS "payment_method_account_default_key"
     ON "account"."payment_method" ("account_id") WHERE "is_default" = true;
+CREATE INDEX IF NOT EXISTS "idx_wallet_tx_account" ON "account"."wallet_transaction" ("account_id", "date_created" DESC);
 
 -- Foreign keys
 
@@ -188,3 +211,11 @@ ALTER TABLE "account"."favorite"
 ALTER TABLE "account"."payment_method"
     ADD CONSTRAINT "payment_method_account_id_fkey"
     FOREIGN KEY ("account_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "account"."wallet"
+    ADD CONSTRAINT "wallet_account_id_fkey"
+    FOREIGN KEY ("account_id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "account"."wallet_transaction"
+    ADD CONSTRAINT "wallet_transaction_account_id_fkey"
+    FOREIGN KEY ("account_id") REFERENCES "account"."wallet" ("account_id") ON DELETE CASCADE ON UPDATE CASCADE;
