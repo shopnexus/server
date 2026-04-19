@@ -5,81 +5,109 @@
 \subsection{Đặc tả use case tạo hoàn trả (UC18)}
 \label{uc:create-refund}
 
-\begin{table}[htbp]
-\centering
-\caption{Đặc tả UC18 --- Tạo yêu cầu hoàn trả}
-\label{tab:uc-create-refund}
 \small
-\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3cm} L{10.5cm} @{}}
+\caption{Đặc tả UC18 --- Tạo yêu cầu hoàn trả}\label{tab:uc-create-refund}\\
 \toprule
+\endfirsthead
+\toprule
+\endhead
+\midrule
+\multicolumn{2}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
 Mục đích & Buyer tạo yêu cầu hoàn trả cho đơn hàng đã thanh toán thành công \\
 Actor & Buyer; liên quan: Seller (thông báo), Analytic (ghi nhận refund\_requested) \\
 Tiền ĐK & Đã đăng nhập; order thuộc buyer, payment=Success; chưa có refund Pending/Processing \\
 Hậu ĐK & Refund status=Pending; bằng chứng liên kết qua Common resource; thông báo seller \\
 Luồng chính & Chọn order $\rightarrow$ nhập lý do, phương thức (PickUp/DropOff), bằng chứng $\rightarrow$ tạo refund $\rightarrow$ thông báo \\
 Ngoại lệ & Chưa thanh toán hoặc đã có refund đang xử lý $\rightarrow$ từ chối \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Đặc tả use case duyệt hoàn trả (UC21)}
 \label{uc:confirm-refund}
 
-\begin{table}[H]
-\centering
-\caption{Đặc tả UC21 --- Duyệt yêu cầu hoàn trả}
-\label{tab:uc-confirm-refund} 
 \small
-\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3cm} L{10.5cm} @{}}
+\caption{Đặc tả UC21 --- Duyệt yêu cầu hoàn trả}\label{tab:uc-confirm-refund}\\
 \toprule
+\endfirsthead
+\toprule
+\endhead
+\midrule
+\multicolumn{2}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
 Mục đích & Seller chấp nhận hoặc từ chối yêu cầu hoàn trả \\
 Actor & Seller; liên quan: Payment Gateway (auto-refund), Transport Provider \\
 Tiền ĐK & Refund status=Pending; thuộc đơn hàng của seller \\
 Hậu ĐK & Chấp nhận: status=Processing, auto-refund nếu có provider\_charge\_id, tạo transport trả hàng (PickUp). Từ chối: status=Cancelled \\
 Luồng chính & Xem lý do + bằng chứng $\rightarrow$ chấp nhận (trigger auto-refund) hoặc từ chối $\rightarrow$ thông báo buyer \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Đặc tả use case tranh chấp (UC22)}
 \label{uc:open-dispute}
 
-\begin{table}[H]
-\centering
-\caption{Đặc tả UC22 --- Mở tranh chấp hoàn trả}
-\label{tab:uc-open-dispute}
 \small
-\begin{tabular}{@{} p{3cm} p{10.5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3cm} L{10.5cm} @{}}
+\caption{Đặc tả UC22 --- Mở tranh chấp hoàn trả}\label{tab:uc-open-dispute}\\
 \toprule
+\endfirsthead
+\toprule
+\endhead
+\midrule
+\multicolumn{2}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
 Mục đích & Buyer hoặc Seller mở tranh chấp khi không đồng ý quyết định hoàn trả \\
 Actor & Buyer hoặc Seller; liên quan: Admin (giải quyết --- UC23) \\
 Tiền ĐK & Refund tồn tại; bên mở tranh chấp liên quan đến đơn hàng \\
 Hậu ĐK & Tạo refund\_dispute status=Pending, lưu issued\_by\_id và lý do \\
 Luồng chính & Chọn ``Mở tranh chấp'' $\rightarrow$ nhập lý do $\rightarrow$ tạo dispute $\rightarrow$ chờ Admin xử lý \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Trạng thái hoàn trả và tranh chấp}
 
-\begin{table}[H]
-\centering
-\caption{Chuyển trạng thái --- Hoàn trả và tranh chấp}
-\label{tab:refund-states}
 \small
-\begin{tabular}{@{} l l l l @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} l l l l @{}}
+\caption{Chuyển trạng thái --- Hoàn trả và tranh chấp}\label{tab:refund-states}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Thực thể} & \thead{Từ} & \thead{Đến} & \thead{Sự kiện} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Thực thể} & \thead{Từ} & \thead{Đến} & \thead{Sự kiện} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Refund & --- & Pending & CreateBuyerRefund \\
 Refund & Pending & Processing / Cancelled & ConfirmSellerRefund (chấp nhận / từ chối) \\
 Refund & Processing & Success / Failed & Kết quả hoàn tiền \\
 Dispute & --- & Pending & Buyer/Seller mở tranh chấp \\
 Dispute & Pending & Processing $\rightarrow$ Success / Cancelled & Admin xem xét / hai bên tự thỏa thuận \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \begin{center}
 \resizebox{\textwidth}{!}{%

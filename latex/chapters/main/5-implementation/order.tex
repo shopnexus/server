@@ -41,46 +41,73 @@ Trang đơn hàng cho phép buyer theo dõi trạng thái và thực hiện các
 \subsection{Đánh giá}
 \label{subsec:order-eval}
 
-\begin{table}[H]
-\centering
-\caption{Đánh giá chức năng mua hàng}
-\label{tab:order-eval}
-\begin{tabular}{@{}p{0.5cm}p{6.5cm}p{0.5cm}p{6.5cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{0.5cm}L{6.5cm}L{0.5cm}L{6.5cm}@{}}
+\caption{Đánh giá chức năng mua hàng}\label{tab:order-eval}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\thead{Điểm mạnh}} & \multicolumn{2}{c}{\thead{Hạn chế}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\thead{Điểm mạnh}} & \multicolumn{2}{c}{\thead{Hạn chế}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{2}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 1 & Reserve inventory tại thời điểm checkout, tránh oversell & 1 & Chưa hỗ trợ thanh toán quốc tế (Stripe, PayPal) \\
 2 & Checkout hai bước (pending $\rightarrow$ confirm) cho phép seller kiểm soát & 2 & Chưa có push notification cho mobile \\
 3 & Tích hợp VNPay với nhiều phương thức (QR, Bank, ATM, COD) & 3 & Chưa hỗ trợ mua từ nhiều seller trong một checkout \\
 4 & Durable execution (Restate) đảm bảo exactly-once cho luồng thanh toán & 4 & Chưa có theo dõi vận chuyển real-time \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
-\subsection{Kiểm thử}
-\label{subsec:order-test}
+\subsection{Kiểm thử hộp đen}
+\label{subsec:order-blackbox}
 
-\begin{table}[H]
-\centering
-\caption{Các trường hợp kiểm thử chức năng mua hàng}
-\label{tab:order-test}
-\begin{tabular}{@{}p{1cm}p{5cm}p{7.5cm}@{}}
+Kiểm thử hộp đen cho chức năng mua hàng tập trung vào hành vi quan sát được từ phía người dùng, không quan tâm đến cấu trúc mã bên trong. Test case được thiết kế theo kỹ thuật \textbf{phân lớp tương đương} (equivalence partitioning) --- mỗi kịch bản đại diện cho một lớp đầu vào --- kết hợp \textbf{phân tích giá trị biên} (boundary value analysis) cho các trường hợp giới hạn (số lượng = 0, tồn kho vừa đủ, hết hạn thanh toán).
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{1.2cm}L{3cm}L{4cm}L{4.5cm}L{0.8cm}@{}}
+\caption{Test case hộp đen --- chức năng mua hàng}\label{tab:order-test}\\
 \toprule
 \rowcolor{headerblue}
-\thead{ID} & \thead{Mô tả} & \thead{Kết quả mong đợi} \\
+\thead{ID} & \thead{Kịch bản} & \thead{Điều kiện trước / Đầu vào} & \thead{Kết quả mong đợi} & \thead{KQ} \\
 \midrule
-TC-01 & Thêm sản phẩm vào giỏ hàng & Giỏ hàng cập nhật đúng SKU và số lượng \\
-TC-02 & Thêm sản phẩm hết hàng & Hiển thị lỗi ``Sản phẩm hết hàng'' \\
-TC-03 & Checkout tạo pending items & Pending items được tạo, inventory reserved \\
-TC-04 & Buyer hủy pending item & Item bị hủy, inventory hoàn trả \\
-TC-05 & Seller xác nhận pending items & Order và transport được tạo, items gắn order\_id \\
-TC-06 & Seller từ chối pending items & Items bị hủy, tiền hoàn vào ví buyer \\
-TC-07 & Thanh toán VNPay thành công (webhook) & Payment chuyển Success, timeout 48h seller được lên lịch \\
-TC-08 & Thanh toán VNPay thất bại (webhook) & Payment chuyển Failed, items bị hủy, inventory hoàn trả \\
-TC-09 & Checkout kết hợp ví + VNPay & Ví bị trừ, phần còn lại qua cổng, items tạo đúng tổng \\
-TC-10 & Xem danh sách đơn hàng với filter & Danh sách trả về đúng theo bộ lọc trạng thái \\
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Kịch bản} & \thead{Điều kiện trước / Đầu vào} & \thead{Kết quả mong đợi} & \thead{KQ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
 \bottomrule
-\end{tabular}
-\end{table}
+\endlastfoot
+TC-01 & Thêm sản phẩm vào giỏ hàng & Giỏ trống; SKU hợp lệ, qty = 1 & Giỏ hàng có 1 item đúng SKU và số lượng & Đạt \\
+TC-02 & Thêm sản phẩm hết hàng & SKU tồn kho = 0 & Hiển thị lỗi ``Sản phẩm hết hàng'' & Đạt \\
+TC-03 & Thêm trùng SKU đã có trong giỏ & Giỏ có SKU A qty = 1; thêm lại SKU A qty = 2 & Qty cập nhật thành 3, không tạo dòng mới & Đạt \\
+TC-04 & Checkout tạo pending items & Giỏ hàng có 2 items, chọn địa chỉ và vận chuyển & Items Pending được tạo, inventory reserved & Đạt \\
+TC-05 & Checkout với qty vượt tồn kho & SKU tồn kho = 5, qty = 10 & Hệ thống từ chối, hiển thị lỗi tồn kho & Đạt \\
+TC-06 & Buyer hủy pending item & Item ở trạng thái chờ xác nhận & Item hủy, inventory hoàn trả, ví hoàn tiền & Đạt \\
+TC-07 & Seller xác nhận pending items & Items cùng buyer, cùng địa chỉ, cùng vận chuyển & Order + transport tạo, items gắn order\_id & Đạt \\
+TC-08 & Seller từ chối pending items & Items ở trạng thái chờ xác nhận & Items hủy, ví buyer hoàn tiền đầy đủ & Đạt \\
+TC-09 & Thanh toán thành công (webhook) & Phiên thanh toán Pending, webhook trả Success & Payment $\to$ Success, lên lịch timeout 48h & Đạt \\
+TC-10 & Thanh toán thất bại (webhook) & Phiên thanh toán Pending, webhook trả Failed & Payment $\to$ Failed, items hủy, kho hoàn trả & Đạt \\
+TC-11 & Checkout ví + cổng thanh toán & Số dư ví $<$ tổng tiền & Ví trừ một phần, phiên cổng tạo cho phần còn lại & Đạt \\
+TC-12 & Xem đơn hàng với bộ lọc & Buyer có 5 đơn, lọc theo trạng thái & Danh sách trả về đúng theo bộ lọc & Đạt \\
+TC-13 & Mua ngay (BuyNow) & SKU hợp lệ, qty = 1 & Tạo item không xóa giỏ hàng hiện tại & Đạt \\
+TC-14 & Mua ngay nhiều SKU & BuyNow = true, 2 SKUs & Bị từ chối: BuyNow chỉ cho phép 1 SKU & Đạt \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

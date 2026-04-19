@@ -14,15 +14,26 @@ Hệ thống tổ chức theo mô hình ba tầng: (1)~\textbf{Tầng giao diệ
 \subsection{Các module nghiệp vụ}
 \label{subsec:modules}
 
-\begin{table}[htbp]
-\centering
-\caption{Danh sách module nghiệp vụ}
-\label{tab:modules}
-\begin{tabular}{@{}llp{8.5cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}llL{8.5cm}@{}}
+\caption{Danh sách module nghiệp vụ}\label{tab:modules}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Module} & \thead{Tầng dữ liệu} & \thead{Chức năng chính} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Module} & \thead{Tầng dữ liệu} & \thead{Chức năng chính} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \texttt{account}   & \texttt{account.*}   & Xác thực, hồ sơ, liên hệ, yêu thích, phương thức thanh toán, thông báo \\
 \texttt{catalog}   & \texttt{catalog.*}   & Sản phẩm SPU/SKU, danh mục, tag, bình luận, tìm kiếm lai (vector + scalar) \\
 \texttt{order}     & \texttt{order.*}     & Giỏ hàng, checkout, xác nhận người bán, thanh toán, vận chuyển, hoàn trả \\
@@ -31,9 +42,9 @@ Hệ thống tổ chức theo mô hình ba tầng: (1)~\textbf{Tầng giao diệ
 \texttt{analytic}  & \texttt{analytic.*}  & Theo dõi tương tác, tính điểm phổ biến sản phẩm có trọng số \\
 \texttt{chat}      & \texttt{chat.*}      & Nhắn tin REST, quản lý hội thoại, xác nhận đã đọc \\
 \texttt{common}    & \texttt{common.*}    & Quản lý tệp tin, object storage (MinIO), service option, SSE, geocoding \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 Mỗi module tuân theo cấu trúc vertical-slice: \texttt{biz/} (interface + handler), \texttt{db/} (migration + SQLC), \texttt{model/} (DTO), \texttt{transport/echo/} (HTTP handler), \texttt{fx.go} (DI wiring).
 
@@ -57,14 +68,13 @@ Mọi lời gọi liên module đều đi qua \textbf{Restate Ingress} thay vì 
 % Transport layer
 \node[layer, minimum width=15cm, minimum height=1cm, label={[lbl]left:Transport}] (transport) at (7,6) {};
 \node[mod] at (4,6) {Echo v4\\(HTTP)};
-\node[mod] at (7,6) {ConnectRPC};
 \node[mod] at (10,6) {SSE\\(Realtime)};
 
 % Restate Ingress
 \node[rectangle, rounded corners=3pt, draw=headerblue, fill=headerblue!25, minimum width=15cm, minimum height=0.6cm, font=\scriptsize\bfseries, text=headerblue!80!black] (restate) at (7,4.6) {Restate Ingress (Durable Execution --- exactly-once, auto-retry, journal replay)};
 
 % Biz layer
-\node[layer, minimum width=15cm, minimum height=1.8cm, label={[lbl]left:Biz}] (biz) at (7,3) {};
+\node[layer, minimum width=15cm, minimum height=2.7cm, label={[lbl]left:Biz}] (biz) at (7,3) {};
 \node[mod] (account) at (1.5,3.3)  {account};
 \node[mod] (catalog) at (3.5,3.3)  {catalog};
 \node[mod, fill=headerblue!20, draw=headerblue, line width=1pt] (order) at (5.5,3.3)  {\textbf{order}};
@@ -83,19 +93,20 @@ Mọi lời gọi liên module đều đi qua \textbf{Restate Ingress} thay vì 
 \node[infra] (nats) at (13.5,0.8) {NATS};
 
 % External services
-\node[ext] (vnpay) at (2,-0.8)   {VNPay};
-\node[ext] (ghtk) at (5,-0.8)    {GHTK};
-\node[ext] (nominatim) at (8,-0.8){Nominatim};
-\node[ext] (openai) at (11,-0.8) {OpenAI};
+\node[ext] (payment) at (2,-0.8)   {Payment};
+\node[ext] (transport) at (5,-0.8)    {Transport};
+\node[ext] (geocoding) at (8,-0.8){Geocoding};
+\node[ext] (llm) at (11,-0.8) {LLM};
 \node[lbl] at (6.5,-1.4) {Nhà cung cấp dịch vụ bên ngoài};
 
 % Arrows
 \draw[arr] (transport) -- (restate);
 \draw[arr] (restate) -- (biz);
 \draw[arr] (biz) -- (data);
-\draw[arr, dashed] (order) -- (vnpay);
-\draw[arr, dashed] (order) -- (ghtk);
-\draw[arr, dashed] (catalog) -- (openai);
+\draw[arr, dashed] (order) -- (payment);
+\draw[arr, dashed] (order) -- (transport);
+\draw[arr, dashed] (catalog) -- (llm);
+\draw[arr, dashed] (common) -- (geocoding);
 
 \end{tikzpicture}
 }%

@@ -33,44 +33,78 @@ Khi seller từ chối hoàn trả, buyer có thể mở tranh chấp bằng cá
 \subsection{Đánh giá}
 \label{subsec:refund-eval}
 
-\begin{table}[H]
-\centering
-\caption{Đánh giá chức năng hoàn trả và tranh chấp}
-\label{tab:refund-eval}
-\begin{tabular}{@{}p{0.5cm}p{6.5cm}p{0.5cm}p{6.5cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{0.5cm}L{6.5cm}L{0.5cm}L{6.5cm}@{}}
+\caption{Đánh giá chức năng hoàn trả và tranh chấp}\label{tab:refund-eval}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\thead{Điểm mạnh}} & \multicolumn{2}{c}{\thead{Hạn chế}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\thead{Điểm mạnh}} & \multicolumn{2}{c}{\thead{Hạn chế}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{2}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 1 & Hỗ trợ hai phương thức trả hàng (PickUp/DropOff) linh hoạt & 1 & Chưa tích hợp hoàn tiền tự động qua cổng thanh toán \\
 2 & Cơ chế dispute ba bên (buyer--seller--admin) công bằng & 2 & Chưa có thời hạn tự động duyệt nếu seller không phản hồi \\
 3 & Upload ảnh minh chứng qua presigned URL (MinIO) & 3 & Chưa hỗ trợ hoàn trả một phần (partial refund) \\
 4 & Thông báo real-time qua SSE cho các bên liên quan & 4 & Chưa có luồng trả hàng tích hợp với đơn vị vận chuyển \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
-\subsection{Kiểm thử}
-\label{subsec:refund-test}
+\subsection{Kiểm thử hộp đen}
+\label{subsec:refund-blackbox}
 
-\begin{table}[H]
-\centering
-\caption{Các trường hợp kiểm thử chức năng hoàn trả và tranh chấp}
-\label{tab:refund-test}
-\begin{tabular}{@{}p{1cm}p{5cm}p{7.5cm}@{}}
+Kiểm thử hộp đen cho hoàn trả và tranh chấp bao gồm hai nhóm: luồng hoàn trả (tạo, sửa, hủy, duyệt) và luồng tranh chấp (mở, phán quyết). Test case được thiết kế theo \textbf{phân lớp tương đương} kết hợp kiểm tra phân quyền (buyer / seller / admin / người ngoài).
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{1.2cm}L{3cm}L{4cm}L{4.5cm}L{0.8cm}@{}}
+\caption{Test case hộp đen --- hoàn trả và tranh chấp}\label{tab:refund-test}\\
 \toprule
 \rowcolor{headerblue}
-\thead{ID} & \thead{Mô tả} & \thead{Kết quả mong đợi} \\
+\thead{ID} & \thead{Kịch bản} & \thead{Điều kiện trước / Đầu vào} & \thead{Kết quả mong đợi} & \thead{KQ} \\
 \midrule
-TC-11 & Tạo yêu cầu hoàn trả (PickUp) & Yêu cầu được tạo, seller nhận thông báo \\
-TC-12 & Tạo hoàn trả cho đơn chưa thanh toán & Hệ thống từ chối với lỗi validation \\
-TC-13 & Seller chấp nhận hoàn trả & Trạng thái chuyển Approved, inventory hoàn trả \\
-TC-14 & Seller từ chối hoàn trả & Trạng thái chuyển Rejected, buyer nhận thông báo \\
-TC-15 & Buyer mở dispute sau khi bị từ chối & Dispute được tạo, admin nhận thông báo \\
-TC-16 & Admin phán quyết chấp nhận dispute & Hoàn trả được duyệt, inventory hoàn trả \\
-TC-17 & Admin phán quyết từ chối dispute & Dispute đóng, hoàn trả bị từ chối vĩnh viễn \\
-TC-18 & Tạo hoàn trả khi đã có yêu cầu đang xử lý & Hệ thống từ chối yêu cầu trùng lặp \\
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Kịch bản} & \thead{Điều kiện trước / Đầu vào} & \thead{Kết quả mong đợi} & \thead{KQ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
 \bottomrule
-\end{tabular}
-\end{table}
+\endlastfoot
+\multicolumn{5}{@{}l}{\textit{Hoàn trả}} \\
+TC-15 & Tạo hoàn trả PickUp & Đơn hàng đã giao; method = PickUp, có địa chỉ & Yêu cầu tạo thành công, seller nhận thông báo & Đạt \\
+TC-16 & Tạo hoàn trả PickUp thiếu địa chỉ & method = PickUp, address trống & Bị từ chối: ``Address is required'' & Đạt \\
+TC-17 & Tạo hoàn trả DropOff & method = DropOff, không cần địa chỉ & Yêu cầu tạo thành công & Đạt \\
+TC-18 & Hoàn trả một phần (partial) & Chọn 2/5 items, nhập số tiền cụ thể & Hoàn trả tạo với item\_ids và amount đúng & Đạt \\
+TC-19 & Hoàn trả với item\_ids trùng lặp & item\_ids = [1, 1, 2] & Bị từ chối: ``Duplicate item IDs'' & Đạt \\
+TC-20 & Sửa hoàn trả đang Pending & Đổi lý do và ảnh minh chứng & Cập nhật thành công, ảnh mới thay thế & Đạt \\
+TC-21 & Sửa hoàn trả đã Processing & Hoàn trả đã được seller duyệt & Bị từ chối (409): không thể sửa & Đạt \\
+TC-22 & Buyer hủy hoàn trả & Hoàn trả đang Pending & Chuyển Cancelled, seller nhận thông báo & Đạt \\
+TC-23 & Seller chấp nhận hoàn trả & Hoàn trả Pending, seller nhấn ``Duyệt'' & Chuyển Processing, buyer nhận thông báo & Đạt \\
+TC-24 & Seller từ chối hoàn trả & Hoàn trả Pending, seller nhấn ``Từ chối'' & Chuyển Cancelled, buyer nhận thông báo & Đạt \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Tranh chấp}} \\
+TC-25 & Buyer mở dispute & Hoàn trả bị từ chối (Cancelled), có lý do & Dispute tạo, seller nhận thông báo & Đạt \\
+TC-26 & Seller mở dispute & Hoàn trả đang Processing, seller bất đồng & Dispute tạo, buyer nhận thông báo & Đạt \\
+TC-27 & Admin phán quyết chấp nhận & Dispute Pending, admin chọn ``Chấp nhận'' & Dispute resolved, hoàn trả tiếp tục xử lý & Đạt \\
+TC-28 & Admin phán quyết từ chối & Dispute Pending, admin chọn ``Từ chối'' & Dispute đóng, hoàn trả bị từ chối & Đạt \\
+TC-29 & Mở dispute khi đã có dispute đang hoạt động & Dispute Pending tồn tại cho hoàn trả này & Bị từ chối (409): ``Active dispute exists'' & Đạt \\
+TC-30 & Người ngoài mở dispute & Account không phải buyer/seller của đơn & Bị từ chối (403): ``Not authorized'' & Đạt \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

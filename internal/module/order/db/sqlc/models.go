@@ -265,12 +265,12 @@ type OrderPayment struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DatePaid        null.Time       `json:"date_paid"`
-	DateExpired     time.Time       `json:"date_expired"`
 	BuyerCurrency   string          `json:"buyer_currency"`
 	SellerCurrency  string          `json:"seller_currency"`
 	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 type OrderRefund struct {

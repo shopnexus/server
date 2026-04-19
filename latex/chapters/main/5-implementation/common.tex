@@ -12,23 +12,34 @@ Phiên bản hiện tại của ShopNexus (\textbf{v1.0 Development}) đã hiệ
 
 Bảng công nghệ chi tiết đã trình bày tại Chương~2. Tóm tắt các thành phần chính:
 
-\begin{table}[htbp]
-\centering
-\caption{Tóm tắt công nghệ chính}
-\label{tab:tech-summary}
-\begin{tabular}{@{}llp{7cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}llL{7cm}@{}}
+\caption{Tóm tắt công nghệ chính}\label{tab:tech-summary}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tầng} & \thead{Công nghệ} & \thead{Vai trò} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tầng} & \thead{Công nghệ} & \thead{Vai trò} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Backend & Go 1.26, Echo v4, Restate & HTTP server, durable execution \\
 Database & PostgreSQL 18, Redis 8, Milvus & RDBMS, cache, vector search \\
 Storage & MinIO, NATS JetStream & Object storage, message queue \\
 External & VNPay, GHTK, Nominatim & Thanh toán, vận chuyển, geocoding \\
 Frontend & Next.js 16, React 19, shadcn/ui & Giao diện người dùng \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Triển khai}
 \label{subsec:deployment}
@@ -66,16 +77,26 @@ Phần này trình bày chiến lược kiểm thử toàn diện cho ShopNexus 
 \subsection{Phân loại test theo cấp độ}
 \label{subsec:test-types}
 
-\begin{table}[H]
-\centering
-\caption{Phân loại test áp dụng cho ShopNexus}
-\label{tab:test-types}
 \small
-\begin{tabular}{@{}p{2.8cm}p{4.5cm}p{3cm}p{3cm}@{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{2.8cm}L{4.5cm}L{3cm}L{3cm}@{}}
+\caption{Phân loại test áp dụng cho ShopNexus}\label{tab:test-types}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Loại test} & \thead{Phạm vi kiểm thử} & \thead{Công cụ} & \thead{Ví dụ} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Loại test} & \thead{Phạm vi kiểm thử} & \thead{Công cụ} & \thead{Ví dụ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Unit test & Một hàm, không truy cập DB / mạng & Go test + table-driven & Test serialization, test chuyển trạng thái vận chuyển \\
 Integration test & Tầng nghiệp vụ + DB thật (container), không UI & dockertest + PostgreSQL & Luồng checkout đầy đủ: đặt chỗ $\to$ tạo mục $\to$ xác nhận $\to$ tạo đơn \\
 Contract test & Giao tiếp liên module qua proxy & Restate test harness & Tra cứu SKU từ Catalog trả đúng cấu trúc \\
@@ -85,17 +106,18 @@ Chaos / Fault Injection & Hệ thống phục hồi khi thành phần bị lỗi
 Security / Pen-test & Khai thác lỗ hổng chủ động & gosec, OWASP ZAP, thủ công & SQL injection, JWT bypass, giả mạo webhook \\
 Static Analysis & Lỗi biên dịch + chất lượng mã nguồn & golangci-lint, staticcheck & Phụ thuộc vòng, gán không hiệu quả, mã không dùng \\
 Mutation test & Đo độ mạnh của bộ test & go-mutesting & Đổi \texttt{<} thành \texttt{>} trong công thức $\to$ test phải fail \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Tiêu chí chất lượng theo mức phát triển}
 \label{subsec:quality-levels}
 
 Mỗi chức năng cốt lõi của ShopNexus được kiểm soát chất lượng qua ba mức: \textit{ý niệm} (phân tích --- ``feature cần gì?''), \textit{thiết kế} (kiến trúc --- ``code xử lý như thế nào?''), và \textit{hiện thực} (kiểm thử --- ``chứng minh bằng test nào?''). Bảng~\ref{tab:quality-levels} trình bày đầy đủ cho 7 chức năng, bao gồm cả các tính năng bổ sung gần đây (dispute, transport webhook, partial refund).
 
+\small
 \rowcolors{2}{white}{rowgray}
-\begin{longtable}{@{}p{2.8cm}p{3.8cm}p{3.8cm}p{3.8cm}@{}}
+\begin{longtable}{@{}L{2.8cm}L{3.8cm}L{3.8cm}L{3.8cm}@{}}
 \caption{Tiêu chí chất lượng theo ba mức phát triển}\label{tab:quality-levels}\\
 \toprule
 \rowcolor{headerblue}
@@ -148,20 +170,31 @@ Partial index + SQL aggregate, không xử lý vòng lặp ở ứng dụng &
 Benchmark 10K+ đơn hàng; đo thời gian phản hồi dưới tải \\
 \end{longtable}
 \rowcolors{1}{}{}
+\normalsize
 
 \subsection{Mục tiêu coverage và chất lượng}
 \label{subsec:quality-targets}
 
-\begin{table}[htbp]
-\centering
-\caption{Mục tiêu chất lượng code và test}
-\label{tab:quality-targets}
 \small
-\begin{tabular}{@{}p{4cm}p{3.5cm}p{6cm}@{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{4cm}L{3.5cm}L{6cm}@{}}
+\caption{Mục tiêu chất lượng code và test}\label{tab:quality-targets}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Chỉ số} & \thead{Mục tiêu} & \thead{Cách đo} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Chỉ số} & \thead{Mục tiêu} & \thead{Cách đo} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Line coverage (unit test) & $\geq$ 70\% & \texttt{go test -cover ./...} \\
 Branch coverage (critical path) & $\geq$ 60\% & \texttt{go test -covermode=count} \\
 Cyclomatic complexity & $\leq$ 10 / function & \texttt{gocyclo} \\
@@ -170,31 +203,41 @@ Function length & $\leq$ 80 dòng & Review guideline \\
 File length & $\leq$ 500 dòng & Soft limit (split nếu vượt) \\
 Mutation score (critical) & $\geq$ 60\% & \texttt{go-mutesting} trên module order/biz \\
 Số lỗi nghiêm trọng (\texttt{gosec}) & 0 & CI bắt buộc pass \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Tiêu chí kiểm thử hiện thực}
 \label{subsec:impl-test-criteria}
 
-\begin{table}[htbp]
-\centering
-\caption{Tiêu chí kiểm thử cho phần hiện thực}
-\label{tab:impl-test-criteria}
 \small
-\begin{tabular}{@{}p{2.5cm}p{5cm}p{3.5cm}p{2.8cm}@{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{2.5cm}L{5cm}L{3.5cm}L{2.8cm}@{}}
+\caption{Tiêu chí kiểm thử cho phần hiện thực}\label{tab:impl-test-criteria}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tiêu chí} & \thead{Phép thử / Test-inputs} & \thead{Kết quả mong đợi} & \thead{Cấp độ} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Phép thử / Test-inputs} & \thead{Kết quả mong đợi} & \thead{Cấp độ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Xử lý chính xác & Black box: test input hợp lệ / không hợp lệ; White box: phủ branch của biz logic & Đạt spec thiết kế; tất cả branch quan trọng được test & Unit + Integration \\
 Hiệu năng & Stress test: 100 concurrent checkout, 500 rps read; đo p50/p95/p99 & p99 read $\leq$ 500ms, p99 write $\leq$ 2s; không có memory leak & Load test \\
 Bảo mật & Code review (\texttt{gosec}); pen-test: SQL injection, JWT forge, webhook replay & Không lỗi nghiêm trọng; mọi endpoint reject tấn công & Security test \\
 Phục hồi & Chaos: kill Restate node hoặc DB giữa durable step; quan sát replay & State nhất quán sau replay; không double-side-effect & Chaos test \\
 Regression & Full test suite pre-release; so sánh coverage với baseline & Không giảm coverage; 0 test mới fail & CI gate \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Quy trình kiểm thử trong CI/CD}
 \label{subsec:ci-testing}

@@ -10,45 +10,67 @@
 \subsection{Giao diện (Lớp biên)}
 \label{subsec:refund-forms}
 
-\begin{table}[H]
-\centering
-\caption{Danh sách form --- module Hoàn trả}
-\label{tab:refund-forms}
-\begin{tabular}{@{}p{3.5cm}lp{4.5cm}p{3.5cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{3.5cm}lL{4.5cm}L{3.5cm}@{}}
+\caption{Danh sách form --- module Hoàn trả}\label{tab:refund-forms}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 RefundRequestForm & Buyer & RadioGroup phương thức (PickUp/DropOff), TextArea lý do, FileUpload bằng chứng, Input địa chỉ & CreateBuyerRefund \\
 RefundListPage    & Buyer & Bộ lọc trạng thái, phân trang & ListBuyerRefunds \\
 RefundEditForm    & Buyer & Chỉnh sửa lý do, phương thức, địa chỉ, upload thêm ảnh & UpdateBuyerRefund \\
 RefundCancelBtn   & Buyer & Nút Huỷ yêu cầu & CancelBuyerRefund \\
 SellerRefundReview & Seller & Xem chi tiết refund, nút Chấp nhận & ConfirmSellerRefund \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
 \subsection{API (Lớp xử lý)}
 \label{subsec:refund-apis}
 
-\begin{table}[H]
-\centering
-\caption{Danh sách API --- module Hoàn trả}
-\label{tab:refund-apis}
-\begin{tabular}{@{}p{3.5cm}p{4cm}p{2.5cm}p{4cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{3.5cm}L{4cm}L{2.5cm}L{4cm}@{}}
+\caption{Danh sách API --- module Hoàn trả}\label{tab:refund-apis}\\
 \toprule
 \rowcolor{headerblue}
 \thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 ListBuyerRefunds & PaginationParams & Paginate[Refund] & DS yêu cầu hoàn trả của buyer \\
 CreateBuyerRefund & OrderID, Method, Reason, Address?, ResourceIDs & Refund & Tạo yêu cầu hoàn trả \\
 UpdateBuyerRefund & RefundID, Method?, Reason?, Address?, ResourceIDs & Refund & Cập nhật yêu cầu (trạng thái Pending) \\
 CancelBuyerRefund & RefundID & -- & Buyer huỷ yêu cầu hoàn trả \\
 ConfirmSellerRefund & RefundID & Refund & Seller chấp nhận hoàn trả \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 Quy trình hoàn trả: Buyer tạo yêu cầu (\texttt{CreateBuyerRefund}) với phương thức trả hàng (PickUp hoặc DropOff) $\to$ Seller xem xét và chấp nhận (\texttt{ConfirmSellerRefund}) $\to$ hệ thống tạo transport record cho việc trả hàng. Nếu hai bên không đồng ý, có thể tạo tranh chấp (refund\_dispute) để bên thứ ba xử lý.
 
@@ -154,7 +176,7 @@ Nút hủy yêu cầu hoàn trả, kèm hộp thoại xác nhận để tránh n
     \begin{itemize}
       \item \texttt{RefundDetailPanel}: hiển thị thông tin đầy đủ của yêu cầu hoàn trả — lý do, phương thức, địa chỉ, danh sách ảnh/video bằng chứng (\texttt{ResourceIDs})
       \item \texttt{OrderSummaryPanel}: thông tin đơn hàng liên quan (sản phẩm, số tiền, trạng thái thanh toán)
-      \item \texttt{AcceptButton}: Nút \enquote{Chấp nhận hoàn trả}. Inputs: \texttt{(refundID)}. Outputs: \texttt{Refund} với trạng thái \texttt{Success} hoặc \texttt{Processing} (nếu đang chờ webhook thanh toán). Xử lý: gọi API \texttt{ConfirmSellerRefund}.
+      \item \texttt{AcceptButton}: Nút ``Chấp nhận hoàn trả''. Inputs: \texttt{(refundID)}. Outputs: \texttt{Refund} với trạng thái \texttt{Success} hoặc \texttt{Processing} (nếu đang chờ webhook thanh toán). Xử lý: gọi API \texttt{ConfirmSellerRefund}.
     \end{itemize}
   \item \textbf{Ghi chú}: Nếu seller từ chối (không có nút riêng trong phiên bản hiện tại), buyer có thể mở tranh chấp (\texttt{refund\_dispute}) để admin phân xử.
 \end{itemize}
@@ -230,7 +252,7 @@ Nút hủy yêu cầu hoàn trả, kèm hộp thoại xác nhận để tránh n
       \item Lấy thông tin refund và payment từ DB
       \item Hoàn tiền qua cổng thanh toán ban đầu: hoàn tự động với thanh toán thẻ; với COD chuyển sang xử lý thủ công. Nếu là hoàn trả một phần, dùng số tiền đã chỉ định; ngược lại hoàn toàn bộ đơn hàng
       \item Tạo vận đơn trả hàng qua nhà vận chuyển: nếu PickUp thì tạo nhãn lấy hàng tại địa chỉ người mua, nếu DropOff thì tạo địa chỉ điểm gửi
-      \item Trong \texttt{restate.Run()}: cập nhật \texttt{refund.confirmed\_by\_id = account.ID}, gán \texttt{refund.transport\_id}, cập nhật \texttt{refund.status}
+      \item Trong \texttt{restate.Run()}: cập nhật \texttt{refund.confirmed\_by\_id = account.ID}, gán \texttt{refund.\allowbreak transport\_id}, cập nhật \texttt{refund.status}
       \item Khôi phục tồn kho cho các sản phẩm trong đơn qua module Inventory
       \item Fire-and-forget: thông báo buyer về kết quả xử lý hoàn trả
     \end{enumerate}
@@ -257,21 +279,32 @@ Nút hủy yêu cầu hoàn trả, kèm hộp thoại xác nhận để tránh n
 \subsection{Bảng tham chiếu --- Hoàn trả và Tranh chấp}
 \label{subsec:refund-crossref}
 
-\begin{table}[H]
-\centering
-\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
-\label{tab:refund-crossref}
-\begin{tabular}{@{}p{2.8cm}p{3cm}p{3.5cm}p{4cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{2.8cm}L{3cm}L{3.5cm}L{4cm}@{}}
+\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}\label{tab:refund-crossref}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Tạo yêu cầu hoàn trả & RefundRequestForm & CreateBuyerRefund & order.refund, common.resource \\
 Xem DS hoàn trả & RefundListPage & ListBuyerRefunds & order.refund \\
 Cập nhật hoàn trả & RefundEditForm & UpdateBuyerRefund & order.refund \\
 Huỷ hoàn trả & RefundCancelBtn & CancelBuyerRefund & order.refund \\
 Seller xử lý hoàn trả & SellerRefundReview & ConfirmSellerRefund & order.refund, order.transport \\
 Tranh chấp & (tích hợp trong RefundDetail) & -- (refund\_dispute) & order.refund\_dispute \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

@@ -275,7 +275,7 @@ func (b *CreateBatchOrderBatchResults) Close() error {
 const createBatchPayment = `-- name: CreateBatchPayment :batchone
 INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreateBatchPaymentBatchResults struct {
@@ -341,12 +341,12 @@ func (b *CreateBatchPaymentBatchResults) QueryRow(f func(int, OrderPayment, erro
 			&i.Amount,
 			&i.Data,
 			&i.PaymentMethodID,
-			&i.DateCreated,
-			&i.DatePaid,
-			&i.DateExpired,
 			&i.BuyerCurrency,
 			&i.SellerCurrency,
 			&i.ExchangeRate,
+			&i.DateCreated,
+			&i.DatePaid,
+			&i.DateExpired,
 		)
 		if f != nil {
 			f(t, i, err)

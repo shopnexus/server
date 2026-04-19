@@ -89,16 +89,26 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \label{subsec:crc-classes}
 
 % ---- OrderHandler ----
-\begin{table}[H]
-\centering
-\caption{Đặc tả thành phần \texttt{OrderHandler}}
-\label{tab:crc-orderhandler}
 \small
-\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3.2cm} L{10.3cm} @{}}
+\caption{Đặc tả thành phần \texttt{OrderHandler}}\label{tab:crc-orderhandler}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\textbf{\textcolor{white}{OrderHandler — Restate Service}}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{OrderHandler — Restate Service}}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{1}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \textbf{Thuộc tính} &
   \texttt{config} \textit{*config.Config};
   \texttt{storage} \textit{OrderStorage};
@@ -128,21 +138,31 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
   \texttt{PaymentProvider}, \texttt{TransportProvider}, \texttt{OrderRepository},
   \texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz},
   \texttt{PromotionBiz}, \texttt{CommonBiz} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ---- PaymentProvider ----
-\begin{table}[htbp]
-\centering
-\caption{Đặc tả thành phần \texttt{PaymentProvider}}
-\label{tab:crc-payment}
 \small
-\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3.2cm} L{10.3cm} @{}}
+\caption{Đặc tả thành phần \texttt{PaymentProvider}}\label{tab:crc-payment}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\textbf{\textcolor{white}{PaymentProvider — Interface (Strategy Pattern)}}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{PaymentProvider — Interface (Strategy Pattern)}}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{1}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \textbf{Thuộc tính} &
   \texttt{config} \textit{PaymentConfig}:
   \texttt{ID} (mã nhà cung cấp), \texttt{Name} (tên hiển thị),
@@ -161,21 +181,31 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \midrule
 \textbf{Cộng tác} &
   \texttt{OrderHandler} (gọi khi tạo/xác nhận thanh toán), VNPay / SePay (ngoài) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ---- TransportProvider ----
-\begin{table}[htbp]
-\centering
-\caption{Đặc tả thành phần \texttt{TransportProvider}}
-\label{tab:crc-transport}
 \small
-\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3.2cm} L{10.3cm} @{}}
+\caption{Đặc tả thành phần \texttt{TransportProvider}}\label{tab:crc-transport}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\textbf{\textcolor{white}{TransportProvider — Interface (Strategy Pattern)}}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{TransportProvider — Interface (Strategy Pattern)}}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{1}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \textbf{Thuộc tính} &
   \texttt{config} \textit{TransportConfig}:
   \texttt{ID} (mã nhà vận chuyển), \texttt{Name} (tên hiển thị),
@@ -192,21 +222,31 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \midrule
 \textbf{Cộng tác} &
   \texttt{OrderHandler} (gọi khi checkout báo giá và xác nhận đơn tạo vận đơn), GHTK (ngoài) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ---- OrderRepository ----
-\begin{table}[htbp]
-\centering
-\caption{Đặc tả thành phần \texttt{OrderRepository}}
-\label{tab:crc-repo}
 \small
-\begin{tabular}{@{} p{3.2cm} p{10.3cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{3.2cm} L{10.3cm} @{}}
+\caption{Đặc tả thành phần \texttt{OrderRepository}}\label{tab:crc-repo}\\
 \toprule
 \rowcolor{headerblue}
 \multicolumn{2}{c}{\textbf{\textcolor{white}{OrderRepository — DAO (SQLC-generated)}}} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\multicolumn{2}{c}{\textbf{\textcolor{white}{OrderRepository — DAO (SQLC-generated)}}} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{1}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \textbf{Thuộc tính} &
   \texttt{queries} \textit{*Queries} (mã SQLC sinh tự động);
   \texttt{pool} \textit{*pgxpool.Pool} (connection pool tới PostgreSQL) \\
@@ -223,24 +263,34 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \textbf{Cộng tác} &
   \texttt{OrderHandler} (gọi qua interface \texttt{OrderStorage});
   PostgreSQL schema \texttt{order.*} \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
 \subsection{Actor hỗ trợ cho module}
 \label{subsec:support-actors}
 
-\begin{table}[H]
-\centering
-\caption{Danh sách actor hỗ trợ module Quản lý Đơn hàng}
-\label{tab:support-actors}
 \small
-\begin{tabular}{@{} p{2.8cm} l p{3.2cm} p{5.5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{2.8cm} l L{3.2cm} L{5.5cm} @{}}
+\caption{Danh sách actor hỗ trợ module Quản lý Đơn hàng}\label{tab:support-actors}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Actor} & \thead{Loại} & \thead{UC hỗ trợ} & \thead{Vai trò} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Actor} & \thead{Loại} & \thead{UC hỗ trợ} & \thead{Vai trò} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 \texttt{AccountBiz}    & Liên module & UC04, UC09, UC12, UC18, UC21 & Lấy thông tin người dùng; wallet debit/credit; gửi thông báo in-app cho buyer/seller \\
 \texttt{CatalogBiz}    & Liên module & UC04                         & Tra cứu SKU (giá, tên, ảnh) tại thời điểm checkout để snapshot \\
 \texttt{InventoryBiz}  & Liên module & UC04, UC18, UC21             & Đặt chỗ tồn kho (BuyerCheckout); giải phóng khi cancel/timeout; hoàn trả (hoàn trả) \\
@@ -248,9 +298,9 @@ module} (\texttt{AccountBiz}, \texttt{CatalogBiz}, \texttt{InventoryBiz}, \textt
 \texttt{CommonBiz}     & Liên module & UC18, UC21, UC22             & Lưu bằng chứng hoàn trả (file resources); gửi SSE real-time \\
 VNPay / SePay          & Ngoài       & UC04, UC13                   & Nhận yêu cầu tạo payment intent tại checkout; gửi webhook xác nhận kết quả \\
 GHTK                   & Ngoài       & UC04, UC09, UC21             & Báo giá vận chuyển (checkout); tạo vận đơn (xác nhận); theo dõi trạng thái giao hàng \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
 \subsection{Sơ đồ tương tác trên các thành phần --- Luồng Checkout}
@@ -260,9 +310,12 @@ Sơ đồ dưới đây mô tả luồng \textbf{BuyerCheckout} ở mức thiế
 các thành phần phối hợp với nhau để thực hiện UC04. Khác với sơ đồ phân tích tổng quan
 ở Hình~\ref{fig:order-sequence}, sơ đồ này hiển thị rõ thành phần nào chịu trách nhiệm từng bước.
 
-\begin{center}
-\resizebox{\textwidth}{!}{%
+\begin{figure}[H]
+\centering
+\rotatebox{90}{%
+\resizebox{\textheight}{!}{%
 \begin{sequencediagram}
+
 \newinst{buyer}{Buyer}
 \newinst[1.5]{oh}{OrderHandler}
 \newinst[1.5]{cat}{CatalogBiz}
@@ -299,6 +352,7 @@ các thành phần phối hợp với nhau để thực hiện UC04. Khác với
 
 \end{sequencediagram}
 }%
-\captionof{figure}{Sơ đồ tương tác thành phần --- luồng BuyerCheckout (UC04, pay-first)}
+}
+\caption{Sơ đồ tương tác thành phần --- luồng BuyerCheckout (UC04, pay-first)}
 \label{fig:component-checkout-seq}
-\end{center}
+\end{figure}

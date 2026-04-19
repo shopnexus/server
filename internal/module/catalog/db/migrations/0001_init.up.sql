@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS "catalog"."category" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "description" TEXT NOT NULL,
-    -- NULL for top-level categories; references another category row by its legacy BIGINT ID
-    "parent_id" BIGINT,
+    -- NULL for top-level categories
+    "parent_id" UUID,
     CONSTRAINT "category_pkey" PRIMARY KEY ("id")
 );
 
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu" (
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
     -- ISO 4217 currency code for all SKU prices under this SPU
-    "currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
+    "currency" VARCHAR(3) NOT NULL,
     -- Structured attribute schema specific to the product type
     "specifications" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

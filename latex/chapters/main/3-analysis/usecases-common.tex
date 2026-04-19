@@ -7,22 +7,32 @@
 
 \subsection{Tác nhân hệ thống}
 
-\begin{table}[htbp]
-\centering
-\caption{Các tác nhân trong module quản lý đơn hàng}
-\label{tab:actors}
 \small
-\begin{tabular}{@{} c l p{8.5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} c l L{8.5cm} @{}}
+\caption{Các tác nhân trong module quản lý đơn hàng}\label{tab:actors}\\
 \toprule
 \rowcolor{headerblue}
 \thead{STT} & \thead{Tác nhân} & \thead{Vai trò} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Tác nhân} & \thead{Vai trò} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 1 & Khách hàng (Buyer) & Mua sắm, giỏ hàng, đặt hàng, thanh toán, hoàn trả, tranh chấp \\
 2 & Người bán (Seller) & Xác nhận/từ chối đơn, duyệt hoàn trả, dashboard phân tích \\
 3 & Quản trị viên (Admin) & Giải quyết tranh chấp hoàn trả \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Lược đồ use case tổng quan}
 
@@ -131,8 +141,9 @@
 
 \subsection{Danh sách tình huống sử dụng}
 
+\small
 \rowcolors{2}{white}{rowgray}
-\begin{longtable}{@{} c p{7.5cm} p{4cm} @{}}
+\begin{longtable}{@{} c L{7.5cm} L{4cm} @{}}
 \caption{Danh sách tình huống sử dụng}\label{tab:usecase-list} \\
 \toprule
 \rowcolor{headerblue}
@@ -190,6 +201,7 @@ UC29 & Xem đơn có thể đánh giá & Buyer \\
 UC30 & Xác thực đơn cho đánh giá & Buyer \\
 \end{longtable}
 \rowcolors{1}{}{}
+\normalsize
 
 \noindent\textsuperscript{*}UC23 (Giải quyết tranh chấp) yêu cầu vai trò Admin. Trong phạm vi đồ án, Admin giải quyết thủ công ngoài hệ thống; cơ sở dữ liệu đã dự phòng các trường \texttt{resolved\_by\_id}, \texttt{resolution\_note}, \texttt{date\_resolved} để hỗ trợ triển khai đầy đủ trong tương lai.
 

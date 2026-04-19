@@ -120,23 +120,34 @@ Phần này trình bày các công nghệ chính được lựa chọn, lý do s
 
 \subsection{Ngôn ngữ lập trình: Go}
 
-\begin{table}[htbp]
-\centering
-\caption{So sánh ngôn ngữ lập trình backend}
-\label{tab:lang-compare}
-\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{L{3.5cm}L{5cm}L{5cm}}
+\caption{So sánh ngôn ngữ lập trình backend}\label{tab:lang-compare}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tiêu chí} & \thead{Go} & \thead{Java (Spring Boot)} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Go} & \thead{Java (Spring Boot)} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Xử lý đồng thời & Goroutines (\textasciitilde 2KB stack) & Threads (\textasciitilde 1MB stack) \\
 Hiệu năng & Biên dịch trước, nhanh gần C & JVM JIT, cold start chậm \\
 Bộ nhớ & Thấp (\textasciitilde 10--50MB) & Cao (\textasciitilde 200--500MB do JVM) \\
 Triển khai & Binary duy nhất, Docker-friendly & Cần JVM runtime \\
 Đường cong học tập & Đơn giản, ít abstraction & Phức tạp, nhiều abstraction \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \textbf{Lý do chọn Go:} Go là lựa chọn tốt cho hệ thống vì có hiệu năng cao gần với C/C++ nhưng cú pháp lại đơn giản, dễ học và dễ bảo trì. Khả năng xử lý đồng thời mạnh mẽ nhờ goroutine giúp hệ thống scale tốt khi tải lớn. Ngoài goroutines, Go có biên dịch tĩnh tạo binary duy nhất (đơn giản hóa triển khai Docker), type safety phát hiện lỗi tại compile time (quan trọng cho logic thanh toán), và Restate, Milvus, pgx đều có SDK chính thức cho Go.
 
@@ -146,24 +157,35 @@ Triển khai & Binary duy nhất, Docker-friendly & Cần JVM runtime \\
 
 ShopNexus sử dụng mô hình \textbf{durable microservices}: toàn bộ mã nguồn nằm trong một repository duy nhất, nhưng mỗi module được tổ chức theo vertical-slice và \textit{đã sẵn sàng} triển khai độc lập như microservice --- database riêng (schema isolation), execution riêng (Restate service handler), giao tiếp qua HTTP proxy. Đây không phải mô hình ``modular monolith truyền thống'' (single deployable) mà cũng không phải ``microservices thuần'' (N repo riêng biệt). Bảng~\ref{tab:arch-compare} so sánh ba cách tiếp cận:
 
-\begin{table}[H]
-\centering
-\caption{So sánh kiến trúc phần mềm}
-\label{tab:arch-compare}
-\begin{tabular}{p{2.8cm}p{3.5cm}p{3.5cm}p{3.5cm}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{L{2.8cm}L{3.5cm}L{3.5cm}L{3.5cm}}
+\caption{So sánh kiến trúc phần mềm}\label{tab:arch-compare}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tiêu chí} & \thead{Monolith} & \thead{Microservices} & \thead{ShopNexus} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Monolith} & \thead{Microservices} & \thead{ShopNexus} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Mã nguồn & 1 repo, 1 codebase & N repo riêng biệt & 1 repo, N module\\
 Database & 1 database chung & N database & N database \\
 Triển khai & 1 artifact & N artifact (có thể thêm orchestration) & 1 artifact \textit{hoặc} N artifact \\
 Giao tiếp & Gọi hàm trực tiếp & HTTP/gRPC & HTTP qua Restate Ingress \\
 Chi phí vận hành & Thấp & Cao & Trung bình (Restate quản lý journal, tự động retry, ...) \\
 Tách module & Khó (coupled) & Đã tách & Đã tách \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \textbf{Lý do chọn mô hình này:} Monorepo giữ developer experience đơn giản. Đồng thời, ba cơ chế đảm bảo mỗi module \textit{đã sẵn sàng} triển khai độc lập ngay từ đầu:
 
@@ -177,22 +199,33 @@ Tách module & Khó (coupled) & Đã tách & Đã tách \\
 
 \subsection{Durable Execution: Restate}
 
-\begin{table}[htbp]
-\centering
-\caption{So sánh giải pháp đảm bảo tính nhất quán giao dịch}
-\label{tab:durable-compare}
-\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{L{3.5cm}L{5cm}L{5cm}}
+\caption{So sánh giải pháp đảm bảo tính nhất quán giao dịch}\label{tab:durable-compare}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tiêu chí} & \thead{Restate} & \thead{Temporal} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{Restate} & \thead{Temporal} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Mô hình & Code thông thường + \texttt{restate.Run()} & Workflow DSL + Activity \\
 Triển khai & HTTP proxy nhẹ & Cluster nặng (Cassandra + ES) \\
 Đường cong học tập & Thấp -- viết code bình thường & Trung bình -- cần học workflow \\
 Chi phí vận hành & Thấp (3 node cluster) & Cao \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \textbf{Durable execution} là mô hình trong đó mỗi bước thực thi được ghi vào journal bền vững. Nếu process crash, hệ thống replay từ bước cuối đã hoàn thành thay vì bắt đầu lại.
 
@@ -200,22 +233,33 @@ Chi phí vận hành & Thấp (3 node cluster) & Cao \\
 
 \subsection{Cơ sở dữ liệu: PostgreSQL}
 
-\begin{table}[htbp]
-\centering
-\caption{So sánh PostgreSQL và MongoDB cho e-commerce}
-\label{tab:db-compare}
-\begin{tabular}{p{3.5cm}p{5cm}p{5cm}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{L{3.5cm}L{5cm}L{5cm}}
+\caption{So sánh PostgreSQL và MongoDB cho e-commerce}\label{tab:db-compare}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tiêu chí} & \thead{PostgreSQL} & \thead{MongoDB} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tiêu chí} & \thead{PostgreSQL} & \thead{MongoDB} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Mô hình dữ liệu & Quan hệ + JSONB & Tài liệu (document) \\
 ACID & Đầy đủ, native & Hỗ trợ từ v4.0, hạn chế \\
 Truy vấn phức tạp & SQL mạnh (CTE, JOIN, subquery) & Aggregation pipeline \\
 Schema migration & Mature tooling (golang-migrate) & Schema-less, khó validate \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \textbf{Lý do chọn PostgreSQL:} ACID đầy đủ cho giao dịch tài chính. Schema isolation cho microservices (mỗi module = 1 schema riêng). JSONB cho dữ liệu linh hoạt (payment data, transport tracking). Partial indexes tối ưu truy vấn pending items.
 

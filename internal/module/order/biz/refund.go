@@ -293,7 +293,7 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 	}
 
 	// Distributed lock per refund — prevents race with ConfirmSellerRefund
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund-lock:%s", params.RefundID))
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund:%s", params.RefundID))
 	defer unlock()
 
 	// Fetch refund before cancelling to get order_id for notification
@@ -357,7 +357,7 @@ func (b *OrderHandler) ConfirmSellerRefund(
 	}
 
 	// Distributed lock per refund — prevents race with CancelBuyerRefund
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund-lock:%s", params.RefundID))
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund:%s", params.RefundID))
 	defer unlock()
 
 	refund, err := b.UpdateBuyerRefund(ctx, UpdateBuyerRefundParams{

@@ -1,10 +1,337 @@
-% Tài liệu tham khảo
-% Thêm các entry BibTeX tại đây
+% ============================================================
+% Tài liệu tham khảo — ShopNexus
+% ============================================================
 
-% Ví dụ:
-% @book{example,
-%   author = {Tác giả},
-%   title = {Tên sách},
-%   publisher = {Nhà xuất bản},
-%   year = {2024},
-% }
+% ------------------------------------------------------------------
+% Thương mại điện tử Việt Nam
+% ------------------------------------------------------------------
+
+@techreport{vecom2024,
+  author       = {{Hiệp hội Thương mại Điện tử Việt Nam (VECOM)}},
+  title        = {Báo cáo Chỉ số Thương mại điện tử Việt Nam 2024},
+  institution  = {VECOM},
+  year         = {2024},
+  note         = {Truy cập tại \url{https://vecom.vn}},
+}
+
+@techreport{evbn2024,
+  author       = {{EU-Vietnam Business Network}},
+  title        = {E-Commerce Industry in Vietnam},
+  institution  = {EVBN},
+  year         = {2024},
+  note         = {Truy cập tại \url{https://www.evbn.org}},
+}
+
+% ------------------------------------------------------------------
+% Pháp luật Việt Nam
+% ------------------------------------------------------------------
+
+@misc{nd52-2013,
+  author       = {{Chính phủ Việt Nam}},
+  title        = {Nghị định 52/2013/NĐ-CP về Thương mại điện tử},
+  year         = {2013},
+  note         = {Quy định về hoạt động thương mại điện tử trên lãnh thổ Việt Nam},
+}
+
+@misc{luat-bvqlntd-2023,
+  author       = {{Quốc hội Việt Nam}},
+  title        = {Luật Bảo vệ quyền lợi người tiêu dùng (Luật số 19/2023/QH15)},
+  year         = {2023},
+  note         = {Có hiệu lực từ 01/07/2024},
+}
+
+% ------------------------------------------------------------------
+% Kiến trúc phần mềm
+% ------------------------------------------------------------------
+
+@book{newman2021,
+  author       = {Sam Newman},
+  title        = {Building Microservices: Designing Fine-Grained Systems},
+  edition      = {2},
+  publisher    = {O'Reilly Media},
+  year         = {2021},
+  isbn         = {978-1492034025},
+}
+
+@book{martin2018,
+  author       = {Robert C. Martin},
+  title        = {Clean Architecture: A Craftsman's Guide to Software Structure and Design},
+  publisher    = {Prentice Hall},
+  year         = {2018},
+  isbn         = {978-0134494166},
+}
+
+@book{gamma1994,
+  author       = {Erich Gamma and Richard Helm and Ralph Johnson and John Vlissides},
+  title        = {Design Patterns: Elements of Reusable Object-Oriented Software},
+  publisher    = {Addison-Wesley},
+  year         = {1994},
+  isbn         = {978-0201633610},
+}
+
+@book{fowler2002,
+  author       = {Martin Fowler},
+  title        = {Patterns of Enterprise Application Architecture},
+  publisher    = {Addison-Wesley},
+  year         = {2002},
+  isbn         = {978-0321127426},
+}
+
+@book{richardson2018,
+  author       = {Chris Richardson},
+  title        = {Microservices Patterns: With Examples in Java},
+  publisher    = {Manning Publications},
+  year         = {2018},
+  isbn         = {978-1617294549},
+}
+
+% ------------------------------------------------------------------
+% Durable Execution & Restate
+% ------------------------------------------------------------------
+
+@misc{restate-docs,
+  author       = {{Restate}},
+  title        = {Restate Documentation},
+  year         = {2024},
+  howpublished = {\url{https://docs.restate.dev}},
+  note         = {Truy cập 2025},
+}
+
+@inproceedings{burckhardt2022,
+  author       = {Sebastian Burckhardt and others},
+  title        = {Durable Functions: Semantics for Stateful Serverless},
+  booktitle    = {Proceedings of the ACM on Programming Languages (OOPSLA)},
+  year         = {2021},
+  volume       = {5},
+  publisher    = {ACM},
+  doi          = {10.1145/3485510},
+}
+
+@misc{temporal-docs,
+  author       = {{Temporal Technologies}},
+  title        = {Temporal Documentation},
+  year         = {2024},
+  howpublished = {\url{https://docs.temporal.io}},
+  note         = {Tham khảo so sánh kiến trúc durable execution},
+}
+
+% ------------------------------------------------------------------
+% Go
+% ------------------------------------------------------------------
+
+@book{donovan2015,
+  author       = {Alan A. A. Donovan and Brian W. Kernighan},
+  title        = {The Go Programming Language},
+  publisher    = {Addison-Wesley},
+  year         = {2015},
+  isbn         = {978-0134190440},
+}
+
+@misc{go-docs,
+  author       = {{The Go Authors}},
+  title        = {The Go Programming Language Specification},
+  year         = {2024},
+  howpublished = {\url{https://go.dev/ref/spec}},
+}
+
+@misc{uber-fx,
+  author       = {{Uber Technologies}},
+  title        = {Fx: A dependency injection system for Go},
+  year         = {2024},
+  howpublished = {\url{https://uber-go.github.io/fx}},
+}
+
+% ------------------------------------------------------------------
+% Database & Data Access
+% ------------------------------------------------------------------
+
+@book{postgresql-docs,
+  author       = {{The PostgreSQL Global Development Group}},
+  title        = {PostgreSQL 18 Documentation},
+  year         = {2025},
+  howpublished = {\url{https://www.postgresql.org/docs/18}},
+}
+
+@misc{sqlc-docs,
+  author       = {{sqlc Authors}},
+  title        = {sqlc: Generate type-safe code from SQL},
+  year         = {2024},
+  howpublished = {\url{https://sqlc.dev}},
+}
+
+@misc{redis-docs,
+  author       = {{Redis Ltd.}},
+  title        = {Redis Documentation},
+  year         = {2024},
+  howpublished = {\url{https://redis.io/docs}},
+}
+
+@inproceedings{milvus2021,
+  author       = {Jianguo Wang and Xiaomeng Yi and Rentong Guo and Hai Jin and Peng Xu and others},
+  title        = {Milvus: A Purpose-Built Vector Data Management System},
+  booktitle    = {Proceedings of the 2021 International Conference on Management of Data (SIGMOD)},
+  year         = {2021},
+  publisher    = {ACM},
+  doi          = {10.1145/3448016.3457550},
+}
+
+% ------------------------------------------------------------------
+% Frontend
+% ------------------------------------------------------------------
+
+@misc{nextjs-docs,
+  author       = {{Vercel}},
+  title        = {Next.js Documentation},
+  year         = {2025},
+  howpublished = {\url{https://nextjs.org/docs}},
+}
+
+@misc{react-docs,
+  author       = {{Meta Platforms}},
+  title        = {React Documentation},
+  year         = {2025},
+  howpublished = {\url{https://react.dev}},
+}
+
+@misc{tanstack-query,
+  author       = {Tanner Linsley},
+  title        = {TanStack Query (React Query) Documentation},
+  year         = {2024},
+  howpublished = {\url{https://tanstack.com/query}},
+}
+
+% ------------------------------------------------------------------
+% Kiểm thử phần mềm & SQA
+% ------------------------------------------------------------------
+
+@book{pressman2019,
+  author       = {Roger S. Pressman and Bruce R. Maxim},
+  title        = {Software Engineering: A Practitioner's Approach},
+  edition      = {9},
+  publisher    = {McGraw-Hill Education},
+  year         = {2019},
+  isbn         = {978-1259872976},
+}
+
+@book{myers2011,
+  author       = {Glenford J. Myers and Corey Sandler and Tom Badgett},
+  title        = {The Art of Software Testing},
+  edition      = {3},
+  publisher    = {John Wiley \& Sons},
+  year         = {2011},
+  isbn         = {978-1118031964},
+}
+
+@book{cohn2009,
+  author       = {Mike Cohn},
+  title        = {Succeeding with Agile: Software Development Using Scrum},
+  publisher    = {Addison-Wesley},
+  year         = {2009},
+  isbn         = {978-0321579362},
+  note         = {Chương 16: Test Pyramid},
+}
+
+@book{sommerville2015,
+  author       = {Ian Sommerville},
+  title        = {Software Engineering},
+  edition      = {10},
+  publisher    = {Pearson},
+  year         = {2015},
+  isbn         = {978-0133943030},
+}
+
+% ------------------------------------------------------------------
+% Bảo mật & Threat Modeling
+% ------------------------------------------------------------------
+
+@book{shostack2014,
+  author       = {Adam Shostack},
+  title        = {Threat Modeling: Designing for Security},
+  publisher    = {John Wiley \& Sons},
+  year         = {2014},
+  isbn         = {978-1118809990},
+  note         = {STRIDE threat model},
+}
+
+@misc{owasp-top10,
+  author       = {{OWASP Foundation}},
+  title        = {OWASP Top 10 -- 2021},
+  year         = {2021},
+  howpublished = {\url{https://owasp.org/Top10}},
+}
+
+@misc{pci-dss,
+  author       = {{PCI Security Standards Council}},
+  title        = {Payment Card Industry Data Security Standard (PCI DSS) v4.0},
+  year         = {2022},
+  howpublished = {\url{https://www.pcisecuritystandards.org}},
+}
+
+% ------------------------------------------------------------------
+% Thanh toán & Vận chuyển
+% ------------------------------------------------------------------
+
+@misc{vnpay-docs,
+  author       = {{VNPAY}},
+  title        = {Tài liệu tích hợp cổng thanh toán VNPAY},
+  year         = {2024},
+  howpublished = {\url{https://sandbox.vnpayment.vn/apis}},
+}
+
+@misc{ghtk-docs,
+  author       = {{Giao Hàng Tiết Kiệm}},
+  title        = {GHTK API Documentation},
+  year         = {2024},
+  howpublished = {\url{https://docs.giaohangtietkiem.vn}},
+}
+
+% ------------------------------------------------------------------
+% Hạ tầng & DevOps
+% ------------------------------------------------------------------
+
+@misc{docker-docs,
+  author       = {{Docker Inc.}},
+  title        = {Docker Documentation},
+  year         = {2024},
+  howpublished = {\url{https://docs.docker.com}},
+}
+
+@misc{minio-docs,
+  author       = {{MinIO Inc.}},
+  title        = {MinIO High Performance Object Storage},
+  year         = {2024},
+  howpublished = {\url{https://min.io/docs}},
+}
+
+@misc{nats-docs,
+  author       = {{Synadia Communications}},
+  title        = {NATS Documentation},
+  year         = {2024},
+  howpublished = {\url{https://docs.nats.io}},
+}
+
+% ------------------------------------------------------------------
+% UML & Mô hình hoá
+% ------------------------------------------------------------------
+
+@book{larman2004,
+  author       = {Craig Larman},
+  title        = {Applying UML and Patterns: An Introduction to Object-Oriented Analysis and Design and Iterative Development},
+  edition      = {3},
+  publisher    = {Prentice Hall},
+  year         = {2004},
+  isbn         = {978-0131489066},
+}
+
+% ------------------------------------------------------------------
+% Phân tích độ tin cậy
+% ------------------------------------------------------------------
+
+@book{stamatis2003,
+  author       = {D. H. Stamatis},
+  title        = {Failure Mode and Effect Analysis: FMEA from Theory to Execution},
+  edition      = {2},
+  publisher    = {ASQ Quality Press},
+  year         = {2003},
+  isbn         = {978-0873895989},
+}

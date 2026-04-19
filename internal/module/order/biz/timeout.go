@@ -25,7 +25,7 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	defer metrics.TrackHandler("order", "CancelUnpaidCheckout", &err)()
 
 	// Distributed lock per payment — prevents race with ConfirmPayment
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:payment-lock:%d", paymentID))
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:payment:%d", paymentID))
 	defer unlock()
 
 	// Fetch pending items for this payment
@@ -52,7 +52,7 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 				Quantity:              item.Quantity,
 				PaidAmount:            item.PaidAmount,
 				TransportCostEstimate: item.TransportCostEstimate,
-				SkuName:              item.SkuName,
+				SkuName:               item.SkuName,
 			})
 		}
 
@@ -173,7 +173,7 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 				Quantity:              item.Quantity,
 				PaidAmount:            item.PaidAmount,
 				TransportCostEstimate: item.TransportCostEstimate,
-				SkuName:              item.SkuName,
+				SkuName:               item.SkuName,
 			})
 		}
 

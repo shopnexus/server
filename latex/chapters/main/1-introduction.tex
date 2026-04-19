@@ -35,18 +35,29 @@ Việc thực hiện đề tài tuân theo quy trình bốn giai đoạn:
 \clearpage
 \section{Phân công thành viên}
 
-\begin{table}[htbp]
-\centering
-\caption{Phân công công việc kiểm thử}
-\label{tab:member-assignment}
-\begin{tabular}{@{}clp{7.5cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}clL{7.5cm}@{}}
+\caption{Phân công công việc kiểm thử}\label{tab:member-assignment}\\
 \toprule
 \rowcolor{headerblue}
 \thead{STT} & \thead{Thành viên (MSSV)} & \thead{Nhiệm vụ} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Thành viên (MSSV)} & \thead{Nhiệm vụ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 1 & Đậu Văn Đăng Khoa (N22DCCN040) & Kiểm thử hộp trắng (white box) toàn bộ hệ thống: phân tích luồng xử lý biz layer, kiểm tra phủ nhánh (branch coverage), kiểm tra state machine, unit test cho logic nghiệp vụ \\
 2 & Nguyễn Tấn Khoa (N22DCCN042) & Kiểm thử hộp đen (black box) - Đặt hàng: kiểm thử chức năng giỏ hàng, checkout, xác nhận đơn, thanh toán, dashboard seller \\
 3 & Hồ Công Toản (N22DCCN086) & Kiểm thử hộp đen (black box) - Hoàn trả và Tranh chấp: kiểm thử tạo/sửa/hủy hoàn trả, duyệt hoàn trả, mở tranh chấp, hoàn trả một phần (partial refund) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

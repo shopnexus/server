@@ -831,7 +831,7 @@ func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrder
 const createDefaultPayment = `-- name: CreateDefaultPayment :one
 INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreateDefaultPaymentParams struct {
@@ -863,12 +863,12 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 		&i.Amount,
 		&i.Data,
 		&i.PaymentMethodID,
-		&i.DateCreated,
-		&i.DatePaid,
-		&i.DateExpired,
 		&i.BuyerCurrency,
 		&i.SellerCurrency,
 		&i.ExchangeRate,
+		&i.DateCreated,
+		&i.DatePaid,
+		&i.DateExpired,
 	)
 	return i, err
 }
@@ -1111,7 +1111,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 const createPayment = `-- name: CreatePayment :one
 INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreatePaymentParams struct {
@@ -1153,12 +1153,12 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (O
 		&i.Amount,
 		&i.Data,
 		&i.PaymentMethodID,
-		&i.DateCreated,
-		&i.DatePaid,
-		&i.DateExpired,
 		&i.BuyerCurrency,
 		&i.SellerCurrency,
 		&i.ExchangeRate,
+		&i.DateCreated,
+		&i.DatePaid,
+		&i.DateExpired,
 	)
 	return i, err
 }
@@ -1873,7 +1873,7 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.NullUUID) (OrderOrder, e
 
 const getPayment = `-- name: GetPayment :one
 
-SELECT id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+SELECT id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 FROM "order"."payment"
 WHERE ("id" = $1)
 `
@@ -1892,12 +1892,12 @@ func (q *Queries) GetPayment(ctx context.Context, id null.Int) (OrderPayment, er
 		&i.Amount,
 		&i.Data,
 		&i.PaymentMethodID,
-		&i.DateCreated,
-		&i.DatePaid,
-		&i.DateExpired,
 		&i.BuyerCurrency,
 		&i.SellerCurrency,
 		&i.ExchangeRate,
+		&i.DateCreated,
+		&i.DatePaid,
+		&i.DateExpired,
 	)
 	return i, err
 }
@@ -2393,7 +2393,7 @@ func (q *Queries) ListCountOrder(ctx context.Context, arg ListCountOrderParams) 
 }
 
 const listCountPayment = `-- name: ListCountPayment :many
-SELECT embed_payment.id, embed_payment.account_id, embed_payment.option, embed_payment.status, embed_payment.amount, embed_payment.data, embed_payment.payment_method_id, embed_payment.date_created, embed_payment.date_paid, embed_payment.date_expired, embed_payment.buyer_currency, embed_payment.seller_currency, embed_payment.exchange_rate, COUNT(*) OVER() as total_count
+SELECT embed_payment.id, embed_payment.account_id, embed_payment.option, embed_payment.status, embed_payment.amount, embed_payment.data, embed_payment.payment_method_id, embed_payment.buyer_currency, embed_payment.seller_currency, embed_payment.exchange_rate, embed_payment.date_created, embed_payment.date_paid, embed_payment.date_expired, COUNT(*) OVER() as total_count
 FROM "order"."payment" embed_payment
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2495,12 +2495,12 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 			&i.OrderPayment.Amount,
 			&i.OrderPayment.Data,
 			&i.OrderPayment.PaymentMethodID,
-			&i.OrderPayment.DateCreated,
-			&i.OrderPayment.DatePaid,
-			&i.OrderPayment.DateExpired,
 			&i.OrderPayment.BuyerCurrency,
 			&i.OrderPayment.SellerCurrency,
 			&i.OrderPayment.ExchangeRate,
+			&i.OrderPayment.DateCreated,
+			&i.OrderPayment.DatePaid,
+			&i.OrderPayment.DateExpired,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -3071,7 +3071,7 @@ func (q *Queries) ListOrder(ctx context.Context, arg ListOrderParams) ([]OrderOr
 }
 
 const listPayment = `-- name: ListPayment :many
-SELECT id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+SELECT id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 FROM "order"."payment"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -3168,12 +3168,12 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 			&i.Amount,
 			&i.Data,
 			&i.PaymentMethodID,
-			&i.DateCreated,
-			&i.DatePaid,
-			&i.DateExpired,
 			&i.BuyerCurrency,
 			&i.SellerCurrency,
 			&i.ExchangeRate,
+			&i.DateCreated,
+			&i.DatePaid,
+			&i.DateExpired,
 		); err != nil {
 			return nil, err
 		}
@@ -3680,7 +3680,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "seller_currency" = COALESCE($13, "seller_currency"),
     "exchange_rate" = COALESCE($14, "exchange_rate")
 WHERE id = $15
-RETURNING id, account_id, option, status, amount, data, payment_method_id, date_created, date_paid, date_expired, buyer_currency, seller_currency, exchange_rate
+RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type UpdatePaymentParams struct {
@@ -3728,12 +3728,12 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (O
 		&i.Amount,
 		&i.Data,
 		&i.PaymentMethodID,
-		&i.DateCreated,
-		&i.DatePaid,
-		&i.DateExpired,
 		&i.BuyerCurrency,
 		&i.SellerCurrency,
 		&i.ExchangeRate,
+		&i.DateCreated,
+		&i.DatePaid,
+		&i.DateExpired,
 	)
 	return i, err
 }

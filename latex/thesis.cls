@@ -14,7 +14,7 @@
 % --- Core packages ---
 \RequirePackage{longtable}
 \RequirePackage{float}                 % provides [H] strict float placement
-\RequirePackage[subsection]{placeins}  % auto \FloatBarrier at each \section AND \subsection
+\RequirePackage[section]{placeins}     % auto \FloatBarrier at each \section
 \RequirePackage{geometry,graphicx,indentfirst,setspace}
 \RequirePackage{tikz}
 \RequirePackage[center]{caption}

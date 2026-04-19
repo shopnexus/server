@@ -3,6 +3,8 @@
 
 % Table packages (colors already defined in thesis.cls)
 \usepackage{booktabs,array}
+% Left-aligned, vertically centered paragraph column
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}m{#1}}
 
 % Code listings for inline code
 \usepackage{listings}
@@ -16,6 +18,10 @@
 
 % cleveref MUST come after hyperref (loaded in thesis.cls)
 \usepackage[nameinlink]{cleveref}
+\usepackage{seqsplit}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+\usepackage{caption}
 
 
 % ============================================================

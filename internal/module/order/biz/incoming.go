@@ -34,7 +34,6 @@ func (b *OrderHandler) ListSellerPendingItems(
 		return zero, err
 	}
 
-
 	type incomingResult struct {
 		Items []orderdb.OrderItem `json:"items"`
 		Total int64               `json:"total"`

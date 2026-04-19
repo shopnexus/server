@@ -1,0 +1,388 @@
+% ============================================================
+% 5.x Kiểm thử hộp trắng (White Box Testing)
+% ============================================================
+
+\section{Kiểm thử hộp trắng}
+\label{sec:whitebox-testing}
+
+Kiểm thử hộp trắng phân tích cấu trúc bên trong mã nguồn để thiết kế test case, đảm bảo mọi nhánh logic và chuyển trạng thái đều được kiểm tra. Phần này áp dụng ba kỹ thuật: \textbf{kiểm thử máy trạng thái} (state machine testing), \textbf{bảng quyết định} (decision table), và \textbf{phân tích phủ nhánh} (branch coverage) cho các luồng nghiệp vụ cốt lõi.
+
+% ------------------------------------------------------------------
+\subsection{Kiểm thử máy trạng thái}
+\label{subsec:state-machine-testing}
+
+Hệ thống ShopNexus sử dụng nhiều máy trạng thái để quản lý vòng đời của các thực thể nghiệp vụ. Mỗi máy trạng thái được kiểm thử theo nguyên tắc: (1)~mọi chuyển trạng thái hợp lệ phải thành công, (2)~mọi chuyển trạng thái không hợp lệ phải bị từ chối, (3)~trạng thái kết thúc không có đường ra.
+
+% --- Transport ---
+\subsubsection{Máy trạng thái vận chuyển (Transport)}
+\label{subsub:sm-transport}
+
+Vận chuyển tuân theo chuỗi trạng thái tuyến tính với hai nhánh ngoại lệ: bất kỳ trạng thái hoạt động nào đều có thể chuyển sang \textit{Failed} hoặc \textit{Cancelled}. Ba trạng thái kết thúc (\textit{Delivered}, \textit{Failed}, \textit{Cancelled}) không cho phép chuyển tiếp.
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.9cm and 2.2cm,
+  state/.style={rectangle, rounded corners=4pt, draw=headerblue, fill=headerblue!8,
+    minimum width=2.2cm, minimum height=0.7cm, font=\small\sffamily},
+  terminal/.style={state, draw=gray!60, fill=gray!12},
+  happy/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black},
+  fail/.style={-{Stealth[length=4pt]}, thin, red!50!black, dashed},
+  label/.style={font=\scriptsize, text=gray!60!black},
+]
+% Happy path (vertical)
+\node[state] (P) {Pending};
+\node[state, below=of P] (LC) {LabelCreated};
+\node[state, below=of LC] (IT) {InTransit};
+\node[state, below=of IT] (OD) {OutForDelivery};
+\node[terminal, below=of OD] (D) {Delivered};
+
+% Exception terminals
+\node[terminal, right=2.5cm of IT] (F) {Failed};
+\node[terminal, left=2.5cm of IT] (C) {Cancelled};
+
+% Happy path arrows
+\draw[happy] (P) -- (LC);
+\draw[happy] (LC) -- (IT);
+\draw[happy] (IT) -- (OD);
+\draw[happy] (OD) -- (D);
+
+% Exception arrows (from each active state)
+\foreach \src in {P, LC, IT, OD} {
+  \draw[fail] (\src) -- (F);
+  \draw[fail] (\src) -- (C);
+}
+
+% Labels
+\node[label, right=0.1cm of D] {Trạng thái kết thúc};
+\end{tikzpicture}
+\captionof{figure}{Máy trạng thái vận chuyển --- đường liền: happy path, đường đứt: ngoại lệ}
+\label{fig:sm-transport}
+\end{center}
+
+Bảng~\ref{tab:sm-transport-tests} liệt kê 15 test case kiểm thử chuyển trạng thái, bao gồm bốn nhóm: happy path (tuần tự đúng thứ tự), ngoại lệ (chuyển sang Failed/Cancelled), bỏ bước (nhảy cóc trạng thái), lùi bước, và trạng thái kết thúc.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}clllc@{}}
+\caption{Test case kiểm thử máy trạng thái vận chuyển}\label{tab:sm-transport-tests}\\
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Trạng thái hiện tại} & \thead{Trạng thái đích} & \thead{Nhóm} & \thead{Hợp lệ} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Trạng thái hiện tại} & \thead{Trạng thái đích} & \thead{Nhóm} & \thead{Hợp lệ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+1 & Pending & LabelCreated & Happy path & \checkmark \\
+2 & LabelCreated & InTransit & Happy path & \checkmark \\
+3 & InTransit & OutForDelivery & Happy path & \checkmark \\
+4 & OutForDelivery & Delivered & Happy path & \checkmark \\
+\midrule
+5 & Pending & Failed & Ngoại lệ & \checkmark \\
+6 & LabelCreated & Cancelled & Ngoại lệ & \checkmark \\
+7 & InTransit & Failed & Ngoại lệ & \checkmark \\
+\midrule
+8 & Pending & InTransit & Bỏ bước & $\times$ \\
+9 & LabelCreated & OutForDelivery & Bỏ bước & $\times$ \\
+10 & InTransit & Delivered & Bỏ bước & $\times$ \\
+\midrule
+11 & InTransit & LabelCreated & Lùi bước & $\times$ \\
+12 & Delivered & InTransit & Lùi bước & $\times$ \\
+\midrule
+13 & Delivered & Cancelled & Kết thúc & $\times$ \\
+14 & Failed & InTransit & Kết thúc & $\times$ \\
+15 & Cancelled & Delivered & Kết thúc & $\times$ \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+% --- Item lifecycle ---
+\subsubsection{Vòng đời mục đặt hàng (Item)}
+\label{subsub:sm-item}
+
+Trạng thái của mục đặt hàng (item) không lưu tường minh mà được \textbf{suy diễn} từ ba trường: \texttt{payment\_id}, \texttt{order\_id}, và \texttt{date\_cancelled}. Thiết kế này loại bỏ nguy cơ trạng thái bất đồng bộ giữa cột status và dữ liệu thực tế.
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=1.2cm and 2.5cm,
+  state/.style={rectangle, rounded corners=4pt, draw=headerblue, fill=headerblue!8,
+    minimum width=3cm, minimum height=0.7cm, font=\small\sffamily, align=center},
+  terminal/.style={state, draw=gray!60, fill=gray!12},
+  happy/.style={-{Stealth[length=5pt]}, thick, headerblue!80!black},
+  fail/.style={-{Stealth[length=4pt]}, thin, red!50!black, dashed},
+  label/.style={font=\scriptsize, text=gray!60!black, align=center},
+]
+\node[state] (wait) {Chờ thanh toán};
+\node[state, below=of wait] (pending) {Chờ xác nhận seller};
+\node[terminal, below left=1.2cm and 1cm of pending] (confirmed) {Đã xác nhận};
+\node[terminal, below right=1.2cm and 1cm of pending] (cancelled) {Đã hủy};
+
+\draw[happy] (wait) -- node[label, right, xshift=2pt] {Webhook\\Success} (pending);
+\draw[happy] (pending) -- node[label, left, xshift=-2pt] {Seller\\xác nhận} (confirmed);
+\draw[fail] (wait) -- node[label, right, xshift=6pt, yshift=6pt] {Webhook Fail\\/ Timeout 15p} (cancelled);
+\draw[fail] (pending) -- node[label, right, xshift=2pt] {Seller từ chối\\/ Buyer hủy\\/ Timeout 48h} (cancelled);
+
+% Wallet-only shortcut
+\draw[happy, dotted, headerblue] (wait.west) to[out=180,in=180] node[label, left, xshift=-4pt] {Ví\\(trả đủ)} (pending.west);
+\end{tikzpicture}
+\captionof{figure}{Vòng đời mục đặt hàng --- trạng thái suy diễn từ dữ liệu}
+\label{fig:sm-item}
+\end{center}
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}cL{4.5cm}L{4cm}c@{}}
+\caption{Test case kiểm thử vòng đời mục đặt hàng}\label{tab:sm-item-tests}\\
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Sự kiện} & \thead{Chuyển trạng thái} & \thead{Hợp lệ} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Sự kiện} & \thead{Chuyển trạng thái} & \thead{Hợp lệ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+1 & Checkout bằng ví (trả đủ) & $\emptyset \to$ Chờ xác nhận & \checkmark \\
+2 & Checkout qua cổng thanh toán & $\emptyset \to$ Chờ thanh toán & \checkmark \\
+3 & Webhook thanh toán thành công & Chờ TT $\to$ Chờ xác nhận & \checkmark \\
+4 & Webhook thanh toán thất bại & Chờ TT $\to$ Đã hủy & \checkmark \\
+5 & Timeout 15 phút chưa thanh toán & Chờ TT $\to$ Đã hủy & \checkmark \\
+6 & Seller xác nhận & Chờ XN $\to$ Đã xác nhận & \checkmark \\
+7 & Seller từ chối & Chờ XN $\to$ Đã hủy & \checkmark \\
+8 & Buyer hủy mục chờ & Chờ XN $\to$ Đã hủy & \checkmark \\
+9 & Timeout 48h seller không phản hồi & Chờ XN $\to$ Đã hủy & \checkmark \\
+10 & Xác nhận mục đã xác nhận & Đã XN $\to$ Đã XN & $\times$ \\
+11 & Xác nhận mục đã hủy & Đã hủy $\to$ ? & $\times$ \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+% --- Refund lifecycle ---
+\subsubsection{Vòng đời hoàn trả và tranh chấp}
+\label{subsub:sm-refund}
+
+Hoàn trả có bốn trạng thái, trong đó chỉ \textit{Pending} cho phép cập nhật nội dung. Tranh chấp chỉ được tạo khi hoàn trả ở trạng thái \textit{Pending} hoặc \textit{Processing}, và mỗi hoàn trả chỉ cho phép tối đa một tranh chấp đang hoạt động tại một thời điểm.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}cL{5cm}L{4cm}c@{}}
+\caption{Test case kiểm thử vòng đời hoàn trả và tranh chấp}\label{tab:sm-refund-tests}\\
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Sự kiện} & \thead{Chuyển trạng thái} & \thead{Hợp lệ} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{STT} & \thead{Sự kiện} & \thead{Chuyển trạng thái} & \thead{Hợp lệ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+1 & Seller xác nhận hoàn trả & Pending $\to$ Processing & \checkmark \\
+2 & Buyer hủy hoàn trả & Pending $\to$ Cancelled & \checkmark \\
+3 & Hoàn tiền thành công & Processing $\to$ Success & \checkmark \\
+4 & Cập nhật hoàn trả Pending & Pending $\to$ Pending (sửa lý do) & \checkmark \\
+5 & Cập nhật hoàn trả Processing & Processing $\to$ ? & $\times$ \\
+\midrule
+6 & Mở tranh chấp (hoàn trả Pending) & Tạo Dispute & \checkmark \\
+7 & Mở tranh chấp (hoàn trả Processing) & Tạo Dispute & \checkmark \\
+8 & Mở tranh chấp (hoàn trả Success) & -- & $\times$ \\
+9 & Mở tranh chấp (hoàn trả Cancelled) & -- & $\times$ \\
+10 & Mở tranh chấp khi đã có dispute đang hoạt động & -- & $\times$ \\
+11 & Người ngoài mở tranh chấp & -- & $\times$ \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+% ------------------------------------------------------------------
+\subsection{Bảng quyết định và phân tích nhánh}
+\label{subsec:decision-tables}
+
+% --- Checkout payment routing ---
+\subsubsection{Định tuyến thanh toán tại Checkout}
+\label{subsub:dt-checkout}
+
+Luồng checkout có ba kịch bản thanh toán dựa trên hai điều kiện: buyer có sử dụng ví hay không, và số dư ví có đủ trả toàn bộ hay không. Bảng~\ref{tab:dt-checkout} trình bày bảng quyết định cho ba kịch bản này.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{4.5cm}ccc@{}}
+\caption{Bảng quyết định --- định tuyến thanh toán}\label{tab:dt-checkout}\\
+\toprule
+\rowcolor{headerblue}
+& \thead{S1: Ví đủ} & \thead{S2: Ví + Cổng} & \thead{S3: Cổng} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+& \thead{S1: Ví đủ} & \thead{S2: Ví + Cổng} & \thead{S3: Cổng} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\multicolumn{4}{@{}l}{\textit{Điều kiện}} \\
+\quad Sử dụng ví & Có & Có & Không \\
+\quad Số dư $\geq$ tổng tiền & Có & Không & -- \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Hành động}} \\
+\quad Trừ ví & Toàn bộ & Một phần & -- \\
+\quad Tạo phiên cổng thanh toán & -- & Phần còn lại & Toàn bộ \\
+\quad Trạng thái payment & Success & Pending & Pending \\
+\quad Timeout lên lịch & 48h (seller) & 15 phút (hết hạn) & 15 phút (hết hạn) \\
+\quad Xóa giỏ hàng & Có\textsuperscript{*} & Có\textsuperscript{*} & Có\textsuperscript{*} \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+\textbf{Phân tích:} Kịch bản S1 là đường ngắn nhất --- payment thành công ngay tại thời điểm checkout, hệ thống lập tức lên lịch timeout 48h cho seller. Kịch bản S2 và S3 đều tạo phiên thanh toán ở trạng thái Pending, yêu cầu webhook xác nhận từ cổng thanh toán trong vòng 15 phút; quá hạn thì hệ thống tự động hủy checkout và hoàn kho.
+
+% --- ConfirmPayment webhook ---
+\subsubsection{Xử lý webhook thanh toán (ConfirmPayment)}
+\label{subsub:dt-confirm-payment}
+
+Hàm \texttt{ConfirmPayment} xử lý callback từ cổng thanh toán và phân nhánh dựa trên trạng thái trả về. Bảng~\ref{tab:dt-confirm-payment} liệt kê ba nhánh và side effect tương ứng.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{2.5cm}L{3.5cm}L{3.5cm}L{3.5cm}@{}}
+\caption{Phân tích nhánh --- xử lý webhook thanh toán}\label{tab:dt-confirm-payment}\\
+\toprule
+\rowcolor{headerblue}
+\thead{Status webhook} & \thead{Cập nhật DB} & \thead{Side effect} & \thead{Thông báo} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Status webhook} & \thead{Cập nhật DB} & \thead{Side effect} & \thead{Thông báo} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+Success & Payment $\to$ Success & Lên lịch 48h auto-cancel nếu seller không phản hồi & Buyer: thanh toán thành công \\
+Failed & Payment $\to$ Failed & Hủy items, hoàn kho, hoàn tiền ví & Buyer: thanh toán thất bại \\
+Pending / khác & Không thay đổi & Không & Không \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+\textbf{Phân tích:} Nhánh Pending/khác là cơ chế bảo vệ idempotent --- webhook có thể gửi trùng lặp, hệ thống chỉ xử lý lần đầu khi status thay đổi thực sự. Nhánh Failed thực hiện rollback đầy đủ: hoàn kho (qua module Inventory), hoàn tiền ví nếu đã trừ trước đó, và hủy tất cả items liên kết với phiên thanh toán.
+
+% --- ConfirmSellerPending validation ---
+\subsubsection{Chuỗi kiểm tra hợp lệ --- Xác nhận đơn hàng}
+\label{subsub:validation-confirm}
+
+Khi seller xác nhận một nhóm mục chờ, hệ thống kiểm tra chuỗi năm điều kiện trước khi tạo đơn hàng. Bất kỳ điều kiện nào vi phạm đều dừng ngay và trả lỗi.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}clL{4.5cm}L{3.5cm}@{}}
+\caption{Chuỗi kiểm tra hợp lệ khi xác nhận đơn hàng}\label{tab:validation-confirm}\\
+\toprule
+\rowcolor{headerblue}
+\thead{Thứ tự} & \thead{Điều kiện} & \thead{Mô tả} & \thead{Lỗi nếu vi phạm} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Thứ tự} & \thead{Điều kiện} & \thead{Mô tả} & \thead{Lỗi nếu vi phạm} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+1 & Mục tồn tại \& chưa xác nhận & order\_id IS NULL, date\_cancelled IS NULL & Item not found / Already confirmed / Already cancelled \\
+2 & Đúng seller & seller\_id khớp với người gọi & Not owned by seller \\
+3 & Cùng buyer & Tất cả items cùng account\_id & Items not same buyer \\
+4 & Cùng địa chỉ & Tất cả items cùng address & Items not same address \\
+5 & Cùng vận chuyển & Tất cả items cùng transport\_option & Items not same transport \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
+
+Chuỗi kiểm tra này đảm bảo tính nhất quán trước khi tạo đơn hàng: mỗi đơn hàng chỉ chứa items của một buyer, giao đến một địa chỉ, sử dụng một đơn vị vận chuyển. Vi phạm bất kỳ điều kiện nào sẽ trả về lỗi terminal (HTTP 400/409) mà không thay đổi trạng thái hệ thống.
+
+% ------------------------------------------------------------------
+\subsection{Tổng hợp test case hộp trắng}
+\label{subsec:whitebox-summary}
+
+Bảng~\ref{tab:wb-tests} tổng hợp các test case hộp trắng theo ba kỹ thuật đã trình bày. Mỗi test case kiểm tra một nhánh logic hoặc chuyển trạng thái cụ thể trong mã nguồn.
+
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}cL{4.5cm}L{5cm}c@{}}
+\caption{Tổng hợp test case kiểm thử hộp trắng}\label{tab:wb-tests}\\
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Kịch bản} & \thead{Kết quả mong đợi} & \thead{KQ} \\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{ID} & \thead{Kịch bản} & \thead{Kết quả mong đợi} & \thead{KQ} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+\multicolumn{4}{@{}l}{\textit{Máy trạng thái vận chuyển}} \\
+WB-01 & Happy path: Pending $\to$ \ldots $\to$ Delivered & Mỗi bước chuyển thành công & Đạt \\
+WB-02 & Ngoại lệ: trạng thái hoạt động $\to$ Failed & Chuyển thành công & Đạt \\
+WB-03 & Bỏ bước: Pending $\to$ InTransit & Bị từ chối (409) & Đạt \\
+WB-04 & Lùi bước: InTransit $\to$ LabelCreated & Bị từ chối (409) & Đạt \\
+WB-05 & Kết thúc: Delivered $\to$ bất kỳ & Bị từ chối (409) & Đạt \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Vòng đời mục đặt hàng}} \\
+WB-06 & Checkout ví đủ $\to$ chờ xác nhận ngay & Payment Success, item có payment\_id & Đạt \\
+WB-07 & Checkout cổng $\to$ webhook Success & Item chuyển sang chờ xác nhận & Đạt \\
+WB-08 & Webhook Failed $\to$ item hủy & date\_cancelled set, kho hoàn trả & Đạt \\
+WB-09 & Timeout 15p chưa thanh toán & Items hủy, kho hoàn trả & Đạt \\
+WB-10 & Timeout 48h seller không phản hồi & Items hủy, ví hoàn tiền & Đạt \\
+WB-11 & Xác nhận item đã hủy & Bị từ chối & Đạt \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Vòng đời hoàn trả và tranh chấp}} \\
+WB-12 & Cập nhật hoàn trả Processing & Bị từ chối (409) & Đạt \\
+WB-13 & Mở dispute khi hoàn trả đã Success & Bị từ chối (409) & Đạt \\
+WB-14 & Mở dispute trùng (đã có dispute Pending) & Bị từ chối (409) & Đạt \\
+WB-15 & Người ngoài mở dispute & Bị từ chối (403) & Đạt \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Bảng quyết định và phủ nhánh}} \\
+WB-16 & Checkout S1: ví đủ, không cổng & Payment Success ngay, timeout 48h & Đạt \\
+WB-17 & Checkout S2: ví + cổng & Ví trừ một phần, phiên Pending & Đạt \\
+WB-18 & Checkout S3: chỉ cổng & Phiên Pending, timeout 15 phút & Đạt \\
+WB-19 & Webhook trùng (gửi lại Success) & Idempotent, không thay đổi & Đạt \\
+WB-20 & Xác nhận items khác seller & Bị từ chối (400) & Đạt \\
+WB-21 & Xác nhận items khác transport\_option & Bị từ chối (400) & Đạt \\
+WB-22 & Xác nhận items khác buyer & Bị từ chối (400) & Đạt \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize

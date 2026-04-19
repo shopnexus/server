@@ -1,16 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/bytedance/sonic"
 )
 
 type A struct {
-	B json.RawMessage
-	C string
-	D []byte
+	B
 }
 
 type B struct {
@@ -19,19 +16,8 @@ type B struct {
 }
 
 func main() {
-	b := B{
-		E: "example",
-		F: "example2",
-	}
-	bytes, _ := sonic.Marshal(b)
 
-	var sl []byte
-
-	txt, _ := sonic.Marshal(A{
-		B: bytes,
-		C: string(bytes),
-		D: sl,
-	})
+	txt, _ := sonic.Marshal(A{})
 
 	fmt.Println(string(txt))
 }

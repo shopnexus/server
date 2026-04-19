@@ -14,30 +14,40 @@ Gói \texttt{internal/infras/metrics/} cung cấp toàn bộ cơ sở hạ tần
 
 \subsection{Danh sách metric}
 
-\begin{table}[htbp]
-\centering
-\caption{Danh sách Prometheus metrics}
-\label{tab:metrics-list}
 \small
-\begin{tabular}{@{} p{6.5cm} p{2cm} p{5cm} @{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{} L{6.5cm} L{2cm} L{5cm} @{}}
+\caption{Danh sách Prometheus metrics}\label{tab:metrics-list}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Tên metric} & \thead{Loại} & \thead{Mô tả} \\
 \midrule
-\texttt{shopnexus\_http\_requests\_total} & Counter & Tổng số HTTP request, nhãn \texttt{method}, \texttt{path}, \texttt{status} \\
-\texttt{shopnexus\_http\_request\_duration\_seconds} & Histogram & Latency HTTP, nhãn \texttt{method}, \texttt{path} \\
-\texttt{shopnexus\_orders\_created\_total} & Counter & Số đơn hàng được tạo \\
-\texttt{shopnexus\_checkout\_items\_created\_total} & Counter & Số checkout item được tạo \\
-\texttt{shopnexus\_payments\_total} & Counter & Số lượng thanh toán, nhãn \texttt{status}, \texttt{provider} \\
-\texttt{shopnexus\_refunds\_created\_total} & Counter & Số yêu cầu hoàn trả được tạo \\
-\texttt{shopnexus\_disputes\_created\_total} & Counter & Số tranh chấp được mở \\
-\texttt{shopnexus\_transport\_status\_updates\_total} & Counter & Cập nhật trạng thái giao vận, nhãn \texttt{new\_status} \\
-\texttt{shopnexus\_inventory\_reserves\_total} & Counter & Đặt chỗ tồn kho, nhãn \texttt{result} (success/failed) \\
-\texttt{shopnexus\_handler\_invocations\_total} & Counter & Tổng lần gọi handler, nhãn \texttt{module}, \texttt{handler}, \texttt{result} \\
-\texttt{shopnexus\_handler\_duration\_seconds} & Histogram & Thời gian thực thi handler, nhãn \texttt{module}, \texttt{handler} \\
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Tên metric} & \thead{Loại} & \thead{Mô tả} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
 \bottomrule
-\end{tabular}
-\end{table}
+\endlastfoot
+
+\texttt{http\_requests\_total} & Counter & Tổng số HTTP request, nhãn \texttt{method}, \texttt{path}, \texttt{status} \\
+\texttt{http\_request\_duration\_seconds} & Histogram & Latency HTTP, nhãn \texttt{method}, \texttt{path} \\
+\texttt{orders\_created\_total} & Counter & Số đơn hàng được tạo \\
+\texttt{checkout\_items\_created\_total} & Counter & Số checkout item được tạo \\
+\texttt{payments\_total} & Counter & Số lượng thanh toán, nhãn \texttt{status}, \texttt{provider} \\
+\texttt{refunds\_created\_total} & Counter & Số yêu cầu hoàn trả được tạo \\
+\texttt{disputes\_created\_total} & Counter & Số tranh chấp được mở \\
+\texttt{transport\_status\_updates\_total} & Counter & Cập nhật trạng thái giao vận, nhãn \texttt{new\_status} \\
+\texttt{inventory\_reserves\_total} & Counter & Đặt chỗ tồn kho, nhãn \texttt{result} (success/failed) \\
+\texttt{handler\_invocations\_total} & Counter & Tổng lần gọi handler, nhãn \texttt{module}, \texttt{handler}, \texttt{result} \\
+\texttt{handler\_duration\_seconds} & Histogram & Thời gian thực thi handler, nhãn \texttt{module}, \texttt{handler} \\
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 \subsection{Pattern đo lường handler}
 
@@ -62,7 +72,7 @@ Prometheus và Grafana được thêm vào \texttt{deployment/docker-compose.yml
 Các SLO query tham khảo:
 
 \begin{itemize}
-  \item \textbf{Error rate}: \texttt{rate(shopnexus\_handler\_invocations\_total\{result="error"\}[5m])} / \texttt{rate(shopnexus\_handler\_invocations\_total[5m])}
-  \item \textbf{Latency p99 (read)}: \texttt{histogram\_quantile(0.99, rate(shopnexus\_handler\_duration\_seconds\_bucket\{handler=\textasciitilde"List.*|Get.*"\}[5m]))} $<$ 500ms
-  \item \textbf{Latency p99 (write)}: \texttt{histogram\_quantile(0.99, rate(shopnexus\_handler\_duration\_seconds\_bucket[5m]))} $<$ 2s
+  \item \textbf{Error rate}: \texttt{rate(handler\_invocations\_total\{result="error"\}[5m])} / \texttt{rate(handler\_invocations\_total[5m])}
+  \item \textbf{Latency p99 (read)}: \texttt{histogram\_quantile(0.99, rate(handler\_duration\_seconds\_bucket\{handler=\textasciitilde"List.*|Get.*"\}[5m]))} $<$ 500ms
+  \item \textbf{Latency p99 (write)}: \texttt{histogram\_quantile(0.99, rate(handler\_duration\_seconds\_bucket[5m]))} $<$ 2s
 \end{itemize}

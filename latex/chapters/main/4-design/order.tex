@@ -10,15 +10,26 @@
 \subsection{Giao diện (Lớp biên)}
 \label{subsec:order-forms}
 
-\begin{table}[H]
-\centering
-\caption{Danh sách form --- module Mua hàng}
-\label{tab:order-forms}
-\begin{tabular}{@{}p{3.2cm}lp{4.5cm}p{3.8cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{3.2cm}lL{4.5cm}L{3.8cm}@{}}
+\caption{Danh sách form --- module Mua hàng}\label{tab:order-forms}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Form} & \thead{Actor} & \thead{Control chính} & \thead{API được gọi} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 CartPage           & Buyer  & Checkbox chọn SP, nút +/-, nút Checkout & GetCart, UpdateCart, ClearCart \\
 CheckoutPage       & Buyer  & Danh sách item, input địa chỉ, chọn vận chuyển/thanh toán, ví, nút Đặt hàng & BuyerCheckout \\
 BuyerPendingList   & Buyer  & Danh sách mục đã thanh toán chờ seller xác nhận & ListBuyerPendingItems \\
@@ -26,24 +37,33 @@ SellerInbox        & Seller & Danh sách mục đã thanh toán, nút Xác nhậ
 OrderListPage      & Buyer/Seller & Bộ lọc trạng thái, phân trang & ListBuyerConfirmed, ListSellerConfirmed \\
 OrderDetailPage    & Buyer/Seller & Thông tin đơn, theo dõi vận chuyển & GetBuyerOrder, GetSellerOrder \\
 SellerDashboard    & Seller & Thống kê, biểu đồ, top SP & GetSellerOrderStats, GetSellerOrderTimeSeries, GetSellerTopProducts \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
 % ------------------------------------------------------------------
 \subsection{API (Lớp xử lý)}
 \label{subsec:order-apis}
 
-\begin{table}[H]
-\centering
-\caption{Danh sách API --- module Mua hàng}
-\label{tab:order-apis}
 \small
-\begin{tabular}{@{}p{3.2cm}p{4cm}p{2.8cm}p{4cm}@{}}
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{3.2cm}L{4cm}L{2.8cm}L{4cm}@{}}
+\caption{Danh sách API --- module Mua hàng}\label{tab:order-apis}\\
 \toprule
 \rowcolor{headerblue}
 \thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{API} & \thead{Input chính} & \thead{Output} & \thead{Mô tả} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
 GetCart          & AccountID & []CartItem & Lấy danh sách giỏ hàng \\
 UpdateCart       & SkuID, Quantity/ DeltaQuantity & -- & Cập nhật số lượng; quantity=0 xoá item \\
 ClearCart        & AccountID & -- & Xoá toàn bộ giỏ hàng \\
@@ -66,13 +86,16 @@ GetSellerOrderStats & SellerID, DateRange & SellerOrderStats & Thống kê tổn
 GetSellerOrderTimeSeries & SellerID, DateRange & []TimeSeriesPoint & Biểu đồ theo thời gian \\
 GetSellerPendingActions & SellerID & PendingActions & Số lượng hành động chờ \\
 GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
 
-\begin{center}
-\resizebox{\textwidth}{!}{%
+\begin{figure}[H]
+\centering
+\rotatebox{90}{%
+\resizebox{\textheight}{!}{%
 \begin{sequencediagram}
+
 \newinst{form}{BuyerForm}
 \newinst[1.2]{handler}{OrderHandler}
 \newinst[1]{cat}{CatalogProxy}
@@ -118,9 +141,10 @@ GetSellerTopProducts & SellerID, Limit & []TopProduct & Top SP bán chạy \\
 
 \end{sequencediagram}
 }%
-\captionof{figure}{Luồng xử lý chính của quy trình mua hàng (thanh toán trước)}
+}
+\caption{Luồng xử lý chính của quy trình mua hàng (thanh toán trước)}
 \label{fig:order-sequence}
-\end{center}
+\end{figure}
 
 % ------------------------------------------------------------------
 \subsection{Đặc tả chi tiết Form}
@@ -328,21 +352,32 @@ Các API CRUD đơn giản (\texttt{GetCart}, \texttt{UpdateCart}, \texttt{Clear
 \subsection{Bảng tham chiếu --- Mua hàng}
 \label{subsec:order-crossref}
 
-\begin{table}[htbp]
-\centering
-\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}
-\label{tab:order-crossref}
-\begin{tabular}{@{}p{2.8cm}p{2.8cm}p{3.5cm}p{4cm}@{}}
+\small
+\rowcolors{2}{white}{rowgray}
+\begin{longtable}{@{}L{2.8cm}L{2.8cm}L{3.5cm}L{4cm}@{}}
+\caption{Tham chiếu UC $\to$ Form $\to$ API $\to$ Table}\label{tab:order-crossref}\\
 \toprule
 \rowcolor{headerblue}
 \thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
 \midrule
+\endfirsthead
+\toprule
+\rowcolor{headerblue}
+\thead{Use Case} & \thead{Form} & \thead{API} & \thead{Table} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\small\textit{Tiếp theo trang sau}} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
 Quản lý giỏ hàng & CartPage & GetCart, UpdateCart, ClearCart & order.cart\_item \\
 Đặt hàng & CheckoutPage & BuyerCheckout & order.item, order.payment \\
 Xem mục chờ & BuyerPendingList, SellerInbox & ListBuyerPendingItems, ListSellerPendingItems & order.item \\
 Xác nhận đơn & SellerInbox & ConfirmSellerPending, RejectSellerPending & order.order, order.item, order.transport \\
 Xem đơn hàng & OrderListPage, OrderDetailPage & ListBuyerConfirmed, GetBuyerOrder & order.order, order.item \\
 Dashboard & SellerDashboard & GetSellerOrderStats, GetSellerTopProducts & order.order, order.item \\
-\bottomrule
-\end{tabular}
-\end{table}
+\end{longtable}
+\rowcolors{1}{}{}
+\normalsize
