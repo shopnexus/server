@@ -376,7 +376,8 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 		})
 
 		// Start 48h seller timeout — auto-cancel pending items if seller doesn't confirm
-		restate.ServiceSend(ctx, "Order", "AutoCancelPendingItems").
+		paymentKey := strconv.FormatInt(paymentID, 10)
+		restate.ObjectSend(ctx, "PaymentLock", paymentKey, "AutoCancelPendingItems").
 			Send(paymentID, restate.WithDelay(48*time.Hour))
 
 	case payment.StatusFailed:

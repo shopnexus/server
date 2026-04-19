@@ -83,6 +83,81 @@ func Call[O any](ctx context.Context, c *Client, service, method string, input a
 	return zero, nil
 }
 
+// CallObject invokes a Restate Virtual Object method keyed by key and decodes the response.
+// URL pattern: {BaseURL}/{object}/{key}/{method}
+func CallObject[O any](ctx context.Context, c *Client, object, key, method string, input any) (O, error) {
+	var zero O
+
+	body, err := json.Marshal(input)
+	if err != nil {
+		return zero, fmt.Errorf("restate: marshal input: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/%s/%s/%s", c.BaseURL, object, key, method)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return zero, fmt.Errorf("restate: create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return zero, fmt.Errorf("restate: call %s/%s/%s: %w", object, key, method, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return zero, restate.TerminalError(
+				parseRestateError(resp.StatusCode, respBody, object, method),
+				restate.Code(uint16(resp.StatusCode)),
+			)
+		}
+		return zero, fmt.Errorf("restate: %s/%s/%s returned %d: %s", object, key, method, resp.StatusCode, string(respBody))
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&zero); err != nil {
+		return zero, fmt.Errorf("restate: decode response from %s/%s/%s: %w", object, key, method, err)
+	}
+
+	return zero, nil
+}
+
+// SendObject invokes a Restate Virtual Object method without decoding the response.
+func SendObject(ctx context.Context, c *Client, object, key, method string, input any) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return fmt.Errorf("restate: marshal input: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/%s/%s/%s", c.BaseURL, object, key, method)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("restate: create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("restate: call %s/%s/%s: %w", object, key, method, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return restate.TerminalError(
+				parseRestateError(resp.StatusCode, respBody, object, method),
+				restate.Code(uint16(resp.StatusCode)),
+			)
+		}
+		return fmt.Errorf("restate: %s/%s/%s returned %d: %s", object, key, method, resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
 // Send invokes a Restate service method without decoding the response body.
 func Send(ctx context.Context, c *Client, service, method string, input any) error {
 	body, err := json.Marshal(input)

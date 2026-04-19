@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"shopnexus-server/internal/infras/ratelimit"
+	restateclient "shopnexus-server/internal/infras/restate"
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	"shopnexus-server/internal/provider/payment"
@@ -22,12 +23,13 @@ import (
 
 // Handler handles HTTP requests for the order module.
 type Handler struct {
-	biz orderbiz.OrderBiz
+	biz     orderbiz.OrderBiz
+	restate *restateclient.Client
 }
 
 // NewHandler registers order module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory) *Handler {
-	h := &Handler{biz: biz}
+func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory, rc *restateclient.Client) *Handler {
+	h := &Handler{biz: biz, restate: rc}
 	g := e.Group("/api/v1/order")
 
 	// Per-endpoint rate limits on write-heavy / abuse-prone operations. Read
@@ -77,9 +79,9 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.POST("/refunds/:refundID/disputes", h.CreateRefundDispute, rlDispute)
 	g.GET("/refunds/:refundID/disputes", h.ListRefundDisputesByRefund)
 
-	// Payment webhooks — register OnResult then mount routes
+	// Payment webhooks — route through PaymentLock VO for serialized access per payment
 	onResult := func(ctx context.Context, result payment.WebhookResult) error {
-		return biz.ConfirmPayment(ctx, orderbiz.ConfirmPaymentParams{
+		return restateclient.SendObject(ctx, h.restate, "PaymentLock", result.RefID, "ConfirmPayment", orderbiz.ConfirmPaymentParams{
 			RefID:  result.RefID,
 			Status: result.Status,
 		})
