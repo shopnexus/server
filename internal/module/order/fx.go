@@ -16,6 +16,8 @@ var Module = fx.Module("order",
 		NewOrderStorage,
 		orderbiz.NewOrderHandler,
 		NewOrderBiz,
+		orderbiz.NewPaymentLock,
+		orderbiz.NewRefundLock,
 		orderecho.NewHandler,
 	),
 	fx.Invoke(
