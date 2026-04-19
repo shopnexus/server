@@ -2,7 +2,6 @@ package orderbiz
 
 import (
 	"fmt"
-	"time"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -26,7 +25,7 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	defer metrics.TrackHandler("order", "CancelUnpaidCheckout", &err)()
 
 	// Distributed lock per payment — prevents race with ConfirmPayment
-	unlock := b.cache.Lock(ctx, fmt.Sprintf("order:payment-lock:%d", paymentID), 30*time.Second)
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:payment-lock:%d", paymentID))
 	defer unlock()
 
 	// Fetch pending items for this payment

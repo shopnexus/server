@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"time"
 
@@ -206,56 +205,6 @@ func (r *RedisClient) ZRangeByScore(ctx context.Context, key string, dest any, o
 	}
 
 	return r.decodeSliceMembers(members, dest)
-}
-
-// Lock acquires an exclusive distributed lock using Redis SET NX with TTL.
-// Blocks (spins) until acquired or ctx is cancelled. Returns an unlock func
-// that releases the lock and stops the auto-renewal goroutine.
-// The lock TTL is automatically renewed every ttl/2 to prevent expiry while
-// the handler is still running.
-func (r *RedisClient) Lock(ctx context.Context, key string, ttl time.Duration) (unlock func()) {
-	lockKey := "lock:" + key
-
-	// Spin until lock acquired
-	for {
-		resp := r.Client.Do(ctx, r.Client.B().Set().Key(lockKey).Value("1").Nx().Ex(ttl).Build())
-		if resp.Error() == nil {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			slog.Warn("lock: context cancelled while waiting", slog.String("key", key))
-			return func() {}
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-
-	// Auto-renew TTL every ttl/2 until unlock
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(ttl / 2)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				r.Client.Do(ctx, r.Client.B().Expire().Key(lockKey).Seconds(int64(ttl.Seconds())).Build())
-			}
-		}
-	}()
-
-	return func() {
-		close(done)
-		r.Client.Do(context.Background(), r.Client.B().Del().Key(lockKey).Build())
-	}
-}
-
-// RLock acquires a read lock (implemented as exclusive lock for simplicity).
-func (r *RedisClient) RLock(ctx context.Context, key string, ttl time.Duration) (unlock func()) {
-	return r.Lock(ctx, key, ttl)
 }
 
 func (r *RedisClient) ZRevRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error {

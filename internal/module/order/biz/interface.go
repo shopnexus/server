@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"shopnexus-server/config"
-	"shopnexus-server/internal/infras/cache"
+	"shopnexus-server/internal/infras/locker"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
@@ -110,7 +110,7 @@ type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 type OrderHandler struct {
 	config       *config.Config
 	storage      OrderStorage
-	cache        cache.Client
+	locker       locker.Client
 	paymentMap   map[string]payment.Client
 	transportMap map[string]transport.Client
 	account      accountbiz.AccountBiz
@@ -138,7 +138,7 @@ func (b *OrderHandler) TransportClients() map[string]transport.Client {
 func NewOrderHandler(
 	cfg *config.Config,
 	storage OrderStorage,
-	cacheClient cache.Client,
+	locker locker.Client,
 	account accountbiz.AccountBiz,
 	catalog catalogbiz.CatalogBiz,
 	inventory inventorybiz.InventoryBiz,
@@ -148,7 +148,7 @@ func NewOrderHandler(
 	b := &OrderHandler{
 		config:    cfg,
 		storage:   storage,
-		cache:     cacheClient,
+		locker:    locker,
 		account:   account,
 		catalog:   catalog,
 		inventory: inventory,
