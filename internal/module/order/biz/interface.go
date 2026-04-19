@@ -334,7 +334,8 @@ type GetRefundDisputeParams struct {
 }
 
 type UpdateTransportStatusParams struct {
-	TransportID uuid.UUID                    `validate:"required"`
+	TransportID uuid.UUID                    `validate:"omitempty"`
+	TrackingID  string                       `validate:"omitempty"`
 	Status      orderdb.OrderTransportStatus `validate:"required,validateFn=Valid"`
 	Data        map[string]any               `validate:"omitempty"`
 }

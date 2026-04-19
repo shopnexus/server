@@ -105,6 +105,8 @@ type Querier interface {
 	// Queries for table: order.transport
 	// ========================================
 	GetTransport(ctx context.Context, id uuid.NullUUID) (OrderTransport, error)
+	// Look up transport by provider tracking ID stored in JSONB data field.
+	GetTransportByTrackingID(ctx context.Context, trackingID string) (OrderTransport, error)
 	GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error)
 	HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams) (bool, error)
 	// Returns all buyer's pending items (any payment state: Pending, Processing, Success)

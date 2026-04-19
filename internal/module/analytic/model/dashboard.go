@@ -24,7 +24,8 @@ type DashboardSummary struct {
 	TotalOrders    int64               `json:"total_orders"`
 	ItemsSold      int64               `json:"items_sold"`
 	AverageRating  float64             `json:"average_rating"`
-	PendingActions int64               `json:"pending_actions"`
+	PendingItems   int64               `json:"pending_items"`
+	PendingRefunds int64               `json:"pending_refunds"`
 	Comparison     DashboardComparison `json:"comparison"`
 }
 

@@ -15,3 +15,7 @@ SELECT t.*,
 FROM "order"."transport" t
 LEFT JOIN "order"."order" o ON o.transport_id = t.id
 WHERE t.id = $1;
+
+-- name: GetTransportByTrackingID :one
+-- Look up transport by provider tracking ID stored in JSONB data field.
+SELECT * FROM "order"."transport" WHERE "data"->>'tracking_id' = sqlc.arg(tracking_id)::text LIMIT 1;

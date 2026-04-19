@@ -193,7 +193,8 @@ func (b *AnalyticHandler) GetSellerDashboard(
 			TotalOrders:    currentStats.TotalOrders,
 			ItemsSold:      currentStats.ItemsSold,
 			AverageRating:  vendorStats.AverageRating,
-			PendingActions: pending.PendingItems + pending.PendingRefunds,
+			PendingItems:   pending.PendingItems,
+			PendingRefunds: pending.PendingRefunds,
 			Comparison: analyticmodel.DashboardComparison{
 				RevenueChange:   percentChange(currentStats.TotalRevenue, prevStats.TotalRevenue),
 				OrdersChange:    percentChange(currentStats.TotalOrders, prevStats.TotalOrders),

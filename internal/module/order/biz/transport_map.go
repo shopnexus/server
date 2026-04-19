@@ -15,9 +15,9 @@ func (b *OrderHandler) SetupTransportMap() error {
 	var options []sharedmodel.OptionConfig
 	b.transportMap = make(map[string]transport.Client)
 
-	// Setup GHTK clients
-	// TODO: Load API keys from config or environment
-	ghtkClients := ghtk.NewClients("https://services.ghtklab.com", "your-api-key", "your-client-id")
+	// Setup GHTK clients from config
+	ghtkCfg := b.config.App.GHTK
+	ghtkClients := ghtk.NewClients(ghtkCfg.BaseURL, ghtkCfg.APIKey, ghtkCfg.ClientID, ghtkCfg.Secret)
 	for _, c := range ghtkClients {
 		b.transportMap[c.Config().ID] = c
 		options = append(options, c.Config())

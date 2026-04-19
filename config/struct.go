@@ -27,6 +27,7 @@ type App struct {
 	CardPayment CardPayment `yaml:"cardPayment" mapstructure:"cardPayment"`
 	Search      Search      `yaml:"search"      mapstructure:"search"      validate:"required"`
 	Order       Order       `yaml:"order"       mapstructure:"order"       validate:"required"`
+	GHTK        GHTK        `yaml:"ghtk"        mapstructure:"ghtk"`
 }
 
 type JWT struct {
@@ -64,6 +65,13 @@ type Search struct {
 	InteractionBatchSize  int           `yaml:"interactionBatchSize"  mapstructure:"interactionBatchSize"  validate:"required,gte=1"`
 	MetadataSyncInterval  time.Duration `yaml:"metadataSyncInterval"  mapstructure:"metadataSyncInterval"  validate:"gte=0"`
 	EmbeddingSyncInterval time.Duration `yaml:"embeddingSyncInterval" mapstructure:"embeddingSyncInterval" validate:"gte=0"`
+}
+
+type GHTK struct {
+	BaseURL  string `yaml:"baseURL"  mapstructure:"baseURL"`
+	APIKey   string `yaml:"apiKey"   mapstructure:"apiKey"`
+	ClientID string `yaml:"clientID" mapstructure:"clientID"`
+	Secret   string `yaml:"secret"   mapstructure:"secret"`
 }
 
 type Order struct {

@@ -2,10 +2,14 @@
 package ghtk
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -254,10 +258,23 @@ func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
 	}
 
 	e.POST("/api/v1/transport/webhook/ghtk", func(ec echo.Context) error {
-		// TODO: Verify HMAC signature when GHTK provides webhook signing.
-		// Example: compare X-GHTK-Signature header against HMAC-SHA256(secret, body).
-		// For now, skip verification since GHTK fake/sandbox does not sign payloads.
-		_ = g.secret
+		// Verify HMAC-SHA256 signature if secret is configured
+		if g.secret != "" {
+			body, err := io.ReadAll(ec.Request().Body)
+			if err != nil {
+				return ec.NoContent(http.StatusBadRequest)
+			}
+			ec.Request().Body = io.NopCloser(bytes.NewReader(body))
+
+			sig := ec.Request().Header.Get("X-GHTK-Signature")
+			mac := hmac.New(sha256.New, []byte(g.secret))
+			mac.Write(body)
+			expected := hex.EncodeToString(mac.Sum(nil))
+			if !hmac.Equal([]byte(sig), []byte(expected)) {
+				slog.Warn("ghtk webhook: invalid signature")
+				return ec.NoContent(http.StatusUnauthorized)
+			}
+		}
 
 		var payload ghtkWebhookPayload
 		if err := ec.Bind(&payload); err != nil {

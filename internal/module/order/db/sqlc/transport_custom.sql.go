@@ -13,6 +13,25 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+const getTransportByTrackingID = `-- name: GetTransportByTrackingID :one
+SELECT id, option, status, cost, data, date_created FROM "order"."transport" WHERE "data"->>'tracking_id' = $1::text LIMIT 1
+`
+
+// Look up transport by provider tracking ID stored in JSONB data field.
+func (q *Queries) GetTransportByTrackingID(ctx context.Context, trackingID string) (OrderTransport, error) {
+	row := q.db.QueryRow(ctx, getTransportByTrackingID, trackingID)
+	var i OrderTransport
+	err := row.Scan(
+		&i.ID,
+		&i.Option,
+		&i.Status,
+		&i.Cost,
+		&i.Data,
+		&i.DateCreated,
+	)
+	return i, err
+}
+
 const getTransportWithOrder = `-- name: GetTransportWithOrder :one
 SELECT t.id, t.option, t.status, t.cost, t.data, t.date_created,
        o.id        AS order_id,

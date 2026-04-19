@@ -66,6 +66,20 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 		return sharedmodel.WrapErr("validate update transport status", err)
 	}
 
+	// Resolve TransportID from TrackingID if needed (webhook sends provider label ID, not UUID)
+	if params.TransportID == uuid.Nil && params.TrackingID != "" {
+		t, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransport, error) {
+			return b.storage.Querier().GetTransportByTrackingID(ctx, params.TrackingID)
+		})
+		if err != nil {
+			return ordermodel.ErrOrderNotFound.Terminal()
+		}
+		params.TransportID = t.ID
+	}
+	if params.TransportID == uuid.Nil {
+		return ordermodel.ErrOrderNotFound.Terminal()
+	}
+
 	type fetchResult struct {
 		Info transportOrderInfo `json:"info"`
 	}

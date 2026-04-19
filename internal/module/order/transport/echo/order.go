@@ -2,7 +2,6 @@ package orderecho
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -92,18 +91,10 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 
 	// Transport webhooks — register OnResult then mount routes
 	onTransportResult := func(ctx context.Context, result transport.WebhookResult) error {
-		// TODO: implement transport ID lookup — GHTK sends label ID, not UUID.
-		// Need a GetTransportByTrackingID query to map provider ID → transport UUID.
-		transportID, err := uuid.Parse(result.TransportID)
-		if err != nil {
-			slog.Warn("transport webhook: cannot parse transport ID as UUID, provider lookup needed",
-				slog.String("transport_id", result.TransportID))
-			return nil
-		}
 		return biz.UpdateTransportStatus(ctx, orderbiz.UpdateTransportStatusParams{
-			TransportID: transportID,
-			Status:      orderdb.OrderTransportStatus(result.Status),
-			Data:        result.Data,
+			TrackingID: result.TransportID,
+			Status:     orderdb.OrderTransportStatus(result.Status),
+			Data:       result.Data,
 		})
 	}
 	for _, client := range handler.TransportClients() {
