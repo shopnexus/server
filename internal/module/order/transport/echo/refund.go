@@ -3,11 +3,8 @@ package orderecho
 import (
 	"net/http"
 
-	restateclient "shopnexus-server/internal/infras/restate"
-
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
-	ordermodel "shopnexus-server/internal/module/order/model"
 	authclaims "shopnexus-server/internal/shared/claims"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
@@ -99,7 +96,7 @@ func (h *Handler) UpdateBuyerRefund(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := restateclient.CallObject[ordermodel.Refund](c.Request().Context(), h.restate, "RefundLock", req.RefundID.String(), "UpdateBuyerRefund", orderbiz.UpdateBuyerRefundParams{
+	result, err := h.biz.UpdateBuyerRefund(c.Request().Context(), orderbiz.UpdateBuyerRefundParams{
 		Account:     claims.Account,
 		RefundID:    req.RefundID,
 		Method:      req.Method,
@@ -132,7 +129,7 @@ func (h *Handler) CancelBuyerRefund(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := restateclient.SendObject(c.Request().Context(), h.restate, "RefundLock", req.RefundID.String(), "CancelBuyerRefund", orderbiz.CancelBuyerRefundParams{
+	if err := h.biz.CancelBuyerRefund(c.Request().Context(), orderbiz.CancelBuyerRefundParams{
 		Account:  claims.Account,
 		RefundID: req.RefundID,
 	}); err != nil {
@@ -160,7 +157,7 @@ func (h *Handler) ConfirmSellerRefund(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	refund, err := restateclient.CallObject[ordermodel.Refund](c.Request().Context(), h.restate, "RefundLock", req.RefundID.String(), "ConfirmSellerRefund", orderbiz.ConfirmSellerRefundParams{
+	refund, err := h.biz.ConfirmSellerRefund(c.Request().Context(), orderbiz.ConfirmSellerRefundParams{
 		Account:  claims.Account,
 		RefundID: req.RefundID,
 	})

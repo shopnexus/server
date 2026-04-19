@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"time"
 
@@ -402,12 +401,10 @@ func (b *OrderHandler) BuyerCheckout(
 	// Step 8: Post-checkout
 	if !walletOnly {
 		// Payment needs provider confirmation: schedule 15 min timeout
-		paymentKey := strconv.FormatInt(paymentID, 10)
-		restate.ObjectSend(ctx, "PaymentLock", paymentKey, "CancelUnpaidCheckout").Send(paymentID, restate.WithDelay(15*time.Minute))
+		restate.ServiceSend(ctx, "Order", "CancelUnpaidCheckout").Send(paymentID, restate.WithDelay(15*time.Minute))
 	} else {
 		// Wallet-only: schedule 48h seller timeout
-		paymentKey := strconv.FormatInt(paymentID, 10)
-		restate.ObjectSend(ctx, "PaymentLock", paymentKey, "AutoCancelPendingItems").Send(paymentID, restate.WithDelay(48*time.Hour))
+		restate.ServiceSend(ctx, "Order", "AutoCancelPendingItems").Send(paymentID, restate.WithDelay(48*time.Hour))
 	}
 
 	// Remove from cart (skip if BuyNow)
