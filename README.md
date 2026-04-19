@@ -2,7 +2,7 @@
 
 [![wakatime](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f.svg)](https://wakatime.com/badge/user/592c97c4-15ad-49cb-ac34-d607be35c524/project/79f8a24e-0fe8-417e-b42b-2009d7a4362f)
 
-A social marketplace backend in Go, built as a **modular monolith** designed for microservice extraction via [Restate](https://restate.dev) durable execution.
+A social marketplace backend in Go — **microservices in a monorepo**, orchestrated by [Restate](https://restate.dev) durable execution.
 
 **No customer/vendor distinction** — any account can both buy and sell. Orders track `buyer_id` and `seller_id` per transaction.
 
@@ -12,7 +12,7 @@ A social marketplace backend in Go, built as a **modular monolith** designed for
 
 Entry point: `cmd/server/main.go` → `fx.New(app.Module).Run()`.
 
-The server is a **modular monolith** — eight vertical-slice modules that each own their database schema, business logic, and HTTP transport. Modules communicate through Restate durable execution, meaning every cross-module call is an HTTP request to the Restate ingress. This gives us exactly-once delivery, automatic retries, and a clear extraction path to microservices — any module can be deployed as a standalone service by pointing its Restate registration to a different host.
+Eight vertical-slice modules, each owning their database schema, business logic, and HTTP transport. Modules communicate through Restate durable execution — every cross-module call is an HTTP request to the Restate ingress, giving exactly-once delivery and automatic retries. Each module can be deployed as a standalone service by pointing its Restate registration to a different host.
 
 Dependency injection is handled by [Uber fx](https://github.com/uber-go/fx). Each module's `fx.go` provides both the concrete `*XxxHandler` (registered with Restate) and the `XxxBiz` interface (a generated Restate proxy used by other modules and transport handlers).
 
@@ -20,7 +20,7 @@ Dependency injection is handled by [Uber fx](https://github.com/uber-go/fx). Eac
 
 Every module under `internal/module/<name>/` follows the same vertical-slice layout:
 
-```
+```text
 biz/
   interface.go      # XxxBiz interface + XxxHandler struct + constructor + go:generate directive
   restate_gen.go    # Auto-generated Restate HTTP client (DO NOT EDIT)
@@ -77,7 +77,7 @@ All business logic methods use `restate.Context` instead of `context.Context`. T
 
 ## Database Design
 
-Each module owns a PostgreSQL schema (`account.*`, `catalog.*`, `order.*`, etc.) — no cross-schema foreign keys. This enforces module boundaries at the database level and makes future extraction straightforward.
+Each module owns a PostgreSQL schema (`account.*`, `catalog.*`, `order.*`, etc.) — no cross-schema foreign keys. This enforces module boundaries at the database level and makes extraction straightforward.
 
 The database layer uses three tools:
 
@@ -91,33 +91,30 @@ The database layer uses three tools:
 - `*T` pointers for JSON serialization in models exposed to Restate — generic types like `null.Value[T]` break Restate's JSON schema generation.
 - `ptrutil.PtrIf[T](val, valid)` for converting nullable DB types to pointers.
 
-## Code Conventions
+## Infrastructure
 
-### Naming
+| Service    | Package                      | Purpose                                       |
+| ---------- | ---------------------------- | --------------------------------------------- |
+| PostgreSQL | `internal/shared/pgsqlc`     | Multi-schema DB with pgxpool                  |
+| Redis      | `internal/infras/cache`      | Struct caching (Sonic JSON serialization)      |
+| Redis      | `internal/infras/locker`     | Distributed RWMutex (SET NX + auto-renewal)   |
+| NATS       | `internal/infras/pubsub`     | Message queue (JetStream)                     |
+| Restate    | `internal/infras/restate`    | Durable execution HTTP ingress                |
+| Milvus     | `internal/infras/milvus`     | Vector search for hybrid product search       |
+| S3/Local   | `internal/infras/objectstore`| File storage with presigned URLs              |
 
-| Thing | Pattern | Example |
-|-------|---------|---------|
-| Interface (public API) | `XxxBiz` | `AccountBiz` |
-| Implementation | `XxxHandler` | `AccountHandler` |
-| Generated Restate proxy | `XxxRestateClient` | `AccountRestateClient` |
-| Constructor | `NewXxxHandler` | `NewAccountHandler` |
-| Import alias for shared model | `sharedmodel` | `internal/shared/model` |
+### External Providers
 
-### Error Handling
+Payment and transport are pluggable via a `map[string]Client` pattern. Each provider implements a `Client` interface and is registered at startup.
 
-- **Client-visible errors**: `sharedmodel.NewError(httpStatusCode, "message")` defined in each module's `model/error.go`. Always return with `.Terminal()` to prevent Restate retries.
-- **Internal errors**: `fmt.Errorf("action: %w", err)` — no "failed to" prefix (e.g., `fmt.Errorf("get account: %w", err)`).
-- **Wrapping terminal errors**: use `sharedmodel.WrapErr(msg, err)` instead of `fmt.Errorf` — it preserves the terminal flag through the error chain.
+| Provider  | Package                        | Implementations                      |
+| --------- | ------------------------------ | ------------------------------------ |
+| Payment   | `internal/provider/payment`    | VNPay (QR/Bank/ATM), COD            |
+| Transport | `internal/provider/transport`  | GHTK (Express/Standard/Economy)     |
+| Geocoding | `internal/provider/geocoding`  | Nominatim (OpenStreetMap)            |
+| LLM       | `internal/provider/llm`        | OpenAI, AWS Bedrock, Python backend |
 
-### Code Generation Pipeline
-
-Three generators run in sequence:
-
-1. **pgtempl** → generates SQLC query templates from migration SQL
-2. **SQLC** → generates type-safe Go from those query templates
-3. **genrestate** → generates Restate proxy clients from `XxxBiz` interfaces
-
-## Distributed Locking
+### Distributed Locking
 
 The `internal/infras/locker` package provides a distributed RWMutex backed by Redis, used to prevent TOCTOU race conditions on concurrent mutations of the same entity.
 
@@ -137,13 +134,13 @@ defer unlock()
 - **When to use RLock**: read operations that need a consistent snapshot while a write may be in progress. Pure query endpoints (no side effects) generally don't need RLock — stale data from a concurrent write is acceptable and the caller can retry.
 - **When NOT to lock**: inside `restate.Run()` closures. The lock must be acquired outside durable steps — if Restate replays the journal, the lock spin would replay from cache (no-op), leaving the handler running without actual lock protection.
 
-### Choosing a lock key
+#### Choosing a lock key
 
 Lock by the **entity that owns the mutation**, not the entity being mutated. Three questions:
 
 1. **Who causes the mutation?** Lock by the actor's scope — `sellerID`, `paymentID`, `refundID`. Not by individual rows being modified.
 2. **Batch or single?** If the operation takes a batch of entities (e.g., seller confirms multiple items), the lock scope must contain all of them. Locking per-item in a batch risks deadlock when two requests lock items in different order.
-3. **Would any request need multiple locks?** If yes, escalate to a coarser scope (e.g., items → seller) to eliminate circular-wait deadlocks. Only use fine-grained locks when coarse locking is a measured bottleneck. Eg:
+3. **Would any request need multiple locks?** If yes, escalate to a coarser scope (e.g., items → seller) to eliminate circular-wait deadlocks. Only use fine-grained locks when coarse locking is a measured bottleneck.
 
 ```go
 func handler() {
@@ -153,40 +150,43 @@ func handler() {
 }
 ```
 
-## Infrastructure
+## Code Conventions
 
-| Service | Package | Purpose |
-|---------|---------|---------|
-| PostgreSQL | `internal/shared/pgsqlc` | Multi-schema DB with pgxpool |
-| Redis | `internal/infras/cache` | Struct caching (Sonic JSON serialization) |
-| Redis | `internal/infras/locker` | Distributed RWMutex (SET NX + auto-renewal) |
-| NATS | `internal/infras/pubsub` | Message queue (JetStream) |
-| Restate | `internal/infras/restate` | Durable execution HTTP ingress |
-| Milvus | `internal/infras/milvus` | Vector search for hybrid product search |
-| S3/Local | `internal/infras/objectstore` | File storage with presigned URLs |
+### Naming
 
-### External Providers
+| Thing                          | Pattern              | Example                  |
+| ------------------------------ | -------------------- | ------------------------ |
+| Interface (public API)         | `XxxBiz`             | `AccountBiz`             |
+| Implementation                 | `XxxHandler`         | `AccountHandler`         |
+| Generated Restate proxy        | `XxxRestateClient`   | `AccountRestateClient`   |
+| Constructor                    | `NewXxxHandler`      | `NewAccountHandler`      |
+| Import alias for shared model  | `sharedmodel`        | `internal/shared/model`  |
 
-Payment and transport are pluggable via a `map[string]Client` pattern. Each provider implements a `Client` interface and is registered at startup.
+### Error Handling
 
-| Provider | Package | Implementations |
-|----------|---------|-----------------|
-| Payment | `internal/provider/payment` | VNPay (QR/Bank/ATM), COD |
-| Transport | `internal/provider/transport` | GHTK (Express/Standard/Economy) |
-| Geocoding | `internal/provider/geocoding` | Nominatim (OpenStreetMap) |
-| LLM | `internal/provider/llm` | OpenAI, AWS Bedrock, Python backend |
+- **Client-visible errors**: `sharedmodel.NewError(httpStatusCode, "message")` defined in each module's `model/error.go`. Always return with `.Terminal()` to prevent Restate retries.
+- **Internal errors**: `fmt.Errorf("action: %w", err)` — no "failed to" prefix (e.g., `fmt.Errorf("get account: %w", err)`).
+- **Wrapping terminal errors**: use `sharedmodel.WrapErr(msg, err)` instead of `fmt.Errorf` — it preserves the terminal flag through the error chain.
+
+### Code Generation Pipeline
+
+Three generators run in sequence:
+
+1. **pgtempl** → generates SQLC query templates from migration SQL
+2. **SQLC** → generates type-safe Go from those query templates
+3. **genrestate** → generates Restate proxy clients from `XxxBiz` interfaces
 
 ## Modules
 
 Each module has its own README with ER diagrams, domain concepts, flows, and endpoints.
 
-| Module | Description |
-|--------|-------------|
-| [`account`](internal/module/account/) | Auth, profiles, contacts, favorites, payment methods, notifications |
-| [`catalog`](internal/module/catalog/) | Products (SPU/SKU), categories, tags, comments, hybrid search, recommendations |
-| [`order`](internal/module/order/) | Cart, checkout, pending items, seller confirmation, payment, refunds |
-| [`inventory`](internal/module/inventory/) | Stock management, serial tracking, audit history |
-| [`promotion`](internal/module/promotion/) | Discounts, ship discounts, scheduling, group-based price stacking |
-| [`analytic`](internal/module/analytic/) | Interaction tracking, weighted product popularity scoring |
-| [`chat`](internal/module/chat/) | REST messaging, conversations, read receipts |
-| [`common`](internal/module/common/) | Resource/file management, object storage, service options, SSE, geocoding |
+| Module                                       | Description                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| [`account`](internal/module/account/)        | Auth, profiles, contacts, favorites, payment methods, notifications    |
+| [`catalog`](internal/module/catalog/)        | Products (SPU/SKU), categories, tags, comments, hybrid search          |
+| [`order`](internal/module/order/)            | Cart, checkout, pending items, seller confirmation, payment, refunds   |
+| [`inventory`](internal/module/inventory/)    | Stock management, serial tracking, audit history                       |
+| [`promotion`](internal/module/promotion/)    | Discounts, ship discounts, scheduling, group-based price stacking      |
+| [`analytic`](internal/module/analytic/)      | Interaction tracking, weighted product popularity scoring              |
+| [`chat`](internal/module/chat/)              | REST messaging, conversations, read receipts                           |
+| [`common`](internal/module/common/)          | Resource/file management, object storage, service options, SSE         |
