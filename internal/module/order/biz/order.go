@@ -323,9 +323,8 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	}
 
 	// Distributed lock per payment — prevents race with CancelUnpaidCheckout
-	lockKey := fmt.Sprintf("order:payment-lock:%d", paymentID)
-	b.cache.Lock(ctx, lockKey, 30*time.Second)
-	defer b.cache.Unlock(ctx, lockKey)
+	unlock := b.cache.Lock(ctx, fmt.Sprintf("order:payment-lock:%d", paymentID), 30*time.Second)
+	defer unlock()
 
 	var dbStatus orderdb.OrderStatus
 	switch params.Status {

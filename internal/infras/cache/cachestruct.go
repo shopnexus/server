@@ -19,11 +19,9 @@ type Client interface {
 	ZRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error
 	ZRevRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error
 
-	// Distributed lock methods
-	Lock(ctx context.Context, key string, ttl time.Duration)
-	Unlock(ctx context.Context, key string)
-	RLock(ctx context.Context, key string, ttl time.Duration)
-	RUnlock(ctx context.Context, key string)
+	// Distributed lock methods — returned func releases the lock and stops auto-renewal.
+	Lock(ctx context.Context, key string, ttl time.Duration) (unlock func())
+	RLock(ctx context.Context, key string, ttl time.Duration) (unlock func())
 }
 
 // ZRangeOptions defines optional options for range queries on sorted sets.

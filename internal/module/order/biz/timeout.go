@@ -26,9 +26,8 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	defer metrics.TrackHandler("order", "CancelUnpaidCheckout", &err)()
 
 	// Distributed lock per payment — prevents race with ConfirmPayment
-	lockKey := fmt.Sprintf("order:payment-lock:%d", paymentID)
-	b.cache.Lock(ctx, lockKey, 30*time.Second)
-	defer b.cache.Unlock(ctx, lockKey)
+	unlock := b.cache.Lock(ctx, fmt.Sprintf("order:payment-lock:%d", paymentID), 30*time.Second)
+	defer unlock()
 
 	// Fetch pending items for this payment
 	type fetchResult struct {
