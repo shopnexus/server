@@ -11,10 +11,9 @@ FROM "order"."order" o
 LEFT JOIN LATERAL (
     SELECT SUM(it."quantity") AS item_count
     FROM "order"."item" it
-    WHERE it."order_id" = o."id" AND it."status" = 'Confirmed'
+    WHERE it."order_id" = o."id" AND it."date_cancelled" IS NULL
 ) i ON true
 WHERE o."seller_id" = @seller_id
-    AND o."status" = 'Success'
     AND o."date_created" >= @start_date
     AND o."date_created" < @end_date;
 
@@ -27,7 +26,6 @@ SELECT
     COUNT(o."id")::bigint AS order_count
 FROM "order"."order" o
 WHERE o."seller_id" = @seller_id
-    AND o."status" = 'Success'
     AND o."date_created" >= @start_date
     AND o."date_created" < @end_date
 GROUP BY bucket
@@ -37,7 +35,7 @@ ORDER BY bucket ASC;
 -- Counts unconfirmed incoming items and pending refunds for a seller.
 SELECT
     (SELECT COUNT(*)::bigint FROM "order"."item"
-     WHERE "item"."seller_id" = @seller_id AND "item"."status" = 'Pending' AND "item"."order_id" IS NULL) AS pending_items,
+     WHERE "item"."seller_id" = @seller_id AND "item"."order_id" IS NULL AND "item"."date_cancelled" IS NULL AND "item"."payment_id" IS NOT NULL) AS pending_items,
     (SELECT COUNT(*)::bigint FROM "order"."refund" r
      JOIN "order"."order" o ON r."order_id" = o."id"
      WHERE o."seller_id" = @seller_id AND r."status" = 'Pending') AS pending_refunds;
@@ -52,7 +50,6 @@ SELECT
 FROM "order"."item" i
 JOIN "order"."order" o ON i."order_id" = o."id"
 WHERE o."seller_id" = @seller_id
-    AND o."status" = 'Success'
     AND o."date_created" >= @start_date
     AND o."date_created" < @end_date
 GROUP BY i."sku_id", i."sku_name"

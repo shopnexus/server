@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -54,6 +55,49 @@ func (b *OrderHandler) BuyerCheckout(
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
 	checkoutItemMap := lo.KeyBy(params.Items, func(s CheckoutItem) uuid.UUID { return s.SkuID })
 
+	// TODO: add idempotency key to prevent double-submit checkout
+
+	// Saga compensation: track committed side effects and undo them on failure.
+	// After compensation, the error is made terminal to prevent Restate retry
+	// with stale journal entries (compensated state != journaled state).
+	var (
+		inventoryReserved bool
+		walletDeducted    int64
+		itemsCreated      bool
+	)
+	compensate := func() {
+		if inventoryReserved {
+			if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+				Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReleaseInventoryItem {
+					return inventorybiz.ReleaseInventoryItem{
+						RefType: inventorydb.InventoryStockRefTypeProductSku,
+						RefID:   item.SkuID,
+						Amount:  checkoutItemMap[item.SkuID].Quantity,
+					}
+				}),
+			}); err != nil {
+				slog.Error("saga compensate: release inventory", slog.Any("error", err))
+			}
+		}
+		if walletDeducted > 0 {
+			if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+				AccountID: params.Account.ID,
+				Amount:    walletDeducted,
+				Type:      "Refund",
+				Reference: fmt.Sprintf("checkout-compensate-%s", params.Account.ID),
+				Note:      "Checkout failed after payment",
+			}); err != nil {
+				slog.Error("saga compensate: wallet credit", slog.Any("error", err))
+			}
+		}
+	}
+	defer func() {
+		if err != nil && (inventoryReserved || walletDeducted > 0) && !itemsCreated {
+			compensate()
+			err = restate.TerminalError(err)
+		}
+	}()
+
 	// Step 2: Fetch product data (SKUs + SPUs for seller_id and name)
 	skus, err := b.catalog.ListProductSku(ctx, catalogbiz.ListProductSkuParams{
 		ID: skuIDs,
@@ -90,6 +134,8 @@ func (b *OrderHandler) BuyerCheckout(
 		metrics.CheckoutItemsCreatedTotal.WithLabelValues("failure").Inc()
 		return zero, sharedmodel.WrapErr("reserve inventory", err)
 	}
+
+	inventoryReserved = true
 
 	serialIDsMap := lo.SliceToMap(inventories, func(i inventorybiz.ReserveInventoryResult) (uuid.UUID, []string) {
 		return i.RefID, i.SerialIDs
@@ -155,7 +201,6 @@ func (b *OrderHandler) BuyerCheckout(
 	total := totalProductCost + totalTransportCost
 
 	// Step 6: Process payment
-	var walletDeducted int64
 	var paymentID int64
 	var redirectURL string
 	walletOnly := false
@@ -351,6 +396,7 @@ func (b *OrderHandler) BuyerCheckout(
 	}
 
 	metrics.CheckoutItemsCreatedTotal.WithLabelValues("success").Add(float64(len(createdItems)))
+	itemsCreated = true
 
 	// Step 8: Post-checkout
 	if !walletOnly {

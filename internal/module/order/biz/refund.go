@@ -27,6 +27,7 @@ import (
 )
 
 // ListBuyerRefunds returns paginated refund requests with attached resources.
+// TODO: add casbin authorization — filter by caller's account_id
 func (b *OrderHandler) ListBuyerRefunds(
 	ctx restate.Context,
 	params ListBuyerRefundsParams,
@@ -183,6 +184,7 @@ func (b *OrderHandler) CreateBuyerRefund(
 }
 
 // UpdateBuyerRefund updates a pending refund's method, reason, address, or status.
+// TODO: add casbin authorization — verify caller owns this refund
 func (b *OrderHandler) UpdateBuyerRefund(
 	ctx restate.Context,
 	params UpdateBuyerRefundParams,
@@ -266,6 +268,7 @@ func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 }
 
 // CancelBuyerRefund cancels a refund request by setting its status to canceled.
+// TODO: add casbin authorization — verify caller owns this refund
 func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyerRefundParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate cancel refund", err)
@@ -318,6 +321,7 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 }
 
 // ConfirmSellerRefund marks a refund as confirmed by the vendor and transitions it to processing.
+// TODO: add casbin authorization — verify caller is the order's seller
 func (b *OrderHandler) ConfirmSellerRefund(
 	ctx restate.Context,
 	params ConfirmSellerRefundParams,

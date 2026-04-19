@@ -22,6 +22,7 @@ import (
 )
 
 // GetBuyerOrder returns a single order by ID with all items and payment details.
+// TODO: add casbin authorization — verify caller owns this order
 func (b *OrderHandler) GetBuyerOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	var zero ordermodel.Order
 
@@ -44,6 +45,7 @@ func (b *OrderHandler) GetBuyerOrder(ctx restate.Context, orderID uuid.UUID) (or
 }
 
 // GetSellerOrder returns a single order by ID (seller perspective).
+// TODO: add casbin authorization — verify caller is this order's seller
 func (b *OrderHandler) GetSellerOrder(ctx restate.Context, orderID uuid.UUID) (ordermodel.Order, error) {
 	return b.GetBuyerOrder(ctx, orderID)
 }
@@ -317,6 +319,19 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	paymentID, err := strconv.ParseInt(params.RefID, 10, 64)
 	if err != nil {
 		return sharedmodel.WrapErr("parse payment ref id", err)
+	}
+
+	// Guard: only process webhooks for Pending payments (idempotency + race protection)
+	currentPayment, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPayment, error) {
+		return b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
+			ID: []int64{paymentID},
+		})
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("check payment status", err)
+	}
+	if len(currentPayment) == 0 || currentPayment[0].Status != orderdb.OrderStatusPending {
+		return nil // already processed or not found — skip
 	}
 
 	var dbStatus orderdb.OrderStatus

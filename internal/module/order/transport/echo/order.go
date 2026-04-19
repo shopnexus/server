@@ -2,13 +2,16 @@ package orderecho
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"shopnexus-server/internal/infras/ratelimit"
 	orderbiz "shopnexus-server/internal/module/order/biz"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	"shopnexus-server/internal/provider/payment"
+	"shopnexus-server/internal/provider/transport"
 	authclaims "shopnexus-server/internal/shared/claims"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
@@ -57,6 +60,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	buyerRefund.DELETE("", h.CancelBuyerRefund)
 
 	// Seller - Pending
+	// TODO: add casbin role middleware for /seller/* routes
 	g.GET("/seller/pending", h.ListSellerPendingItems)
 	g.POST("/seller/pending/confirm", h.ConfirmSellerPending)
 	g.POST("/seller/pending/reject", h.RejectSellerPending)
@@ -83,6 +87,27 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	}
 	for _, client := range handler.PaymentClients() {
 		client.OnResult(onResult)
+		client.InitializeWebhook(e)
+	}
+
+	// Transport webhooks — register OnResult then mount routes
+	onTransportResult := func(ctx context.Context, result transport.WebhookResult) error {
+		// TODO: implement transport ID lookup — GHTK sends label ID, not UUID.
+		// Need a GetTransportByTrackingID query to map provider ID → transport UUID.
+		transportID, err := uuid.Parse(result.TransportID)
+		if err != nil {
+			slog.Warn("transport webhook: cannot parse transport ID as UUID, provider lookup needed",
+				slog.String("transport_id", result.TransportID))
+			return nil
+		}
+		return biz.UpdateTransportStatus(ctx, orderbiz.UpdateTransportStatusParams{
+			TransportID: transportID,
+			Status:      orderdb.OrderTransportStatus(result.Status),
+			Data:        result.Data,
+		})
+	}
+	for _, client := range handler.TransportClients() {
+		client.OnResult(onTransportResult)
 		client.InitializeWebhook(e)
 	}
 
