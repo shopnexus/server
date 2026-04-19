@@ -171,7 +171,7 @@ type BuyerCheckoutParams struct {
 
 type CheckoutItem struct {
 	SkuID           uuid.UUID `json:"sku_id" validate:"required"`
-	Quantity        int64     `json:"quantity" validate:"required,gt=0"`
+	Quantity        int64     `json:"quantity" validate:"required,gt=0,max=100000"`
 	TransportOption string    `json:"transport_option" validate:"required,min=1,max=100"`
 	Note            string    `json:"note" validate:"max=500"`
 }

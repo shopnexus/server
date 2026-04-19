@@ -269,12 +269,16 @@ func (b *OrderHandler) ConfirmSellerPending(
 			return orderResult{}, sharedmodel.WrapErr("db create order", err)
 		}
 
-		// Link items to the order
-		if _, err := b.storage.Querier().SetItemsOrderID(ctx, orderdb.SetItemsOrderIDParams{
+		// Link items to the order (check row count for TOCTOU race protection)
+		rowsAffected, err := b.storage.Querier().SetItemsOrderID(ctx, orderdb.SetItemsOrderIDParams{
 			OrderID: uuid.NullUUID{UUID: order.ID, Valid: true},
 			ItemIds: params.ItemIDs,
-		}); err != nil {
+		})
+		if err != nil {
 			return orderResult{}, sharedmodel.WrapErr("db set items order id", err)
+		}
+		if rowsAffected != int64(len(params.ItemIDs)) {
+			return orderResult{}, ordermodel.ErrItemAlreadyCancelled.Terminal()
 		}
 
 		return orderResult{OrderID: order.ID.String()}, nil

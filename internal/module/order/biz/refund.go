@@ -100,6 +100,15 @@ func (b *OrderHandler) CreateBuyerRefund(
 		return zero, ordermodel.ErrRefundAddressRequired.Terminal()
 	}
 
+	// Validate order exists and belongs to the buyer
+	order, err := b.GetBuyerOrder(ctx, params.OrderID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("get order for refund", err)
+	}
+	if order.BuyerID != params.Account.ID {
+		return zero, ordermodel.ErrOrderNotFound.Terminal()
+	}
+
 	// Partial refund: serialize item_ids to JSONB (null = full refund)
 	var itemIdsJSON json.RawMessage
 	if len(params.ItemIDs) > 0 {
@@ -253,7 +262,7 @@ func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 		address = &r.Address.String
 	}
 
-	return ordermodel.Refund{
+	refund := ordermodel.Refund{
 		ID:            r.ID,
 		AccountID:     r.AccountID,
 		OrderID:       r.OrderID,
@@ -265,6 +274,15 @@ func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
 		Status:        r.Status,
 		DateCreated:   r.DateCreated,
 	}
+
+	if r.ItemIds != nil {
+		_ = json.Unmarshal(r.ItemIds, &refund.ItemIDs)
+	}
+	if r.Amount.Valid {
+		refund.Amount = r.Amount.Int64
+	}
+
+	return refund
 }
 
 // CancelBuyerRefund cancels a refund request by setting its status to canceled.
@@ -282,6 +300,9 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 		r, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
 			return refundInfo{}, err
+		}
+		if r.Status != orderdb.OrderStatusPending {
+			return refundInfo{}, ordermodel.ErrRefundCannotBeUpdated.Terminal()
 		}
 		return refundInfo{OrderID: r.OrderID.String()}, nil
 	})
