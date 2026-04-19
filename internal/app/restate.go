@@ -28,8 +28,6 @@ import (
 func SetupRestate(
 	cfg *config.Config,
 	orderBiz *orderbiz.OrderHandler,
-	paymentLock *orderbiz.PaymentLock,
-	refundLock *orderbiz.RefundLock,
 	accountBiz *accountbiz.AccountHandler,
 	catalogBiz *catalogbiz.CatalogHandler,
 	commonBiz *commonbiz.CommonHandler,
@@ -48,8 +46,6 @@ func SetupRestate(
 		Bind(restate.Reflect(commonBiz)).
 		Bind(restate.Reflect(inventoryBiz)).
 		Bind(restate.Reflect(orderBiz)).
-		Bind(restate.Reflect(paymentLock)).
-		Bind(restate.Reflect(refundLock)).
 		Bind(restate.Reflect(promotionBiz))
 
 	go func() {

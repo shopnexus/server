@@ -398,20 +398,13 @@ func (b *OrderHandler) BuyerCheckout(
 	metrics.CheckoutItemsCreatedTotal.WithLabelValues("success").Add(float64(len(createdItems)))
 	itemsCreated = true
 
-	// Step 8: Initialize PaymentLock VO with items, then schedule timeouts
-	paymentKey := PaymentKeyFromID(paymentID)
-	lockItems := lo.Map(createdItems, func(info createdItemInfo, _ int) PaymentLockItem {
-		skuID, _ := uuid.Parse(info.SkuID)
-		return PaymentLockItem{ID: info.ID, SkuID: skuID}
-	})
-	restate.ObjectSend(ctx, "PaymentLock", paymentKey, "Init").Send(lockItems)
-
+	// Step 8: Post-checkout
 	if !walletOnly {
 		// Payment needs provider confirmation: schedule 15 min timeout
-		restate.ObjectSend(ctx, "PaymentLock", paymentKey, "CancelUnpaidCheckout").Send(paymentID, restate.WithDelay(15*time.Minute))
+		restate.ServiceSend(ctx, "Order", "CancelUnpaidCheckout").Send(paymentID, restate.WithDelay(15*time.Minute))
 	} else {
 		// Wallet-only: schedule 48h seller timeout
-		restate.ObjectSend(ctx, "PaymentLock", paymentKey, "AutoCancelPendingItems").Send(paymentID, restate.WithDelay(48*time.Hour))
+		restate.ServiceSend(ctx, "Order", "AutoCancelPendingItems").Send(paymentID, restate.WithDelay(48*time.Hour))
 	}
 
 	// Remove from cart (skip if BuyNow)
