@@ -34,9 +34,6 @@ func (b *OrderHandler) ListSellerPendingItems(
 		return zero, err
 	}
 
-	// RLock: concurrent reads OK, blocked during seller confirm/reject writes
-	unlock := b.locker.RLock(ctx, fmt.Sprintf("order:seller-pending:%s", params.SellerID))
-	defer unlock()
 
 	type incomingResult struct {
 		Items []orderdb.OrderItem `json:"items"`
