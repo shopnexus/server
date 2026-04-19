@@ -403,6 +403,7 @@ func (r iteratorForCreateCopyProductSpu) Values() ([]interface{}, error) {
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].IsActive,
+		r.rows[0].Currency,
 		r.rows[0].Specifications,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
@@ -415,7 +416,7 @@ func (r iteratorForCreateCopyProductSpu) Err() error {
 }
 
 func (q *Queries) CreateCopyProductSpu(ctx context.Context, arg []CreateCopyProductSpuParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyProductSpu{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu"}, []string{"id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted"}, &iteratorForCreateCopyProductSpu{rows: arg})
 }
 
 // iteratorForCreateCopyProductSpuTag implements pgx.CopyFromSource.

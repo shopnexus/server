@@ -111,6 +111,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL) AND
     ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -138,6 +139,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL) AND
     ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -168,6 +170,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL) AND
     ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
@@ -184,18 +187,18 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateProductSpu :one
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateBatchProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateCopyProductSpu :copyfrom
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: CreateDefaultProductSpu :one
 INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
@@ -215,6 +218,7 @@ SET "slug" = COALESCE(sqlc.narg('slug'), "slug"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "currency" = COALESCE(sqlc.narg('currency'), "currency"),
     "specifications" = COALESCE(sqlc.narg('specifications'), "specifications"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
@@ -236,6 +240,7 @@ WHERE (
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL) AND
     ("specifications" = ANY(sqlc.slice('specifications')) OR sqlc.slice('specifications') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND

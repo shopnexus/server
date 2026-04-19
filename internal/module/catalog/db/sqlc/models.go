@@ -176,6 +176,7 @@ type CatalogProductSpu struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
 	IsActive       bool            `json:"is_active"`
+	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`

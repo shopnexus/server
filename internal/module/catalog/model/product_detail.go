@@ -14,6 +14,7 @@ type ProductDetail struct {
 	Name           string                    `json:"name"`
 	Description    string                    `json:"description"`
 	IsActive       bool                      `json:"is_active"`
+	Currency       string                    `json:"currency"`
 	Category       catalogdb.CatalogCategory `json:"category"`
 	Rating         ProductRating             `json:"rating"`
 	IsFavorite     bool                      `json:"is_favorite"`
@@ -31,10 +32,10 @@ type ProductRating struct {
 }
 
 type ProductDetailSku struct {
-	ID            uuid.UUID               `json:"id"`
-	Price         int64 `json:"price"`
-	OriginalPrice int64 `json:"original_price"`
-	Attributes    []ProductAttribute      `json:"attributes"`
-	Taken         int64                   `json:"taken"`
-	Stock         int64                   `json:"stock"`
+	ID            uuid.UUID          `json:"id"`
+	Price         int64              `json:"price"`
+	OriginalPrice int64              `json:"original_price"`
+	Attributes    []ProductAttribute `json:"attributes"`
+	Taken         int64              `json:"taken"`
+	Stock         int64              `json:"stock"`
 }

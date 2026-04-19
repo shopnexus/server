@@ -514,6 +514,7 @@ func (b *CatalogHandler) dbToProductSpuWithCategory(
 		Name:          spu.Name,
 		Description:   spu.Description,
 		IsActive:      spu.IsActive,
+		Currency:      spu.Currency,
 		DateCreated:   spu.DateCreated,
 		DateUpdated:   spu.DateUpdated,
 	}

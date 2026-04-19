@@ -203,16 +203,17 @@ WHERE (
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
     ("is_active" = ANY($11) OR $11 IS NULL) AND
-    ("specifications" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL) AND
-    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
-    ("date_deleted" >= $20 OR $20 IS NULL) AND
-    ("date_deleted" <= $21 OR $21 IS NULL)
+    ("currency" = ANY($12) OR $12 IS NULL) AND
+    ("specifications" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_updated" = ANY($17) OR $17 IS NULL) AND
+    ("date_updated" >= $18 OR $18 IS NULL) AND
+    ("date_updated" <= $19 OR $19 IS NULL) AND
+    ("date_deleted" = ANY($20) OR $20 IS NULL) AND
+    ("date_deleted" >= $21 OR $21 IS NULL) AND
+    ("date_deleted" <= $22 OR $22 IS NULL)
 )
 `
 
@@ -228,6 +229,7 @@ type CountProductSpuParams struct {
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
 	IsActive        []bool            `json:"is_active"`
+	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
@@ -253,6 +255,7 @@ func (q *Queries) CountProductSpu(ctx context.Context, arg CountProductSpuParams
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -549,6 +552,7 @@ type CreateCopyProductSpuParams struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
 	IsActive       bool            `json:"is_active"`
+	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`
@@ -683,7 +687,7 @@ func (q *Queries) CreateDefaultProductSku(ctx context.Context, arg CreateDefault
 const createDefaultProductSpu = `-- name: CreateDefaultProductSpu :one
 INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateDefaultProductSpuParams struct {
@@ -721,6 +725,7 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
+		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -849,9 +854,9 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 }
 
 const createProductSpu = `-- name: CreateProductSpu :one
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateProductSpuParams struct {
@@ -863,6 +868,7 @@ type CreateProductSpuParams struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
 	IsActive       bool            `json:"is_active"`
+	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`
@@ -879,6 +885,7 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateUpdated,
@@ -895,6 +902,7 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
+		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -1167,16 +1175,17 @@ WHERE (
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
     ("is_active" = ANY($11) OR $11 IS NULL) AND
-    ("specifications" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL) AND
-    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
-    ("date_deleted" >= $20 OR $20 IS NULL) AND
-    ("date_deleted" <= $21 OR $21 IS NULL)
+    ("currency" = ANY($12) OR $12 IS NULL) AND
+    ("specifications" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_updated" = ANY($17) OR $17 IS NULL) AND
+    ("date_updated" >= $18 OR $18 IS NULL) AND
+    ("date_updated" <= $19 OR $19 IS NULL) AND
+    ("date_deleted" = ANY($20) OR $20 IS NULL) AND
+    ("date_deleted" >= $21 OR $21 IS NULL) AND
+    ("date_deleted" <= $22 OR $22 IS NULL)
 )
 `
 
@@ -1192,6 +1201,7 @@ type DeleteProductSpuParams struct {
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
 	IsActive        []bool            `json:"is_active"`
+	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
@@ -1217,6 +1227,7 @@ func (q *Queries) DeleteProductSpu(ctx context.Context, arg DeleteProductSpuPara
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -1415,7 +1426,7 @@ func (q *Queries) GetProductSku(ctx context.Context, id uuid.NullUUID) (CatalogP
 
 const getProductSpu = `-- name: GetProductSpu :one
 
-SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE ("id" = $1) OR ("slug" = $2) OR ("featured_sku_id" = $3)
 `
@@ -1442,6 +1453,7 @@ func (q *Queries) GetProductSpu(ctx context.Context, arg GetProductSpuParams) (C
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
+		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
 		&i.DateUpdated,
@@ -1974,7 +1986,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 }
 
 const listCountProductSpu = `-- name: ListCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1988,20 +2000,21 @@ WHERE (
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
     ("is_active" = ANY($11) OR $11 IS NULL) AND
-    ("specifications" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL) AND
-    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
-    ("date_deleted" >= $20 OR $20 IS NULL) AND
-    ("date_deleted" <= $21 OR $21 IS NULL)
+    ("currency" = ANY($12) OR $12 IS NULL) AND
+    ("specifications" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_updated" = ANY($17) OR $17 IS NULL) AND
+    ("date_updated" >= $18 OR $18 IS NULL) AND
+    ("date_updated" <= $19 OR $19 IS NULL) AND
+    ("date_deleted" = ANY($20) OR $20 IS NULL) AND
+    ("date_deleted" >= $21 OR $21 IS NULL) AND
+    ("date_deleted" <= $22 OR $22 IS NULL)
 )
 ORDER BY "id"
-LIMIT $23::int
-OFFSET $22::int
+LIMIT $24::int
+OFFSET $23::int
 `
 
 type ListCountProductSpuParams struct {
@@ -2016,6 +2029,7 @@ type ListCountProductSpuParams struct {
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
 	IsActive        []bool            `json:"is_active"`
+	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
@@ -2048,6 +2062,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -2078,6 +2093,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSpu.Name,
 			&i.CatalogProductSpu.Description,
 			&i.CatalogProductSpu.IsActive,
+			&i.CatalogProductSpu.Currency,
 			&i.CatalogProductSpu.Specifications,
 			&i.CatalogProductSpu.DateCreated,
 			&i.CatalogProductSpu.DateUpdated,
@@ -2391,7 +2407,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 }
 
 const listProductSpu = `-- name: ListProductSpu :many
-SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2405,20 +2421,21 @@ WHERE (
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
     ("is_active" = ANY($11) OR $11 IS NULL) AND
-    ("specifications" = ANY($12) OR $12 IS NULL) AND
-    ("date_created" = ANY($13) OR $13 IS NULL) AND
-    ("date_created" >= $14 OR $14 IS NULL) AND
-    ("date_created" <= $15 OR $15 IS NULL) AND
-    ("date_updated" = ANY($16) OR $16 IS NULL) AND
-    ("date_updated" >= $17 OR $17 IS NULL) AND
-    ("date_updated" <= $18 OR $18 IS NULL) AND
-    ("date_deleted" = ANY($19) OR $19 IS NULL) AND
-    ("date_deleted" >= $20 OR $20 IS NULL) AND
-    ("date_deleted" <= $21 OR $21 IS NULL)
+    ("currency" = ANY($12) OR $12 IS NULL) AND
+    ("specifications" = ANY($13) OR $13 IS NULL) AND
+    ("date_created" = ANY($14) OR $14 IS NULL) AND
+    ("date_created" >= $15 OR $15 IS NULL) AND
+    ("date_created" <= $16 OR $16 IS NULL) AND
+    ("date_updated" = ANY($17) OR $17 IS NULL) AND
+    ("date_updated" >= $18 OR $18 IS NULL) AND
+    ("date_updated" <= $19 OR $19 IS NULL) AND
+    ("date_deleted" = ANY($20) OR $20 IS NULL) AND
+    ("date_deleted" >= $21 OR $21 IS NULL) AND
+    ("date_deleted" <= $22 OR $22 IS NULL)
 )
 ORDER BY "id"
-LIMIT $23::int
-OFFSET $22::int
+LIMIT $24::int
+OFFSET $23::int
 `
 
 type ListProductSpuParams struct {
@@ -2433,6 +2450,7 @@ type ListProductSpuParams struct {
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
 	IsActive        []bool            `json:"is_active"`
+	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
 	DateCreatedFrom null.Time         `json:"date_created_from"`
@@ -2460,6 +2478,7 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
@@ -2490,6 +2509,7 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
+			&i.Currency,
 			&i.Specifications,
 			&i.DateCreated,
 			&i.DateUpdated,
@@ -2848,12 +2868,13 @@ SET "slug" = COALESCE($1, "slug"),
     "name" = COALESCE($6, "name"),
     "description" = COALESCE($7, "description"),
     "is_active" = COALESCE($8, "is_active"),
-    "specifications" = COALESCE($9, "specifications"),
-    "date_created" = COALESCE($10, "date_created"),
-    "date_updated" = COALESCE($11, "date_updated"),
-    "date_deleted" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_deleted") END
-WHERE id = $14
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+    "currency" = COALESCE($9, "currency"),
+    "specifications" = COALESCE($10, "specifications"),
+    "date_created" = COALESCE($11, "date_created"),
+    "date_updated" = COALESCE($12, "date_updated"),
+    "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
+WHERE id = $15
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type UpdateProductSpuParams struct {
@@ -2865,6 +2886,7 @@ type UpdateProductSpuParams struct {
 	Name              null.String     `json:"name"`
 	Description       null.String     `json:"description"`
 	IsActive          null.Bool       `json:"is_active"`
+	Currency          null.String     `json:"currency"`
 	Specifications    json.RawMessage `json:"specifications"`
 	DateCreated       null.Time       `json:"date_created"`
 	DateUpdated       null.Time       `json:"date_updated"`
@@ -2883,6 +2905,7 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		arg.Name,
 		arg.Description,
 		arg.IsActive,
+		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
 		arg.DateUpdated,
@@ -2901,6 +2924,7 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		&i.Name,
 		&i.Description,
 		&i.IsActive,
+		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
 		&i.DateUpdated,

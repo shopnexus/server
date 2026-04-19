@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu" (
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "is_active" BOOLEAN NOT NULL,
+    -- ISO 4217 currency code for all SKU prices under this SPU
+    "currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
     -- Structured attribute schema specific to the product type
     "specifications" JSONB NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

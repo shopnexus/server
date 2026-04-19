@@ -243,9 +243,9 @@ func (b *CreateBatchProductSkuBatchResults) Close() error {
 }
 
 const createBatchProductSpu = `-- name: CreateBatchProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "specifications", "date_created", "date_updated", "date_deleted")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, specifications, date_created, date_updated, date_deleted
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateBatchProductSpuBatchResults struct {
@@ -263,6 +263,7 @@ type CreateBatchProductSpuParams struct {
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
 	IsActive       bool            `json:"is_active"`
+	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateUpdated    time.Time       `json:"date_updated"`
@@ -281,6 +282,7 @@ func (q *Queries) CreateBatchProductSpu(ctx context.Context, arg []CreateBatchPr
 			a.Name,
 			a.Description,
 			a.IsActive,
+			a.Currency,
 			a.Specifications,
 			a.DateCreated,
 			a.DateUpdated,
@@ -313,6 +315,7 @@ func (b *CreateBatchProductSpuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.Name,
 			&i.Description,
 			&i.IsActive,
+			&i.Currency,
 			&i.Specifications,
 			&i.DateCreated,
 			&i.DateUpdated,
