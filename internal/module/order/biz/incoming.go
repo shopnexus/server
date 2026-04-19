@@ -34,6 +34,10 @@ func (b *OrderHandler) ListSellerPendingItems(
 		return zero, err
 	}
 
+	// RLock: concurrent reads OK, blocked during seller confirm/reject writes
+	unlock := b.locker.RLock(ctx, fmt.Sprintf("order:seller-pending:%s", params.SellerID))
+	defer unlock()
+
 	type incomingResult struct {
 		Items []orderdb.OrderItem `json:"items"`
 		Total int64               `json:"total"`
@@ -87,6 +91,10 @@ func (b *OrderHandler) ConfirmSellerPending(
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate confirm items", err)
 	}
+
+	// Lock: exclusive — blocks concurrent reads and other writes on this seller's pending items
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
+	defer unlock()
 
 	// Step 1: Fetch items and validate
 	type fetchedItem struct {
@@ -311,6 +319,10 @@ func (b *OrderHandler) ConfirmSellerPending(
 
 // RejectSellerPending rejects pending items owned by the seller, releases inventory, and refunds wallet.
 func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSellerPendingParams) error {
+	// Lock: exclusive — same key as ConfirmSellerPending
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
+	defer unlock()
+
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate reject items", err)
 	}
