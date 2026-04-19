@@ -117,12 +117,41 @@ Three generators run in sequence:
 2. **SQLC** → generates type-safe Go from those query templates
 3. **genrestate** → generates Restate proxy clients from `XxxBiz` interfaces
 
+## Distributed Locking
+
+The `internal/infras/locker` package provides a distributed RWMutex backed by Redis, used to prevent TOCTOU race conditions on concurrent mutations of the same entity.
+
+```go
+// Exclusive lock — blocks other Lock and RLock callers on the same key
+unlock := b.locker.Lock(ctx, "order:payment:123")
+defer unlock()
+
+// Shared lock — allows concurrent RLock, blocks Lock callers
+unlock := b.locker.RLock(ctx, "order:seller-pending:abc")
+defer unlock()
+```
+
+- **Auto-renewal**: a background goroutine extends the TTL every `ttl/2`, so long-running handlers never lose the lock. The `unlock()` func stops the goroutine and DELs the key.
+- **TTL** is configured once via `locker.Config{TTL: 30 * time.Second}` at construction time, not per call.
+- **When to use Lock**: write operations that race with other writes on the same entity (e.g., `ConfirmPayment` vs `CancelUnpaidCheckout` on the same payment).
+- **When to use RLock**: read operations that need a consistent snapshot while a write may be in progress. Pure query endpoints (no side effects) generally don't need RLock — stale data from a concurrent write is acceptable and the caller can retry.
+- **When NOT to lock**: inside `restate.Run()` closures. The lock must be acquired outside durable steps — if Restate replays the journal, the lock spin would replay from cache (no-op), leaving the handler running without actual lock protection.
+
+Current lock keys:
+
+| Key Pattern | Lock | Operations |
+|-------------|------|------------|
+| `order:payment:{paymentID}` | Lock | `ConfirmPayment`, `CancelUnpaidCheckout` |
+| `order:refund-lock:{refundID}` | Lock | `CancelBuyerRefund`, `ConfirmSellerRefund` |
+| `order:seller-pending:{sellerID}` | Lock | `ConfirmSellerPending`, `RejectSellerPending` |
+
 ## Infrastructure
 
 | Service | Package | Purpose |
 |---------|---------|---------|
 | PostgreSQL | `internal/shared/pgsqlc` | Multi-schema DB with pgxpool |
 | Redis | `internal/infras/cache` | Struct caching (Sonic JSON serialization) |
+| Redis | `internal/infras/locker` | Distributed RWMutex (SET NX + auto-renewal) |
 | NATS | `internal/infras/pubsub` | Message queue (JetStream) |
 | Restate | `internal/infras/restate` | Durable execution HTTP ingress |
 | Milvus | `internal/infras/milvus` | Vector search for hybrid product search |
