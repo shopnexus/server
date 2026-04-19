@@ -137,13 +137,21 @@ defer unlock()
 - **When to use RLock**: read operations that need a consistent snapshot while a write may be in progress. Pure query endpoints (no side effects) generally don't need RLock — stale data from a concurrent write is acceptable and the caller can retry.
 - **When NOT to lock**: inside `restate.Run()` closures. The lock must be acquired outside durable steps — if Restate replays the journal, the lock spin would replay from cache (no-op), leaving the handler running without actual lock protection.
 
-Current lock keys:
+### Choosing a lock key
 
-| Key Pattern | Lock | Operations |
-|-------------|------|------------|
-| `order:payment:{paymentID}` | Lock | `ConfirmPayment`, `CancelUnpaidCheckout` |
-| `order:refund-lock:{refundID}` | Lock | `CancelBuyerRefund`, `ConfirmSellerRefund` |
-| `order:seller-pending:{sellerID}` | Lock | `ConfirmSellerPending`, `RejectSellerPending` |
+Lock by the **entity that owns the mutation**, not the entity being mutated. Three questions:
+
+1. **Who causes the mutation?** Lock by the actor's scope — `sellerID`, `paymentID`, `refundID`. Not by individual rows being modified.
+2. **Batch or single?** If the operation takes a batch of entities (e.g., seller confirms multiple items), the lock scope must contain all of them. Locking per-item in a batch risks deadlock when two requests lock items in different order.
+3. **Would any request need multiple locks?** If yes, escalate to a coarser scope (e.g., items → seller) to eliminate circular-wait deadlocks. Only use fine-grained locks when coarse locking is a measured bottleneck. Eg:
+
+```go
+func handler() {
+  unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
+  defer unlock()
+  // Logic
+}
+```
 
 ## Infrastructure
 
