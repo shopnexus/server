@@ -301,9 +301,6 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 		if err != nil {
 			return refundInfo{}, err
 		}
-		if r.Status != orderdb.OrderStatusPending {
-			return refundInfo{}, ordermodel.ErrRefundCannotBeUpdated.Terminal()
-		}
 		return refundInfo{OrderID: r.OrderID.String()}, nil
 	})
 	if err != nil {

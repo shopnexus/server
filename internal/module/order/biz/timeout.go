@@ -66,26 +66,6 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 		return nil
 	}
 
-	// Guard: check payment status — if already confirmed/cancelled, skip (race protection)
-	paymentStatus, err := restate.Run(ctx, func(ctx restate.RunContext) (string, error) {
-		payments, err := b.storage.Querier().ListPayment(ctx, orderdb.ListPaymentParams{
-			ID: []int64{paymentID},
-		})
-		if err != nil {
-			return "", err
-		}
-		if len(payments) == 0 {
-			return "", nil
-		}
-		return string(payments[0].Status), nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("check payment status", err)
-	}
-	if paymentStatus != string(orderdb.OrderStatusPending) {
-		return nil // payment already confirmed or cancelled — skip
-	}
-
 	buyerID, _ := uuid.Parse(fetched.AccountID)
 	itemIDs := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) int64 { return i.ID })
 
