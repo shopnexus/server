@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"fmt"
+	"time"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -23,6 +24,11 @@ import (
 // It cancels all pending items linked to the payment, releases inventory, refunds wallet, and notifies the buyer.
 func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64) (err error) {
 	defer metrics.TrackHandler("order", "CancelUnpaidCheckout", &err)()
+
+	// Distributed lock per payment — prevents race with ConfirmPayment
+	lockKey := fmt.Sprintf("order:payment-lock:%d", paymentID)
+	b.cache.Lock(ctx, lockKey, 30*time.Second)
+	defer b.cache.Unlock(ctx, lockKey)
 
 	// Fetch pending items for this payment
 	type fetchResult struct {

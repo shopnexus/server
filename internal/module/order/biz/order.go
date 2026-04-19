@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -320,6 +321,11 @@ func (b *OrderHandler) ConfirmPayment(ctx restate.Context, params ConfirmPayment
 	if err != nil {
 		return sharedmodel.WrapErr("parse payment ref id", err)
 	}
+
+	// Distributed lock per payment — prevents race with CancelUnpaidCheckout
+	lockKey := fmt.Sprintf("order:payment-lock:%d", paymentID)
+	b.cache.Lock(ctx, lockKey, 30*time.Second)
+	defer b.cache.Unlock(ctx, lockKey)
 
 	var dbStatus orderdb.OrderStatus
 	switch params.Status {

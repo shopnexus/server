@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"log/slog"
 
 	restate "github.com/restatedev/sdk-go"
@@ -292,6 +293,11 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 		return sharedmodel.WrapErr("validate cancel refund", err)
 	}
 
+	// Distributed lock per refund — prevents race with ConfirmSellerRefund
+	lockKey := fmt.Sprintf("order:refund-lock:%s", params.RefundID)
+	b.cache.Lock(ctx, lockKey, 30*time.Second)
+	defer b.cache.Unlock(ctx, lockKey)
+
 	// Fetch refund before cancelling to get order_id for notification
 	type refundInfo struct {
 		OrderID string `json:"order_id"`
@@ -351,6 +357,11 @@ func (b *OrderHandler) ConfirmSellerRefund(
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate confirm refund", err)
 	}
+
+	// Distributed lock per refund — prevents race with CancelBuyerRefund
+	lockKey := fmt.Sprintf("order:refund-lock:%s", params.RefundID)
+	b.cache.Lock(ctx, lockKey, 30*time.Second)
+	defer b.cache.Unlock(ctx, lockKey)
 
 	refund, err := b.UpdateBuyerRefund(ctx, UpdateBuyerRefundParams{
 		Account:       params.Account,

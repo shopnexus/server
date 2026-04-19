@@ -18,6 +18,12 @@ type Client interface {
 	ZRem(ctx context.Context, key string, value any) error
 	ZRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error
 	ZRevRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error
+
+	// Distributed lock methods
+	Lock(ctx context.Context, key string, ttl time.Duration)
+	Unlock(ctx context.Context, key string)
+	RLock(ctx context.Context, key string, ttl time.Duration)
+	RUnlock(ctx context.Context, key string)
 }
 
 // ZRangeOptions defines optional options for range queries on sorted sets.

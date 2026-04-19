@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -205,6 +206,41 @@ func (r *RedisClient) ZRangeByScore(ctx context.Context, key string, dest any, o
 	}
 
 	return r.decodeSliceMembers(members, dest)
+}
+
+// Lock acquires an exclusive distributed lock using Redis SET NX with TTL.
+// Blocks (spins) until the lock is acquired or the context is cancelled.
+func (r *RedisClient) Lock(ctx context.Context, key string, ttl time.Duration) {
+	lockKey := "lock:" + key
+	for {
+		resp := r.Client.Do(ctx, r.Client.B().Set().Key(lockKey).Value("1").Nx().Ex(ttl).Build())
+		if resp.Error() == nil {
+			return // lock acquired
+		}
+		select {
+		case <-ctx.Done():
+			slog.Warn("lock: context cancelled while waiting", slog.String("key", key))
+			return
+		case <-time.After(50 * time.Millisecond):
+			// retry
+		}
+	}
+}
+
+// Unlock releases an exclusive distributed lock.
+func (r *RedisClient) Unlock(ctx context.Context, key string) {
+	lockKey := "lock:" + key
+	r.Client.Do(ctx, r.Client.B().Del().Key(lockKey).Build())
+}
+
+// RLock acquires a read lock (implemented as exclusive lock for simplicity).
+func (r *RedisClient) RLock(ctx context.Context, key string, ttl time.Duration) {
+	r.Lock(ctx, key, ttl)
+}
+
+// RUnlock releases a read lock.
+func (r *RedisClient) RUnlock(ctx context.Context, key string) {
+	r.Unlock(ctx, key)
 }
 
 func (r *RedisClient) ZRevRangeByScore(ctx context.Context, key string, dest any, opts ZRangeOptions) error {
