@@ -148,9 +148,11 @@ CREATE TABLE IF NOT EXISTS "account"."payment_method" (
 -- Buyer wallet for balance-based payments (top-up, refund credits, etc.).
 -- Balance is enforced non-negative at the DB level.
 CREATE TABLE IF NOT EXISTS "account"."wallet" (
-    "account_id" UUID PRIMARY KEY,
+    "id" BIGSERIAL PRIMARY KEY,
+    "account_id" UUID NOT NULL,
     "balance" BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT "wallet_balance_non_negative" CHECK ("balance" >= 0)
+    CONSTRAINT "wallet_balance_non_negative" CHECK ("balance" >= 0),
+    CONSTRAINT "wallet_account_id_key" UNIQUE ("account_id")
 );
 
 -- Append-only ledger of wallet balance changes.

@@ -935,10 +935,16 @@ WHERE (
 -- Queries for table: account.wallet
 -- ========================================
 
+-- name: GetWallet :one
+SELECT *
+FROM "account"."wallet"
+WHERE ("id" = sqlc.narg('id')) OR ("account_id" = sqlc.narg('account_id'));
+
 -- name: CountWallet :one
 SELECT COUNT(*)
 FROM "account"."wallet"
 WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
     ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
@@ -949,12 +955,13 @@ WHERE (
 SELECT *
 FROM "account"."wallet"
 WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
     ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
     ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL)
 )
-ORDER BY "account_id"
+ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
@@ -962,14 +969,20 @@ OFFSET sqlc.narg('offset')::int;
 SELECT sqlc.embed(embed_wallet), COUNT(*) OVER() as total_count
 FROM "account"."wallet" embed_wallet
 WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
     ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
     ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL)
 )
-ORDER BY "account_id"
+ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateWallet :one
+INSERT INTO "account"."wallet" ("account_id", "balance")
+VALUES ($1, $2)
+RETURNING *;
 
 -- name: CreateBatchWallet :batchone
 INSERT INTO "account"."wallet" ("account_id", "balance")
@@ -991,13 +1004,15 @@ VALUES ($1);
 
 -- name: UpdateWallet :one
 UPDATE "account"."wallet"
-SET "balance" = COALESCE(sqlc.narg('balance'), "balance")
-WHERE "account_id" = sqlc.arg('account_id')
+SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+    "balance" = COALESCE(sqlc.narg('balance'), "balance")
+WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteWallet :exec
 DELETE FROM "account"."wallet"
 WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
     ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
@@ -1069,6 +1084,11 @@ WHERE (
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateWalletTransaction :one
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
 
 -- name: CreateBatchWalletTransaction :batchone
 INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")

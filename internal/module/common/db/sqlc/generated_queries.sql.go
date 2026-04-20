@@ -12,7 +12,62 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countExchangeRate = `-- name: CountExchangeRate :one
+SELECT COUNT(*)
+FROM "common"."exchange_rate"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("base" = ANY($2) OR $2 IS NULL) AND
+    ("target" = ANY($3) OR $3 IS NULL) AND
+    ("rate" = ANY($4) OR $4 IS NULL) AND
+    ("rate" >= $5 OR $5 IS NULL) AND
+    ("rate" <= $6 OR $6 IS NULL) AND
+    ("fetched_at" = ANY($7) OR $7 IS NULL) AND
+    ("fetched_at" >= $8 OR $8 IS NULL) AND
+    ("fetched_at" <= $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
+)
+`
+
+type CountExchangeRateParams struct {
+	ID              []int64          `json:"id"`
+	Base            []string         `json:"base"`
+	Target          []string         `json:"target"`
+	Rate            []pgtype.Numeric `json:"rate"`
+	RateFrom        pgtype.Numeric   `json:"rate_from"`
+	RateTo          pgtype.Numeric   `json:"rate_to"`
+	FetchedAt       []time.Time      `json:"fetched_at"`
+	FetchedAtFrom   null.Time        `json:"fetched_at_from"`
+	FetchedAtTo     null.Time        `json:"fetched_at_to"`
+	DateUpdated     []time.Time      `json:"date_updated"`
+	DateUpdatedFrom null.Time        `json:"date_updated_from"`
+	DateUpdatedTo   null.Time        `json:"date_updated_to"`
+}
+
+func (q *Queries) CountExchangeRate(ctx context.Context, arg CountExchangeRateParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countExchangeRate,
+		arg.ID,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.RateFrom,
+		arg.RateTo,
+		arg.FetchedAt,
+		arg.FetchedAtFrom,
+		arg.FetchedAtTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const countResource = `-- name: CountResource :one
 SELECT COUNT(*)
@@ -161,6 +216,13 @@ func (q *Queries) CountServiceOption(ctx context.Context, arg CountServiceOption
 	return count, err
 }
 
+type CreateCopyDefaultExchangeRateParams struct {
+	Base      string         `json:"base"`
+	Target    string         `json:"target"`
+	Rate      pgtype.Numeric `json:"rate"`
+	FetchedAt time.Time      `json:"fetched_at"`
+}
+
 type CreateCopyDefaultResourceParams struct {
 	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
 	Provider   string          `json:"provider"`
@@ -187,6 +249,14 @@ type CreateCopyDefaultServiceOptionParams struct {
 	Priority    int32           `json:"priority"`
 	Config      json.RawMessage `json:"config"`
 	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+}
+
+type CreateCopyExchangeRateParams struct {
+	Base        string         `json:"base"`
+	Target      string         `json:"target"`
+	Rate        pgtype.Numeric `json:"rate"`
+	FetchedAt   time.Time      `json:"fetched_at"`
+	DateUpdated time.Time      `json:"date_updated"`
 }
 
 type CreateCopyResourceParams struct {
@@ -218,6 +288,38 @@ type CreateCopyServiceOptionParams struct {
 	Priority    int32           `json:"priority"`
 	Config      json.RawMessage `json:"config"`
 	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+}
+
+const createDefaultExchangeRate = `-- name: CreateDefaultExchangeRate :one
+INSERT INTO "common"."exchange_rate" ("base", "target", "rate", "fetched_at")
+VALUES ($1, $2, $3, $4)
+RETURNING id, base, target, rate, fetched_at, date_updated
+`
+
+type CreateDefaultExchangeRateParams struct {
+	Base      string         `json:"base"`
+	Target    string         `json:"target"`
+	Rate      pgtype.Numeric `json:"rate"`
+	FetchedAt time.Time      `json:"fetched_at"`
+}
+
+func (q *Queries) CreateDefaultExchangeRate(ctx context.Context, arg CreateDefaultExchangeRateParams) (CommonExchangeRate, error) {
+	row := q.db.QueryRow(ctx, createDefaultExchangeRate,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.FetchedAt,
+	)
+	var i CommonExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.Base,
+		&i.Target,
+		&i.Rate,
+		&i.FetchedAt,
+		&i.DateUpdated,
+	)
+	return i, err
 }
 
 const createDefaultResource = `-- name: CreateDefaultResource :one
@@ -331,6 +433,40 @@ func (q *Queries) CreateDefaultServiceOption(ctx context.Context, arg CreateDefa
 		&i.Priority,
 		&i.Config,
 		&i.LogoRsID,
+	)
+	return i, err
+}
+
+const createExchangeRate = `-- name: CreateExchangeRate :one
+INSERT INTO "common"."exchange_rate" ("base", "target", "rate", "fetched_at", "date_updated")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, base, target, rate, fetched_at, date_updated
+`
+
+type CreateExchangeRateParams struct {
+	Base        string         `json:"base"`
+	Target      string         `json:"target"`
+	Rate        pgtype.Numeric `json:"rate"`
+	FetchedAt   time.Time      `json:"fetched_at"`
+	DateUpdated time.Time      `json:"date_updated"`
+}
+
+func (q *Queries) CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (CommonExchangeRate, error) {
+	row := q.db.QueryRow(ctx, createExchangeRate,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.FetchedAt,
+		arg.DateUpdated,
+	)
+	var i CommonExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.Base,
+		&i.Target,
+		&i.Rate,
+		&i.FetchedAt,
+		&i.DateUpdated,
 	)
 	return i, err
 }
@@ -454,6 +590,57 @@ func (q *Queries) CreateServiceOption(ctx context.Context, arg CreateServiceOpti
 		&i.LogoRsID,
 	)
 	return i, err
+}
+
+const deleteExchangeRate = `-- name: DeleteExchangeRate :exec
+DELETE FROM "common"."exchange_rate"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("base" = ANY($2) OR $2 IS NULL) AND
+    ("target" = ANY($3) OR $3 IS NULL) AND
+    ("rate" = ANY($4) OR $4 IS NULL) AND
+    ("rate" >= $5 OR $5 IS NULL) AND
+    ("rate" <= $6 OR $6 IS NULL) AND
+    ("fetched_at" = ANY($7) OR $7 IS NULL) AND
+    ("fetched_at" >= $8 OR $8 IS NULL) AND
+    ("fetched_at" <= $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
+)
+`
+
+type DeleteExchangeRateParams struct {
+	ID              []int64          `json:"id"`
+	Base            []string         `json:"base"`
+	Target          []string         `json:"target"`
+	Rate            []pgtype.Numeric `json:"rate"`
+	RateFrom        pgtype.Numeric   `json:"rate_from"`
+	RateTo          pgtype.Numeric   `json:"rate_to"`
+	FetchedAt       []time.Time      `json:"fetched_at"`
+	FetchedAtFrom   null.Time        `json:"fetched_at_from"`
+	FetchedAtTo     null.Time        `json:"fetched_at_to"`
+	DateUpdated     []time.Time      `json:"date_updated"`
+	DateUpdatedFrom null.Time        `json:"date_updated_from"`
+	DateUpdatedTo   null.Time        `json:"date_updated_to"`
+}
+
+func (q *Queries) DeleteExchangeRate(ctx context.Context, arg DeleteExchangeRateParams) error {
+	_, err := q.db.Exec(ctx, deleteExchangeRate,
+		arg.ID,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.RateFrom,
+		arg.RateTo,
+		arg.FetchedAt,
+		arg.FetchedAtFrom,
+		arg.FetchedAtTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+	)
+	return err
 }
 
 const deleteResource = `-- name: DeleteResource :exec
@@ -594,6 +781,36 @@ func (q *Queries) DeleteServiceOption(ctx context.Context, arg DeleteServiceOpti
 	return err
 }
 
+const getExchangeRate = `-- name: GetExchangeRate :one
+
+SELECT id, base, target, rate, fetched_at, date_updated
+FROM "common"."exchange_rate"
+WHERE ("id" = $1) OR ("base" = $2 AND "target" = $3)
+`
+
+type GetExchangeRateParams struct {
+	ID     null.Int    `json:"id"`
+	Base   null.String `json:"base"`
+	Target null.String `json:"target"`
+}
+
+// ========================================
+// Queries for table: common.exchange_rate
+// ========================================
+func (q *Queries) GetExchangeRate(ctx context.Context, arg GetExchangeRateParams) (CommonExchangeRate, error) {
+	row := q.db.QueryRow(ctx, getExchangeRate, arg.ID, arg.Base, arg.Target)
+	var i CommonExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.Base,
+		&i.Target,
+		&i.Rate,
+		&i.FetchedAt,
+		&i.DateUpdated,
+	)
+	return i, err
+}
+
 const getResource = `-- name: GetResource :one
 
 
@@ -679,6 +896,93 @@ func (q *Queries) GetServiceOption(ctx context.Context, id null.String) (CommonS
 		&i.LogoRsID,
 	)
 	return i, err
+}
+
+const listCountExchangeRate = `-- name: ListCountExchangeRate :many
+SELECT embed_exchange_rate.id, embed_exchange_rate.base, embed_exchange_rate.target, embed_exchange_rate.rate, embed_exchange_rate.fetched_at, embed_exchange_rate.date_updated, COUNT(*) OVER() as total_count
+FROM "common"."exchange_rate" embed_exchange_rate
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("base" = ANY($2) OR $2 IS NULL) AND
+    ("target" = ANY($3) OR $3 IS NULL) AND
+    ("rate" = ANY($4) OR $4 IS NULL) AND
+    ("rate" >= $5 OR $5 IS NULL) AND
+    ("rate" <= $6 OR $6 IS NULL) AND
+    ("fetched_at" = ANY($7) OR $7 IS NULL) AND
+    ("fetched_at" >= $8 OR $8 IS NULL) AND
+    ("fetched_at" <= $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
+)
+ORDER BY "id"
+LIMIT $14::int
+OFFSET $13::int
+`
+
+type ListCountExchangeRateParams struct {
+	ID              []int64          `json:"id"`
+	Base            []string         `json:"base"`
+	Target          []string         `json:"target"`
+	Rate            []pgtype.Numeric `json:"rate"`
+	RateFrom        pgtype.Numeric   `json:"rate_from"`
+	RateTo          pgtype.Numeric   `json:"rate_to"`
+	FetchedAt       []time.Time      `json:"fetched_at"`
+	FetchedAtFrom   null.Time        `json:"fetched_at_from"`
+	FetchedAtTo     null.Time        `json:"fetched_at_to"`
+	DateUpdated     []time.Time      `json:"date_updated"`
+	DateUpdatedFrom null.Time        `json:"date_updated_from"`
+	DateUpdatedTo   null.Time        `json:"date_updated_to"`
+	Offset          null.Int32       `json:"offset"`
+	Limit           null.Int32       `json:"limit"`
+}
+
+type ListCountExchangeRateRow struct {
+	CommonExchangeRate CommonExchangeRate `json:"common_exchange_rate"`
+	TotalCount         int64              `json:"total_count"`
+}
+
+func (q *Queries) ListCountExchangeRate(ctx context.Context, arg ListCountExchangeRateParams) ([]ListCountExchangeRateRow, error) {
+	rows, err := q.db.Query(ctx, listCountExchangeRate,
+		arg.ID,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.RateFrom,
+		arg.RateTo,
+		arg.FetchedAt,
+		arg.FetchedAtFrom,
+		arg.FetchedAtTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountExchangeRateRow{}
+	for rows.Next() {
+		var i ListCountExchangeRateRow
+		if err := rows.Scan(
+			&i.CommonExchangeRate.ID,
+			&i.CommonExchangeRate.Base,
+			&i.CommonExchangeRate.Target,
+			&i.CommonExchangeRate.Rate,
+			&i.CommonExchangeRate.FetchedAt,
+			&i.CommonExchangeRate.DateUpdated,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCountResource = `-- name: ListCountResource :many
@@ -932,6 +1236,87 @@ func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServi
 	return items, nil
 }
 
+const listExchangeRate = `-- name: ListExchangeRate :many
+SELECT id, base, target, rate, fetched_at, date_updated
+FROM "common"."exchange_rate"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("base" = ANY($2) OR $2 IS NULL) AND
+    ("target" = ANY($3) OR $3 IS NULL) AND
+    ("rate" = ANY($4) OR $4 IS NULL) AND
+    ("rate" >= $5 OR $5 IS NULL) AND
+    ("rate" <= $6 OR $6 IS NULL) AND
+    ("fetched_at" = ANY($7) OR $7 IS NULL) AND
+    ("fetched_at" >= $8 OR $8 IS NULL) AND
+    ("fetched_at" <= $9 OR $9 IS NULL) AND
+    ("date_updated" = ANY($10) OR $10 IS NULL) AND
+    ("date_updated" >= $11 OR $11 IS NULL) AND
+    ("date_updated" <= $12 OR $12 IS NULL)
+)
+ORDER BY "id"
+LIMIT $14::int
+OFFSET $13::int
+`
+
+type ListExchangeRateParams struct {
+	ID              []int64          `json:"id"`
+	Base            []string         `json:"base"`
+	Target          []string         `json:"target"`
+	Rate            []pgtype.Numeric `json:"rate"`
+	RateFrom        pgtype.Numeric   `json:"rate_from"`
+	RateTo          pgtype.Numeric   `json:"rate_to"`
+	FetchedAt       []time.Time      `json:"fetched_at"`
+	FetchedAtFrom   null.Time        `json:"fetched_at_from"`
+	FetchedAtTo     null.Time        `json:"fetched_at_to"`
+	DateUpdated     []time.Time      `json:"date_updated"`
+	DateUpdatedFrom null.Time        `json:"date_updated_from"`
+	DateUpdatedTo   null.Time        `json:"date_updated_to"`
+	Offset          null.Int32       `json:"offset"`
+	Limit           null.Int32       `json:"limit"`
+}
+
+func (q *Queries) ListExchangeRate(ctx context.Context, arg ListExchangeRateParams) ([]CommonExchangeRate, error) {
+	rows, err := q.db.Query(ctx, listExchangeRate,
+		arg.ID,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.RateFrom,
+		arg.RateTo,
+		arg.FetchedAt,
+		arg.FetchedAtFrom,
+		arg.FetchedAtTo,
+		arg.DateUpdated,
+		arg.DateUpdatedFrom,
+		arg.DateUpdatedTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CommonExchangeRate{}
+	for rows.Next() {
+		var i CommonExchangeRate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Base,
+			&i.Target,
+			&i.Rate,
+			&i.FetchedAt,
+			&i.DateUpdated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listResource = `-- name: ListResource :many
 SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
 FROM "common"."resource"
@@ -1163,6 +1548,47 @@ func (q *Queries) ListServiceOption(ctx context.Context, arg ListServiceOptionPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateExchangeRate = `-- name: UpdateExchangeRate :one
+UPDATE "common"."exchange_rate"
+SET "base" = COALESCE($1, "base"),
+    "target" = COALESCE($2, "target"),
+    "rate" = COALESCE($3, "rate"),
+    "fetched_at" = COALESCE($4, "fetched_at"),
+    "date_updated" = COALESCE($5, "date_updated")
+WHERE id = $6
+RETURNING id, base, target, rate, fetched_at, date_updated
+`
+
+type UpdateExchangeRateParams struct {
+	Base        null.String    `json:"base"`
+	Target      null.String    `json:"target"`
+	Rate        pgtype.Numeric `json:"rate"`
+	FetchedAt   null.Time      `json:"fetched_at"`
+	DateUpdated null.Time      `json:"date_updated"`
+	ID          int64          `json:"id"`
+}
+
+func (q *Queries) UpdateExchangeRate(ctx context.Context, arg UpdateExchangeRateParams) (CommonExchangeRate, error) {
+	row := q.db.QueryRow(ctx, updateExchangeRate,
+		arg.Base,
+		arg.Target,
+		arg.Rate,
+		arg.FetchedAt,
+		arg.DateUpdated,
+		arg.ID,
+	)
+	var i CommonExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.Base,
+		&i.Target,
+		&i.Rate,
+		&i.FetchedAt,
+		&i.DateUpdated,
+	)
+	return i, err
 }
 
 const updateResource = `-- name: UpdateResource :one

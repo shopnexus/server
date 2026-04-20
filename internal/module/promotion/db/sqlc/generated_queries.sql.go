@@ -42,8 +42,7 @@ WHERE (
     ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
     ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL) AND
-    ("currency" = ANY($26) OR $26 IS NULL)
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 `
 
@@ -73,7 +72,6 @@ type CountPromotionParams struct {
 	DateUpdated     []time.Time       `json:"date_updated"`
 	DateUpdatedFrom null.Time         `json:"date_updated_from"`
 	DateUpdatedTo   null.Time         `json:"date_updated_to"`
-	Currency        []string          `json:"currency"`
 }
 
 func (q *Queries) CountPromotion(ctx context.Context, arg CountPromotionParams) (int64, error) {
@@ -103,7 +101,6 @@ func (q *Queries) CountPromotion(ctx context.Context, arg CountPromotionParams) 
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Currency,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -242,7 +239,6 @@ type CreateCopyPromotionParams struct {
 	DateEnded   null.Time       `json:"date_ended"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
-	Currency    string          `json:"currency"`
 }
 
 type CreateCopyRefParams struct {
@@ -263,7 +259,7 @@ type CreateCopyScheduleParams struct {
 const createDefaultPromotion = `-- name: CreateDefaultPromotion :one
 INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "data", "date_started", "date_ended")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 `
 
 type CreateDefaultPromotionParams struct {
@@ -311,7 +307,6 @@ func (q *Queries) CreateDefaultPromotion(ctx context.Context, arg CreateDefaultP
 		&i.DateEnded,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Currency,
 	)
 	return i, err
 }
@@ -378,9 +373,9 @@ func (q *Queries) CreateDefaultSchedule(ctx context.Context, arg CreateDefaultSc
 }
 
 const createPromotion = `-- name: CreatePromotion :one
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated", "currency")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 `
 
 type CreatePromotionParams struct {
@@ -399,7 +394,6 @@ type CreatePromotionParams struct {
 	DateEnded   null.Time       `json:"date_ended"`
 	DateCreated time.Time       `json:"date_created"`
 	DateUpdated time.Time       `json:"date_updated"`
-	Currency    string          `json:"currency"`
 }
 
 func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (PromotionPromotion, error) {
@@ -419,7 +413,6 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		arg.DateEnded,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.Currency,
 	)
 	var i PromotionPromotion
 	err := row.Scan(
@@ -438,7 +431,6 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		&i.DateEnded,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Currency,
 	)
 	return i, err
 }
@@ -531,8 +523,7 @@ WHERE (
     ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
     ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL) AND
-    ("currency" = ANY($26) OR $26 IS NULL)
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 `
 
@@ -562,7 +553,6 @@ type DeletePromotionParams struct {
 	DateUpdated     []time.Time       `json:"date_updated"`
 	DateUpdatedFrom null.Time         `json:"date_updated_from"`
 	DateUpdatedTo   null.Time         `json:"date_updated_to"`
-	Currency        []string          `json:"currency"`
 }
 
 func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams) error {
@@ -592,7 +582,6 @@ func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Currency,
 	)
 	return err
 }
@@ -682,7 +671,7 @@ const getPromotion = `-- name: GetPromotion :one
 
 
 
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
+SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 FROM "promotion"."promotion"
 WHERE ("id" = $1) OR ("code" = $2)
 `
@@ -716,7 +705,6 @@ func (q *Queries) GetPromotion(ctx context.Context, arg GetPromotionParams) (Pro
 		&i.DateEnded,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Currency,
 	)
 	return i, err
 }
@@ -781,7 +769,7 @@ func (q *Queries) GetSchedule(ctx context.Context, id null.Int) (PromotionSchedu
 }
 
 const listCountPromotion = `-- name: ListCountPromotion :many
-SELECT embed_promotion.id, embed_promotion.code, embed_promotion.owner_id, embed_promotion.type, embed_promotion.title, embed_promotion.description, embed_promotion.is_active, embed_promotion.auto_apply, embed_promotion."group", embed_promotion.priority, embed_promotion.data, embed_promotion.date_started, embed_promotion.date_ended, embed_promotion.date_created, embed_promotion.date_updated, embed_promotion.currency, COUNT(*) OVER() as total_count
+SELECT embed_promotion.id, embed_promotion.code, embed_promotion.owner_id, embed_promotion.type, embed_promotion.title, embed_promotion.description, embed_promotion.is_active, embed_promotion.auto_apply, embed_promotion."group", embed_promotion.priority, embed_promotion.data, embed_promotion.date_started, embed_promotion.date_ended, embed_promotion.date_created, embed_promotion.date_updated, COUNT(*) OVER() as total_count
 FROM "promotion"."promotion" embed_promotion
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -808,12 +796,11 @@ WHERE (
     ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
     ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL) AND
-    ("currency" = ANY($26) OR $26 IS NULL)
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListCountPromotionParams struct {
@@ -842,7 +829,6 @@ type ListCountPromotionParams struct {
 	DateUpdated     []time.Time       `json:"date_updated"`
 	DateUpdatedFrom null.Time         `json:"date_updated_from"`
 	DateUpdatedTo   null.Time         `json:"date_updated_to"`
-	Currency        []string          `json:"currency"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -879,7 +865,6 @@ func (q *Queries) ListCountPromotion(ctx context.Context, arg ListCountPromotion
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Currency,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -906,7 +891,6 @@ func (q *Queries) ListCountPromotion(ctx context.Context, arg ListCountPromotion
 			&i.PromotionPromotion.DateEnded,
 			&i.PromotionPromotion.DateCreated,
 			&i.PromotionPromotion.DateUpdated,
-			&i.PromotionPromotion.Currency,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -1072,7 +1056,7 @@ func (q *Queries) ListCountSchedule(ctx context.Context, arg ListCountSchedulePa
 }
 
 const listPromotion = `-- name: ListPromotion :many
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
+SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 FROM "promotion"."promotion"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1099,12 +1083,11 @@ WHERE (
     ("date_created" <= $22 OR $22 IS NULL) AND
     ("date_updated" = ANY($23) OR $23 IS NULL) AND
     ("date_updated" >= $24 OR $24 IS NULL) AND
-    ("date_updated" <= $25 OR $25 IS NULL) AND
-    ("currency" = ANY($26) OR $26 IS NULL)
+    ("date_updated" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListPromotionParams struct {
@@ -1133,7 +1116,6 @@ type ListPromotionParams struct {
 	DateUpdated     []time.Time       `json:"date_updated"`
 	DateUpdatedFrom null.Time         `json:"date_updated_from"`
 	DateUpdatedTo   null.Time         `json:"date_updated_to"`
-	Currency        []string          `json:"currency"`
 	Offset          null.Int32        `json:"offset"`
 	Limit           null.Int32        `json:"limit"`
 }
@@ -1165,7 +1147,6 @@ func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([
 		arg.DateUpdated,
 		arg.DateUpdatedFrom,
 		arg.DateUpdatedTo,
-		arg.Currency,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1192,7 +1173,6 @@ func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([
 			&i.DateEnded,
 			&i.DateCreated,
 			&i.DateUpdated,
-			&i.Currency,
 		); err != nil {
 			return nil, err
 		}
@@ -1359,10 +1339,9 @@ SET "code" = COALESCE($1, "code"),
     "date_started" = COALESCE($14, "date_started"),
     "date_ended" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "date_ended") END,
     "date_created" = COALESCE($17, "date_created"),
-    "date_updated" = COALESCE($18, "date_updated"),
-    "currency" = COALESCE($19, "currency")
-WHERE id = $20
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated, currency
+    "date_updated" = COALESCE($18, "date_updated")
+WHERE id = $19
+RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
 `
 
 type UpdatePromotionParams struct {
@@ -1384,7 +1363,6 @@ type UpdatePromotionParams struct {
 	DateEnded       null.Time         `json:"date_ended"`
 	DateCreated     null.Time         `json:"date_created"`
 	DateUpdated     null.Time         `json:"date_updated"`
-	Currency        null.String       `json:"currency"`
 	ID              uuid.UUID         `json:"id"`
 }
 
@@ -1408,7 +1386,6 @@ func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams
 		arg.DateEnded,
 		arg.DateCreated,
 		arg.DateUpdated,
-		arg.Currency,
 		arg.ID,
 	)
 	var i PromotionPromotion
@@ -1428,7 +1405,6 @@ func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams
 		&i.DateEnded,
 		&i.DateCreated,
 		&i.DateUpdated,
-		&i.Currency,
 	)
 	return i, err
 }

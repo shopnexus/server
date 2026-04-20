@@ -5,6 +5,7 @@ import (
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	authclaims "shopnexus-server/internal/shared/claims"
+	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/labstack/echo/v4"
@@ -27,8 +28,7 @@ func (h *Handler) GetWalletBalance(c echo.Context) error {
 }
 
 type ListWalletTransactionsRequest struct {
-	Limit  int64 `query:"limit" validate:"omitempty,min=1,max=100"`
-	Offset int64 `query:"offset" validate:"omitempty,min=0"`
+	sharedmodel.PaginationParams
 }
 
 func (h *Handler) ListWalletTransactions(c echo.Context) error {
@@ -37,19 +37,14 @@ func (h *Handler) ListWalletTransactions(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
-	if req.Limit == 0 {
-		req.Limit = 20
-	}
-
 	claims, err := authclaims.GetClaims(c.Request())
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
 	transactions, err := h.biz.ListWalletTransactions(c.Request().Context(), accountbiz.ListWalletTransactionsParams{
-		AccountID: claims.Account.ID,
-		Limit:     req.Limit,
-		Offset:    req.Offset,
+		PaginationParams: req.PaginationParams,
+		AccountID:        claims.Account.ID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

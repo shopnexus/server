@@ -427,12 +427,12 @@ func (r iteratorForCreateCopyPayment) Values() ([]interface{}, error) {
 		r.rows[0].Amount,
 		r.rows[0].Data,
 		r.rows[0].PaymentMethodID,
-		r.rows[0].DateCreated,
-		r.rows[0].DatePaid,
-		r.rows[0].DateExpired,
 		r.rows[0].BuyerCurrency,
 		r.rows[0].SellerCurrency,
 		r.rows[0].ExchangeRate,
+		r.rows[0].DateCreated,
+		r.rows[0].DatePaid,
+		r.rows[0].DateExpired,
 	}, nil
 }
 
@@ -441,7 +441,7 @@ func (r iteratorForCreateCopyPayment) Err() error {
 }
 
 func (q *Queries) CreateCopyPayment(ctx context.Context, arg []CreateCopyPaymentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "payment"}, []string{"account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate"}, &iteratorForCreateCopyPayment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "payment"}, []string{"account_id", "option", "status", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_created", "date_paid", "date_expired"}, &iteratorForCreateCopyPayment{rows: arg})
 }
 
 // iteratorForCreateCopyRefund implements pgx.CopyFromSource.

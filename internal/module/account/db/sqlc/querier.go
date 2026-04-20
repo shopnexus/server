@@ -20,9 +20,6 @@ type Querier interface {
 	CountPaymentMethod(ctx context.Context, arg CountPaymentMethodParams) (int64, error)
 	CountProfile(ctx context.Context, arg CountProfileParams) (int64, error)
 	CountUnreadByAccount(ctx context.Context, accountID uuid.UUID) (int64, error)
-	// ========================================
-	// Queries for table: account.wallet
-	// ========================================
 	CountWallet(ctx context.Context, arg CountWalletParams) (int64, error)
 	CountWalletTransaction(ctx context.Context, arg CountWalletTransactionParams) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error)
@@ -68,7 +65,7 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
 	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (AccountPaymentMethod, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
-	CreateWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error)
+	CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error)
 	CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error)
 	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountWallet, error)
 	DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountWallet, error)
@@ -111,7 +108,10 @@ type Querier interface {
 	// Queries for table: account.profile
 	// ========================================
 	GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error)
-	GetWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error)
+	// ========================================
+	// Queries for table: account.wallet
+	// ========================================
+	GetWallet(ctx context.Context, arg GetWalletParams) (AccountWallet, error)
 	// ========================================
 	// Queries for table: account.wallet_transaction
 	// ========================================
@@ -138,7 +138,6 @@ type Querier interface {
 	ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error)
 	ListWallet(ctx context.Context, arg ListWalletParams) ([]AccountWallet, error)
 	ListWalletTransaction(ctx context.Context, arg ListWalletTransactionParams) ([]AccountWalletTransaction, error)
-	ListWalletTransactions(ctx context.Context, arg ListWalletTransactionsParams) ([]AccountWalletTransaction, error)
 	MarkAllNotificationRead(ctx context.Context, accountID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (AccountPaymentMethod, error)

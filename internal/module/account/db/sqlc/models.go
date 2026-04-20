@@ -337,6 +337,7 @@ type AccountProfile struct {
 }
 
 type AccountWallet struct {
+	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	Balance   int64     `json:"balance"`
 }

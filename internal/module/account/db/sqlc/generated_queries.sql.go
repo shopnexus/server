@@ -450,29 +450,28 @@ func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int
 }
 
 const countWallet = `-- name: CountWallet :one
-
 SELECT COUNT(*)
 FROM "account"."wallet"
 WHERE (
-    ("account_id" = ANY($1) OR $1 IS NULL) AND
-    ("balance" = ANY($2) OR $2 IS NULL) AND
-    ("balance" >= $3 OR $3 IS NULL) AND
-    ("balance" <= $4 OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("balance" = ANY($3) OR $3 IS NULL) AND
+    ("balance" >= $4 OR $4 IS NULL) AND
+    ("balance" <= $5 OR $5 IS NULL)
 )
 `
 
 type CountWalletParams struct {
+	ID          []int64     `json:"id"`
 	AccountID   []uuid.UUID `json:"account_id"`
 	Balance     []int64     `json:"balance"`
 	BalanceFrom null.Int    `json:"balance_from"`
 	BalanceTo   null.Int    `json:"balance_to"`
 }
 
-// ========================================
-// Queries for table: account.wallet
-// ========================================
 func (q *Queries) CountWallet(ctx context.Context, arg CountWalletParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countWallet,
+		arg.ID,
 		arg.AccountID,
 		arg.Balance,
 		arg.BalanceFrom,
@@ -1048,13 +1047,13 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 const createDefaultWallet = `-- name: CreateDefaultWallet :one
 INSERT INTO "account"."wallet" ("account_id")
 VALUES ($1)
-RETURNING account_id, balance
+RETURNING id, account_id, balance
 `
 
 func (q *Queries) CreateDefaultWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error) {
 	row := q.db.QueryRow(ctx, createDefaultWallet, accountID)
 	var i AccountWallet
-	err := row.Scan(&i.AccountID, &i.Balance)
+	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 	return i, err
 }
 
@@ -1298,6 +1297,61 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		&i.DateCreated,
 		&i.DateUpdated,
 		&i.Settings,
+	)
+	return i, err
+}
+
+const createWallet = `-- name: CreateWallet :one
+INSERT INTO "account"."wallet" ("account_id", "balance")
+VALUES ($1, $2)
+RETURNING id, account_id, balance
+`
+
+type CreateWalletParams struct {
+	AccountID uuid.UUID `json:"account_id"`
+	Balance   int64     `json:"balance"`
+}
+
+func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error) {
+	row := q.db.QueryRow(ctx, createWallet, arg.AccountID, arg.Balance)
+	var i AccountWallet
+	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
+	return i, err
+}
+
+const createWalletTransaction = `-- name: CreateWalletTransaction :one
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, type, amount, reference_id, note, date_created
+`
+
+type CreateWalletTransactionParams struct {
+	AccountID   uuid.UUID                    `json:"account_id"`
+	Type        AccountWalletTransactionType `json:"type"`
+	Amount      int64                        `json:"amount"`
+	ReferenceID null.String                  `json:"reference_id"`
+	Note        null.String                  `json:"note"`
+	DateCreated time.Time                    `json:"date_created"`
+}
+
+func (q *Queries) CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error) {
+	row := q.db.QueryRow(ctx, createWalletTransaction,
+		arg.AccountID,
+		arg.Type,
+		arg.Amount,
+		arg.ReferenceID,
+		arg.Note,
+		arg.DateCreated,
+	)
+	var i AccountWalletTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Type,
+		&i.Amount,
+		&i.ReferenceID,
+		&i.Note,
+		&i.DateCreated,
 	)
 	return i, err
 }
@@ -1719,14 +1773,16 @@ func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) er
 const deleteWallet = `-- name: DeleteWallet :exec
 DELETE FROM "account"."wallet"
 WHERE (
-    ("account_id" = ANY($1) OR $1 IS NULL) AND
-    ("balance" = ANY($2) OR $2 IS NULL) AND
-    ("balance" >= $3 OR $3 IS NULL) AND
-    ("balance" <= $4 OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("balance" = ANY($3) OR $3 IS NULL) AND
+    ("balance" >= $4 OR $4 IS NULL) AND
+    ("balance" <= $5 OR $5 IS NULL)
 )
 `
 
 type DeleteWalletParams struct {
+	ID          []int64     `json:"id"`
 	AccountID   []uuid.UUID `json:"account_id"`
 	Balance     []int64     `json:"balance"`
 	BalanceFrom null.Int    `json:"balance_from"`
@@ -1735,6 +1791,7 @@ type DeleteWalletParams struct {
 
 func (q *Queries) DeleteWallet(ctx context.Context, arg DeleteWalletParams) error {
 	_, err := q.db.Exec(ctx, deleteWallet,
+		arg.ID,
 		arg.AccountID,
 		arg.Balance,
 		arg.BalanceFrom,
@@ -2010,6 +2067,28 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (Account
 		&i.DateUpdated,
 		&i.Settings,
 	)
+	return i, err
+}
+
+const getWallet = `-- name: GetWallet :one
+
+SELECT id, account_id, balance
+FROM "account"."wallet"
+WHERE ("id" = $1) OR ("account_id" = $2)
+`
+
+type GetWalletParams struct {
+	ID        null.Int      `json:"id"`
+	AccountID uuid.NullUUID `json:"account_id"`
+}
+
+// ========================================
+// Queries for table: account.wallet
+// ========================================
+func (q *Queries) GetWallet(ctx context.Context, arg GetWalletParams) (AccountWallet, error) {
+	row := q.db.QueryRow(ctx, getWallet, arg.ID, arg.AccountID)
+	var i AccountWallet
+	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 	return i, err
 }
 
@@ -2926,20 +3005,22 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 }
 
 const listCountWallet = `-- name: ListCountWallet :many
-SELECT embed_wallet.account_id, embed_wallet.balance, COUNT(*) OVER() as total_count
+SELECT embed_wallet.id, embed_wallet.account_id, embed_wallet.balance, COUNT(*) OVER() as total_count
 FROM "account"."wallet" embed_wallet
 WHERE (
-    ("account_id" = ANY($1) OR $1 IS NULL) AND
-    ("balance" = ANY($2) OR $2 IS NULL) AND
-    ("balance" >= $3 OR $3 IS NULL) AND
-    ("balance" <= $4 OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("balance" = ANY($3) OR $3 IS NULL) AND
+    ("balance" >= $4 OR $4 IS NULL) AND
+    ("balance" <= $5 OR $5 IS NULL)
 )
-ORDER BY "account_id"
-LIMIT $6::int
-OFFSET $5::int
+ORDER BY "id"
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListCountWalletParams struct {
+	ID          []int64     `json:"id"`
 	AccountID   []uuid.UUID `json:"account_id"`
 	Balance     []int64     `json:"balance"`
 	BalanceFrom null.Int    `json:"balance_from"`
@@ -2955,6 +3036,7 @@ type ListCountWalletRow struct {
 
 func (q *Queries) ListCountWallet(ctx context.Context, arg ListCountWalletParams) ([]ListCountWalletRow, error) {
 	rows, err := q.db.Query(ctx, listCountWallet,
+		arg.ID,
 		arg.AccountID,
 		arg.Balance,
 		arg.BalanceFrom,
@@ -2969,7 +3051,12 @@ func (q *Queries) ListCountWallet(ctx context.Context, arg ListCountWalletParams
 	items := []ListCountWalletRow{}
 	for rows.Next() {
 		var i ListCountWalletRow
-		if err := rows.Scan(&i.AccountWallet.AccountID, &i.AccountWallet.Balance, &i.TotalCount); err != nil {
+		if err := rows.Scan(
+			&i.AccountWallet.ID,
+			&i.AccountWallet.AccountID,
+			&i.AccountWallet.Balance,
+			&i.TotalCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3511,20 +3598,22 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 }
 
 const listWallet = `-- name: ListWallet :many
-SELECT account_id, balance
+SELECT id, account_id, balance
 FROM "account"."wallet"
 WHERE (
-    ("account_id" = ANY($1) OR $1 IS NULL) AND
-    ("balance" = ANY($2) OR $2 IS NULL) AND
-    ("balance" >= $3 OR $3 IS NULL) AND
-    ("balance" <= $4 OR $4 IS NULL)
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("account_id" = ANY($2) OR $2 IS NULL) AND
+    ("balance" = ANY($3) OR $3 IS NULL) AND
+    ("balance" >= $4 OR $4 IS NULL) AND
+    ("balance" <= $5 OR $5 IS NULL)
 )
-ORDER BY "account_id"
-LIMIT $6::int
-OFFSET $5::int
+ORDER BY "id"
+LIMIT $7::int
+OFFSET $6::int
 `
 
 type ListWalletParams struct {
+	ID          []int64     `json:"id"`
 	AccountID   []uuid.UUID `json:"account_id"`
 	Balance     []int64     `json:"balance"`
 	BalanceFrom null.Int    `json:"balance_from"`
@@ -3535,6 +3624,7 @@ type ListWalletParams struct {
 
 func (q *Queries) ListWallet(ctx context.Context, arg ListWalletParams) ([]AccountWallet, error) {
 	rows, err := q.db.Query(ctx, listWallet,
+		arg.ID,
 		arg.AccountID,
 		arg.Balance,
 		arg.BalanceFrom,
@@ -3549,7 +3639,7 @@ func (q *Queries) ListWallet(ctx context.Context, arg ListWalletParams) ([]Accou
 	items := []AccountWallet{}
 	for rows.Next() {
 		var i AccountWallet
-		if err := rows.Scan(&i.AccountID, &i.Balance); err != nil {
+		if err := rows.Scan(&i.ID, &i.AccountID, &i.Balance); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -4039,20 +4129,22 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 
 const updateWallet = `-- name: UpdateWallet :one
 UPDATE "account"."wallet"
-SET "balance" = COALESCE($1, "balance")
-WHERE "account_id" = $2
-RETURNING account_id, balance
+SET "account_id" = COALESCE($1, "account_id"),
+    "balance" = COALESCE($2, "balance")
+WHERE id = $3
+RETURNING id, account_id, balance
 `
 
 type UpdateWalletParams struct {
-	Balance   null.Int  `json:"balance"`
-	AccountID uuid.UUID `json:"account_id"`
+	AccountID uuid.NullUUID `json:"account_id"`
+	Balance   null.Int      `json:"balance"`
+	ID        int64         `json:"id"`
 }
 
 func (q *Queries) UpdateWallet(ctx context.Context, arg UpdateWalletParams) (AccountWallet, error) {
-	row := q.db.QueryRow(ctx, updateWallet, arg.Balance, arg.AccountID)
+	row := q.db.QueryRow(ctx, updateWallet, arg.AccountID, arg.Balance, arg.ID)
 	var i AccountWallet
-	err := row.Scan(&i.AccountID, &i.Balance)
+	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 	return i, err
 }
 

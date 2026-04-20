@@ -134,10 +134,10 @@ func AllCatalogSearchSyncRefTypeValues() []CatalogSearchSyncRefType {
 }
 
 type CatalogCategory struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	ParentID    null.Int  `json:"parent_id"`
+	ID          uuid.UUID     `json:"id"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	ParentID    uuid.NullUUID `json:"parent_id"`
 }
 
 type CatalogComment struct {
@@ -163,7 +163,6 @@ type CatalogProductSku struct {
 	PackageDetails json.RawMessage `json:"package_details"`
 	DateCreated    time.Time       `json:"date_created"`
 	DateDeleted    null.Time       `json:"date_deleted"`
-	Currency       string          `json:"currency"`
 }
 
 type CatalogProductSpu struct {

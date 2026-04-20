@@ -554,7 +554,7 @@ func (b *CreateBatchProfileBatchResults) Close() error {
 const createBatchWallet = `-- name: CreateBatchWallet :batchone
 INSERT INTO "account"."wallet" ("account_id", "balance")
 VALUES ($1, $2)
-RETURNING account_id, balance
+RETURNING id, account_id, balance
 `
 
 type CreateBatchWalletBatchResults struct {
@@ -592,7 +592,7 @@ func (b *CreateBatchWalletBatchResults) QueryRow(f func(int, AccountWallet, erro
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.AccountID, &i.Balance)
+		err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 		if f != nil {
 			f(t, i, err)
 		}

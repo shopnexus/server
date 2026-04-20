@@ -38,7 +38,9 @@ type WalletCreditParams struct {
 // GetWalletBalance returns the wallet balance for the given account ID.
 // Returns 0 if no wallet exists yet.
 func (b *AccountHandler) GetWalletBalance(ctx restate.Context, accountID uuid.UUID) (int64, error) {
-	wallet, err := b.storage.Querier().GetWallet(ctx, accountID)
+	wallet, err := b.storage.Querier().GetWallet(ctx, accountdb.GetWalletParams{
+		AccountID: uuid.NullUUID{UUID: accountID, Valid: true},
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, nil
@@ -60,7 +62,9 @@ func (b *AccountHandler) WalletDebit(ctx restate.Context, params WalletDebitPara
 
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (dbResult, error) {
 		// Get current balance to compute deducted amount
-		wallet, err := b.storage.Querier().GetWallet(ctx, params.AccountID)
+		wallet, err := b.storage.Querier().GetWallet(ctx, accountdb.GetWalletParams{
+			AccountID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return dbResult{}, nil
@@ -134,14 +138,13 @@ func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditPa
 	return nil
 }
 
-// nullableString returns a pointer to s if non-empty, otherwise nil.
 // ListWalletTransactions returns paginated wallet transactions for the given account.
 func (b *AccountHandler) ListWalletTransactions(ctx restate.Context, params ListWalletTransactionsParams) ([]WalletTransactionResult, error) {
 	txs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]WalletTransactionResult, error) {
-		dbTxs, err := b.storage.Querier().ListWalletTransactions(ctx, accountdb.ListWalletTransactionsParams{
-			AccountID: params.AccountID,
-			Limit:     int32(params.Limit),
-			Offset:    int32(params.Offset),
+		dbTxs, err := b.storage.Querier().ListWalletTransaction(ctx, accountdb.ListWalletTransactionParams{
+			AccountID: []uuid.UUID{params.AccountID},
+			Limit:     params.Limit,
+			Offset:    params.Offset(),
 		})
 		if err != nil {
 			return nil, err

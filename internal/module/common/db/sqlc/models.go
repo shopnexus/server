@@ -83,6 +83,7 @@ func AllCommonResourceRefTypeValues() []CommonResourceRefType {
 }
 
 type CommonExchangeRate struct {
+	ID          int64          `json:"id"`
 	Base        string         `json:"base"`
 	Target      string         `json:"target"`
 	Rate        pgtype.Numeric `json:"rate"`

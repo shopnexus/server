@@ -259,18 +259,18 @@ WHERE (
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
     ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("date_paid" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" = ANY($14) OR $14 IS NULL) AND
-    ("date_expired" >= $15 OR $15 IS NULL) AND
-    ("date_expired" <= $16 OR $16 IS NULL) AND
-    ("buyer_currency" = ANY($17) OR $17 IS NULL) AND
-    ("seller_currency" = ANY($18) OR $18 IS NULL) AND
-    ("exchange_rate" = ANY($19) OR $19 IS NULL) AND
-    ("exchange_rate" >= $20 OR $20 IS NULL) AND
-    ("exchange_rate" <= $21 OR $21 IS NULL)
+    ("buyer_currency" = ANY($10) OR $10 IS NULL) AND
+    ("seller_currency" = ANY($11) OR $11 IS NULL) AND
+    ("exchange_rate" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" >= $13 OR $13 IS NULL) AND
+    ("exchange_rate" <= $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_paid" = ANY($18) OR $18 IS NULL) AND
+    ("date_expired" = ANY($19) OR $19 IS NULL) AND
+    ("date_expired" >= $20 OR $20 IS NULL) AND
+    ("date_expired" <= $21 OR $21 IS NULL)
 )
 `
 
@@ -284,6 +284,11 @@ type CountPaymentParams struct {
 	AmountTo         null.Int          `json:"amount_to"`
 	Data             []json.RawMessage `json:"data"`
 	PaymentMethodID  []uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency    []string          `json:"buyer_currency"`
+	SellerCurrency   []string          `json:"seller_currency"`
+	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
+	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
+	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -291,11 +296,6 @@ type CountPaymentParams struct {
 	DateExpired      []time.Time       `json:"date_expired"`
 	DateExpiredFrom  null.Time         `json:"date_expired_from"`
 	DateExpiredTo    null.Time         `json:"date_expired_to"`
-	BuyerCurrency    []string          `json:"buyer_currency"`
-	SellerCurrency   []string          `json:"seller_currency"`
-	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
-	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
-	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 }
 
 func (q *Queries) CountPayment(ctx context.Context, arg CountPaymentParams) (int64, error) {
@@ -309,6 +309,11 @@ func (q *Queries) CountPayment(ctx context.Context, arg CountPaymentParams) (int
 		arg.AmountTo,
 		arg.Data,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
+		arg.ExchangeRateFrom,
+		arg.ExchangeRateTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -316,11 +321,6 @@ func (q *Queries) CountPayment(ctx context.Context, arg CountPaymentParams) (int
 		arg.DateExpired,
 		arg.DateExpiredFrom,
 		arg.DateExpiredTo,
-		arg.BuyerCurrency,
-		arg.SellerCurrency,
-		arg.ExchangeRate,
-		arg.ExchangeRateFrom,
-		arg.ExchangeRateTo,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -646,12 +646,12 @@ type CreateCopyPaymentParams struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DatePaid        null.Time       `json:"date_paid"`
-	DateExpired     time.Time       `json:"date_expired"`
 	BuyerCurrency   string          `json:"buyer_currency"`
 	SellerCurrency  string          `json:"seller_currency"`
 	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 type CreateCopyRefundParams struct {
@@ -1109,7 +1109,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
@@ -1121,12 +1121,12 @@ type CreatePaymentParams struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DatePaid        null.Time       `json:"date_paid"`
-	DateExpired     time.Time       `json:"date_expired"`
 	BuyerCurrency   string          `json:"buyer_currency"`
 	SellerCurrency  string          `json:"seller_currency"`
 	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (OrderPayment, error) {
@@ -1137,12 +1137,12 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (O
 		arg.Amount,
 		arg.Data,
 		arg.PaymentMethodID,
-		arg.DateCreated,
-		arg.DatePaid,
-		arg.DateExpired,
 		arg.BuyerCurrency,
 		arg.SellerCurrency,
 		arg.ExchangeRate,
+		arg.DateCreated,
+		arg.DatePaid,
+		arg.DateExpired,
 	)
 	var i OrderPayment
 	err := row.Scan(
@@ -1535,18 +1535,18 @@ WHERE (
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
     ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("date_paid" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" = ANY($14) OR $14 IS NULL) AND
-    ("date_expired" >= $15 OR $15 IS NULL) AND
-    ("date_expired" <= $16 OR $16 IS NULL) AND
-    ("buyer_currency" = ANY($17) OR $17 IS NULL) AND
-    ("seller_currency" = ANY($18) OR $18 IS NULL) AND
-    ("exchange_rate" = ANY($19) OR $19 IS NULL) AND
-    ("exchange_rate" >= $20 OR $20 IS NULL) AND
-    ("exchange_rate" <= $21 OR $21 IS NULL)
+    ("buyer_currency" = ANY($10) OR $10 IS NULL) AND
+    ("seller_currency" = ANY($11) OR $11 IS NULL) AND
+    ("exchange_rate" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" >= $13 OR $13 IS NULL) AND
+    ("exchange_rate" <= $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_paid" = ANY($18) OR $18 IS NULL) AND
+    ("date_expired" = ANY($19) OR $19 IS NULL) AND
+    ("date_expired" >= $20 OR $20 IS NULL) AND
+    ("date_expired" <= $21 OR $21 IS NULL)
 )
 `
 
@@ -1560,6 +1560,11 @@ type DeletePaymentParams struct {
 	AmountTo         null.Int          `json:"amount_to"`
 	Data             []json.RawMessage `json:"data"`
 	PaymentMethodID  []uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency    []string          `json:"buyer_currency"`
+	SellerCurrency   []string          `json:"seller_currency"`
+	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
+	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
+	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -1567,11 +1572,6 @@ type DeletePaymentParams struct {
 	DateExpired      []time.Time       `json:"date_expired"`
 	DateExpiredFrom  null.Time         `json:"date_expired_from"`
 	DateExpiredTo    null.Time         `json:"date_expired_to"`
-	BuyerCurrency    []string          `json:"buyer_currency"`
-	SellerCurrency   []string          `json:"seller_currency"`
-	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
-	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
-	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 }
 
 func (q *Queries) DeletePayment(ctx context.Context, arg DeletePaymentParams) error {
@@ -1585,6 +1585,11 @@ func (q *Queries) DeletePayment(ctx context.Context, arg DeletePaymentParams) er
 		arg.AmountTo,
 		arg.Data,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
+		arg.ExchangeRateFrom,
+		arg.ExchangeRateTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -1592,11 +1597,6 @@ func (q *Queries) DeletePayment(ctx context.Context, arg DeletePaymentParams) er
 		arg.DateExpired,
 		arg.DateExpiredFrom,
 		arg.DateExpiredTo,
-		arg.BuyerCurrency,
-		arg.SellerCurrency,
-		arg.ExchangeRate,
-		arg.ExchangeRateFrom,
-		arg.ExchangeRateTo,
 	)
 	return err
 }
@@ -2405,18 +2405,18 @@ WHERE (
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
     ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("date_paid" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" = ANY($14) OR $14 IS NULL) AND
-    ("date_expired" >= $15 OR $15 IS NULL) AND
-    ("date_expired" <= $16 OR $16 IS NULL) AND
-    ("buyer_currency" = ANY($17) OR $17 IS NULL) AND
-    ("seller_currency" = ANY($18) OR $18 IS NULL) AND
-    ("exchange_rate" = ANY($19) OR $19 IS NULL) AND
-    ("exchange_rate" >= $20 OR $20 IS NULL) AND
-    ("exchange_rate" <= $21 OR $21 IS NULL)
+    ("buyer_currency" = ANY($10) OR $10 IS NULL) AND
+    ("seller_currency" = ANY($11) OR $11 IS NULL) AND
+    ("exchange_rate" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" >= $13 OR $13 IS NULL) AND
+    ("exchange_rate" <= $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_paid" = ANY($18) OR $18 IS NULL) AND
+    ("date_expired" = ANY($19) OR $19 IS NULL) AND
+    ("date_expired" >= $20 OR $20 IS NULL) AND
+    ("date_expired" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
 LIMIT $23::int
@@ -2433,6 +2433,11 @@ type ListCountPaymentParams struct {
 	AmountTo         null.Int          `json:"amount_to"`
 	Data             []json.RawMessage `json:"data"`
 	PaymentMethodID  []uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency    []string          `json:"buyer_currency"`
+	SellerCurrency   []string          `json:"seller_currency"`
+	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
+	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
+	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -2440,11 +2445,6 @@ type ListCountPaymentParams struct {
 	DateExpired      []time.Time       `json:"date_expired"`
 	DateExpiredFrom  null.Time         `json:"date_expired_from"`
 	DateExpiredTo    null.Time         `json:"date_expired_to"`
-	BuyerCurrency    []string          `json:"buyer_currency"`
-	SellerCurrency   []string          `json:"seller_currency"`
-	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
-	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
-	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	Offset           null.Int32        `json:"offset"`
 	Limit            null.Int32        `json:"limit"`
 }
@@ -2465,6 +2465,11 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 		arg.AmountTo,
 		arg.Data,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
+		arg.ExchangeRateFrom,
+		arg.ExchangeRateTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -2472,11 +2477,6 @@ func (q *Queries) ListCountPayment(ctx context.Context, arg ListCountPaymentPara
 		arg.DateExpired,
 		arg.DateExpiredFrom,
 		arg.DateExpiredTo,
-		arg.BuyerCurrency,
-		arg.SellerCurrency,
-		arg.ExchangeRate,
-		arg.ExchangeRateFrom,
-		arg.ExchangeRateTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -3083,18 +3083,18 @@ WHERE (
     ("amount" <= $7 OR $7 IS NULL) AND
     ("data" = ANY($8) OR $8 IS NULL) AND
     ("payment_method_id" = ANY($9) OR $9 IS NULL) AND
-    ("date_created" = ANY($10) OR $10 IS NULL) AND
-    ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("date_paid" = ANY($13) OR $13 IS NULL) AND
-    ("date_expired" = ANY($14) OR $14 IS NULL) AND
-    ("date_expired" >= $15 OR $15 IS NULL) AND
-    ("date_expired" <= $16 OR $16 IS NULL) AND
-    ("buyer_currency" = ANY($17) OR $17 IS NULL) AND
-    ("seller_currency" = ANY($18) OR $18 IS NULL) AND
-    ("exchange_rate" = ANY($19) OR $19 IS NULL) AND
-    ("exchange_rate" >= $20 OR $20 IS NULL) AND
-    ("exchange_rate" <= $21 OR $21 IS NULL)
+    ("buyer_currency" = ANY($10) OR $10 IS NULL) AND
+    ("seller_currency" = ANY($11) OR $11 IS NULL) AND
+    ("exchange_rate" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" >= $13 OR $13 IS NULL) AND
+    ("exchange_rate" <= $14 OR $14 IS NULL) AND
+    ("date_created" = ANY($15) OR $15 IS NULL) AND
+    ("date_created" >= $16 OR $16 IS NULL) AND
+    ("date_created" <= $17 OR $17 IS NULL) AND
+    ("date_paid" = ANY($18) OR $18 IS NULL) AND
+    ("date_expired" = ANY($19) OR $19 IS NULL) AND
+    ("date_expired" >= $20 OR $20 IS NULL) AND
+    ("date_expired" <= $21 OR $21 IS NULL)
 )
 ORDER BY "id"
 LIMIT $23::int
@@ -3111,6 +3111,11 @@ type ListPaymentParams struct {
 	AmountTo         null.Int          `json:"amount_to"`
 	Data             []json.RawMessage `json:"data"`
 	PaymentMethodID  []uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency    []string          `json:"buyer_currency"`
+	SellerCurrency   []string          `json:"seller_currency"`
+	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
+	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
+	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -3118,11 +3123,6 @@ type ListPaymentParams struct {
 	DateExpired      []time.Time       `json:"date_expired"`
 	DateExpiredFrom  null.Time         `json:"date_expired_from"`
 	DateExpiredTo    null.Time         `json:"date_expired_to"`
-	BuyerCurrency    []string          `json:"buyer_currency"`
-	SellerCurrency   []string          `json:"seller_currency"`
-	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
-	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
-	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
 	Offset           null.Int32        `json:"offset"`
 	Limit            null.Int32        `json:"limit"`
 }
@@ -3138,6 +3138,11 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 		arg.AmountTo,
 		arg.Data,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
+		arg.ExchangeRateFrom,
+		arg.ExchangeRateTo,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -3145,11 +3150,6 @@ func (q *Queries) ListPayment(ctx context.Context, arg ListPaymentParams) ([]Ord
 		arg.DateExpired,
 		arg.DateExpiredFrom,
 		arg.DateExpiredTo,
-		arg.BuyerCurrency,
-		arg.SellerCurrency,
-		arg.ExchangeRate,
-		arg.ExchangeRateFrom,
-		arg.ExchangeRateTo,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -3673,12 +3673,12 @@ SET "account_id" = COALESCE($1, "account_id"),
     "amount" = COALESCE($4, "amount"),
     "data" = COALESCE($5, "data"),
     "payment_method_id" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "payment_method_id") END,
-    "date_created" = COALESCE($8, "date_created"),
-    "date_paid" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "date_paid") END,
-    "date_expired" = COALESCE($11, "date_expired"),
-    "buyer_currency" = COALESCE($12, "buyer_currency"),
-    "seller_currency" = COALESCE($13, "seller_currency"),
-    "exchange_rate" = COALESCE($14, "exchange_rate")
+    "buyer_currency" = COALESCE($8, "buyer_currency"),
+    "seller_currency" = COALESCE($9, "seller_currency"),
+    "exchange_rate" = COALESCE($10, "exchange_rate"),
+    "date_created" = COALESCE($11, "date_created"),
+    "date_paid" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "date_paid") END,
+    "date_expired" = COALESCE($14, "date_expired")
 WHERE id = $15
 RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
@@ -3691,13 +3691,13 @@ type UpdatePaymentParams struct {
 	Data                json.RawMessage `json:"data"`
 	NullPaymentMethodID bool            `json:"null_payment_method_id"`
 	PaymentMethodID     uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency       null.String     `json:"buyer_currency"`
+	SellerCurrency      null.String     `json:"seller_currency"`
+	ExchangeRate        pgtype.Numeric  `json:"exchange_rate"`
 	DateCreated         null.Time       `json:"date_created"`
 	NullDatePaid        bool            `json:"null_date_paid"`
 	DatePaid            null.Time       `json:"date_paid"`
 	DateExpired         null.Time       `json:"date_expired"`
-	BuyerCurrency       null.String     `json:"buyer_currency"`
-	SellerCurrency      null.String     `json:"seller_currency"`
-	ExchangeRate        pgtype.Numeric  `json:"exchange_rate"`
 	ID                  int64           `json:"id"`
 }
 
@@ -3710,13 +3710,13 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (O
 		arg.Data,
 		arg.NullPaymentMethodID,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
 		arg.DateCreated,
 		arg.NullDatePaid,
 		arg.DatePaid,
 		arg.DateExpired,
-		arg.BuyerCurrency,
-		arg.SellerCurrency,
-		arg.ExchangeRate,
 		arg.ID,
 	)
 	var i OrderPayment

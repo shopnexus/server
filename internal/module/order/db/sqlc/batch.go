@@ -273,7 +273,7 @@ func (b *CreateBatchOrderBatchResults) Close() error {
 }
 
 const createBatchPayment = `-- name: CreateBatchPayment :batchone
-INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "date_created", "date_paid", "date_expired", "buyer_currency", "seller_currency", "exchange_rate")
+INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
@@ -291,12 +291,12 @@ type CreateBatchPaymentParams struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DatePaid        null.Time       `json:"date_paid"`
-	DateExpired     time.Time       `json:"date_expired"`
 	BuyerCurrency   string          `json:"buyer_currency"`
 	SellerCurrency  string          `json:"seller_currency"`
 	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
+	DateCreated     time.Time       `json:"date_created"`
+	DatePaid        null.Time       `json:"date_paid"`
+	DateExpired     time.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreateBatchPayment(ctx context.Context, arg []CreateBatchPaymentParams) *CreateBatchPaymentBatchResults {
@@ -309,12 +309,12 @@ func (q *Queries) CreateBatchPayment(ctx context.Context, arg []CreateBatchPayme
 			a.Amount,
 			a.Data,
 			a.PaymentMethodID,
-			a.DateCreated,
-			a.DatePaid,
-			a.DateExpired,
 			a.BuyerCurrency,
 			a.SellerCurrency,
 			a.ExchangeRate,
+			a.DateCreated,
+			a.DatePaid,
+			a.DateExpired,
 		}
 		batch.Queue(createBatchPayment, vals...)
 	}

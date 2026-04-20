@@ -118,9 +118,8 @@ func NewAccountHandler(
 }
 
 type ListWalletTransactionsParams struct {
+	sharedmodel.PaginationParams
 	AccountID uuid.UUID `validate:"required"`
-	Limit     int64     `validate:"min=1,max=100"`
-	Offset    int64     `validate:"min=0"`
 }
 
 type WalletTransactionResult struct {

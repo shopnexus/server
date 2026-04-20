@@ -14,11 +14,78 @@ import (
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
+
+const createBatchExchangeRate = `-- name: CreateBatchExchangeRate :batchone
+INSERT INTO "common"."exchange_rate" ("base", "target", "rate", "fetched_at", "date_updated")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, base, target, rate, fetched_at, date_updated
+`
+
+type CreateBatchExchangeRateBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchExchangeRateParams struct {
+	Base        string         `json:"base"`
+	Target      string         `json:"target"`
+	Rate        pgtype.Numeric `json:"rate"`
+	FetchedAt   time.Time      `json:"fetched_at"`
+	DateUpdated time.Time      `json:"date_updated"`
+}
+
+func (q *Queries) CreateBatchExchangeRate(ctx context.Context, arg []CreateBatchExchangeRateParams) *CreateBatchExchangeRateBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Base,
+			a.Target,
+			a.Rate,
+			a.FetchedAt,
+			a.DateUpdated,
+		}
+		batch.Queue(createBatchExchangeRate, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchExchangeRateBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchExchangeRateBatchResults) QueryRow(f func(int, CommonExchangeRate, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i CommonExchangeRate
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Base,
+			&i.Target,
+			&i.Rate,
+			&i.FetchedAt,
+			&i.DateUpdated,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchExchangeRateBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
 
 const createBatchResource = `-- name: CreateBatchResource :batchone
 INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
