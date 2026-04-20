@@ -93,3 +93,20 @@ All under `/api/v1/common`.
 | POST | `/geocode/forward` | Convert address to lat/lng |
 | GET | `/geocode/search` | Location suggestions for partial query (`q`, `limit` params) |
 | GET | `/stream` | SSE stream for real-time events |
+
+## Exchange Rates
+
+Goroutine + `time.Ticker` cron (`CommonHandler.SetupExchangeCron`) fetches
+rates from Frankfurter every 6h (configurable via `exchange.refresh_interval`).
+Rates are stored in `common.exchange_rate` keyed on `(base, target)`.
+
+Use the `ConvertAmount` biz method for backend-side cross-currency math.
+Frontend reads the snapshot via `GET /api/v1/common/currencies/rates`.
+
+Config keys (under `app.exchange`):
+- `base` — storage base currency (USD)
+- `supported` — whitelist of supported codes
+- `refreshInterval` — cron interval
+- `httpTimeout` — upstream HTTP timeout
+- `defaultUserCurrency` — new-profile default
+- `upstreamURL` — Frankfurter endpoint

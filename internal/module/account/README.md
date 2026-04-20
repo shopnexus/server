@@ -197,3 +197,17 @@ All routes prefixed with `/api/v1/account`.
 | Module | Usage |
 |--------|-------|
 | `common` | Resource management for avatar images |
+
+## Profile Settings
+
+`account.profile.settings` is a JSONB column holding user preferences.
+Typed view: `accountmodel.ProfileSettings`. Unknown keys are preserved
+across updates via a load-merge-write pattern.
+
+Update via `PATCH /api/v1/account/me/settings`. Only the authenticated
+user can modify their own settings.
+
+Current fields:
+- `preferred_currency` — ISO 4217 code, validated against
+  `config.App.Exchange.Supported` whitelist and the `iso4217` custom
+  validator tag (format-only regex).
