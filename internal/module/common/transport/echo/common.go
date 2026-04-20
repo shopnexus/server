@@ -23,6 +23,7 @@ func NewHandler(e *echo.Echo, biz commonbiz.CommonBiz, handler *commonbiz.Common
 	api.POST("/geocode/forward", h.ForwardGeocode)
 	api.GET("/geocode/search", h.SearchGeocode)
 	api.GET("/stream", h.HandleSSE)
+	api.GET("/currencies/rates", h.GetExchangeRates)
 
 	return h, nil
 }
