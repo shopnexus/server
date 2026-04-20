@@ -14,6 +14,7 @@ import (
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/locker"
+	redislocker "shopnexus-server/internal/infras/locker/redis"
 	"shopnexus-server/internal/infras/milvus"
 	"shopnexus-server/internal/infras/pubsub"
 	"shopnexus-server/internal/infras/ratelimit"
@@ -193,7 +194,7 @@ func NewLLMClient(cfg *config.Config) (llm.Client, error) {
 }
 
 func NewLocker(rdb rueidis.Client) locker.Client {
-	return locker.NewRedisLocker(rdb, locker.Config{
+	return redislocker.NewRedisLocker(rdb, locker.Config{
 		TTL: 30 * time.Second,
 	})
 }

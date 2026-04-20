@@ -88,7 +88,6 @@ func (b *OrderHandler) ConfirmSellerPending(
 		return zero, sharedmodel.WrapErr("validate confirm items", err)
 	}
 
-	// Lock: exclusive — blocks concurrent reads and other writes on this seller's pending items
 	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
 	defer unlock()
 
