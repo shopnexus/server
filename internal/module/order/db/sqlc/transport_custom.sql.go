@@ -8,9 +8,9 @@ package orderdb
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
-	null "github.com/guregu/null/v6"
 )
 
 const getTransportByTrackingID = `-- name: GetTransportByTrackingID :one
@@ -48,7 +48,7 @@ type GetTransportWithOrderRow struct {
 	Status        NullOrderTransportStatus `json:"status"`
 	Cost          int64                    `json:"cost"`
 	Data          json.RawMessage          `json:"data"`
-	DateCreated   null.Time                `json:"date_created"`
+	DateCreated   time.Time                `json:"date_created"`
 	OrderID       uuid.NullUUID            `json:"order_id"`
 	OrderBuyerID  uuid.NullUUID            `json:"order_buyer_id"`
 	OrderSellerID uuid.NullUUID            `json:"order_seller_id"`

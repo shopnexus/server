@@ -670,11 +670,13 @@ type CreateCopyDefaultContactParams struct {
 }
 
 type CreateCopyDefaultFavoriteParams struct {
+	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	SpuID     uuid.UUID `json:"spu_id"`
 }
 
 type CreateCopyDefaultIncomeHistoryParams struct {
+	ID             int64       `json:"id"`
 	AccountID      uuid.UUID   `json:"account_id"`
 	Type           string      `json:"type"`
 	Income         int64       `json:"income"`
@@ -683,6 +685,7 @@ type CreateCopyDefaultIncomeHistoryParams struct {
 }
 
 type CreateCopyDefaultNotificationParams struct {
+	ID            int64           `json:"id"`
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
@@ -709,7 +712,13 @@ type CreateCopyDefaultProfileParams struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 }
 
+type CreateCopyDefaultWalletParams struct {
+	ID        int64     `json:"id"`
+	AccountID uuid.UUID `json:"account_id"`
+}
+
 type CreateCopyDefaultWalletTransactionParams struct {
+	ID          int64                        `json:"id"`
 	AccountID   uuid.UUID                    `json:"account_id"`
 	Type        AccountWalletTransactionType `json:"type"`
 	Amount      int64                        `json:"amount"`
@@ -718,12 +727,14 @@ type CreateCopyDefaultWalletTransactionParams struct {
 }
 
 type CreateCopyFavoriteParams struct {
+	ID          int64     `json:"id"`
 	AccountID   uuid.UUID `json:"account_id"`
 	SpuID       uuid.UUID `json:"spu_id"`
 	DateCreated time.Time `json:"date_created"`
 }
 
 type CreateCopyIncomeHistoryParams struct {
+	ID             int64       `json:"id"`
 	AccountID      uuid.UUID   `json:"account_id"`
 	Type           string      `json:"type"`
 	Income         int64       `json:"income"`
@@ -733,6 +744,7 @@ type CreateCopyIncomeHistoryParams struct {
 }
 
 type CreateCopyNotificationParams struct {
+	ID            int64           `json:"id"`
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
@@ -773,11 +785,13 @@ type CreateCopyProfileParams struct {
 }
 
 type CreateCopyWalletParams struct {
+	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	Balance   int64     `json:"balance"`
 }
 
 type CreateCopyWalletTransactionParams struct {
+	ID          int64                        `json:"id"`
 	AccountID   uuid.UUID                    `json:"account_id"`
 	Type        AccountWalletTransactionType `json:"type"`
 	Amount      int64                        `json:"amount"`
@@ -865,18 +879,19 @@ func (q *Queries) CreateDefaultContact(ctx context.Context, arg CreateDefaultCon
 }
 
 const createDefaultFavorite = `-- name: CreateDefaultFavorite :one
-INSERT INTO "account"."favorite" ("account_id", "spu_id")
-VALUES ($1, $2)
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id")
+VALUES ($1, $2, $3)
 RETURNING id, account_id, spu_id, date_created
 `
 
 type CreateDefaultFavoriteParams struct {
+	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	SpuID     uuid.UUID `json:"spu_id"`
 }
 
 func (q *Queries) CreateDefaultFavorite(ctx context.Context, arg CreateDefaultFavoriteParams) (AccountFavorite, error) {
-	row := q.db.QueryRow(ctx, createDefaultFavorite, arg.AccountID, arg.SpuID)
+	row := q.db.QueryRow(ctx, createDefaultFavorite, arg.ID, arg.AccountID, arg.SpuID)
 	var i AccountFavorite
 	err := row.Scan(
 		&i.ID,
@@ -888,12 +903,13 @@ func (q *Queries) CreateDefaultFavorite(ctx context.Context, arg CreateDefaultFa
 }
 
 const createDefaultIncomeHistory = `-- name: CreateDefaultIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type CreateDefaultIncomeHistoryParams struct {
+	ID             int64       `json:"id"`
 	AccountID      uuid.UUID   `json:"account_id"`
 	Type           string      `json:"type"`
 	Income         int64       `json:"income"`
@@ -903,6 +919,7 @@ type CreateDefaultIncomeHistoryParams struct {
 
 func (q *Queries) CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefaultIncomeHistoryParams) (AccountIncomeHistory, error) {
 	row := q.db.QueryRow(ctx, createDefaultIncomeHistory,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Income,
@@ -923,12 +940,13 @@ func (q *Queries) CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultNotification = `-- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
 type CreateDefaultNotificationParams struct {
+	ID            int64           `json:"id"`
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
@@ -941,6 +959,7 @@ type CreateDefaultNotificationParams struct {
 
 func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefaultNotificationParams) (AccountNotification, error) {
 	row := q.db.QueryRow(ctx, createDefaultNotification,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
@@ -1045,25 +1064,31 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 }
 
 const createDefaultWallet = `-- name: CreateDefaultWallet :one
-INSERT INTO "account"."wallet" ("account_id")
-VALUES ($1)
+INSERT INTO "account"."wallet" ("id", "account_id")
+VALUES ($1, $2)
 RETURNING id, account_id, balance
 `
 
-func (q *Queries) CreateDefaultWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error) {
-	row := q.db.QueryRow(ctx, createDefaultWallet, accountID)
+type CreateDefaultWalletParams struct {
+	ID        int64     `json:"id"`
+	AccountID uuid.UUID `json:"account_id"`
+}
+
+func (q *Queries) CreateDefaultWallet(ctx context.Context, arg CreateDefaultWalletParams) (AccountWallet, error) {
+	row := q.db.QueryRow(ctx, createDefaultWallet, arg.ID, arg.AccountID)
 	var i AccountWallet
 	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 	return i, err
 }
 
 const createDefaultWalletTransaction = `-- name: CreateDefaultWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, account_id, type, amount, reference_id, note, date_created
 `
 
 type CreateDefaultWalletTransactionParams struct {
+	ID          int64                        `json:"id"`
 	AccountID   uuid.UUID                    `json:"account_id"`
 	Type        AccountWalletTransactionType `json:"type"`
 	Amount      int64                        `json:"amount"`
@@ -1073,6 +1098,7 @@ type CreateDefaultWalletTransactionParams struct {
 
 func (q *Queries) CreateDefaultWalletTransaction(ctx context.Context, arg CreateDefaultWalletTransactionParams) (AccountWalletTransaction, error) {
 	row := q.db.QueryRow(ctx, createDefaultWalletTransaction,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Amount,
@@ -1093,19 +1119,25 @@ func (q *Queries) CreateDefaultWalletTransaction(ctx context.Context, arg Create
 }
 
 const createFavorite = `-- name: CreateFavorite :one
-INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3)
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3, $4)
 RETURNING id, account_id, spu_id, date_created
 `
 
 type CreateFavoriteParams struct {
+	ID          int64     `json:"id"`
 	AccountID   uuid.UUID `json:"account_id"`
 	SpuID       uuid.UUID `json:"spu_id"`
 	DateCreated time.Time `json:"date_created"`
 }
 
 func (q *Queries) CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (AccountFavorite, error) {
-	row := q.db.QueryRow(ctx, createFavorite, arg.AccountID, arg.SpuID, arg.DateCreated)
+	row := q.db.QueryRow(ctx, createFavorite,
+		arg.ID,
+		arg.AccountID,
+		arg.SpuID,
+		arg.DateCreated,
+	)
 	var i AccountFavorite
 	err := row.Scan(
 		&i.ID,
@@ -1117,12 +1149,13 @@ func (q *Queries) CreateFavorite(ctx context.Context, arg CreateFavoriteParams) 
 }
 
 const createIncomeHistory = `-- name: CreateIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
 type CreateIncomeHistoryParams struct {
+	ID             int64       `json:"id"`
 	AccountID      uuid.UUID   `json:"account_id"`
 	Type           string      `json:"type"`
 	Income         int64       `json:"income"`
@@ -1133,6 +1166,7 @@ type CreateIncomeHistoryParams struct {
 
 func (q *Queries) CreateIncomeHistory(ctx context.Context, arg CreateIncomeHistoryParams) (AccountIncomeHistory, error) {
 	row := q.db.QueryRow(ctx, createIncomeHistory,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Income,
@@ -1154,12 +1188,13 @@ func (q *Queries) CreateIncomeHistory(ctx context.Context, arg CreateIncomeHisto
 }
 
 const createNotification = `-- name: CreateNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
 type CreateNotificationParams struct {
+	ID            int64           `json:"id"`
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
@@ -1175,6 +1210,7 @@ type CreateNotificationParams struct {
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error) {
 	row := q.db.QueryRow(ctx, createNotification,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Channel,
@@ -1302,30 +1338,32 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 }
 
 const createWallet = `-- name: CreateWallet :one
-INSERT INTO "account"."wallet" ("account_id", "balance")
-VALUES ($1, $2)
+INSERT INTO "account"."wallet" ("id", "account_id", "balance")
+VALUES ($1, $2, $3)
 RETURNING id, account_id, balance
 `
 
 type CreateWalletParams struct {
+	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	Balance   int64     `json:"balance"`
 }
 
 func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error) {
-	row := q.db.QueryRow(ctx, createWallet, arg.AccountID, arg.Balance)
+	row := q.db.QueryRow(ctx, createWallet, arg.ID, arg.AccountID, arg.Balance)
 	var i AccountWallet
 	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
 	return i, err
 }
 
 const createWalletTransaction = `-- name: CreateWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, account_id, type, amount, reference_id, note, date_created
 `
 
 type CreateWalletTransactionParams struct {
+	ID          int64                        `json:"id"`
 	AccountID   uuid.UUID                    `json:"account_id"`
 	Type        AccountWalletTransactionType `json:"type"`
 	Amount      int64                        `json:"amount"`
@@ -1336,6 +1374,7 @@ type CreateWalletTransactionParams struct {
 
 func (q *Queries) CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error) {
 	row := q.db.QueryRow(ctx, createWalletTransaction,
+		arg.ID,
 		arg.AccountID,
 		arg.Type,
 		arg.Amount,

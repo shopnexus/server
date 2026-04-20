@@ -104,10 +104,13 @@ func (r iteratorForCreateCopyDefaultItem) Values() ([]interface{}, error) {
 		r.rows[0].SkuName,
 		r.rows[0].Quantity,
 		r.rows[0].UnitPrice,
+		r.rows[0].PaidAmount,
+		r.rows[0].Address,
 		r.rows[0].Note,
 		r.rows[0].SerialIds,
 		r.rows[0].PaymentID,
 		r.rows[0].TransportOption,
+		r.rows[0].TransportCostEstimate,
 		r.rows[0].DateCancelled,
 	}, nil
 }
@@ -117,7 +120,7 @@ func (r iteratorForCreateCopyDefaultItem) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultItem(ctx context.Context, arg []CreateCopyDefaultItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled"}, &iteratorForCreateCopyDefaultItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled"}, &iteratorForCreateCopyDefaultItem{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrder implements pgx.CopyFromSource.
@@ -187,6 +190,9 @@ func (r iteratorForCreateCopyDefaultPayment) Values() ([]interface{}, error) {
 		r.rows[0].Amount,
 		r.rows[0].Data,
 		r.rows[0].PaymentMethodID,
+		r.rows[0].BuyerCurrency,
+		r.rows[0].SellerCurrency,
+		r.rows[0].ExchangeRate,
 		r.rows[0].DatePaid,
 		r.rows[0].DateExpired,
 	}, nil
@@ -197,7 +203,7 @@ func (r iteratorForCreateCopyDefaultPayment) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPayment(ctx context.Context, arg []CreateCopyDefaultPaymentParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "payment"}, []string{"account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultPayment{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "payment"}, []string{"account_id", "option", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultPayment{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultRefund implements pgx.CopyFromSource.
@@ -279,7 +285,7 @@ func (q *Queries) CreateCopyDefaultRefundDispute(ctx context.Context, arg []Crea
 
 // iteratorForCreateCopyDefaultTransport implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultTransport struct {
-	rows                 []string
+	rows                 []CreateCopyDefaultTransportParams
 	skippedFirstNextCall bool
 }
 
@@ -297,7 +303,9 @@ func (r *iteratorForCreateCopyDefaultTransport) Next() bool {
 
 func (r iteratorForCreateCopyDefaultTransport) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0],
+		r.rows[0].Option,
+		r.rows[0].Cost,
+		r.rows[0].Data,
 	}, nil
 }
 
@@ -305,8 +313,8 @@ func (r iteratorForCreateCopyDefaultTransport) Err() error {
 	return nil
 }
 
-func (q *Queries) CreateCopyDefaultTransport(ctx context.Context, option []string) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "transport"}, []string{"option"}, &iteratorForCreateCopyDefaultTransport{rows: option})
+func (q *Queries) CreateCopyDefaultTransport(ctx context.Context, arg []CreateCopyDefaultTransportParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"order", "transport"}, []string{"option", "cost", "data"}, &iteratorForCreateCopyDefaultTransport{rows: arg})
 }
 
 // iteratorForCreateCopyItem implements pgx.CopyFromSource.

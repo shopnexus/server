@@ -41,9 +41,9 @@ CREATE TABLE IF NOT EXISTS "order"."payment" (
     -- Provider-specific payment intent, token, or QR code data
     "data" JSONB NOT NULL,
     "payment_method_id" UUID,
-    "buyer_currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
-    "seller_currency" VARCHAR(3) NOT NULL DEFAULT 'VND',
-    "exchange_rate" NUMERIC NOT NULL DEFAULT 1,
+    "buyer_currency" VARCHAR(3) NOT NULL,
+    "seller_currency" VARCHAR(3) NOT NULL,
+    "exchange_rate" NUMERIC NOT NULL,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_paid" TIMESTAMPTZ(3),
     -- Payment session expiry; unpaid after this timestamp are voided
@@ -58,10 +58,10 @@ CREATE TABLE IF NOT EXISTS "order"."transport" (
     "option" TEXT NOT NULL,
     "status" "order"."transport_status" DEFAULT 'Pending',
     -- Shipping fee in smallest currency unit
-    "cost" BIGINT NOT NULL DEFAULT 0,
+    "cost" BIGINT NOT NULL,
     -- Provider-specific data (tracking number, label URL, webhook events, etc.)
-    "data" JSONB NOT NULL DEFAULT '{}',
-    "date_created" TIMESTAMPTZ(3) DEFAULT CURRENT_TIMESTAMP,
+    "data" JSONB NOT NULL,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "transport_pkey" PRIMARY KEY ("id")
 );
 
@@ -109,10 +109,10 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
     "quantity" BIGINT NOT NULL,
     -- Price per unit at time of purchase
     "unit_price" BIGINT NOT NULL,
-    -- Amount actually paid after promotions (may differ from unit_price × quantity)
-    "paid_amount" BIGINT NOT NULL DEFAULT 0,
+    -- Final amount paid for this item (unit_price × quantity - item-level discounts)
+    "paid_amount" BIGINT NOT NULL,
     -- Snapshot of the delivery address
-    "address" TEXT NOT NULL DEFAULT '',
+    "address" TEXT NOT NULL,
     "note" TEXT,
     -- Array of assigned serial number IDs from inventory.serial
     "serial_ids" JSONB,
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
     -- Selected transport option at checkout time
     "transport_option" TEXT,
     -- Estimated transport cost quoted at checkout
-    "transport_cost_estimate" BIGINT NOT NULL DEFAULT 0,
+    "transport_cost_estimate" BIGINT NOT NULL,
     -- Set when buyer or system cancels an unpaid/unconfirmed item
     "date_cancelled" TIMESTAMPTZ(3),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

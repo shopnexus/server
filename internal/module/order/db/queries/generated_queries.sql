@@ -206,13 +206,13 @@ INSERT INTO "order"."payment" ("account_id", "option", "status", "amount", "data
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultPayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: CreateCopyDefaultPayment :copyfrom
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: UpdatePayment :one
 UPDATE "order"."payment"
@@ -335,13 +335,13 @@ INSERT INTO "order"."transport" ("id", "option", "status", "cost", "data", "date
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultTransport :one
-INSERT INTO "order"."transport" ("option")
-VALUES ($1)
+INSERT INTO "order"."transport" ("option", "cost", "data")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultTransport :copyfrom
-INSERT INTO "order"."transport" ("option")
-VALUES ($1);
+INSERT INTO "order"."transport" ("option", "cost", "data")
+VALUES ($1, $2, $3);
 
 -- name: UpdateTransport :one
 UPDATE "order"."transport"
@@ -349,7 +349,7 @@ SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "status" = CASE WHEN sqlc.arg('null_status')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('status'), "status") END,
     "cost" = COALESCE(sqlc.narg('cost'), "cost"),
     "data" = COALESCE(sqlc.narg('data'), "data"),
-    "date_created" = CASE WHEN sqlc.arg('null_date_created')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_created'), "date_created") END
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -676,13 +676,13 @@ INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sk
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
 
 -- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateCopyDefaultItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: UpdateItem :one
 UPDATE "order"."item"

@@ -484,7 +484,7 @@ type CountTransportParams struct {
 	CostFrom        null.Int                   `json:"cost_from"`
 	CostTo          null.Int                   `json:"cost_to"`
 	Data            []json.RawMessage          `json:"data"`
-	DateCreated     []null.Time                `json:"date_created"`
+	DateCreated     []time.Time                `json:"date_created"`
 	DateCreatedFrom null.Time                  `json:"date_created_from"`
 	DateCreatedTo   null.Time                  `json:"date_created_to"`
 }
@@ -544,18 +544,21 @@ type CreateCopyDefaultCartItemParams struct {
 }
 
 type CreateCopyDefaultItemParams struct {
-	OrderID         uuid.NullUUID   `json:"order_id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	SellerID        uuid.UUID       `json:"seller_id"`
-	SkuID           uuid.UUID       `json:"sku_id"`
-	SkuName         string          `json:"sku_name"`
-	Quantity        int64           `json:"quantity"`
-	UnitPrice       int64           `json:"unit_price"`
-	Note            null.String     `json:"note"`
-	SerialIds       json.RawMessage `json:"serial_ids"`
-	PaymentID       null.Int        `json:"payment_id"`
-	TransportOption null.String     `json:"transport_option"`
-	DateCancelled   null.Time       `json:"date_cancelled"`
+	OrderID               uuid.NullUUID   `json:"order_id"`
+	AccountID             uuid.UUID       `json:"account_id"`
+	SellerID              uuid.UUID       `json:"seller_id"`
+	SkuID                 uuid.UUID       `json:"sku_id"`
+	SkuName               string          `json:"sku_name"`
+	Quantity              int64           `json:"quantity"`
+	UnitPrice             int64           `json:"unit_price"`
+	PaidAmount            int64           `json:"paid_amount"`
+	Address               string          `json:"address"`
+	Note                  null.String     `json:"note"`
+	SerialIds             json.RawMessage `json:"serial_ids"`
+	PaymentID             null.Int        `json:"payment_id"`
+	TransportOption       null.String     `json:"transport_option"`
+	TransportCostEstimate int64           `json:"transport_cost_estimate"`
+	DateCancelled         null.Time       `json:"date_cancelled"`
 }
 
 type CreateCopyDefaultOrderParams struct {
@@ -578,6 +581,9 @@ type CreateCopyDefaultPaymentParams struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency   string          `json:"buyer_currency"`
+	SellerCurrency  string          `json:"seller_currency"`
+	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
 	DatePaid        null.Time       `json:"date_paid"`
 	DateExpired     time.Time       `json:"date_expired"`
 }
@@ -601,6 +607,12 @@ type CreateCopyDefaultRefundDisputeParams struct {
 	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
 	ResolutionNote null.String   `json:"resolution_note"`
 	DateResolved   null.Time     `json:"date_resolved"`
+}
+
+type CreateCopyDefaultTransportParams struct {
+	Option string          `json:"option"`
+	Cost   int64           `json:"cost"`
+	Data   json.RawMessage `json:"data"`
 }
 
 type CreateCopyItemParams struct {
@@ -688,7 +700,7 @@ type CreateCopyTransportParams struct {
 	Status      NullOrderTransportStatus `json:"status"`
 	Cost        int64                    `json:"cost"`
 	Data        json.RawMessage          `json:"data"`
-	DateCreated null.Time                `json:"date_created"`
+	DateCreated time.Time                `json:"date_created"`
 }
 
 const createDefaultCartItem = `-- name: CreateDefaultCartItem :one
@@ -716,24 +728,27 @@ func (q *Queries) CreateDefaultCartItem(ctx context.Context, arg CreateDefaultCa
 }
 
 const createDefaultItem = `-- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "note", "serial_ids", "payment_id", "transport_option", "date_cancelled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "quantity", "unit_price", "paid_amount", "address", "note", "serial_ids", "payment_id", "transport_option", "transport_cost_estimate", "date_cancelled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, quantity, unit_price, paid_amount, address, note, serial_ids, payment_id, transport_option, transport_cost_estimate, date_cancelled, date_created, date_updated
 `
 
 type CreateDefaultItemParams struct {
-	OrderID         uuid.NullUUID   `json:"order_id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	SellerID        uuid.UUID       `json:"seller_id"`
-	SkuID           uuid.UUID       `json:"sku_id"`
-	SkuName         string          `json:"sku_name"`
-	Quantity        int64           `json:"quantity"`
-	UnitPrice       int64           `json:"unit_price"`
-	Note            null.String     `json:"note"`
-	SerialIds       json.RawMessage `json:"serial_ids"`
-	PaymentID       null.Int        `json:"payment_id"`
-	TransportOption null.String     `json:"transport_option"`
-	DateCancelled   null.Time       `json:"date_cancelled"`
+	OrderID               uuid.NullUUID   `json:"order_id"`
+	AccountID             uuid.UUID       `json:"account_id"`
+	SellerID              uuid.UUID       `json:"seller_id"`
+	SkuID                 uuid.UUID       `json:"sku_id"`
+	SkuName               string          `json:"sku_name"`
+	Quantity              int64           `json:"quantity"`
+	UnitPrice             int64           `json:"unit_price"`
+	PaidAmount            int64           `json:"paid_amount"`
+	Address               string          `json:"address"`
+	Note                  null.String     `json:"note"`
+	SerialIds             json.RawMessage `json:"serial_ids"`
+	PaymentID             null.Int        `json:"payment_id"`
+	TransportOption       null.String     `json:"transport_option"`
+	TransportCostEstimate int64           `json:"transport_cost_estimate"`
+	DateCancelled         null.Time       `json:"date_cancelled"`
 }
 
 func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemParams) (OrderItem, error) {
@@ -745,10 +760,13 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 		arg.SkuName,
 		arg.Quantity,
 		arg.UnitPrice,
+		arg.PaidAmount,
+		arg.Address,
 		arg.Note,
 		arg.SerialIds,
 		arg.PaymentID,
 		arg.TransportOption,
+		arg.TransportCostEstimate,
 		arg.DateCancelled,
 	)
 	var i OrderItem
@@ -829,8 +847,8 @@ func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrder
 }
 
 const createDefaultPayment = `-- name: CreateDefaultPayment :one
-INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "order"."payment" ("account_id", "option", "amount", "data", "payment_method_id", "buyer_currency", "seller_currency", "exchange_rate", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id, account_id, option, status, amount, data, payment_method_id, buyer_currency, seller_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
@@ -840,6 +858,9 @@ type CreateDefaultPaymentParams struct {
 	Amount          int64           `json:"amount"`
 	Data            json.RawMessage `json:"data"`
 	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
+	BuyerCurrency   string          `json:"buyer_currency"`
+	SellerCurrency  string          `json:"seller_currency"`
+	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
 	DatePaid        null.Time       `json:"date_paid"`
 	DateExpired     time.Time       `json:"date_expired"`
 }
@@ -851,6 +872,9 @@ func (q *Queries) CreateDefaultPayment(ctx context.Context, arg CreateDefaultPay
 		arg.Amount,
 		arg.Data,
 		arg.PaymentMethodID,
+		arg.BuyerCurrency,
+		arg.SellerCurrency,
+		arg.ExchangeRate,
 		arg.DatePaid,
 		arg.DateExpired,
 	)
@@ -962,13 +986,19 @@ func (q *Queries) CreateDefaultRefundDispute(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultTransport = `-- name: CreateDefaultTransport :one
-INSERT INTO "order"."transport" ("option")
-VALUES ($1)
+INSERT INTO "order"."transport" ("option", "cost", "data")
+VALUES ($1, $2, $3)
 RETURNING id, option, status, cost, data, date_created
 `
 
-func (q *Queries) CreateDefaultTransport(ctx context.Context, option string) (OrderTransport, error) {
-	row := q.db.QueryRow(ctx, createDefaultTransport, option)
+type CreateDefaultTransportParams struct {
+	Option string          `json:"option"`
+	Cost   int64           `json:"cost"`
+	Data   json.RawMessage `json:"data"`
+}
+
+func (q *Queries) CreateDefaultTransport(ctx context.Context, arg CreateDefaultTransportParams) (OrderTransport, error) {
+	row := q.db.QueryRow(ctx, createDefaultTransport, arg.Option, arg.Cost, arg.Data)
 	var i OrderTransport
 	err := row.Scan(
 		&i.ID,
@@ -1277,7 +1307,7 @@ type CreateTransportParams struct {
 	Status      NullOrderTransportStatus `json:"status"`
 	Cost        int64                    `json:"cost"`
 	Data        json.RawMessage          `json:"data"`
-	DateCreated null.Time                `json:"date_created"`
+	DateCreated time.Time                `json:"date_created"`
 }
 
 func (q *Queries) CreateTransport(ctx context.Context, arg CreateTransportParams) (OrderTransport, error) {
@@ -1751,7 +1781,7 @@ type DeleteTransportParams struct {
 	CostFrom        null.Int                   `json:"cost_from"`
 	CostTo          null.Int                   `json:"cost_to"`
 	Data            []json.RawMessage          `json:"data"`
-	DateCreated     []null.Time                `json:"date_created"`
+	DateCreated     []time.Time                `json:"date_created"`
 	DateCreatedFrom null.Time                  `json:"date_created_from"`
 	DateCreatedTo   null.Time                  `json:"date_created_to"`
 }
@@ -2749,7 +2779,7 @@ type ListCountTransportParams struct {
 	CostFrom        null.Int                   `json:"cost_from"`
 	CostTo          null.Int                   `json:"cost_to"`
 	Data            []json.RawMessage          `json:"data"`
-	DateCreated     []null.Time                `json:"date_created"`
+	DateCreated     []time.Time                `json:"date_created"`
 	DateCreatedFrom null.Time                  `json:"date_created_from"`
 	DateCreatedTo   null.Time                  `json:"date_created_to"`
 	Offset          null.Int32                 `json:"offset"`
@@ -3409,7 +3439,7 @@ type ListTransportParams struct {
 	CostFrom        null.Int                   `json:"cost_from"`
 	CostTo          null.Int                   `json:"cost_to"`
 	Data            []json.RawMessage          `json:"data"`
-	DateCreated     []null.Time                `json:"date_created"`
+	DateCreated     []time.Time                `json:"date_created"`
 	DateCreatedFrom null.Time                  `json:"date_created_from"`
 	DateCreatedTo   null.Time                  `json:"date_created_to"`
 	Offset          null.Int32                 `json:"offset"`
@@ -3882,20 +3912,19 @@ SET "option" = COALESCE($1, "option"),
     "status" = CASE WHEN $2::bool = TRUE THEN NULL ELSE COALESCE($3, "status") END,
     "cost" = COALESCE($4, "cost"),
     "data" = COALESCE($5, "data"),
-    "date_created" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "date_created") END
-WHERE id = $8
+    "date_created" = COALESCE($6, "date_created")
+WHERE id = $7
 RETURNING id, option, status, cost, data, date_created
 `
 
 type UpdateTransportParams struct {
-	Option          null.String              `json:"option"`
-	NullStatus      bool                     `json:"null_status"`
-	Status          NullOrderTransportStatus `json:"status"`
-	Cost            null.Int                 `json:"cost"`
-	Data            json.RawMessage          `json:"data"`
-	NullDateCreated bool                     `json:"null_date_created"`
-	DateCreated     null.Time                `json:"date_created"`
-	ID              uuid.UUID                `json:"id"`
+	Option      null.String              `json:"option"`
+	NullStatus  bool                     `json:"null_status"`
+	Status      NullOrderTransportStatus `json:"status"`
+	Cost        null.Int                 `json:"cost"`
+	Data        json.RawMessage          `json:"data"`
+	DateCreated null.Time                `json:"date_created"`
+	ID          uuid.UUID                `json:"id"`
 }
 
 func (q *Queries) UpdateTransport(ctx context.Context, arg UpdateTransportParams) (OrderTransport, error) {
@@ -3905,7 +3934,6 @@ func (q *Queries) UpdateTransport(ctx context.Context, arg UpdateTransportParams
 		arg.Status,
 		arg.Cost,
 		arg.Data,
-		arg.NullDateCreated,
 		arg.DateCreated,
 		arg.ID,
 	)

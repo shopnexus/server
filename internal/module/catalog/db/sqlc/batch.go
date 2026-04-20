@@ -330,8 +330,8 @@ func (b *CreateBatchProductSpuBatchResults) Close() error {
 }
 
 const createBatchProductSpuTag = `-- name: CreateBatchProductSpuTag :batchone
-INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
-VALUES ($1, $2)
+INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
+VALUES ($1, $2, $3)
 RETURNING id, spu_id, tag
 `
 
@@ -342,6 +342,7 @@ type CreateBatchProductSpuTagBatchResults struct {
 }
 
 type CreateBatchProductSpuTagParams struct {
+	ID    int64     `json:"id"`
 	SpuID uuid.UUID `json:"spu_id"`
 	Tag   string    `json:"tag"`
 }
@@ -350,6 +351,7 @@ func (q *Queries) CreateBatchProductSpuTag(ctx context.Context, arg []CreateBatc
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.ID,
 			a.SpuID,
 			a.Tag,
 		}
@@ -383,8 +385,8 @@ func (b *CreateBatchProductSpuTagBatchResults) Close() error {
 }
 
 const createBatchSearchSync = `-- name: CreateBatchSearchSync :batchone
-INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
@@ -395,6 +397,7 @@ type CreateBatchSearchSyncBatchResults struct {
 }
 
 type CreateBatchSearchSyncParams struct {
+	ID               int64                    `json:"id"`
 	RefType          CatalogSearchSyncRefType `json:"ref_type"`
 	RefID            uuid.UUID                `json:"ref_id"`
 	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
@@ -407,6 +410,7 @@ func (q *Queries) CreateBatchSearchSync(ctx context.Context, arg []CreateBatchSe
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.ID,
 			a.RefType,
 			a.RefID,
 			a.IsStaleEmbedding,

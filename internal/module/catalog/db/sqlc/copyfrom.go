@@ -255,6 +255,7 @@ func (r *iteratorForCreateCopyDefaultProductSpuTag) Next() bool {
 
 func (r iteratorForCreateCopyDefaultProductSpuTag) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].SpuID,
 		r.rows[0].Tag,
 	}, nil
@@ -265,7 +266,7 @@ func (r iteratorForCreateCopyDefaultProductSpuTag) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultProductSpuTag(ctx context.Context, arg []CreateCopyDefaultProductSpuTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag"}, &iteratorForCreateCopyDefaultProductSpuTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"id", "spu_id", "tag"}, &iteratorForCreateCopyDefaultProductSpuTag{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultSearchSync implements pgx.CopyFromSource.
@@ -288,6 +289,7 @@ func (r *iteratorForCreateCopyDefaultSearchSync) Next() bool {
 
 func (r iteratorForCreateCopyDefaultSearchSync) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].RefType,
 		r.rows[0].RefID,
 	}, nil
@@ -298,7 +300,7 @@ func (r iteratorForCreateCopyDefaultSearchSync) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultSearchSync(ctx context.Context, arg []CreateCopyDefaultSearchSyncParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "search_sync"}, []string{"ref_type", "ref_id"}, &iteratorForCreateCopyDefaultSearchSync{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "search_sync"}, []string{"id", "ref_type", "ref_id"}, &iteratorForCreateCopyDefaultSearchSync{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultTag implements pgx.CopyFromSource.
@@ -439,6 +441,7 @@ func (r *iteratorForCreateCopyProductSpuTag) Next() bool {
 
 func (r iteratorForCreateCopyProductSpuTag) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].SpuID,
 		r.rows[0].Tag,
 	}, nil
@@ -449,7 +452,7 @@ func (r iteratorForCreateCopyProductSpuTag) Err() error {
 }
 
 func (q *Queries) CreateCopyProductSpuTag(ctx context.Context, arg []CreateCopyProductSpuTagParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"spu_id", "tag"}, &iteratorForCreateCopyProductSpuTag{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "product_spu_tag"}, []string{"id", "spu_id", "tag"}, &iteratorForCreateCopyProductSpuTag{rows: arg})
 }
 
 // iteratorForCreateCopySearchSync implements pgx.CopyFromSource.
@@ -472,6 +475,7 @@ func (r *iteratorForCreateCopySearchSync) Next() bool {
 
 func (r iteratorForCreateCopySearchSync) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].RefType,
 		r.rows[0].RefID,
 		r.rows[0].IsStaleEmbedding,
@@ -486,7 +490,7 @@ func (r iteratorForCreateCopySearchSync) Err() error {
 }
 
 func (q *Queries) CreateCopySearchSync(ctx context.Context, arg []CreateCopySearchSyncParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"catalog", "search_sync"}, []string{"ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated"}, &iteratorForCreateCopySearchSync{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"catalog", "search_sync"}, []string{"id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated"}, &iteratorForCreateCopySearchSync{rows: arg})
 }
 
 // iteratorForCreateCopyTag implements pgx.CopyFromSource.

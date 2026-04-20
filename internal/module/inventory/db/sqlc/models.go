@@ -134,7 +134,6 @@ func AllInventoryStockRefTypeValues() []InventoryStockRefType {
 	}
 }
 
-// Per-unit serial number tracking for serialized inventory items
 type InventorySerial struct {
 	ID          string          `json:"id"`
 	StockID     int64           `json:"stock_id"`
@@ -142,7 +141,6 @@ type InventorySerial struct {
 	DateCreated time.Time       `json:"date_created"`
 }
 
-// Tracks available and reserved stock per product SKU or promotion
 type InventoryStock struct {
 	ID             int64                 `json:"id"`
 	RefType        InventoryStockRefType `json:"ref_type"`
@@ -153,7 +151,6 @@ type InventoryStock struct {
 	DateCreated    time.Time             `json:"date_created"`
 }
 
-// Append-only audit log of all stock level changes
 type InventoryStockHistory struct {
 	ID          int64     `json:"id"`
 	StockID     int64     `json:"stock_id"`

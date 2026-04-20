@@ -136,6 +136,158 @@ WHERE (
 );
 
 -- ========================================
+-- Queries for table: account.contact
+-- ========================================
+
+-- name: GetContact :one
+SELECT *
+FROM "account"."contact"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: CountContact :one
+SELECT COUNT(*)
+FROM "account"."contact"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
+    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
+    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
+    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
+    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
+    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
+    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
+-- name: ListContact :many
+SELECT *
+FROM "account"."contact"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
+    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
+    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
+    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
+    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
+    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
+    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: ListCountContact :many
+SELECT sqlc.embed(embed_contact), COUNT(*) OVER() as total_count
+FROM "account"."contact" embed_contact
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
+    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
+    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
+    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
+    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
+    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
+    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateContact :one
+INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING *;
+
+-- name: CreateBatchContact :batchone
+INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING *;
+
+-- name: CreateCopyContact :copyfrom
+INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+
+-- name: CreateDefaultContact :one
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateCopyDefaultContact :copyfrom
+INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: UpdateContact :one
+UPDATE "account"."contact"
+SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
+    "full_name" = COALESCE(sqlc.narg('full_name'), "full_name"),
+    "phone" = COALESCE(sqlc.narg('phone'), "phone"),
+    "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
+    "address" = COALESCE(sqlc.narg('address'), "address"),
+    "address_type" = COALESCE(sqlc.narg('address_type'), "address_type"),
+    "latitude" = CASE WHEN sqlc.arg('null_latitude')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('latitude'), "latitude") END,
+    "longitude" = CASE WHEN sqlc.arg('null_longitude')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('longitude'), "longitude") END,
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteContact :exec
+DELETE FROM "account"."contact"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
+    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
+    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
+    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
+    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
+    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
+    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
+    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
+    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
+    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
+    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
+    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
+);
+
+-- ========================================
 -- Queries for table: account.profile
 -- ========================================
 
@@ -357,27 +509,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultIncomeHistory :one
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateIncomeHistory :one
 UPDATE "account"."income_history"
@@ -502,27 +654,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchNotification :batchone
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyNotification :copyfrom
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultNotification :copyfrom
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateNotification :one
 UPDATE "account"."notification"
@@ -563,158 +715,6 @@ WHERE (
     ("date_scheduled" = ANY(sqlc.slice('date_scheduled')) OR sqlc.slice('date_scheduled') IS NULL) AND
     ("date_scheduled" >= sqlc.narg('date_scheduled_from') OR sqlc.narg('date_scheduled_from') IS NULL) AND
     ("date_scheduled" <= sqlc.narg('date_scheduled_to') OR sqlc.narg('date_scheduled_to') IS NULL)
-);
-
--- ========================================
--- Queries for table: account.contact
--- ========================================
-
--- name: GetContact :one
-SELECT *
-FROM "account"."contact"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: CountContact :one
-SELECT COUNT(*)
-FROM "account"."contact"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
-    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
-    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
-    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
-    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
-    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
-    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
-    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-);
-
--- name: ListContact :many
-SELECT *
-FROM "account"."contact"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
-    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
-    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
-    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
-    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
-    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
-    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
-    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: ListCountContact :many
-SELECT sqlc.embed(embed_contact), COUNT(*) OVER() as total_count
-FROM "account"."contact" embed_contact
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
-    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
-    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
-    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
-    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
-    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
-    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
-    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: CreateContact :one
-INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateBatchContact :batchone
-INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateCopyContact :copyfrom
-INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-
--- name: CreateDefaultContact :one
-INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateCopyDefaultContact :copyfrom
-INSERT INTO "account"."contact" ("account_id", "full_name", "phone", "address", "address_type", "latitude", "longitude")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
-
--- name: UpdateContact :one
-UPDATE "account"."contact"
-SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "full_name" = COALESCE(sqlc.narg('full_name'), "full_name"),
-    "phone" = COALESCE(sqlc.narg('phone'), "phone"),
-    "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
-    "address" = COALESCE(sqlc.narg('address'), "address"),
-    "address_type" = COALESCE(sqlc.narg('address_type'), "address_type"),
-    "latitude" = CASE WHEN sqlc.arg('null_latitude')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('latitude'), "latitude") END,
-    "longitude" = CASE WHEN sqlc.arg('null_longitude')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('longitude'), "longitude") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: DeleteContact :exec
-DELETE FROM "account"."contact"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("full_name" = ANY(sqlc.slice('full_name')) OR sqlc.slice('full_name') IS NULL) AND
-    ("phone" = ANY(sqlc.slice('phone')) OR sqlc.slice('phone') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
-    ("address_type" = ANY(sqlc.slice('address_type')) OR sqlc.slice('address_type') IS NULL) AND
-    ("latitude" = ANY(sqlc.slice('latitude')) OR sqlc.slice('latitude') IS NULL) AND
-    ("latitude" >= sqlc.narg('latitude_from') OR sqlc.narg('latitude_from') IS NULL) AND
-    ("latitude" <= sqlc.narg('latitude_to') OR sqlc.narg('latitude_to') IS NULL) AND
-    ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
-    ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
-    ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("date_updated" = ANY(sqlc.slice('date_updated')) OR sqlc.slice('date_updated') IS NULL) AND
-    ("date_updated" >= sqlc.narg('date_updated_from') OR sqlc.narg('date_updated_from') IS NULL) AND
-    ("date_updated" <= sqlc.narg('date_updated_to') OR sqlc.narg('date_updated_to') IS NULL)
 );
 
 -- ========================================
@@ -769,27 +769,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateFavorite :one
-INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3)
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateBatchFavorite :batchone
-INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3)
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateCopyFavorite :copyfrom
-INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3);
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3, $4);
 
 -- name: CreateDefaultFavorite :one
-INSERT INTO "account"."favorite" ("account_id", "spu_id")
-VALUES ($1, $2)
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyDefaultFavorite :copyfrom
-INSERT INTO "account"."favorite" ("account_id", "spu_id")
-VALUES ($1, $2);
+INSERT INTO "account"."favorite" ("id", "account_id", "spu_id")
+VALUES ($1, $2, $3);
 
 -- name: UpdateFavorite :one
 UPDATE "account"."favorite"
@@ -980,27 +980,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateWallet :one
-INSERT INTO "account"."wallet" ("account_id", "balance")
-VALUES ($1, $2)
+INSERT INTO "account"."wallet" ("id", "account_id", "balance")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("account_id", "balance")
-VALUES ($1, $2)
+INSERT INTO "account"."wallet" ("id", "account_id", "balance")
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: CreateCopyWallet :copyfrom
-INSERT INTO "account"."wallet" ("account_id", "balance")
-VALUES ($1, $2);
+INSERT INTO "account"."wallet" ("id", "account_id", "balance")
+VALUES ($1, $2, $3);
 
 -- name: CreateDefaultWallet :one
-INSERT INTO "account"."wallet" ("account_id")
-VALUES ($1)
+INSERT INTO "account"."wallet" ("id", "account_id")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultWallet :copyfrom
-INSERT INTO "account"."wallet" ("account_id")
-VALUES ($1);
+INSERT INTO "account"."wallet" ("id", "account_id")
+VALUES ($1, $2);
 
 -- name: UpdateWallet :one
 UPDATE "account"."wallet"
@@ -1086,27 +1086,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchWalletTransaction :batchone
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyWalletTransaction :copyfrom
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopyDefaultWalletTransaction :copyfrom
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
-VALUES ($1, $2, $3, $4, $5);
+INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: UpdateWalletTransaction :one
 UPDATE "account"."wallet_transaction"

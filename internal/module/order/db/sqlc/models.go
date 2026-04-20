@@ -307,5 +307,5 @@ type OrderTransport struct {
 	Status      NullOrderTransportStatus `json:"status"`
 	Cost        int64                    `json:"cost"`
 	Data        json.RawMessage          `json:"data"`
-	DateCreated null.Time                `json:"date_created"`
+	DateCreated time.Time                `json:"date_created"`
 }

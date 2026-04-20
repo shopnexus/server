@@ -177,6 +177,7 @@ func (b *OrderHandler) BuyerCheckout(
 			Items: []transport.ItemMetadata{{
 				SkuID:    item.SkuID,
 				Quantity: item.Quantity,
+				//TODO: handle PackageDetails
 			}},
 			FromAddress: sellerContact.Address,
 			ToAddress:   params.Address,
@@ -362,22 +363,20 @@ func (b *OrderHandler) BuyerCheckout(
 				skuName += " - " + strings.Join(vals, " / ")
 			}
 
-			dbItem, err := b.storage.Querier().CreateItem(ctx, orderdb.CreateItemParams{
+			dbItem, err := b.storage.Querier().CreateDefaultItem(ctx, orderdb.CreateDefaultItemParams{
 				AccountID:             params.Account.ID,
 				SellerID:              spu.AccountID,
 				Address:               params.Address,
 				SkuID:                 sku.ID,
 				SkuName:               skuName,
 				Quantity:              checkoutItem.Quantity,
-				UnitPrice:             int64(sku.Price),
+				UnitPrice:             sku.Price,
 				PaidAmount:            paidAmount,
 				Note:                  null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
 				SerialIds:             jsonSerialIDs,
 				TransportOption:       null.StringFrom(tq.Option),
 				TransportCostEstimate: tq.Cost,
 				PaymentID:             null.IntFrom(paymentID),
-				DateCreated:           time.Now(),
-				DateUpdated:           time.Now(),
 			})
 			if err != nil {
 				return nil, sharedmodel.WrapErr("db create item", err)
@@ -410,8 +409,8 @@ func (b *OrderHandler) BuyerCheckout(
 
 	// Remove from cart (skip if BuyNow)
 	if !params.BuyNow {
-		if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-			if _, err := b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
+		if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+			if _, err = b.storage.Querier().RemoveCheckoutItem(ctx, orderdb.RemoveCheckoutItemParams{
 				AccountID: params.Account.ID,
 				SkuID:     skuIDs,
 			}); err != nil {
@@ -471,7 +470,7 @@ func (b *OrderHandler) BuyerCheckout(
 		})
 	})
 	if err == nil && len(dbPayments) > 0 {
-		p := dbToPayment(dbPayments[0])
+		p := mapPayment(dbPayments[0])
 		paymentModel = &p
 	}
 
@@ -656,47 +655,33 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	}
 
 	// Fetch the item
-	type itemInfo struct {
-		SkuID                 string `json:"sku_id"`
-		SellerID              string `json:"seller_id"`
-		Quantity              int64  `json:"quantity"`
-		PaidAmount            int64  `json:"paid_amount"`
-		TransportCostEstimate int64  `json:"transport_cost_estimate"`
-	}
-	info, err := restate.Run(ctx, func(ctx restate.RunContext) (itemInfo, error) {
+	info, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
+		var zero orderdb.OrderItem
 		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.ItemID))
 		if err != nil {
-			return itemInfo{}, sharedmodel.WrapErr("db get item", err)
+			return zero, sharedmodel.WrapErr("db get item", err)
 		}
 		if item.AccountID != params.AccountID {
-			return itemInfo{}, ordermodel.ErrOrderItemNotFound.Terminal()
+			return zero, ordermodel.ErrOrderItemNotFound.Terminal()
 		}
 		// Check item is still pending: no order_id and not cancelled
 		if item.OrderID.Valid {
-			return itemInfo{}, ordermodel.ErrItemAlreadyConfirmed
+			return zero, ordermodel.ErrItemAlreadyConfirmed
 		}
 		if item.DateCancelled.Valid {
-			return itemInfo{}, ordermodel.ErrItemAlreadyCancelled
+			return zero, ordermodel.ErrItemAlreadyCancelled
 		}
-		return itemInfo{
-			SkuID:                 item.SkuID.String(),
-			SellerID:              item.SellerID.String(),
-			Quantity:              item.Quantity,
-			PaidAmount:            item.PaidAmount,
-			TransportCostEstimate: item.TransportCostEstimate,
-		}, nil
+		return item, nil
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("fetch item", err)
 	}
 
-	skuID, _ := uuid.Parse(info.SkuID)
-
 	// Release inventory
-	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
 		Items: []inventorybiz.ReleaseInventoryItem{{
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   skuID,
+			RefID:   info.SkuID,
 			Amount:  info.Quantity,
 		}},
 	}); err != nil {
@@ -704,8 +689,8 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	}
 
 	// Cancel the item
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().CancelItemsByIDs(ctx, []int64{params.ItemID})
+	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err = b.storage.Querier().CancelItemsByIDs(ctx, []int64{params.ItemID})
 		return err
 	}); err != nil {
 		return sharedmodel.WrapErr("cancel item", err)
@@ -714,7 +699,7 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	// Refund to wallet
 	refundAmount := info.PaidAmount + info.TransportCostEstimate
 	if refundAmount > 0 {
-		if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+		if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
 			AccountID: params.AccountID,
 			Amount:    refundAmount,
 			Type:      "Refund",
@@ -726,9 +711,8 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	}
 
 	// Notify seller (fire-and-forget)
-	sellerUUID, _ := uuid.Parse(info.SellerID)
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: sellerUUID,
+		AccountID: info.SellerID,
 		Type:      accountmodel.NotiPendingItemCancelled,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Pending item cancelled",

@@ -92,8 +92,8 @@ func (h *Handler) ListConversation(c echo.Context) error {
 }
 
 type ListMessageRequest struct {
-	ConversationID uuid.UUID `param:"id" validate:"required"`
 	sharedmodel.PaginationParams
+	ConversationID uuid.UUID `param:"id" validate:"required"`
 }
 
 func (h *Handler) ListMessage(c echo.Context) error {
@@ -175,7 +175,7 @@ func (h *Handler) MarkRead(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := h.biz.MarkRead(c.Request().Context(), chatbiz.MarkReadParams{
+	if err = h.biz.MarkRead(c.Request().Context(), chatbiz.MarkReadParams{
 		Account:        claims.Account,
 		ConversationID: req.ConversationID,
 	}); err != nil {
