@@ -72,8 +72,8 @@ func (p *CommonRestateClient) PushEvent(ctx context.Context, params PushEventPar
 	return restateclient.Send(ctx, p.client, serviceName, "PushEvent", params)
 }
 
-func (p *CommonRestateClient) GetExchangeRates(ctx context.Context) (commonmodel.ExchangeRateSnapshot, error) {
-	return restateclient.Call[commonmodel.ExchangeRateSnapshot](ctx, p.client, serviceName, "GetExchangeRates", nil)
+func (p *CommonRestateClient) GetExchangeRates(ctx context.Context, params GetExchangeRatesParams) (commonmodel.ExchangeRateSnapshot, error) {
+	return restateclient.Call[commonmodel.ExchangeRateSnapshot](ctx, p.client, serviceName, "GetExchangeRates", params)
 }
 
 func (p *CommonRestateClient) ConvertAmount(ctx context.Context, params ConvertAmountParams) (int64, error) {

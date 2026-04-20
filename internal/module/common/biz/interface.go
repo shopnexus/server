@@ -44,7 +44,7 @@ type CommonBiz interface {
 	PushEvent(ctx context.Context, params PushEventParams) error
 
 	// Exchange rates
-	GetExchangeRates(ctx context.Context) (commonmodel.ExchangeRateSnapshot, error)
+	GetExchangeRates(ctx context.Context, params GetExchangeRatesParams) (commonmodel.ExchangeRateSnapshot, error)
 	ConvertAmount(ctx context.Context, params ConvertAmountParams) (int64, error)
 	IsSupportedCurrency(ctx context.Context, currency string) (bool, error)
 }

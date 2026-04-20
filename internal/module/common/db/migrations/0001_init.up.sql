@@ -95,14 +95,16 @@ ALTER TABLE "common"."service_option"
 -- Exchange rates fetched from Frankfurter by common.SetupExchangeCron.
 -- base is always USD in current deployment; (base, target) PK keeps
 -- schema flexible for future multi-base storage.
-CREATE TABLE IF NOT EXISTS "common"."exchange_rate" (
-    "base"         VARCHAR(3)      NOT NULL,
-    "target"       VARCHAR(3)      NOT NULL,
-    "rate"         NUMERIC(20, 10) NOT NULL,
-    "fetched_at"   TIMESTAMPTZ     NOT NULL,
-    "date_updated" TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "exchange_rate_pkey" PRIMARY KEY ("base", "target"),
-    CONSTRAINT "exchange_rate_base_format_chk"   CHECK ("base"   ~ '^[A-Z]{3}$'),
+CREATE TABLE IF NOT EXISTS common.exchange_rate (
+    "id" BIGSERIAL PRIMARY KEY,
+    "base" VARCHAR(3) NOT NULL,
+    "target" VARCHAR(3) NOT NULL,
+    "rate" NUMERIC(20,10) NOT NULL,
+    "fetched_at" TIMESTAMPTZ NOT NULL,
+    "date_updated" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "exchange_rate_base_target_key" UNIQUE ("base", "target"),
+    CONSTRAINT "exchange_rate_base_format_chk" CHECK ("base" ~ '^[A-Z]{3}$'),
     CONSTRAINT "exchange_rate_target_format_chk" CHECK ("target" ~ '^[A-Z]{3}$'),
     CONSTRAINT "exchange_rate_rate_positive_chk" CHECK ("rate" > 0)
 );
@@ -110,8 +112,10 @@ CREATE TABLE IF NOT EXISTS "common"."exchange_rate" (
 CREATE INDEX IF NOT EXISTS "exchange_rate_target_idx"
     ON "common"."exchange_rate" ("target");
 
--- Seed conservative fallback rates so FE has data before first cron tick.
--- fetched_at = epoch → "stale" tooltip shows until cron refresh.
+-- Seed fallback rates so the FE has data before the first cron tick.
+-- Frankfurter (ECB) doesn't publish VND — the VND row here is the only
+-- source of VND conversion until a manual refresh is performed.
+-- fetched_at = epoch triggers a "stale" tooltip on the FE.
 INSERT INTO "common"."exchange_rate" (base, target, rate, fetched_at) VALUES
     ('USD', 'VND', 25000,   '1970-01-01'::timestamptz),
     ('USD', 'JPY', 155,     '1970-01-01'::timestamptz),

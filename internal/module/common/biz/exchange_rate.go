@@ -10,10 +10,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	restate "github.com/restatedev/sdk-go"
 
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 )
+
+// GetExchangeRatesParams is an empty envelope required by the Restate
+// ingress client — zero-arg handlers reject requests with a JSON
+// content-type, so we always send an empty object.
+type GetExchangeRatesParams struct{}
 
 // ConvertAmountParams: amount in smallest unit of From, converted to
 // smallest unit of To.
@@ -55,19 +61,20 @@ func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]fl
 }
 
 // GetExchangeRates reads rates from DB and returns the FE-facing snapshot.
-func (b *CommonHandler) GetExchangeRates(ctx context.Context) (commonmodel.ExchangeRateSnapshot, error) {
+// Uses restate.Context so restate.Reflect() registers this as a service handler.
+// Accepts an empty params struct to satisfy the Restate input-body requirement.
+func (b *CommonHandler) GetExchangeRates(ctx restate.Context, _ GetExchangeRatesParams) (commonmodel.ExchangeRateSnapshot, error) {
 	rows, err := b.storage.Querier().GetExchangeRatesByBase(ctx, b.config.App.Exchange.Base)
 	if err != nil {
 		return commonmodel.ExchangeRateSnapshot{}, fmt.Errorf("get exchange rates: %w", err)
 	}
 	rates := make(map[string]float64, len(rows))
-	var latest *time.Time
+	var latest time.Time
 	for _, r := range rows {
 		f, _ := r.Rate.Float64Value()
 		rates[r.Target] = f.Float64
-		if latest == nil || r.FetchedAt.After(*latest) {
-			t := r.FetchedAt
-			latest = &t
+		if r.FetchedAt.After(latest) {
+			latest = r.FetchedAt
 		}
 	}
 	return commonmodel.ExchangeRateSnapshot{
@@ -79,8 +86,8 @@ func (b *CommonHandler) GetExchangeRates(ctx context.Context) (commonmodel.Excha
 }
 
 // ConvertAmount: BE helper for cross-currency math (filter, analytics).
-func (b *CommonHandler) ConvertAmount(ctx context.Context, p ConvertAmountParams) (int64, error) {
-	snap, err := b.GetExchangeRates(ctx)
+func (b *CommonHandler) ConvertAmount(ctx restate.Context, p ConvertAmountParams) (int64, error) {
+	snap, err := b.GetExchangeRates(ctx, GetExchangeRatesParams{})
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +97,7 @@ func (b *CommonHandler) ConvertAmount(ctx context.Context, p ConvertAmountParams
 // IsSupportedCurrency checks against the config whitelist.
 // Returns an error tuple to conform to the Restate proxy calling convention
 // for interface methods; lookup itself never fails.
-func (b *CommonHandler) IsSupportedCurrency(_ context.Context, currency string) (bool, error) {
+func (b *CommonHandler) IsSupportedCurrency(_ restate.Context, currency string) (bool, error) {
 	return slices.Contains(b.config.App.Exchange.Supported, currency), nil
 }
 

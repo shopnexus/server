@@ -5,6 +5,12 @@ import (
 	"reflect"
 )
 
+// jsonMarshalerType is used to skip recursing into types that define their
+// own JSON representation (e.g. time.Time). Without this guard, the
+// recursive field copy in replaceNilSlicesRecursive silently zeroes such
+// types because their fields are unexported and CanInterface() is false.
+var jsonMarshalerType = reflect.TypeFor[json.Marshaler]()
+
 func MarshalJSONWithEmptyArrays(v any) ([]byte, error) {
 	processed := replaceNilSlices(v)
 	return json.Marshal(processed)
@@ -70,6 +76,13 @@ func replaceNilSlicesRecursive(val reflect.Value) reflect.Value {
 		return result
 
 	case reflect.Struct:
+		// Types with a custom JSON representation (e.g. time.Time) must not
+		// be walked field-by-field — their fields are unexported and get
+		// silently zeroed by the field-copy loop below.
+		if val.Type().Implements(jsonMarshalerType) ||
+			reflect.PointerTo(val.Type()).Implements(jsonMarshalerType) {
+			return val
+		}
 		result := reflect.New(val.Type()).Elem()
 		for i := 0; i < val.NumField(); i++ {
 			fieldValue := val.Field(i)

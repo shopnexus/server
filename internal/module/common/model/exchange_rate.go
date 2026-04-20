@@ -9,6 +9,6 @@ import "time"
 type ExchangeRateSnapshot struct {
 	Base      string             `json:"base"`
 	Rates     map[string]float64 `json:"rates"`
-	FetchedAt *time.Time         `json:"fetched_at"`
+	FetchedAt time.Time          `json:"fetched_at"`
 	Supported []string           `json:"supported"`
 }
