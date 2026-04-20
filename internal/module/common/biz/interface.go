@@ -88,6 +88,8 @@ func NewcommonBiz(
 		sseClients: make(map[uuid.UUID][]*SSEClient),
 	}
 
+	b.SetupExchangeCron()
+
 	return b, errors.Join(
 		b.SetupObjectStore(),
 	)
