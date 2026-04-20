@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS "account"."account" (
     "password" VARCHAR(255),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "settings" JSONB NOT NULL DEFAULT '{}',
     CONSTRAINT "account_pkey" PRIMARY KEY ("id")
 );
 
@@ -53,6 +52,13 @@ CREATE TABLE IF NOT EXISTS "account"."profile" (
     "default_contact_id" UUID,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- User preferences: preferred_currency (ISO 4217) and future prefs.
+    "settings" JSONB NOT NULL DEFAULT '{"preferred_currency": "VND"}',
+    CONSTRAINT "profile_settings_preferred_currency_chk" CHECK (
+        NOT (settings ? 'preferred_currency') OR
+        (jsonb_typeof(settings->'preferred_currency') = 'string'
+         AND settings->>'preferred_currency' ~ '^[A-Z]{3}$')
+    ),
     CONSTRAINT "profile_pkey" PRIMARY KEY ("id")
 );
 
