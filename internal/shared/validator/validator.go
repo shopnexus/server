@@ -42,6 +42,11 @@ func New() (*CustomValidator, error) {
 		return nil, fmt.Errorf("failed to register translations: %w", err)
 	}
 
+	// Register custom validation tags
+	if err := validate.RegisterValidation("iso4217", Iso4217); err != nil {
+		return nil, fmt.Errorf("failed to register iso4217 validator: %w", err)
+	}
+
 	// Register all null.* types to use the ValidateNullable CustomTypeFunc
 	validate.RegisterCustomTypeFunc(
 		ParseNullable,
