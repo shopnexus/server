@@ -1,10 +1,12 @@
 package accountecho
 
 import (
+	"errors"
 	"net/http"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	accountmodel "shopnexus-server/internal/module/account/model"
 	authclaims "shopnexus-server/internal/shared/claims"
 	"shopnexus-server/internal/shared/response"
 
@@ -80,4 +82,43 @@ func (h *Handler) UpdateMe(c echo.Context) error {
 	}
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type updateSettingsRequest struct {
+	PreferredCurrency *string `json:"preferred_currency"`
+}
+
+// UpdateMeSettings handles PATCH /account/me/settings.
+// Only the authenticated user can modify their own settings.
+func (h *Handler) UpdateMeSettings(c echo.Context) error {
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	var req updateSettingsRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	params := accountbiz.UpdateProfileSettingsParams{
+		Issuer:    claims.Account,
+		AccountID: claims.Account.ID,
+	}
+	if req.PreferredCurrency != nil {
+		params.PreferredCurrency = null.StringFrom(*req.PreferredCurrency)
+	}
+
+	settings, err := h.biz.UpdateProfileSettings(c.Request().Context(), params)
+	if err != nil {
+		if errors.Is(err, accountmodel.ErrUnsupportedCurrency) {
+			return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+		}
+		if errors.Is(err, accountmodel.ErrForbidden) {
+			return response.FromError(c.Response().Writer, http.StatusForbidden, err)
+		}
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, settings)
 }
