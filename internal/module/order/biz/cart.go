@@ -54,6 +54,16 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 		return nil, sharedmodel.WrapErr("get cart resources", err)
 	}
 
+	listSpu, err := b.catalog.ListProductSpu(ctx, catalogbiz.ListProductSpuParams{
+		ID: spuIDs,
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("list cart spus", err)
+	}
+	currencyMap := lo.SliceToMap(listSpu.Data, func(s catalogmodel.ProductSpu) (uuid.UUID, string) {
+		return s.ID, s.Currency
+	})
+
 	items := make([]ordermodel.CartItem, 0, len(cartItems))
 	for _, cartItem := range cartItems {
 		sku := skuMap[cartItem.SkuID]
@@ -68,6 +78,7 @@ func (b *OrderHandler) GetCart(ctx restate.Context, params GetCartParams) ([]ord
 			Sku:      sku,
 			Quantity: cartItem.Quantity,
 			Resource: resource,
+			Currency: currencyMap[sku.SpuID],
 		})
 	}
 

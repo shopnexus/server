@@ -12,4 +12,5 @@ type CartItem struct {
 	Sku      catalogmodel.ProductSku `json:"sku"`
 	Quantity int64                   `json:"quantity"`
 	Resource *commonmodel.Resource   `json:"resource"`
+	Currency string                  `json:"currency"` // ISO 4217 from SPU
 }
