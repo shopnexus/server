@@ -10,18 +10,27 @@ import (
 	"shopnexus-server/internal/provider/exchange"
 )
 
-func TestFrankfurter_FetchLatest_Success(t *testing.T) {
-	body := `{"amount":1.0,"base":"USD","date":"2026-04-20","rates":{"VND":25000.5,"JPY":155.2}}`
+func TestCurrencyAPI_FetchLatest_Success(t *testing.T) {
+	body := `{
+		"meta": {"last_updated_at": "2026-04-20T17:38:00Z"},
+		"data": {
+			"VND": {"code": "VND", "value": 25000.5},
+			"JPY": {"code": "JPY", "value": 155.2}
+		}
+	}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("base") != "USD" {
-			t.Fatalf("expected base=USD, got %q", r.URL.Query().Get("base"))
+		if r.URL.Query().Get("base_currency") != "USD" {
+			t.Fatalf("expected base_currency=USD, got %q", r.URL.Query().Get("base_currency"))
+		}
+		if r.URL.Query().Get("apikey") != "test-key" {
+			t.Fatalf("apikey not forwarded, got %q", r.URL.Query().Get("apikey"))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(body))
 	}))
 	defer srv.Close()
 
-	client := exchange.NewFrankfurter(srv.URL, &http.Client{Timeout: 2 * time.Second})
+	client := exchange.NewCurrencyAPI(srv.URL, "test-key", &http.Client{Timeout: 2 * time.Second})
 	snap, err := client.FetchLatest(context.Background(), "USD", []string{"VND", "JPY"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -34,26 +43,26 @@ func TestFrankfurter_FetchLatest_Success(t *testing.T) {
 	}
 }
 
-func TestFrankfurter_FetchLatest_ServerError(t *testing.T) {
+func TestCurrencyAPI_FetchLatest_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer srv.Close()
 
-	client := exchange.NewFrankfurter(srv.URL, &http.Client{Timeout: 1 * time.Second})
+	client := exchange.NewCurrencyAPI(srv.URL, "bad-key", &http.Client{Timeout: 1 * time.Second})
 	_, err := client.FetchLatest(context.Background(), "USD", []string{"VND"})
 	if err == nil {
-		t.Fatal("expected error on 5xx, got nil")
+		t.Fatal("expected error on 401, got nil")
 	}
 }
 
-func TestFrankfurter_FetchLatest_MalformedJSON(t *testing.T) {
+func TestCurrencyAPI_FetchLatest_MalformedJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`not json`))
 	}))
 	defer srv.Close()
 
-	client := exchange.NewFrankfurter(srv.URL, &http.Client{Timeout: 1 * time.Second})
+	client := exchange.NewCurrencyAPI(srv.URL, "k", &http.Client{Timeout: 1 * time.Second})
 	_, err := client.FetchLatest(context.Background(), "USD", []string{"VND"})
 	if err == nil {
 		t.Fatal("expected error on malformed JSON")

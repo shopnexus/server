@@ -1,8 +1,5 @@
 -- Drops all common schema objects in reverse dependency order.
 
-DROP INDEX IF EXISTS "common"."exchange_rate_target_idx";
-DROP TABLE IF EXISTS "common"."exchange_rate";
-
 -- Foreign key constraints
 ALTER TABLE IF EXISTS "common"."resource_reference"
     DROP CONSTRAINT IF EXISTS "resource_reference_rs_id_fkey";

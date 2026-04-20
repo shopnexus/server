@@ -41,11 +41,12 @@ app:
     paymentExpiryDays: 30
   exchange:
     base: USD
-    supported: [VND, USD, JPY, KRW, EUR, GBP, CNY, SGD, THB, AUD]
+    supported: [USD, VND, JPY, KRW, EUR, GBP, CNY, SGD, THB, AUD, IDR, MXN, COP, CLP]
     refreshInterval: 6h
     httpTimeout: 5s
     defaultUserCurrency: VND
-    upstreamURL: https://api.frankfurter.dev
+    upstreamURL: https://api.currencyapi.com/v3
+    apiKey: "" # required — set per-env (currencyapi.com free tier: 300 req/month)
 
 filestore:
   type: s3 # Options: Local, S3, Cloudinary, Remote

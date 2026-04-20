@@ -38,6 +38,7 @@ type ExchangeConfig struct {
 	HTTPTimeout         time.Duration `yaml:"httpTimeout"         mapstructure:"httpTimeout"         validate:"gte=0"`
 	DefaultUserCurrency string        `yaml:"defaultUserCurrency" mapstructure:"defaultUserCurrency" validate:"required"`
 	UpstreamURL         string        `yaml:"upstreamURL"         mapstructure:"upstreamURL"         validate:"required,url"`
+	APIKey              string        `yaml:"apiKey"              mapstructure:"apiKey"              validate:"required"`
 }
 
 type JWT struct {

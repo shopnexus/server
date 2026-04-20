@@ -72,37 +72,3 @@ CREATE TABLE IF NOT EXISTS "common"."service_option" (
         REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "service_option_category_provider_idx" ON "common"."service_option" ("category", "provider");
-
--- Exchange rates fetched from Frankfurter by common.SetupExchangeCron.
--- base is always USD in current deployment; (base, target) UNIQUE keeps
--- schema flexible for future multi-base storage.
-CREATE TABLE IF NOT EXISTS "common"."exchange_rate" (
-    "id" BIGSERIAL NOT NULL,
-    "base" VARCHAR(3) NOT NULL,
-    "target" VARCHAR(3) NOT NULL,
-    "rate" NUMERIC(20,10) NOT NULL,
-    "fetched_at" TIMESTAMPTZ NOT NULL,
-    "date_updated" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "exchange_rate_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "exchange_rate_base_target_key" UNIQUE ("base", "target"),
-    CONSTRAINT "exchange_rate_base_format_chk" CHECK ("base" ~ '^[A-Z]{3}$'),
-    CONSTRAINT "exchange_rate_target_format_chk" CHECK ("target" ~ '^[A-Z]{3}$'),
-    CONSTRAINT "exchange_rate_rate_positive_chk" CHECK ("rate" > 0)
-);
-CREATE INDEX IF NOT EXISTS "exchange_rate_target_idx" ON "common"."exchange_rate" ("target");
-
--- Seed fallback rates so the FE has data before the first cron tick.
--- Frankfurter (ECB) doesn't publish VND — the VND row here is the only
--- source of VND conversion until a manual refresh is performed.
--- fetched_at = epoch triggers a "stale" tooltip on the FE.
-INSERT INTO "common"."exchange_rate" (base, target, rate, fetched_at) VALUES
-    ('USD', 'VND', 25000,   '1970-01-01'::timestamptz),
-    ('USD', 'JPY', 155,     '1970-01-01'::timestamptz),
-    ('USD', 'KRW', 1350,    '1970-01-01'::timestamptz),
-    ('USD', 'EUR', 0.92,    '1970-01-01'::timestamptz),
-    ('USD', 'GBP', 0.78,    '1970-01-01'::timestamptz),
-    ('USD', 'CNY', 7.3,     '1970-01-01'::timestamptz),
-    ('USD', 'SGD', 1.35,    '1970-01-01'::timestamptz),
-    ('USD', 'THB', 35,      '1970-01-01'::timestamptz),
-    ('USD', 'AUD', 1.52,    '1970-01-01'::timestamptz)
-ON CONFLICT (base, target) DO NOTHING;

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"shopnexus-server/config"
+	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/objectstore"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
@@ -60,6 +61,7 @@ type SSEClient struct {
 type CommonHandler struct {
 	config         *config.Config
 	storage        CommonStorage
+	cache          cache.Client
 	objectstoreMap map[string]objectstore.Client
 	geocoder       geocoding.Client
 	exchange       exchange.Client
@@ -77,12 +79,14 @@ func (b *CommonHandler) ServiceName() string {
 func NewcommonBiz(
 	cfg *config.Config,
 	storage CommonStorage,
+	cacheClient cache.Client,
 	geocoder geocoding.Client,
 	exchangeClient exchange.Client,
 ) (*CommonHandler, error) {
 	b := &CommonHandler{
 		config:     cfg,
 		storage:    storage,
+		cache:      cacheClient,
 		geocoder:   geocoder,
 		exchange:   exchangeClient,
 		sseClients: make(map[uuid.UUID][]*SSEClient),

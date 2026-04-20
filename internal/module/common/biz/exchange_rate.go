@@ -6,15 +6,20 @@ import (
 	"log/slog"
 	"math"
 	"slices"
-	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	restate "github.com/restatedev/sdk-go"
 
-	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 )
+
+// exchangeRateCacheTTL is longer than the refresh interval so stale rates
+// survive provider outages between successful refreshes.
+const exchangeRateCacheTTL = 24 * time.Hour
+
+func exchangeRateCacheKey(base string) string {
+	return fmt.Sprintf("common:exchange:rates:%s", base)
+}
 
 // GetExchangeRatesParams is an empty envelope required by the Restate
 // ingress client — zero-arg handlers reject requests with a JSON
@@ -31,7 +36,7 @@ type ConvertAmountParams struct {
 // ConvertAmountPure converts amount through the USD base. ratesFromUSD
 // maps target currency to "1 USD = rate target". Returns the original
 // amount unchanged when a rate is missing (fail-open; callers display
-// original currency). Exported for testability without DB setup.
+// original currency). Exported for testability without cache setup.
 func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]float64) int64 {
 	if from == to {
 		return amount
@@ -60,29 +65,24 @@ func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]fl
 	return int64(math.Round(majorTo * math.Pow10(decTo)))
 }
 
-// GetExchangeRates reads rates from DB and returns the FE-facing snapshot.
-// Uses restate.Context so restate.Reflect() registers this as a service handler.
-// Accepts an empty params struct to satisfy the Restate input-body requirement.
+// GetExchangeRates reads the latest snapshot from cache. On cache miss
+// (before the first cron refresh completes) or cache error, returns an
+// empty Rates map with correct metadata — callers fail-open.
 func (b *CommonHandler) GetExchangeRates(ctx restate.Context, _ GetExchangeRatesParams) (commonmodel.ExchangeRateSnapshot, error) {
-	rows, err := b.storage.Querier().GetExchangeRatesByBase(ctx, b.config.App.Exchange.Base)
-	if err != nil {
-		return commonmodel.ExchangeRateSnapshot{}, fmt.Errorf("get exchange rates: %w", err)
+	base := b.config.App.Exchange.Base
+
+	var snap commonmodel.ExchangeRateSnapshot
+	if err := b.cache.Get(ctx, exchangeRateCacheKey(base), &snap); err != nil {
+		slog.Warn("exchange cache get failed", "base", base, "err", err)
 	}
-	rates := make(map[string]float64, len(rows))
-	var latest time.Time
-	for _, r := range rows {
-		f, _ := r.Rate.Float64Value()
-		rates[r.Target] = f.Float64
-		if r.FetchedAt.After(latest) {
-			latest = r.FetchedAt
-		}
+
+	// Cache miss leaves snap at zero value — Rates will be nil.
+	if snap.Rates == nil {
+		snap.Rates = map[string]float64{}
 	}
-	return commonmodel.ExchangeRateSnapshot{
-		Base:      b.config.App.Exchange.Base,
-		Rates:     rates,
-		FetchedAt: latest,
-		Supported: b.config.App.Exchange.Supported,
-	}, nil
+	snap.Base = base
+	snap.Supported = b.config.App.Exchange.Supported
+	return snap, nil
 }
 
 // ConvertAmount: BE helper for cross-currency math (filter, analytics).
@@ -101,8 +101,9 @@ func (b *CommonHandler) IsSupportedCurrency(_ restate.Context, currency string) 
 	return slices.Contains(b.config.App.Exchange.Supported, currency), nil
 }
 
-// RefreshExchangeRates fetches latest rates and upserts them.
-// Invoked by SetupExchangeCron on startup and on each ticker.
+// RefreshExchangeRates fetches the latest rates from the provider and
+// overwrites the cached snapshot. Invoked by SetupExchangeCron on startup
+// and on each ticker.
 func (b *CommonHandler) RefreshExchangeRates(ctx context.Context) error {
 	if b.exchange == nil {
 		return fmt.Errorf("exchange: no provider configured")
@@ -114,21 +115,18 @@ func (b *CommonHandler) RefreshExchangeRates(ctx context.Context) error {
 			targets = append(targets, c)
 		}
 	}
-	snap, err := b.exchange.FetchLatest(ctx, base, targets)
+	fetched, err := b.exchange.FetchLatest(ctx, base, targets)
 	if err != nil {
 		return fmt.Errorf("refresh rates: fetch: %w", err)
 	}
 
-	for target, rate := range snap.Rates {
-		if err := b.storage.Querier().UpsertExchangeRate(ctx, commondb.UpsertExchangeRateParams{
-			Base:      base,
-			Target:    target,
-			Rate:      pgNumericFromFloat(rate),
-			FetchedAt: snap.FetchedAt,
-		}); err != nil {
-			slog.Warn("upsert exchange rate failed",
-				"base", base, "target", target, "err", err)
-		}
+	snap := commonmodel.ExchangeRateSnapshot{
+		Base:      base,
+		Rates:     fetched.Rates,
+		FetchedAt: fetched.FetchedAt,
+	}
+	if err := b.cache.Set(ctx, exchangeRateCacheKey(base), snap, exchangeRateCacheTTL); err != nil {
+		return fmt.Errorf("refresh rates: cache set: %w", err)
 	}
 	return nil
 }
@@ -160,13 +158,4 @@ func (b *CommonHandler) exchangeCronLoop(ctx context.Context, interval time.Dura
 			}
 		}
 	}
-}
-
-// pgNumericFromFloat converts a float64 to pgtype.Numeric via string
-// formatting — avoids loss of precision that direct binary encoding
-// would incur on non-terminating decimals like 1/3.
-func pgNumericFromFloat(v float64) pgtype.Numeric {
-	var n pgtype.Numeric
-	_ = n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
-	return n
 }

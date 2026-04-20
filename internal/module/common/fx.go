@@ -37,11 +37,13 @@ func NewCommonBiz(cfg *config.Config) commonbiz.CommonBiz {
 	return commonbiz.NewCommonRestateClient(cfg.Restate.IngressAddress)
 }
 
-// NewExchangeClient provides a Frankfurter-backed exchange.Client
-// configured from app settings.
+// NewExchangeClient provides a CurrencyAPI-backed exchange.Client
+// configured from app settings. Chosen over Frankfurter for full ISO 4217
+// coverage (VND, COP, CLP etc. that ECB-based providers don't ship).
 func NewExchangeClient(cfg *config.Config) exchange.Client {
-	return exchange.NewFrankfurter(
+	return exchange.NewCurrencyAPI(
 		cfg.App.Exchange.UpstreamURL,
+		cfg.App.Exchange.APIKey,
 		&http.Client{Timeout: cfg.App.Exchange.HTTPTimeout},
 	)
 }
