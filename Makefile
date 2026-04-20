@@ -1,4 +1,4 @@
-.PHONY: run dev generate pgtempl migrate seed seedcmt build register schema erdiagram
+.PHONY: run dev generate pgtempl migrate seed seedcmt build register schema erdiagram cloc cloc-modules
 
 # Downgrade protobuf registration conflict to warning (restate-sdk vs milvus share "internal.proto")
 export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
@@ -26,3 +26,20 @@ seed:
 
 schema:
 	go run ./cmd/erdiagram/
+
+cloc:
+	@find . -type f -name '*.go' \
+		-not -path './vendor/*' \
+		-not -path './bin/*' \
+		-exec grep -L '^// Code generated' {} + \
+		| xargs cloc
+
+cloc-modules:
+	@for m in internal/module/*/; do \
+		name=$$(basename $$m); \
+		files=$$(find $$m -type f -name '*.go' -exec grep -L '^// Code generated' {} + 2>/dev/null); \
+		[ -z "$$files" ] && continue; \
+		count=$$(echo "$$files" | wc -l); \
+		loc=$$(echo "$$files" | xargs cat 2>/dev/null | grep -cvE '^\s*(//|$$)'); \
+		printf "%-12s %3d files  %6d loc\n" "$$name" "$$count" "$$loc"; \
+	done | sort -k4 -rn
