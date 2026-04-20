@@ -3,6 +3,7 @@ package locker
 import (
 	"context"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/redis/rueidis"
@@ -31,9 +32,30 @@ func NewRedisLocker(rdb rueidis.Client, cfg Config) *RedisLocker {
 	return &RedisLocker{rdb: rdb, cfg: cfg}
 }
 
-// Lock acquires an exclusive (write) lock. Waits for all readers to release,
+// Lock acquires one or more exclusive (write) locks. Keys are sorted internally
+// and acquired in deterministic order to prevent deadlocks. Returns a single
+// unlock func that releases all acquired locks in reverse order.
+func (l *RedisLocker) Lock(ctx context.Context, keys ...string) (unlock func()) {
+	if len(keys) == 0 {
+		return func() {}
+	}
+	sorted := append([]string(nil), keys...)
+	sort.Strings(sorted)
+
+	unlocks := make([]func(), 0, len(sorted))
+	for _, k := range sorted {
+		unlocks = append(unlocks, l.lockOne(ctx, k))
+	}
+	return func() {
+		for i := len(unlocks) - 1; i >= 0; i-- {
+			unlocks[i]()
+		}
+	}
+}
+
+// lockOne acquires a single exclusive lock. Waits for all readers to release,
 // then acquires the write lock. Returns unlock func.
-func (l *RedisLocker) Lock(ctx context.Context, key string) (unlock func()) {
+func (l *RedisLocker) lockOne(ctx context.Context, key string) (unlock func()) {
 	lockKey := "lock:" + key
 	rlockKey := "rlock:" + key
 
@@ -87,9 +109,29 @@ func (l *RedisLocker) Lock(ctx context.Context, key string) (unlock func()) {
 	}
 }
 
-// RLock acquires a shared (read) lock. Multiple readers can hold simultaneously.
+// RLock acquires one or more shared (read) locks. Keys are sorted internally.
+// Returns a single unlock func that releases all acquired locks in reverse order.
+func (l *RedisLocker) RLock(ctx context.Context, keys ...string) (unlock func()) {
+	if len(keys) == 0 {
+		return func() {}
+	}
+	sorted := append([]string(nil), keys...)
+	sort.Strings(sorted)
+
+	unlocks := make([]func(), 0, len(sorted))
+	for _, k := range sorted {
+		unlocks = append(unlocks, l.rlockOne(ctx, k))
+	}
+	return func() {
+		for i := len(unlocks) - 1; i >= 0; i-- {
+			unlocks[i]()
+		}
+	}
+}
+
+// rlockOne acquires a single shared (read) lock. Multiple readers can hold simultaneously.
 // Blocks while a writer holds the exclusive lock. Returns unlock func.
-func (l *RedisLocker) RLock(ctx context.Context, key string) (unlock func()) {
+func (l *RedisLocker) rlockOne(ctx context.Context, key string) (unlock func()) {
 	lockKey := "lock:" + key
 	rlockKey := "rlock:" + key
 
