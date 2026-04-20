@@ -46,7 +46,7 @@ func (s *PromotionHandler) GetPromotion(
 		return zero, sharedmodel.WrapErr("db list promotion refs", err)
 	}
 
-	return dbToPromotion(promo, refs), nil
+	return mapPromotion(promo, refs), nil
 }
 
 // --- List ---
@@ -94,7 +94,7 @@ func (s *PromotionHandler) ListPromotion(
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data: lo.Map(rows, func(r promotiondb.ListCountPromotionRow, _ int) promotionmodel.Promotion {
-			return dbToPromotion(r.PromotionPromotion, refsMap[r.PromotionPromotion.ID])
+			return mapPromotion(r.PromotionPromotion, refsMap[r.PromotionPromotion.ID])
 		}),
 	}, nil
 }
@@ -150,7 +150,7 @@ func (b *PromotionHandler) CreatePromotion(
 		return zero, sharedmodel.WrapErr("db create promotion", err)
 	}
 
-	return dbToPromotion(dbPromo, nil), nil
+	return mapPromotion(dbPromo, nil), nil
 }
 
 // --- Update ---
@@ -221,7 +221,7 @@ func (s *PromotionHandler) UpdatePromotion(
 		}
 	}
 
-	return dbToPromotion(dbPromo, nil), nil
+	return mapPromotion(dbPromo, nil), nil
 }
 
 // --- Delete ---
@@ -264,8 +264,8 @@ func createRefs(
 	return nil
 }
 
-// dbToPromotion maps a DB row + refs to the domain model.
-func dbToPromotion(p promotiondb.PromotionPromotion, refs []promotiondb.PromotionRef) promotionmodel.Promotion {
+// mapPromotion maps a DB row + refs to the domain model.
+func mapPromotion(p promotiondb.PromotionPromotion, refs []promotiondb.PromotionRef) promotionmodel.Promotion {
 	return promotionmodel.Promotion{
 		ID:          p.ID,
 		Code:        p.Code,

@@ -65,7 +65,7 @@ func (b *CatalogHandler) ListProductSku(
 		if err := sonic.Unmarshal(dbSku.Attributes, &attributes); err != nil {
 			return zero, sharedmodel.WrapErr("unmarshal sku attributes", err)
 		}
-		m := dbToProductSku(dbSku)
+		m := mapProductSku(dbSku)
 		m.Stock = stockMap[dbSku.ID].Stock
 		m.Attributes = attributes
 		skus = append(skus, m)
@@ -119,7 +119,7 @@ func (b *CatalogHandler) CreateProductSku(
 		return zero, sharedmodel.WrapErr("create product sku", err)
 	}
 
-	m := dbToProductSku(sku)
+	m := mapProductSku(sku)
 	m.Stock = 0
 	m.Attributes = params.Attributes
 	return m, nil
@@ -183,15 +183,15 @@ func (b *CatalogHandler) UpdateProductSku(
 		return zero, sharedmodel.WrapErr("db update search sync", err)
 	}
 
-	m := dbToProductSku(sku)
+	m := mapProductSku(sku)
 	m.Stock = stock.Stock
 	m.Attributes = params.Attributes
 	return m, nil
 }
 
-// dbToProductSku maps a DB CatalogProductSku row to the model type.
+// mapProductSku maps a DB CatalogProductSku row to the model type.
 // Callers should set Stock and Attributes as needed.
-func dbToProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
+func mapProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
 	return catalogmodel.ProductSku{
 		ID:             sku.ID,
 		SpuID:          sku.SpuID,

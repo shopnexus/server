@@ -18,8 +18,8 @@ import (
 	"github.com/samber/lo"
 )
 
-// dbToRefundDispute maps a DB OrderRefundDispute row to the model type.
-func dbToRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
+// mapRefundDispute maps a DB OrderRefundDispute row to the model type.
+func mapRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
 	return ordermodel.RefundDispute{
 		ID:          d.ID,
 		RefundID:    d.RefundID,
@@ -35,10 +35,10 @@ func dbToRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
 func (b *OrderHandler) CreateRefundDispute(
 	ctx restate.Context,
 	params CreateRefundDisputeParams,
-) (_ ordermodel.RefundDispute, err error) {
-	defer metrics.TrackHandler("order", "CreateRefundDispute", &err)()
-
+) (ordermodel.RefundDispute, error) {
 	var zero ordermodel.RefundDispute
+	var err error
+	defer metrics.TrackHandler("order", "CreateRefundDispute", &err)()
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate create dispute", err)
@@ -47,8 +47,8 @@ func (b *OrderHandler) CreateRefundDispute(
 	// Fetch refund + order, check ownership, count active disputes, and insert — all in one
 	// durable step to eliminate the race window between count and insert.
 	type disputeRunResult struct {
-		BuyerID  uuid.UUID                 `json:"buyer_id"`
-		SellerID uuid.UUID                 `json:"seller_id"`
+		BuyerID  uuid.UUID                  `json:"buyer_id"`
+		SellerID uuid.UUID                  `json:"seller_id"`
 		Dispute  orderdb.OrderRefundDispute `json:"dispute"`
 	}
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (disputeRunResult, error) {
@@ -104,7 +104,7 @@ func (b *OrderHandler) CreateRefundDispute(
 		return zero, err
 	}
 
-	dispute := dbToRefundDispute(result.Dispute)
+	dispute := mapRefundDispute(result.Dispute)
 
 	// Notify the other party (fire-and-forget).
 	var notifyAccountID uuid.UUID
@@ -203,7 +203,7 @@ func (b *OrderHandler) ListRefundDisputes(
 		PageParams: pagination,
 		Total:      total,
 		Data: lo.Map(dbResult.Rows, func(r orderdb.ListCountRefundDisputeRow, _ int) ordermodel.RefundDispute {
-			return dbToRefundDispute(r.OrderRefundDispute)
+			return mapRefundDispute(r.OrderRefundDispute)
 		}),
 	}, nil
 }
@@ -255,5 +255,5 @@ func (b *OrderHandler) GetRefundDispute(
 		return zero, ordermodel.ErrDisputeNotAuthorized.Terminal()
 	}
 
-	return dbToRefundDispute(result.Dispute), nil
+	return mapRefundDispute(result.Dispute), nil
 }

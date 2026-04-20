@@ -76,7 +76,7 @@ func (b *OrderHandler) ListBuyerRefunds(
 		PageParams: params.PaginationParams,
 		Total:      total,
 		Data: lo.Map(dbResult.Refunds, func(r orderdb.ListCountRefundRow, _ int) ordermodel.Refund {
-			m := dbToRefund(r.OrderRefund)
+			m := mapRefund(r.OrderRefund)
 			m.Resources = resourcesMap[r.OrderRefund.ID]
 			return m
 		}),
@@ -194,7 +194,7 @@ func (b *OrderHandler) CreateBuyerRefund(
 		return zero, sharedmodel.WrapErr("update refund resources", err)
 	}
 
-	refund := dbToRefund(dbRefund)
+	refund := mapRefund(dbRefund)
 	refund.Resources = resources
 
 	// Track refund_requested interaction + notify seller
@@ -276,13 +276,13 @@ func (b *OrderHandler) UpdateBuyerRefund(
 		return zero, sharedmodel.WrapErr("update refund resources", err)
 	}
 
-	m := dbToRefund(updatedRefund)
+	m := mapRefund(updatedRefund)
 	m.Resources = resources
 	return m, nil
 }
 
-// dbToRefund maps a DB OrderRefund row to the model type.
-func dbToRefund(r orderdb.OrderRefund) ordermodel.Refund {
+// mapRefund maps a DB OrderRefund row to the model type.
+func mapRefund(r orderdb.OrderRefund) ordermodel.Refund {
 	var confirmedByID *uuid.UUID
 	if r.ConfirmedByID.Valid {
 		confirmedByID = &r.ConfirmedByID.UUID

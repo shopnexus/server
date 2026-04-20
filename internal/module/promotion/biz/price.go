@@ -91,7 +91,7 @@ func (s *PromotionHandler) CalculatePromotedPrices(
 	promos := make([]parsedPromotion, 0, len(dbPromos))
 	for _, p := range dbPromos {
 		promos = append(promos, parsedPromotion{
-			Promotion: dbToPromotion(p, refsMap[p.ID]),
+			Promotion: mapPromotion(p, refsMap[p.ID]),
 			discount:  parseDiscountData(p.ID, p.Data),
 		})
 	}

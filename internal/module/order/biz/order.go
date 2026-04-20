@@ -233,7 +233,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		var paymentPtr *ordermodel.Payment
 		if pid, ok := orderPaymentMap[o.ID]; ok {
 			if p, found := paymentMap[pid]; found {
-				pm := dbToPayment(p)
+				pm := mapPayment(p)
 				paymentPtr = &pm
 			}
 		}
@@ -241,7 +241,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		var transportPtr *ordermodel.Transport
 		if o.TransportID.Valid {
 			if t, ok := transportMap[o.TransportID.UUID]; ok {
-				tr := dbToTransport(t)
+				tr := mapTransport(t)
 				transportPtr = &tr
 			}
 		}
@@ -267,21 +267,13 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	return result, nil
 }
 
-// dbToPayment maps a DB OrderPayment row to the model type.
-func dbToPayment(p orderdb.OrderPayment) ordermodel.Payment {
-	var datePaid *time.Time
-	if p.DatePaid.Valid {
-		datePaid = &p.DatePaid.Time
-	}
-	var pmID *uuid.UUID
-	if p.PaymentMethodID.Valid {
-		pmID = &p.PaymentMethodID.UUID
-	}
+// mapPayment maps a DB OrderPayment row to the model type.
+func mapPayment(p orderdb.OrderPayment) ordermodel.Payment {
 	return ordermodel.Payment{
 		ID:              p.ID,
 		AccountID:       p.AccountID,
 		Option:          p.Option,
-		PaymentMethodID: pmID,
+		PaymentMethodID: p.PaymentMethodID,
 		Status:          p.Status,
 		Amount:          p.Amount,
 		Data:            p.Data,
@@ -289,24 +281,20 @@ func dbToPayment(p orderdb.OrderPayment) ordermodel.Payment {
 		SellerCurrency:  p.SellerCurrency,
 		ExchangeRate:    p.ExchangeRate,
 		DateCreated:     p.DateCreated,
-		DatePaid:        datePaid,
+		DatePaid:        p.DatePaid,
 		DateExpired:     p.DateExpired,
 	}
 }
 
-// dbToTransport maps a DB OrderTransport row to the model type.
-func dbToTransport(t orderdb.OrderTransport) ordermodel.Transport {
-	var dateCreated time.Time
-	if t.DateCreated.Valid {
-		dateCreated = t.DateCreated.Time
-	}
+// mapTransport maps a DB OrderTransport row to the model type.
+func mapTransport(t orderdb.OrderTransport) ordermodel.Transport {
 	return ordermodel.Transport{
 		ID:          t.ID,
 		Option:      t.Option,
 		Status:      t.Status.OrderTransportStatus,
 		Cost:        t.Cost,
 		Data:        t.Data,
-		DateCreated: dateCreated,
+		DateCreated: t.DateCreated,
 	}
 }
 

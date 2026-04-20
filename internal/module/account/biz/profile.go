@@ -66,7 +66,7 @@ func (b *AccountHandler) ListProfile(
 	profiles := make([]accountmodel.Profile, 0, len(dbProfiles))
 	for _, dbProfile := range dbProfiles {
 		account := accountMap[dbProfile.ID]
-		profiles = append(profiles, b.dbToProfile(ctx, account, dbProfile))
+		profiles = append(profiles, b.mapProfile(ctx, account, dbProfile))
 	}
 
 	return sharedmodel.PaginateResult[accountmodel.Profile]{
@@ -98,7 +98,7 @@ func (b *AccountHandler) GetProfile(ctx restate.Context, params GetProfileParams
 		return zero, err
 	}
 
-	m := b.dbToProfile(ctx, account, profile)
+	m := b.mapProfile(ctx, account, profile)
 	return m, nil
 }
 
@@ -154,12 +154,12 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 		return zero, sharedmodel.WrapErr("update profile", err)
 	}
 
-	m := b.dbToProfile(ctx, account, profile)
+	m := b.mapProfile(ctx, account, profile)
 	return m, nil
 }
 
-// dbToProfile maps DB account + profile rows to the model type.
-func (b *AccountHandler) dbToProfile(
+// mapProfile maps DB account + profile rows to the model type.
+func (b *AccountHandler) mapProfile(
 	ctx restate.Context,
 	account accountdb.AccountAccount,
 	profile accountdb.AccountProfile,

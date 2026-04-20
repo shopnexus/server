@@ -74,16 +74,16 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	itemIDs := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) int64 { return i.ID })
 
 	// Cancel the items
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().CancelItemsByIDs(ctx, itemIDs)
+	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err = b.storage.Querier().CancelItemsByIDs(ctx, itemIDs)
 		return err
 	}); err != nil {
 		return sharedmodel.WrapErr("cancel items", err)
 	}
 
 	// Cancel the payment (update status to Cancelled)
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
+	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
 			ID: paymentID,
 			Status: orderdb.NullOrderStatus{
 				OrderStatus: orderdb.OrderStatusCancelled,
@@ -105,7 +105,7 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 			Amount:  item.Quantity,
 		})
 	}
-	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
 		Items: releaseItems,
 	}); err != nil {
 		return sharedmodel.WrapErr("release inventory", err)
