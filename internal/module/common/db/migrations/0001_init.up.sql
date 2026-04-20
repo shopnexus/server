@@ -15,9 +15,7 @@ CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'R
 
 -- Tables
 
--- Uploaded file/media record. provider identifies the storage backend
--- (e.g. 'S3', 'Local'). object_key is the path within that provider.
--- checksum is used for deduplication and integrity verification.
+-- Uploaded file/media record. provider identifies the storage backend.
 CREATE TABLE IF NOT EXISTS "common"."resource" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     -- Account that uploaded the file; NULL for system-generated resources
@@ -35,11 +33,11 @@ CREATE TABLE IF NOT EXISTS "common"."resource" (
     -- Optional content hash for deduplication
     "checksum" TEXT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "resource_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "resource_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "resource_provider_object_key_key" UNIQUE ("provider", "object_key")
 );
 
 -- Associates a resource (file) with a domain entity.
--- "order" controls display ordering when an entity has multiple media files.
 -- This indirection allows a single file to be referenced by multiple entities.
 CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
     "id" BIGSERIAL NOT NULL,
@@ -50,13 +48,12 @@ CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
     "ref_id" UUID NOT NULL,
     -- Display order position among other resources for the same entity
     "order" INTEGER NOT NULL,
-    CONSTRAINT "resource_reference_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "resource_reference_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "resource_reference_rs_id_fkey" FOREIGN KEY ("rs_id")
+        REFERENCES "common"."resource" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Registry of pluggable service integrations selectable at checkout or configuration time.
--- category groups related providers (e.g. 'payment', 'transport').
--- provider and method identify the specific adapter implementation.
--- "priority" controls display priority within a category in the UI.
 CREATE TABLE IF NOT EXISTS "common"."service_option" (
     -- Stable identifier for this option (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
     "id" VARCHAR(100) NOT NULL,
@@ -70,47 +67,29 @@ CREATE TABLE IF NOT EXISTS "common"."service_option" (
     "priority" INTEGER NOT NULL,
     "config" JSONB NOT NULL,
     "logo_rs_id" UUID,
-    CONSTRAINT "service_option_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "service_option_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "service_option_logo_rs_id_fkey" FOREIGN KEY ("logo_rs_id")
+        REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-
--- Indexes
-
--- Prevent duplicate file uploads to the same provider path
-CREATE UNIQUE INDEX IF NOT EXISTS "resource_provider_object_key_key" ON "common"."resource" ("provider", "object_key");
 CREATE INDEX IF NOT EXISTS "service_option_category_provider_idx" ON "common"."service_option" ("category", "provider");
 
--- Foreign keys
-
-ALTER TABLE "common"."resource_reference"
-    ADD CONSTRAINT "resource_reference_rs_id_fkey"
-    FOREIGN KEY ("rs_id") REFERENCES "common"."resource" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "common"."service_option"
-    ADD CONSTRAINT "service_option_logo_rs_id_fkey"
-    FOREIGN KEY ("logo_rs_id") REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- =============================================
--- EXCHANGE RATES
--- =============================================
 -- Exchange rates fetched from Frankfurter by common.SetupExchangeCron.
--- base is always USD in current deployment; (base, target) PK keeps
+-- base is always USD in current deployment; (base, target) UNIQUE keeps
 -- schema flexible for future multi-base storage.
-CREATE TABLE IF NOT EXISTS common.exchange_rate (
-    "id" BIGSERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS "common"."exchange_rate" (
+    "id" BIGSERIAL NOT NULL,
     "base" VARCHAR(3) NOT NULL,
     "target" VARCHAR(3) NOT NULL,
     "rate" NUMERIC(20,10) NOT NULL,
     "fetched_at" TIMESTAMPTZ NOT NULL,
     "date_updated" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
+    CONSTRAINT "exchange_rate_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "exchange_rate_base_target_key" UNIQUE ("base", "target"),
     CONSTRAINT "exchange_rate_base_format_chk" CHECK ("base" ~ '^[A-Z]{3}$'),
     CONSTRAINT "exchange_rate_target_format_chk" CHECK ("target" ~ '^[A-Z]{3}$'),
     CONSTRAINT "exchange_rate_rate_positive_chk" CHECK ("rate" > 0)
 );
-
-CREATE INDEX IF NOT EXISTS "exchange_rate_target_idx"
-    ON "common"."exchange_rate" ("target");
+CREATE INDEX IF NOT EXISTS "exchange_rate_target_idx" ON "common"."exchange_rate" ("target");
 
 -- Seed fallback rates so the FE has data before the first cron tick.
 -- Frankfurter (ECB) doesn't publish VND — the VND row here is the only
