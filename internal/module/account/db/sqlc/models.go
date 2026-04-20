@@ -253,16 +253,15 @@ func AllAccountWalletTransactionTypeValues() []AccountWalletTransactionType {
 }
 
 type AccountAccount struct {
-	ID          uuid.UUID       `json:"id"`
-	Number      int64           `json:"number"`
-	Status      AccountStatus   `json:"status"`
-	Phone       null.String     `json:"phone"`
-	Email       null.String     `json:"email"`
-	Username    null.String     `json:"username"`
-	Password    null.String     `json:"password"`
-	DateCreated time.Time       `json:"date_created"`
-	DateUpdated time.Time       `json:"date_updated"`
-	Settings    json.RawMessage `json:"settings"`
+	ID          uuid.UUID     `json:"id"`
+	Number      int64         `json:"number"`
+	Status      AccountStatus `json:"status"`
+	Phone       null.String   `json:"phone"`
+	Email       null.String   `json:"email"`
+	Username    null.String   `json:"username"`
+	Password    null.String   `json:"password"`
+	DateCreated time.Time     `json:"date_created"`
+	DateUpdated time.Time     `json:"date_updated"`
 }
 
 type AccountContact struct {
@@ -334,6 +333,7 @@ type AccountProfile struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
+	Settings         json.RawMessage   `json:"settings"`
 }
 
 type AccountWallet struct {

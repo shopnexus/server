@@ -1,5 +1,9 @@
 -- Drops all account schema objects in reverse dependency order.
 -- Indexes are dropped before tables; types after tables; schema last.
+--
+-- Column additions in the up migration (e.g. account.profile.settings) are
+-- reversed by the wholesale DROP TABLE below — this script is a full
+-- teardown, not a granular reverse patch. Never partial-apply.
 
 -- Indexes
 DROP INDEX IF EXISTS "account"."idx_wallet_tx_account";

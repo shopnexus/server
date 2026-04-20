@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchAccount = `-- name: CreateBatchAccount :batchone
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated", "settings")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, number, status, phone, email, username, password, date_created, date_updated, settings
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, number, status, phone, email, username, password, date_created, date_updated
 `
 
 type CreateBatchAccountBatchResults struct {
@@ -33,15 +33,14 @@ type CreateBatchAccountBatchResults struct {
 }
 
 type CreateBatchAccountParams struct {
-	ID          uuid.UUID       `json:"id"`
-	Status      AccountStatus   `json:"status"`
-	Phone       null.String     `json:"phone"`
-	Email       null.String     `json:"email"`
-	Username    null.String     `json:"username"`
-	Password    null.String     `json:"password"`
-	DateCreated time.Time       `json:"date_created"`
-	DateUpdated time.Time       `json:"date_updated"`
-	Settings    json.RawMessage `json:"settings"`
+	ID          uuid.UUID     `json:"id"`
+	Status      AccountStatus `json:"status"`
+	Phone       null.String   `json:"phone"`
+	Email       null.String   `json:"email"`
+	Username    null.String   `json:"username"`
+	Password    null.String   `json:"password"`
+	DateCreated time.Time     `json:"date_created"`
+	DateUpdated time.Time     `json:"date_updated"`
 }
 
 func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccountParams) *CreateBatchAccountBatchResults {
@@ -56,7 +55,6 @@ func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccou
 			a.Password,
 			a.DateCreated,
 			a.DateUpdated,
-			a.Settings,
 		}
 		batch.Queue(createBatchAccount, vals...)
 	}
@@ -85,7 +83,6 @@ func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, er
 			&i.Password,
 			&i.DateCreated,
 			&i.DateUpdated,
-			&i.Settings,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -469,9 +466,9 @@ func (b *CreateBatchPaymentMethodBatchResults) Close() error {
 }
 
 const createBatchProfile = `-- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "settings")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, settings
 `
 
 type CreateBatchProfileBatchResults struct {
@@ -492,6 +489,7 @@ type CreateBatchProfileParams struct {
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`
+	Settings         json.RawMessage   `json:"settings"`
 }
 
 func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfileParams) *CreateBatchProfileBatchResults {
@@ -509,6 +507,7 @@ func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfi
 			a.DefaultContactID,
 			a.DateCreated,
 			a.DateUpdated,
+			a.Settings,
 		}
 		batch.Queue(createBatchProfile, vals...)
 	}
@@ -539,6 +538,7 @@ func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, er
 			&i.DefaultContactID,
 			&i.DateCreated,
 			&i.DateUpdated,
+			&i.Settings,
 		)
 		if f != nil {
 			f(t, i, err)

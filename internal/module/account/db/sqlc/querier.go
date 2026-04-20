@@ -151,6 +151,7 @@ type Querier interface {
 	UpdateNotification(ctx context.Context, arg UpdateNotificationParams) (AccountNotification, error)
 	UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMethodParams) (AccountPaymentMethod, error)
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error)
+	UpdateProfileSettings(ctx context.Context, arg UpdateProfileSettingsParams) (AccountProfile, error)
 	UpdateWallet(ctx context.Context, arg UpdateWalletParams) (AccountWallet, error)
 	UpdateWalletTransaction(ctx context.Context, arg UpdateWalletTransactionParams) (AccountWalletTransaction, error)
 }

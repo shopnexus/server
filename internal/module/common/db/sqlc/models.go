@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CommonResourceRefType string
@@ -79,6 +80,14 @@ func AllCommonResourceRefTypeValues() []CommonResourceRefType {
 		CommonResourceRefTypeReturnDispute,
 		CommonResourceRefTypeComment,
 	}
+}
+
+type CommonExchangeRate struct {
+	Base        string         `json:"base"`
+	Target      string         `json:"target"`
+	Rate        pgtype.Numeric `json:"rate"`
+	FetchedAt   time.Time      `json:"fetched_at"`
+	DateUpdated time.Time      `json:"date_updated"`
 }
 
 type CommonResource struct {

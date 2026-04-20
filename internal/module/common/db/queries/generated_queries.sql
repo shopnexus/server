@@ -343,3 +343,9 @@ WHERE (
     ("config" = ANY(sqlc.slice('config')) OR sqlc.slice('config') IS NULL) AND
     ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL)
 );
+
+-- ========================================
+-- Queries for table: common.exchange_rate
+-- ========================================
+-- Custom queries in exchange_rate.sql; composite PK (base, target) precludes
+-- pgtempl's generated id-based queries.
