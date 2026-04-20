@@ -54,7 +54,13 @@ func processProduct(
 		specsJSON = []byte("[]")
 	}
 
-	// Create ProductSpu
+	// Create ProductSpu.
+	// Currency is NOT NULL VARCHAR(3); fall back to VND if the JSON entry
+	// is missing or malformed (e.g. a symbol like "$" instead of "USD").
+	currency := strings.ToUpper(strings.TrimSpace(input.Currency))
+	if len(currency) != 3 {
+		currency = "VND"
+	}
 	spuID := uuid.New()
 	spu, err := catalogStore.CreateProductSpu(ctx, catalogdb.CreateProductSpuParams{
 		ID:             spuID,
@@ -65,6 +71,7 @@ func processProduct(
 		Name:           input.Title,
 		Description:    input.ProductDescription,
 		IsActive:       strings.ToLower(input.IsAvailable) != "false",
+		Currency:       currency,
 		Specifications: specsJSON,
 		DateCreated:    time.Now(),
 		DateUpdated:    time.Now(),

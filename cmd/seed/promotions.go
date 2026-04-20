@@ -95,6 +95,7 @@ func createPromotionsFromVouchers(
 			ID:          uuid.New(),
 			Code:        promotionCode,
 			OwnerID:     uuid.NullUUID{UUID: accountID, Valid: true},
+			Type:        promotiondb.PromotionTypeDiscount,
 			Title:       voucher.ShopVoucher,
 			Description: null.StringFrom(fmt.Sprintf("Promotion code: %s", voucher.TextInfo)),
 			IsActive:    true,

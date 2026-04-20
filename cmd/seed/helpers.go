@@ -108,7 +108,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 			created, err := store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
 				Name:        cat.Name,
 				Description: cat.Description,
-				ParentID:    null.Int{},
+				ParentID:    uuid.NullUUID{},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("create category %q: %w", cat.Name, err)
@@ -133,7 +133,7 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 		general, err = store.CreateDefaultCategory(ctx, catalogdb.CreateDefaultCategoryParams{
 			Name:        "General",
 			Description: "Uncategorized products",
-			ParentID:    null.Int{},
+			ParentID:    uuid.NullUUID{},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create General category: %w", err)
