@@ -39,6 +39,13 @@ app:
     embeddingSyncInterval: 1s
   order:
     paymentExpiryDays: 30
+  exchange:
+    base: USD
+    supported: [VND, USD, JPY, KRW, EUR, GBP, CNY, SGD, THB, AUD]
+    refreshInterval: 6h
+    httpTimeout: 5s
+    defaultUserCurrency: VND
+    upstreamURL: https://api.frankfurter.dev
 
 filestore:
   type: s3 # Options: Local, S3, Cloudinary, Remote

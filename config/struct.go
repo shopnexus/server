@@ -19,15 +19,25 @@ type Config struct {
 }
 
 type App struct {
-	Name        string      `yaml:"name"        mapstructure:"name"        validate:"required"`
-	Port        string      `yaml:"port"        mapstructure:"port"`
-	JWT         JWT         `yaml:"jwt"         mapstructure:"jwt"         validate:"required"`
-	Vnpay       Vnpay       `yaml:"vnpay"       mapstructure:"vnpay"       validate:"required"`
-	Sepay       Sepay       `yaml:"sepay"       mapstructure:"sepay"`
-	CardPayment CardPayment `yaml:"cardPayment" mapstructure:"cardPayment"`
-	Search      Search      `yaml:"search"      mapstructure:"search"      validate:"required"`
-	Order       Order       `yaml:"order"       mapstructure:"order"       validate:"required"`
-	GHTK        GHTK        `yaml:"ghtk"        mapstructure:"ghtk"`
+	Name        string         `yaml:"name"        mapstructure:"name"        validate:"required"`
+	Port        string         `yaml:"port"        mapstructure:"port"`
+	JWT         JWT            `yaml:"jwt"         mapstructure:"jwt"         validate:"required"`
+	Vnpay       Vnpay          `yaml:"vnpay"       mapstructure:"vnpay"       validate:"required"`
+	Sepay       Sepay          `yaml:"sepay"       mapstructure:"sepay"`
+	CardPayment CardPayment    `yaml:"cardPayment" mapstructure:"cardPayment"`
+	Search      Search         `yaml:"search"      mapstructure:"search"      validate:"required"`
+	Order       Order          `yaml:"order"       mapstructure:"order"       validate:"required"`
+	GHTK        GHTK           `yaml:"ghtk"        mapstructure:"ghtk"`
+	Exchange    ExchangeConfig `yaml:"exchange"    mapstructure:"exchange"    validate:"required"`
+}
+
+type ExchangeConfig struct {
+	Base                string        `yaml:"base"                mapstructure:"base"                validate:"required"`
+	Supported           []string      `yaml:"supported"           mapstructure:"supported"           validate:"required,min=1"`
+	RefreshInterval     time.Duration `yaml:"refreshInterval"     mapstructure:"refreshInterval"     validate:"gte=0"`
+	HTTPTimeout         time.Duration `yaml:"httpTimeout"         mapstructure:"httpTimeout"         validate:"gte=0"`
+	DefaultUserCurrency string        `yaml:"defaultUserCurrency" mapstructure:"defaultUserCurrency" validate:"required"`
+	UpstreamURL         string        `yaml:"upstreamURL"         mapstructure:"upstreamURL"         validate:"required,url"`
 }
 
 type JWT struct {

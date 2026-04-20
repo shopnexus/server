@@ -9,6 +9,7 @@ import (
 	"shopnexus-server/internal/infras/objectstore"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
+	"shopnexus-server/internal/provider/exchange"
 	"shopnexus-server/internal/provider/geocoding"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
@@ -41,6 +42,11 @@ type CommonBiz interface {
 
 	// SSE
 	PushEvent(ctx context.Context, params PushEventParams) error
+
+	// Exchange rates
+	GetExchangeRates(ctx context.Context) (commonmodel.ExchangeRateSnapshot, error)
+	ConvertAmount(ctx context.Context, params ConvertAmountParams) (int64, error)
+	IsSupportedCurrency(ctx context.Context, currency string) (bool, error)
 }
 
 type CommonStorage = pgsqlc.Storage[*commondb.Queries]
@@ -56,6 +62,7 @@ type CommonHandler struct {
 	storage        CommonStorage
 	objectstoreMap map[string]objectstore.Client
 	geocoder       geocoding.Client
+	exchange       exchange.Client
 
 	// SSE client registry
 	sseMu      sync.RWMutex
@@ -67,11 +74,17 @@ func (b *CommonHandler) ServiceName() string {
 }
 
 // NewcommonBiz creates a new CommonHandler with the given dependencies.
-func NewcommonBiz(cfg *config.Config, storage CommonStorage, geocoder geocoding.Client) (*CommonHandler, error) {
+func NewcommonBiz(
+	cfg *config.Config,
+	storage CommonStorage,
+	geocoder geocoding.Client,
+	exchangeClient exchange.Client,
+) (*CommonHandler, error) {
 	b := &CommonHandler{
 		config:     cfg,
 		storage:    storage,
 		geocoder:   geocoder,
+		exchange:   exchangeClient,
 		sseClients: make(map[uuid.UUID][]*SSEClient),
 	}
 
