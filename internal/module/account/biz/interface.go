@@ -28,6 +28,7 @@ type AccountBiz interface {
 	GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error)
 	ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error)
 	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
+	UpdateProfileSettings(ctx context.Context, params UpdateProfileSettingsParams) (accountmodel.ProfileSettings, error)
 
 	// Account
 	SuspendAccount(ctx context.Context, params SuspendAccountParams) error

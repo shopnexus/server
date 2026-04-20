@@ -30,4 +30,12 @@ type Profile struct {
 
 	// Description
 	Description null.String `json:"description"`
+
+	Settings ProfileSettings `json:"settings"`
+}
+
+// ProfileSettings is a typed view of account.profile.settings JSONB.
+// Unknown fields in DB are preserved across updates via load-merge-write.
+type ProfileSettings struct {
+	PreferredCurrency string `json:"preferred_currency,omitempty"`
 }

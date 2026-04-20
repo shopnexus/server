@@ -1,6 +1,9 @@
 package accountbiz
 
 import (
+	"encoding/json"
+	"strings"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
@@ -167,6 +170,11 @@ func (b *AccountHandler) dbToProfile(
 		url.SetValid(avatar.Url)
 	}
 
+	var settings accountmodel.ProfileSettings
+	if len(profile.Settings) > 0 {
+		_ = json.Unmarshal(profile.Settings, &settings) // tolerate invalid
+	}
+
 	return accountmodel.Profile{
 		ID:          account.ID,
 		DateCreated: account.DateCreated,
@@ -184,5 +192,80 @@ func (b *AccountHandler) dbToProfile(
 		PhoneVerified:    profile.PhoneVerified,
 		DefaultContactID: profile.DefaultContactID,
 		AvatarURL:        url,
+
+		Settings: settings,
 	}
+}
+
+// MergeSettings overlays typed fields from patch on top of existing JSONB,
+// preserving unknown keys. Exported for direct testing.
+func MergeSettings(existing json.RawMessage, patch accountmodel.ProfileSettings) (json.RawMessage, error) {
+	merged := map[string]any{}
+	if len(existing) > 0 {
+		if err := json.Unmarshal(existing, &merged); err != nil {
+			merged = map[string]any{} // tolerate invalid; start fresh
+		}
+	}
+	if patch.PreferredCurrency != "" {
+		merged["preferred_currency"] = patch.PreferredCurrency
+	}
+	return json.Marshal(merged)
+}
+
+type UpdateProfileSettingsParams struct {
+	Issuer            accountmodel.AuthenticatedAccount
+	AccountID         uuid.UUID   `validate:"required"`
+	PreferredCurrency null.String `validate:"omitempty,iso4217"`
+}
+
+// UpdateProfileSettings patches the profile.settings JSONB. Only the
+// authenticated user can modify their own settings. Unknown keys in the
+// existing JSONB are preserved.
+func (b *AccountHandler) UpdateProfileSettings(
+	ctx restate.Context, params UpdateProfileSettingsParams,
+) (accountmodel.ProfileSettings, error) {
+	var zero accountmodel.ProfileSettings
+	if err := validator.Validate(params); err != nil {
+		return zero, sharedmodel.WrapErr("update profile settings", err)
+	}
+	if params.Issuer.ID != params.AccountID {
+		return zero, accountmodel.ErrForbidden
+	}
+
+	patch := accountmodel.ProfileSettings{}
+	if params.PreferredCurrency.Valid {
+		code := strings.ToUpper(params.PreferredCurrency.String)
+		ok, err := b.common.IsSupportedCurrency(ctx, code)
+		if err != nil {
+			return zero, sharedmodel.WrapErr("update profile settings", err)
+		}
+		if !ok {
+			return zero, accountmodel.ErrUnsupportedCurrency
+		}
+		patch.PreferredCurrency = code
+	}
+
+	prof, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
+		ID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update profile settings", err)
+	}
+
+	merged, err := MergeSettings(prof.Settings, patch)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update profile settings", err)
+	}
+
+	updated, err := b.storage.Querier().UpdateProfileSettings(ctx, accountdb.UpdateProfileSettingsParams{
+		ID:       params.AccountID,
+		Settings: merged,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("update profile settings", err)
+	}
+
+	var out accountmodel.ProfileSettings
+	_ = json.Unmarshal(updated.Settings, &out)
+	return out, nil
 }

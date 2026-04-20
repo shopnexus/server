@@ -1,6 +1,7 @@
 package accountmodel
 
 import (
+	"errors"
 	"net/http"
 
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -24,4 +25,9 @@ var (
 		"Some accounts do not have a default contact address",
 	)
 	ErrCannotDeleteLastContact = sharedmodel.NewError(http.StatusConflict, "Cannot delete the only contact address")
+)
+
+var (
+	ErrUnsupportedCurrency = errors.New("account: unsupported currency")
+	ErrForbidden           = errors.New("account: forbidden")
 )
