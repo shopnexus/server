@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
+	"time"
 
 	restate "github.com/restatedev/sdk-go"
 )
@@ -35,10 +37,36 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// newRestateTransport returns an http.Transport tuned for a single
+// hot-path destination (the Restate ingress). Default net/http caps
+// MaxIdleConnsPerHost at 2, which serializes every concurrent request
+// past the second onto new TCP handshakes — turning localhost ingress
+// calls into 40–90ms round-trips. Raise both pool limits to match the
+// number of concurrent in-flight requests we expect from Echo.
+func newRestateTransport() *http.Transport {
+	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   100,
+		MaxConnsPerHost:       200,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+}
+
 func NewClient(baseURL string) *Client {
 	return &Client{
-		BaseURL:    baseURL,
-		HTTPClient: &http.Client{},
+		BaseURL: baseURL,
+		HTTPClient: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: newRestateTransport(),
+		},
 	}
 }
 

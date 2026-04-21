@@ -7,6 +7,31 @@ volumes:
   milvus-data:
   etcd-data:
   server-data:
+  restate-data:
+
+x-restate-environment: &restate-common-env
+  RESTATE_CLUSTER_NAME: "restate-cluster"
+  RESTATE_LOG_FILTER: "restate=warn"
+  RESTATE_DEFAULT_REPLICATION: 2
+  RESTATE_METADATA_CLIENT__ADDRESSES: '["http://restate-1:5122","http://restate-2:5122","http://restate-3:5122"]'
+  RESTATE_WORKER__SNAPSHOTS__DESTINATION: "s3://restate/snapshots"
+  RESTATE_WORKER__SNAPSHOTS__SNAPSHOT_INTERVAL_NUM_RECORDS: "1000"
+  RESTATE_WORKER__SNAPSHOTS__AWS_REGION: ${RESTATE_S3_REGION:-local}
+  RESTATE_WORKER__SNAPSHOTS__AWS_ENDPOINT_URL: ${RESTATE_S3_ENDPOINT:-http://minio:9000}
+  RESTATE_WORKER__SNAPSHOTS__AWS_ALLOW_HTTP: true
+  RESTATE_WORKER__SNAPSHOTS__AWS_ACCESS_KEY_ID: ${RESTATE_S3_ACCESS_KEY:-minioadmin}
+  RESTATE_WORKER__SNAPSHOTS__AWS_SECRET_ACCESS_KEY: ${RESTATE_S3_SECRET_KEY:-minioadmin}
+
+x-restate-defaults: &restate-defaults
+  image: docker.restate.dev/restatedev/restate:latest
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - restate-data:/restate-data
+  restart: always
+  depends_on:
+    minio:
+      condition: service_started
 
 services:
   postgres:
@@ -90,6 +115,77 @@ services:
           cpus: "0.25"
           memory: 128M
 
+  minio:
+    container_name: shopnexus-minio-prod
+    image: quay.io/minio/minio
+    entrypoint: "/bin/sh"
+    command: "-c 'mkdir -p /data/restate && /usr/bin/minio server --quiet /data'"
+    volumes:
+      - minio-data:/data
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  restate-1:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-1-prod
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-1
+      RESTATE_FORCE_NODE_ID: 1
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-1:5122"
+      RESTATE_AUTO_PROVISION: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  restate-2:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-2-prod
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-2
+      RESTATE_FORCE_NODE_ID: 2
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-2:5122"
+      RESTATE_AUTO_PROVISION: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  restate-3:
+    <<: *restate-defaults
+    container_name: shopnexus-restate-3-prod
+    environment:
+      <<: *restate-common-env
+      RESTATE_NODE_NAME: restate-3
+      RESTATE_FORCE_NODE_ID: 3
+      RESTATE_ADVERTISED_ADDRESS: "http://restate-3:5122"
+      RESTATE_AUTO_PROVISION: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
   server:
     container_name: shopnexus-server-prod
     build:
@@ -104,6 +200,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      restate-1:
+        condition: service_started
     volumes:
       - server-data:/data
     environment:

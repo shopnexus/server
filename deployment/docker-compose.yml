@@ -1,3 +1,5 @@
+name: shopnexus
+
 networks:
   default:
     name: shopnexus-network-dev
@@ -28,8 +30,8 @@ volumes:
 x-restate-environment: &restate-common-env
   RESTATE_CLUSTER_NAME: "restate-cluster"
   RESTATE_LOG_FILTER: "restate=info"
-  RESTATE_DEFAULT_REPLICATION: 2
-  RESTATE_METADATA_CLIENT__ADDRESSES: '["http://restate-1:5122","http://restate-2:5122","http://restate-3:5122"]'
+  RESTATE_DEFAULT_REPLICATION: 1
+  RESTATE_METADATA_CLIENT__ADDRESSES: '["http://restate-1:5122"]'
   RESTATE_WORKER__SNAPSHOTS__DESTINATION: "s3://restate/snapshots"
   RESTATE_WORKER__SNAPSHOTS__SNAPSHOT_INTERVAL_NUM_RECORDS: "1000"
   RESTATE_WORKER__SNAPSHOTS__AWS_REGION: "local"
@@ -116,34 +118,6 @@ services:
       RESTATE_FORCE_NODE_ID: 1
       RESTATE_ADVERTISED_ADDRESS: "http://restate-1:5122"
       RESTATE_AUTO_PROVISION: "true"
-
-  restate-2:
-    <<: *restate-defaults
-    container_name: shopnexus-restate-2-dev
-    ports:
-      - "28080:8080"
-      - "29070:9070"
-      - "25122:5122"
-    environment:
-      <<: *restate-common-env
-      RESTATE_NODE_NAME: restate-2
-      RESTATE_FORCE_NODE_ID: 2
-      RESTATE_ADVERTISED_ADDRESS: "http://restate-2:5122"
-      RESTATE_AUTO_PROVISION: "false"
-
-  restate-3:
-    <<: *restate-defaults
-    container_name: shopnexus-restate-3-dev
-    ports:
-      - "38080:8080"
-      - "39070:9070"
-      - "35122:5122"
-    environment:
-      <<: *restate-common-env
-      RESTATE_NODE_NAME: restate-3
-      RESTATE_FORCE_NODE_ID: 3
-      RESTATE_ADVERTISED_ADDRESS: "http://restate-3:5122"
-      RESTATE_AUTO_PROVISION: "false"
 
   minio:
     container_name: shopnexus-minio-dev
