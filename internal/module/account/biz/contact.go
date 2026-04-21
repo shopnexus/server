@@ -246,7 +246,7 @@ func (b *AccountHandler) assertAddressMatchesProfileCountry(
 	}
 
 	if resolvedCountry != profile.Country {
-		return sharedmodel.NewErrorCode(
+		return sharedmodel.NewError(
 			http.StatusBadRequest,
 			"address_country_mismatch",
 			fmt.Sprintf(

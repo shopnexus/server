@@ -197,6 +197,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	if err != nil {
 		return zero, sharedmodel.NewError(
 			http.StatusBadRequest,
+			"invalid_country",
 			fmt.Sprintf("invalid country: %v", err),
 		).Terminal()
 	}

@@ -74,7 +74,7 @@ func (b *CommonHandler) ForwardGeocode(ctx restate.Context, params ForwardGeocod
 // blank, geocoding fails, or no country was resolved.
 func (b *CommonHandler) ResolveCountry(ctx restate.Context, address string) (string, error) {
 	if strings.TrimSpace(address) == "" {
-		return "", sharedmodel.NewError(http.StatusBadRequest, "address is empty").Terminal()
+		return "", sharedmodel.NewError(http.StatusBadRequest, "empty_address", "address is empty").Terminal()
 	}
 	result, err := b.ForwardGeocode(ctx, ForwardGeocodeParams{Address: address})
 	if err != nil {
@@ -83,6 +83,7 @@ func (b *CommonHandler) ResolveCountry(ctx restate.Context, address string) (str
 	if result.CountryCode == "" {
 		return "", sharedmodel.NewError(
 			http.StatusBadRequest,
+			"address_country_unresolved",
 			"could not verify address country (no country in geocode result)",
 		).Terminal()
 	}

@@ -8,5 +8,5 @@ import (
 
 // Sentinel errors for the common module.
 var (
-	ErrResourceNotFound = sharedmodel.NewError(http.StatusNotFound, "Resource not found")
+	ErrResourceNotFound = sharedmodel.NewError(http.StatusNotFound, "resource_not_found", "Resource not found")
 )

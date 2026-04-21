@@ -191,7 +191,7 @@ type TokenizeCardParams struct {
 func (b *AccountHandler) TokenizeCard(ctx restate.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
 	cardCfg := b.config.App.CardPayment
 	if cardCfg.Provider == "" {
-		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card payment not configured").
+		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card_payment_not_configured", "card payment not configured").
 			Terminal()
 	}
 	return payment.TokenizeResult{

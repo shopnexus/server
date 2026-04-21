@@ -72,7 +72,7 @@ func (b *OrderHandler) BuyerCheckout(
 		return zero, err
 	}
 	if resolvedCountry != buyerProfile.Country {
-		return zero, sharedmodel.NewErrorCode(
+		return zero, sharedmodel.NewError(
 			http.StatusBadRequest,
 			"address_country_mismatch",
 			fmt.Sprintf(
@@ -161,8 +161,9 @@ func (b *OrderHandler) BuyerCheckout(
 		if spu.Currency != sellerCurrency {
 			return zero, sharedmodel.NewError(
 				http.StatusBadRequest,
+				"mixed_currency_cart",
 				fmt.Sprintf(
-					"mixed_currency_cart: all items must share the same currency (got %s and %s)",
+					"all items must share the same currency (got %s and %s)",
 					sellerCurrency, spu.Currency,
 				),
 			).Terminal()
@@ -195,6 +196,7 @@ func (b *OrderHandler) BuyerCheckout(
 			if !ok || r <= 0 {
 				return zero, sharedmodel.NewError(
 					http.StatusServiceUnavailable,
+					"fx_rate_unavailable",
 					fmt.Sprintf("fx rate unavailable for %s", sellerCurrency),
 				).Terminal()
 			}
@@ -206,6 +208,7 @@ func (b *OrderHandler) BuyerCheckout(
 			if !ok || r <= 0 {
 				return zero, sharedmodel.NewError(
 					http.StatusServiceUnavailable,
+					"fx_rate_unavailable",
 					fmt.Sprintf("fx rate unavailable for %s", buyerCurrency),
 				).Terminal()
 			}

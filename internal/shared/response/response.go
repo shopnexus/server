@@ -35,7 +35,7 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 		e = domainErr
 		httpCode = int(domainErr.HTTPStatus)
 	} else {
-		e = sharedmodel.NewError(uint16(httpCode), err.Error())
+		e = sharedmodel.NewError(uint16(httpCode), "", err.Error())
 	}
 
 	// Cross-service safety: when Code is empty but the message starts with a
@@ -123,7 +123,7 @@ func FromHTTPCode(w http.ResponseWriter, httpCode int) error {
 		statusText = "Unknown Error"
 	}
 
-	e := sharedmodel.NewError(uint16(httpCode), statusText)
+	e := sharedmodel.NewError(uint16(httpCode), "", statusText)
 	response := CommonResponse{
 		Error: &e,
 	}

@@ -13,9 +13,8 @@ import (
 //
 // Code is an app-level string identifier (snake_case) that the FE branches on;
 // HTTPStatus is the transport-level status used for HTTP and Restate wire codes.
-// Code may be empty for errors created via NewError (legacy callers).
 //
-// For cross-service safety, NewErrorCode embeds Code into Message as a prefix
+// For cross-service safety, NewError embeds Code into Message as a prefix
 // ("<code>: <message>"). When an error crosses a Restate service boundary the
 // struct is stripped to (string, uint16), but the prefix survives in Message
 // and response.writeError re-extracts it into Code — so FE sees the string
@@ -47,24 +46,20 @@ func (e Error) Terminal() error {
 	return restate.TerminalError(e, restate.Code(e.HTTPStatus))
 }
 
-// NewError creates an error without a string code. Use for generic errors that
-// the FE never needs to branch on. For FE-branchable errors, use NewErrorCode.
-func NewError(status uint16, message string) Error {
-	return Error{
-		HTTPStatus: status,
-		Message:    message,
-	}
-}
-
-// NewErrorCode creates a structured error with a string identifier. The code
+// NewError creates a structured error with a string identifier. The code
 // is embedded as a message prefix ("code: message") so it survives cross-
 // service Restate wire serialization; response.writeError re-parses the prefix
-// back into the Code field on the way out to the FE.
-func NewErrorCode(status uint16, code string, message string) Error {
+// back into the Code field on the way out to the FE. Pass code="" for generic
+// fallbacks where no structured identifier applies.
+func NewError(status uint16, code string, message string) Error {
+	msg := message
+	if code != "" {
+		msg = fmt.Sprintf("%s: %s", code, message)
+	}
 	return Error{
 		HTTPStatus: status,
 		Code:       code,
-		Message:    fmt.Sprintf("%s: %s", code, message),
+		Message:    msg,
 	}
 }
 
@@ -79,6 +74,6 @@ func WrapErr(msg string, err error) error {
 }
 
 var (
-	ErrValidation     = NewError(http.StatusBadRequest, "validation: %s")
-	ErrEntityNotFound = NewError(http.StatusNotFound, "%s not found")
+	ErrValidation     = NewError(http.StatusBadRequest, "validation", "%s")
+	ErrEntityNotFound = NewError(http.StatusNotFound, "entity_not_found", "%s not found")
 )

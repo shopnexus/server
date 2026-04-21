@@ -8,9 +8,10 @@ import (
 
 // Sentinel errors for the chat module.
 var (
-	ErrConversationNotFound = sharedmodel.NewError(http.StatusNotFound, "The conversation does not exist")
+	ErrConversationNotFound = sharedmodel.NewError(http.StatusNotFound, "conversation_not_found", "The conversation does not exist")
 	ErrNotParticipant       = sharedmodel.NewError(
 		http.StatusForbidden,
+		"not_participant",
 		"You are not a participant in this conversation",
 	)
 )

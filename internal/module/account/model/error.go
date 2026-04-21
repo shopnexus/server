@@ -9,22 +9,25 @@ import (
 
 // Sentinel errors for the account module.
 var (
-	ErrInvalidCredentials = sharedmodel.NewError(http.StatusUnauthorized, "Invalid credentials provided")
-	ErrAccountNotFound    = sharedmodel.NewError(http.StatusNotFound, "Account not found")
+	ErrInvalidCredentials = sharedmodel.NewError(http.StatusUnauthorized, "invalid_credentials", "Invalid credentials provided")
+	ErrAccountNotFound    = sharedmodel.NewError(http.StatusNotFound, "account_not_found", "Account not found")
 	ErrMissingIdentifier  = sharedmodel.NewError(
 		http.StatusBadRequest,
+		"missing_identifier",
 		"At least one of username, email, or phone must be provided",
 	)
 	ErrEmailRequiredForOAuth = sharedmodel.NewError(
 		http.StatusBadRequest,
+		"email_required_for_oauth",
 		"Email is required when password is not provided",
 	)
-	ErrContactNotFound  = sharedmodel.NewError(http.StatusNotFound, "The contact could not be found")
+	ErrContactNotFound  = sharedmodel.NewError(http.StatusNotFound, "contact_not_found", "The contact could not be found")
 	ErrNoDefaultContact = sharedmodel.NewError(
 		http.StatusNotFound,
+		"no_default_contact",
 		"Some accounts do not have a default contact address",
 	)
-	ErrCannotDeleteLastContact = sharedmodel.NewError(http.StatusConflict, "Cannot delete the only contact address")
+	ErrCannotDeleteLastContact = sharedmodel.NewError(http.StatusConflict, "cannot_delete_last_contact", "Cannot delete the only contact address")
 )
 
 var (

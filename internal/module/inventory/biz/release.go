@@ -33,7 +33,7 @@ func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseI
 				return nil, sharedmodel.WrapErr("release inventory", err)
 			}
 			if rows == 0 {
-				return nil, sharedmodel.NewError(409, "insufficient reserved inventory to release").Terminal()
+				return nil, sharedmodel.NewError(409, "insufficient_reserved_inventory", "insufficient reserved inventory to release").Terminal()
 			}
 		}
 		return nil, nil

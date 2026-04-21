@@ -458,8 +458,9 @@ func (b *CatalogHandler) assertSellerCurrency(
 	if currency != expected {
 		return sharedmodel.NewError(
 			http.StatusBadRequest,
+			"currency_mismatch",
 			fmt.Sprintf(
-				"currency_mismatch: seller in %s must price products in %s, got %s",
+				"seller in %s must price products in %s, got %s",
 				profile.Country, expected, currency,
 			),
 		).Terminal()
