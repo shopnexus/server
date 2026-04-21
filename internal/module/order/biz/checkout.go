@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -26,12 +27,14 @@ import (
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
+	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
 )
 
@@ -121,6 +124,97 @@ func (b *OrderHandler) BuyerCheckout(
 	skuMap := lo.KeyBy(skus, func(s catalogmodel.ProductSku) uuid.UUID { return s.ID })
 	spuMap := lo.KeyBy(listSpu.Data, func(s catalogmodel.ProductSpu) uuid.UUID { return s.ID })
 
+	// Step 2.5: Snapshot FX at checkout time.
+	// sellerCurrency comes from spu.Currency (Task 7 invariant guarantees
+	// spu.Currency == Infer(seller.country)). buyerCurrency is inferred from
+	// the buyer's profile country. All monetary totals persisted on the
+	// payment row and debited from the buyer wallet are in buyerCurrency.
+	// Seller-currency amounts are kept only for transport/SKU math until
+	// conversion; order.item.paid_amount is stored in buyer currency so it
+	// matches payment.amount for refund/display paths downstream.
+	if len(listSpu.Data) == 0 {
+		return zero, ordermodel.ErrOrderItemNotFound.Terminal()
+	}
+	sellerCurrency := listSpu.Data[0].Currency
+	for _, spu := range listSpu.Data {
+		if spu.Currency != sellerCurrency {
+			return zero, sharedmodel.NewError(
+				http.StatusBadRequest,
+				fmt.Sprintf(
+					"mixed_currency_cart: all items must share the same currency (got %s and %s)",
+					sellerCurrency, spu.Currency,
+				),
+			).Terminal()
+		}
+	}
+
+	buyerProfile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+		Issuer:    params.Account,
+		AccountID: params.Account.ID,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("load buyer profile", err)
+	}
+	buyerCurrency, err := sharedcurrency.Infer(buyerProfile.Country)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("infer buyer currency", err)
+	}
+
+	// Fetch the latest USD-based rates once; identity is handled below so the
+	// snapshot is not strictly required when buyer == seller.
+	var fxSnapshot commonmodel.ExchangeRateSnapshot
+	if buyerCurrency != sellerCurrency {
+		fxSnapshot, err = b.common.GetExchangeRates(ctx, commonbiz.GetExchangeRatesParams{})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("fx rate lookup", err)
+		}
+	}
+
+	// exchangeRate is the effective multiplier from seller -> buyer currency
+	// in MAJOR units. With USD as base: rate(X->Y) = rates[Y] / rates[X],
+	// with rates[USD] implied as 1.0.
+	exchangeRate := 1.0
+	if buyerCurrency != sellerCurrency {
+		rateFrom := 1.0
+		if sellerCurrency != fxSnapshot.Base {
+			r, ok := fxSnapshot.Rates[sellerCurrency]
+			if !ok || r <= 0 {
+				return zero, sharedmodel.NewError(
+					http.StatusServiceUnavailable,
+					fmt.Sprintf("fx rate unavailable for %s", sellerCurrency),
+				).Terminal()
+			}
+			rateFrom = r
+		}
+		rateTo := 1.0
+		if buyerCurrency != fxSnapshot.Base {
+			r, ok := fxSnapshot.Rates[buyerCurrency]
+			if !ok || r <= 0 {
+				return zero, sharedmodel.NewError(
+					http.StatusServiceUnavailable,
+					fmt.Sprintf("fx rate unavailable for %s", buyerCurrency),
+				).Terminal()
+			}
+			rateTo = r
+		}
+		exchangeRate = rateTo / rateFrom
+	}
+
+	var exchangeRateNumeric pgtype.Numeric
+	if err := exchangeRateNumeric.Scan(fmt.Sprintf("%.10f", exchangeRate)); err != nil {
+		return zero, sharedmodel.WrapErr("encode exchange rate", err)
+	}
+
+	// convertToBuyer converts a seller-currency minor-unit amount to buyer
+	// currency minor units using the snapshot. Handles currencies with
+	// different minor-unit exponents (e.g., JPY 0 vs USD 2).
+	convertToBuyer := func(amount int64) int64 {
+		if buyerCurrency == sellerCurrency {
+			return amount
+		}
+		return commonbiz.ConvertAmountPure(amount, sellerCurrency, buyerCurrency, fxSnapshot.Rates)
+	}
+
 	// Step 3: Reserve inventory
 	inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
 		Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
@@ -192,15 +286,20 @@ func (b *OrderHandler) BuyerCheckout(
 		}
 	}
 
-	// Step 5: Calculate total = sum(product costs) + sum(transport costs)
-	var totalProductCost int64
-	var totalTransportCost int64
+	// Step 5: Calculate totals.
+	// Product/transport costs accrue in sellerCurrency (SPU + seller-side
+	// transport quote); we then convert to buyerCurrency at the FX snapshot
+	// rate. Wallet debit and payment.amount use the buyer-currency total.
+	var totalProductCostSeller int64
+	var totalTransportCostSeller int64
 	for _, item := range params.Items {
 		sku := skuMap[item.SkuID]
-		totalProductCost += int64(sku.Price) * item.Quantity
-		totalTransportCost += transportQuotes[item.SkuID].Cost
+		totalProductCostSeller += int64(sku.Price) * item.Quantity
+		totalTransportCostSeller += transportQuotes[item.SkuID].Cost
 	}
-	total := totalProductCost + totalTransportCost
+	totalProductCostBuyer := convertToBuyer(totalProductCostSeller)
+	totalTransportCostBuyer := convertToBuyer(totalTransportCostSeller)
+	total := totalProductCostBuyer + totalTransportCostBuyer
 
 	// Step 6: Process payment
 	var paymentID int64
@@ -246,11 +345,14 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 
 			dbPayment, err := b.storage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-				AccountID:   params.Account.ID,
-				Option:      paymentOption,
-				Amount:      remaining,
-				Data:        []byte("{}"),
-				DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
+				AccountID:      params.Account.ID,
+				Option:         paymentOption,
+				Amount:         remaining,
+				Data:           []byte("{}"),
+				BuyerCurrency:  buyerCurrency,
+				SellerCurrency: sellerCurrency,
+				ExchangeRate:   exchangeRateNumeric,
+				DateExpired:    time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 			})
 			if err != nil {
 				return paymentResult{}, sharedmodel.WrapErr("db create payment", err)
@@ -300,12 +402,15 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 
 			dbPayment, err := b.storage.Querier().CreateDefaultPayment(ctx, orderdb.CreateDefaultPaymentParams{
-				AccountID:   params.Account.ID,
-				Option:      "wallet",
-				Amount:      total,
-				Data:        []byte("{}"),
-				DatePaid:    null.TimeFrom(time.Now()),
-				DateExpired: time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
+				AccountID:      params.Account.ID,
+				Option:         "wallet",
+				Amount:         total,
+				Data:           []byte("{}"),
+				BuyerCurrency:  buyerCurrency,
+				SellerCurrency: sellerCurrency,
+				ExchangeRate:   exchangeRateNumeric,
+				DatePaid:       null.TimeFrom(time.Now()),
+				DateExpired:    time.Now().Add(time.Hour * 24 * time.Duration(expiryDays)),
 			})
 			if err != nil {
 				return walletPayResult{}, sharedmodel.WrapErr("db create wallet payment", err)
@@ -351,7 +456,12 @@ func (b *OrderHandler) BuyerCheckout(
 				return nil, sharedmodel.WrapErr("marshal serial ids", err)
 			}
 
-			paidAmount := int64(sku.Price)*checkoutItem.Quantity + tq.Cost
+			// paid_amount is stored in buyer currency so it adds up to
+			// payment.amount; downstream refund/display math stays in a
+			// single currency. Unit price on order.item remains in seller
+			// currency because the SPU definition is seller-denominated.
+			paidAmountSeller := int64(sku.Price)*checkoutItem.Quantity + tq.Cost
+			paidAmount := convertToBuyer(paidAmountSeller)
 
 			// Build display name: "SPU Name - Attr1 / Attr2"
 			skuName := spu.Name
