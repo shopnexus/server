@@ -73,6 +73,7 @@ CREATE TABLE
     "avatar_rs_id" UUID,
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
+    "country" VARCHAR(2) NOT NULL DEFAULT 'VN',
     "default_contact_id" UUID,
     "date_created" TIMESTAMPTZ (3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_updated" TIMESTAMPTZ (3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -81,6 +82,7 @@ CREATE TABLE
     CONSTRAINT "profile_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "profile_avatar_rs_id_key" UNIQUE ("avatar_rs_id"),
     CONSTRAINT "profile_default_contact_id_key" UNIQUE ("default_contact_id"),
+    CONSTRAINT "profile_country_format" CHECK ("country" ~ '^[A-Z]{2}$'),
     -- profile shares the same PK as account (1-1 relationship)
     CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id") REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "profile_default_contact_id_fkey" FOREIGN KEY ("default_contact_id") REFERENCES "account"."contact" ("id") ON DELETE SET NULL ON UPDATE CASCADE

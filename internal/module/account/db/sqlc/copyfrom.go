@@ -599,6 +599,7 @@ func (r iteratorForCreateCopyProfile) Values() ([]interface{}, error) {
 		r.rows[0].AvatarRsID,
 		r.rows[0].EmailVerified,
 		r.rows[0].PhoneVerified,
+		r.rows[0].Country,
 		r.rows[0].DefaultContactID,
 		r.rows[0].DateCreated,
 		r.rows[0].DateUpdated,
@@ -611,7 +612,7 @@ func (r iteratorForCreateCopyProfile) Err() error {
 }
 
 func (q *Queries) CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "default_contact_id", "date_created", "date_updated", "settings"}, &iteratorForCreateCopyProfile{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "country", "default_contact_id", "date_created", "date_updated", "settings"}, &iteratorForCreateCopyProfile{rows: arg})
 }
 
 // iteratorForCreateCopyWallet implements pgx.CopyFromSource.

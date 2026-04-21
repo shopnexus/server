@@ -330,6 +330,7 @@ type AccountProfile struct {
 	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
 	EmailVerified    bool              `json:"email_verified"`
 	PhoneVerified    bool              `json:"phone_verified"`
+	Country          string            `json:"country"`
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DateCreated      time.Time         `json:"date_created"`
 	DateUpdated      time.Time         `json:"date_updated"`

@@ -12,12 +12,32 @@ import (
 	"github.com/google/uuid"
 )
 
+const updateProfileCountry = `-- name: UpdateProfileCountry :execrows
+UPDATE "account"."profile"
+SET "country" = $1,
+    "date_updated" = CURRENT_TIMESTAMP
+WHERE "id" = $2
+`
+
+type UpdateProfileCountryParams struct {
+	Country string    `json:"country"`
+	ID      uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateProfileCountry(ctx context.Context, arg UpdateProfileCountryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateProfileCountry, arg.Country, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateProfileSettings = `-- name: UpdateProfileSettings :one
 UPDATE "account"."profile"
 SET "settings" = $2,
     "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = $1
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, default_contact_id, date_created, date_updated, settings
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, country, default_contact_id, date_created, date_updated, settings
 `
 
 type UpdateProfileSettingsParams struct {
@@ -37,6 +57,7 @@ func (q *Queries) UpdateProfileSettings(ctx context.Context, arg UpdateProfileSe
 		&i.AvatarRsID,
 		&i.EmailVerified,
 		&i.PhoneVerified,
+		&i.Country,
 		&i.DefaultContactID,
 		&i.DateCreated,
 		&i.DateUpdated,

@@ -4,3 +4,9 @@ SET "settings" = $2,
     "date_updated" = CURRENT_TIMESTAMP
 WHERE "id" = $1
 RETURNING *;
+
+-- name: UpdateProfileCountry :execrows
+UPDATE "account"."profile"
+SET "country" = @country,
+    "date_updated" = CURRENT_TIMESTAMP
+WHERE "id" = @id;
