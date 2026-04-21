@@ -25,6 +25,7 @@ type Profile struct {
 	DateOfBirth      null.Time                `json:"date_of_birth"`
 	EmailVerified    bool                     `json:"email_verified"`
 	PhoneVerified    bool                     `json:"phone_verified"`
+	Country          string                   `json:"country"`
 	DefaultContactID uuid.NullUUID            `json:"default_contact_id"`
 	AvatarURL        null.String              `json:"avatar_url"`
 

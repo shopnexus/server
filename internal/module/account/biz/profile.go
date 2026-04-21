@@ -2,12 +2,15 @@ package accountbiz
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
+	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/ptrutil"
 	"shopnexus-server/internal/shared/validator"
@@ -190,6 +193,7 @@ func (b *AccountHandler) mapProfile(
 		DateOfBirth:      profile.DateOfBirth,
 		EmailVerified:    profile.EmailVerified,
 		PhoneVerified:    profile.PhoneVerified,
+		Country:          profile.Country,
 		DefaultContactID: profile.DefaultContactID,
 		AvatarURL:        url,
 
@@ -268,4 +272,43 @@ func (b *AccountHandler) UpdateProfileSettings(
 	var out accountmodel.ProfileSettings
 	_ = json.Unmarshal(updated.Settings, &out)
 	return out, nil
+}
+
+type UpdateCountryParams struct {
+	AccountID uuid.UUID `json:"account_id" validate:"required"`
+	Country   string    `json:"country" validate:"required,len=2,uppercase"`
+}
+
+// UpdateCountry sets the profile country. Fails with a conflict error if the
+// caller's wallet balance is non-zero, since changing country implies changing
+// wallet currency.
+func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountryParams) error {
+	if err := validator.Validate(params); err != nil {
+		return sharedmodel.WrapErr("update profile country", err)
+	}
+	if _, err := sharedcurrency.Infer(params.Country); err != nil {
+		return sharedmodel.WrapErr("validate country", err)
+	}
+
+	balance, err := b.GetWalletBalance(ctx, params.AccountID)
+	if err != nil {
+		return err
+	}
+	if balance != 0 {
+		return sharedmodel.NewError(
+			http.StatusConflict,
+			fmt.Sprintf("wallet_not_empty: wallet balance is %d, must be zero to change country", balance),
+		).Terminal()
+	}
+
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err := b.storage.Querier().UpdateProfileCountry(ctx, accountdb.UpdateProfileCountryParams{
+			ID:      params.AccountID,
+			Country: params.Country,
+		})
+		return err
+	}); err != nil {
+		return sharedmodel.WrapErr("update profile country", err)
+	}
+	return nil
 }

@@ -53,6 +53,10 @@ func (p *AccountRestateClient) UpdateProfileSettings(ctx context.Context, params
 	return restateclient.Call[accountmodel.ProfileSettings](ctx, p.client, serviceName, "UpdateProfileSettings", params)
 }
 
+func (p *AccountRestateClient) UpdateCountry(ctx context.Context, params UpdateCountryParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "UpdateCountry", params)
+}
+
 func (p *AccountRestateClient) SuspendAccount(ctx context.Context, params SuspendAccountParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "SuspendAccount", params)
 }
