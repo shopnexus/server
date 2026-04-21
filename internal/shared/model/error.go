@@ -7,35 +7,64 @@ import (
 	restate "github.com/restatedev/sdk-go"
 )
 
+// Error is the canonical API error envelope. The JSON shape is:
+//
+//	{"http_status": 409, "code": "wallet_not_empty", "message": "..."}
+//
+// Code is an app-level string identifier (snake_case) that the FE branches on;
+// HTTPStatus is the transport-level status used for HTTP and Restate wire codes.
+// Code may be empty for errors created via NewError (legacy callers).
+//
+// For cross-service safety, NewErrorCode embeds Code into Message as a prefix
+// ("<code>: <message>"). When an error crosses a Restate service boundary the
+// struct is stripped to (string, uint16), but the prefix survives in Message
+// and response.writeError re-extracts it into Code — so FE sees the string
+// code consistently whether the error is same-process or cross-service.
 type Error struct {
-	ErrCode uint16 `json:"code"`
-	Message string `json:"message"`
+	HTTPStatus uint16 `json:"http_status"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
 }
 
 func (e Error) Error() string {
 	return e.Message
 }
 
-func (e Error) Code() uint16 {
-	return e.ErrCode
+func (e Error) StatusCode() uint16 {
+	return e.HTTPStatus
 }
 
 func (e Error) Fmt(args ...any) Error {
 	return Error{
-		ErrCode: e.ErrCode,
-		Message: fmt.Sprintf(e.Message, args...),
+		HTTPStatus: e.HTTPStatus,
+		Code:       e.Code,
+		Message:    fmt.Sprintf(e.Message, args...),
 	}
 }
 
 // Terminal wraps as a Restate terminal error, preventing retries.
 func (e Error) Terminal() error {
-	return restate.TerminalError(e, restate.Code(e.ErrCode))
+	return restate.TerminalError(e, restate.Code(e.HTTPStatus))
 }
 
-func NewError(code uint16, message string) Error {
+// NewError creates an error without a string code. Use for generic errors that
+// the FE never needs to branch on. For FE-branchable errors, use NewErrorCode.
+func NewError(status uint16, message string) Error {
 	return Error{
-		ErrCode: code,
-		Message: message,
+		HTTPStatus: status,
+		Message:    message,
+	}
+}
+
+// NewErrorCode creates a structured error with a string identifier. The code
+// is embedded as a message prefix ("code: message") so it survives cross-
+// service Restate wire serialization; response.writeError re-parses the prefix
+// back into the Code field on the way out to the FE.
+func NewErrorCode(status uint16, code string, message string) Error {
+	return Error{
+		HTTPStatus: status,
+		Code:       code,
+		Message:    fmt.Sprintf("%s: %s", code, message),
 	}
 }
 

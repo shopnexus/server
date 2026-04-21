@@ -72,10 +72,11 @@ func (b *OrderHandler) BuyerCheckout(
 		return zero, err
 	}
 	if resolvedCountry != buyerProfile.Country {
-		return zero, sharedmodel.NewError(
+		return zero, sharedmodel.NewErrorCode(
 			http.StatusBadRequest,
+			"address_country_mismatch",
 			fmt.Sprintf(
-				"address_country_mismatch: address resolves to %s, buyer country is %s",
+				"address resolves to %s, buyer country is %s",
 				resolvedCountry, buyerProfile.Country,
 			),
 		).Terminal()

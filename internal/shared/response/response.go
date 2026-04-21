@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -18,17 +19,36 @@ const (
 	ContentTypeJSON = "application/json"
 )
 
-func writeError(w http.ResponseWriter, httpCode int, err error) error {
-	errCode := uint16(httpCode)
-	message := err.Error()
+// errorCodePattern matches a valid app-level error code identifier embedded
+// as a message prefix. Snake_case, starts with a lowercase letter, 3–50 chars.
+// This gates the cross-service extraction path so regular messages that happen
+// to contain ": " (e.g. "failed to load item: not found") are not misparsed.
+var errorCodePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,49}$`)
 
+func writeError(w http.ResponseWriter, httpCode int, err error) error {
+	// Preserve the original sharedmodel.Error struct (including Code) when the
+	// error originates same-process. Only fall back to reconstructing when the
+	// error didn't come from this codebase's error type — which typically means
+	// it crossed a Restate service boundary and lost the struct on the wire.
+	var e sharedmodel.Error
 	if domainErr, ok := errors.AsType[sharedmodel.Error](err); ok {
-		errCode = domainErr.Code()
-		httpCode = int(errCode)
-		message = domainErr.Error()
+		e = domainErr
+		httpCode = int(domainErr.HTTPStatus)
+	} else {
+		e = sharedmodel.NewError(uint16(httpCode), err.Error())
 	}
 
-	e := sharedmodel.NewError(errCode, message)
+	// Cross-service safety: when Code is empty but the message starts with a
+	// valid identifier prefix ("wallet_not_empty: ..."), extract it back into
+	// Code. This makes FE's `err.code === "wallet_not_empty"` branching work
+	// uniformly whether the error was thrown locally or bubbled through
+	// Restate from another service.
+	if e.Code == "" && e.Message != "" {
+		if before, _, ok := strings.Cut(e.Message, ": "); ok && errorCodePattern.MatchString(before) {
+			e.Code = before
+		}
+	}
+
 	data, marshalErr := sonic.Marshal(CommonResponse{
 		Error: &e,
 	})

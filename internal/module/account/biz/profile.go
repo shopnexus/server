@@ -295,9 +295,10 @@ func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountry
 		return err
 	}
 	if balance != 0 {
-		return sharedmodel.NewError(
+		return sharedmodel.NewErrorCode(
 			http.StatusConflict,
-			fmt.Sprintf("wallet_not_empty: wallet balance is %d, must be zero to change country", balance),
+			"wallet_not_empty",
+			fmt.Sprintf("wallet balance is %d, must be zero to change country", balance),
 		).Terminal()
 	}
 
