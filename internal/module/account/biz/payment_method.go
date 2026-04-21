@@ -3,7 +3,6 @@ package accountbiz
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -191,8 +190,7 @@ type TokenizeCardParams struct {
 func (b *AccountHandler) TokenizeCard(ctx restate.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
 	cardCfg := b.config.App.CardPayment
 	if cardCfg.Provider == "" {
-		return payment.TokenizeResult{}, sharedmodel.NewError(http.StatusNotImplemented, "card_payment_not_configured", "card payment not configured").
-			Terminal()
+		return payment.TokenizeResult{}, accountmodel.ErrCardPaymentNotConfigured.Terminal()
 	}
 	return payment.TokenizeResult{
 		ClientConfig: json.RawMessage(

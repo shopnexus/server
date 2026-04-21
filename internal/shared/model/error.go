@@ -7,32 +7,26 @@ import (
 	restate "github.com/restatedev/sdk-go"
 )
 
-// Error is the canonical API error envelope. The JSON shape is:
+// Error is the canonical API error envelope. Serialized to FE as
 //
 //	{"http_status": 409, "code": "wallet_not_empty", "message": "..."}
 //
-// Code is an app-level string identifier (snake_case) that the FE branches on;
-// HTTPStatus is the transport-level status used for HTTP and Restate wire codes.
-//
-// For cross-service safety, NewError embeds Code into Message as a prefix
-// ("<code>: <message>"). When an error crosses a Restate service boundary the
-// struct is stripped to (string, uint16), but the prefix survives in Message
-// and response.writeError re-extracts it into Code — so FE sees the string
-// code consistently whether the error is same-process or cross-service.
+// The Code string is embedded as a message prefix ("code: message") so the
+// identifier survives Restate cross-service wire serialization — the prefix
+// is re-parsed by response.writeError when the struct is stripped on the wire.
+// For generic fallbacks without a code, pass code="" to NewError.
 type Error struct {
 	HTTPStatus uint16 `json:"http_status"`
 	Code       string `json:"code"`
 	Message    string `json:"message"`
 }
 
-func (e Error) Error() string {
-	return e.Message
-}
+func (e Error) Error() string      { return e.Message }
+func (e Error) StatusCode() uint16 { return e.HTTPStatus }
 
-func (e Error) StatusCode() uint16 {
-	return e.HTTPStatus
-}
-
+// Fmt formats the message using fmt.Sprintf(e.Message, args...). Useful for
+// package-level error vars that embed format specifiers in the message.
+// The Code and HTTPStatus are preserved. The prefix is preserved as-is.
 func (e Error) Fmt(args ...any) Error {
 	return Error{
 		HTTPStatus: e.HTTPStatus,
@@ -41,26 +35,21 @@ func (e Error) Fmt(args ...any) Error {
 	}
 }
 
-// Terminal wraps as a Restate terminal error, preventing retries.
+// Terminal wraps as a Restate terminal error. Required before returning from
+// biz methods so Restate does not retry.
 func (e Error) Terminal() error {
 	return restate.TerminalError(e, restate.Code(e.HTTPStatus))
 }
 
-// NewError creates a structured error with a string identifier. The code
-// is embedded as a message prefix ("code: message") so it survives cross-
-// service Restate wire serialization; response.writeError re-parses the prefix
-// back into the Code field on the way out to the FE. Pass code="" for generic
-// fallbacks where no structured identifier applies.
+// NewError creates a structured Error with an optional snake_case code. The
+// code is embedded as a "code: message" prefix so it survives Restate wire
+// serialization (response.writeError re-extracts it when the struct is lost).
 func NewError(status uint16, code string, message string) Error {
 	msg := message
 	if code != "" {
 		msg = fmt.Sprintf("%s: %s", code, message)
 	}
-	return Error{
-		HTTPStatus: status,
-		Code:       code,
-		Message:    msg,
-	}
+	return Error{HTTPStatus: status, Code: code, Message: msg}
 }
 
 // WrapErr wraps an error with context while preserving Restate terminal status and error code.

@@ -1,9 +1,6 @@
 package accountbiz
 
 import (
-	"fmt"
-	"net/http"
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
@@ -246,14 +243,7 @@ func (b *AccountHandler) assertAddressMatchesProfileCountry(
 	}
 
 	if resolvedCountry != profile.Country {
-		return sharedmodel.NewError(
-			http.StatusBadRequest,
-			"address_country_mismatch",
-			fmt.Sprintf(
-				"address resolves to %s, profile country is %s",
-				resolvedCountry, profile.Country,
-			),
-		).Terminal()
+		return accountmodel.ErrContactAddressCountryMismatch.Fmt(resolvedCountry, profile.Country).Terminal()
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package inventorybiz
 import (
 	"shopnexus-server/internal/infras/metrics"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
+	inventorymodel "shopnexus-server/internal/module/inventory/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -33,7 +34,7 @@ func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseI
 				return nil, sharedmodel.WrapErr("release inventory", err)
 			}
 			if rows == 0 {
-				return nil, sharedmodel.NewError(409, "insufficient_reserved_inventory", "insufficient reserved inventory to release").Terminal()
+				return nil, inventorymodel.ErrInsufficientReservedInventory.Terminal()
 			}
 		}
 		return nil, nil

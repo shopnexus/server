@@ -27,7 +27,20 @@ var (
 		"no_default_contact",
 		"Some accounts do not have a default contact address",
 	)
-	ErrCannotDeleteLastContact = sharedmodel.NewError(http.StatusConflict, "cannot_delete_last_contact", "Cannot delete the only contact address")
+	ErrCannotDeleteLastContact  = sharedmodel.NewError(http.StatusConflict, "cannot_delete_last_contact", "Cannot delete the only contact address")
+	ErrCardPaymentNotConfigured = sharedmodel.NewError(http.StatusNotImplemented, "card_payment_not_configured", "card payment not configured")
+
+	ErrInvalidCountry                = sharedmodel.NewError(http.StatusBadRequest, "invalid_country", "invalid country: %v")
+	ErrContactAddressCountryMismatch = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"address_country_mismatch",
+		"address resolves to %s, profile country is %s",
+	)
+	ErrWalletNotEmpty = sharedmodel.NewError(
+		http.StatusConflict,
+		"wallet_not_empty",
+		"wallet balance is %d, must be zero to change country",
+	)
 )
 
 var (

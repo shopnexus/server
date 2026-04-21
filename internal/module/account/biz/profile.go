@@ -2,8 +2,6 @@ package accountbiz
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
@@ -295,11 +293,7 @@ func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountry
 		return err
 	}
 	if balance != 0 {
-		return sharedmodel.NewError(
-			http.StatusConflict,
-			"wallet_not_empty",
-			fmt.Sprintf("wallet balance is %d, must be zero to change country", balance),
-		).Terminal()
+		return accountmodel.ErrWalletNotEmpty.Fmt(balance).Terminal()
 	}
 
 	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {

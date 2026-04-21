@@ -2,7 +2,6 @@ package catalogbiz
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
@@ -456,14 +455,7 @@ func (b *CatalogHandler) assertSellerCurrency(
 		return sharedmodel.WrapErr("infer seller currency", err)
 	}
 	if currency != expected {
-		return sharedmodel.NewError(
-			http.StatusBadRequest,
-			"currency_mismatch",
-			fmt.Sprintf(
-				"seller in %s must price products in %s, got %s",
-				profile.Country, expected, currency,
-			),
-		).Terminal()
+		return catalogmodel.ErrProductCurrencyMismatch.Fmt(profile.Country, expected, currency).Terminal()
 	}
 	return nil
 }

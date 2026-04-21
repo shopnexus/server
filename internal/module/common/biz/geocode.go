@@ -4,10 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
+	commonmodel "shopnexus-server/internal/module/common/model"
 	"shopnexus-server/internal/provider/geocoding"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
@@ -74,18 +74,14 @@ func (b *CommonHandler) ForwardGeocode(ctx restate.Context, params ForwardGeocod
 // blank, geocoding fails, or no country was resolved.
 func (b *CommonHandler) ResolveCountry(ctx restate.Context, address string) (string, error) {
 	if strings.TrimSpace(address) == "" {
-		return "", sharedmodel.NewError(http.StatusBadRequest, "empty_address", "address is empty").Terminal()
+		return "", commonmodel.ErrEmptyAddress.Terminal()
 	}
 	result, err := b.ForwardGeocode(ctx, ForwardGeocodeParams{Address: address})
 	if err != nil {
 		return "", sharedmodel.WrapErr("resolve address country", err)
 	}
 	if result.CountryCode == "" {
-		return "", sharedmodel.NewError(
-			http.StatusBadRequest,
-			"address_country_unresolved",
-			"could not verify address country (no country in geocode result)",
-		).Terminal()
+		return "", commonmodel.ErrAddressCountryUnresolved.Terminal()
 	}
 	return result.CountryCode, nil
 }

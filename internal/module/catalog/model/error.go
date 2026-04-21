@@ -25,4 +25,9 @@ var (
 		"order_already_reviewed",
 		"You have already reviewed this product for this order",
 	)
+	ErrProductCurrencyMismatch = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"currency_mismatch",
+		"seller in %s must price products in %s, got %s",
+	)
 )

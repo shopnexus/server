@@ -4,9 +4,7 @@ package orderbiz
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
-	"net/http"
 
 	"github.com/jackc/pgx/v5"
 	restate "github.com/restatedev/sdk-go"
@@ -108,9 +106,7 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 
 		allowed, ok := validTransitions[currentStatus]
 		if !ok || !allowed[params.Status] {
-			return zero, sharedmodel.NewError(http.StatusConflict,
-				"transport_status_invalid",
-				fmt.Sprintf("cannot transition transport from %s to %s", currentStatus, params.Status)).Terminal()
+			return zero, ordermodel.ErrTransportStatusInvalid.Fmt(currentStatus, params.Status).Terminal()
 		}
 
 		// Merge new event data into existing JSONB

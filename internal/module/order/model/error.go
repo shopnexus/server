@@ -43,18 +43,14 @@ var (
 	ErrOrderNotConfirmable    = sharedmodel.NewError(http.StatusConflict, "order_not_confirmable", "Order is not in a confirmable state")
 	ErrMissingPayment         = sharedmodel.NewError(http.StatusNotFound, "missing_payment", "Payment record not found for order")
 	ErrMissingPromotedPrice   = sharedmodel.NewError(http.StatusNotFound, "missing_promoted_price", "Promoted price not found for SKU")
-	ErrUnknownPaymentOption   = sharedmodel.NewError(http.StatusBadRequest, "unknown_payment_option", "Unknown payment option: %s")
 
-	ErrItemsNotSameBuyer = sharedmodel.NewError(http.StatusBadRequest, "items_not_same_buyer", "all items must belong to the same buyer").
-				Terminal()
-	ErrItemsNotSameAddress = sharedmodel.NewError(http.StatusBadRequest, "items_not_same_address", "all items must have the same address").
-				Terminal()
-	ErrItemNotPending       = sharedmodel.NewError(http.StatusBadRequest, "item_not_pending", "item is not in pending status").Terminal()
-	ErrItemNotOwnedBySeller = sharedmodel.NewError(http.StatusForbidden, "item_not_owned_by_seller", "item does not belong to this seller").
-				Terminal()
-	ErrOrderNotPayable        = sharedmodel.NewError(http.StatusBadRequest, "order_not_payable", "order is not payable").Terminal()
-	ErrOrderAlreadyPaid       = sharedmodel.NewError(http.StatusBadRequest, "order_already_paid", "order is already paid").Terminal()
-	ErrUnknownTransportOption = sharedmodel.NewError(http.StatusBadRequest, "unknown_transport_option", "unknown transport option").Terminal()
+	ErrItemsNotSameBuyer      = sharedmodel.NewError(http.StatusBadRequest, "items_not_same_buyer", "all items must belong to the same buyer")
+	ErrItemsNotSameAddress    = sharedmodel.NewError(http.StatusBadRequest, "items_not_same_address", "all items must have the same address")
+	ErrItemNotPending         = sharedmodel.NewError(http.StatusBadRequest, "item_not_pending", "item is not in pending status")
+	ErrItemNotOwnedBySeller   = sharedmodel.NewError(http.StatusForbidden, "item_not_owned_by_seller", "item does not belong to this seller")
+	ErrOrderNotPayable        = sharedmodel.NewError(http.StatusBadRequest, "order_not_payable", "order is not payable")
+	ErrOrderAlreadyPaid       = sharedmodel.NewError(http.StatusBadRequest, "order_already_paid", "order is already paid")
+	ErrUnknownTransportOption = sharedmodel.NewError(http.StatusBadRequest, "unknown_transport_option", "unknown transport option")
 	ErrNoDefaultPaymentMethod = sharedmodel.NewError(http.StatusBadRequest, "no_default_payment_method", "no default payment method configured")
 	ErrPaymentMethodNotFound  = sharedmodel.NewError(http.StatusNotFound, "payment_method_not_found", "payment method not found")
 
@@ -100,4 +96,27 @@ var (
 	ErrItemsTransportMismatch = sharedmodel.NewError(http.StatusBadRequest, "items_transport_mismatch", "all items must have the same transport option")
 	ErrPaymentTimeout         = sharedmodel.NewError(http.StatusConflict, "payment_timeout", "payment session expired")
 	ErrSellerConfirmTimeout   = sharedmodel.NewError(http.StatusConflict, "seller_confirm_timeout", "seller confirmation expired")
+
+	ErrUnknownPaymentOption = sharedmodel.NewError(http.StatusBadRequest, "unknown_payment_option", "Unknown payment option: %s")
+
+	ErrCheckoutAddressCountryMismatch = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"address_country_mismatch",
+		"address resolves to %s, buyer country is %s",
+	)
+	ErrMixedCurrencyCart = sharedmodel.NewError(
+		http.StatusBadRequest,
+		"mixed_currency_cart",
+		"all items must share the same currency (got %s and %s)",
+	)
+	ErrFXRateUnavailable = sharedmodel.NewError(
+		http.StatusServiceUnavailable,
+		"fx_rate_unavailable",
+		"fx rate unavailable for %s",
+	)
+	ErrTransportStatusInvalid = sharedmodel.NewError(
+		http.StatusConflict,
+		"transport_status_invalid",
+		"cannot transition transport from %s to %s",
+	)
 )

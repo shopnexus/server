@@ -3,8 +3,6 @@ package accountbiz
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	authclaims "shopnexus-server/internal/shared/claims"
@@ -195,11 +193,7 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 	// Validate country and infer preferred currency before any DB work.
 	inferredCurrency, err := sharedcurrency.Infer(params.Country)
 	if err != nil {
-		return zero, sharedmodel.NewError(
-			http.StatusBadRequest,
-			"invalid_country",
-			fmt.Sprintf("invalid country: %v", err),
-		).Terminal()
+		return zero, accountmodel.ErrInvalidCountry.Fmt(err).Terminal()
 	}
 
 	settings, err := json.Marshal(accountmodel.ProfileSettings{

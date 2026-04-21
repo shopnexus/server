@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
@@ -72,14 +71,7 @@ func (b *OrderHandler) BuyerCheckout(
 		return zero, err
 	}
 	if resolvedCountry != buyerProfile.Country {
-		return zero, sharedmodel.NewError(
-			http.StatusBadRequest,
-			"address_country_mismatch",
-			fmt.Sprintf(
-				"address resolves to %s, buyer country is %s",
-				resolvedCountry, buyerProfile.Country,
-			),
-		).Terminal()
+		return zero, ordermodel.ErrCheckoutAddressCountryMismatch.Fmt(resolvedCountry, buyerProfile.Country).Terminal()
 	}
 
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
@@ -159,14 +151,7 @@ func (b *OrderHandler) BuyerCheckout(
 	sellerCurrency := listSpu.Data[0].Currency
 	for _, spu := range listSpu.Data {
 		if spu.Currency != sellerCurrency {
-			return zero, sharedmodel.NewError(
-				http.StatusBadRequest,
-				"mixed_currency_cart",
-				fmt.Sprintf(
-					"all items must share the same currency (got %s and %s)",
-					sellerCurrency, spu.Currency,
-				),
-			).Terminal()
+			return zero, ordermodel.ErrMixedCurrencyCart.Fmt(sellerCurrency, spu.Currency).Terminal()
 		}
 	}
 
@@ -194,11 +179,7 @@ func (b *OrderHandler) BuyerCheckout(
 		if sellerCurrency != fxSnapshot.Base {
 			r, ok := fxSnapshot.Rates[sellerCurrency]
 			if !ok || r <= 0 {
-				return zero, sharedmodel.NewError(
-					http.StatusServiceUnavailable,
-					"fx_rate_unavailable",
-					fmt.Sprintf("fx rate unavailable for %s", sellerCurrency),
-				).Terminal()
+				return zero, ordermodel.ErrFXRateUnavailable.Fmt(sellerCurrency).Terminal()
 			}
 			rateFrom = r
 		}
@@ -206,11 +187,7 @@ func (b *OrderHandler) BuyerCheckout(
 		if buyerCurrency != fxSnapshot.Base {
 			r, ok := fxSnapshot.Rates[buyerCurrency]
 			if !ok || r <= 0 {
-				return zero, sharedmodel.NewError(
-					http.StatusServiceUnavailable,
-					"fx_rate_unavailable",
-					fmt.Sprintf("fx rate unavailable for %s", buyerCurrency),
-				).Terminal()
+				return zero, ordermodel.ErrFXRateUnavailable.Fmt(buyerCurrency).Terminal()
 			}
 			rateTo = r
 		}
