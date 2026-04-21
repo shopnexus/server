@@ -20,7 +20,8 @@ type ReleaseInventoryItem struct {
 	Amount  int64
 }
 
-func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseInventoryParams) (err error) {
+func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseInventoryParams) error {
+	var err error
 	defer metrics.TrackHandler("inventory", "ReleaseInventory", &err)()
 
 	_, err = restate.Run(ctx, func(ctx restate.RunContext) (any, error) {

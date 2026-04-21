@@ -14,14 +14,27 @@ import (
 	"github.com/samber/lo"
 )
 
+// refTypeLabel returns a lowercase human label for user-facing error messages.
+// We avoid string(refType) so the DB enum casing ("ProductSku") doesn't leak to the UI.
+func refTypeLabel(t inventorydb.InventoryStockRefType) string {
+	switch t {
+	case inventorydb.InventoryStockRefTypeProductSku:
+		return "product"
+	case inventorydb.InventoryStockRefTypePromotion:
+		return "promotion"
+	default:
+		return "item"
+	}
+}
+
 // getStockByRef is a shared helper to look up stock by (ref_type, ref_id).
 func (b *InventoryHandler) getStockByRef(
 	ctx restate.Context,
-	q inventorydb.Querier,
+	store InventoryStorage,
 	refType inventorydb.InventoryStockRefType,
 	refID uuid.UUID,
 ) (inventorydb.InventoryStock, error) {
-	return q.GetStock(ctx, inventorydb.GetStockParams{
+	return store.Querier().GetStock(ctx, inventorydb.GetStockParams{
 		RefID:   uuid.NullUUID{UUID: refID, Valid: true},
 		RefType: inventorydb.NullInventoryStockRefType{InventoryStockRefType: refType, Valid: true},
 	})
@@ -38,7 +51,7 @@ func (b *InventoryHandler) GetStock(ctx restate.Context, params GetStockParams) 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate get stock", err)
 	}
-	return b.getStockByRef(ctx, b.storage.Querier(), params.RefType, params.RefID)
+	return b.getStockByRef(ctx, b.storage, params.RefType, params.RefID)
 }
 
 type UpdateStockSettingsParams struct {
@@ -57,7 +70,7 @@ func (b *InventoryHandler) UpdateStockSettings(
 		return zero, sharedmodel.WrapErr("validate update stock settings", err)
 	}
 
-	stock, err := b.getStockByRef(ctx, b.storage.Querier(), params.RefType, params.RefID)
+	stock, err := b.getStockByRef(ctx, b.storage, params.RefType, params.RefID)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db get stock", err)
 	}
@@ -136,8 +149,6 @@ func (b *InventoryHandler) CreateStock(
 	})
 }
 
-// --- Stock History ---
-
 type ListStockHistoryParams struct {
 	sharedmodel.PaginationParams
 
@@ -155,7 +166,7 @@ func (b *InventoryHandler) ListStockHistory(
 		return zero, sharedmodel.WrapErr("validate list stock history", err)
 	}
 
-	stock, err := b.getStockByRef(ctx, b.storage.Querier(), params.RefType, params.RefID)
+	stock, err := b.getStockByRef(ctx, b.storage, params.RefType, params.RefID)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db get stock", err)
 	}
@@ -185,8 +196,6 @@ func (b *InventoryHandler) ListStockHistory(
 	}, nil
 }
 
-// --- Import Stock ---
-
 type ImportStockParams struct {
 	RefID     uuid.UUID                         `validate:"required"`
 	RefType   inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
@@ -202,7 +211,7 @@ func (b *InventoryHandler) ImportStock(ctx restate.Context, params ImportStockPa
 
 	q := b.storage.Querier()
 
-	stock, err := b.getStockByRef(ctx, q, params.RefType, params.RefID)
+	stock, err := b.getStockByRef(ctx, b.storage, params.RefType, params.RefID)
 	if err != nil {
 		return sharedmodel.WrapErr("db get stock", err)
 	}
@@ -237,7 +246,7 @@ func (b *InventoryHandler) ImportStock(ctx restate.Context, params ImportStockPa
 			}
 		}
 
-		if _, err := q.CreateCopyDefaultSerial(ctx, args); err != nil {
+		if _, err = q.CreateCopyDefaultSerial(ctx, args); err != nil {
 			return sharedmodel.WrapErr("db create serials", err)
 		}
 	}
@@ -248,12 +257,13 @@ func (b *InventoryHandler) ImportStock(ctx restate.Context, params ImportStockPa
 	})
 }
 
-// --- Reserve Inventory ---
-
 type ReserveInventoryItem struct {
 	RefType inventorydb.InventoryStockRefType
 	RefID   uuid.UUID
 	Amount  int64
+	// DisplayName is an optional user-facing label surfaced in error messages
+	// (e.g. the SPU name). Empty falls back to the generic refTypeLabel.
+	DisplayName string
 }
 
 type ReserveInventoryResult struct {
@@ -280,20 +290,23 @@ func (b *InventoryHandler) ReserveInventory(
 		metrics.InventoryReservesTotal.WithLabelValues(result).Add(float64(len(params.Items)))
 	}()
 
-	q := b.storage.Querier()
-
 	for _, item := range params.Items {
-		stock, err := b.getStockByRef(ctx, q, item.RefType, item.RefID)
+		stock, err := b.getStockByRef(ctx, b.storage, item.RefType, item.RefID)
 		if err != nil {
 			return nil, err
 		}
 
+		label := item.DisplayName
+		if label == "" {
+			label = refTypeLabel(item.RefType)
+		}
+
 		if stock.Stock < item.Amount {
-			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
+			return nil, inventorymodel.ErrOutOfStock.Fmt(label, item.Amount, stock.Stock).Terminal()
 		}
 
 		// Adjust inventory and check rows affected
-		rowsAffected, err := q.AdjustInventory(ctx, inventorydb.AdjustInventoryParams{
+		rowsAffected, err := b.storage.Querier().AdjustInventory(ctx, inventorydb.AdjustInventoryParams{
 			StockID: stock.ID,
 			Amount:  item.Amount,
 		})
@@ -301,7 +314,7 @@ func (b *InventoryHandler) ReserveInventory(
 			return nil, err
 		}
 		if rowsAffected == 0 {
-			return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
+			return nil, inventorymodel.ErrOutOfStockRace.Fmt(label).Terminal()
 		}
 
 		result := ReserveInventoryResult{
@@ -311,7 +324,7 @@ func (b *InventoryHandler) ReserveInventory(
 
 		// If serial is required, reserve available serials
 		if stock.SerialRequired {
-			serials, err := q.GetAvailableSerials(ctx, inventorydb.GetAvailableSerialsParams{
+			serials, err := b.storage.Querier().GetAvailableSerials(ctx, inventorydb.GetAvailableSerialsParams{
 				StockID: stock.ID,
 				Amount:  int32(item.Amount),
 			})
@@ -320,14 +333,14 @@ func (b *InventoryHandler) ReserveInventory(
 			}
 
 			if len(serials) != int(item.Amount) {
-				return nil, inventorymodel.ErrOutOfStock.Fmt(item.RefID.String()).Terminal()
+				return nil, inventorymodel.ErrSerialShortage.Fmt(len(serials), label, item.Amount).Terminal()
 			}
 
 			serialIDs := lo.Map(serials, func(s inventorydb.GetAvailableSerialsRow, _ int) string {
 				return s.ID
 			})
 
-			if err := q.UpdateSerialStatus(ctx, inventorydb.UpdateSerialStatusParams{
+			if err = b.storage.Querier().UpdateSerialStatus(ctx, inventorydb.UpdateSerialStatusParams{
 				ID:     serialIDs,
 				Status: inventorydb.InventoryStatusTaken,
 			}); err != nil {
@@ -342,8 +355,6 @@ func (b *InventoryHandler) ReserveInventory(
 
 	return results, nil
 }
-
-// --- Serial ---
 
 type UpdateSerialParams struct {
 	SerialIDs []string
@@ -402,8 +413,6 @@ func (b *InventoryHandler) ListSerial(
 		Data:       serials,
 	}, nil
 }
-
-// --- Most Taken ---
 
 type ListMostTakenSkuParams struct {
 	sharedmodel.PaginationParams

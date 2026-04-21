@@ -212,10 +212,17 @@ func (b *OrderHandler) BuyerCheckout(
 	// Step 3: Reserve inventory
 	inventories, err := b.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
 		Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
+			var displayName string
+			if sku, ok := skuMap[item.SkuID]; ok {
+				if spu, ok := spuMap[sku.SpuID]; ok {
+					displayName = spu.Name
+				}
+			}
 			return inventorybiz.ReserveInventoryItem{
-				RefType: inventorydb.InventoryStockRefTypeProductSku,
-				RefID:   item.SkuID,
-				Amount:  checkoutItemMap[item.SkuID].Quantity,
+				RefType:     inventorydb.InventoryStockRefTypeProductSku,
+				RefID:       item.SkuID,
+				Amount:      checkoutItemMap[item.SkuID].Quantity,
+				DisplayName: displayName,
 			}
 		}),
 	})

@@ -21,6 +21,16 @@ var (
 	ErrOutOfStock = sharedmodel.NewError(
 		http.StatusConflict,
 		"out_of_stock",
-		"Sorry, This product (%s) is out of stock right now",
+		"Sorry, this %s is out of stock right now (requested %d, only %d available)",
+	)
+	ErrOutOfStockRace = sharedmodel.NewError(
+		http.StatusConflict,
+		"out_of_stock_race",
+		"This %s was just reserved by someone else. Please try again.",
+	)
+	ErrSerialShortage = sharedmodel.NewError(
+		http.StatusConflict,
+		"serial_shortage",
+		"Only %d unit(s) of this %s have a serial available (requested %d)",
 	)
 )
