@@ -36,6 +36,10 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	meApi.PATCH("", h.UpdateMe)
 	meApi.PATCH("/settings", h.UpdateMeSettings)
 
+	// Profile endpoints
+	profileApi := api.Group("/profile")
+	profileApi.PATCH("/country", h.UpdateCountry)
+
 	// Contact endpoints
 	contactApi := api.Group("/contact")
 	contactApi.GET("/:contact_id", h.GetContact)
