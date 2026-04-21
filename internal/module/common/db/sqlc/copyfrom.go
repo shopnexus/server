@@ -9,41 +9,6 @@ import (
 	"context"
 )
 
-// iteratorForCreateCopyDefaultExchangeRate implements pgx.CopyFromSource.
-type iteratorForCreateCopyDefaultExchangeRate struct {
-	rows                 []CreateCopyDefaultExchangeRateParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyDefaultExchangeRate) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyDefaultExchangeRate) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].Base,
-		r.rows[0].Target,
-		r.rows[0].Rate,
-		r.rows[0].FetchedAt,
-	}, nil
-}
-
-func (r iteratorForCreateCopyDefaultExchangeRate) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyDefaultExchangeRate(ctx context.Context, arg []CreateCopyDefaultExchangeRateParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "exchange_rate"}, []string{"base", "target", "rate", "fetched_at"}, &iteratorForCreateCopyDefaultExchangeRate{rows: arg})
-}
-
 // iteratorForCreateCopyDefaultResource implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultResource struct {
 	rows                 []CreateCopyDefaultResourceParams
@@ -154,42 +119,6 @@ func (r iteratorForCreateCopyDefaultServiceOption) Err() error {
 
 func (q *Queries) CreateCopyDefaultServiceOption(ctx context.Context, arg []CreateCopyDefaultServiceOptionParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
-}
-
-// iteratorForCreateCopyExchangeRate implements pgx.CopyFromSource.
-type iteratorForCreateCopyExchangeRate struct {
-	rows                 []CreateCopyExchangeRateParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyExchangeRate) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyExchangeRate) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].Base,
-		r.rows[0].Target,
-		r.rows[0].Rate,
-		r.rows[0].FetchedAt,
-		r.rows[0].DateUpdated,
-	}, nil
-}
-
-func (r iteratorForCreateCopyExchangeRate) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyExchangeRate(ctx context.Context, arg []CreateCopyExchangeRateParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "exchange_rate"}, []string{"base", "target", "rate", "fetched_at", "date_updated"}, &iteratorForCreateCopyExchangeRate{rows: arg})
 }
 
 // iteratorForCreateCopyResource implements pgx.CopyFromSource.
