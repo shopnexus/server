@@ -10,6 +10,7 @@ import (
 var (
 	ErrResourceNotFound         = sharedmodel.NewError(http.StatusNotFound, "resource_not_found", "Resource not found")
 	ErrEmptyAddress             = sharedmodel.NewError(http.StatusBadRequest, "empty_address", "address is empty")
+	ErrAddressNotFound          = sharedmodel.NewError(http.StatusBadRequest, "address_not_found", "address could not be located")
 	ErrAddressCountryUnresolved = sharedmodel.NewError(
 		http.StatusBadRequest,
 		"address_country_unresolved",

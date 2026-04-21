@@ -63,7 +63,7 @@ func (p *NominatimClient) ReverseGeocode(ctx context.Context, lat, lng float64) 
 	}
 
 	if result.DisplayName == "" {
-		return zero, fmt.Errorf("geocoding: no address found for coordinates %f, %f", lat, lng)
+		return zero, fmt.Errorf("geocoding: no address found for coordinates %f, %f: %w", lat, lng, ErrNoResults)
 	}
 
 	return Result{
@@ -117,7 +117,7 @@ func (p *NominatimClient) ForwardGeocode(ctx context.Context, address string) (R
 	}
 
 	if len(results) == 0 {
-		return zero, fmt.Errorf("geocoding: no results found for address %q", address)
+		return zero, fmt.Errorf("geocoding: no results found for address %q: %w", address, ErrNoResults)
 	}
 
 	var lat, lng float64

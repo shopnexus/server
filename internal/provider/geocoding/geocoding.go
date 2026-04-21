@@ -1,6 +1,14 @@
 package geocoding
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrNoResults is returned when the provider cannot resolve the given input
+// (address or coordinates) to any location. Callers can use errors.Is to map
+// this into a terminal/400 error so that Restate stops retrying.
+var ErrNoResults = errors.New("geocoding: no results")
 
 // Result holds the geocoded address and coordinates.
 type Result struct {

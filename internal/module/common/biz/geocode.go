@@ -3,6 +3,7 @@ package commonbiz
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -32,6 +33,9 @@ func (b *CommonHandler) ReverseGeocode(ctx restate.Context, params ReverseGeocod
 	return restate.Run(ctx, func(ctx restate.RunContext) (geocoding.Result, error) {
 		result, err := b.geocoder.ReverseGeocode(ctx, params.Latitude, params.Longitude)
 		if err != nil {
+			if errors.Is(err, geocoding.ErrNoResults) {
+				return geocoding.Result{}, commonmodel.ErrAddressNotFound.Terminal()
+			}
 			return geocoding.Result{}, sharedmodel.WrapErr("reverse geocode", err)
 		}
 		return result, nil
@@ -56,6 +60,9 @@ func (b *CommonHandler) ForwardGeocode(ctx restate.Context, params ForwardGeocod
 
 		result, err := b.geocoder.ForwardGeocode(ctx, params.Address)
 		if err != nil {
+			if errors.Is(err, geocoding.ErrNoResults) {
+				return geocoding.Result{}, commonmodel.ErrAddressNotFound.Terminal()
+			}
 			return geocoding.Result{}, sharedmodel.WrapErr("forward geocode", err)
 		}
 
