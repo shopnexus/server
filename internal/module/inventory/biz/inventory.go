@@ -27,8 +27,6 @@ func (b *InventoryHandler) getStockByRef(
 	})
 }
 
-// --- Stock ---
-
 type GetStockParams struct {
 	RefID   uuid.UUID                         `validate:"required"`
 	RefType inventorydb.InventoryStockRefType `validate:"required,validateFn=Valid"`
