@@ -2,6 +2,7 @@ package accountecho
 
 import (
 	"net/http"
+	"strings"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	"shopnexus-server/internal/shared/response"
@@ -50,6 +51,7 @@ type RegisterBasicRequest struct {
 	Email    null.String `json:"email"    validate:"omitnil"`
 	Phone    null.String `json:"phone"    validate:"omitnil"`
 	Password string      `json:"password" validate:"required"`
+	Country  string      `json:"country"  validate:"required,len=2,uppercase,alpha"`
 }
 
 func (h *Handler) RegisterBasic(c echo.Context) error {
@@ -57,6 +59,7 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
+	req.Country = strings.ToUpper(req.Country)
 	if err := c.Validate(&req); err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
@@ -66,6 +69,7 @@ func (h *Handler) RegisterBasic(c echo.Context) error {
 		Email:    req.Email,
 		Phone:    req.Phone,
 		Password: null.NewString(req.Password, true),
+		Country:  req.Country,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

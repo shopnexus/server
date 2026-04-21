@@ -1,10 +1,14 @@
 package accountbiz
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	authclaims "shopnexus-server/internal/shared/claims"
+	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 	"time"
@@ -161,6 +165,7 @@ type RegisterParams struct {
 	Email    null.String `validate:"omitnil,email"`
 	Phone    null.String `validate:"omitnil,e164"`
 	Password null.String `validate:"required,min=8,max=72"`
+	Country  string      `validate:"required,len=2,uppercase,alpha"`
 }
 
 type RegisterResult struct {
@@ -187,6 +192,22 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 		return zero, accountmodel.ErrEmailRequiredForOAuth.Terminal()
 	}
 
+	// Validate country and infer preferred currency before any DB work.
+	inferredCurrency, err := sharedcurrency.Infer(params.Country)
+	if err != nil {
+		return zero, sharedmodel.NewError(
+			http.StatusBadRequest,
+			fmt.Sprintf("invalid country: %v", err),
+		).Terminal()
+	}
+
+	settings, err := json.Marshal(accountmodel.ProfileSettings{
+		PreferredCurrency: inferredCurrency,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("marshal signup settings", err)
+	}
+
 	// Hash the password if provided
 	var hashedPassword null.String
 	if params.Password.Valid {
@@ -208,9 +229,11 @@ func (a *AccountHandler) Register(ctx restate.Context, params RegisterParams) (R
 		return zero, sharedmodel.WrapErr("db create account", err)
 	}
 
-	// Create empty profile
-	if _, err = a.storage.Querier().CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
-		ID: account.ID,
+	// Create profile with submitted country and inferred preferred currency.
+	if _, err = a.storage.Querier().CreateSignupProfile(ctx, accountdb.CreateSignupProfileParams{
+		ID:       account.ID,
+		Country:  params.Country,
+		Settings: settings,
 	}); err != nil {
 		return zero, sharedmodel.WrapErr("db create profile", err)
 	}

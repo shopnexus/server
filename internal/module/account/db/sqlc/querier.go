@@ -65,6 +65,7 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
 	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (AccountPaymentMethod, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
+	CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error)
 	CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error)
 	CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error)
 	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountWallet, error)

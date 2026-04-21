@@ -12,6 +12,39 @@ import (
 	"github.com/google/uuid"
 )
 
+const createSignupProfile = `-- name: CreateSignupProfile :one
+INSERT INTO "account"."profile" ("id", "country", "settings")
+VALUES ($1, $2, $3)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, country, default_contact_id, date_created, date_updated, settings
+`
+
+type CreateSignupProfileParams struct {
+	ID       uuid.UUID       `json:"id"`
+	Country  string          `json:"country"`
+	Settings json.RawMessage `json:"settings"`
+}
+
+func (q *Queries) CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error) {
+	row := q.db.QueryRow(ctx, createSignupProfile, arg.ID, arg.Country, arg.Settings)
+	var i AccountProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Gender,
+		&i.Name,
+		&i.Description,
+		&i.DateOfBirth,
+		&i.AvatarRsID,
+		&i.EmailVerified,
+		&i.PhoneVerified,
+		&i.Country,
+		&i.DefaultContactID,
+		&i.DateCreated,
+		&i.DateUpdated,
+		&i.Settings,
+	)
+	return i, err
+}
+
 const updateProfileCountry = `-- name: UpdateProfileCountry :execrows
 UPDATE "account"."profile"
 SET "country" = $1,
