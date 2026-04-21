@@ -510,27 +510,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateBatchProductSpuTag :batchone
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyProductSpuTag :copyfrom
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3);
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2);
 
 -- name: CreateDefaultProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultProductSpuTag :copyfrom
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3);
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2);
 
 -- name: UpdateProductSpuTag :one
 UPDATE "catalog"."product_spu_tag"
@@ -774,27 +774,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateSearchSync :one
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateBatchSearchSync :batchone
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: CreateCopySearchSync :copyfrom
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: CreateDefaultSearchSync :one
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id")
+VALUES ($1, $2)
 RETURNING *;
 
 -- name: CreateCopyDefaultSearchSync :copyfrom
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id")
-VALUES ($1, $2, $3);
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id")
+VALUES ($1, $2);
 
 -- name: UpdateSearchSync :one
 UPDATE "catalog"."search_sync"

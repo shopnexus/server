@@ -179,8 +179,8 @@ func (b *CreateBatchContactBatchResults) Close() error {
 }
 
 const createBatchFavorite = `-- name: CreateBatchFavorite :batchone
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3)
 RETURNING id, account_id, spu_id, date_created
 `
 
@@ -191,7 +191,6 @@ type CreateBatchFavoriteBatchResults struct {
 }
 
 type CreateBatchFavoriteParams struct {
-	ID          int64     `json:"id"`
 	AccountID   uuid.UUID `json:"account_id"`
 	SpuID       uuid.UUID `json:"spu_id"`
 	DateCreated time.Time `json:"date_created"`
@@ -201,7 +200,6 @@ func (q *Queries) CreateBatchFavorite(ctx context.Context, arg []CreateBatchFavo
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.ID,
 			a.AccountID,
 			a.SpuID,
 			a.DateCreated,
@@ -241,8 +239,8 @@ func (b *CreateBatchFavoriteBatchResults) Close() error {
 }
 
 const createBatchIncomeHistory = `-- name: CreateBatchIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, account_id, type, income, current_balance, note, date_created
 `
 
@@ -253,7 +251,6 @@ type CreateBatchIncomeHistoryBatchResults struct {
 }
 
 type CreateBatchIncomeHistoryParams struct {
-	ID             int64       `json:"id"`
 	AccountID      uuid.UUID   `json:"account_id"`
 	Type           string      `json:"type"`
 	Income         int64       `json:"income"`
@@ -266,7 +263,6 @@ func (q *Queries) CreateBatchIncomeHistory(ctx context.Context, arg []CreateBatc
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.ID,
 			a.AccountID,
 			a.Type,
 			a.Income,
@@ -312,8 +308,8 @@ func (b *CreateBatchIncomeHistoryBatchResults) Close() error {
 }
 
 const createBatchNotification = `-- name: CreateBatchNotification :batchone
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
 `
 
@@ -324,7 +320,6 @@ type CreateBatchNotificationBatchResults struct {
 }
 
 type CreateBatchNotificationParams struct {
-	ID            int64           `json:"id"`
 	AccountID     uuid.UUID       `json:"account_id"`
 	Type          string          `json:"type"`
 	Channel       string          `json:"channel"`
@@ -342,7 +337,6 @@ func (q *Queries) CreateBatchNotification(ctx context.Context, arg []CreateBatch
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.ID,
 			a.AccountID,
 			a.Type,
 			a.Channel,
@@ -561,8 +555,8 @@ func (b *CreateBatchProfileBatchResults) Close() error {
 }
 
 const createBatchWallet = `-- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("id", "account_id", "balance")
-VALUES ($1, $2, $3)
+INSERT INTO "account"."wallet" ("account_id", "balance")
+VALUES ($1, $2)
 RETURNING id, account_id, balance
 `
 
@@ -573,7 +567,6 @@ type CreateBatchWalletBatchResults struct {
 }
 
 type CreateBatchWalletParams struct {
-	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
 	Balance   int64     `json:"balance"`
 }
@@ -582,7 +575,6 @@ func (q *Queries) CreateBatchWallet(ctx context.Context, arg []CreateBatchWallet
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.ID,
 			a.AccountID,
 			a.Balance,
 		}
@@ -616,8 +608,8 @@ func (b *CreateBatchWalletBatchResults) Close() error {
 }
 
 const createBatchWalletTransaction = `-- name: CreateBatchWalletTransaction :batchone
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, account_id, type, amount, reference_id, note, date_created
 `
 
@@ -628,7 +620,6 @@ type CreateBatchWalletTransactionBatchResults struct {
 }
 
 type CreateBatchWalletTransactionParams struct {
-	ID          int64                        `json:"id"`
 	AccountID   uuid.UUID                    `json:"account_id"`
 	Type        AccountWalletTransactionType `json:"type"`
 	Amount      int64                        `json:"amount"`
@@ -641,7 +632,6 @@ func (q *Queries) CreateBatchWalletTransaction(ctx context.Context, arg []Create
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.ID,
 			a.AccountID,
 			a.Type,
 			a.Amount,

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"regexp"
@@ -197,39 +196,38 @@ func ParseSchemaFiles(filenames []string) ([]*Table, error) {
 	return tables, nil
 }
 
-// prescanSerials does a line-by-line scan of the raw SQL to detect
+// prescanSerials does a full-text scan of the raw SQL to detect
 // SERIAL / BIGSERIAL / SMALLSERIAL columns in CREATE TABLE blocks,
 // since pg_query transforms these to int4/int8/int2 in the grammar.
 // GENERATED AS IDENTITY is handled by the AST (ColumnDef.Identity), not here.
 // Returns a set keyed by "schema.table.column".
+//
+// Migrations write CREATE TABLE headers across multiple lines, e.g.
+//
+//	CREATE TABLE
+//	  IF NOT EXISTS "catalog"."search_sync" (
+//
+// so we scan the whole string rather than line-by-line. Each match locates a
+// table body; SERIAL columns are then found inside that body.
 func prescanSerials(sql string) map[string]bool {
 	result := make(map[string]bool)
 
-	reTable := regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"\."([^"]+)"`)
-	reSerial := regexp.MustCompile(`(?i)^\s*"([^"]+)"\s+\w*SERIAL`)
+	reTable := regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"\."([^"]+)"\s*\(`)
+	reSerial := regexp.MustCompile(`(?im)^\s*"([^"]+)"\s+\w*SERIAL`)
+	reBodyEnd := regexp.MustCompile(`(?m)^\s*\)\s*;`)
 
-	scanner := bufio.NewScanner(strings.NewReader(sql))
-	var currentSchema, currentTable string
-	inCreateTable := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if m := reTable.FindStringSubmatch(line); m != nil {
-			currentSchema = m[1]
-			currentTable = m[2]
-			inCreateTable = true
+	for _, m := range reTable.FindAllStringSubmatchIndex(sql, -1) {
+		schema := sql[m[2]:m[3]]
+		table := sql[m[4]:m[5]]
+		bodyStart := m[1]
+		rest := sql[bodyStart:]
+		endLoc := reBodyEnd.FindStringIndex(rest)
+		if endLoc == nil {
 			continue
 		}
-		if inCreateTable && strings.Contains(line, ");") {
-			inCreateTable = false
-			continue
-		}
-		if inCreateTable {
-			if m := reSerial.FindStringSubmatch(line); m != nil {
-				key := currentSchema + "." + currentTable + "." + m[1]
-				result[key] = true
-			}
+		body := rest[:endLoc[0]]
+		for _, sm := range reSerial.FindAllStringSubmatch(body, -1) {
+			result[schema+"."+table+"."+sm[1]] = true
 		}
 	}
 

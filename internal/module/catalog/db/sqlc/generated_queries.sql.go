@@ -513,13 +513,11 @@ type CreateCopyDefaultProductSpuParams struct {
 }
 
 type CreateCopyDefaultProductSpuTagParams struct {
-	ID    int64     `json:"id"`
 	SpuID uuid.UUID `json:"spu_id"`
 	Tag   string    `json:"tag"`
 }
 
 type CreateCopyDefaultSearchSyncParams struct {
-	ID      int64                    `json:"id"`
 	RefType CatalogSearchSyncRefType `json:"ref_type"`
 	RefID   uuid.UUID                `json:"ref_id"`
 }
@@ -559,13 +557,11 @@ type CreateCopyProductSpuParams struct {
 }
 
 type CreateCopyProductSpuTagParams struct {
-	ID    int64     `json:"id"`
 	SpuID uuid.UUID `json:"spu_id"`
 	Tag   string    `json:"tag"`
 }
 
 type CreateCopySearchSyncParams struct {
-	ID               int64                    `json:"id"`
 	RefType          CatalogSearchSyncRefType `json:"ref_type"`
 	RefID            uuid.UUID                `json:"ref_id"`
 	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
@@ -737,38 +733,36 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 }
 
 const createDefaultProductSpuTag = `-- name: CreateDefaultProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2)
 RETURNING id, spu_id, tag
 `
 
 type CreateDefaultProductSpuTagParams struct {
-	ID    int64     `json:"id"`
 	SpuID uuid.UUID `json:"spu_id"`
 	Tag   string    `json:"tag"`
 }
 
 func (q *Queries) CreateDefaultProductSpuTag(ctx context.Context, arg CreateDefaultProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, createDefaultProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
+	row := q.db.QueryRow(ctx, createDefaultProductSpuTag, arg.SpuID, arg.Tag)
 	var i CatalogProductSpuTag
 	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
 const createDefaultSearchSync = `-- name: CreateDefaultSearchSync :one
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id")
+VALUES ($1, $2)
 RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type CreateDefaultSearchSyncParams struct {
-	ID      int64                    `json:"id"`
 	RefType CatalogSearchSyncRefType `json:"ref_type"`
 	RefID   uuid.UUID                `json:"ref_id"`
 }
 
 func (q *Queries) CreateDefaultSearchSync(ctx context.Context, arg CreateDefaultSearchSyncParams) (CatalogSearchSync, error) {
-	row := q.db.QueryRow(ctx, createDefaultSearchSync, arg.ID, arg.RefType, arg.RefID)
+	row := q.db.QueryRow(ctx, createDefaultSearchSync, arg.RefType, arg.RefID)
 	var i CatalogSearchSync
 	err := row.Scan(
 		&i.ID,
@@ -913,32 +907,30 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 }
 
 const createProductSpuTag = `-- name: CreateProductSpuTag :one
-INSERT INTO "catalog"."product_spu_tag" ("id", "spu_id", "tag")
-VALUES ($1, $2, $3)
+INSERT INTO "catalog"."product_spu_tag" ("spu_id", "tag")
+VALUES ($1, $2)
 RETURNING id, spu_id, tag
 `
 
 type CreateProductSpuTagParams struct {
-	ID    int64     `json:"id"`
 	SpuID uuid.UUID `json:"spu_id"`
 	Tag   string    `json:"tag"`
 }
 
 func (q *Queries) CreateProductSpuTag(ctx context.Context, arg CreateProductSpuTagParams) (CatalogProductSpuTag, error) {
-	row := q.db.QueryRow(ctx, createProductSpuTag, arg.ID, arg.SpuID, arg.Tag)
+	row := q.db.QueryRow(ctx, createProductSpuTag, arg.SpuID, arg.Tag)
 	var i CatalogProductSpuTag
 	err := row.Scan(&i.ID, &i.SpuID, &i.Tag)
 	return i, err
 }
 
 const createSearchSync = `-- name: CreateSearchSync :one
-INSERT INTO "catalog"."search_sync" ("id", "ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO "catalog"."search_sync" ("ref_type", "ref_id", "is_stale_embedding", "is_stale_metadata", "date_created", "date_updated")
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
 type CreateSearchSyncParams struct {
-	ID               int64                    `json:"id"`
 	RefType          CatalogSearchSyncRefType `json:"ref_type"`
 	RefID            uuid.UUID                `json:"ref_id"`
 	IsStaleEmbedding bool                     `json:"is_stale_embedding"`
@@ -949,7 +941,6 @@ type CreateSearchSyncParams struct {
 
 func (q *Queries) CreateSearchSync(ctx context.Context, arg CreateSearchSyncParams) (CatalogSearchSync, error) {
 	row := q.db.QueryRow(ctx, createSearchSync,
-		arg.ID,
 		arg.RefType,
 		arg.RefID,
 		arg.IsStaleEmbedding,

@@ -514,27 +514,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateIncomeHistory :one
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateBatchIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateCopyIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
-
--- name: CreateDefaultIncomeHistory :one
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note")
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
--- name: CreateCopyDefaultIncomeHistory :copyfrom
-INSERT INTO "account"."income_history" ("id", "account_id", "type", "income", "current_balance", "note")
+-- name: CreateBatchIncomeHistory :batchone
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyIncomeHistory :copyfrom
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: CreateDefaultIncomeHistory :one
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyDefaultIncomeHistory :copyfrom
+INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateIncomeHistory :one
 UPDATE "account"."income_history"
@@ -659,27 +659,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateNotification :one
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateBatchNotification :batchone
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: CreateCopyNotification :copyfrom
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CreateDefaultNotification :one
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateCopyDefaultNotification :copyfrom
-INSERT INTO "account"."notification" ("id", "account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "content", "metadata", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: UpdateNotification :one
 UPDATE "account"."notification"
@@ -774,27 +774,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateFavorite :one
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: CreateBatchFavorite :batchone
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: CreateCopyFavorite :copyfrom
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id", "date_created")
-VALUES ($1, $2, $3, $4);
-
--- name: CreateDefaultFavorite :one
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id")
+INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
 VALUES ($1, $2, $3)
 RETURNING *;
 
--- name: CreateCopyDefaultFavorite :copyfrom
-INSERT INTO "account"."favorite" ("id", "account_id", "spu_id")
+-- name: CreateBatchFavorite :batchone
+INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyFavorite :copyfrom
+INSERT INTO "account"."favorite" ("account_id", "spu_id", "date_created")
 VALUES ($1, $2, $3);
+
+-- name: CreateDefaultFavorite :one
+INSERT INTO "account"."favorite" ("account_id", "spu_id")
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: CreateCopyDefaultFavorite :copyfrom
+INSERT INTO "account"."favorite" ("account_id", "spu_id")
+VALUES ($1, $2);
 
 -- name: UpdateFavorite :one
 UPDATE "account"."favorite"
@@ -985,27 +985,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateWallet :one
-INSERT INTO "account"."wallet" ("id", "account_id", "balance")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("id", "account_id", "balance")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateCopyWallet :copyfrom
-INSERT INTO "account"."wallet" ("id", "account_id", "balance")
-VALUES ($1, $2, $3);
-
--- name: CreateDefaultWallet :one
-INSERT INTO "account"."wallet" ("id", "account_id")
+INSERT INTO "account"."wallet" ("account_id", "balance")
 VALUES ($1, $2)
 RETURNING *;
 
--- name: CreateCopyDefaultWallet :copyfrom
-INSERT INTO "account"."wallet" ("id", "account_id")
+-- name: CreateBatchWallet :batchone
+INSERT INTO "account"."wallet" ("account_id", "balance")
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: CreateCopyWallet :copyfrom
+INSERT INTO "account"."wallet" ("account_id", "balance")
 VALUES ($1, $2);
+
+-- name: CreateDefaultWallet :one
+INSERT INTO "account"."wallet" ("account_id")
+VALUES ($1)
+RETURNING *;
+
+-- name: CreateCopyDefaultWallet :copyfrom
+INSERT INTO "account"."wallet" ("account_id")
+VALUES ($1);
 
 -- name: UpdateWallet :one
 UPDATE "account"."wallet"
@@ -1091,27 +1091,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateBatchWalletTransaction :batchone
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING *;
-
--- name: CreateCopyWalletTransaction :copyfrom
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6, $7);
-
--- name: CreateDefaultWalletTransaction :one
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note")
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
--- name: CreateCopyDefaultWalletTransaction :copyfrom
-INSERT INTO "account"."wallet_transaction" ("id", "account_id", "type", "amount", "reference_id", "note")
+-- name: CreateBatchWalletTransaction :batchone
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: CreateCopyWalletTransaction :copyfrom
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: CreateDefaultWalletTransaction :one
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: CreateCopyDefaultWalletTransaction :copyfrom
+INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateWalletTransaction :one
 UPDATE "account"."wallet_transaction"
