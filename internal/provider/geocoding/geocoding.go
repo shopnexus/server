@@ -4,9 +4,10 @@ import "context"
 
 // Result holds the geocoded address and coordinates.
 type Result struct {
-	Address   string  `json:"address"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	Address     string  `json:"address"`
+	CountryCode string  `json:"country_code"` // ISO 3166-1 alpha-2 uppercase, empty if unresolved.
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
 }
 
 // Client is the interface for geocoding services.

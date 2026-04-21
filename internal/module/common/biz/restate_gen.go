@@ -68,6 +68,10 @@ func (p *CommonRestateClient) SearchGeocode(ctx context.Context, params SearchGe
 	return restateclient.Call[[]geocoding.Result](ctx, p.client, serviceName, "SearchGeocode", params)
 }
 
+func (p *CommonRestateClient) ResolveCountry(ctx context.Context, address string) (string, error) {
+	return restateclient.Call[string](ctx, p.client, serviceName, "ResolveCountry", address)
+}
+
 func (p *CommonRestateClient) PushEvent(ctx context.Context, params PushEventParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "PushEvent", params)
 }

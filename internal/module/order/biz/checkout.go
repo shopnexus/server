@@ -56,6 +56,31 @@ func (b *OrderHandler) BuyerCheckout(
 		return zero, ordermodel.ErrBuyNowSingleSkuOnly.Terminal()
 	}
 
+	// Step 1.5: Load buyer profile and enforce that the delivery address
+	// resolves to the buyer's profile country. Runs before any inventory /
+	// payment side effects so mismatches fail fast.
+	buyerProfile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+		Issuer:    params.Account,
+		AccountID: params.Account.ID,
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("load buyer profile", err)
+	}
+
+	resolvedCountry, err := b.common.ResolveCountry(ctx, params.Address)
+	if err != nil {
+		return zero, err
+	}
+	if resolvedCountry != buyerProfile.Country {
+		return zero, sharedmodel.NewError(
+			http.StatusBadRequest,
+			fmt.Sprintf(
+				"address_country_mismatch: address resolves to %s, buyer country is %s",
+				resolvedCountry, buyerProfile.Country,
+			),
+		).Terminal()
+	}
+
 	skuIDs := lo.Map(params.Items, func(s CheckoutItem, _ int) uuid.UUID { return s.SkuID })
 	checkoutItemMap := lo.KeyBy(params.Items, func(s CheckoutItem) uuid.UUID { return s.SkuID })
 
@@ -143,13 +168,6 @@ func (b *OrderHandler) BuyerCheckout(
 		}
 	}
 
-	buyerProfile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
-		Issuer:    params.Account,
-		AccountID: params.Account.ID,
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("load buyer profile", err)
-	}
 	buyerCurrency, err := sharedcurrency.Infer(buyerProfile.Country)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("infer buyer currency", err)

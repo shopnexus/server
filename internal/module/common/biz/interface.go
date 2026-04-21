@@ -40,6 +40,7 @@ type CommonBiz interface {
 	ReverseGeocode(ctx context.Context, params ReverseGeocodeParams) (geocoding.Result, error)
 	ForwardGeocode(ctx context.Context, params ForwardGeocodeParams) (geocoding.Result, error)
 	SearchGeocode(ctx context.Context, params SearchGeocodeParams) ([]geocoding.Result, error)
+	ResolveCountry(ctx context.Context, address string) (string, error)
 
 	// SSE
 	PushEvent(ctx context.Context, params PushEventParams) error

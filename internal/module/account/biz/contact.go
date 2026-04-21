@@ -1,6 +1,9 @@
 package accountbiz
 
 import (
+	"fmt"
+	"net/http"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
@@ -87,6 +90,10 @@ func (b *AccountHandler) CreateContact(
 		return zero, sharedmodel.WrapErr("validate create contact", err)
 	}
 
+	if err := b.assertAddressMatchesProfileCountry(ctx, params.Account.ID, params.Address); err != nil {
+		return zero, err
+	}
+
 	dbContact, err := b.storage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 		AccountID:   params.Account.ID,
 		FullName:    params.FullName,
@@ -140,6 +147,12 @@ func (b *AccountHandler) UpdateContact(
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate update contact", err)
+	}
+
+	if params.Address.Valid && params.Address.String != "" {
+		if err := b.assertAddressMatchesProfileCountry(ctx, params.Account.ID, params.Address.String); err != nil {
+			return zero, err
+		}
 	}
 
 	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
@@ -208,6 +221,39 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 		}
 	}
 
+	return nil
+}
+
+// assertAddressMatchesProfileCountry geocodes the given address via the
+// common module and rejects the request if the resolved country does not
+// match the owner's profile country. Used by CreateContact/UpdateContact so
+// a user can only register addresses that resolve to their own country.
+func (b *AccountHandler) assertAddressMatchesProfileCountry(
+	ctx restate.Context,
+	accountID uuid.UUID,
+	address string,
+) error {
+	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
+		ID: uuid.NullUUID{UUID: accountID, Valid: true},
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("load profile for address check", err)
+	}
+
+	resolvedCountry, err := b.common.ResolveCountry(ctx, address)
+	if err != nil {
+		return err
+	}
+
+	if resolvedCountry != profile.Country {
+		return sharedmodel.NewError(
+			http.StatusBadRequest,
+			fmt.Sprintf(
+				"address_country_mismatch: address resolves to %s, profile country is %s",
+				resolvedCountry, profile.Country,
+			),
+		).Terminal()
+	}
 	return nil
 }
 

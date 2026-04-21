@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	neturl "net/url"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -26,12 +27,15 @@ type nominatimResponse struct {
 	DisplayName string `json:"display_name"`
 	Lat         string `json:"lat"`
 	Lon         string `json:"lon"`
+	Address     struct {
+		CountryCode string `json:"country_code"`
+	} `json:"address"`
 }
 
 func (p *NominatimClient) ReverseGeocode(ctx context.Context, lat, lng float64) (Result, error) {
 	var zero Result
 
-	url := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f&zoom=18", lat, lng)
+	url := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=%f&lon=%f&zoom=18", lat, lng)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return zero, fmt.Errorf("geocoding: create request: %w", err)
@@ -63,9 +67,10 @@ func (p *NominatimClient) ReverseGeocode(ctx context.Context, lat, lng float64) 
 	}
 
 	return Result{
-		Address:   result.DisplayName,
-		Latitude:  lat,
-		Longitude: lng,
+		Address:     result.DisplayName,
+		CountryCode: strings.ToUpper(result.Address.CountryCode),
+		Latitude:    lat,
+		Longitude:   lng,
 	}, nil
 }
 
@@ -73,13 +78,16 @@ type nominatimSearchResponse struct {
 	DisplayName string `json:"display_name"`
 	Lat         string `json:"lat"`
 	Lon         string `json:"lon"`
+	Address     struct {
+		CountryCode string `json:"country_code"`
+	} `json:"address"`
 }
 
 func (p *NominatimClient) ForwardGeocode(ctx context.Context, address string) (Result, error) {
 	var zero Result
 
 	url := fmt.Sprintf(
-		"https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=1",
+		"https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=%s&limit=1",
 		neturl.QueryEscape(address),
 	)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -117,9 +125,10 @@ func (p *NominatimClient) ForwardGeocode(ctx context.Context, address string) (R
 	fmt.Sscanf(results[0].Lon, "%f", &lng)
 
 	return Result{
-		Address:   results[0].DisplayName,
-		Latitude:  lat,
-		Longitude: lng,
+		Address:     results[0].DisplayName,
+		CountryCode: strings.ToUpper(results[0].Address.CountryCode),
+		Latitude:    lat,
+		Longitude:   lng,
 	}, nil
 }
 
@@ -129,7 +138,7 @@ func (p *NominatimClient) Search(ctx context.Context, query string, limit int) (
 	}
 
 	url := fmt.Sprintf(
-		"https://nominatim.openstreetmap.org/search?format=json&q=%s&limit=%d",
+		"https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=%s&limit=%d",
 		neturl.QueryEscape(query),
 		limit,
 	)
@@ -165,9 +174,10 @@ func (p *NominatimClient) Search(ctx context.Context, query string, limit int) (
 		fmt.Sscanf(r.Lat, "%f", &lat)
 		fmt.Sscanf(r.Lon, "%f", &lng)
 		out = append(out, Result{
-			Address:   r.DisplayName,
-			Latitude:  lat,
-			Longitude: lng,
+			Address:     r.DisplayName,
+			CountryCode: strings.ToUpper(r.Address.CountryCode),
+			Latitude:    lat,
+			Longitude:   lng,
 		})
 	}
 
