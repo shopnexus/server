@@ -83,6 +83,7 @@ type CreateProductSpuRequest struct {
 	CategoryID     uuid.UUID                           `json:"category_id"    validate:"required"`
 	Name           string                              `json:"name"           validate:"required,min=1,max=200"`
 	Description    string                              `json:"description"    validate:"required,max=1000000"`
+	Currency       string                              `json:"currency"       validate:"required,iso4217"`
 	IsActive       bool                                `json:"is_active"      validate:"omitempty"`
 	Tags           []string                            `json:"tags"           validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `json:"resource_ids"   validate:"omitempty,dive"`
@@ -108,6 +109,7 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 		CategoryID:     req.CategoryID,
 		Name:           req.Name,
 		Description:    req.Description,
+		Currency:       req.Currency,
 		IsActive:       req.IsActive,
 		Tags:           req.Tags,
 		ResourceIDs:    req.ResourceIDs,
@@ -125,6 +127,7 @@ type UpdateProductSpuRequest struct {
 	FeaturedSkuID  uuid.NullUUID                       `json:"featured_sku_id" validate:"omitnil"`
 	Name           null.String                         `json:"name"            validate:"omitnil,min=1,max=200"`
 	Description    null.String                         `json:"description"     validate:"omitnil,max=100000"`
+	Currency       null.String                         `json:"currency"        validate:"omitnil,iso4217"`
 	IsActive       null.Bool                           `json:"is_active"       validate:"omitnil"`
 	RegenerateSlug bool                                `json:"regenerate_slug"`
 	Tags           []string                            `json:"tags"            validate:"omitempty,dive,min=1,max=100"`
@@ -153,6 +156,7 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 		CategoryID:     req.CategoryID,
 		Name:           req.Name,
 		Description:    req.Description,
+		Currency:       req.Currency,
 		IsActive:       req.IsActive,
 		RegenerateSlug: req.RegenerateSlug,
 		Tags:           req.Tags,

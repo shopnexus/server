@@ -2,6 +2,7 @@ package catalogbiz
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	restate "github.com/restatedev/sdk-go"
@@ -11,11 +12,13 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/samber/lo"
 
+	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
+	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -241,6 +244,7 @@ type CreateProductSpuParams struct {
 	CategoryID     uuid.UUID                           `validate:"required"`
 	Name           string                              `validate:"required,min=1,max=200"`
 	Description    string                              `validate:"required,max=100000"`
+	Currency       string                              `validate:"required,iso4217"`
 	IsActive       bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
@@ -258,6 +262,10 @@ func (b *CatalogHandler) CreateProductSpu(
 		return zero, sharedmodel.WrapErr("validate create product spu", err)
 	}
 
+	if err := b.assertSellerCurrency(ctx, params.Account, params.Currency); err != nil {
+		return zero, err
+	}
+
 	specsBytes, err := sonic.Marshal(params.Specifications)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create product spu", err)
@@ -270,6 +278,7 @@ func (b *CatalogHandler) CreateProductSpu(
 		Name:           params.Name,
 		Description:    params.Description,
 		IsActive:       params.IsActive,
+		Currency:       params.Currency,
 		Specifications: specsBytes,
 	})
 	if err != nil {
@@ -318,6 +327,7 @@ type UpdateProductSpuParams struct {
 	CategoryID     uuid.NullUUID                       `validate:"omitnil"`
 	Name           null.String                         `validate:"omitnil,min=1,max=200"`
 	Description    null.String                         `validate:"omitnil,max=100000"`
+	Currency       null.String                         `validate:"omitnil,iso4217"`
 	IsActive       null.Bool                           `validate:"omitnil"`
 	RegenerateSlug bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"omitempty,dive,min=1,max=100"`
@@ -334,6 +344,12 @@ func (b *CatalogHandler) UpdateProductSpu(
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate update product spu", err)
+	}
+
+	if params.Currency.Valid {
+		if err := b.assertSellerCurrency(ctx, params.Account, params.Currency.String); err != nil {
+			return zero, err
+		}
 	}
 
 	// Ensure the featured SKU (if provided) belongs to the current SPU.
@@ -368,6 +384,7 @@ func (b *CatalogHandler) UpdateProductSpu(
 		Name:          params.Name,
 		Description:   params.Description,
 		IsActive:      params.IsActive,
+		Currency:      params.Currency,
 		// TODO: auto fill the current_timestampt in pgtempl tool
 		// DateUpdated:    time.Now(),
 		Specifications: specsBytes,
@@ -416,6 +433,38 @@ func (b *CatalogHandler) UpdateProductSpu(
 	m.Resources = resources
 	m.Specifications = params.Specifications
 	return m, nil
+}
+
+// assertSellerCurrency enforces that an SPU's currency matches the seller's
+// inferred wallet currency, derived from their profile country. This keeps the
+// invariant spu.currency == Infer(seller.country) so checkout does not need a
+// second FX conversion when debiting the seller's wallet.
+func (b *CatalogHandler) assertSellerCurrency(
+	ctx restate.Context,
+	seller accountmodel.AuthenticatedAccount,
+	currency string,
+) error {
+	profile, err := b.account.GetProfile(ctx, accountbiz.GetProfileParams{
+		Issuer:    seller,
+		AccountID: seller.ID,
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("load seller profile", err)
+	}
+	expected, err := sharedcurrency.Infer(profile.Country)
+	if err != nil {
+		return sharedmodel.WrapErr("infer seller currency", err)
+	}
+	if currency != expected {
+		return sharedmodel.NewError(
+			http.StatusBadRequest,
+			fmt.Sprintf(
+				"currency_mismatch: seller in %s must price products in %s, got %s",
+				profile.Country, expected, currency,
+			),
+		).Terminal()
+	}
+	return nil
 }
 
 type DeleteProductSpuParams struct {
