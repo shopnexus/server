@@ -68,6 +68,7 @@ func (b *OrderHandler) BuyerCheckout(
 		inventoryReserved bool
 		walletDeducted    int64
 		itemsCreated      bool
+		paymentID         int64
 	)
 	compensate := func() {
 		if inventoryReserved {
@@ -84,13 +85,7 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 		}
 		if walletDeducted > 0 {
-			if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-				AccountID: params.Account.ID,
-				Amount:    walletDeducted,
-				Type:      "Refund",
-				Reference: fmt.Sprintf("checkout-compensate-%s", params.Account.ID),
-				Note:      "Checkout failed after payment",
-			}); err != nil {
+			if err := b.refundBuyerWallet(ctx, params.Account.ID, walletDeducted, paymentID); err != nil {
 				slog.Error("saga compensate: wallet credit", slog.Any("error", err))
 			}
 		}
@@ -302,7 +297,6 @@ func (b *OrderHandler) BuyerCheckout(
 	total := totalProductCostBuyer + totalTransportCostBuyer
 
 	// Step 6: Process payment
-	var paymentID int64
 	var redirectURL string
 	walletOnly := false
 
@@ -808,16 +802,8 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 
 	// Refund to wallet
 	refundAmount := info.PaidAmount + info.TransportCostEstimate
-	if refundAmount > 0 {
-		if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-			AccountID: params.AccountID,
-			Amount:    refundAmount,
-			Type:      "Refund",
-			Reference: fmt.Sprintf("cancel-item-%d", params.ItemID),
-			Note:      "Refund for cancelled pending item",
-		}); err != nil {
-			return sharedmodel.WrapErr("wallet refund", err)
-		}
+	if err = b.refundBuyerWallet(ctx, params.AccountID, refundAmount, info.PaymentID.Int64); err != nil {
+		return sharedmodel.WrapErr("refund buyer wallet", err)
 	}
 
 	// Notify seller (fire-and-forget)

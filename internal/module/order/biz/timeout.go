@@ -30,8 +30,8 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 
 	// Fetch pending items for this payment
 	type fetchResult struct {
-		Items     []pendingItemInfo `json:"items"`
-		AccountID string            `json:"account_id"`
+		Items   []orderdb.OrderItem `json:"items"`
+		BuyerID uuid.UUID           `json:"account_id"`
 	}
 
 	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
@@ -43,22 +43,9 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 			return fetchResult{}, nil
 		}
 
-		var result []pendingItemInfo
-		for _, item := range items {
-			result = append(result, pendingItemInfo{
-				ID:                    item.ID,
-				SkuID:                 item.SkuID.String(),
-				SellerID:              item.SellerID.String(),
-				Quantity:              item.Quantity,
-				PaidAmount:            item.PaidAmount,
-				TransportCostEstimate: item.TransportCostEstimate,
-				SkuName:               item.SkuName,
-			})
-		}
-
 		return fetchResult{
-			Items:     result,
-			AccountID: items[0].AccountID.String(),
+			Items:   items,
+			BuyerID: items[0].AccountID,
 		}, nil
 	})
 	if err != nil {
@@ -70,8 +57,7 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 		return nil
 	}
 
-	buyerID, _ := uuid.Parse(fetched.AccountID)
-	itemIDs := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) int64 { return i.ID })
+	itemIDs := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) int64 { return i.ID })
 
 	// Cancel the items
 	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
@@ -98,10 +84,9 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	// Release inventory per item
 	releaseItems := make([]inventorybiz.ReleaseInventoryItem, 0, len(fetched.Items))
 	for _, item := range fetched.Items {
-		skuID, _ := uuid.Parse(item.SkuID)
 		releaseItems = append(releaseItems, inventorybiz.ReleaseInventoryItem{
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   skuID,
+			RefID:   item.SkuID,
 			Amount:  item.Quantity,
 		})
 	}
@@ -116,25 +101,17 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 	for _, item := range fetched.Items {
 		totalRefund += item.PaidAmount + item.TransportCostEstimate
 	}
-	if totalRefund > 0 {
-		if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-			AccountID: buyerID,
-			Amount:    totalRefund,
-			Type:      "Refund",
-			Reference: fmt.Sprintf("unpaid-checkout-payment-%d", paymentID),
-			Note:      "Refund for unpaid checkout timeout",
-		}); err != nil {
-			return sharedmodel.WrapErr("wallet refund", err)
-		}
+	if err = b.refundBuyerWallet(ctx, fetched.BuyerID, totalRefund, paymentID); err != nil {
+		return sharedmodel.WrapErr("refund buyer wallet", err)
 	}
 
 	metrics.PaymentsTotal.WithLabelValues("Cancelled", "timeout").Inc()
 
 	// Notify buyer
-	itemNames := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) string { return i.SkuName })
+	itemNames := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) string { return i.SkuName })
 	summary := ordermodel.SummarizeNames(itemNames)
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: buyerID,
+		AccountID: fetched.BuyerID,
 		Type:      accountmodel.NotiOrderCancelled,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Payment expired",
@@ -146,13 +123,14 @@ func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64
 
 // AutoCancelPendingItems is called 48 hours after payment is confirmed if the seller hasn't confirmed.
 // It cancels remaining pending items, releases inventory, refunds wallet, and notifies both buyer and sellers.
-func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int64) (err error) {
+func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int64) error {
+	var err error
 	defer metrics.TrackHandler("order", "AutoCancelPendingItems", &err)()
 
 	// Fetch pending items for this payment (still without order_id and not cancelled)
 	type fetchResult struct {
-		Items     []pendingItemInfo `json:"items"`
-		AccountID string            `json:"account_id"`
+		Items   []orderdb.OrderItem `json:"items"`
+		BuyerID uuid.UUID           `json:"buyer_id"`
 	}
 
 	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
@@ -164,22 +142,9 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 			return fetchResult{}, nil
 		}
 
-		var result []pendingItemInfo
-		for _, item := range items {
-			result = append(result, pendingItemInfo{
-				ID:                    item.ID,
-				SkuID:                 item.SkuID.String(),
-				SellerID:              item.SellerID.String(),
-				Quantity:              item.Quantity,
-				PaidAmount:            item.PaidAmount,
-				TransportCostEstimate: item.TransportCostEstimate,
-				SkuName:               item.SkuName,
-			})
-		}
-
 		return fetchResult{
-			Items:     result,
-			AccountID: items[0].AccountID.String(),
+			Items:   items,
+			BuyerID: items[0].AccountID,
 		}, nil
 	})
 	if err != nil {
@@ -191,12 +156,12 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 		return nil
 	}
 
-	buyerID, _ := uuid.Parse(fetched.AccountID)
-	itemIDs := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) int64 { return i.ID })
-
 	// Cancel the items
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().CancelItemsByIDs(ctx, itemIDs)
+	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err = b.storage.Querier().CancelItemsByIDs(
+			ctx,
+			lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) int64 { return i.ID }),
+		)
 		return err
 	}); err != nil {
 		return sharedmodel.WrapErr("cancel items", err)
@@ -205,14 +170,13 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 	// Release inventory per item
 	releaseItems := make([]inventorybiz.ReleaseInventoryItem, 0, len(fetched.Items))
 	for _, item := range fetched.Items {
-		skuID, _ := uuid.Parse(item.SkuID)
 		releaseItems = append(releaseItems, inventorybiz.ReleaseInventoryItem{
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   skuID,
+			RefID:   item.SkuID,
 			Amount:  item.Quantity,
 		})
 	}
-	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
 		Items: releaseItems,
 	}); err != nil {
 		return sharedmodel.WrapErr("release inventory", err)
@@ -223,23 +187,15 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 	for _, item := range fetched.Items {
 		totalRefund += item.PaidAmount + item.TransportCostEstimate
 	}
-	if totalRefund > 0 {
-		if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-			AccountID: buyerID,
-			Amount:    totalRefund,
-			Type:      "Refund",
-			Reference: fmt.Sprintf("seller-timeout-payment-%d", paymentID),
-			Note:      "Refund for seller confirmation timeout",
-		}); err != nil {
-			return sharedmodel.WrapErr("wallet refund", err)
-		}
+	if err = b.refundBuyerWallet(ctx, fetched.BuyerID, totalRefund, paymentID); err != nil {
+		return sharedmodel.WrapErr("refund buyer wallet", err)
 	}
 
 	// Notify buyer
-	itemNames := lo.Map(fetched.Items, func(i pendingItemInfo, _ int) string { return i.SkuName })
+	itemNames := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) string { return i.SkuName })
 	summary := ordermodel.SummarizeNames(itemNames)
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: buyerID,
+		AccountID: fetched.BuyerID,
 		Type:      accountmodel.NotiOrderCancelled,
 		Channel:   accountmodel.ChannelInApp,
 		Title:     "Order auto-cancelled",
@@ -247,12 +203,11 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 	})
 
 	// Notify sellers — group items by seller
-	sellerItemNames := make(map[string][]string)
+	sellerItemNames := make(map[uuid.UUID][]string)
 	for _, item := range fetched.Items {
 		sellerItemNames[item.SellerID] = append(sellerItemNames[item.SellerID], item.SkuName)
 	}
-	for sellerIDStr, names := range sellerItemNames {
-		sellerID, _ := uuid.Parse(sellerIDStr)
+	for sellerID, names := range sellerItemNames {
 		sellerSummary := ordermodel.SummarizeNames(names)
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 			AccountID: sellerID,
@@ -264,15 +219,4 @@ func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int
 	}
 
 	return nil
-}
-
-// pendingItemInfo is a JSON-safe struct for restate.Run journal serialization of item data.
-type pendingItemInfo struct {
-	ID                    int64  `json:"id"`
-	SkuID                 string `json:"sku_id"`
-	SellerID              string `json:"seller_id"`
-	Quantity              int64  `json:"quantity"`
-	PaidAmount            int64  `json:"paid_amount"`
-	TransportCostEstimate int64  `json:"transport_cost_estimate"`
-	SkuName               string `json:"sku_name"`
 }

@@ -357,6 +357,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		BuyerID               string `json:"buyer_id"`
 		PaidAmount            int64  `json:"paid_amount"`
 		TransportCostEstimate int64  `json:"transport_cost_estimate"`
+		PaymentID             int64  `json:"payment_id"`
 	}
 	items, err := restate.Run(ctx, func(ctx restate.RunContext) ([]itemInfo, error) {
 		dbItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
@@ -388,6 +389,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 				BuyerID:               item.AccountID.String(),
 				PaidAmount:            item.PaidAmount,
 				TransportCostEstimate: item.TransportCostEstimate,
+				PaymentID:             item.PaymentID.Int64,
 			})
 		}
 		return result, nil
@@ -431,19 +433,15 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 			buyerID, _ := uuid.Parse(buyerIDStr)
 
 			var totalRefund int64
+			var paymentID int64
 			for _, item := range buyerItemList {
 				totalRefund += item.PaidAmount + item.TransportCostEstimate
-			}
-			if totalRefund > 0 {
-				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-					AccountID: buyerID,
-					Amount:    totalRefund,
-					Type:      "Refund",
-					Reference: fmt.Sprintf("seller-reject-items-%v", lo.Map(buyerItemList, func(it itemInfo, _ int) int64 { return it.ID })),
-					Note:      "Refund for seller-rejected items",
-				}); err != nil {
-					return sharedmodel.WrapErr("wallet refund", err)
+				if paymentID == 0 {
+					paymentID = item.PaymentID
 				}
+			}
+			if err := b.refundBuyerWallet(ctx, buyerID, totalRefund, paymentID); err != nil {
+				return sharedmodel.WrapErr("refund buyer wallet", err)
 			}
 
 			// Notify buyer (fire-and-forget)

@@ -381,12 +381,13 @@ func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyer
 func (b *OrderHandler) ConfirmSellerRefund(
 	ctx restate.Context,
 	params ConfirmSellerRefundParams,
-) (_ ordermodel.Refund, err error) {
+) (ordermodel.Refund, error) {
+	var err error
 	defer metrics.TrackHandler("order", "ConfirmSellerRefund", &err)()
 
 	var zero ordermodel.Refund
 
-	if err := validator.Validate(params); err != nil {
+	if err = validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate confirm refund", err)
 	}
 
@@ -424,7 +425,7 @@ func (b *OrderHandler) ConfirmSellerRefund(
 	})
 
 	// Auto-refund for card payments: reuse hydrated order's payment data
-	if refundOrder.Payment != nil && refundOrder.Payment.PaymentMethodID != nil {
+	if refundOrder.Payment != nil && refundOrder.Payment.PaymentMethodID.Valid {
 		var data struct {
 			ProviderChargeID string `json:"provider_charge_id"`
 			Provider         string `json:"provider"`
@@ -456,4 +457,26 @@ func (b *OrderHandler) ConfirmSellerRefund(
 	}
 
 	return refund, nil
+}
+
+// refundBuyerWallet credits the buyer's wallet in buyer-currency units.
+// amount is already in buyer currency (order.item.paid_amount and
+// order.payment.amount are both buyer-currency after the multi-currency
+// checkout refactor), so no FX conversion is needed here.
+func (b *OrderHandler) refundBuyerWallet(
+	ctx restate.Context,
+	buyerID uuid.UUID,
+	amount int64,
+	paymentID int64,
+) error {
+	if amount <= 0 {
+		return nil
+	}
+	return b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+		AccountID: buyerID,
+		Amount:    amount,
+		Type:      "Refund",
+		Reference: fmt.Sprintf("payment-%d", paymentID),
+		Note:      "refund from payment",
+	})
 }
