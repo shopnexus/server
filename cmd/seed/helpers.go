@@ -119,10 +119,12 @@ func seedCategories(ctx context.Context, store *catalogdb.Queries) (*categoryInd
 		}
 
 		// Ensure search_sync row for this category
-		store.CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
+		if _, err := store.CreateDefaultSearchSync(ctx, catalogdb.CreateDefaultSearchSyncParams{
 			RefType: catalogdb.CatalogSearchSyncRefTypeCategory,
 			RefID:   categoryID,
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("create search_sync for category %q: %w", cat.Name, err)
+		}
 	}
 
 	// Ensure a "General" fallback category exists
