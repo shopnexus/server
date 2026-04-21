@@ -13,7 +13,7 @@ SELECT t.*,
        o.buyer_id  AS order_buyer_id,
        o.seller_id AS order_seller_id
 FROM "order"."transport" t
-LEFT JOIN "order"."order" o ON o.transport_id = t.id
+INNER JOIN "order"."order" o ON o.transport_id = t.id
 WHERE t.id = $1;
 
 -- name: GetTransportByTrackingID :one

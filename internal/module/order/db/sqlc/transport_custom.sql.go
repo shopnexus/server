@@ -38,7 +38,7 @@ SELECT t.id, t.option, t.status, t.cost, t.data, t.date_created,
        o.buyer_id  AS order_buyer_id,
        o.seller_id AS order_seller_id
 FROM "order"."transport" t
-LEFT JOIN "order"."order" o ON o.transport_id = t.id
+INNER JOIN "order"."order" o ON o.transport_id = t.id
 WHERE t.id = $1
 `
 
@@ -49,9 +49,9 @@ type GetTransportWithOrderRow struct {
 	Cost          int64                    `json:"cost"`
 	Data          json.RawMessage          `json:"data"`
 	DateCreated   time.Time                `json:"date_created"`
-	OrderID       uuid.NullUUID            `json:"order_id"`
-	OrderBuyerID  uuid.NullUUID            `json:"order_buyer_id"`
-	OrderSellerID uuid.NullUUID            `json:"order_seller_id"`
+	OrderID       uuid.UUID                `json:"order_id"`
+	OrderBuyerID  uuid.UUID                `json:"order_buyer_id"`
+	OrderSellerID uuid.UUID                `json:"order_seller_id"`
 }
 
 func (q *Queries) GetTransportWithOrder(ctx context.Context, id uuid.UUID) (GetTransportWithOrderRow, error) {
