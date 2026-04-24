@@ -1,11 +1,24 @@
 -- Custom transport queries for webhook-driven status updates.
 -- See: https://docs.giaohangtietkiem.vn/webhook
 
--- name: UpdateTransportStatus :exec
+-- name: CreateTransport :one
+INSERT INTO "order"."transport" ("option", "status", "data")
+VALUES (@option, @status, @data)
+RETURNING *;
+
+-- name: GetTransportByID :one
+SELECT * FROM "order"."transport" WHERE "id" = @id;
+
+-- name: UpdateTransportStatusByID :one
 UPDATE "order"."transport"
-SET status = $2,
-    data   = data || $3::jsonb
-WHERE id = $1;
+SET "status" = @status, "data" = @data
+WHERE "id" = @id
+RETURNING *;
+
+-- name: GetTransportByTrackingID :one
+SELECT * FROM "order"."transport"
+WHERE "data"->>'tracking_id' = @tracking_id
+LIMIT 1;
 
 -- name: GetTransportWithOrder :one
 SELECT t.*,
@@ -14,8 +27,4 @@ SELECT t.*,
        o.seller_id AS order_seller_id
 FROM "order"."transport" t
 INNER JOIN "order"."order" o ON o.transport_id = t.id
-WHERE t.id = $1;
-
--- name: GetTransportByTrackingID :one
--- Look up transport by provider tracking ID stored in JSONB data field.
-SELECT * FROM "order"."transport" WHERE "data"->>'tracking_id' = sqlc.arg(tracking_id)::text LIMIT 1;
+WHERE t.id = @id;

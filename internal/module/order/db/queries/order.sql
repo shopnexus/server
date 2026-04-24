@@ -1,5 +1,36 @@
 -- Custom order queries
 
+-- name: CreateOrder :one
+INSERT INTO "order"."order" (
+    "buyer_id", "seller_id", "transport_id",
+    "address", "confirmed_by_id", "seller_tx_id", "note"
+) VALUES (
+    @buyer_id, @seller_id, @transport_id,
+    @address, @confirmed_by_id, @seller_tx_id, @note
+)
+RETURNING *;
+
+-- name: GetOrder :one
+SELECT * FROM "order"."order" WHERE "id" = @id;
+
+-- name: DeleteOrder :exec
+DELETE FROM "order"."order" WHERE "id" = @id;
+
+-- name: ListBuyerOrders :many
+SELECT * FROM "order"."order"
+WHERE "buyer_id" = @buyer_id
+ORDER BY "date_created" DESC
+LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;
+
+-- name: ListSellerOrders :many
+SELECT * FROM "order"."order"
+WHERE "seller_id" = @seller_id
+ORDER BY "date_created" DESC
+LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;
+
+-- name: ListOrdersByTransportID :many
+SELECT * FROM "order"."order" WHERE "transport_id" = @transport_id;
+
 -- name: ListCountBuyerOrder :many
 SELECT sqlc.embed(embed_order), COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
