@@ -132,6 +132,8 @@ type Querier interface {
 	ListCartItem(ctx context.Context, arg ListCartItemParams) ([]OrderCartItem, error)
 	// Siblings = checkout txs with same from_id, within ±2s of the given tx.
 	ListCheckoutSiblingsForTx(ctx context.Context, txID int64) ([]OrderTransaction, error)
+	// Siblings = confirm_fee txs with same from_id, within ±2s of the given tx.
+	ListConfirmFeeSiblingsForTx(ctx context.Context, txID int64) ([]OrderTransaction, error)
 	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
 	ListCountCartItem(ctx context.Context, arg ListCountCartItemParams) ([]ListCountCartItemRow, error)
 	ListCountItem(ctx context.Context, arg ListCountItemParams) ([]ListCountItemRow, error)

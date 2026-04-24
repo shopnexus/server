@@ -64,3 +64,11 @@ JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
     AND t2."type" = 'checkout'
     AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
 WHERE t1."id" = @tx_id;
+
+-- name: ListConfirmFeeSiblingsForTx :many
+-- Siblings = confirm_fee txs with same from_id, within ±2s of the given tx.
+SELECT t2.* FROM "order"."transaction" t1
+JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
+    AND t2."type" = 'confirm_fee'
+    AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
+WHERE t1."id" = @tx_id;

@@ -3,9 +3,11 @@ package orderbiz
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
+	"github.com/samber/lo"
 	restate "github.com/restatedev/sdk-go"
 
-	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
@@ -13,209 +15,176 @@ import (
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
-
-	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
-	"github.com/samber/lo"
 )
 
-// CancelUnpaidCheckout is called 15 minutes after checkout if payment has not been confirmed.
-// It cancels all pending items linked to the payment, releases inventory, refunds wallet, and notifies the buyer.
-func (b *OrderHandler) CancelUnpaidCheckout(ctx restate.Context, paymentID int64) (err error) {
-	defer metrics.TrackHandler("order", "CancelUnpaidCheckout", &err)()
-
-	// Distributed lock per payment — prevents race with ConfirmPayment
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:payment:%d", paymentID))
-	defer unlock()
-
-	// Fetch pending items for this payment
-	type fetchResult struct {
-		Items   []orderdb.OrderItem `json:"items"`
-		BuyerID uuid.UUID           `json:"account_id"`
-	}
-
-	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
-		items, err := b.storage.Querier().ListPendingPaymentItemsByPaymentID(ctx, null.IntFrom(paymentID))
-		if err != nil {
-			return fetchResult{}, sharedmodel.WrapErr("db list pending items by payment", err)
-		}
-		if len(items) == 0 {
-			return fetchResult{}, nil
-		}
-
-		return fetchResult{
-			Items:   items,
-			BuyerID: items[0].AccountID,
-		}, nil
+// TimeoutCheckoutTx is fired by a Restate delayed send (paymentExpiry) after a Pending
+// checkout gateway tx is created. If the tx is still Pending, it marks it Failed,
+// cancels all items that reference it, releases inventory, and credits back any wallet
+// portion that was already deducted.
+func (b *OrderHandler) TimeoutCheckoutTx(ctx restate.Context, params TimeoutCheckoutTxParams) error {
+	tx, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransaction, error) {
+		return b.storage.Querier().GetTransaction(ctx, null.IntFrom(params.TxID))
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("fetch pending items", err)
+		return sharedmodel.WrapErr("get tx", err)
 	}
-
-	// No items found — already handled
-	if len(fetched.Items) == 0 {
+	// Idempotent: already processed (paid or otherwise terminal).
+	if tx.Status != orderdb.OrderStatusPending {
 		return nil
 	}
 
-	itemIDs := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) int64 { return i.ID })
-
-	// Cancel the items
-	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err = b.storage.Querier().CancelItemsByIDs(ctx, itemIDs)
-		return err
-	}); err != nil {
-		return sharedmodel.WrapErr("cancel items", err)
+	items, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
+		return b.storage.Querier().ListItemsByPaymentTx(ctx, params.TxID)
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("list items by payment tx", err)
 	}
 
-	// Cancel the payment (update status to Cancelled)
-	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err = b.storage.Querier().UpdatePayment(ctx, orderdb.UpdatePaymentParams{
-			ID: paymentID,
-			Status: orderdb.NullOrderStatus{
-				OrderStatus: orderdb.OrderStatusCancelled,
-				Valid:       true,
-			},
-		})
-		return err
+	// Mark tx Failed and cancel items in a single durable step.
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		if _, err := b.storage.Querier().MarkTransactionFailed(ctx, params.TxID); err != nil {
+			return sharedmodel.WrapErr("mark tx failed", err)
+		}
+		for _, it := range items {
+			if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+				ID:            it.ID,
+				CancelledByID: uuid.NullUUID{},
+				RefundTxID:    null.Int{},
+			}); err != nil {
+				return sharedmodel.WrapErr("cancel item", err)
+			}
+		}
+		return nil
 	}); err != nil {
-		return sharedmodel.WrapErr("cancel payment", err)
+		return sharedmodel.WrapErr("fail tx + cancel items", err)
 	}
 
-	// Release inventory per item
-	releaseItems := make([]inventorybiz.ReleaseInventoryItem, 0, len(fetched.Items))
-	for _, item := range fetched.Items {
-		releaseItems = append(releaseItems, inventorybiz.ReleaseInventoryItem{
+	// Release inventory outside Run (cross-module Restate call).
+	releaseItems := lo.Map(items, func(it orderdb.OrderItem, _ int) inventorybiz.ReleaseInventoryItem {
+		return inventorybiz.ReleaseInventoryItem{
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   item.SkuID,
-			Amount:  item.Quantity,
-		})
-	}
-	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: releaseItems,
-	}); err != nil {
+			RefID:   it.SkuID,
+			Amount:  it.Quantity,
+		}
+	})
+	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{Items: releaseItems}); err != nil {
 		return sharedmodel.WrapErr("release inventory", err)
 	}
 
-	// Refund wallet (credit back paid_amount + transport_cost_estimate per item)
-	var totalRefund int64
-	for _, item := range fetched.Items {
-		totalRefund += item.PaidAmount + item.TransportCostEstimate
-	}
-	if err = b.refundBuyerWallet(ctx, fetched.BuyerID, totalRefund, paymentID); err != nil {
-		return sharedmodel.WrapErr("refund buyer wallet", err)
+	// Credit buyer's wallet portion back if this was a hybrid checkout (wallet + gateway).
+	// The wallet sibling tx was already Success; we refund it now that the gateway blocker failed.
+	if tx.FromID.Valid {
+		siblings, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
+			return b.storage.Querier().ListCheckoutSiblingsForTx(ctx, params.TxID)
+		})
+		if err == nil {
+			var totalWallet int64
+			for _, s := range siblings {
+				// Wallet tx: status=Success and no payment_option (no gateway instrument)
+				if s.Status == orderdb.OrderStatusSuccess && !s.PaymentOption.Valid {
+					totalWallet += s.Amount
+				}
+			}
+			if totalWallet > 0 {
+				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+					AccountID: tx.FromID.UUID,
+					Amount:    totalWallet,
+					Type:      "Refund",
+					Reference: fmt.Sprintf("tx-timeout:%d", params.TxID),
+					Note:      "checkout timeout wallet refund",
+				}); err != nil {
+					return sharedmodel.WrapErr("wallet credit timeout refund", err)
+				}
+			}
+		}
 	}
 
-	metrics.PaymentsTotal.WithLabelValues("Cancelled", "timeout").Inc()
-
-	// Notify buyer
-	itemNames := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) string { return i.SkuName })
-	summary := ordermodel.SummarizeNames(itemNames)
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: fetched.BuyerID,
-		Type:      accountmodel.NotiOrderCancelled,
-		Channel:   accountmodel.ChannelInApp,
-		Title:     "Payment expired",
-		Content:   fmt.Sprintf("Your checkout for %s was cancelled because payment was not received in time.", summary),
-	})
+	// Notify buyer.
+	if tx.FromID.Valid && len(items) > 0 {
+		itemNames := lo.Map(items, func(it orderdb.OrderItem, _ int) string { return it.SkuName })
+		summary := ordermodel.SummarizeNames(itemNames)
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: tx.FromID.UUID,
+			Type:      accountmodel.NotiOrderCancelled,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Payment expired",
+			Content:   fmt.Sprintf("Your checkout for %s was cancelled because payment was not received in time.", summary),
+		})
+	}
 
 	return nil
 }
 
-// AutoCancelPendingItems is called 48 hours after payment is confirmed if the seller hasn't confirmed.
-// It cancels remaining pending items, releases inventory, refunds wallet, and notifies both buyer and sellers.
-func (b *OrderHandler) AutoCancelPendingItems(ctx restate.Context, paymentID int64) error {
-	var err error
-	defer metrics.TrackHandler("order", "AutoCancelPendingItems", &err)()
-
-	// Fetch pending items for this payment (still without order_id and not cancelled)
-	type fetchResult struct {
-		Items   []orderdb.OrderItem `json:"items"`
-		BuyerID uuid.UUID           `json:"buyer_id"`
-	}
-
-	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
-		items, err := b.storage.Querier().ListPendingPaymentItemsByPaymentID(ctx, null.IntFrom(paymentID))
-		if err != nil {
-			return fetchResult{}, sharedmodel.WrapErr("db list pending items by payment", err)
-		}
-		if len(items) == 0 {
-			return fetchResult{}, nil
-		}
-
-		return fetchResult{
-			Items:   items,
-			BuyerID: items[0].AccountID,
-		}, nil
+// TimeoutConfirmFeeTx is fired by a Restate delayed send (paymentExpiry) after a Pending
+// confirm_fee gateway tx is created. If the tx is still Pending:
+// - Marks confirm_fee tx Failed
+// - Marks the associated payout tx Failed
+// - Unlinks items from the order (order_id → NULL)
+// - Deletes the order row
+// - Credits back any wallet portion the seller already paid
+func (b *OrderHandler) TimeoutConfirmFeeTx(ctx restate.Context, params TimeoutConfirmFeeTxParams) error {
+	tx, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransaction, error) {
+		return b.storage.Querier().GetTransaction(ctx, null.IntFrom(params.TxID))
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("fetch pending items", err)
+		return sharedmodel.WrapErr("get tx", err)
 	}
-
-	// No items found — all already confirmed or cancelled
-	if len(fetched.Items) == 0 {
+	if tx.Status != orderdb.OrderStatusPending {
 		return nil
 	}
 
-	// Cancel the items
-	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err = b.storage.Querier().CancelItemsByIDs(
-			ctx,
-			lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) int64 { return i.ID }),
-		)
-		return err
-	}); err != nil {
-		return sharedmodel.WrapErr("cancel items", err)
-	}
-
-	// Release inventory per item
-	releaseItems := make([]inventorybiz.ReleaseInventoryItem, 0, len(fetched.Items))
-	for _, item := range fetched.Items {
-		releaseItems = append(releaseItems, inventorybiz.ReleaseInventoryItem{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   item.SkuID,
-			Amount:  item.Quantity,
-		})
-	}
-	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: releaseItems,
-	}); err != nil {
-		return sharedmodel.WrapErr("release inventory", err)
-	}
-
-	// Refund wallet
-	var totalRefund int64
-	for _, item := range fetched.Items {
-		totalRefund += item.PaidAmount + item.TransportCostEstimate
-	}
-	if err = b.refundBuyerWallet(ctx, fetched.BuyerID, totalRefund, paymentID); err != nil {
-		return sharedmodel.WrapErr("refund buyer wallet", err)
-	}
-
-	// Notify buyer
-	itemNames := lo.Map(fetched.Items, func(i orderdb.OrderItem, _ int) string { return i.SkuName })
-	summary := ordermodel.SummarizeNames(itemNames)
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: fetched.BuyerID,
-		Type:      accountmodel.NotiOrderCancelled,
-		Channel:   accountmodel.ChannelInApp,
-		Title:     "Order auto-cancelled",
-		Content:   fmt.Sprintf("Your order for %s was cancelled because the seller did not confirm in time. A refund has been issued.", summary),
+	order, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderOrder, error) {
+		return b.storage.Querier().GetOrder(ctx, toNullUUID(&params.OrderID))
 	})
-
-	// Notify sellers — group items by seller
-	sellerItemNames := make(map[uuid.UUID][]string)
-	for _, item := range fetched.Items {
-		sellerItemNames[item.SellerID] = append(sellerItemNames[item.SellerID], item.SkuName)
+	if err != nil {
+		return sharedmodel.WrapErr("get order", err)
 	}
-	for sellerID, names := range sellerItemNames {
-		sellerSummary := ordermodel.SummarizeNames(names)
-		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-			AccountID: sellerID,
-			Type:      accountmodel.NotiPendingItemCancelled,
-			Channel:   accountmodel.ChannelInApp,
-			Title:     "Pending items auto-cancelled",
-			Content:   fmt.Sprintf("Items for %s were cancelled because confirmation was not received within 48 hours.", sellerSummary),
+
+	// Rollback: mark txs Failed, unlink items, delete order — all in one durable step.
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		if _, err := b.storage.Querier().MarkTransactionFailed(ctx, params.TxID); err != nil {
+			return sharedmodel.WrapErr("mark confirm_fee tx failed", err)
+		}
+		if payout, err := b.storage.Querier().GetPendingPayoutTxForOrder(ctx, toNullUUID(&order.ID)); err == nil {
+			if _, err := b.storage.Querier().MarkTransactionFailed(ctx, payout.ID); err != nil {
+				return sharedmodel.WrapErr("mark payout tx failed", err)
+			}
+		}
+		if err := b.storage.Querier().UnlinkItemsFromOrder(ctx, toNullUUID(&order.ID)); err != nil {
+			return sharedmodel.WrapErr("unlink items from order", err)
+		}
+		if err := b.storage.Querier().DeleteOrder(ctx, orderdb.DeleteOrderParams{ID: order.ID}); err != nil {
+			return sharedmodel.WrapErr("delete order", err)
+		}
+		return nil
+	}); err != nil {
+		return sharedmodel.WrapErr("rollback confirm fee", err)
+	}
+
+	// Credit seller's wallet portion back if this was a hybrid confirm_fee.
+	if tx.FromID.Valid {
+		siblings, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
+			return b.storage.Querier().ListConfirmFeeSiblingsForTx(ctx, params.TxID)
 		})
+		if err == nil {
+			var totalWallet int64
+			for _, s := range siblings {
+				if s.Status == orderdb.OrderStatusSuccess && !s.PaymentOption.Valid {
+					totalWallet += s.Amount
+				}
+			}
+			if totalWallet > 0 {
+				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+					AccountID: tx.FromID.UUID,
+					Amount:    totalWallet,
+					Type:      "Refund",
+					Reference: fmt.Sprintf("confirm-fee-timeout:%d", params.TxID),
+					Note:      "confirm fee timeout wallet refund",
+				}); err != nil {
+					return sharedmodel.WrapErr("wallet credit confirm-fee timeout refund", err)
+				}
+			}
+		}
 	}
 
 	return nil

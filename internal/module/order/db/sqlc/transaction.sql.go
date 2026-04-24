@@ -91,6 +91,52 @@ func (q *Queries) ListCheckoutSiblingsForTx(ctx context.Context, txID int64) ([]
 	return items, nil
 }
 
+const listConfirmFeeSiblingsForTx = `-- name: ListConfirmFeeSiblingsForTx :many
+SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.instrument_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
+JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
+    AND t2."type" = 'confirm_fee'
+    AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
+WHERE t1."id" = $1
+`
+
+// Siblings = confirm_fee txs with same from_id, within ±2s of the given tx.
+func (q *Queries) ListConfirmFeeSiblingsForTx(ctx context.Context, txID int64) ([]OrderTransaction, error) {
+	rows, err := q.db.Query(ctx, listConfirmFeeSiblingsForTx, txID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderTransaction{}
+	for rows.Next() {
+		var i OrderTransaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromID,
+			&i.ToID,
+			&i.Type,
+			&i.Status,
+			&i.Note,
+			&i.PaymentOption,
+			&i.InstrumentID,
+			&i.Data,
+			&i.Amount,
+			&i.FromCurrency,
+			&i.ToCurrency,
+			&i.ExchangeRate,
+			&i.DateCreated,
+			&i.DatePaid,
+			&i.DateExpired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredPendingTransactions = `-- name: ListExpiredPendingTransactions :many
 SELECT id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired FROM "order"."transaction"
 WHERE "status" = 'Pending' AND "date_expired" < $1::TIMESTAMPTZ
