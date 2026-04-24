@@ -3,6 +3,8 @@ package orderbiz
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
 	restate "github.com/restatedev/sdk-go"
 
 	"shopnexus-server/internal/infras/metrics"
@@ -13,25 +15,12 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
-	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 	"github.com/samber/lo"
 )
 
-// mapRefundDispute maps a DB OrderRefundDispute row to the model type.
-func mapRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
-	return ordermodel.RefundDispute{
-		ID:          d.ID,
-		RefundID:    d.RefundID,
-		IssuedByID:  d.IssuedByID,
-		Reason:      d.Reason,
-		Status:      d.Status,
-		DateCreated: d.DateCreated,
-		DateUpdated: d.DateUpdated,
-	}
-}
-
-// CreateRefundDispute opens a dispute on a refund. Either the buyer or seller of the order may call this.
+// CreateRefundDispute opens a dispute on a Failed refund decision.
+// Either buyer (refund.account_id) or seller (item.seller_id) may raise a dispute.
+// A non-empty note is required.
 func (b *OrderHandler) CreateRefundDispute(
 	ctx restate.Context,
 	params CreateRefundDisputeParams,
@@ -40,29 +29,42 @@ func (b *OrderHandler) CreateRefundDispute(
 	var err error
 	defer metrics.TrackHandler("order", "CreateRefundDispute", &err)()
 
-	if err := validator.Validate(params); err != nil {
+	if err = validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate create dispute", err)
 	}
+	if params.Note == "" {
+		return zero, ordermodel.ErrDisputeNoteRequired.Terminal()
+	}
 
-	// Fetch refund + order, check ownership, count active disputes, and insert — all in one
-	// durable step to eliminate the race window between count and insert.
 	type disputeRunResult struct {
 		BuyerID  uuid.UUID                  `json:"buyer_id"`
 		SellerID uuid.UUID                  `json:"seller_id"`
 		Dispute  orderdb.OrderRefundDispute `json:"dispute"`
 	}
+
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (disputeRunResult, error) {
 		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
 			return disputeRunResult{}, sharedmodel.WrapErr("get refund", err)
 		}
 
-		// Refund must not be resolved (Success) or Cancelled.
-		if refund.Status == orderdb.OrderStatusSuccess || refund.Status == orderdb.OrderStatusCancelled {
-			return disputeRunResult{}, ordermodel.ErrDisputeRefundResolved.Terminal()
+		// Dispute may only be raised against a Failed refund.
+		if refund.Status != orderdb.OrderStatusFailed {
+			return disputeRunResult{}, ordermodel.ErrInvalidDisputeState.Terminal()
 		}
 
-		// Check for an existing active dispute on this refund.
+		// Fetch the item to determine seller identity.
+		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+		if err != nil {
+			return disputeRunResult{}, sharedmodel.WrapErr("get item", err)
+		}
+
+		// Permission: buyer (refund.AccountID) or seller (item.SellerID).
+		if params.Account.ID != refund.AccountID && params.Account.ID != item.SellerID {
+			return disputeRunResult{}, ordermodel.ErrUnauthorized.Terminal()
+		}
+
+		// Guard against duplicate active disputes on the same refund.
 		activeCount, err := b.storage.Querier().CountRefundDispute(ctx, orderdb.CountRefundDisputeParams{
 			RefundID: []uuid.UUID{params.RefundID},
 			Status:   []orderdb.OrderStatus{orderdb.OrderStatusPending, orderdb.OrderStatusProcessing},
@@ -74,29 +76,19 @@ func (b *OrderHandler) CreateRefundDispute(
 			return disputeRunResult{}, ordermodel.ErrDisputeAlreadyActive.Terminal()
 		}
 
-		// Fetch order to verify caller is buyer or seller.
-		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
-		if err != nil {
-			return disputeRunResult{}, sharedmodel.WrapErr("get order", err)
-		}
-
-		if params.Account.ID != order.BuyerID && params.Account.ID != order.SellerID {
-			return disputeRunResult{}, ordermodel.ErrDisputeNotAuthorized.Terminal()
-		}
-
-		// Insert dispute in the same transaction-like block.
 		dbDispute, err := b.storage.Querier().CreateDefaultRefundDispute(ctx, orderdb.CreateDefaultRefundDisputeParams{
-			RefundID:   params.RefundID,
-			IssuedByID: params.Account.ID,
-			Reason:     params.Reason,
+			AccountID: params.Account.ID,
+			RefundID:  params.RefundID,
+			Reason:    params.Reason,
+			Note:      params.Note,
 		})
 		if err != nil {
 			return disputeRunResult{}, sharedmodel.WrapErr("db create dispute", err)
 		}
 
 		return disputeRunResult{
-			BuyerID:  order.BuyerID,
-			SellerID: order.SellerID,
+			BuyerID:  refund.AccountID,
+			SellerID: item.SellerID,
 			Dispute:  dbDispute,
 		}, nil
 	})
@@ -131,9 +123,9 @@ func (b *OrderHandler) CreateRefundDispute(
 	return dispute, nil
 }
 
-// ListRefundDisputes lists disputes scoped by the caller's role.
-// If RefundID is set, returns disputes for that refund (caller must be buyer or seller of the order).
-// Otherwise returns all disputes issued by the caller.
+// ListRefundDisputes lists disputes scoped by caller role.
+// If RefundID is set, returns disputes for that refund (caller must be buyer or seller of the
+// underlying item). Otherwise returns all disputes where account_id = caller.
 func (b *OrderHandler) ListRefundDisputes(
 	ctx restate.Context,
 	params ListRefundDisputesParams,
@@ -146,12 +138,8 @@ func (b *OrderHandler) ListRefundDisputes(
 
 	pagination := params.PaginationParams.Constrain()
 
-	type listResult struct {
-		Rows []orderdb.ListCountRefundDisputeRow `json:"rows"`
-	}
-
 	var refundIDFilter []uuid.UUID
-	var issuedByIDFilter []uuid.UUID
+	var accountIDFilter []uuid.UUID
 
 	if params.RefundID.Valid {
 		// Verify caller is buyer or seller before listing.
@@ -161,11 +149,11 @@ func (b *OrderHandler) ListRefundDisputes(
 			if err != nil {
 				return authCheck{}, sharedmodel.WrapErr("get refund", err)
 			}
-			order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+			item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
 			if err != nil {
-				return authCheck{}, sharedmodel.WrapErr("get order", err)
+				return authCheck{}, sharedmodel.WrapErr("get item", err)
 			}
-			if params.Account.ID != order.BuyerID && params.Account.ID != order.SellerID {
+			if params.Account.ID != refund.AccountID && params.Account.ID != item.SellerID {
 				return authCheck{}, ordermodel.ErrDisputeNotAuthorized.Terminal()
 			}
 			return authCheck{}, nil
@@ -175,15 +163,19 @@ func (b *OrderHandler) ListRefundDisputes(
 		}
 		refundIDFilter = []uuid.UUID{params.RefundID.UUID}
 	} else {
-		issuedByIDFilter = []uuid.UUID{params.Account.ID}
+		accountIDFilter = []uuid.UUID{params.Account.ID}
+	}
+
+	type listResult struct {
+		Rows []orderdb.ListCountRefundDisputeRow `json:"rows"`
 	}
 
 	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (listResult, error) {
 		rows, err := b.storage.Querier().ListCountRefundDispute(ctx, orderdb.ListCountRefundDisputeParams{
-			RefundID:   refundIDFilter,
-			IssuedByID: issuedByIDFilter,
-			Offset:     pagination.Offset(),
-			Limit:      null.Int32From(pagination.Limit.Int32),
+			RefundID:  refundIDFilter,
+			AccountID: accountIDFilter,
+			Offset:    null.Int32From(int32(pagination.Offset())),
+			Limit:     null.Int32From(pagination.Limit.Int32),
 		})
 		if err != nil {
 			return listResult{}, err
@@ -208,7 +200,8 @@ func (b *OrderHandler) ListRefundDisputes(
 	}, nil
 }
 
-// GetRefundDispute returns a single dispute by ID. The caller must be buyer or seller of the order.
+// GetRefundDispute returns a single dispute by ID.
+// The caller must be the buyer (refund.account_id) or seller (item.seller_id).
 func (b *OrderHandler) GetRefundDispute(
 	ctx restate.Context,
 	params GetRefundDisputeParams,
@@ -236,15 +229,15 @@ func (b *OrderHandler) GetRefundDispute(
 			return disputeResult{}, sharedmodel.WrapErr("get refund", err)
 		}
 
-		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
 		if err != nil {
-			return disputeResult{}, sharedmodel.WrapErr("get order", err)
+			return disputeResult{}, sharedmodel.WrapErr("get item", err)
 		}
 
 		return disputeResult{
 			Dispute:  dispute,
-			BuyerID:  order.BuyerID,
-			SellerID: order.SellerID,
+			BuyerID:  refund.AccountID,
+			SellerID: item.SellerID,
 		}, nil
 	})
 	if err != nil {
