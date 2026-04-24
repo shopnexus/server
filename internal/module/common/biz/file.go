@@ -115,7 +115,7 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 	resource, err := b.storage.Querier().CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
 		Provider:   b.config.Filestore.Type,
 		ObjectKey:  objectKey,
-		UploadedBy: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		UploadedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		Mime:       params.ContentType,
 		Size:       params.Size,
 		Metadata:   []byte("{}"),

@@ -76,7 +76,7 @@ type Payment struct {
 type Transport struct {
 	ID          uuid.UUID                    `json:"id"`
 	Option      string                       `json:"option"`
-	Status      orderdb.OrderTransportStatus `json:"status"`
+	Status      orderdb.NullOrderStatus      `json:"status"`
 	Cost        int64                        `json:"cost"`
 	Data        json.RawMessage              `json:"data"`
 	DateCreated time.Time                    `json:"date_created"`

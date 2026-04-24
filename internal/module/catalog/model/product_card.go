@@ -15,7 +15,7 @@ type ProductCard struct {
 	CategoryID  uuid.UUID `json:"category_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	IsActive    bool      `json:"is_active"`
+	IsEnabled    bool      `json:"is_active"`
 	Currency    string    `json:"currency"`
 	DateCreated time.Time `json:"date_created"`
 	DateUpdated time.Time `json:"date_updated"`

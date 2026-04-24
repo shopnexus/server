@@ -21,7 +21,7 @@ type ListProductSpuRequest struct {
 	Slug       []string    `query:"slug"        validate:"omitempty" comma_separated:"true"`
 	MyProducts bool        `query:"my_products" validate:"omitempty"`
 	CategoryID []uuid.UUID `query:"category_id" validate:"omitempty" comma_separated:"true"`
-	IsActive   []bool      `query:"is_active"   validate:"omitempty" comma_separated:"true"`
+	IsEnabled   []bool      `query:"is_active"   validate:"omitempty" comma_separated:"true"`
 }
 
 func (h *Handler) ListProductSpu(c echo.Context) error {
@@ -48,7 +48,7 @@ func (h *Handler) ListProductSpu(c echo.Context) error {
 		Slug:             req.Slug,
 		AccountID:        accountID,
 		CategoryID:       req.CategoryID,
-		IsActive:         req.IsActive,
+		IsEnabled:         req.IsEnabled,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -84,7 +84,7 @@ type CreateProductSpuRequest struct {
 	Name           string                              `json:"name"           validate:"required,min=1,max=200"`
 	Description    string                              `json:"description"    validate:"required,max=1000000"`
 	Currency       string                              `json:"currency"       validate:"required,iso4217"`
-	IsActive       bool                                `json:"is_active"      validate:"omitempty"`
+	IsEnabled       bool                                `json:"is_active"      validate:"omitempty"`
 	Tags           []string                            `json:"tags"           validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `json:"resource_ids"   validate:"omitempty,dive"`
 	Specifications []catalogmodel.ProductSpecification `json:"specifications" validate:"omitempty,dive"`
@@ -110,7 +110,7 @@ func (h *Handler) CreateProductSpu(c echo.Context) error {
 		Name:           req.Name,
 		Description:    req.Description,
 		Currency:       req.Currency,
-		IsActive:       req.IsActive,
+		IsEnabled:       req.IsEnabled,
 		Tags:           req.Tags,
 		ResourceIDs:    req.ResourceIDs,
 		Specifications: req.Specifications,
@@ -128,7 +128,7 @@ type UpdateProductSpuRequest struct {
 	Name           null.String                         `json:"name"            validate:"omitnil,min=1,max=200"`
 	Description    null.String                         `json:"description"     validate:"omitnil,max=100000"`
 	Currency       null.String                         `json:"currency"        validate:"omitnil,iso4217"`
-	IsActive       null.Bool                           `json:"is_active"       validate:"omitnil"`
+	IsEnabled       null.Bool                           `json:"is_active"       validate:"omitnil"`
 	RegenerateSlug bool                                `json:"regenerate_slug"`
 	Tags           []string                            `json:"tags"            validate:"omitempty,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `json:"resource_ids"    validate:"omitempty,dive"`
@@ -157,7 +157,7 @@ func (h *Handler) UpdateProductSpu(c echo.Context) error {
 		Name:           req.Name,
 		Description:    req.Description,
 		Currency:       req.Currency,
-		IsActive:       req.IsActive,
+		IsEnabled:       req.IsEnabled,
 		RegenerateSlug: req.RegenerateSlug,
 		Tags:           req.Tags,
 		ResourceIDs:    req.ResourceIDs,

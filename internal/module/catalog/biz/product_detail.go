@@ -175,7 +175,7 @@ func (b *CatalogHandler) GetProductDetail(
 		SellerID:    spu.AccountID,
 		Name:        spu.Name,
 		Description: spu.Description,
-		IsActive:    spu.IsActive,
+		IsEnabled:    spu.IsEnabled,
 		Currency:    spu.Currency,
 		Category:    spu.Category,
 		Rating: catalogmodel.ProductRating{

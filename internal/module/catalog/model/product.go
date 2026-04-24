@@ -18,7 +18,7 @@ type ProductSpu struct {
 	FeaturedSkuID uuid.NullUUID             `json:"featured_sku_id"`
 	Name          string                    `json:"name"`
 	Description   string                    `json:"description"`
-	IsActive      bool                      `json:"is_active"`
+	IsEnabled      bool                      `json:"is_active"`
 	Currency      string                    `json:"currency"`
 	DateCreated   time.Time                 `json:"date_created"`
 	DateUpdated   time.Time                 `json:"date_updated"`
@@ -36,7 +36,7 @@ type ProductSku struct {
 	ID          uuid.UUID               `json:"id"`
 	SpuID       uuid.UUID               `json:"spu_id"`
 	Price       int64                   `json:"price"`
-	Combinable  bool                    `json:"combinable"`
+	SharedPackaging  bool                    `json:"combinable"`
 	DateCreated time.Time               `json:"date_created"`
 	Stock       int64                   `json:"stock"`
 

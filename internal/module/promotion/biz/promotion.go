@@ -108,7 +108,7 @@ type CreatePromotionParams struct {
 	Type        promotiondb.PromotionType     `validate:"required,validateFn=Valid"`
 	Title       string                        `validate:"required,min=3,max=200"`
 	Description null.String                   `validate:"omitnil,max=1000"`
-	IsActive    bool                          `validate:"omitempty"`
+	IsEnabled    bool                          `validate:"omitempty"`
 	AutoApply   bool                          `validate:"omitempty"`
 	Group       string                        `validate:"required"`
 	Priority    int32                         `validate:"omitempty"`
@@ -135,7 +135,7 @@ func (b *PromotionHandler) CreatePromotion(
 		Type:        params.Type,
 		Title:       params.Title,
 		Description: params.Description,
-		IsActive:    params.IsActive,
+		IsEnabled:   params.IsEnabled,
 		AutoApply:   params.AutoApply,
 		Group:       params.Group,
 		Data:        params.Data,
@@ -165,7 +165,7 @@ type UpdatePromotionParams struct {
 	Title           null.String                    `validate:"omitnil"`
 	Description     null.String                    `validate:"omitnil"`
 	NullDescription bool                           `validate:"omitempty"`
-	IsActive        null.Bool                      `validate:"omitnil"`
+	IsEnabled        null.Bool                      `validate:"omitnil"`
 	AutoApply       null.Bool                      `validate:"omitnil"`
 	Group           null.String                    `validate:"omitnil"`
 	Priority        null.Int32                     `validate:"omitnil"`
@@ -196,10 +196,9 @@ func (s *PromotionHandler) UpdatePromotion(
 		Title:           params.Title,
 		Description:     params.Description,
 		NullDescription: params.NullDescription,
-		IsActive:        params.IsActive,
+		IsEnabled:       params.IsEnabled,
 		AutoApply:       params.AutoApply,
 		Group:           params.Group,
-		Priority:        params.Priority,
 		Data:            params.Data,
 		NullData:        params.NullData,
 		DateStarted:     params.DateStarted,
@@ -273,10 +272,9 @@ func mapPromotion(p promotiondb.PromotionPromotion, refs []promotiondb.Promotion
 		Type:        p.Type,
 		Title:       p.Title,
 		Description: p.Description,
-		IsActive:    p.IsActive,
+		IsEnabled:    p.IsEnabled,
 		AutoApply:   p.AutoApply,
 		Group:       p.Group,
-		Priority:    p.Priority,
 		Data:        p.Data,
 		DateStarted: p.DateStarted,
 		DateEnded:   p.DateEnded,

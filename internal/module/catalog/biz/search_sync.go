@@ -193,7 +193,7 @@ func (b *CatalogHandler) syncProducts(
 			SellerID:    spu.AccountID,
 			Name:        spu.Name,
 			Description: spu.Description,
-			IsActive:    spu.IsActive,
+			IsEnabled:    spu.IsEnabled,
 			Category:    categoryMap[spu.CategoryID],
 			Skus:        skuDetails,
 			Tags:        tagsBySpuID[spu.ID],

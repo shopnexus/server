@@ -28,7 +28,7 @@ type SearchParams struct {
 	AccountID       []uuid.UUID // vendor filter
 	CategoryID      []uuid.UUID // category filter
 	Tags            []string    // array_contains_any on tags
-	IsActive        null.Bool   // active status
+	IsEnabled       null.Bool   // active status
 	PriceMin        null.Float  // minimum price (filters on price_min >= value)
 	PriceMax        null.Float  // maximum price (filters on price_max <= value)
 	DateCreatedFrom null.Int    // unix timestamp lower bound
@@ -56,8 +56,8 @@ func buildFilterExpr(params SearchParams) string {
 	if len(params.Tags) > 0 {
 		clauses = append(clauses, fmt.Sprintf("array_contains_any(tags, %s)", toMilvusStringList(params.Tags)))
 	}
-	if params.IsActive.Valid {
-		clauses = append(clauses, fmt.Sprintf("is_active == %t", params.IsActive.Bool))
+	if params.IsEnabled.Valid {
+		clauses = append(clauses, fmt.Sprintf("is_active == %t", params.IsEnabled.Bool))
 	}
 	if params.PriceMin.Valid {
 		clauses = append(clauses, fmt.Sprintf("price_min >= %f", params.PriceMin.Float64))

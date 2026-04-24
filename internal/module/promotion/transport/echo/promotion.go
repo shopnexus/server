@@ -110,7 +110,7 @@ type CreatePromotionRequest struct {
 	Type        promotiondb.PromotionType `json:"type"         validate:"required"`
 	Title       string                    `json:"title"        validate:"required"`
 	Description null.String               `json:"description"  validate:"omitnil"`
-	IsActive    bool                      `json:"is_active"`
+	IsEnabled    bool                      `json:"is_active"`
 	AutoApply   bool                      `json:"auto_apply"`
 	Group       string                    `json:"group"        validate:"required"`
 	Priority    int32                     `json:"priority"`
@@ -140,7 +140,7 @@ func (h *Handler) CreatePromotion(c echo.Context) error {
 		Type:        req.Type,
 		Title:       req.Title,
 		Description: req.Description,
-		IsActive:    req.IsActive,
+		IsEnabled:    req.IsEnabled,
 		AutoApply:   req.AutoApply,
 		Group:       req.Group,
 		Priority:    req.Priority,
@@ -165,7 +165,7 @@ type UpdatePromotionRequest struct {
 	NullOwnerID   bool                   `json:"null_owner_id"`
 	Title         null.String            `json:"title"           validate:"omitnil"`
 	Description   null.String            `json:"description"     validate:"omitnil"`
-	IsActive      null.Bool              `json:"is_active"       validate:"omitnil"`
+	IsEnabled      null.Bool              `json:"is_active"       validate:"omitnil"`
 	AutoApply     null.Bool              `json:"auto_apply"      validate:"omitnil"`
 	Group         null.String            `json:"group"           validate:"omitnil"`
 	Priority      null.Int32             `json:"priority"        validate:"omitnil"`
@@ -199,7 +199,7 @@ func (h *Handler) UpdatePromotion(c echo.Context) error {
 		NullOwnerID:   req.NullOwnerID,
 		Title:         req.Title,
 		Description:   req.Description,
-		IsActive:      req.IsActive,
+		IsEnabled:      req.IsEnabled,
 		AutoApply:     req.AutoApply,
 		Group:         req.Group,
 		Priority:      req.Priority,

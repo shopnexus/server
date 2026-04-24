@@ -8,7 +8,6 @@ import (
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
-	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -28,7 +27,6 @@ type AccountBiz interface {
 	GetProfile(ctx context.Context, params GetProfileParams) (accountmodel.Profile, error)
 	ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error)
 	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
-	UpdateProfileSettings(ctx context.Context, params UpdateProfileSettingsParams) (accountmodel.ProfileSettings, error)
 	UpdateCountry(ctx context.Context, params UpdateCountryParams) error
 
 	// Account
@@ -60,20 +58,6 @@ type AccountBiz interface {
 	MarkRead(ctx context.Context, params MarkReadParams) error
 	MarkAllRead(ctx context.Context, params MarkAllReadParams) error
 	CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error)
-
-	// Payment Method
-	CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
-	ListPaymentMethod(
-		ctx context.Context,
-		params ListPaymentMethodParams,
-	) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error)
-	UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error)
-	DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error
-	SetDefaultPaymentMethod(
-		ctx context.Context,
-		params SetDefaultPaymentMethodParams,
-	) (accountdb.AccountPaymentMethod, error)
-	TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error)
 
 	// Wallet
 	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)

@@ -24,7 +24,7 @@ func (h *Handler) ListServiceOption(c echo.Context) error {
 
 	result, err := h.biz.ListServiceOption(c.Request().Context(), commonbiz.ListServiceOptionParams{
 		Category: []string{req.Category},
-		IsActive: []bool{true},
+		IsEnabled: []bool{true},
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

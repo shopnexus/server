@@ -68,8 +68,8 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 	// 1. Collect unique product IDs
 	itemIDSet := make(map[string]struct{})
 	for _, e := range events {
-		if e.RefID != "" {
-			itemIDSet[e.RefID] = struct{}{}
+		if e.RefID != uuid.Nil {
+			itemIDSet[e.RefID.String()] = struct{}{}
 		}
 	}
 	itemIDs := make([]string, 0, len(itemIDSet))
@@ -127,10 +127,12 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 		}
 
 		// 6. Upsert updated account
+		// TODO(account-refactor): account_number column dropped from analytic.interaction; fetch from account module or drop from Milvus collection.
+		_ = acctEvents
 		if err := b.upsertAccountInterests(
 			ctx,
 			accountID,
-			acctEvents[0].AccountNumber,
+			0,
 			interests,
 			strengths,
 		); err != nil {
@@ -149,10 +151,10 @@ type accountInterests struct {
 func aggregateProductWeights(events []analyticmodel.Interaction) map[string]float32 {
 	weights := make(map[string]float32)
 	for _, e := range events {
-		if e.RefID == "" {
+		if e.RefID == uuid.Nil {
 			continue
 		}
-		weights[e.RefID] += catalogutil.GetEventWeight(strings.ToLower(e.EventType))
+		weights[e.RefID.String()] += catalogutil.GetEventWeight(strings.ToLower(string(e.EventType)))
 	}
 	return weights
 }

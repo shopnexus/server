@@ -307,7 +307,7 @@ func (b *CatalogHandler) CreateComment(ctx restate.Context, params CreateComment
 				interactions,
 				analyticbiz.CreateInteraction{
 					Account:   params.Account,
-					EventType: analyticmodel.EventRatingMed,
+					EventType: analyticmodel.EventRatingMedium,
 					RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
 					RefID:     refID,
 				},

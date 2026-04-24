@@ -25,7 +25,7 @@ type ListProductSkuParams struct {
 	SpuID      []uuid.UUID `validate:"omitempty"`
 	PriceFrom  null.Int64  `validate:"omitnil,gt=0"`
 	PriceTo    null.Int64  `validate:"omitnil,gt=0,gtefield=PriceFrom"`
-	Combinable null.Bool   `validate:"omitnil"`
+	SharedPackaging null.Bool   `validate:"omitnil"`
 }
 
 // ListProductSku returns product SKUs filtered by ID, SPU, price range, or combinability.
@@ -44,7 +44,7 @@ func (b *CatalogHandler) ListProductSku(
 		SpuID:      params.SpuID,
 		PriceFrom:  params.PriceFrom,
 		PriceTo:    params.PriceTo,
-		Combinable: nullutil.NullBoolToSlice(params.Combinable),
+		SharedPackaging: nullutil.NullBoolToSlice(params.SharedPackaging),
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db list product sku", err)
@@ -78,7 +78,7 @@ type CreateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	SpuID          uuid.UUID                       `validate:"required"`
 	Price          int64                           `validate:"required,gt=0"`
-	Combinable     bool                            `validate:"required"`
+	SharedPackaging     bool                            `validate:"required"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitempty,dive"`
 	PackageDetails json.RawMessage                 `validate:"required"`
 }
@@ -101,11 +101,11 @@ func (b *CatalogHandler) CreateProductSku(
 
 	// Create sku
 	sku, err := b.storage.Querier().CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
-		SpuID:          params.SpuID,
-		Price:          params.Price,
-		Combinable:     params.Combinable,
-		Attributes:     attributesBytes,
-		PackageDetails: packagedetailsBytes,
+		SpuID:           params.SpuID,
+		Price:           params.Price,
+		SharedPackaging: params.SharedPackaging,
+		Attributes:      attributesBytes,
+		PackageDetails:  packagedetailsBytes,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db create product sku", err)
@@ -129,7 +129,7 @@ type UpdateProductSkuParams struct {
 	Account        accountmodel.AuthenticatedAccount
 	ID             uuid.UUID                       `validate:"required"`
 	Price          null.Int                        `validate:"omitnil"`
-	Combinable     null.Bool                       `validate:"omitnil"`
+	SharedPackaging     null.Bool                       `validate:"omitnil"`
 	Attributes     []catalogmodel.ProductAttribute `validate:"omitnil,dive"`
 	PackageDetails json.RawMessage                 `validate:"omitempty"`
 }
@@ -156,11 +156,11 @@ func (b *CatalogHandler) UpdateProductSku(
 	// TODO: check biz logic of attribute update
 
 	sku, err := b.storage.Querier().UpdateProductSku(ctx, catalogdb.UpdateProductSkuParams{
-		ID:             params.ID,
-		Price:          params.Price,
-		Combinable:     params.Combinable,
-		Attributes:     attributesBytes,
-		PackageDetails: packageDetailsBytes,
+		ID:              params.ID,
+		Price:           params.Price,
+		SharedPackaging: params.SharedPackaging,
+		Attributes:      attributesBytes,
+		PackageDetails:  packageDetailsBytes,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db update product sku", err)
@@ -196,7 +196,7 @@ func mapProductSku(sku catalogdb.CatalogProductSku) catalogmodel.ProductSku {
 		ID:             sku.ID,
 		SpuID:          sku.SpuID,
 		Price:          sku.Price,
-		Combinable:     sku.Combinable,
+		SharedPackaging:     sku.SharedPackaging,
 		DateCreated:    sku.DateCreated,
 		PackageDetails: sku.PackageDetails,
 	}

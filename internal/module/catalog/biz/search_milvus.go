@@ -231,7 +231,7 @@ func (b *CatalogHandler) upsertProducts(
 		numbers = append(numbers, 0)
 		accountIDs = append(accountIDs, p.SellerID.String())
 		categoryIDs = append(categoryIDs, p.Category.ID.String())
-		isActives = append(isActives, p.IsActive)
+		isActives = append(isActives, p.IsEnabled)
 
 		// Derive price range from SKUs
 		var pMin, pMax float32

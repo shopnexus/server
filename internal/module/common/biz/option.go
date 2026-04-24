@@ -43,7 +43,7 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 					ID:          cfg.ID,
 					Category:    params.Category,
 					Provider:    cfg.Provider,
-					IsActive:    true,
+					IsEnabled:   true,
 					Name:        cfg.Name,
 					Description: cfg.Description,
 					Priority:    int32(index),
@@ -63,7 +63,7 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 			ID:          cfg.ID,
 			Category:    null.StringFrom(params.Category),
 			Provider:    null.StringFrom(cfg.Provider),
-			IsActive:    null.BoolFrom(true),
+			IsEnabled:   null.BoolFrom(true),
 			Name:        null.StringFrom(cfg.Name),
 			Description: null.StringFrom(cfg.Description),
 			Priority:    null.Int32From(int32(index)),
@@ -80,7 +80,7 @@ func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateS
 
 type ListServiceOptionParams struct {
 	Category []string `validate:"required"`
-	IsActive []bool   `validate:"omitempty,dive"`
+	IsEnabled []bool   `validate:"omitempty,dive"`
 }
 
 // ListServiceOption returns active service options filtered by category.
@@ -93,8 +93,8 @@ func (b *CommonHandler) ListServiceOption(
 	}
 
 	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
-		Category: params.Category,
-		IsActive: params.IsActive,
+		Category:  params.Category,
+		IsEnabled: params.IsEnabled,
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db list service option", err)

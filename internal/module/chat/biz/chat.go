@@ -111,7 +111,7 @@ func (b *ChatHandler) SendMessage(ctx restate.Context, params SendMessageParams)
 		SenderID:       params.Account.ID,
 		Type:           params.Type,
 		Content:        params.Content,
-		Metadata:       params.Metadata,
+		Data:           params.Metadata,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create message", err)

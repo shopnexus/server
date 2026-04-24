@@ -124,7 +124,7 @@ type ListProductSpuParams struct {
 	Slug       []string                          `validate:"omitempty,dive"`
 	AccountID  []uuid.UUID                       `validate:"omitempty,dive"`
 	CategoryID []uuid.UUID                       `validate:"omitempty,dive"`
-	IsActive   []bool                            `validate:"omitempty,dive"`
+	IsEnabled   []bool                            `validate:"omitempty,dive"`
 	Search     null.String                       `validate:"omitnil"`
 }
 
@@ -150,7 +150,7 @@ func (b *CatalogHandler) ListProductSpu(
 			ID:         params.ID,
 			AccountID:  params.AccountID,
 			CategoryID: params.CategoryID,
-			IsActive:   params.IsActive,
+			IsEnabled:  params.IsEnabled,
 			Name:       params.Search,
 			Slug:       params.Search,
 		})
@@ -171,7 +171,7 @@ func (b *CatalogHandler) ListProductSpu(
 			Slug:       params.Slug,
 			AccountID:  params.AccountID,
 			CategoryID: params.CategoryID,
-			IsActive:   params.IsActive,
+			IsEnabled:  params.IsEnabled,
 		})
 		if err != nil {
 			return zero, sharedmodel.WrapErr("db list product spu", err)
@@ -244,7 +244,7 @@ type CreateProductSpuParams struct {
 	Name           string                              `validate:"required,min=1,max=200"`
 	Description    string                              `validate:"required,max=100000"`
 	Currency       string                              `validate:"required,iso4217"`
-	IsActive       bool                                `validate:"omitempty"`
+	IsEnabled       bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"required,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
 	Specifications []catalogmodel.ProductSpecification `validate:"omitempty,dive"`
@@ -276,7 +276,7 @@ func (b *CatalogHandler) CreateProductSpu(
 		CategoryID:     params.CategoryID,
 		Name:           params.Name,
 		Description:    params.Description,
-		IsActive:       params.IsActive,
+		IsEnabled:      params.IsEnabled,
 		Currency:       params.Currency,
 		Specifications: specsBytes,
 	})
@@ -327,7 +327,7 @@ type UpdateProductSpuParams struct {
 	Name           null.String                         `validate:"omitnil,min=1,max=200"`
 	Description    null.String                         `validate:"omitnil,max=100000"`
 	Currency       null.String                         `validate:"omitnil,iso4217"`
-	IsActive       null.Bool                           `validate:"omitnil"`
+	IsEnabled       null.Bool                           `validate:"omitnil"`
 	RegenerateSlug bool                                `validate:"omitempty"`
 	Tags           []string                            `validate:"omitempty,dive,min=1,max=100"`
 	ResourceIDs    []uuid.UUID                         `validate:"omitempty,dive"`
@@ -382,7 +382,7 @@ func (b *CatalogHandler) UpdateProductSpu(
 		CategoryID:    params.CategoryID,
 		Name:          params.Name,
 		Description:   params.Description,
-		IsActive:      params.IsActive,
+		IsEnabled:     params.IsEnabled,
 		Currency:      params.Currency,
 		// TODO: auto fill the current_timestampt in pgtempl tool
 		// DateUpdated:    time.Now(),
@@ -555,7 +555,7 @@ func (b *CatalogHandler) mapProductSpu(
 		FeaturedSkuID: spu.FeaturedSkuID,
 		Name:          spu.Name,
 		Description:   spu.Description,
-		IsActive:      spu.IsActive,
+		IsEnabled:      spu.IsEnabled,
 		Currency:      spu.Currency,
 		DateCreated:   spu.DateCreated,
 		DateUpdated:   spu.DateUpdated,

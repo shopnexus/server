@@ -16,7 +16,7 @@ import (
 
 type CreateInteraction struct {
 	Account   accountmodel.AuthenticatedAccount
-	EventType string
+	EventType analyticmodel.Event
 	RefType   analyticdb.AnalyticInteractionRefType
 	RefID     string
 }
@@ -31,9 +31,8 @@ func (b *AnalyticHandler) CreateInteraction(ctx restate.Context, params CreateIn
 		params.Interactions,
 		func(interaction CreateInteraction, _ int) analyticdb.CreateBatchInteractionParams {
 			return analyticdb.CreateBatchInteractionParams{
-				AccountID:     uuid.NullUUID{UUID: interaction.Account.ID, Valid: true},
-				AccountNumber: interaction.Account.Number,
-				EventType:     interaction.EventType,
+				AccountID: uuid.NullUUID{UUID: interaction.Account.ID, Valid: true},
+				EventType: string(interaction.EventType),
 				RefType:       interaction.RefType,
 				RefID:         interaction.RefID,
 				Metadata:      []byte("{}"),
@@ -46,16 +45,17 @@ func (b *AnalyticHandler) CreateInteraction(ctx restate.Context, params CreateIn
 		CreateBatchInteraction(ctx, args).
 		QueryRow(func(_ int, ai analyticdb.AnalyticInteraction, err error) {
 			if err == nil {
+				refID, _ := uuid.Parse(ai.RefID)
+
 				// Fan out to HandlePopularityEvent and CatalogBiz.AddInteraction via Restate
 				event := analyticmodel.Interaction{
-					ID:            ai.ID,
-					AccountID:     ai.AccountID,
-					AccountNumber: ai.AccountNumber,
-					EventType:     ai.EventType,
-					RefType:       ai.RefType,
-					RefID:         ai.RefID,
-					Metadata:      ai.Metadata,
-					DateCreated:   ai.DateCreated,
+					ID:          ai.ID,
+					AccountID:   ai.AccountID,
+					EventType:   analyticmodel.Event(ai.EventType),
+					RefType:     ai.RefType,
+					RefID:       refID,
+					Metadata:    ai.Metadata,
+					DateCreated: ai.DateCreated,
 				}
 				restate.ServiceSend(ctx, "Analytic", "HandlePopularityEvent").Send(event)
 				restate.ServiceSend(ctx, "Catalog", "AddInteraction").Send(event)

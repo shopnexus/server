@@ -8,7 +8,6 @@ import (
 	restateclient "shopnexus-server/internal/infras/restate"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
-	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -47,10 +46,6 @@ func (p *AccountRestateClient) ListProfile(ctx context.Context, params ListProfi
 
 func (p *AccountRestateClient) UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error) {
 	return restateclient.Call[accountmodel.Profile](ctx, p.client, serviceName, "UpdateProfile", params)
-}
-
-func (p *AccountRestateClient) UpdateProfileSettings(ctx context.Context, params UpdateProfileSettingsParams) (accountmodel.ProfileSettings, error) {
-	return restateclient.Call[accountmodel.ProfileSettings](ctx, p.client, serviceName, "UpdateProfileSettings", params)
 }
 
 func (p *AccountRestateClient) UpdateCountry(ctx context.Context, params UpdateCountryParams) error {
@@ -119,30 +114,6 @@ func (p *AccountRestateClient) MarkAllRead(ctx context.Context, params MarkAllRe
 
 func (p *AccountRestateClient) CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
 	return restateclient.Call[accountdb.AccountNotification](ctx, p.client, serviceName, "CreateNotification", params)
-}
-
-func (p *AccountRestateClient) CreatePaymentMethod(ctx context.Context, params CreatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
-	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "CreatePaymentMethod", params)
-}
-
-func (p *AccountRestateClient) ListPaymentMethod(ctx context.Context, params ListPaymentMethodParams) (sharedmodel.PaginateResult[accountdb.AccountPaymentMethod], error) {
-	return restateclient.Call[sharedmodel.PaginateResult[accountdb.AccountPaymentMethod]](ctx, p.client, serviceName, "ListPaymentMethod", params)
-}
-
-func (p *AccountRestateClient) UpdatePaymentMethod(ctx context.Context, params UpdatePaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
-	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "UpdatePaymentMethod", params)
-}
-
-func (p *AccountRestateClient) DeletePaymentMethod(ctx context.Context, params DeletePaymentMethodParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "DeletePaymentMethod", params)
-}
-
-func (p *AccountRestateClient) SetDefaultPaymentMethod(ctx context.Context, params SetDefaultPaymentMethodParams) (accountdb.AccountPaymentMethod, error) {
-	return restateclient.Call[accountdb.AccountPaymentMethod](ctx, p.client, serviceName, "SetDefaultPaymentMethod", params)
-}
-
-func (p *AccountRestateClient) TokenizeCard(ctx context.Context, params TokenizeCardParams) (payment.TokenizeResult, error) {
-	return restateclient.Call[payment.TokenizeResult](ctx, p.client, serviceName, "TokenizeCard", params)
 }
 
 func (p *AccountRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {

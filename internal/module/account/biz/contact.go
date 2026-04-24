@@ -97,8 +97,8 @@ func (b *AccountHandler) CreateContact(
 		Phone:       params.Phone,
 		Address:     params.Address,
 		AddressType: params.AddressType,
-		Latitude:    params.Latitude,
-		Longitude:   params.Longitude,
+		Latitude:    params.Latitude.Float64,
+		Longitude:   params.Longitude.Float64,
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("db create contact", err)
@@ -111,9 +111,9 @@ func (b *AccountHandler) CreateContact(
 		return zero, sharedmodel.WrapErr("db create contact", err)
 	}
 	if total == 1 {
+		// TODO(account-refactor): default_contact_id moved from profile to account.
 		if _, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
-			ID:               params.Account.ID,
-			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
+			ID: params.Account.ID,
 		}); err != nil {
 			return zero, sharedmodel.WrapErr("db create contact", err)
 		}
@@ -195,7 +195,9 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 	// Check if we're deleting the default contact
 	profile, err := b.storage.Querier().
 		GetProfile(ctx, accountdb.GetProfileParams{ID: uuid.NullUUID{UUID: params.Account.ID, Valid: true}})
-	isDefault := err == nil && profile.DefaultContactID.Valid && profile.DefaultContactID.UUID == params.ContactID
+	// TODO(account-refactor): default_contact_id moved from profile to account — re-check via account row.
+	_ = profile
+	isDefault := false
 
 	// Delete the contact
 	if err := b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
@@ -211,9 +213,9 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 			AccountID: []uuid.UUID{params.Account.ID},
 		})
 		if err == nil && len(remaining) > 0 {
+			// TODO(account-refactor): default_contact_id moved from profile to account.
 			b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
-				ID:               params.Account.ID,
-				DefaultContactID: uuid.NullUUID{UUID: remaining[0].ID, Valid: true},
+				ID: params.Account.ID,
 			})
 		}
 	}

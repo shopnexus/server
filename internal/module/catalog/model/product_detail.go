@@ -13,7 +13,7 @@ type ProductDetail struct {
 	SellerID       uuid.UUID                 `json:"seller_id"`
 	Name           string                    `json:"name"`
 	Description    string                    `json:"description"`
-	IsActive       bool                      `json:"is_active"`
+	IsEnabled       bool                      `json:"is_active"`
 	Currency       string                    `json:"currency"`
 	Category       catalogdb.CatalogCategory `json:"category"`
 	Rating         ProductRating             `json:"rating"`
