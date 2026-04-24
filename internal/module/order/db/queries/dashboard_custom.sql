@@ -30,10 +30,10 @@ ORDER BY bucket ASC;
 -- name: GetSellerPendingActions :one
 -- Counts unconfirmed incoming items and pending refunds for a seller.
 SELECT
-    (SELECT COUNT(*)::BIGINT FROM "order"."item"
-     WHERE "seller_id" = @seller_id
-       AND "order_id" IS NULL
-       AND "date_cancelled" IS NULL) AS pending_items,
+    (SELECT COUNT(*)::BIGINT FROM "order"."item" x
+     WHERE x."seller_id" = @seller_id
+       AND x."order_id" IS NULL
+       AND x."date_cancelled" IS NULL) AS pending_items,
     (SELECT COUNT(*)::BIGINT FROM "order"."refund" r
      JOIN "order"."item" i ON i."id" = r."order_item_id"
      WHERE i."seller_id" = @seller_id

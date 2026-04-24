@@ -140,79 +140,6 @@ func AllOrderStatusValues() []OrderStatus {
 	}
 }
 
-type OrderTransportStatus string
-
-const (
-	OrderTransportStatusPending        OrderTransportStatus = "Pending"
-	OrderTransportStatusLabelCreated   OrderTransportStatus = "LabelCreated"
-	OrderTransportStatusInTransit      OrderTransportStatus = "InTransit"
-	OrderTransportStatusOutForDelivery OrderTransportStatus = "OutForDelivery"
-	OrderTransportStatusDelivered      OrderTransportStatus = "Delivered"
-	OrderTransportStatusFailed         OrderTransportStatus = "Failed"
-	OrderTransportStatusCancelled      OrderTransportStatus = "Cancelled"
-)
-
-func (e *OrderTransportStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OrderTransportStatus(s)
-	case string:
-		*e = OrderTransportStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OrderTransportStatus: %T", src)
-	}
-	return nil
-}
-
-type NullOrderTransportStatus struct {
-	OrderTransportStatus OrderTransportStatus `json:"order_transport_status"`
-	Valid                bool                 `json:"valid"` // Valid is true if OrderTransportStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOrderTransportStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.OrderTransportStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OrderTransportStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOrderTransportStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OrderTransportStatus), nil
-}
-
-func (e OrderTransportStatus) Valid() bool {
-	switch e {
-	case OrderTransportStatusPending,
-		OrderTransportStatusLabelCreated,
-		OrderTransportStatusInTransit,
-		OrderTransportStatusOutForDelivery,
-		OrderTransportStatusDelivered,
-		OrderTransportStatusFailed,
-		OrderTransportStatusCancelled:
-		return true
-	}
-	return false
-}
-
-func AllOrderTransportStatusValues() []OrderTransportStatus {
-	return []OrderTransportStatus{
-		OrderTransportStatusPending,
-		OrderTransportStatusLabelCreated,
-		OrderTransportStatusInTransit,
-		OrderTransportStatusOutForDelivery,
-		OrderTransportStatusDelivered,
-		OrderTransportStatusFailed,
-		OrderTransportStatusCancelled,
-	}
-}
-
 type OrderCartItem struct {
 	ID        int64     `json:"id"`
 	AccountID uuid.UUID `json:"account_id"`
@@ -221,91 +148,91 @@ type OrderCartItem struct {
 }
 
 type OrderItem struct {
-	ID                    int64           `json:"id"`
-	OrderID               uuid.NullUUID   `json:"order_id"`
-	AccountID             uuid.UUID       `json:"account_id"`
-	SellerID              uuid.UUID       `json:"seller_id"`
-	SkuID                 uuid.UUID       `json:"sku_id"`
-	SkuName               string          `json:"sku_name"`
-	Quantity              int64           `json:"quantity"`
-	UnitPrice             int64           `json:"unit_price"`
-	PaidAmount            int64           `json:"paid_amount"`
-	Address               string          `json:"address"`
-	Note                  null.String     `json:"note"`
-	SerialIds             json.RawMessage `json:"serial_ids"`
-	PaymentID             null.Int        `json:"payment_id"`
-	TransportOption       null.String     `json:"transport_option"`
-	TransportCostEstimate int64           `json:"transport_cost_estimate"`
-	DateCancelled         null.Time       `json:"date_cancelled"`
-	DateCreated           time.Time       `json:"date_created"`
-	DateUpdated           time.Time       `json:"date_updated"`
+	ID              int64           `json:"id"`
+	OrderID         uuid.NullUUID   `json:"order_id"`
+	AccountID       uuid.UUID       `json:"account_id"`
+	SellerID        uuid.UUID       `json:"seller_id"`
+	SkuID           uuid.UUID       `json:"sku_id"`
+	SkuName         string          `json:"sku_name"`
+	Address         string          `json:"address"`
+	Note            null.String     `json:"note"`
+	SerialIds       json.RawMessage `json:"serial_ids"`
+	Quantity        int64           `json:"quantity"`
+	TransportOption string          `json:"transport_option"`
+	SubtotalAmount  int64           `json:"subtotal_amount"`
+	PaidAmount      int64           `json:"paid_amount"`
+	PaymentTxID     int64           `json:"payment_tx_id"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateCancelled   null.Time       `json:"date_cancelled"`
+	CancelledByID   uuid.NullUUID   `json:"cancelled_by_id"`
+	RefundTxID      null.Int        `json:"refund_tx_id"`
 }
 
 type OrderOrder struct {
-	ID              uuid.UUID       `json:"id"`
-	BuyerID         uuid.UUID       `json:"buyer_id"`
-	SellerID        uuid.UUID       `json:"seller_id"`
-	TransportID     uuid.NullUUID   `json:"transport_id"`
-	ConfirmedByID   uuid.NullUUID   `json:"confirmed_by_id"`
-	Address         string          `json:"address"`
-	ProductCost     int64           `json:"product_cost"`
-	ProductDiscount int64           `json:"product_discount"`
-	TransportCost   int64           `json:"transport_cost"`
-	Total           int64           `json:"total"`
-	Note            null.String     `json:"note"`
-	Data            json.RawMessage `json:"data"`
-	DateCreated     time.Time       `json:"date_created"`
-}
-
-type OrderPayment struct {
-	ID              int64           `json:"id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	Option          string          `json:"option"`
-	Status          OrderStatus     `json:"status"`
-	Amount          int64           `json:"amount"`
-	Data            json.RawMessage `json:"data"`
-	PaymentMethodID uuid.NullUUID   `json:"payment_method_id"`
-	BuyerCurrency   string          `json:"buyer_currency"`
-	SellerCurrency  string          `json:"seller_currency"`
-	ExchangeRate    pgtype.Numeric  `json:"exchange_rate"`
-	DateCreated     time.Time       `json:"date_created"`
-	DatePaid        null.Time       `json:"date_paid"`
-	DateExpired     time.Time       `json:"date_expired"`
+	ID            uuid.UUID   `json:"id"`
+	BuyerID       uuid.UUID   `json:"buyer_id"`
+	SellerID      uuid.UUID   `json:"seller_id"`
+	TransportID   int64       `json:"transport_id"`
+	Address       string      `json:"address"`
+	DateCreated   time.Time   `json:"date_created"`
+	ConfirmedByID uuid.UUID   `json:"confirmed_by_id"`
+	SellerTxID    int64       `json:"seller_tx_id"`
+	Note          null.String `json:"note"`
 }
 
 type OrderRefund struct {
 	ID            uuid.UUID         `json:"id"`
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderID       uuid.UUID         `json:"order_id"`
-	ConfirmedByID uuid.NullUUID     `json:"confirmed_by_id"`
-	TransportID   uuid.NullUUID     `json:"transport_id"`
+	OrderItemID   int64             `json:"order_item_id"`
+	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
-	Status        OrderStatus       `json:"status"`
 	Reason        string            `json:"reason"`
 	Address       null.String       `json:"address"`
-	ItemIds       json.RawMessage   `json:"item_ids"`
-	Amount        null.Int          `json:"amount"`
 	DateCreated   time.Time         `json:"date_created"`
+	Status        OrderStatus       `json:"status"`
+	AcceptedByID  uuid.NullUUID     `json:"accepted_by_id"`
+	DateAccepted  null.Time         `json:"date_accepted"`
+	RejectionNote null.String       `json:"rejection_note"`
+	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
+	DateApproved  null.Time         `json:"date_approved"`
+	RefundTxID    null.Int          `json:"refund_tx_id"`
 }
 
 type OrderRefundDispute struct {
-	ID             uuid.UUID     `json:"id"`
-	RefundID       uuid.UUID     `json:"refund_id"`
-	IssuedByID     uuid.UUID     `json:"issued_by_id"`
-	Reason         string        `json:"reason"`
-	Status         OrderStatus   `json:"status"`
-	ResolvedByID   uuid.NullUUID `json:"resolved_by_id"`
-	ResolutionNote null.String   `json:"resolution_note"`
-	DateCreated    time.Time     `json:"date_created"`
-	DateUpdated    time.Time     `json:"date_updated"`
-	DateResolved   null.Time     `json:"date_resolved"`
+	ID           uuid.UUID     `json:"id"`
+	AccountID    uuid.UUID     `json:"account_id"`
+	RefundID     uuid.UUID     `json:"refund_id"`
+	Reason       string        `json:"reason"`
+	Status       OrderStatus   `json:"status"`
+	Note         string        `json:"note"`
+	DateCreated  time.Time     `json:"date_created"`
+	ResolvedByID uuid.NullUUID `json:"resolved_by_id"`
+	DateResolved null.Time     `json:"date_resolved"`
+}
+
+type OrderTransaction struct {
+	ID            int64           `json:"id"`
+	FromID        uuid.NullUUID   `json:"from_id"`
+	ToID          uuid.NullUUID   `json:"to_id"`
+	Type          string          `json:"type"`
+	Status        OrderStatus     `json:"status"`
+	Note          string          `json:"note"`
+	PaymentOption null.String     `json:"payment_option"`
+	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	Data          json.RawMessage `json:"data"`
+	Amount        int64           `json:"amount"`
+	FromCurrency  string          `json:"from_currency"`
+	ToCurrency    string          `json:"to_currency"`
+	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
+	DateCreated   time.Time       `json:"date_created"`
+	DatePaid      null.Time       `json:"date_paid"`
+	DateExpired   time.Time       `json:"date_expired"`
 }
 
 type OrderTransport struct {
-	ID          uuid.UUID                `json:"id"`
-	Option      string                   `json:"option"`
-	Status      NullOrderTransportStatus `json:"status"`
-	Cost        int64                    `json:"cost"`
-	Data        json.RawMessage          `json:"data"`
-	DateCreated time.Time                `json:"date_created"`
+	ID          int64           `json:"id"`
+	Option      string          `json:"option"`
+	Status      NullOrderStatus `json:"status"`
+	Data        json.RawMessage `json:"data"`
+	DateCreated time.Time       `json:"date_created"`
 }

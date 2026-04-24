@@ -15,24 +15,20 @@ import (
 const getSellerOrderStats = `-- name: GetSellerOrderStats :one
 
 SELECT
-    COALESCE(SUM(o."total"), 0)::bigint AS total_revenue,
-    COUNT(o."id")::bigint AS total_orders,
-    COALESCE(SUM(i.item_count), 0)::bigint AS items_sold
+    COALESCE(SUM(i."paid_amount"), 0)::BIGINT AS total_revenue,
+    COUNT(DISTINCT o."id")::BIGINT AS total_orders,
+    COALESCE(SUM(i."quantity"), 0)::BIGINT AS items_sold
 FROM "order"."order" o
-LEFT JOIN LATERAL (
-    SELECT SUM(it."quantity") AS item_count
-    FROM "order"."item" it
-    WHERE it."order_id" = o."id" AND it."date_cancelled" IS NULL
-) i ON true
+JOIN "order"."item" i ON i."order_id" = o."id"
 WHERE o."seller_id" = $1
-    AND o."date_created" >= $2
-    AND o."date_created" < $3
+    AND i."date_cancelled" IS NULL
+    AND i."date_created" BETWEEN $2::TIMESTAMPTZ AND $3::TIMESTAMPTZ
 `
 
 type GetSellerOrderStatsParams struct {
-	SellerID  uuid.UUID `json:"seller_id"`
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date"`
+	SellerID uuid.UUID `json:"seller_id"`
+	StartAt  time.Time `json:"start_at"`
+	EndAt    time.Time `json:"end_at"`
 }
 
 type GetSellerOrderStatsRow struct {
@@ -43,9 +39,8 @@ type GetSellerOrderStatsRow struct {
 
 // Custom dashboard aggregation queries for seller analytics
 // Aggregates revenue, order count, and items sold for a seller within a date range.
-// Only counts orders with status 'Success'.
 func (q *Queries) GetSellerOrderStats(ctx context.Context, arg GetSellerOrderStatsParams) (GetSellerOrderStatsRow, error) {
-	row := q.db.QueryRow(ctx, getSellerOrderStats, arg.SellerID, arg.StartDate, arg.EndDate)
+	row := q.db.QueryRow(ctx, getSellerOrderStats, arg.SellerID, arg.StartAt, arg.EndAt)
 	var i GetSellerOrderStatsRow
 	err := row.Scan(&i.TotalRevenue, &i.TotalOrders, &i.ItemsSold)
 	return i, err
@@ -53,13 +48,14 @@ func (q *Queries) GetSellerOrderStats(ctx context.Context, arg GetSellerOrderSta
 
 const getSellerOrderTimeSeries = `-- name: GetSellerOrderTimeSeries :many
 SELECT
-    date_trunc($1::text, o."date_created")::timestamptz AS bucket,
-    COALESCE(SUM(o."total"), 0)::bigint AS revenue,
-    COUNT(o."id")::bigint AS order_count
+    date_trunc($1::text, i."date_created")::TIMESTAMPTZ AS bucket,
+    COALESCE(SUM(i."paid_amount"), 0)::BIGINT AS revenue,
+    COUNT(DISTINCT o."id")::BIGINT AS order_count
 FROM "order"."order" o
+JOIN "order"."item" i ON i."order_id" = o."id"
 WHERE o."seller_id" = $2
-    AND o."date_created" >= $3
-    AND o."date_created" < $4
+    AND i."date_cancelled" IS NULL
+    AND i."date_created" BETWEEN $3::TIMESTAMPTZ AND $4::TIMESTAMPTZ
 GROUP BY bucket
 ORDER BY bucket ASC
 `
@@ -67,8 +63,8 @@ ORDER BY bucket ASC
 type GetSellerOrderTimeSeriesParams struct {
 	Granularity string    `json:"granularity"`
 	SellerID    uuid.UUID `json:"seller_id"`
-	StartDate   time.Time `json:"start_date"`
-	EndDate     time.Time `json:"end_date"`
+	StartAt     time.Time `json:"start_at"`
+	EndAt       time.Time `json:"end_at"`
 }
 
 type GetSellerOrderTimeSeriesRow struct {
@@ -83,8 +79,8 @@ func (q *Queries) GetSellerOrderTimeSeries(ctx context.Context, arg GetSellerOrd
 	rows, err := q.db.Query(ctx, getSellerOrderTimeSeries,
 		arg.Granularity,
 		arg.SellerID,
-		arg.StartDate,
-		arg.EndDate,
+		arg.StartAt,
+		arg.EndAt,
 	)
 	if err != nil {
 		return nil, err
@@ -106,11 +102,14 @@ func (q *Queries) GetSellerOrderTimeSeries(ctx context.Context, arg GetSellerOrd
 
 const getSellerPendingActions = `-- name: GetSellerPendingActions :one
 SELECT
-    (SELECT COUNT(*)::bigint FROM "order"."item"
-     WHERE "item"."seller_id" = $1 AND "item"."order_id" IS NULL AND "item"."date_cancelled" IS NULL AND "item"."payment_id" IS NOT NULL) AS pending_items,
-    (SELECT COUNT(*)::bigint FROM "order"."refund" r
-     JOIN "order"."order" o ON r."order_id" = o."id"
-     WHERE o."seller_id" = $1 AND r."status" = 'Pending') AS pending_refunds
+    (SELECT COUNT(*)::BIGINT FROM "order"."item" x
+     WHERE x."seller_id" = $1
+       AND x."order_id" IS NULL
+       AND x."date_cancelled" IS NULL) AS pending_items,
+    (SELECT COUNT(*)::BIGINT FROM "order"."refund" r
+     JOIN "order"."item" i ON i."id" = r."order_item_id"
+     WHERE i."seller_id" = $1
+       AND r."status" = 'Pending') AS pending_refunds
 `
 
 type GetSellerPendingActionsRow struct {
@@ -130,23 +129,23 @@ const getSellerTopProducts = `-- name: GetSellerTopProducts :many
 SELECT
     i."sku_id",
     i."sku_name",
-    SUM(i."quantity")::bigint AS sold_count,
-    SUM(i."paid_amount")::bigint AS revenue
+    SUM(i."quantity")::BIGINT AS sold_count,
+    SUM(i."paid_amount")::BIGINT AS revenue
 FROM "order"."item" i
 JOIN "order"."order" o ON i."order_id" = o."id"
 WHERE o."seller_id" = $1
-    AND o."date_created" >= $2
-    AND o."date_created" < $3
+    AND i."date_cancelled" IS NULL
+    AND i."date_created" BETWEEN $2::TIMESTAMPTZ AND $3::TIMESTAMPTZ
 GROUP BY i."sku_id", i."sku_name"
 ORDER BY sold_count DESC
-LIMIT $4::int
+LIMIT $4::INTEGER
 `
 
 type GetSellerTopProductsParams struct {
-	SellerID  uuid.UUID `json:"seller_id"`
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date"`
-	TopLimit  int32     `json:"top_limit"`
+	SellerID uuid.UUID `json:"seller_id"`
+	StartAt  time.Time `json:"start_at"`
+	EndAt    time.Time `json:"end_at"`
+	TopLimit int32     `json:"top_limit"`
 }
 
 type GetSellerTopProductsRow struct {
@@ -160,8 +159,8 @@ type GetSellerTopProductsRow struct {
 func (q *Queries) GetSellerTopProducts(ctx context.Context, arg GetSellerTopProductsParams) ([]GetSellerTopProductsRow, error) {
 	rows, err := q.db.Query(ctx, getSellerTopProducts,
 		arg.SellerID,
-		arg.StartDate,
-		arg.EndDate,
+		arg.StartAt,
+		arg.EndAt,
 		arg.TopLimit,
 	)
 	if err != nil {

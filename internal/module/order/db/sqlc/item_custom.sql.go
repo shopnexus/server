@@ -12,12 +12,53 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+const cancelItem = `-- name: CancelItem :one
+UPDATE "order"."item"
+SET "date_cancelled" = CURRENT_TIMESTAMP,
+    "cancelled_by_id" = $1,
+    "refund_tx_id" = $2
+WHERE "id" = $3 AND "date_cancelled" IS NULL
+RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+`
+
+type CancelItemParams struct {
+	CancelledByID uuid.NullUUID `json:"cancelled_by_id"`
+	RefundTxID    null.Int      `json:"refund_tx_id"`
+	ID            int64         `json:"id"`
+}
+
+func (q *Queries) CancelItem(ctx context.Context, arg CancelItemParams) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, cancelItem, arg.CancelledByID, arg.RefundTxID, arg.ID)
+	var i OrderItem
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.AccountID,
+		&i.SellerID,
+		&i.SkuID,
+		&i.SkuName,
+		&i.Address,
+		&i.Note,
+		&i.SerialIds,
+		&i.Quantity,
+		&i.TransportOption,
+		&i.SubtotalAmount,
+		&i.PaidAmount,
+		&i.PaymentTxID,
+		&i.DateCreated,
+		&i.DateCancelled,
+		&i.CancelledByID,
+		&i.RefundTxID,
+	)
+	return i, err
+}
+
 const cancelItemsByIDs = `-- name: CancelItemsByIDs :execrows
-UPDATE "order".item
-SET date_cancelled = now()
-WHERE id = ANY($1::BIGINT[])
-  AND order_id IS NULL
-  AND date_cancelled IS NULL
+UPDATE "order"."item"
+SET "date_cancelled" = CURRENT_TIMESTAMP
+WHERE "id" = ANY($1::BIGINT[])
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
 `
 
 func (q *Queries) CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64, error) {
@@ -29,10 +70,10 @@ func (q *Queries) CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64,
 }
 
 const countBuyerPendingItems = `-- name: CountBuyerPendingItems :one
-SELECT COUNT(*) FROM "order".item i
-WHERE i.account_id = $1
-  AND i.order_id IS NULL
-  AND i.date_cancelled IS NULL
+SELECT COUNT(*) FROM "order"."item"
+WHERE "account_id" = $1
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
 `
 
 func (q *Queries) CountBuyerPendingItems(ctx context.Context, accountID uuid.UUID) (int64, error) {
@@ -43,12 +84,10 @@ func (q *Queries) CountBuyerPendingItems(ctx context.Context, accountID uuid.UUI
 }
 
 const countSellerPendingItems = `-- name: CountSellerPendingItems :one
-SELECT COUNT(*) FROM "order".item i
-JOIN "order".payment p ON p.id = i.payment_id
-WHERE i.seller_id = $1
-  AND i.order_id IS NULL
-  AND i.date_cancelled IS NULL
-  AND p.status = 'Success'
+SELECT COUNT(*) FROM "order"."item"
+WHERE "seller_id" = $1
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
 `
 
 func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUID) (int64, error) {
@@ -59,23 +98,15 @@ func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUI
 }
 
 const listBuyerPendingItems = `-- name: ListBuyerPendingItems :many
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
-WHERE i.account_id = $1
-  AND i.order_id IS NULL
-  AND i.date_cancelled IS NULL
-ORDER BY i.date_created DESC
-LIMIT $3 OFFSET $2
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+WHERE "account_id" = $1
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
+ORDER BY "date_created" DESC
 `
 
-type ListBuyerPendingItemsParams struct {
-	AccountID uuid.UUID `json:"account_id"`
-	Off       int32     `json:"off"`
-	Lim       int32     `json:"lim"`
-}
-
-// Returns all buyer's pending items (any payment state: Pending, Processing, Success)
-func (q *Queries) ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendingItemsParams) ([]OrderItem, error) {
-	rows, err := q.db.Query(ctx, listBuyerPendingItems, arg.AccountID, arg.Off, arg.Lim)
+func (q *Queries) ListBuyerPendingItems(ctx context.Context, accountID uuid.UUID) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listBuyerPendingItems, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,18 +121,64 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendin
 			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
-			&i.Quantity,
-			&i.UnitPrice,
-			&i.PaidAmount,
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.PaymentID,
+			&i.Quantity,
 			&i.TransportOption,
-			&i.TransportCostEstimate,
-			&i.DateCancelled,
+			&i.SubtotalAmount,
+			&i.PaidAmount,
+			&i.PaymentTxID,
 			&i.DateCreated,
-			&i.DateUpdated,
+			&i.DateCancelled,
+			&i.CancelledByID,
+			&i.RefundTxID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listItemsByPaymentTx = `-- name: ListItemsByPaymentTx :many
+
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item" WHERE "payment_tx_id" = $1
+`
+
+// Custom item queries
+// Create/Get/List are auto-generated by pgtempl (CreateDefaultItem / GetItem / ListItem).
+func (q *Queries) ListItemsByPaymentTx(ctx context.Context, paymentTxID int64) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listItemsByPaymentTx, paymentTxID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderItem{}
+	for rows.Next() {
+		var i OrderItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.AccountID,
+			&i.SellerID,
+			&i.SkuID,
+			&i.SkuName,
+			&i.Address,
+			&i.Note,
+			&i.SerialIds,
+			&i.Quantity,
+			&i.TransportOption,
+			&i.SubtotalAmount,
+			&i.PaidAmount,
+			&i.PaymentTxID,
+			&i.DateCreated,
+			&i.DateCancelled,
+			&i.CancelledByID,
+			&i.RefundTxID,
 		); err != nil {
 			return nil, err
 		}
@@ -114,14 +191,14 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, arg ListBuyerPendin
 }
 
 const listPendingPaymentItemsByPaymentID = `-- name: ListPendingPaymentItemsByPaymentID :many
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
-WHERE i.payment_id = $1
-  AND i.order_id IS NULL
-  AND i.date_cancelled IS NULL
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+WHERE "payment_tx_id" = $1
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
 `
 
-func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymentID null.Int) ([]OrderItem, error) {
-	rows, err := q.db.Query(ctx, listPendingPaymentItemsByPaymentID, paymentID)
+func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymentTxID int64) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listPendingPaymentItemsByPaymentID, paymentTxID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,18 +213,18 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
-			&i.Quantity,
-			&i.UnitPrice,
-			&i.PaidAmount,
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.PaymentID,
+			&i.Quantity,
 			&i.TransportOption,
-			&i.TransportCostEstimate,
-			&i.DateCancelled,
+			&i.SubtotalAmount,
+			&i.PaidAmount,
+			&i.PaymentTxID,
 			&i.DateCreated,
-			&i.DateUpdated,
+			&i.DateCancelled,
+			&i.CancelledByID,
+			&i.RefundTxID,
 		); err != nil {
 			return nil, err
 		}
@@ -160,26 +237,15 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 }
 
 const listSellerPendingItems = `-- name: ListSellerPendingItems :many
-
-SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.sku_name, i.quantity, i.unit_price, i.paid_amount, i.address, i.note, i.serial_ids, i.payment_id, i.transport_option, i.transport_cost_estimate, i.date_cancelled, i.date_created, i.date_updated FROM "order".item i
-JOIN "order".payment p ON p.id = i.payment_id
-WHERE i.seller_id = $1
-  AND i.order_id IS NULL
-  AND i.date_cancelled IS NULL
-  AND p.status = 'Success'
-ORDER BY i.date_created DESC
-LIMIT $3 OFFSET $2
+SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+WHERE "seller_id" = $1
+  AND "order_id" IS NULL
+  AND "date_cancelled" IS NULL
+ORDER BY "date_created" DESC
 `
 
-type ListSellerPendingItemsParams struct {
-	SellerID uuid.UUID `json:"seller_id"`
-	Off      int32     `json:"off"`
-	Lim      int32     `json:"lim"`
-}
-
-// Custom item queries
-func (q *Queries) ListSellerPendingItems(ctx context.Context, arg ListSellerPendingItemsParams) ([]OrderItem, error) {
-	rows, err := q.db.Query(ctx, listSellerPendingItems, arg.SellerID, arg.Off, arg.Lim)
+func (q *Queries) ListSellerPendingItems(ctx context.Context, sellerID uuid.UUID) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listSellerPendingItems, sellerID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +260,18 @@ func (q *Queries) ListSellerPendingItems(ctx context.Context, arg ListSellerPend
 			&i.SellerID,
 			&i.SkuID,
 			&i.SkuName,
-			&i.Quantity,
-			&i.UnitPrice,
-			&i.PaidAmount,
 			&i.Address,
 			&i.Note,
 			&i.SerialIds,
-			&i.PaymentID,
+			&i.Quantity,
 			&i.TransportOption,
-			&i.TransportCostEstimate,
-			&i.DateCancelled,
+			&i.SubtotalAmount,
+			&i.PaidAmount,
+			&i.PaymentTxID,
 			&i.DateCreated,
-			&i.DateUpdated,
+			&i.DateCancelled,
+			&i.CancelledByID,
+			&i.RefundTxID,
 		); err != nil {
 			return nil, err
 		}
@@ -217,12 +283,10 @@ func (q *Queries) ListSellerPendingItems(ctx context.Context, arg ListSellerPend
 	return items, nil
 }
 
-const setItemsOrderID = `-- name: SetItemsOrderID :execrows
-UPDATE "order".item
-SET order_id = $1
-WHERE id = ANY($2::BIGINT[])
-  AND order_id IS NULL
-  AND date_cancelled IS NULL
+const setItemsOrderID = `-- name: SetItemsOrderID :exec
+UPDATE "order"."item"
+SET "order_id" = $1
+WHERE "id" = ANY($2::BIGINT[]) AND "order_id" IS NULL
 `
 
 type SetItemsOrderIDParams struct {
@@ -230,10 +294,31 @@ type SetItemsOrderIDParams struct {
 	ItemIds []int64       `json:"item_ids"`
 }
 
-func (q *Queries) SetItemsOrderID(ctx context.Context, arg SetItemsOrderIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setItemsOrderID, arg.OrderID, arg.ItemIds)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) SetItemsOrderID(ctx context.Context, arg SetItemsOrderIDParams) error {
+	_, err := q.db.Exec(ctx, setItemsOrderID, arg.OrderID, arg.ItemIds)
+	return err
+}
+
+const sumPaidAmountByOrder = `-- name: SumPaidAmountByOrder :one
+SELECT COALESCE(SUM("paid_amount"), 0)::BIGINT AS total
+FROM "order"."item"
+WHERE "order_id" = $1 AND "date_cancelled" IS NULL
+`
+
+func (q *Queries) SumPaidAmountByOrder(ctx context.Context, orderID uuid.NullUUID) (int64, error) {
+	row := q.db.QueryRow(ctx, sumPaidAmountByOrder, orderID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
+const unlinkItemsFromOrder = `-- name: UnlinkItemsFromOrder :exec
+UPDATE "order"."item"
+SET "order_id" = NULL
+WHERE "order_id" = $1
+`
+
+func (q *Queries) UnlinkItemsFromOrder(ctx context.Context, orderID uuid.NullUUID) error {
+	_, err := q.db.Exec(ctx, unlinkItemsFromOrder, orderID)
+	return err
 }
