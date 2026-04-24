@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -43,7 +44,7 @@ type OrderBiz interface {
 		ctx context.Context,
 		params ListSellerPendingItemsParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
-	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ordermodel.Order, error)
+	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ConfirmSellerPendingResult, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
 
 	// Orders
@@ -58,10 +59,16 @@ type OrderBiz interface {
 		params ListSellerConfirmedParams,
 	) (sharedmodel.PaginateResult[ordermodel.Order], error)
 
-	// Payment
-	ConfirmPayment(ctx context.Context, params ConfirmPaymentParams) error
-	CancelUnpaidCheckout(ctx context.Context, paymentID int64) error
-	AutoCancelPendingItems(ctx context.Context, paymentID int64) error
+	// Transaction webhook callbacks
+	MarkTxSuccess(ctx context.Context, params MarkTxSuccessParams) error
+	MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error
+
+	// Timeout handlers
+	TimeoutCheckoutTx(ctx context.Context, params TimeoutCheckoutTxParams) error
+	TimeoutConfirmFeeTx(ctx context.Context, params TimeoutConfirmFeeTxParams) error
+
+	// Escrow
+	ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error
 
 	// Cart (unchanged)
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
@@ -73,15 +80,15 @@ type OrderBiz interface {
 	ListReviewableOrders(ctx context.Context, params ListReviewableOrdersParams) ([]ReviewableOrder, error)
 	ValidateOrderForReview(ctx context.Context, params ValidateOrderForReviewParams) (bool, error)
 
-	// Refund
+	// Refund (2-stage)
 	ListBuyerRefunds(
 		ctx context.Context,
 		params ListBuyerRefundsParams,
 	) (sharedmodel.PaginateResult[ordermodel.Refund], error)
 	CreateBuyerRefund(ctx context.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error)
-	UpdateBuyerRefund(ctx context.Context, params UpdateBuyerRefundParams) (ordermodel.Refund, error)
-	CancelBuyerRefund(ctx context.Context, params CancelBuyerRefundParams) error
-	ConfirmSellerRefund(ctx context.Context, params ConfirmSellerRefundParams) (ordermodel.Refund, error)
+	AcceptRefundStage1(ctx context.Context, params AcceptRefundStage1Params) (ordermodel.Refund, error)
+	ApproveRefundStage2(ctx context.Context, params ApproveRefundStage2Params) (ordermodel.Refund, error)
+	RejectRefund(ctx context.Context, params RejectRefundParams) (ordermodel.Refund, error)
 
 	// Dispute
 	CreateRefundDispute(ctx context.Context, params CreateRefundDisputeParams) (ordermodel.RefundDispute, error)
@@ -166,11 +173,12 @@ func NewOrderHandler(
 
 type BuyerCheckoutParams struct {
 	Account       accountmodel.AuthenticatedAccount
-	BuyNow        bool                              `json:"buy_now"`
-	Address       string                            `json:"address" validate:"required,min=1,max=500"`
-	PaymentOption string                            `json:"payment_option" validate:"max=100"`
-	UseWallet     bool                              `json:"use_wallet"`
-	Items         []CheckoutItem                    `json:"items" validate:"required,min=1,dive"`
+	BuyNow        bool          `json:"buy_now"`
+	Address       string        `json:"address" validate:"required,min=1,max=500"`
+	UseWallet     bool          `json:"use_wallet"`
+	PaymentOption string        `json:"payment_option" validate:"max=100"`
+	InstrumentID  *uuid.UUID    `json:"instrument_id,omitempty"`
+	Items         []CheckoutItem `json:"items" validate:"required,min=1,dive"`
 }
 
 type CheckoutItem struct {
@@ -181,11 +189,13 @@ type CheckoutItem struct {
 }
 
 type BuyerCheckoutResult struct {
-	Items          []ordermodel.OrderItem `json:"items"`
-	Payment        *ordermodel.Payment    `json:"payment,omitempty"`
-	RedirectUrl    *string                `json:"redirect_url,omitempty"`
-	WalletDeducted int64                  `json:"wallet_deducted"`
-	Total          int64                  `json:"total"`
+	Items                  []ordermodel.OrderItem `json:"items"`
+	CheckoutTxIDs          []int64                `json:"checkout_tx_ids"`
+	BlockerTxID            int64                  `json:"blocker_tx_id"`
+	RequiresGatewayPayment bool                   `json:"requires_gateway_payment"`
+	GatewayURL             *string                `json:"gateway_url,omitempty"`
+	WalletDeducted         int64                  `json:"wallet_deducted"`
+	Total                  int64                  `json:"total"`
 }
 
 type ListBuyerPendingItemsParams struct {
@@ -204,9 +214,21 @@ type ListSellerPendingItemsParams struct {
 }
 
 type ConfirmSellerPendingParams struct {
-	Account accountmodel.AuthenticatedAccount
-	ItemIDs []int64                           `json:"item_ids" validate:"required,min=1,max=1000"`
-	Note    string                            `json:"note" validate:"max=500"`
+	Account       accountmodel.AuthenticatedAccount
+	ItemIDs       []int64    `json:"item_ids" validate:"required,min=1,max=1000"`
+	UseWallet     bool       `json:"use_wallet"`
+	PaymentOption string     `json:"payment_option" validate:"max=100"`
+	InstrumentID  *uuid.UUID `json:"instrument_id,omitempty"`
+	Note          string     `json:"note" validate:"max=500"`
+}
+
+type ConfirmSellerPendingResult struct {
+	Order                  ordermodel.Order `json:"order"`
+	ConfirmFeeTxIDs        []int64          `json:"confirm_fee_tx_ids"`
+	PayoutTxID             int64            `json:"payout_tx_id"`
+	BlockerTxID            int64            `json:"blocker_tx_id"`
+	RequiresGatewayPayment bool             `json:"requires_gateway_payment"`
+	GatewayURL             *string          `json:"gateway_url,omitempty"`
 }
 
 type RejectSellerPendingParams struct {
@@ -225,10 +247,36 @@ type ListSellerConfirmedParams struct {
 	sharedmodel.PaginationParams
 }
 
-type ConfirmPaymentParams struct {
-	RefID  string         `validate:"required"`
-	Status payment.Status `validate:"required"`
+// --- Transaction webhook ---
+
+type MarkTxSuccessParams struct {
+	TxID   int64     `json:"tx_id" validate:"required"`
+	DateAt time.Time `json:"date_at"`
 }
+
+type MarkTxFailedParams struct {
+	TxID   int64  `json:"tx_id" validate:"required"`
+	Reason string `json:"reason"`
+}
+
+// --- Timeout handlers ---
+
+type TimeoutCheckoutTxParams struct {
+	TxID int64 `json:"tx_id"`
+}
+
+type TimeoutConfirmFeeTxParams struct {
+	TxID    int64     `json:"tx_id"`
+	OrderID uuid.UUID `json:"order_id"`
+}
+
+// --- Escrow ---
+
+type ReleaseEscrowParams struct {
+	OrderID uuid.UUID `json:"order_id"`
+}
+
+// --- Cart ---
 
 type GetCartParams struct {
 	AccountID uuid.UUID `validate:"required"`
@@ -246,52 +294,39 @@ type ClearCartParams struct {
 	Account accountmodel.AuthenticatedAccount
 }
 
+// --- Refund 2-stage ---
+
 type ListBuyerRefundsParams struct {
 	sharedmodel.PaginationParams
 }
 
 type CreateBuyerRefundParams struct {
-	Account     accountmodel.AuthenticatedAccount
-	OrderID     uuid.UUID                 `validate:"required"`
-	Method      orderdb.OrderRefundMethod `validate:"required,validateFn=Valid"`
-	Reason      string                    `validate:"required,max=500"`
-	Address     null.String               `validate:"omitempty,max=500"`
-	ResourceIDs []uuid.UUID               `validate:"dive"`
-
-	// ItemIDs: if non-empty, refund only these specific items of the order (partial refund).
-	// If empty/nil, refund all items (full refund).
-	ItemIDs []int64 `validate:"omitempty,dive,gt=0"`
-
-	// Amount: explicit refund amount in smallest currency unit.
-	// If zero/not set, computed as sum(paid_amount) of items being refunded.
-	// Cannot exceed sum of the specified items\' paid_amount.
-	Amount int64 `validate:"omitempty,gte=0"`
+	Account               accountmodel.AuthenticatedAccount
+	OrderItemID           int64                     `json:"order_item_id" validate:"required"`
+	Method                orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
+	Reason                string                    `json:"reason" validate:"required,max=500"`
+	Address               string                    `json:"address" validate:"omitempty,max=500"`
+	ReturnTransportOption string                    `json:"return_transport_option" validate:"max=100"`
 }
 
-type UpdateBuyerRefundParams struct {
+type AcceptRefundStage1Params struct {
 	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID                 `validate:"required"`
-	Method   orderdb.OrderRefundMethod `validate:"omitempty,validateFn=Valid"`
-	Address  null.String               `validate:"omitnil,max=500"`
-	Reason   null.String               `validate:"omitnil,max=500"`
-
-	// ItemIDs: if non-empty, update the items being refunded.
-	// Same validation rules as CreateBuyerRefundParams.ItemIDs.
-	ItemIDs []int64 `validate:"omitempty,dive,gt=0"`
-
-	// Amount: update the explicit refund amount. Same rules as CreateBuyerRefundParams.Amount.
-	Amount int64 `validate:"omitempty,gte=0"`
-
-	// Fields below are only updated after vendor confirms
-	Status        orderdb.OrderStatus `validate:"omitempty,validateFn=Valid"`
-	ConfirmedByID uuid.NullUUID       `validate:"omitnil"`
-	ResourceIDs   []uuid.UUID         `validate:"required,dive"`
+	RefundID uuid.UUID `json:"refund_id" validate:"required"`
 }
 
-type CancelBuyerRefundParams struct {
+type ApproveRefundStage2Params struct {
 	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID `validate:"required"`
+	RefundID uuid.UUID `json:"refund_id" validate:"required"`
 }
+
+type RejectRefundParams struct {
+	Account       accountmodel.AuthenticatedAccount
+	RefundID      uuid.UUID `json:"refund_id" validate:"required"`
+	Stage         int       `json:"stage" validate:"required,oneof=1 2"`
+	RejectionNote string    `json:"rejection_note" validate:"required,min=1,max=1000"`
+}
+
+// --- Review eligibility ---
 
 type HasPurchasedProductParams struct {
 	AccountID uuid.UUID   `json:"account_id" validate:"required"`
@@ -315,10 +350,7 @@ type ValidateOrderForReviewParams struct {
 	SkuIDs    []uuid.UUID `json:"sku_ids"    validate:"required,min=1"`
 }
 
-type ConfirmSellerRefundParams struct {
-	Account  accountmodel.AuthenticatedAccount
-	RefundID uuid.UUID `validate:"required"`
-}
+// --- Dispute ---
 
 type CreateRefundDisputeParams struct {
 	Account  accountmodel.AuthenticatedAccount
@@ -337,9 +369,10 @@ type GetRefundDisputeParams struct {
 	DisputeID uuid.UUID `validate:"required"`
 }
 
+// --- Transport ---
+
 type UpdateTransportStatusParams struct {
-	TransportID uuid.UUID                    `validate:"omitempty"`
-	TrackingID  string                       `validate:"omitempty"`
-	Status      orderdb.OrderTransportStatus `validate:"required,validateFn=Valid"`
-	Data        map[string]any               `validate:"omitempty"`
+	TrackingID string          `validate:"omitempty"`
+	Status     orderdb.OrderStatus `validate:"required,validateFn=Valid"`
+	Data       json.RawMessage `validate:"omitempty"`
 }
