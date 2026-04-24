@@ -13,6 +13,33 @@ import (
 	"github.com/samber/lo"
 )
 
+// validateAddressCountry geocodes the given address via the
+// common module and rejects the request if the resolved country does not
+// match the owner's profile country. Used by CreateContact/UpdateContact so
+// a user can only register addresses that resolve to their own country.
+func (b *AccountHandler) validateAddressCountry(
+	ctx restate.Context,
+	accountID uuid.UUID,
+	address string,
+) error {
+	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
+		ID: uuid.NullUUID{UUID: accountID, Valid: true},
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("load profile for address check", err)
+	}
+
+	resolvedCountry, err := b.common.ResolveCountry(ctx, address)
+	if err != nil {
+		return sharedmodel.WrapErr("resolve country for address", err)
+	}
+
+	if resolvedCountry != profile.Country {
+		return accountmodel.ErrContactAddressCountryMismatch.Fmt(resolvedCountry, profile.Country).Terminal()
+	}
+	return nil
+}
+
 type ListContactParams struct {
 	AccountID []uuid.UUID `validate:"dive,required"`
 	ID        []uuid.UUID `validate:"omitempty,dive"`
@@ -82,16 +109,30 @@ func (b *AccountHandler) CreateContact(
 	params CreateContactParams,
 ) (accountdb.AccountContact, error) {
 	var zero accountdb.AccountContact
+	var err error
 
-	if err := validator.Validate(params); err != nil {
+	if err = validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate create contact", err)
 	}
 
-	if err := b.assertAddressMatchesProfileCountry(ctx, params.Account.ID, params.Address); err != nil {
-		return zero, err
+	if err = b.validateAddressCountry(ctx, params.Account.ID, params.Address); err != nil {
+		return zero, sharedmodel.WrapErr("validate address", err)
 	}
 
-	dbContact, err := b.storage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
+	txStorage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("begin transaction", err)
+	}
+	defer txStorage.Rollback(ctx)
+
+	total, err := txStorage.Querier().CountContact(ctx, accountdb.CountContactParams{
+		AccountID: []uuid.UUID{params.Account.ID},
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("db create contact", err)
+	}
+
+	dbContact, err := txStorage.Querier().CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 		AccountID:   params.Account.ID,
 		FullName:    params.FullName,
 		Phone:       params.Phone,
@@ -104,14 +145,8 @@ func (b *AccountHandler) CreateContact(
 		return zero, sharedmodel.WrapErr("db create contact", err)
 	}
 
-	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
-		AccountID: []uuid.UUID{params.Account.ID},
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db create contact", err)
-	}
-	if total == 1 {
-		if err := b.storage.Querier().SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
+	if total == 0 {
+		if err = txStorage.Querier().SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
 			ID:               params.Account.ID,
 			DefaultContactID: uuid.NullUUID{UUID: dbContact.ID, Valid: true},
 		}); err != nil {
@@ -119,18 +154,22 @@ func (b *AccountHandler) CreateContact(
 		}
 	}
 
+	if err = txStorage.Commit(ctx); err != nil {
+		return zero, sharedmodel.WrapErr("commit transaction", err)
+	}
+
 	return dbContact, nil
 }
 
 type UpdateContactParams struct {
 	Account     accountmodel.AuthenticatedAccount
-	ContactID   uuid.UUID                    `validate:"required"`
-	FullName    null.String                  `validate:"omitnil"`
-	Phone       null.String                  `validate:"omitnil"`
-	Address     null.String                  `validate:"omitnil"`
-	AddressType accountdb.AccountAddressType `validate:"omitempty,validateFn=Valid"`
-	Latitude    null.Float                   `validate:"omitnil"`
-	Longitude   null.Float                   `validate:"omitnil"`
+	ContactID   uuid.UUID                        `validate:"required"`
+	FullName    null.String                      `validate:"omitnil"`
+	Phone       null.String                      `validate:"omitnil"`
+	Address     null.String                      `validate:"omitnil"`
+	AddressType accountdb.NullAccountAddressType `validate:"omitnil,validateFn=Valid"`
+	Latitude    null.Float                       `validate:"omitnil"`
+	Longitude   null.Float                       `validate:"omitnil"`
 
 	PhoneVerified null.Bool `validate:"omitnil"`
 }
@@ -147,23 +186,19 @@ func (b *AccountHandler) UpdateContact(
 	}
 
 	if params.Address.Valid && params.Address.String != "" {
-		if err := b.assertAddressMatchesProfileCountry(ctx, params.Account.ID, params.Address.String); err != nil {
-			return zero, err
+		if err := b.validateAddressCountry(ctx, params.Account.ID, params.Address.String); err != nil {
+			return zero, sharedmodel.WrapErr("validate address", err)
 		}
 	}
 
 	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
-		ID:       params.ContactID,
-		FullName: params.FullName,
-		Phone:    params.Phone,
-		Address:  params.Address,
-		AddressType: accountdb.NullAccountAddressType{
-			AccountAddressType: params.AddressType,
-			Valid:              params.AddressType.Valid(),
-		},
-		Latitude:  params.Latitude,
-		Longitude: params.Longitude,
-
+		ID:            params.ContactID,
+		FullName:      params.FullName,
+		Phone:         params.Phone,
+		Address:       params.Address,
+		AddressType:   params.AddressType,
+		Latitude:      params.Latitude,
+		Longitude:     params.Longitude,
 		PhoneVerified: params.PhoneVerified,
 	})
 	if err != nil {
@@ -182,7 +217,13 @@ type DeleteContactParams struct {
 // Cannot delete the last remaining contact. If the default contact is deleted,
 // the most recently created remaining contact becomes the new default.
 func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContactParams) error {
-	total, err := b.storage.Querier().CountContact(ctx, accountdb.CountContactParams{
+	txStorage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return sharedmodel.WrapErr("begin transaction", err)
+	}
+	defer txStorage.Rollback(ctx)
+
+	total, err := txStorage.Querier().CountContact(ctx, accountdb.CountContactParams{
 		AccountID: []uuid.UUID{params.Account.ID},
 	})
 	if err != nil {
@@ -193,11 +234,14 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 	}
 
 	// Check if we're deleting the default contact
-	defaults, err := b.storage.Querier().GetAccountDefaults(ctx, params.Account.ID)
-	isDefault := err == nil && defaults.DefaultContactID.Valid && defaults.DefaultContactID.UUID == params.ContactID
+	defaults, err := txStorage.Querier().GetAccountDefaults(ctx, params.Account.ID)
+	if err != nil {
+		return sharedmodel.WrapErr("db get account defaults", err)
+	}
+	isDefault := defaults.DefaultContactID.Valid && defaults.DefaultContactID.UUID == params.ContactID
 
 	// Delete the contact
-	if err := b.storage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
+	if err = txStorage.Querier().DeleteContact(ctx, accountdb.DeleteContactParams{
 		ID:        []uuid.UUID{params.ContactID},
 		AccountID: []uuid.UUID{params.Account.ID},
 	}); err != nil {
@@ -206,44 +250,26 @@ func (b *AccountHandler) DeleteContact(ctx restate.Context, params DeleteContact
 
 	// If we deleted the default, reassign to the most recent remaining contact
 	if isDefault {
-		remaining, err := b.storage.Querier().ListContact(ctx, accountdb.ListContactParams{
+		remaining, err := txStorage.Querier().ListContact(ctx, accountdb.ListContactParams{
 			AccountID: []uuid.UUID{params.Account.ID},
 		})
-		if err == nil && len(remaining) > 0 {
-			_ = b.storage.Querier().SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
+		if err != nil {
+			return sharedmodel.WrapErr("db list contact", err)
+		}
+		if len(remaining) > 0 {
+			if err = txStorage.Querier().SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
 				ID:               params.Account.ID,
 				DefaultContactID: uuid.NullUUID{UUID: remaining[0].ID, Valid: true},
-			})
+			}); err != nil {
+				return sharedmodel.WrapErr("db set account default contact", err)
+			}
 		}
 	}
 
-	return nil
-}
-
-// assertAddressMatchesProfileCountry geocodes the given address via the
-// common module and rejects the request if the resolved country does not
-// match the owner's profile country. Used by CreateContact/UpdateContact so
-// a user can only register addresses that resolve to their own country.
-func (b *AccountHandler) assertAddressMatchesProfileCountry(
-	ctx restate.Context,
-	accountID uuid.UUID,
-	address string,
-) error {
-	profile, err := b.storage.Querier().GetProfile(ctx, accountdb.GetProfileParams{
-		ID: uuid.NullUUID{UUID: accountID, Valid: true},
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("load profile for address check", err)
+	if err = txStorage.Commit(ctx); err != nil {
+		return sharedmodel.WrapErr("commit transaction", err)
 	}
 
-	resolvedCountry, err := b.common.ResolveCountry(ctx, address)
-	if err != nil {
-		return err
-	}
-
-	if resolvedCountry != profile.Country {
-		return accountmodel.ErrContactAddressCountryMismatch.Fmt(resolvedCountry, profile.Country).Terminal()
-	}
 	return nil
 }
 

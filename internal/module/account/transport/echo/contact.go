@@ -94,12 +94,12 @@ func (h *Handler) CreateContact(c echo.Context) error {
 }
 
 type UpdateContactRequest struct {
-	ContactID     uuid.UUID                    `json:"contact_id"     validate:"required"`
-	FullName      null.String                  `json:"full_name"      validate:"omitnil"`
-	Phone         null.String                  `json:"phone"          validate:"omitnil"`
-	Address       null.String                  `json:"address"        validate:"omitnil"`
-	AddressType   accountdb.AccountAddressType `json:"address_type"   validate:"omitempty,validateFn=Valid"`
-	PhoneVerified null.Bool                    `json:"phone_verified" validate:"omitnil"`
+	ContactID     uuid.UUID                        `json:"contact_id"     validate:"required"`
+	FullName      null.String                      `json:"full_name"      validate:"omitnil"`
+	Phone         null.String                      `json:"phone"          validate:"omitnil"`
+	Address       null.String                      `json:"address"        validate:"omitnil"`
+	AddressType   accountdb.NullAccountAddressType `json:"address_type"   validate:"omitnil,validateFn=Valid"`
+	PhoneVerified null.Bool                        `json:"phone_verified" validate:"omitnil"`
 }
 
 func (h *Handler) UpdateContact(c echo.Context) error {

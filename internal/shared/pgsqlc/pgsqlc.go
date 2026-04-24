@@ -41,6 +41,8 @@ type Storage[T Querier] interface {
 	Querier() T
 	// BeginTx starts a new transaction
 	BeginTx(ctx context.Context) (*TxStorage[T], error)
+	// Transact executes the given function within a transaction, committing if successful or rolling back on error.
+	Transact(ctx context.Context, fn func(Storage[T]) error) error
 }
 
 // Storage provides database queries with transaction support.
@@ -85,6 +87,23 @@ func (s *storage[T]) BeginTx(ctx context.Context) (*TxStorage[T], error) {
 	}, nil
 }
 
+func (s *storage[T]) Transact(ctx context.Context, fn func(Storage[T]) error) error {
+	txStorage, err := s.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer txStorage.Rollback(ctx)
+
+	if err := fn(txStorage); err != nil {
+		return fmt.Errorf("transaction function error: %w", err)
+	}
+
+	if err := txStorage.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
 // TxStorage provides database queries within an active transaction.
 type TxStorage[T Querier] struct {
 	tx        pgx.Tx
@@ -100,13 +119,8 @@ func (ts *TxStorage[T]) Commit(ctx context.Context) error {
 	return nil
 }
 
-func (ts *TxStorage[T]) Rollback(ctx context.Context) error {
-	// if ts.committed {
-	// 	return nil
-	// }
+func (ts *TxStorage[T]) Rollback(ctx context.Context) {
 	if err := ts.tx.Rollback(ctx); !errors.Is(err, pgx.ErrTxClosed) && err != nil {
 		slog.Error("failed to rollback transaction", slog.Any("error", err))
-		return fmt.Errorf("failed to rollback transactional queries: %w", err)
 	}
-	return nil
 }
