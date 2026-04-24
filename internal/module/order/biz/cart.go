@@ -118,7 +118,7 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 			}); err != nil {
 				return "", err
 			}
-			return analyticmodel.EventRemoveFromCart, nil
+			return string(analyticmodel.EventRemoveFromCart), nil
 		}
 
 		if err := b.storage.Querier().UpdateCart(ctx, orderdb.UpdateCartParams{
@@ -128,7 +128,7 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 		}); err != nil {
 			return "", err
 		}
-		return analyticmodel.EventAddToCart, nil
+		return string(analyticmodel.EventAddToCart), nil
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("db update cart", err)
@@ -137,7 +137,7 @@ func (b *OrderHandler) UpdateCart(ctx restate.Context, params UpdateCartParams) 
 	restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
 		Interactions: []analyticbiz.CreateInteraction{{
 			Account:   params.Account,
-			EventType: eventType,
+			EventType: analyticmodel.Event(eventType),
 			RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
 			RefID:     params.SkuID.String(),
 		}},

@@ -68,9 +68,9 @@ func (b *OrderHandler) GetSellerOrderStats(
 	params GetSellerOrderStatsParams,
 ) (SellerOrderStats, error) {
 	row, err := b.storage.Querier().GetSellerOrderStats(ctx, orderdb.GetSellerOrderStatsParams{
-		SellerID:  params.SellerID,
-		StartDate: params.StartDate,
-		EndDate:   params.EndDate,
+		SellerID: params.SellerID,
+		StartAt:  params.StartDate,
+		EndAt:    params.EndDate,
 	})
 	if err != nil {
 		return SellerOrderStats{}, sharedmodel.WrapErr("get seller order stats", err)
@@ -89,8 +89,8 @@ func (b *OrderHandler) GetSellerOrderTimeSeries(
 	rows, err := b.storage.Querier().GetSellerOrderTimeSeries(ctx, orderdb.GetSellerOrderTimeSeriesParams{
 		Granularity: params.Granularity,
 		SellerID:    params.SellerID,
-		StartDate:   params.StartDate,
-		EndDate:     params.EndDate,
+		StartAt:     params.StartDate,
+		EndAt:       params.EndDate,
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("get seller order time series", err)
@@ -130,10 +130,10 @@ func (b *OrderHandler) GetSellerTopProducts(
 		limit = 5
 	}
 	rows, err := b.storage.Querier().GetSellerTopProducts(ctx, orderdb.GetSellerTopProductsParams{
-		SellerID:  params.SellerID,
-		StartDate: params.StartDate,
-		EndDate:   params.EndDate,
-		TopLimit:  limit,
+		SellerID: params.SellerID,
+		StartAt:  params.StartDate,
+		EndAt:    params.EndDate,
+		TopLimit: limit,
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("get seller top products", err)

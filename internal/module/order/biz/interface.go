@@ -341,7 +341,6 @@ type ListReviewableOrdersParams struct {
 
 type ReviewableOrder struct {
 	ID          uuid.UUID `json:"id"`
-	Total       int64     `json:"total"`
 	DateCreated time.Time `json:"date_created"`
 }
 
