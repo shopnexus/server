@@ -127,7 +127,7 @@ func (b *CatalogHandler) ProcessEvents(ctx restate.Context, events []analyticmod
 		}
 
 		// 6. Upsert updated account
-		// TODO(account-refactor): account_number column dropped from analytic.interaction; fetch from account module or drop from Milvus collection.
+		// account_number removed from analytic; Milvus "number" column now always 0 until collection is migrated.
 		_ = acctEvents
 		if err := b.upsertAccountInterests(
 			ctx,
