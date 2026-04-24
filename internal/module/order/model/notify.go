@@ -2,6 +2,19 @@ package ordermodel
 
 import "fmt"
 
+const (
+	NotifyCheckoutPaid     = "checkout_paid"
+	NotifyCheckoutFailed   = "checkout_failed"
+	NotifyOrderConfirmed   = "order_confirmed"
+	NotifyConfirmFeeFailed = "confirm_fee_failed"
+	NotifyTransportUpdated = "transport_updated"
+	NotifyRefundAccepted   = "refund_accepted"
+	NotifyRefundApproved   = "refund_approved"
+	NotifyRefundRejected   = "refund_rejected"
+	NotifyRefundDisputed   = "refund_disputed"
+	NotifyEscrowReleased   = "escrow_released"
+)
+
 // SummarizeNames returns a human-readable summary from a list of names.
 // e.g. "iPhone 15 Pro", "iPhone 15 Pro and 1 more".
 func SummarizeNames(names []string) string {

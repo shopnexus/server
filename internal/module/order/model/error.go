@@ -119,4 +119,27 @@ var (
 		"transport_status_invalid",
 		"cannot transition transport from %s to %s",
 	)
+
+	// Transaction ledger errors
+	ErrTxNotFound                = sharedmodel.NewError(http.StatusNotFound, "ORDER_TX_NOT_FOUND", "transaction not found")
+	ErrTxAlreadyFinal            = sharedmodel.NewError(http.StatusConflict, "ORDER_TX_ALREADY_FINAL", "transaction is already in a terminal state")
+	ErrInsufficientWalletBalance = sharedmodel.NewError(http.StatusPaymentRequired, "ORDER_WALLET_INSUFFICIENT", "internal wallet balance insufficient and no gateway fallback specified")
+
+	// Refund 2-stage errors
+	ErrRefundStageSkipped           = sharedmodel.NewError(http.StatusConflict, "ORDER_REFUND_STAGE_SKIPPED", "cannot approve refund without prior stage-1 acceptance")
+	ErrRefundAlreadyAccepted        = sharedmodel.NewError(http.StatusConflict, "ORDER_REFUND_ALREADY_ACCEPTED", "refund is already in stage-2 review")
+	ErrRefundAlreadyFinal           = sharedmodel.NewError(http.StatusConflict, "ORDER_REFUND_ALREADY_FINAL", "refund is already in a terminal state")
+	ErrRefundRejectionWithoutReason = sharedmodel.NewError(http.StatusBadRequest, "ORDER_REFUND_REJECTION_MISSING_NOTE", "rejection_note is required when rejecting a refund")
+
+	// Dispute errors
+	ErrInvalidDisputeState = sharedmodel.NewError(http.StatusConflict, "ORDER_DISPUTE_INVALID_STATE", "dispute may only be raised against a Failed refund")
+	ErrUnauthorized        = sharedmodel.NewError(http.StatusForbidden, "ORDER_UNAUTHORIZED", "account is not permitted to perform this operation")
+	ErrDisputeNoteRequired = sharedmodel.NewError(http.StatusBadRequest, "ORDER_DISPUTE_NOTE_REQUIRED", "dispute note is required")
+
+	// Payout guard
+	ErrOrderHasActiveRefund = sharedmodel.NewError(http.StatusConflict, "ORDER_HAS_ACTIVE_REFUND", "cannot release escrow; an active refund exists for this order")
+
+	// Item domain errors
+	ErrItemNotOwnedByBuyer = sharedmodel.NewError(http.StatusForbidden, "ORDER_ITEM_NOT_OWNED_BY_BUYER", "item is not owned by this buyer")
+	ErrItemNotConfirmed    = sharedmodel.NewError(http.StatusConflict, "ORDER_ITEM_NOT_CONFIRMED", "item has not been confirmed into an order")
 )
