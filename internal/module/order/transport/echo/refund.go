@@ -10,18 +10,15 @@ import (
 	"shopnexus-server/internal/shared/response"
 
 	"github.com/google/uuid"
-	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
 )
 
 type CreateBuyerRefundRequest struct {
-	OrderID     uuid.UUID                 `json:"order_id"     validate:"required"`
-	Method      orderdb.OrderRefundMethod `json:"method"       validate:"required,validateFn=Valid"`
-	Reason      string                    `json:"reason"       validate:"required,max=500"`
-	Address     null.String               `json:"address"      validate:"omitnil,max=500"`
-	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"dive"`
-	ItemIDs     []int64                   `json:"item_ids"     validate:"omitempty,dive,gt=0"`
-	Amount      int64                     `json:"amount"       validate:"omitempty,gte=0"`
+	OrderItemID           int64                     `json:"order_item_id"           validate:"required"`
+	Method                orderdb.OrderRefundMethod `json:"method"                  validate:"required,validateFn=Valid"`
+	Reason                string                    `json:"reason"                  validate:"required,min=1,max=1000"`
+	Address               string                    `json:"address"                 validate:"omitempty,max=500"`
+	ReturnTransportOption string                    `json:"return_transport_option" validate:"max=100"`
 }
 
 func (h *Handler) CreateBuyerRefund(c echo.Context) error {
@@ -39,14 +36,12 @@ func (h *Handler) CreateBuyerRefund(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateBuyerRefund(c.Request().Context(), orderbiz.CreateBuyerRefundParams{
-		Account:     claims.Account,
-		OrderID:     req.OrderID,
-		Method:      req.Method,
-		Reason:      req.Reason,
-		Address:     req.Address,
-		ResourceIDs: req.ResourceIDs,
-		ItemIDs:     req.ItemIDs,
-		Amount:      req.Amount,
+		Account:               claims.Account,
+		OrderItemID:           req.OrderItemID,
+		Method:                req.Method,
+		Reason:                req.Reason,
+		Address:               req.Address,
+		ReturnTransportOption: req.ReturnTransportOption,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -68,7 +63,13 @@ func (h *Handler) ListBuyerRefunds(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
 	result, err := h.biz.ListBuyerRefunds(c.Request().Context(), orderbiz.ListBuyerRefundsParams{
+		BuyerID:          claims.Account.ID,
 		PaginationParams: req.PaginationParams.Constrain(),
 	})
 	if err != nil {
@@ -78,20 +79,9 @@ func (h *Handler) ListBuyerRefunds(c echo.Context) error {
 	return response.FromPaginate(c.Response().Writer, result)
 }
 
-type UpdateBuyerRefundRequest struct {
-	RefundID    uuid.UUID                 `json:"id"           validate:"required"`
-	Method      orderdb.OrderRefundMethod `json:"method"       validate:"omitempty,validateFn=Valid"`
-	Address     null.String               `json:"address"      validate:"omitnil,max=500"`
-	Reason      null.String               `json:"reason"       validate:"omitnil,max=500"`
-	ResourceIDs []uuid.UUID               `json:"resource_ids" validate:"required,dive"`
-}
-
-func (h *Handler) UpdateBuyerRefund(c echo.Context) error {
-	var req UpdateBuyerRefundRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
+func (h *Handler) AcceptRefundStage1(c echo.Context) error {
+	refundID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
@@ -100,13 +90,9 @@ func (h *Handler) UpdateBuyerRefund(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	result, err := h.biz.UpdateBuyerRefund(c.Request().Context(), orderbiz.UpdateBuyerRefundParams{
-		Account:     claims.Account,
-		RefundID:    req.RefundID,
-		Method:      req.Method,
-		Address:     req.Address,
-		Reason:      req.Reason,
-		ResourceIDs: req.ResourceIDs,
+	result, err := h.biz.AcceptRefundStage1(c.Request().Context(), orderbiz.AcceptRefundStage1Params{
+		Account:  claims.Account,
+		RefundID: refundID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
@@ -115,16 +101,9 @@ func (h *Handler) UpdateBuyerRefund(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
-type CancelBuyerRefundRequest struct {
-	RefundID uuid.UUID `json:"id" validate:"required"`
-}
-
-func (h *Handler) CancelBuyerRefund(c echo.Context) error {
-	var req CancelBuyerRefundRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
+func (h *Handler) ApproveRefundStage2(c echo.Context) error {
+	refundID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
 	}
 
@@ -133,41 +112,50 @@ func (h *Handler) CancelBuyerRefund(c echo.Context) error {
 		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
 	}
 
-	if err := h.biz.CancelBuyerRefund(c.Request().Context(), orderbiz.CancelBuyerRefundParams{
+	result, err := h.biz.ApproveRefundStage2(c.Request().Context(), orderbiz.ApproveRefundStage2Params{
 		Account:  claims.Account,
-		RefundID: req.RefundID,
-	}); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return c.NoContent(http.StatusOK)
-}
-
-type ConfirmSellerRefundRequest struct {
-	RefundID uuid.UUID `json:"id" validate:"required"`
-}
-
-func (h *Handler) ConfirmSellerRefund(c echo.Context) error {
-	var req ConfirmSellerRefundRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
-	refund, err := h.biz.ConfirmSellerRefund(c.Request().Context(), orderbiz.ConfirmSellerRefundParams{
-		Account:  claims.Account,
-		RefundID: req.RefundID,
+		RefundID: refundID,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, refund)
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+}
+
+type RejectRefundRequest struct {
+	Stage         int    `json:"stage"          validate:"required,oneof=1 2"`
+	RejectionNote string `json:"rejection_note" validate:"required,min=1,max=1000"`
+}
+
+func (h *Handler) RejectRefund(c echo.Context) error {
+	refundID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	var req RejectRefundRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.RejectRefund(c.Request().Context(), orderbiz.RejectRefundParams{
+		Account:       claims.Account,
+		RefundID:      refundID,
+		Stage:         req.Stage,
+		RejectionNote: req.RejectionNote,
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }

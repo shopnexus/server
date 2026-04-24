@@ -8,6 +8,7 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/response"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -41,8 +42,11 @@ func (h *Handler) ListSellerPendingItems(c echo.Context) error {
 }
 
 type ConfirmSellerPendingRequest struct {
-	ItemIDs []int64 `json:"item_ids" validate:"required,min=1"`
-	Note    string  `json:"note"     validate:"max=500"`
+	ItemIDs       []int64    `json:"item_ids"       validate:"required,min=1"`
+	UseWallet     bool       `json:"use_wallet"`
+	PaymentOption string     `json:"payment_option" validate:"max=100"`
+	InstrumentID  *uuid.UUID `json:"instrument_id,omitempty"`
+	Note          string     `json:"note"           validate:"max=500"`
 }
 
 func (h *Handler) ConfirmSellerPending(c echo.Context) error {
@@ -60,9 +64,12 @@ func (h *Handler) ConfirmSellerPending(c echo.Context) error {
 	}
 
 	result, err := h.biz.ConfirmSellerPending(c.Request().Context(), orderbiz.ConfirmSellerPendingParams{
-		Account: claims.Account,
-		ItemIDs: req.ItemIDs,
-		Note:    req.Note,
+		Account:       claims.Account,
+		ItemIDs:       req.ItemIDs,
+		UseWallet:     req.UseWallet,
+		PaymentOption: req.PaymentOption,
+		InstrumentID:  req.InstrumentID,
+		Note:          req.Note,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

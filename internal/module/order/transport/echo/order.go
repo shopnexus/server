@@ -2,6 +2,8 @@ package orderecho
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -55,8 +57,6 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	buyerRefund := g.Group("/buyer/refund")
 	buyerRefund.GET("", h.ListBuyerRefunds)
 	buyerRefund.POST("", h.CreateBuyerRefund, rlRefund)
-	buyerRefund.PATCH("", h.UpdateBuyerRefund)
-	buyerRefund.DELETE("", h.CancelBuyerRefund)
 
 	// Seller - Pending
 	// TODO: add casbin role middleware for /seller/* routes
@@ -68,8 +68,11 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.GET("/seller/confirmed", h.ListSellerConfirmed)
 	g.GET("/seller/confirmed/:id", h.GetSellerOrder)
 
-	// Seller - Refund
-	g.POST("/seller/refund/confirm", h.ConfirmSellerRefund)
+	// Refund stage actions
+	refund := g.Group("/refunds/:id")
+	refund.POST("/accept", h.AcceptRefundStage1, rlRefund)
+	refund.POST("/approve", h.ApproveRefundStage2, rlRefund)
+	refund.POST("/reject", h.RejectRefund, rlRefund)
 
 	// Dispute
 	g.GET("/disputes", h.ListRefundDisputes)
@@ -77,24 +80,32 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.POST("/refunds/:refundID/disputes", h.CreateRefundDispute, rlDispute)
 	g.GET("/refunds/:refundID/disputes", h.ListRefundDisputesByRefund)
 
-	// Payment webhooks — register OnResult then mount routes
+	// Payment webhooks — parse "tx:<id>" ref_id and dispatch Mark* methods
 	onResult := func(ctx context.Context, result payment.WebhookResult) error {
-		return biz.ConfirmPayment(ctx, orderbiz.ConfirmPaymentParams{
-			RefID:  result.RefID,
-			Status: result.Status,
-		})
+		var txID int64
+		if _, err := fmt.Sscanf(result.RefID, "tx:%d", &txID); err != nil {
+			return fmt.Errorf("malformed webhook ref id %q: %w", result.RefID, err)
+		}
+		if result.Status == payment.StatusSuccess {
+			return biz.MarkTxSuccess(ctx, orderbiz.MarkTxSuccessParams{TxID: txID})
+		}
+		return biz.MarkTxFailed(ctx, orderbiz.MarkTxFailedParams{TxID: txID, Reason: string(result.Status)})
 	}
 	for _, client := range handler.PaymentClients() {
 		client.OnResult(onResult)
 		client.InitializeWebhook(e)
 	}
 
-	// Transport webhooks — register OnResult then mount routes
+	// Transport webhooks — use OrderStatus (not OrderTransportStatus)
 	onTransportResult := func(ctx context.Context, result transport.WebhookResult) error {
+		data, err := json.Marshal(result.Data)
+		if err != nil {
+			return fmt.Errorf("marshal transport webhook data: %w", err)
+		}
 		return biz.UpdateTransportStatus(ctx, orderbiz.UpdateTransportStatusParams{
 			TrackingID: result.TransportID,
-			Status:     orderdb.OrderTransportStatus(result.Status),
-			Data:       result.Data,
+			Status:     orderdb.OrderStatus(result.Status),
+			Data:       data,
 		})
 	}
 	for _, client := range handler.TransportClients() {

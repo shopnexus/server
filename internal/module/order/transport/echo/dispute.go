@@ -14,6 +14,7 @@ import (
 
 type CreateRefundDisputeRequest struct {
 	Reason string `json:"reason" validate:"required,min=1,max=1000"`
+	Note   string `json:"note"   validate:"required,min=1,max=2000"`
 }
 
 func (h *Handler) CreateRefundDispute(c echo.Context) error {
@@ -39,6 +40,7 @@ func (h *Handler) CreateRefundDispute(c echo.Context) error {
 		Account:  claims.Account,
 		RefundID: refundID,
 		Reason:   req.Reason,
+		Note:     req.Note,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
