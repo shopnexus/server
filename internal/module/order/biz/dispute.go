@@ -174,8 +174,8 @@ func (b *OrderHandler) ListRefundDisputes(
 		rows, err := b.storage.Querier().ListCountRefundDispute(ctx, orderdb.ListCountRefundDisputeParams{
 			RefundID:  refundIDFilter,
 			AccountID: accountIDFilter,
-			Offset:    null.Int32From(int32(pagination.Offset())),
-			Limit:     null.Int32From(pagination.Limit.Int32),
+			Offset:    pagination.Offset(),
+			Limit:     pagination.Limit,
 		})
 		if err != nil {
 			return listResult{}, err

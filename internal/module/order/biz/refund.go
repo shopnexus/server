@@ -27,7 +27,7 @@ func (b *OrderHandler) ListBuyerRefunds(
 	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderRefund, error) {
 		return b.storage.Querier().ListBuyerRefunds(ctx, orderdb.ListBuyerRefundsParams{
 			AccountID:   params.BuyerID,
-			OffsetCount: int32(pagination.Offset()),
+			OffsetCount: pagination.Offset().Int32,
 			LimitCount:  pagination.Limit.Int32,
 		})
 	})

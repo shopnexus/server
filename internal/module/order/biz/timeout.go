@@ -153,7 +153,7 @@ func (b *OrderHandler) TimeoutConfirmFeeTx(ctx restate.Context, params TimeoutCo
 		if err := b.storage.Querier().UnlinkItemsFromOrder(ctx, toNullUUID(&order.ID)); err != nil {
 			return sharedmodel.WrapErr("unlink items from order", err)
 		}
-		if err := b.storage.Querier().DeleteOrder(ctx, orderdb.DeleteOrderParams{ID: order.ID}); err != nil {
+		if err := b.storage.Querier().DeleteOrder(ctx, orderdb.DeleteOrderParams{ID: []uuid.UUID{order.ID}}); err != nil {
 			return sharedmodel.WrapErr("delete order", err)
 		}
 		return nil
