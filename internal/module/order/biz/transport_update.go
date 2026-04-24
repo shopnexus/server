@@ -3,15 +3,11 @@ package orderbiz
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/google/uuid"
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/google/uuid"
-
-	"shopnexus-server/internal/infras/metrics"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -20,88 +16,52 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-// validTransitions defines which transitions are allowed.
-// Terminal states (Delivered, Failed, Cancelled) may not transition further.
-// Any status can move to Failed or Cancelled (exception path).
-var validTransitions = map[orderdb.OrderTransportStatus]map[orderdb.OrderTransportStatus]bool{
-	orderdb.OrderTransportStatusPending: {
-		orderdb.OrderTransportStatusLabelCreated: true,
-		orderdb.OrderTransportStatusFailed:       true,
-		orderdb.OrderTransportStatusCancelled:    true,
+// validTransitions defines which OrderStatus transitions are allowed on the transport table.
+// Delivered is mapped to OrderStatusSuccess; terminal states may not transition further.
+// In-transit provider states (LabelCreated, InTransit, OutForDelivery) all map to
+// OrderStatusProcessing before the caller sends them here.
+var validTransitions = map[orderdb.OrderStatus]map[orderdb.OrderStatus]bool{
+	orderdb.OrderStatusPending: {
+		orderdb.OrderStatusProcessing: true, // LabelCreated / InTransit / OutForDelivery
+		orderdb.OrderStatusFailed:     true,
+		orderdb.OrderStatusCancelled:  true,
 	},
-	orderdb.OrderTransportStatusLabelCreated: {
-		orderdb.OrderTransportStatusInTransit: true,
-		orderdb.OrderTransportStatusFailed:    true,
-		orderdb.OrderTransportStatusCancelled: true,
+	orderdb.OrderStatusProcessing: {
+		orderdb.OrderStatusSuccess:   true, // Delivered
+		orderdb.OrderStatusFailed:    true,
+		orderdb.OrderStatusCancelled: true,
 	},
-	orderdb.OrderTransportStatusInTransit: {
-		orderdb.OrderTransportStatusOutForDelivery: true,
-		orderdb.OrderTransportStatusFailed:         true,
-		orderdb.OrderTransportStatusCancelled:      true,
-	},
-	orderdb.OrderTransportStatusOutForDelivery: {
-		orderdb.OrderTransportStatusDelivered: true,
-		orderdb.OrderTransportStatusFailed:    true,
-		orderdb.OrderTransportStatusCancelled: true,
-	},
-	// Terminal states
-	orderdb.OrderTransportStatusDelivered: {},
-	orderdb.OrderTransportStatusFailed: {
-		orderdb.OrderTransportStatusInTransit:    true, // redelivery
-		orderdb.OrderTransportStatusLabelCreated: true, // relabelled for redelivery
-	},
-	orderdb.OrderTransportStatusCancelled: {},
+	// Terminal states: Success (Delivered), Failed, Cancelled
+	orderdb.OrderStatusSuccess:   {},
+	orderdb.OrderStatusFailed:    {orderdb.OrderStatusProcessing: true}, // redelivery
+	orderdb.OrderStatusCancelled: {},
 }
 
-// UpdateTransportStatus updates a transport record's status and merges new event data
-// into the JSONB data field. Enforces valid state transitions and fires notifications.
+// UpdateTransportStatus updates a transport record's status and data field.
+// When transport reaches OrderStatusSuccess (Delivered), schedules a 7-day
+// Restate delayed send for ReleaseEscrow on all orders on that transport.
 func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateTransportStatusParams) error {
-	var err error
-	defer metrics.TrackHandler("order", "UpdateTransportStatus", &err)()
-
-	if err = validator.Validate(params); err != nil {
+	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate update transport status", err)
 	}
 
-	// Resolve TransportID from TrackingID if needed (webhook sends provider label ID, not UUID)
-	if params.TransportID == uuid.Nil && params.TrackingID != "" {
-		t, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransport, error) {
-			return b.storage.Querier().GetTransportByTrackingID(ctx, params.TrackingID)
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ordermodel.ErrOrderNotFound.Terminal()
-			}
-			return sharedmodel.WrapErr("get transport by tracking id", err)
-		}
-		params.TransportID = t.ID
-	}
-	if params.TransportID == uuid.Nil {
-		return ordermodel.ErrOrderNotFound.Terminal()
-	}
-
 	type transportInfo struct {
-		TransportID uuid.UUID `json:"transport_id"`
-		OrderID     uuid.UUID `json:"order_id"`
-		BuyerID     uuid.UUID `json:"buyer_id"`
-		SellerID    uuid.UUID `json:"seller_id"`
-		OldStatus   string    `json:"old_status"`
+		TransportID int64  `json:"transport_id"`
+		TrackingID  string `json:"tracking_id"`
 	}
 
+	// Step 1: Lookup by tracking ID, validate transition, update status.
 	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (transportInfo, error) {
 		var zero transportInfo
-		row, err := b.storage.Querier().GetTransportWithOrder(ctx, params.TransportID)
+
+		tr, err := b.storage.Querier().GetTransportByTrackingID(ctx, json.RawMessage(`"`+params.TrackingID+`"`))
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return zero, ordermodel.ErrOrderNotFound.Terminal()
-			}
-			return zero, sharedmodel.WrapErr("get transport with order", err)
+			return zero, ordermodel.ErrOrderNotFound.Terminal()
 		}
 
-		// Validate state transition
-		currentStatus := orderdb.OrderTransportStatusPending
-		if row.Status.Valid {
-			currentStatus = row.Status.OrderTransportStatus
+		currentStatus := orderdb.OrderStatusPending
+		if tr.Status.Valid {
+			currentStatus = tr.Status.OrderStatus
 		}
 
 		allowed, ok := validTransitions[currentStatus]
@@ -109,44 +69,48 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 			return zero, ordermodel.ErrTransportStatusInvalid.Fmt(currentStatus, params.Status).Terminal()
 		}
 
-		// Merge new event data into existing JSONB
-		dataJSON, err := json.Marshal(params.Data)
-		if err != nil {
-			dataJSON = []byte("{}")
+		dataJSON := params.Data
+		if len(dataJSON) == 0 {
+			dataJSON = json.RawMessage("{}")
 		}
 
-		if err = b.storage.Querier().UpdateTransportStatus(ctx, orderdb.UpdateTransportStatusParams{
-			ID: params.TransportID,
-			Status: orderdb.NullOrderTransportStatus{
-				OrderTransportStatus: params.Status,
-				Valid:                true,
-			},
-			Column3: dataJSON,
+		if _, err := b.storage.Querier().UpdateTransportStatusByID(ctx, orderdb.UpdateTransportStatusByIDParams{
+			ID:     tr.ID,
+			Status: orderdb.NullOrderStatus{OrderStatus: params.Status, Valid: true},
+			Data:   dataJSON,
 		}); err != nil {
 			return zero, sharedmodel.WrapErr("db update transport status", err)
 		}
 
-		metrics.TransportStatusUpdatesTotal.WithLabelValues(string(params.Status)).Inc()
-
-		return zero, nil
+		return transportInfo{
+			TransportID: tr.ID,
+			TrackingID:  params.TrackingID,
+		}, nil
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("update transport status", err)
 	}
 
-	// Fire-and-forget notifications based on new status
-	meta, _ := json.Marshal(map[string]string{
-		"transport_id": fetched.TransportID.String(),
-		"order_id":     fetched.OrderID.String(),
-	})
-
-	switch params.Status {
-	case orderdb.OrderTransportStatusDelivered:
+	// Step 2: If Delivered (Success), fetch orders on this transport and schedule escrow release.
+	if params.Status == orderdb.OrderStatusSuccess {
+		orders, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderOrder, error) {
+			return b.storage.Querier().ListOrdersByTransportID(ctx, fetched.TransportID)
+		})
 		if err != nil {
-			slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", fetched.BuyerID.String()), slog.Any("error", err))
-		} else {
+			return sharedmodel.WrapErr("list orders by transport", err)
+		}
+		for _, o := range orders {
+			restate.ServiceSend(ctx, b.ServiceName(), "ReleaseEscrow").Send(
+				ReleaseEscrowParams{OrderID: o.ID},
+				restate.WithDelay(escrowWindow),
+			)
+			// Notify buyer about delivery.
+			meta, _ := json.Marshal(map[string]string{
+				"tracking_id": fetched.TrackingID,
+				"order_id":    o.ID.String(),
+			})
 			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: fetched.BuyerID,
+				AccountID: o.BuyerID,
 				Type:      accountmodel.NotiTransportDelivered,
 				Channel:   accountmodel.ChannelInApp,
 				Title:     "Đơn hàng đã được giao",
@@ -154,61 +118,81 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 				Metadata:  meta,
 			})
 		}
+		return nil
+	}
 
-	case orderdb.OrderTransportStatusFailed:
+	// Step 3: Fire notifications for Failed / Cancelled statuses.
+	// We need buyer + seller IDs from the order joined to this transport.
+	type orderInfo struct {
+		BuyerID  uuid.UUID `json:"buyer_id"`
+		SellerID uuid.UUID `json:"seller_id"`
+		OrderID  uuid.UUID `json:"order_id"`
+		HasOrder bool      `json:"has_order"`
+	}
+	info, fetchErr := restate.Run(ctx, func(ctx restate.RunContext) (orderInfo, error) {
+		r, err := b.storage.Querier().GetTransportWithOrder(ctx, fetched.TransportID)
 		if err != nil {
-			slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", fetched.BuyerID.String()), slog.Any("error", err))
-		} else {
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: fetched.BuyerID,
-				Type:      accountmodel.NotiTransportFailed,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Giao hàng thất bại",
-				Content:   "Đơn hàng của bạn giao không thành công. Vui lòng liên hệ hỗ trợ.",
-				Metadata:  meta,
-			})
+			// Transport may not yet be linked to an order (early status updates).
+			return orderInfo{HasOrder: false}, nil
 		}
+		return orderInfo{
+			BuyerID:  r.OrderBuyerID,
+			SellerID: r.OrderSellerID,
+			OrderID:  r.OrderID,
+			HasOrder: true,
+		}, nil
+	})
+	if fetchErr != nil {
+		slog.Warn("skip notifications: could not fetch transport order info",
+			slog.String("tracking_id", params.TrackingID),
+			slog.Any("error", fetchErr))
+		return nil
+	}
+	if !info.HasOrder {
+		return nil
+	}
 
-		if err != nil {
-			slog.Warn("skip seller notification: invalid seller UUID", slog.String("seller_id", fetched.SellerID.String()), slog.Any("error", err))
-		} else {
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: fetched.SellerID,
-				Type:      accountmodel.NotiSellerTransportFailed,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Giao hàng thất bại",
-				Content:   "Đơn hàng đã giao không thành công.",
-				Metadata:  meta,
-			})
+	meta, _ := json.Marshal(map[string]string{
+		"tracking_id": params.TrackingID,
+		"order_id":    info.OrderID.String(),
+	})
 
-		}
+	switch params.Status {
+	case orderdb.OrderStatusFailed:
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: info.BuyerID,
+			Type:      accountmodel.NotiTransportFailed,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Giao hàng thất bại",
+			Content:   "Đơn hàng của bạn giao không thành công. Vui lòng liên hệ hỗ trợ.",
+			Metadata:  meta,
+		})
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: info.SellerID,
+			Type:      accountmodel.NotiSellerTransportFailed,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Giao hàng thất bại",
+			Content:   "Đơn hàng đã giao không thành công.",
+			Metadata:  meta,
+		})
 
-	case orderdb.OrderTransportStatusCancelled:
-		if err != nil {
-			slog.Warn("skip buyer notification: invalid buyer UUID", slog.String("buyer_id", fetched.BuyerID.String()), slog.Any("error", err))
-		} else {
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: fetched.BuyerID,
-				Type:      accountmodel.NotiTransportCancelled,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã bị hủy vận chuyển",
-				Content:   "Đơn vận chuyển của bạn đã bị hủy.",
-				Metadata:  meta,
-			})
-		}
-
-		if err != nil {
-			slog.Warn("skip seller notification: invalid seller UUID", slog.String("seller_id", fetched.SellerID.String()), slog.Any("error", err))
-		} else {
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: fetched.SellerID,
-				Type:      accountmodel.NotiSellerTransportCancelled,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã bị hủy vận chuyển",
-				Content:   "Đơn vận chuyển đã bị hủy.",
-				Metadata:  meta,
-			})
-		}
+	case orderdb.OrderStatusCancelled:
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: info.BuyerID,
+			Type:      accountmodel.NotiTransportCancelled,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Đơn hàng đã bị hủy vận chuyển",
+			Content:   "Đơn vận chuyển của bạn đã bị hủy.",
+			Metadata:  meta,
+		})
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: info.SellerID,
+			Type:      accountmodel.NotiSellerTransportCancelled,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Đơn hàng đã bị hủy vận chuyển",
+			Content:   "Đơn vận chuyển đã bị hủy.",
+			Metadata:  meta,
+		})
 	}
 
 	return nil
