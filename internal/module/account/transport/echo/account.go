@@ -59,7 +59,7 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	// Wallet endpoints
 	walletApi := api.Group("/wallet")
 	walletApi.GET("", h.GetWalletBalance)
-	walletApi.GET("/transactions", h.ListWalletTransactions)
+	// TODO(account-refactor): add transaction ledger list route (source: order.transaction).
 
 	// Notification endpoints
 	notifApi := api.Group("/notification")

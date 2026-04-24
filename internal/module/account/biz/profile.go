@@ -142,15 +142,23 @@ func (b *AccountHandler) UpdateProfile(ctx restate.Context, params UpdateProfile
 	}
 
 	profile, err := b.storage.Querier().UpdateProfile(ctx, accountdb.UpdateProfileParams{
-		ID:               params.AccountID,
-		Gender:           accountdb.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
-		Name:             params.Name,
+		ID:          params.AccountID,
+		Gender:      accountdb.NullAccountGender{AccountGender: params.Gender, Valid: params.Gender != ""},
+		Name:        params.Name,
 		DateOfBirth: params.DateOfBirth,
 		AvatarRsID:  params.AvatarRsID,
-		// TODO(account-refactor): default_contact_id moved from profile to account.
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("update profile", err)
+	}
+
+	if params.DefaultContactID.Valid {
+		if err := b.storage.Querier().SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
+			ID:               params.AccountID,
+			DefaultContactID: params.DefaultContactID,
+		}); err != nil {
+			return zero, sharedmodel.WrapErr("set default contact", err)
+		}
 	}
 
 	m := b.mapProfile(ctx, account, profile)
@@ -171,10 +179,11 @@ func (b *AccountHandler) mapProfile(
 
 	currency, _ := sharedcurrency.Infer(profile.Country)
 
+	defaults, _ := b.storage.Querier().GetAccountDefaults(ctx, account.ID)
+
 	return accountmodel.Profile{
 		ID:          account.ID,
 		DateCreated: account.DateCreated,
-		// TODO(account-refactor): account.date_updated column dropped.
 
 		Status:   account.Status,
 		Phone:    account.Phone,
@@ -188,7 +197,7 @@ func (b *AccountHandler) mapProfile(
 		PhoneVerified:    profile.PhoneVerified,
 		Country:          profile.Country,
 		Currency:         currency,
-		DefaultContactID: uuid.NullUUID{}, // TODO(account-refactor): read from account row, not profile.
+		DefaultContactID: defaults.DefaultContactID,
 		AvatarURL:        url,
 	}
 }

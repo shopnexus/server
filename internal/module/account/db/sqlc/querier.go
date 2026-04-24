@@ -15,76 +15,59 @@ type Querier interface {
 	CountAccount(ctx context.Context, arg CountAccountParams) (int64, error)
 	CountContact(ctx context.Context, arg CountContactParams) (int64, error)
 	CountFavorite(ctx context.Context, arg CountFavoriteParams) (int64, error)
-	CountIncomeHistory(ctx context.Context, arg CountIncomeHistoryParams) (int64, error)
 	CountNotification(ctx context.Context, arg CountNotificationParams) (int64, error)
-	CountPaymentMethod(ctx context.Context, arg CountPaymentMethodParams) (int64, error)
 	CountProfile(ctx context.Context, arg CountProfileParams) (int64, error)
 	CountUnreadByAccount(ctx context.Context, accountID uuid.UUID) (int64, error)
 	CountWallet(ctx context.Context, arg CountWalletParams) (int64, error)
-	CountWalletTransaction(ctx context.Context, arg CountWalletTransactionParams) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error)
 	CreateBatchAccount(ctx context.Context, arg []CreateBatchAccountParams) *CreateBatchAccountBatchResults
 	CreateBatchContact(ctx context.Context, arg []CreateBatchContactParams) *CreateBatchContactBatchResults
 	CreateBatchFavorite(ctx context.Context, arg []CreateBatchFavoriteParams) *CreateBatchFavoriteBatchResults
-	CreateBatchIncomeHistory(ctx context.Context, arg []CreateBatchIncomeHistoryParams) *CreateBatchIncomeHistoryBatchResults
 	CreateBatchNotification(ctx context.Context, arg []CreateBatchNotificationParams) *CreateBatchNotificationBatchResults
-	CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatchPaymentMethodParams) *CreateBatchPaymentMethodBatchResults
 	CreateBatchProfile(ctx context.Context, arg []CreateBatchProfileParams) *CreateBatchProfileBatchResults
 	CreateBatchWallet(ctx context.Context, arg []CreateBatchWalletParams) *CreateBatchWalletBatchResults
-	CreateBatchWalletTransaction(ctx context.Context, arg []CreateBatchWalletTransactionParams) *CreateBatchWalletTransactionBatchResults
 	CreateContact(ctx context.Context, arg CreateContactParams) (AccountContact, error)
 	CreateCopyAccount(ctx context.Context, arg []CreateCopyAccountParams) (int64, error)
 	CreateCopyContact(ctx context.Context, arg []CreateCopyContactParams) (int64, error)
 	CreateCopyDefaultAccount(ctx context.Context, arg []CreateCopyDefaultAccountParams) (int64, error)
 	CreateCopyDefaultContact(ctx context.Context, arg []CreateCopyDefaultContactParams) (int64, error)
 	CreateCopyDefaultFavorite(ctx context.Context, arg []CreateCopyDefaultFavoriteParams) (int64, error)
-	CreateCopyDefaultIncomeHistory(ctx context.Context, arg []CreateCopyDefaultIncomeHistoryParams) (int64, error)
 	CreateCopyDefaultNotification(ctx context.Context, arg []CreateCopyDefaultNotificationParams) (int64, error)
-	CreateCopyDefaultPaymentMethod(ctx context.Context, arg []CreateCopyDefaultPaymentMethodParams) (int64, error)
 	CreateCopyDefaultProfile(ctx context.Context, arg []CreateCopyDefaultProfileParams) (int64, error)
-	CreateCopyDefaultWallet(ctx context.Context, accountID []uuid.UUID) (int64, error)
-	CreateCopyDefaultWalletTransaction(ctx context.Context, arg []CreateCopyDefaultWalletTransactionParams) (int64, error)
+	CreateCopyDefaultWallet(ctx context.Context, arg []CreateCopyDefaultWalletParams) (int64, error)
 	CreateCopyFavorite(ctx context.Context, arg []CreateCopyFavoriteParams) (int64, error)
-	CreateCopyIncomeHistory(ctx context.Context, arg []CreateCopyIncomeHistoryParams) (int64, error)
 	CreateCopyNotification(ctx context.Context, arg []CreateCopyNotificationParams) (int64, error)
-	CreateCopyPaymentMethod(ctx context.Context, arg []CreateCopyPaymentMethodParams) (int64, error)
 	CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error)
 	CreateCopyWallet(ctx context.Context, arg []CreateCopyWalletParams) (int64, error)
-	CreateCopyWalletTransaction(ctx context.Context, arg []CreateCopyWalletTransactionParams) (int64, error)
 	CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error)
 	CreateDefaultContact(ctx context.Context, arg CreateDefaultContactParams) (AccountContact, error)
 	CreateDefaultFavorite(ctx context.Context, arg CreateDefaultFavoriteParams) (AccountFavorite, error)
-	CreateDefaultIncomeHistory(ctx context.Context, arg CreateDefaultIncomeHistoryParams) (AccountIncomeHistory, error)
 	CreateDefaultNotification(ctx context.Context, arg CreateDefaultNotificationParams) (AccountNotification, error)
-	CreateDefaultPaymentMethod(ctx context.Context, arg CreateDefaultPaymentMethodParams) (AccountPaymentMethod, error)
 	CreateDefaultProfile(ctx context.Context, arg CreateDefaultProfileParams) (AccountProfile, error)
-	CreateDefaultWallet(ctx context.Context, accountID uuid.UUID) (AccountWallet, error)
-	CreateDefaultWalletTransaction(ctx context.Context, arg CreateDefaultWalletTransactionParams) (AccountWalletTransaction, error)
+	CreateDefaultWallet(ctx context.Context, arg CreateDefaultWalletParams) (AccountWallet, error)
 	CreateFavorite(ctx context.Context, arg CreateFavoriteParams) (AccountFavorite, error)
-	CreateIncomeHistory(ctx context.Context, arg CreateIncomeHistoryParams) (AccountIncomeHistory, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
-	CreatePaymentMethod(ctx context.Context, arg CreatePaymentMethodParams) (AccountPaymentMethod, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
 	CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error)
 	CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error)
-	CreateWalletTransaction(ctx context.Context, arg CreateWalletTransactionParams) (AccountWalletTransaction, error)
-	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountWallet, error)
-	DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountWallet, error)
+	CreditProfileBalance(ctx context.Context, arg CreditProfileBalanceParams) (int64, error)
+	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountProfile, error)
+	// Deducts min(balance, amount). Returns new balance after the deduction.
+	DebitProfileBalance(ctx context.Context, arg DebitProfileBalanceParams) (int64, error)
+	DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountProfile, error)
 	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error
-	DeleteIncomeHistory(ctx context.Context, arg DeleteIncomeHistoryParams) error
 	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) error
-	DeletePaymentMethod(ctx context.Context, arg DeletePaymentMethodParams) error
 	DeleteProfile(ctx context.Context, arg DeleteProfileParams) error
 	DeleteWallet(ctx context.Context, arg DeleteWalletParams) error
-	DeleteWalletTransaction(ctx context.Context, arg DeleteWalletTransactionParams) error
 	// Code generated by pgtempl. DO NOT EDIT.
 	// This file contains all queries for the database schema.
 	// ========================================
 	// Queries for table: account.account
 	// ========================================
 	GetAccount(ctx context.Context, arg GetAccountParams) (AccountAccount, error)
+	GetAccountDefaults(ctx context.Context, id uuid.UUID) (GetAccountDefaultsRow, error)
 	// ========================================
 	// Queries for table: account.contact
 	// ========================================
@@ -94,67 +77,44 @@ type Querier interface {
 	// ========================================
 	GetFavorite(ctx context.Context, arg GetFavoriteParams) (AccountFavorite, error)
 	// ========================================
-	// Queries for table: account.income_history
-	// ========================================
-	GetIncomeHistory(ctx context.Context, id null.Int) (AccountIncomeHistory, error)
-	// ========================================
 	// Queries for table: account.notification
 	// ========================================
 	GetNotification(ctx context.Context, id null.Int) (AccountNotification, error)
 	// ========================================
-	// Queries for table: account.payment_method
-	// ========================================
-	GetPaymentMethod(ctx context.Context, arg GetPaymentMethodParams) (AccountPaymentMethod, error)
-	// ========================================
 	// Queries for table: account.profile
 	// ========================================
 	GetProfile(ctx context.Context, arg GetProfileParams) (AccountProfile, error)
+	GetProfileBalance(ctx context.Context, id uuid.UUID) (int64, error)
 	// ========================================
 	// Queries for table: account.wallet
 	// ========================================
-	GetWallet(ctx context.Context, arg GetWalletParams) (AccountWallet, error)
-	// ========================================
-	// Queries for table: account.wallet_transaction
-	// ========================================
-	GetWalletTransaction(ctx context.Context, id null.Int) (AccountWalletTransaction, error)
+	GetWallet(ctx context.Context, id uuid.NullUUID) (AccountWallet, error)
 	ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error)
 	ListContact(ctx context.Context, arg ListContactParams) ([]AccountContact, error)
 	ListCountAccount(ctx context.Context, arg ListCountAccountParams) ([]ListCountAccountRow, error)
 	ListCountContact(ctx context.Context, arg ListCountContactParams) ([]ListCountContactRow, error)
 	ListCountFavorite(ctx context.Context, arg ListCountFavoriteParams) ([]ListCountFavoriteRow, error)
-	ListCountIncomeHistory(ctx context.Context, arg ListCountIncomeHistoryParams) ([]ListCountIncomeHistoryRow, error)
 	ListCountNotification(ctx context.Context, arg ListCountNotificationParams) ([]ListCountNotificationRow, error)
-	ListCountPaymentMethod(ctx context.Context, arg ListCountPaymentMethodParams) ([]ListCountPaymentMethodRow, error)
 	ListCountProfile(ctx context.Context, arg ListCountProfileParams) ([]ListCountProfileRow, error)
 	ListCountWallet(ctx context.Context, arg ListCountWalletParams) ([]ListCountWalletRow, error)
-	ListCountWalletTransaction(ctx context.Context, arg ListCountWalletTransactionParams) ([]ListCountWalletTransactionRow, error)
 	// Custom contact queries
 	ListDefaultContact(ctx context.Context, accountID []uuid.UUID) ([]AccountContact, error)
 	ListFavorite(ctx context.Context, arg ListFavoriteParams) ([]AccountFavorite, error)
-	ListIncomeHistory(ctx context.Context, arg ListIncomeHistoryParams) ([]AccountIncomeHistory, error)
 	ListNotification(ctx context.Context, arg ListNotificationParams) ([]AccountNotification, error)
 	// Custom notification queries (hand-written, not generated by pgtempl)
 	ListNotificationByAccount(ctx context.Context, arg ListNotificationByAccountParams) ([]ListNotificationByAccountRow, error)
-	ListPaymentMethod(ctx context.Context, arg ListPaymentMethodParams) ([]AccountPaymentMethod, error)
 	ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error)
 	ListWallet(ctx context.Context, arg ListWalletParams) ([]AccountWallet, error)
-	ListWalletTransaction(ctx context.Context, arg ListWalletTransactionParams) ([]AccountWalletTransaction, error)
 	MarkAllNotificationRead(ctx context.Context, accountID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
-	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (AccountPaymentMethod, error)
-	// Custom payment method queries
-	UnsetDefaultPaymentMethod(ctx context.Context, accountID uuid.UUID) error
+	SetAccountDefaultContact(ctx context.Context, arg SetAccountDefaultContactParams) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error)
 	UpdateContact(ctx context.Context, arg UpdateContactParams) (AccountContact, error)
 	UpdateFavorite(ctx context.Context, arg UpdateFavoriteParams) (AccountFavorite, error)
-	UpdateIncomeHistory(ctx context.Context, arg UpdateIncomeHistoryParams) (AccountIncomeHistory, error)
 	UpdateNotification(ctx context.Context, arg UpdateNotificationParams) (AccountNotification, error)
-	UpdatePaymentMethod(ctx context.Context, arg UpdatePaymentMethodParams) (AccountPaymentMethod, error)
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error)
 	UpdateProfileCountry(ctx context.Context, arg UpdateProfileCountryParams) (int64, error)
-	UpdateProfileSettings(ctx context.Context, arg UpdateProfileSettingsParams) (AccountProfile, error)
 	UpdateWallet(ctx context.Context, arg UpdateWalletParams) (AccountWallet, error)
-	UpdateWalletTransaction(ctx context.Context, arg UpdateWalletTransactionParams) (AccountWalletTransaction, error)
 }
 
 var _ Querier = (*Queries)(nil)

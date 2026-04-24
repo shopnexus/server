@@ -12,11 +12,11 @@ import (
 )
 
 const creditWallet = `-- name: CreditWallet :one
-INSERT INTO account.wallet (account_id, balance)
+INSERT INTO account.profile (id, balance)
 VALUES ($1, $2)
-ON CONFLICT (account_id) DO UPDATE
-SET balance = account.wallet.balance + $2
-RETURNING id, account_id, balance
+ON CONFLICT (id) DO UPDATE
+SET balance = account.profile.balance + $2
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
 `
 
 type CreditWalletParams struct {
@@ -24,21 +24,33 @@ type CreditWalletParams struct {
 	Amount    int64     `json:"amount"`
 }
 
-func (q *Queries) CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountWallet, error) {
+func (q *Queries) CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountProfile, error) {
 	row := q.db.QueryRow(ctx, creditWallet, arg.AccountID, arg.Amount)
-	var i AccountWallet
-	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
+	var i AccountProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Gender,
+		&i.Name,
+		&i.Description,
+		&i.DateOfBirth,
+		&i.AvatarRsID,
+		&i.EmailVerified,
+		&i.PhoneVerified,
+		&i.DateCreated,
+		&i.Balance,
+		&i.Country,
+	)
 	return i, err
 }
 
 const debitWallet = `-- name: DebitWallet :one
-UPDATE account.wallet
+UPDATE account.profile
 SET balance = CASE
     WHEN balance >= $1 THEN balance - $1
     ELSE 0
 END
-WHERE account_id = $2
-RETURNING id, account_id, balance
+WHERE id = $2
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
 `
 
 type DebitWalletParams struct {
@@ -46,9 +58,21 @@ type DebitWalletParams struct {
 	AccountID uuid.UUID `json:"account_id"`
 }
 
-func (q *Queries) DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountWallet, error) {
+func (q *Queries) DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountProfile, error) {
 	row := q.db.QueryRow(ctx, debitWallet, arg.Amount, arg.AccountID)
-	var i AccountWallet
-	err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
+	var i AccountProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Gender,
+		&i.Name,
+		&i.Description,
+		&i.DateOfBirth,
+		&i.AvatarRsID,
+		&i.EmailVerified,
+		&i.PhoneVerified,
+		&i.DateCreated,
+		&i.Balance,
+		&i.Country,
+	)
 	return i, err
 }

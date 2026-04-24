@@ -191,77 +191,17 @@ func AllAccountStatusValues() []AccountStatus {
 	}
 }
 
-type AccountWalletTransactionType string
-
-const (
-	AccountWalletTransactionTypeRefund  AccountWalletTransactionType = "Refund"
-	AccountWalletTransactionTypePayment AccountWalletTransactionType = "Payment"
-	AccountWalletTransactionTypeTopUp   AccountWalletTransactionType = "TopUp"
-)
-
-func (e *AccountWalletTransactionType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AccountWalletTransactionType(s)
-	case string:
-		*e = AccountWalletTransactionType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AccountWalletTransactionType: %T", src)
-	}
-	return nil
-}
-
-type NullAccountWalletTransactionType struct {
-	AccountWalletTransactionType AccountWalletTransactionType `json:"account_wallet_transaction_type"`
-	Valid                        bool                         `json:"valid"` // Valid is true if AccountWalletTransactionType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAccountWalletTransactionType) Scan(value interface{}) error {
-	if value == nil {
-		ns.AccountWalletTransactionType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AccountWalletTransactionType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAccountWalletTransactionType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AccountWalletTransactionType), nil
-}
-
-func (e AccountWalletTransactionType) Valid() bool {
-	switch e {
-	case AccountWalletTransactionTypeRefund,
-		AccountWalletTransactionTypePayment,
-		AccountWalletTransactionTypeTopUp:
-		return true
-	}
-	return false
-}
-
-func AllAccountWalletTransactionTypeValues() []AccountWalletTransactionType {
-	return []AccountWalletTransactionType{
-		AccountWalletTransactionTypeRefund,
-		AccountWalletTransactionTypePayment,
-		AccountWalletTransactionTypeTopUp,
-	}
-}
-
 type AccountAccount struct {
-	ID          uuid.UUID     `json:"id"`
-	Number      int64         `json:"number"`
-	Status      AccountStatus `json:"status"`
-	Phone       null.String   `json:"phone"`
-	Email       null.String   `json:"email"`
-	Username    null.String   `json:"username"`
-	Password    null.String   `json:"password"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID               uuid.UUID     `json:"id"`
+	Number           int64         `json:"number"`
+	Status           AccountStatus `json:"status"`
+	Phone            null.String   `json:"phone"`
+	Email            null.String   `json:"email"`
+	Username         null.String   `json:"username"`
+	Password         null.String   `json:"password"`
+	DateCreated      time.Time     `json:"date_created"`
+	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
 }
 
 type AccountContact struct {
@@ -270,12 +210,11 @@ type AccountContact struct {
 	FullName      string             `json:"full_name"`
 	Phone         string             `json:"phone"`
 	PhoneVerified bool               `json:"phone_verified"`
-	Address       string             `json:"address"`
 	AddressType   AccountAddressType `json:"address_type"`
-	Latitude      null.Float         `json:"latitude"`
-	Longitude     null.Float         `json:"longitude"`
 	DateCreated   time.Time          `json:"date_created"`
-	DateUpdated   time.Time          `json:"date_updated"`
+	Address       string             `json:"address"`
+	Latitude      float64            `json:"latitude"`
+	Longitude     float64            `json:"longitude"`
 }
 
 type AccountFavorite struct {
@@ -283,16 +222,6 @@ type AccountFavorite struct {
 	AccountID   uuid.UUID `json:"account_id"`
 	SpuID       uuid.UUID `json:"spu_id"`
 	DateCreated time.Time `json:"date_created"`
-}
-
-type AccountIncomeHistory struct {
-	ID             int64       `json:"id"`
-	AccountID      uuid.UUID   `json:"account_id"`
-	Type           string      `json:"type"`
-	Income         int64       `json:"income"`
-	CurrentBalance int64       `json:"current_balance"`
-	Note           null.String `json:"note"`
-	DateCreated    time.Time   `json:"date_created"`
 }
 
 type AccountNotification struct {
@@ -305,50 +234,29 @@ type AccountNotification struct {
 	Content       string          `json:"content"`
 	Metadata      json.RawMessage `json:"metadata"`
 	DateCreated   time.Time       `json:"date_created"`
-	DateUpdated   time.Time       `json:"date_updated"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
 }
 
-type AccountPaymentMethod struct {
-	ID              uuid.UUID       `json:"id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	ServiceOptionID string          `json:"service_option_id"`
-	Label           string          `json:"label"`
-	Data            json.RawMessage `json:"data"`
-	IsDefault       bool            `json:"is_default"`
-	DateCreated     time.Time       `json:"date_created"`
-	DateUpdated     time.Time       `json:"date_updated"`
-}
-
 type AccountProfile struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	Description      string            `json:"description"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified    bool              `json:"email_verified"`
-	PhoneVerified    bool              `json:"phone_verified"`
-	Country          string            `json:"country"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-	DateCreated      time.Time         `json:"date_created"`
-	DateUpdated      time.Time         `json:"date_updated"`
-	Settings         json.RawMessage   `json:"settings"`
+	ID            uuid.UUID         `json:"id"`
+	Gender        NullAccountGender `json:"gender"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	DateOfBirth   null.Time         `json:"date_of_birth"`
+	AvatarRsID    uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified bool              `json:"email_verified"`
+	PhoneVerified bool              `json:"phone_verified"`
+	DateCreated   time.Time         `json:"date_created"`
+	Balance       int64             `json:"balance"`
+	Country       string            `json:"country"`
 }
 
 type AccountWallet struct {
-	ID        int64     `json:"id"`
-	AccountID uuid.UUID `json:"account_id"`
-	Balance   int64     `json:"balance"`
-}
-
-type AccountWalletTransaction struct {
-	ID          int64                        `json:"id"`
-	AccountID   uuid.UUID                    `json:"account_id"`
-	Type        AccountWalletTransactionType `json:"type"`
-	Amount      int64                        `json:"amount"`
-	ReferenceID null.String                  `json:"reference_id"`
-	Note        null.String                  `json:"note"`
-	DateCreated time.Time                    `json:"date_created"`
+	ID          uuid.UUID       `json:"id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	Option      string          `json:"option"`
+	Label       string          `json:"label"`
+	Data        json.RawMessage `json:"data"`
+	DateCreated time.Time       `json:"date_created"`
 }

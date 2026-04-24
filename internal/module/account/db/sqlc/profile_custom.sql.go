@@ -7,25 +7,24 @@ package accountdb
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 )
 
 const createSignupProfile = `-- name: CreateSignupProfile :one
-INSERT INTO "account"."profile" ("id", "country", "settings")
+INSERT INTO "account"."profile" ("id", "country", "name")
 VALUES ($1, $2, $3)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, country, default_contact_id, date_created, date_updated, settings
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
 `
 
 type CreateSignupProfileParams struct {
-	ID       uuid.UUID       `json:"id"`
-	Country  string          `json:"country"`
-	Settings json.RawMessage `json:"settings"`
+	ID      uuid.UUID `json:"id"`
+	Country string    `json:"country"`
+	Name    string    `json:"name"`
 }
 
 func (q *Queries) CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, createSignupProfile, arg.ID, arg.Country, arg.Settings)
+	row := q.db.QueryRow(ctx, createSignupProfile, arg.ID, arg.Country, arg.Name)
 	var i AccountProfile
 	err := row.Scan(
 		&i.ID,
@@ -36,20 +35,99 @@ func (q *Queries) CreateSignupProfile(ctx context.Context, arg CreateSignupProfi
 		&i.AvatarRsID,
 		&i.EmailVerified,
 		&i.PhoneVerified,
-		&i.Country,
-		&i.DefaultContactID,
 		&i.DateCreated,
-		&i.DateUpdated,
-		&i.Settings,
+		&i.Balance,
+		&i.Country,
 	)
 	return i, err
 }
 
+const creditProfileBalance = `-- name: CreditProfileBalance :one
+UPDATE "account"."profile"
+SET "balance" = "balance" + $1::BIGINT
+WHERE "id" = $2
+RETURNING "balance" AS new_balance
+`
+
+type CreditProfileBalanceParams struct {
+	Amount int64     `json:"amount"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) CreditProfileBalance(ctx context.Context, arg CreditProfileBalanceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, creditProfileBalance, arg.Amount, arg.ID)
+	var new_balance int64
+	err := row.Scan(&new_balance)
+	return new_balance, err
+}
+
+const debitProfileBalance = `-- name: DebitProfileBalance :one
+UPDATE "account"."profile"
+SET "balance" = GREATEST("balance" - $1::BIGINT, 0)
+WHERE "id" = $2
+RETURNING "balance" AS new_balance
+`
+
+type DebitProfileBalanceParams struct {
+	Amount int64     `json:"amount"`
+	ID     uuid.UUID `json:"id"`
+}
+
+// Deducts min(balance, amount). Returns new balance after the deduction.
+func (q *Queries) DebitProfileBalance(ctx context.Context, arg DebitProfileBalanceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, debitProfileBalance, arg.Amount, arg.ID)
+	var new_balance int64
+	err := row.Scan(&new_balance)
+	return new_balance, err
+}
+
+const getAccountDefaults = `-- name: GetAccountDefaults :one
+SELECT "default_contact_id", "default_wallet_id" FROM "account"."account" WHERE "id" = $1
+`
+
+type GetAccountDefaultsRow struct {
+	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+}
+
+func (q *Queries) GetAccountDefaults(ctx context.Context, id uuid.UUID) (GetAccountDefaultsRow, error) {
+	row := q.db.QueryRow(ctx, getAccountDefaults, id)
+	var i GetAccountDefaultsRow
+	err := row.Scan(&i.DefaultContactID, &i.DefaultWalletID)
+	return i, err
+}
+
+const getProfileBalance = `-- name: GetProfileBalance :one
+SELECT "balance" FROM "account"."profile" WHERE "id" = $1
+`
+
+func (q *Queries) GetProfileBalance(ctx context.Context, id uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getProfileBalance, id)
+	var balance int64
+	err := row.Scan(&balance)
+	return balance, err
+}
+
+const setAccountDefaultContact = `-- name: SetAccountDefaultContact :exec
+UPDATE "account"."account"
+SET "default_contact_id" = $1
+WHERE "id" = $2
+`
+
+type SetAccountDefaultContactParams struct {
+	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
+	ID               uuid.UUID     `json:"id"`
+}
+
+func (q *Queries) SetAccountDefaultContact(ctx context.Context, arg SetAccountDefaultContactParams) error {
+	_, err := q.db.Exec(ctx, setAccountDefaultContact, arg.DefaultContactID, arg.ID)
+	return err
+}
+
 const updateProfileCountry = `-- name: UpdateProfileCountry :execrows
 UPDATE "account"."profile"
-SET "country" = $1,
-    "date_updated" = CURRENT_TIMESTAMP
-WHERE "id" = $2
+SET "country" = $1
+WHERE "id" = $2 AND "balance" = 0
 `
 
 type UpdateProfileCountryParams struct {
@@ -63,38 +141,4 @@ func (q *Queries) UpdateProfileCountry(ctx context.Context, arg UpdateProfileCou
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const updateProfileSettings = `-- name: UpdateProfileSettings :one
-UPDATE "account"."profile"
-SET "settings" = $2,
-    "date_updated" = CURRENT_TIMESTAMP
-WHERE "id" = $1
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, country, default_contact_id, date_created, date_updated, settings
-`
-
-type UpdateProfileSettingsParams struct {
-	ID       uuid.UUID       `json:"id"`
-	Settings json.RawMessage `json:"settings"`
-}
-
-func (q *Queries) UpdateProfileSettings(ctx context.Context, arg UpdateProfileSettingsParams) (AccountProfile, error) {
-	row := q.db.QueryRow(ctx, updateProfileSettings, arg.ID, arg.Settings)
-	var i AccountProfile
-	err := row.Scan(
-		&i.ID,
-		&i.Gender,
-		&i.Name,
-		&i.Description,
-		&i.DateOfBirth,
-		&i.AvatarRsID,
-		&i.EmailVerified,
-		&i.PhoneVerified,
-		&i.Country,
-		&i.DefaultContactID,
-		&i.DateCreated,
-		&i.DateUpdated,
-		&i.Settings,
-	)
-	return i, err
 }

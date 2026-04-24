@@ -27,7 +27,7 @@ func (q *Queries) CountUnreadByAccount(ctx context.Context, accountID uuid.UUID)
 
 const listNotificationByAccount = `-- name: ListNotificationByAccount :many
 
-SELECT n.id, n.account_id, n.type, n.channel, n.title, n.is_read, n.content, n.metadata, n.date_created, n.date_updated, n.date_sent, n.date_scheduled, COUNT(*) OVER() as total_count
+SELECT n.id, n.account_id, n.type, n.channel, n.title, n.is_read, n.content, n.metadata, n.date_created, n.date_sent, n.date_scheduled, COUNT(*) OVER() as total_count
 FROM "account"."notification" n
 WHERE n.account_id = $1
 ORDER BY n.date_created DESC
@@ -66,7 +66,6 @@ func (q *Queries) ListNotificationByAccount(ctx context.Context, arg ListNotific
 			&i.AccountNotification.Content,
 			&i.AccountNotification.Metadata,
 			&i.AccountNotification.DateCreated,
-			&i.AccountNotification.DateUpdated,
 			&i.AccountNotification.DateSent,
 			&i.AccountNotification.DateScheduled,
 			&i.TotalCount,

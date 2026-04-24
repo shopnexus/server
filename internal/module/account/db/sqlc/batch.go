@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchAccount = `-- name: CreateBatchAccount :batchone
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, number, status, phone, email, username, password, date_created, date_updated
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
 `
 
 type CreateBatchAccountBatchResults struct {
@@ -33,14 +33,15 @@ type CreateBatchAccountBatchResults struct {
 }
 
 type CreateBatchAccountParams struct {
-	ID          uuid.UUID     `json:"id"`
-	Status      AccountStatus `json:"status"`
-	Phone       null.String   `json:"phone"`
-	Email       null.String   `json:"email"`
-	Username    null.String   `json:"username"`
-	Password    null.String   `json:"password"`
-	DateCreated time.Time     `json:"date_created"`
-	DateUpdated time.Time     `json:"date_updated"`
+	ID               uuid.UUID     `json:"id"`
+	Status           AccountStatus `json:"status"`
+	Phone            null.String   `json:"phone"`
+	Email            null.String   `json:"email"`
+	Username         null.String   `json:"username"`
+	Password         null.String   `json:"password"`
+	DateCreated      time.Time     `json:"date_created"`
+	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
 }
 
 func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccountParams) *CreateBatchAccountBatchResults {
@@ -54,7 +55,8 @@ func (q *Queries) CreateBatchAccount(ctx context.Context, arg []CreateBatchAccou
 			a.Username,
 			a.Password,
 			a.DateCreated,
-			a.DateUpdated,
+			a.DefaultContactID,
+			a.DefaultWalletID,
 		}
 		batch.Queue(createBatchAccount, vals...)
 	}
@@ -82,7 +84,8 @@ func (b *CreateBatchAccountBatchResults) QueryRow(f func(int, AccountAccount, er
 			&i.Username,
 			&i.Password,
 			&i.DateCreated,
-			&i.DateUpdated,
+			&i.DefaultContactID,
+			&i.DefaultWalletID,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -96,9 +99,9 @@ func (b *CreateBatchAccountBatchResults) Close() error {
 }
 
 const createBatchContact = `-- name: CreateBatchContact :batchone
-INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address", "address_type", "latitude", "longitude", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, account_id, full_name, phone, phone_verified, address, address_type, latitude, longitude, date_created, date_updated
+INSERT INTO "account"."contact" ("id", "account_id", "full_name", "phone", "phone_verified", "address_type", "date_created", "address", "latitude", "longitude")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, account_id, full_name, phone, phone_verified, address_type, date_created, address, latitude, longitude
 `
 
 type CreateBatchContactBatchResults struct {
@@ -113,12 +116,11 @@ type CreateBatchContactParams struct {
 	FullName      string             `json:"full_name"`
 	Phone         string             `json:"phone"`
 	PhoneVerified bool               `json:"phone_verified"`
-	Address       string             `json:"address"`
 	AddressType   AccountAddressType `json:"address_type"`
-	Latitude      null.Float         `json:"latitude"`
-	Longitude     null.Float         `json:"longitude"`
 	DateCreated   time.Time          `json:"date_created"`
-	DateUpdated   time.Time          `json:"date_updated"`
+	Address       string             `json:"address"`
+	Latitude      float64            `json:"latitude"`
+	Longitude     float64            `json:"longitude"`
 }
 
 func (q *Queries) CreateBatchContact(ctx context.Context, arg []CreateBatchContactParams) *CreateBatchContactBatchResults {
@@ -130,12 +132,11 @@ func (q *Queries) CreateBatchContact(ctx context.Context, arg []CreateBatchConta
 			a.FullName,
 			a.Phone,
 			a.PhoneVerified,
-			a.Address,
 			a.AddressType,
+			a.DateCreated,
+			a.Address,
 			a.Latitude,
 			a.Longitude,
-			a.DateCreated,
-			a.DateUpdated,
 		}
 		batch.Queue(createBatchContact, vals...)
 	}
@@ -160,12 +161,11 @@ func (b *CreateBatchContactBatchResults) QueryRow(f func(int, AccountContact, er
 			&i.FullName,
 			&i.Phone,
 			&i.PhoneVerified,
-			&i.Address,
 			&i.AddressType,
+			&i.DateCreated,
+			&i.Address,
 			&i.Latitude,
 			&i.Longitude,
-			&i.DateCreated,
-			&i.DateUpdated,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -238,79 +238,10 @@ func (b *CreateBatchFavoriteBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchIncomeHistory = `-- name: CreateBatchIncomeHistory :batchone
-INSERT INTO "account"."income_history" ("account_id", "type", "income", "current_balance", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, type, income, current_balance, note, date_created
-`
-
-type CreateBatchIncomeHistoryBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchIncomeHistoryParams struct {
-	AccountID      uuid.UUID   `json:"account_id"`
-	Type           string      `json:"type"`
-	Income         int64       `json:"income"`
-	CurrentBalance int64       `json:"current_balance"`
-	Note           null.String `json:"note"`
-	DateCreated    time.Time   `json:"date_created"`
-}
-
-func (q *Queries) CreateBatchIncomeHistory(ctx context.Context, arg []CreateBatchIncomeHistoryParams) *CreateBatchIncomeHistoryBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.AccountID,
-			a.Type,
-			a.Income,
-			a.CurrentBalance,
-			a.Note,
-			a.DateCreated,
-		}
-		batch.Queue(createBatchIncomeHistory, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchIncomeHistoryBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchIncomeHistoryBatchResults) QueryRow(f func(int, AccountIncomeHistory, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountIncomeHistory
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.Type,
-			&i.Income,
-			&i.CurrentBalance,
-			&i.Note,
-			&i.DateCreated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchIncomeHistoryBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchNotification = `-- name: CreateBatchNotification :batchone
-INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_updated", "date_sent", "date_scheduled")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_updated, date_sent, date_scheduled
+INSERT INTO "account"."notification" ("account_id", "type", "channel", "title", "is_read", "content", "metadata", "date_created", "date_sent", "date_scheduled")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, account_id, type, channel, title, is_read, content, metadata, date_created, date_sent, date_scheduled
 `
 
 type CreateBatchNotificationBatchResults struct {
@@ -328,7 +259,6 @@ type CreateBatchNotificationParams struct {
 	Content       string          `json:"content"`
 	Metadata      json.RawMessage `json:"metadata"`
 	DateCreated   time.Time       `json:"date_created"`
-	DateUpdated   time.Time       `json:"date_updated"`
 	DateSent      null.Time       `json:"date_sent"`
 	DateScheduled null.Time       `json:"date_scheduled"`
 }
@@ -345,7 +275,6 @@ func (q *Queries) CreateBatchNotification(ctx context.Context, arg []CreateBatch
 			a.Content,
 			a.Metadata,
 			a.DateCreated,
-			a.DateUpdated,
 			a.DateSent,
 			a.DateScheduled,
 		}
@@ -376,7 +305,6 @@ func (b *CreateBatchNotificationBatchResults) QueryRow(f func(int, AccountNotifi
 			&i.Content,
 			&i.Metadata,
 			&i.DateCreated,
-			&i.DateUpdated,
 			&i.DateSent,
 			&i.DateScheduled,
 		)
@@ -391,84 +319,10 @@ func (b *CreateBatchNotificationBatchResults) Close() error {
 	return b.br.Close()
 }
 
-const createBatchPaymentMethod = `-- name: CreateBatchPaymentMethod :batchone
-INSERT INTO "account"."payment_method" ("id", "account_id", "service_option_id", "label", "data", "is_default", "date_created", "date_updated")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, account_id, service_option_id, label, data, is_default, date_created, date_updated
-`
-
-type CreateBatchPaymentMethodBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchPaymentMethodParams struct {
-	ID              uuid.UUID       `json:"id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	ServiceOptionID string          `json:"service_option_id"`
-	Label           string          `json:"label"`
-	Data            json.RawMessage `json:"data"`
-	IsDefault       bool            `json:"is_default"`
-	DateCreated     time.Time       `json:"date_created"`
-	DateUpdated     time.Time       `json:"date_updated"`
-}
-
-func (q *Queries) CreateBatchPaymentMethod(ctx context.Context, arg []CreateBatchPaymentMethodParams) *CreateBatchPaymentMethodBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.AccountID,
-			a.ServiceOptionID,
-			a.Label,
-			a.Data,
-			a.IsDefault,
-			a.DateCreated,
-			a.DateUpdated,
-		}
-		batch.Queue(createBatchPaymentMethod, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchPaymentMethodBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchPaymentMethodBatchResults) QueryRow(f func(int, AccountPaymentMethod, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountPaymentMethod
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.ServiceOptionID,
-			&i.Label,
-			&i.Data,
-			&i.IsDefault,
-			&i.DateCreated,
-			&i.DateUpdated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchPaymentMethodBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
 const createBatchProfile = `-- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "country", "default_contact_id", "date_created", "date_updated", "settings")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, country, default_contact_id, date_created, date_updated, settings
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
 `
 
 type CreateBatchProfileBatchResults struct {
@@ -478,19 +332,17 @@ type CreateBatchProfileBatchResults struct {
 }
 
 type CreateBatchProfileParams struct {
-	ID               uuid.UUID         `json:"id"`
-	Gender           NullAccountGender `json:"gender"`
-	Name             null.String       `json:"name"`
-	Description      string            `json:"description"`
-	DateOfBirth      null.Time         `json:"date_of_birth"`
-	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified    bool              `json:"email_verified"`
-	PhoneVerified    bool              `json:"phone_verified"`
-	Country          string            `json:"country"`
-	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
-	DateCreated      time.Time         `json:"date_created"`
-	DateUpdated      time.Time         `json:"date_updated"`
-	Settings         json.RawMessage   `json:"settings"`
+	ID            uuid.UUID         `json:"id"`
+	Gender        NullAccountGender `json:"gender"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	DateOfBirth   null.Time         `json:"date_of_birth"`
+	AvatarRsID    uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified bool              `json:"email_verified"`
+	PhoneVerified bool              `json:"phone_verified"`
+	DateCreated   time.Time         `json:"date_created"`
+	Balance       int64             `json:"balance"`
+	Country       string            `json:"country"`
 }
 
 func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfileParams) *CreateBatchProfileBatchResults {
@@ -505,11 +357,9 @@ func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfi
 			a.AvatarRsID,
 			a.EmailVerified,
 			a.PhoneVerified,
-			a.Country,
-			a.DefaultContactID,
 			a.DateCreated,
-			a.DateUpdated,
-			a.Settings,
+			a.Balance,
+			a.Country,
 		}
 		batch.Queue(createBatchProfile, vals...)
 	}
@@ -537,11 +387,9 @@ func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, er
 			&i.AvatarRsID,
 			&i.EmailVerified,
 			&i.PhoneVerified,
-			&i.Country,
-			&i.DefaultContactID,
 			&i.DateCreated,
-			&i.DateUpdated,
-			&i.Settings,
+			&i.Balance,
+			&i.Country,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -555,9 +403,9 @@ func (b *CreateBatchProfileBatchResults) Close() error {
 }
 
 const createBatchWallet = `-- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("account_id", "balance")
-VALUES ($1, $2)
-RETURNING id, account_id, balance
+INSERT INTO "account"."wallet" ("id", "account_id", "option", "label", "data", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, account_id, option, label, data, date_created
 `
 
 type CreateBatchWalletBatchResults struct {
@@ -567,16 +415,24 @@ type CreateBatchWalletBatchResults struct {
 }
 
 type CreateBatchWalletParams struct {
-	AccountID uuid.UUID `json:"account_id"`
-	Balance   int64     `json:"balance"`
+	ID          uuid.UUID       `json:"id"`
+	AccountID   uuid.UUID       `json:"account_id"`
+	Option      string          `json:"option"`
+	Label       string          `json:"label"`
+	Data        json.RawMessage `json:"data"`
+	DateCreated time.Time       `json:"date_created"`
 }
 
 func (q *Queries) CreateBatchWallet(ctx context.Context, arg []CreateBatchWalletParams) *CreateBatchWalletBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.ID,
 			a.AccountID,
-			a.Balance,
+			a.Option,
+			a.Label,
+			a.Data,
+			a.DateCreated,
 		}
 		batch.Queue(createBatchWallet, vals...)
 	}
@@ -595,74 +451,12 @@ func (b *CreateBatchWalletBatchResults) QueryRow(f func(int, AccountWallet, erro
 			continue
 		}
 		row := b.br.QueryRow()
-		err := row.Scan(&i.ID, &i.AccountID, &i.Balance)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchWalletBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchWalletTransaction = `-- name: CreateBatchWalletTransaction :batchone
-INSERT INTO "account"."wallet_transaction" ("account_id", "type", "amount", "reference_id", "note", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, type, amount, reference_id, note, date_created
-`
-
-type CreateBatchWalletTransactionBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchWalletTransactionParams struct {
-	AccountID   uuid.UUID                    `json:"account_id"`
-	Type        AccountWalletTransactionType `json:"type"`
-	Amount      int64                        `json:"amount"`
-	ReferenceID null.String                  `json:"reference_id"`
-	Note        null.String                  `json:"note"`
-	DateCreated time.Time                    `json:"date_created"`
-}
-
-func (q *Queries) CreateBatchWalletTransaction(ctx context.Context, arg []CreateBatchWalletTransactionParams) *CreateBatchWalletTransactionBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.AccountID,
-			a.Type,
-			a.Amount,
-			a.ReferenceID,
-			a.Note,
-			a.DateCreated,
-		}
-		batch.Queue(createBatchWalletTransaction, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchWalletTransactionBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchWalletTransactionBatchResults) QueryRow(f func(int, AccountWalletTransaction, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountWalletTransaction
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.Type,
-			&i.Amount,
-			&i.ReferenceID,
-			&i.Note,
+			&i.Option,
+			&i.Label,
+			&i.Data,
 			&i.DateCreated,
 		)
 		if f != nil {
@@ -671,7 +465,7 @@ func (b *CreateBatchWalletTransactionBatchResults) QueryRow(f func(int, AccountW
 	}
 }
 
-func (b *CreateBatchWalletTransactionBatchResults) Close() error {
+func (b *CreateBatchWalletBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

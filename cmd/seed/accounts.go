@@ -60,7 +60,7 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 		}
 
 		// Create contact
-		_, err = store.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
+		contact, err := store.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 			AccountID:   account.ID,
 			FullName:    fake.Name(),
 			Phone:       fake.Phone(),
@@ -71,6 +71,12 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create contact for %s: %w", sa.Username, err)
+		}
+		if err := store.SetAccountDefaultContact(ctx, accountdb.SetAccountDefaultContactParams{
+			ID:               account.ID,
+			DefaultContactID: uuid.NullUUID{UUID: contact.ID, Valid: true},
+		}); err != nil {
+			return nil, fmt.Errorf("set default contact for %s: %w", sa.Username, err)
 		}
 
 		// Create profile
@@ -90,7 +96,6 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 					time.Date(2003, 1, 1, 0, 0, 0, 0, time.UTC),
 				),
 			),
-			// TODO(account-refactor): default_contact_id moved to account table.
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create profile for %s: %w", sa.Username, err)

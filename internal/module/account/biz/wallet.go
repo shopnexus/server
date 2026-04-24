@@ -3,6 +3,9 @@ package accountbiz
 import (
 	"github.com/google/uuid"
 	restate "github.com/restatedev/sdk-go"
+
+	accountdb "shopnexus-server/internal/module/account/db/sqlc"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 // WalletDebitParams holds the parameters for debiting a wallet.
@@ -28,27 +31,53 @@ type WalletCreditParams struct {
 	Note      string    `json:"note"`
 }
 
-// WalletDebit deducts min(balance, amount) from the wallet, records a transaction,
-// and returns the amount actually deducted and the new balance.
-func (b *AccountHandler) WalletDebit(ctx restate.Context, params WalletDebitParams) (WalletDebitResult, error) {
-	// TODO(account-refactor): re-implement against profile.balance + order.transaction ledger.
-	return WalletDebitResult{Deducted: 0, Balance: 0}, nil
-}
-
-// WalletCredit upserts the wallet and credits the given amount, recording a transaction.
-func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditParams) error {
-	// TODO(account-refactor): re-implement against profile.balance + order.transaction ledger.
-	return nil
-}
-
-// GetWalletBalance returns the wallet balance for the given account ID.
+// GetWalletBalance returns the profile balance (internal money) for the given account.
+// The actual money ledger lives in order.transaction; this returns the cached balance column.
 func (b *AccountHandler) GetWalletBalance(ctx restate.Context, accountID uuid.UUID) (int64, error) {
-	// TODO(account-refactor): re-implement against profile.balance.
-	return 0, nil
+	balance, err := restate.Run(ctx, func(ctx restate.RunContext) (int64, error) {
+		return b.storage.Querier().GetProfileBalance(ctx, accountID)
+	})
+	if err != nil {
+		return 0, sharedmodel.WrapErr("get profile balance", err)
+	}
+	return balance, nil
 }
 
-// ListWalletTransactions returns paginated wallet transactions for the given account.
-func (b *AccountHandler) ListWalletTransactions(ctx restate.Context, params ListWalletTransactionsParams) ([]WalletTransactionResult, error) {
-	// TODO(account-refactor): re-implement against order.transaction ledger.
-	return nil, nil
+// WalletDebit deducts min(balance, amount) from profile.balance. The ledger entry itself
+// is created by the calling module (e.g. order.transaction); this handler only adjusts
+// the cached balance. Returns the amount actually deducted and the new balance.
+func (b *AccountHandler) WalletDebit(ctx restate.Context, params WalletDebitParams) (WalletDebitResult, error) {
+	result, err := restate.Run(ctx, func(ctx restate.RunContext) (WalletDebitResult, error) {
+		old, err := b.storage.Querier().GetProfileBalance(ctx, params.AccountID)
+		if err != nil {
+			return WalletDebitResult{}, err
+		}
+		newBalance, err := b.storage.Querier().DebitProfileBalance(ctx, accountdb.DebitProfileBalanceParams{
+			ID:     params.AccountID,
+			Amount: params.Amount,
+		})
+		if err != nil {
+			return WalletDebitResult{}, err
+		}
+		return WalletDebitResult{Deducted: old - newBalance, Balance: newBalance}, nil
+	})
+	if err != nil {
+		return WalletDebitResult{}, sharedmodel.WrapErr("wallet debit", err)
+	}
+	return result, nil
+}
+
+// WalletCredit adds the given amount to profile.balance. Ledger entry is recorded by
+// the calling module (e.g. order.transaction `refund` / `payout`).
+func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditParams) error {
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err := b.storage.Querier().CreditProfileBalance(ctx, accountdb.CreditProfileBalanceParams{
+			ID:     params.AccountID,
+			Amount: params.Amount,
+		})
+		return err
+	}); err != nil {
+		return sharedmodel.WrapErr("wallet credit", err)
+	}
+	return nil
 }
