@@ -54,10 +54,10 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	favoriteApi.GET("", h.ListFavorite)
 
 	// Payment method endpoints
-	instrumentApi := api.Group("/wallet-instruments")
-	instrumentApi.POST("", h.CreateWallet)
-	instrumentApi.GET("", h.ListWallets)
-	instrumentApi.DELETE("/:id", h.DeleteWallet)
+	walletsApi := api.Group("/wallets")
+	walletsApi.POST("", h.CreateWallet)
+	walletsApi.GET("", h.ListWallets)
+	walletsApi.DELETE("/:id", h.DeleteWallet)
 
 	// Wallet endpoints
 	walletApi := api.Group("/wallet")

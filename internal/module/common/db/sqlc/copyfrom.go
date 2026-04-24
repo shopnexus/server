@@ -29,7 +29,7 @@ func (r *iteratorForCreateCopyDefaultResource) Next() bool {
 
 func (r iteratorForCreateCopyDefaultResource) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0].UploadedBy,
+		r.rows[0].UploadedByID,
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
 		r.rows[0].Mime,
@@ -44,7 +44,7 @@ func (r iteratorForCreateCopyDefaultResource) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultResource(ctx context.Context, arg []CreateCopyDefaultResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "resource"}, []string{"uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum"}, &iteratorForCreateCopyDefaultResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "resource"}, []string{"uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum"}, &iteratorForCreateCopyDefaultResource{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultResourceReference implements pgx.CopyFromSource.
@@ -105,6 +105,7 @@ func (r iteratorForCreateCopyDefaultServiceOption) Values() ([]interface{}, erro
 		r.rows[0].ID,
 		r.rows[0].Category,
 		r.rows[0].Provider,
+		r.rows[0].IsEnabled,
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].Priority,
@@ -118,7 +119,7 @@ func (r iteratorForCreateCopyDefaultServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultServiceOption(ctx context.Context, arg []CreateCopyDefaultServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
 }
 
 // iteratorForCreateCopyResource implements pgx.CopyFromSource.
@@ -142,7 +143,7 @@ func (r *iteratorForCreateCopyResource) Next() bool {
 func (r iteratorForCreateCopyResource) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
-		r.rows[0].UploadedBy,
+		r.rows[0].UploadedByID,
 		r.rows[0].Provider,
 		r.rows[0].ObjectKey,
 		r.rows[0].Mime,
@@ -158,7 +159,7 @@ func (r iteratorForCreateCopyResource) Err() error {
 }
 
 func (q *Queries) CreateCopyResource(ctx context.Context, arg []CreateCopyResourceParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "resource"}, []string{"id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at"}, &iteratorForCreateCopyResource{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "resource"}, []string{"id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at"}, &iteratorForCreateCopyResource{rows: arg})
 }
 
 // iteratorForCreateCopyResourceReference implements pgx.CopyFromSource.
@@ -219,7 +220,7 @@ func (r iteratorForCreateCopyServiceOption) Values() ([]interface{}, error) {
 		r.rows[0].ID,
 		r.rows[0].Category,
 		r.rows[0].Provider,
-		r.rows[0].IsActive,
+		r.rows[0].IsEnabled,
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].Priority,
@@ -233,5 +234,5 @@ func (r iteratorForCreateCopyServiceOption) Err() error {
 }
 
 func (q *Queries) CreateCopyServiceOption(ctx context.Context, arg []CreateCopyServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyServiceOption{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyServiceOption{rows: arg})
 }

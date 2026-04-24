@@ -16,7 +16,7 @@ SELECT COUNT(*)
 FROM "common"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by_id" = ANY(sqlc.slice('uploaded_by_id')) OR sqlc.slice('uploaded_by_id') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
@@ -35,7 +35,7 @@ SELECT *
 FROM "common"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by_id" = ANY(sqlc.slice('uploaded_by_id')) OR sqlc.slice('uploaded_by_id') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
@@ -57,7 +57,7 @@ SELECT sqlc.embed(embed_resource), COUNT(*) OVER() as total_count
 FROM "common"."resource" embed_resource
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by_id" = ANY(sqlc.slice('uploaded_by_id')) OR sqlc.slice('uploaded_by_id') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
@@ -75,31 +75,31 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateResource :one
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchResource :batchone
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyResource :copyfrom
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultResource :one
-INSERT INTO "common"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+INSERT INTO "common"."resource" ("uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyDefaultResource :copyfrom
-INSERT INTO "common"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+INSERT INTO "common"."resource" ("uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: UpdateResource :one
 UPDATE "common"."resource"
-SET "uploaded_by" = CASE WHEN sqlc.arg('null_uploaded_by')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by'), "uploaded_by") END,
+SET "uploaded_by_id" = CASE WHEN sqlc.arg('null_uploaded_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('uploaded_by_id'), "uploaded_by_id") END,
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
     "object_key" = COALESCE(sqlc.narg('object_key'), "object_key"),
     "mime" = COALESCE(sqlc.narg('mime'), "mime"),
@@ -114,7 +114,7 @@ RETURNING *;
 DELETE FROM "common"."resource"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("uploaded_by" = ANY(sqlc.slice('uploaded_by')) OR sqlc.slice('uploaded_by') IS NULL) AND
+    ("uploaded_by_id" = ANY(sqlc.slice('uploaded_by_id')) OR sqlc.slice('uploaded_by_id') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
     ("object_key" = ANY(sqlc.slice('object_key')) OR sqlc.slice('object_key') IS NULL) AND
     ("mime" = ANY(sqlc.slice('mime')) OR sqlc.slice('mime') IS NULL) AND
@@ -242,7 +242,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
@@ -259,7 +259,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
@@ -279,7 +279,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
@@ -293,33 +293,33 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateBatchServiceOption :batchone
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyServiceOption :copyfrom
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateDefaultServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: CreateCopyDefaultServiceOption :copyfrom
-INSERT INTO "common"."service_option" ("id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateServiceOption :one
 UPDATE "common"."service_option"
 SET "category" = COALESCE(sqlc.narg('category'), "category"),
     "provider" = COALESCE(sqlc.narg('provider'), "provider"),
-    "is_active" = COALESCE(sqlc.narg('is_active'), "is_active"),
+    "is_enabled" = COALESCE(sqlc.narg('is_enabled'), "is_enabled"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "priority" = COALESCE(sqlc.narg('priority'), "priority"),
@@ -334,7 +334,7 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
     ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
-    ("is_active" = ANY(sqlc.slice('is_active')) OR sqlc.slice('is_active') IS NULL) AND
+    ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND

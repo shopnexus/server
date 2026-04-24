@@ -433,9 +433,9 @@ func (b *CreateBatchRefundDisputeBatchResults) Close() error {
 }
 
 const createBatchTransaction = `-- name: CreateBatchTransaction :batchone
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreateBatchTransactionBatchResults struct {
@@ -451,7 +451,7 @@ type CreateBatchTransactionParams struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
@@ -472,7 +472,7 @@ func (q *Queries) CreateBatchTransaction(ctx context.Context, arg []CreateBatchT
 			a.Status,
 			a.Note,
 			a.PaymentOption,
-			a.InstrumentID,
+			a.WalletID,
 			a.Data,
 			a.Amount,
 			a.FromCurrency,
@@ -507,7 +507,7 @@ func (b *CreateBatchTransactionBatchResults) QueryRow(f func(int, OrderTransacti
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,

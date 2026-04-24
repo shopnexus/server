@@ -86,9 +86,9 @@ func (b *CreateBatchConversationBatchResults) Close() error {
 }
 
 const createBatchMessage = `-- name: CreateBatchMessage :batchone
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "data", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, conversation_id, sender_id, type, content, status, metadata, date_created
+RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 
 type CreateBatchMessageBatchResults struct {
@@ -103,7 +103,7 @@ type CreateBatchMessageParams struct {
 	Type           ChatMessageType   `json:"type"`
 	Content        string            `json:"content"`
 	Status         ChatMessageStatus `json:"status"`
-	Metadata       json.RawMessage   `json:"metadata"`
+	Data           json.RawMessage   `json:"data"`
 	DateCreated    time.Time         `json:"date_created"`
 }
 
@@ -116,7 +116,7 @@ func (q *Queries) CreateBatchMessage(ctx context.Context, arg []CreateBatchMessa
 			a.Type,
 			a.Content,
 			a.Status,
-			a.Metadata,
+			a.Data,
 			a.DateCreated,
 		}
 		batch.Queue(createBatchMessage, vals...)
@@ -143,7 +143,7 @@ func (b *CreateBatchMessageBatchResults) QueryRow(f func(int, ChatMessage, error
 			&i.Type,
 			&i.Content,
 			&i.Status,
-			&i.Metadata,
+			&i.Data,
 			&i.DateCreated,
 		)
 		if f != nil {

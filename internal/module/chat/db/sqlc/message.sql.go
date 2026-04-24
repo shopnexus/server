@@ -44,9 +44,9 @@ func (q *Queries) CountUnreadMessages(ctx context.Context, arg CountUnreadMessag
 }
 
 const createChatMessage = `-- name: CreateChatMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "metadata")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "data")
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, conversation_id, sender_id, type, content, status, metadata, date_created
+RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 
 type CreateChatMessageParams struct {
@@ -54,7 +54,7 @@ type CreateChatMessageParams struct {
 	SenderID       uuid.UUID       `json:"sender_id"`
 	Type           ChatMessageType `json:"type"`
 	Content        string          `json:"content"`
-	Metadata       json.RawMessage `json:"metadata"`
+	Data           json.RawMessage `json:"data"`
 }
 
 func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessageParams) (ChatMessage, error) {
@@ -63,7 +63,7 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 		arg.SenderID,
 		arg.Type,
 		arg.Content,
-		arg.Metadata,
+		arg.Data,
 	)
 	var i ChatMessage
 	err := row.Scan(
@@ -73,14 +73,14 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 		&i.Type,
 		&i.Content,
 		&i.Status,
-		&i.Metadata,
+		&i.Data,
 		&i.DateCreated,
 	)
 	return i, err
 }
 
 const listMessageByConversation = `-- name: ListMessageByConversation :many
-SELECT id, conversation_id, sender_id, type, content, status, metadata, date_created FROM "chat"."message"
+SELECT id, conversation_id, sender_id, type, content, status, data, date_created FROM "chat"."message"
 WHERE "conversation_id" = $1
 ORDER BY "date_created" DESC
 LIMIT $3::int
@@ -109,7 +109,7 @@ func (q *Queries) ListMessageByConversation(ctx context.Context, arg ListMessage
 			&i.Type,
 			&i.Content,
 			&i.Status,
-			&i.Metadata,
+			&i.Data,
 			&i.DateCreated,
 		); err != nil {
 			return nil, err

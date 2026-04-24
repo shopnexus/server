@@ -69,7 +69,7 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("content" = ANY($5) OR $5 IS NULL) AND
     ("status" = ANY($6) OR $6 IS NULL) AND
-    ("metadata" = ANY($7) OR $7 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
     ("date_created" >= $9 OR $9 IS NULL) AND
     ("date_created" <= $10 OR $10 IS NULL)
@@ -83,7 +83,7 @@ type CountMessageParams struct {
 	Type            []ChatMessageType   `json:"type"`
 	Content         []string            `json:"content"`
 	Status          []ChatMessageStatus `json:"status"`
-	Metadata        []json.RawMessage   `json:"metadata"`
+	Data            []json.RawMessage   `json:"data"`
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
@@ -97,7 +97,7 @@ func (q *Queries) CountMessage(ctx context.Context, arg CountMessageParams) (int
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.Metadata,
+		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -157,8 +157,9 @@ type CreateCopyDefaultConversationParams struct {
 type CreateCopyDefaultMessageParams struct {
 	ConversationID uuid.UUID       `json:"conversation_id"`
 	SenderID       uuid.UUID       `json:"sender_id"`
+	Type           ChatMessageType `json:"type"`
 	Content        string          `json:"content"`
-	Metadata       json.RawMessage `json:"metadata"`
+	Data           json.RawMessage `json:"data"`
 }
 
 type CreateCopyMessageParams struct {
@@ -167,7 +168,7 @@ type CreateCopyMessageParams struct {
 	Type           ChatMessageType   `json:"type"`
 	Content        string            `json:"content"`
 	Status         ChatMessageStatus `json:"status"`
-	Metadata       json.RawMessage   `json:"metadata"`
+	Data           json.RawMessage   `json:"data"`
 	DateCreated    time.Time         `json:"date_created"`
 }
 
@@ -197,24 +198,26 @@ func (q *Queries) CreateDefaultConversation(ctx context.Context, arg CreateDefau
 }
 
 const createDefaultMessage = `-- name: CreateDefaultMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "content", "metadata")
-VALUES ($1, $2, $3, $4)
-RETURNING id, conversation_id, sender_id, type, content, status, metadata, date_created
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "data")
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 
 type CreateDefaultMessageParams struct {
 	ConversationID uuid.UUID       `json:"conversation_id"`
 	SenderID       uuid.UUID       `json:"sender_id"`
+	Type           ChatMessageType `json:"type"`
 	Content        string          `json:"content"`
-	Metadata       json.RawMessage `json:"metadata"`
+	Data           json.RawMessage `json:"data"`
 }
 
 func (q *Queries) CreateDefaultMessage(ctx context.Context, arg CreateDefaultMessageParams) (ChatMessage, error) {
 	row := q.db.QueryRow(ctx, createDefaultMessage,
 		arg.ConversationID,
 		arg.SenderID,
+		arg.Type,
 		arg.Content,
-		arg.Metadata,
+		arg.Data,
 	)
 	var i ChatMessage
 	err := row.Scan(
@@ -224,16 +227,16 @@ func (q *Queries) CreateDefaultMessage(ctx context.Context, arg CreateDefaultMes
 		&i.Type,
 		&i.Content,
 		&i.Status,
-		&i.Metadata,
+		&i.Data,
 		&i.DateCreated,
 	)
 	return i, err
 }
 
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "data", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, conversation_id, sender_id, type, content, status, metadata, date_created
+RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 
 type CreateMessageParams struct {
@@ -242,7 +245,7 @@ type CreateMessageParams struct {
 	Type           ChatMessageType   `json:"type"`
 	Content        string            `json:"content"`
 	Status         ChatMessageStatus `json:"status"`
-	Metadata       json.RawMessage   `json:"metadata"`
+	Data           json.RawMessage   `json:"data"`
 	DateCreated    time.Time         `json:"date_created"`
 }
 
@@ -253,7 +256,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (C
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.Metadata,
+		arg.Data,
 		arg.DateCreated,
 	)
 	var i ChatMessage
@@ -264,7 +267,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (C
 		&i.Type,
 		&i.Content,
 		&i.Status,
-		&i.Metadata,
+		&i.Data,
 		&i.DateCreated,
 	)
 	return i, err
@@ -321,7 +324,7 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("content" = ANY($5) OR $5 IS NULL) AND
     ("status" = ANY($6) OR $6 IS NULL) AND
-    ("metadata" = ANY($7) OR $7 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
     ("date_created" >= $9 OR $9 IS NULL) AND
     ("date_created" <= $10 OR $10 IS NULL)
@@ -335,7 +338,7 @@ type DeleteMessageParams struct {
 	Type            []ChatMessageType   `json:"type"`
 	Content         []string            `json:"content"`
 	Status          []ChatMessageStatus `json:"status"`
-	Metadata        []json.RawMessage   `json:"metadata"`
+	Data            []json.RawMessage   `json:"data"`
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
@@ -349,7 +352,7 @@ func (q *Queries) DeleteMessage(ctx context.Context, arg DeleteMessageParams) er
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.Metadata,
+		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -392,7 +395,7 @@ func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams
 
 const getMessage = `-- name: GetMessage :one
 
-SELECT id, conversation_id, sender_id, type, content, status, metadata, date_created
+SELECT id, conversation_id, sender_id, type, content, status, data, date_created
 FROM "chat"."message"
 WHERE ("id" = $1)
 `
@@ -410,7 +413,7 @@ func (q *Queries) GetMessage(ctx context.Context, id null.Int) (ChatMessage, err
 		&i.Type,
 		&i.Content,
 		&i.Status,
-		&i.Metadata,
+		&i.Data,
 		&i.DateCreated,
 	)
 	return i, err
@@ -565,7 +568,7 @@ func (q *Queries) ListCountConversation(ctx context.Context, arg ListCountConver
 }
 
 const listCountMessage = `-- name: ListCountMessage :many
-SELECT embed_message.id, embed_message.conversation_id, embed_message.sender_id, embed_message.type, embed_message.content, embed_message.status, embed_message.metadata, embed_message.date_created, COUNT(*) OVER() as total_count
+SELECT embed_message.id, embed_message.conversation_id, embed_message.sender_id, embed_message.type, embed_message.content, embed_message.status, embed_message.data, embed_message.date_created, COUNT(*) OVER() as total_count
 FROM "chat"."message" embed_message
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -574,7 +577,7 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("content" = ANY($5) OR $5 IS NULL) AND
     ("status" = ANY($6) OR $6 IS NULL) AND
-    ("metadata" = ANY($7) OR $7 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
     ("date_created" >= $9 OR $9 IS NULL) AND
     ("date_created" <= $10 OR $10 IS NULL)
@@ -591,7 +594,7 @@ type ListCountMessageParams struct {
 	Type            []ChatMessageType   `json:"type"`
 	Content         []string            `json:"content"`
 	Status          []ChatMessageStatus `json:"status"`
-	Metadata        []json.RawMessage   `json:"metadata"`
+	Data            []json.RawMessage   `json:"data"`
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
@@ -612,7 +615,7 @@ func (q *Queries) ListCountMessage(ctx context.Context, arg ListCountMessagePara
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.Metadata,
+		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -633,7 +636,7 @@ func (q *Queries) ListCountMessage(ctx context.Context, arg ListCountMessagePara
 			&i.ChatMessage.Type,
 			&i.ChatMessage.Content,
 			&i.ChatMessage.Status,
-			&i.ChatMessage.Metadata,
+			&i.ChatMessage.Data,
 			&i.ChatMessage.DateCreated,
 			&i.TotalCount,
 		); err != nil {
@@ -648,7 +651,7 @@ func (q *Queries) ListCountMessage(ctx context.Context, arg ListCountMessagePara
 }
 
 const listMessage = `-- name: ListMessage :many
-SELECT id, conversation_id, sender_id, type, content, status, metadata, date_created
+SELECT id, conversation_id, sender_id, type, content, status, data, date_created
 FROM "chat"."message"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -657,7 +660,7 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("content" = ANY($5) OR $5 IS NULL) AND
     ("status" = ANY($6) OR $6 IS NULL) AND
-    ("metadata" = ANY($7) OR $7 IS NULL) AND
+    ("data" = ANY($7) OR $7 IS NULL) AND
     ("date_created" = ANY($8) OR $8 IS NULL) AND
     ("date_created" >= $9 OR $9 IS NULL) AND
     ("date_created" <= $10 OR $10 IS NULL)
@@ -674,7 +677,7 @@ type ListMessageParams struct {
 	Type            []ChatMessageType   `json:"type"`
 	Content         []string            `json:"content"`
 	Status          []ChatMessageStatus `json:"status"`
-	Metadata        []json.RawMessage   `json:"metadata"`
+	Data            []json.RawMessage   `json:"data"`
 	DateCreated     []time.Time         `json:"date_created"`
 	DateCreatedFrom null.Time           `json:"date_created_from"`
 	DateCreatedTo   null.Time           `json:"date_created_to"`
@@ -690,7 +693,7 @@ func (q *Queries) ListMessage(ctx context.Context, arg ListMessageParams) ([]Cha
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.Metadata,
+		arg.Data,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -711,7 +714,7 @@ func (q *Queries) ListMessage(ctx context.Context, arg ListMessageParams) ([]Cha
 			&i.Type,
 			&i.Content,
 			&i.Status,
-			&i.Metadata,
+			&i.Data,
 			&i.DateCreated,
 		); err != nil {
 			return nil, err
@@ -770,10 +773,10 @@ SET "conversation_id" = COALESCE($1, "conversation_id"),
     "type" = COALESCE($3, "type"),
     "content" = COALESCE($4, "content"),
     "status" = COALESCE($5, "status"),
-    "metadata" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "metadata") END,
+    "data" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "data") END,
     "date_created" = COALESCE($8, "date_created")
 WHERE id = $9
-RETURNING id, conversation_id, sender_id, type, content, status, metadata, date_created
+RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 
 type UpdateMessageParams struct {
@@ -782,8 +785,8 @@ type UpdateMessageParams struct {
 	Type           NullChatMessageType   `json:"type"`
 	Content        null.String           `json:"content"`
 	Status         NullChatMessageStatus `json:"status"`
-	NullMetadata   bool                  `json:"null_metadata"`
-	Metadata       json.RawMessage       `json:"metadata"`
+	NullData       bool                  `json:"null_data"`
+	Data           json.RawMessage       `json:"data"`
 	DateCreated    null.Time             `json:"date_created"`
 	ID             int64                 `json:"id"`
 }
@@ -795,8 +798,8 @@ func (q *Queries) UpdateMessage(ctx context.Context, arg UpdateMessageParams) (C
 		arg.Type,
 		arg.Content,
 		arg.Status,
-		arg.NullMetadata,
-		arg.Metadata,
+		arg.NullData,
+		arg.Data,
 		arg.DateCreated,
 		arg.ID,
 	)
@@ -808,7 +811,7 @@ func (q *Queries) UpdateMessage(ctx context.Context, arg UpdateMessageParams) (C
 		&i.Type,
 		&i.Content,
 		&i.Status,
-		&i.Metadata,
+		&i.Data,
 		&i.DateCreated,
 	)
 	return i, err

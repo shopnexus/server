@@ -64,7 +64,7 @@ type AccountBiz interface {
 	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
 	WalletCredit(ctx context.Context, params WalletCreditParams) error
 
-	// Wallet instruments (stored payment methods on account.wallet)
+	// Wallets (stored payment methods on account.wallet)
 	CreateWallet(ctx context.Context, params CreateWalletParams) (accountdb.AccountWallet, error)
 	ListWallets(ctx context.Context, params ListWalletsParams) ([]accountdb.AccountWallet, error)
 	DeleteWallet(ctx context.Context, params DeleteWalletParams) error

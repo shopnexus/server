@@ -155,14 +155,14 @@ type CatalogComment struct {
 }
 
 type CatalogProductSku struct {
-	ID             uuid.UUID       `json:"id"`
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateCreated    time.Time       `json:"date_created"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	ID              uuid.UUID       `json:"id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 type CatalogProductSpu struct {
@@ -174,7 +174,7 @@ type CatalogProductSpu struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`

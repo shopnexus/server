@@ -14,3 +14,5 @@
 - wire filter by category (/category/id)
 - allow add background image
 - allow reference item in chat
+
+- nên mã hoá các data nhạy cảm như credit card, service option config trong db, tránh lưu plain object

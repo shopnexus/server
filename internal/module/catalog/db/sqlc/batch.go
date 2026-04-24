@@ -166,9 +166,9 @@ func (b *CreateBatchCommentBatchResults) Close() error {
 }
 
 const createBatchProductSku = `-- name: CreateBatchProductSku :batchone
-INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "shared_packaging", "attributes", "package_details", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+RETURNING id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 `
 
 type CreateBatchProductSkuBatchResults struct {
@@ -178,14 +178,14 @@ type CreateBatchProductSkuBatchResults struct {
 }
 
 type CreateBatchProductSkuParams struct {
-	ID             uuid.UUID       `json:"id"`
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateCreated    time.Time       `json:"date_created"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	ID              uuid.UUID       `json:"id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 func (q *Queries) CreateBatchProductSku(ctx context.Context, arg []CreateBatchProductSkuParams) *CreateBatchProductSkuBatchResults {
@@ -195,7 +195,7 @@ func (q *Queries) CreateBatchProductSku(ctx context.Context, arg []CreateBatchPr
 			a.ID,
 			a.SpuID,
 			a.Price,
-			a.Combinable,
+			a.SharedPackaging,
 			a.Attributes,
 			a.PackageDetails,
 			a.DateCreated,
@@ -222,7 +222,7 @@ func (b *CreateBatchProductSkuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.ID,
 			&i.SpuID,
 			&i.Price,
-			&i.Combinable,
+			&i.SharedPackaging,
 			&i.Attributes,
 			&i.PackageDetails,
 			&i.DateCreated,
@@ -240,9 +240,9 @@ func (b *CreateBatchProductSkuBatchResults) Close() error {
 }
 
 const createBatchProductSpu = `-- name: CreateBatchProductSpu :batchone
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_enabled", "currency", "specifications", "date_created", "date_updated", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateBatchProductSpuBatchResults struct {
@@ -259,7 +259,7 @@ type CreateBatchProductSpuParams struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
@@ -278,7 +278,7 @@ func (q *Queries) CreateBatchProductSpu(ctx context.Context, arg []CreateBatchPr
 			a.FeaturedSkuID,
 			a.Name,
 			a.Description,
-			a.IsActive,
+			a.IsEnabled,
 			a.Currency,
 			a.Specifications,
 			a.DateCreated,
@@ -311,7 +311,7 @@ func (b *CreateBatchProductSpuBatchResults) QueryRow(f func(int, CatalogProductS
 			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
-			&i.IsActive,
+			&i.IsEnabled,
 			&i.Currency,
 			&i.Specifications,
 			&i.DateCreated,

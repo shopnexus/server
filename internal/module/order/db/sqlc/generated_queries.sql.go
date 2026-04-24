@@ -347,7 +347,7 @@ WHERE (
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("note" = ANY($6) OR $6 IS NULL) AND
     ("payment_option" = ANY($7) OR $7 IS NULL) AND
-    ("instrument_id" = ANY($8) OR $8 IS NULL) AND
+    ("wallet_id" = ANY($8) OR $8 IS NULL) AND
     ("data" = ANY($9) OR $9 IS NULL) AND
     ("amount" = ANY($10) OR $10 IS NULL) AND
     ("amount" >= $11 OR $11 IS NULL) AND
@@ -375,7 +375,7 @@ type CountTransactionParams struct {
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	InstrumentID     []uuid.NullUUID   `json:"instrument_id"`
+	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -403,7 +403,7 @@ func (q *Queries) CountTransaction(ctx context.Context, arg CountTransactionPara
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -561,7 +561,7 @@ type CreateCopyDefaultTransactionParams struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
@@ -645,7 +645,7 @@ type CreateCopyTransactionParams struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
@@ -893,9 +893,9 @@ func (q *Queries) CreateDefaultRefundDispute(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultTransaction = `-- name: CreateDefaultTransaction :one
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreateDefaultTransactionParams struct {
@@ -905,7 +905,7 @@ type CreateDefaultTransactionParams struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
@@ -923,7 +923,7 @@ func (q *Queries) CreateDefaultTransaction(ctx context.Context, arg CreateDefaul
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -941,7 +941,7 @@ func (q *Queries) CreateDefaultTransaction(ctx context.Context, arg CreateDefaul
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -1202,9 +1202,9 @@ func (q *Queries) CreateRefundDispute(ctx context.Context, arg CreateRefundDispu
 }
 
 const createTransaction = `-- name: CreateTransaction :one
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type CreateTransactionParams struct {
@@ -1214,7 +1214,7 @@ type CreateTransactionParams struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
@@ -1233,7 +1233,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -1252,7 +1252,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -1612,7 +1612,7 @@ WHERE (
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("note" = ANY($6) OR $6 IS NULL) AND
     ("payment_option" = ANY($7) OR $7 IS NULL) AND
-    ("instrument_id" = ANY($8) OR $8 IS NULL) AND
+    ("wallet_id" = ANY($8) OR $8 IS NULL) AND
     ("data" = ANY($9) OR $9 IS NULL) AND
     ("amount" = ANY($10) OR $10 IS NULL) AND
     ("amount" >= $11 OR $11 IS NULL) AND
@@ -1640,7 +1640,7 @@ type DeleteTransactionParams struct {
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	InstrumentID     []uuid.NullUUID   `json:"instrument_id"`
+	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -1668,7 +1668,7 @@ func (q *Queries) DeleteTransaction(ctx context.Context, arg DeleteTransactionPa
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -1882,7 +1882,7 @@ func (q *Queries) GetRefundDispute(ctx context.Context, id uuid.NullUUID) (Order
 
 const getTransaction = `-- name: GetTransaction :one
 
-SELECT id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+SELECT id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 FROM "order"."transaction"
 WHERE ("id" = $1)
 `
@@ -1901,7 +1901,7 @@ func (q *Queries) GetTransaction(ctx context.Context, id null.Int) (OrderTransac
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -2510,7 +2510,7 @@ func (q *Queries) ListCountRefundDispute(ctx context.Context, arg ListCountRefun
 }
 
 const listCountTransaction = `-- name: ListCountTransaction :many
-SELECT embed_transaction.id, embed_transaction.from_id, embed_transaction.to_id, embed_transaction.type, embed_transaction.status, embed_transaction.note, embed_transaction.payment_option, embed_transaction.instrument_id, embed_transaction.data, embed_transaction.amount, embed_transaction.from_currency, embed_transaction.to_currency, embed_transaction.exchange_rate, embed_transaction.date_created, embed_transaction.date_paid, embed_transaction.date_expired, COUNT(*) OVER() as total_count
+SELECT embed_transaction.id, embed_transaction.from_id, embed_transaction.to_id, embed_transaction.type, embed_transaction.status, embed_transaction.note, embed_transaction.payment_option, embed_transaction.wallet_id, embed_transaction.data, embed_transaction.amount, embed_transaction.from_currency, embed_transaction.to_currency, embed_transaction.exchange_rate, embed_transaction.date_created, embed_transaction.date_paid, embed_transaction.date_expired, COUNT(*) OVER() as total_count
 FROM "order"."transaction" embed_transaction
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2520,7 +2520,7 @@ WHERE (
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("note" = ANY($6) OR $6 IS NULL) AND
     ("payment_option" = ANY($7) OR $7 IS NULL) AND
-    ("instrument_id" = ANY($8) OR $8 IS NULL) AND
+    ("wallet_id" = ANY($8) OR $8 IS NULL) AND
     ("data" = ANY($9) OR $9 IS NULL) AND
     ("amount" = ANY($10) OR $10 IS NULL) AND
     ("amount" >= $11 OR $11 IS NULL) AND
@@ -2551,7 +2551,7 @@ type ListCountTransactionParams struct {
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	InstrumentID     []uuid.NullUUID   `json:"instrument_id"`
+	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -2586,7 +2586,7 @@ func (q *Queries) ListCountTransaction(ctx context.Context, arg ListCountTransac
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -2621,7 +2621,7 @@ func (q *Queries) ListCountTransaction(ctx context.Context, arg ListCountTransac
 			&i.OrderTransaction.Status,
 			&i.OrderTransaction.Note,
 			&i.OrderTransaction.PaymentOption,
-			&i.OrderTransaction.InstrumentID,
+			&i.OrderTransaction.WalletID,
 			&i.OrderTransaction.Data,
 			&i.OrderTransaction.Amount,
 			&i.OrderTransaction.FromCurrency,
@@ -3134,7 +3134,7 @@ func (q *Queries) ListRefundDispute(ctx context.Context, arg ListRefundDisputePa
 }
 
 const listTransaction = `-- name: ListTransaction :many
-SELECT id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+SELECT id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 FROM "order"."transaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -3144,7 +3144,7 @@ WHERE (
     ("status" = ANY($5) OR $5 IS NULL) AND
     ("note" = ANY($6) OR $6 IS NULL) AND
     ("payment_option" = ANY($7) OR $7 IS NULL) AND
-    ("instrument_id" = ANY($8) OR $8 IS NULL) AND
+    ("wallet_id" = ANY($8) OR $8 IS NULL) AND
     ("data" = ANY($9) OR $9 IS NULL) AND
     ("amount" = ANY($10) OR $10 IS NULL) AND
     ("amount" >= $11 OR $11 IS NULL) AND
@@ -3175,7 +3175,7 @@ type ListTransactionParams struct {
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	InstrumentID     []uuid.NullUUID   `json:"instrument_id"`
+	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -3205,7 +3205,7 @@ func (q *Queries) ListTransaction(ctx context.Context, arg ListTransactionParams
 		arg.Status,
 		arg.Note,
 		arg.PaymentOption,
-		arg.InstrumentID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -3240,7 +3240,7 @@ func (q *Queries) ListTransaction(ctx context.Context, arg ListTransactionParams
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -3670,7 +3670,7 @@ SET "from_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "from_id")
     "status" = COALESCE($6, "status"),
     "note" = COALESCE($7, "note"),
     "payment_option" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "payment_option") END,
-    "instrument_id" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "instrument_id") END,
+    "wallet_id" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "wallet_id") END,
     "data" = COALESCE($12, "data"),
     "amount" = COALESCE($13, "amount"),
     "from_currency" = COALESCE($14, "from_currency"),
@@ -3680,7 +3680,7 @@ SET "from_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "from_id")
     "date_paid" = CASE WHEN $18::bool = TRUE THEN NULL ELSE COALESCE($19, "date_paid") END,
     "date_expired" = COALESCE($20, "date_expired")
 WHERE id = $21
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type UpdateTransactionParams struct {
@@ -3693,8 +3693,8 @@ type UpdateTransactionParams struct {
 	Note              null.String     `json:"note"`
 	NullPaymentOption bool            `json:"null_payment_option"`
 	PaymentOption     null.String     `json:"payment_option"`
-	NullInstrumentID  bool            `json:"null_instrument_id"`
-	InstrumentID      uuid.NullUUID   `json:"instrument_id"`
+	NullWalletID      bool            `json:"null_wallet_id"`
+	WalletID          uuid.NullUUID   `json:"wallet_id"`
 	Data              json.RawMessage `json:"data"`
 	Amount            null.Int        `json:"amount"`
 	FromCurrency      null.String     `json:"from_currency"`
@@ -3718,8 +3718,8 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		arg.Note,
 		arg.NullPaymentOption,
 		arg.PaymentOption,
-		arg.NullInstrumentID,
-		arg.InstrumentID,
+		arg.NullWalletID,
+		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -3740,7 +3740,7 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,

@@ -61,14 +61,14 @@ func (q *Queries) DetailRating(ctx context.Context, arg DetailRatingParams) (Det
 }
 
 const listCountProductSpuRecent = `-- name: ListCountProductSpuRecent :many
-SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_enabled, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("slug" = ANY($2) OR $2 IS NULL) AND
     ("account_id" = ANY($3) OR $3 IS NULL) AND
     ("category_id" = ANY($4) OR $4 IS NULL) AND
-    ("is_active" = ANY($5) OR $5 IS NULL) AND
+    ("is_enabled" = ANY($5) OR $5 IS NULL) AND
     ("date_deleted" IS NULL)
 )
 ORDER BY "date_created" DESC
@@ -81,7 +81,7 @@ type ListCountProductSpuRecentParams struct {
 	Slug       []string    `json:"slug"`
 	AccountID  []uuid.UUID `json:"account_id"`
 	CategoryID []uuid.UUID `json:"category_id"`
-	IsActive   []bool      `json:"is_active"`
+	IsEnabled  []bool      `json:"is_enabled"`
 	Offset     null.Int32  `json:"offset"`
 	Limit      null.Int32  `json:"limit"`
 }
@@ -98,7 +98,7 @@ func (q *Queries) ListCountProductSpuRecent(ctx context.Context, arg ListCountPr
 		arg.Slug,
 		arg.AccountID,
 		arg.CategoryID,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -118,7 +118,7 @@ func (q *Queries) ListCountProductSpuRecent(ctx context.Context, arg ListCountPr
 			&i.CatalogProductSpu.FeaturedSkuID,
 			&i.CatalogProductSpu.Name,
 			&i.CatalogProductSpu.Description,
-			&i.CatalogProductSpu.IsActive,
+			&i.CatalogProductSpu.IsEnabled,
 			&i.CatalogProductSpu.Currency,
 			&i.CatalogProductSpu.Specifications,
 			&i.CatalogProductSpu.DateCreated,
@@ -178,14 +178,14 @@ func (q *Queries) ListRating(ctx context.Context, arg ListRatingParams) ([]ListR
 }
 
 const searchCountProductSpu = `-- name: SearchCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_enabled, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
     ("category_id" = ANY($3) OR $3 IS NULL) AND
     ("featured_sku_id" = ANY($4) OR $4 IS NULL) AND
-    ("is_active" = ANY($5) OR $5 IS NULL) AND
+    ("is_enabled" = ANY($5) OR $5 IS NULL) AND
     ("date_created" = ANY($6) OR $6 IS NULL) AND
     ("date_created" > $7 OR $7 IS NULL) AND
     ("date_created" < $8 OR $8 IS NULL) AND
@@ -210,7 +210,7 @@ type SearchCountProductSpuParams struct {
 	AccountID       []uuid.UUID     `json:"account_id"`
 	CategoryID      []uuid.UUID     `json:"category_id"`
 	FeaturedSkuID   []uuid.NullUUID `json:"featured_sku_id"`
-	IsActive        []bool          `json:"is_active"`
+	IsEnabled       []bool          `json:"is_enabled"`
 	DateCreated     []time.Time     `json:"date_created"`
 	DateCreatedFrom null.Time       `json:"date_created_from"`
 	DateCreatedTo   null.Time       `json:"date_created_to"`
@@ -235,7 +235,7 @@ func (q *Queries) SearchCountProductSpu(ctx context.Context, arg SearchCountProd
 		arg.AccountID,
 		arg.CategoryID,
 		arg.FeaturedSkuID,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
@@ -264,7 +264,7 @@ func (q *Queries) SearchCountProductSpu(ctx context.Context, arg SearchCountProd
 			&i.CatalogProductSpu.FeaturedSkuID,
 			&i.CatalogProductSpu.Name,
 			&i.CatalogProductSpu.Description,
-			&i.CatalogProductSpu.IsActive,
+			&i.CatalogProductSpu.IsEnabled,
 			&i.CatalogProductSpu.Currency,
 			&i.CatalogProductSpu.Specifications,
 			&i.CatalogProductSpu.DateCreated,

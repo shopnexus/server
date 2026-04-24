@@ -1,5 +1,13 @@
 package analyticconfig
 
+import (
+	"reflect"
+	analyticmodel "shopnexus-server/internal/module/analytic/model"
+)
+
+type Config struct {
+}
+
 type PopularityWeights struct {
 	Purchase            float64 `yaml:"purchase"                  mapstructure:"purchase"`
 	AddToCart           float64 `yaml:"add_to_cart"               mapstructure:"add_to_cart"`
@@ -25,6 +33,26 @@ type PopularityWeights struct {
 	HideItem            float64 `yaml:"hide_item"                 mapstructure:"hide_item"`
 	NotInterested       float64 `yaml:"not_interested"            mapstructure:"not_interested"`
 	ViewBounce          float64 `yaml:"view_bounce"               mapstructure:"view_bounce"`
+}
+
+func (w PopularityWeights) WeightMap() map[analyticmodel.Event]float64 {
+	result := make(map[analyticmodel.Event]float64)
+
+	v := reflect.ValueOf(w)
+	t := v.Type()
+
+	for i := range t.NumField() {
+		field := t.Field(i)
+
+		tag := field.Tag.Get("yaml")
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		result[analyticmodel.Event(tag)] = v.Field(i).Float()
+	}
+
+	return result
 }
 
 func DefaultPopularityWeights() PopularityWeights {
@@ -53,34 +81,5 @@ func DefaultPopularityWeights() PopularityWeights {
 		HideItem:            -0.35,
 		NotInterested:       -0.3,
 		ViewBounce:          -0.1,
-	}
-}
-
-func (w PopularityWeights) WeightMap() map[string]float64 {
-	return map[string]float64{
-		"purchase":                  w.Purchase,
-		"add_to_cart":               w.AddToCart,
-		"view":                      w.View,
-		"add_to_favorites":          w.AddToFavorites,
-		"write_review":              w.WriteReview,
-		"rating_high":               w.RatingHigh,
-		"rating_medium":             w.RatingMedium,
-		"ask_question":              w.AskQuestion,
-		"click_from_search":         w.ClickFromSearch,
-		"click_from_recommendation": w.ClickFromRecommend,
-		"click_from_category":       w.ClickFromCategory,
-		"view_similar_products":     w.ViewSimilarProducts,
-		"product_impression":        w.ProductImpression,
-		"checkout_started":          w.CheckoutStarted,
-		"remove_from_cart":          w.RemoveFromCart,
-		"return_product":            w.ReturnProduct,
-		"refund_requested":          w.RefundRequested,
-		"cancel_order":              w.CancelOrder,
-		"rating_low":                w.RatingLow,
-		"report_product":            w.ReportProduct,
-		"dislike":                   w.Dislike,
-		"hide_item":                 w.HideItem,
-		"not_interested":            w.NotInterested,
-		"view_bounce":               w.ViewBounce,
 	}
 }

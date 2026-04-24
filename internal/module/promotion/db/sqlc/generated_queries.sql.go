@@ -24,12 +24,12 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("title" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
-    ("group" = ANY($9) OR $9 IS NULL) AND
-    ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" >= $11 OR $11 IS NULL) AND
-    ("priority" <= $12 OR $12 IS NULL) AND
+    ("is_enabled" = ANY($7) OR $7 IS NULL) AND
+    ("budget" = ANY($8) OR $8 IS NULL) AND
+    ("budget" >= $9 OR $9 IS NULL) AND
+    ("budget" <= $10 OR $10 IS NULL) AND
+    ("auto_apply" = ANY($11) OR $11 IS NULL) AND
+    ("group" = ANY($12) OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
     ("date_started" >= $15 OR $15 IS NULL) AND
@@ -53,12 +53,12 @@ type CountPromotionParams struct {
 	Type            []PromotionType   `json:"type"`
 	Title           []string          `json:"title"`
 	Description     []null.String     `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
+	Budget          []int64           `json:"budget"`
+	BudgetFrom      null.Int          `json:"budget_from"`
+	BudgetTo        null.Int          `json:"budget_to"`
 	AutoApply       []bool            `json:"auto_apply"`
 	Group           []string          `json:"group"`
-	Priority        []int32           `json:"priority"`
-	PriorityFrom    null.Int32        `json:"priority_from"`
-	PriorityTo      null.Int32        `json:"priority_to"`
 	Data            []json.RawMessage `json:"data"`
 	DateStarted     []time.Time       `json:"date_started"`
 	DateStartedFrom null.Time         `json:"date_started_from"`
@@ -82,12 +82,12 @@ func (q *Queries) CountPromotion(ctx context.Context, arg CountPromotionParams) 
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
+		arg.BudgetFrom,
+		arg.BudgetTo,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
@@ -200,7 +200,8 @@ type CreateCopyDefaultPromotionParams struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
 	Data        json.RawMessage `json:"data"`
@@ -230,10 +231,10 @@ type CreateCopyPromotionParams struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`
@@ -257,9 +258,9 @@ type CreateCopyScheduleParams struct {
 }
 
 const createDefaultPromotion = `-- name: CreateDefaultPromotion :one
-INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "data", "date_started", "date_ended")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+INSERT INTO "promotion"."promotion" ("code", "owner_id", "type", "title", "description", "is_enabled", "budget", "auto_apply", "group", "data", "date_started", "date_ended")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 `
 
 type CreateDefaultPromotionParams struct {
@@ -268,7 +269,8 @@ type CreateDefaultPromotionParams struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
 	Data        json.RawMessage `json:"data"`
@@ -283,7 +285,8 @@ func (q *Queries) CreateDefaultPromotion(ctx context.Context, arg CreateDefaultP
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
 		arg.AutoApply,
 		arg.Group,
 		arg.Data,
@@ -298,10 +301,10 @@ func (q *Queries) CreateDefaultPromotion(ctx context.Context, arg CreateDefaultP
 		&i.Type,
 		&i.Title,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
+		&i.Budget,
 		&i.AutoApply,
 		&i.Group,
-		&i.Priority,
 		&i.Data,
 		&i.DateStarted,
 		&i.DateEnded,
@@ -373,9 +376,9 @@ func (q *Queries) CreateDefaultSchedule(ctx context.Context, arg CreateDefaultSc
 }
 
 const createPromotion = `-- name: CreatePromotion :one
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_enabled", "budget", "auto_apply", "group", "data", "date_started", "date_ended", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+RETURNING id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 `
 
 type CreatePromotionParams struct {
@@ -385,10 +388,10 @@ type CreatePromotionParams struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`
@@ -404,10 +407,10 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateEnded,
@@ -422,10 +425,10 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		&i.Type,
 		&i.Title,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
+		&i.Budget,
 		&i.AutoApply,
 		&i.Group,
-		&i.Priority,
 		&i.Data,
 		&i.DateStarted,
 		&i.DateEnded,
@@ -505,12 +508,12 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("title" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
-    ("group" = ANY($9) OR $9 IS NULL) AND
-    ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" >= $11 OR $11 IS NULL) AND
-    ("priority" <= $12 OR $12 IS NULL) AND
+    ("is_enabled" = ANY($7) OR $7 IS NULL) AND
+    ("budget" = ANY($8) OR $8 IS NULL) AND
+    ("budget" >= $9 OR $9 IS NULL) AND
+    ("budget" <= $10 OR $10 IS NULL) AND
+    ("auto_apply" = ANY($11) OR $11 IS NULL) AND
+    ("group" = ANY($12) OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
     ("date_started" >= $15 OR $15 IS NULL) AND
@@ -534,12 +537,12 @@ type DeletePromotionParams struct {
 	Type            []PromotionType   `json:"type"`
 	Title           []string          `json:"title"`
 	Description     []null.String     `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
+	Budget          []int64           `json:"budget"`
+	BudgetFrom      null.Int          `json:"budget_from"`
+	BudgetTo        null.Int          `json:"budget_to"`
 	AutoApply       []bool            `json:"auto_apply"`
 	Group           []string          `json:"group"`
-	Priority        []int32           `json:"priority"`
-	PriorityFrom    null.Int32        `json:"priority_from"`
-	PriorityTo      null.Int32        `json:"priority_to"`
 	Data            []json.RawMessage `json:"data"`
 	DateStarted     []time.Time       `json:"date_started"`
 	DateStartedFrom null.Time         `json:"date_started_from"`
@@ -563,12 +566,12 @@ func (q *Queries) DeletePromotion(ctx context.Context, arg DeletePromotionParams
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
+		arg.BudgetFrom,
+		arg.BudgetTo,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
@@ -671,7 +674,7 @@ const getPromotion = `-- name: GetPromotion :one
 
 
 
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 FROM "promotion"."promotion"
 WHERE ("id" = $1) OR ("code" = $2)
 `
@@ -696,10 +699,10 @@ func (q *Queries) GetPromotion(ctx context.Context, arg GetPromotionParams) (Pro
 		&i.Type,
 		&i.Title,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
+		&i.Budget,
 		&i.AutoApply,
 		&i.Group,
-		&i.Priority,
 		&i.Data,
 		&i.DateStarted,
 		&i.DateEnded,
@@ -769,7 +772,7 @@ func (q *Queries) GetSchedule(ctx context.Context, id null.Int) (PromotionSchedu
 }
 
 const listCountPromotion = `-- name: ListCountPromotion :many
-SELECT embed_promotion.id, embed_promotion.code, embed_promotion.owner_id, embed_promotion.type, embed_promotion.title, embed_promotion.description, embed_promotion.is_active, embed_promotion.auto_apply, embed_promotion."group", embed_promotion.priority, embed_promotion.data, embed_promotion.date_started, embed_promotion.date_ended, embed_promotion.date_created, embed_promotion.date_updated, COUNT(*) OVER() as total_count
+SELECT embed_promotion.id, embed_promotion.code, embed_promotion.owner_id, embed_promotion.type, embed_promotion.title, embed_promotion.description, embed_promotion.is_enabled, embed_promotion.budget, embed_promotion.auto_apply, embed_promotion."group", embed_promotion.data, embed_promotion.date_started, embed_promotion.date_ended, embed_promotion.date_created, embed_promotion.date_updated, COUNT(*) OVER() as total_count
 FROM "promotion"."promotion" embed_promotion
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -778,12 +781,12 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("title" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
-    ("group" = ANY($9) OR $9 IS NULL) AND
-    ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" >= $11 OR $11 IS NULL) AND
-    ("priority" <= $12 OR $12 IS NULL) AND
+    ("is_enabled" = ANY($7) OR $7 IS NULL) AND
+    ("budget" = ANY($8) OR $8 IS NULL) AND
+    ("budget" >= $9 OR $9 IS NULL) AND
+    ("budget" <= $10 OR $10 IS NULL) AND
+    ("auto_apply" = ANY($11) OR $11 IS NULL) AND
+    ("group" = ANY($12) OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
     ("date_started" >= $15 OR $15 IS NULL) AND
@@ -810,12 +813,12 @@ type ListCountPromotionParams struct {
 	Type            []PromotionType   `json:"type"`
 	Title           []string          `json:"title"`
 	Description     []null.String     `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
+	Budget          []int64           `json:"budget"`
+	BudgetFrom      null.Int          `json:"budget_from"`
+	BudgetTo        null.Int          `json:"budget_to"`
 	AutoApply       []bool            `json:"auto_apply"`
 	Group           []string          `json:"group"`
-	Priority        []int32           `json:"priority"`
-	PriorityFrom    null.Int32        `json:"priority_from"`
-	PriorityTo      null.Int32        `json:"priority_to"`
 	Data            []json.RawMessage `json:"data"`
 	DateStarted     []time.Time       `json:"date_started"`
 	DateStartedFrom null.Time         `json:"date_started_from"`
@@ -846,12 +849,12 @@ func (q *Queries) ListCountPromotion(ctx context.Context, arg ListCountPromotion
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
+		arg.BudgetFrom,
+		arg.BudgetTo,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
@@ -882,10 +885,10 @@ func (q *Queries) ListCountPromotion(ctx context.Context, arg ListCountPromotion
 			&i.PromotionPromotion.Type,
 			&i.PromotionPromotion.Title,
 			&i.PromotionPromotion.Description,
-			&i.PromotionPromotion.IsActive,
+			&i.PromotionPromotion.IsEnabled,
+			&i.PromotionPromotion.Budget,
 			&i.PromotionPromotion.AutoApply,
 			&i.PromotionPromotion.Group,
-			&i.PromotionPromotion.Priority,
 			&i.PromotionPromotion.Data,
 			&i.PromotionPromotion.DateStarted,
 			&i.PromotionPromotion.DateEnded,
@@ -1056,7 +1059,7 @@ func (q *Queries) ListCountSchedule(ctx context.Context, arg ListCountSchedulePa
 }
 
 const listPromotion = `-- name: ListPromotion :many
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 FROM "promotion"."promotion"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1065,12 +1068,12 @@ WHERE (
     ("type" = ANY($4) OR $4 IS NULL) AND
     ("title" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
-    ("is_active" = ANY($7) OR $7 IS NULL) AND
-    ("auto_apply" = ANY($8) OR $8 IS NULL) AND
-    ("group" = ANY($9) OR $9 IS NULL) AND
-    ("priority" = ANY($10) OR $10 IS NULL) AND
-    ("priority" >= $11 OR $11 IS NULL) AND
-    ("priority" <= $12 OR $12 IS NULL) AND
+    ("is_enabled" = ANY($7) OR $7 IS NULL) AND
+    ("budget" = ANY($8) OR $8 IS NULL) AND
+    ("budget" >= $9 OR $9 IS NULL) AND
+    ("budget" <= $10 OR $10 IS NULL) AND
+    ("auto_apply" = ANY($11) OR $11 IS NULL) AND
+    ("group" = ANY($12) OR $12 IS NULL) AND
     ("data" = ANY($13) OR $13 IS NULL) AND
     ("date_started" = ANY($14) OR $14 IS NULL) AND
     ("date_started" >= $15 OR $15 IS NULL) AND
@@ -1097,12 +1100,12 @@ type ListPromotionParams struct {
 	Type            []PromotionType   `json:"type"`
 	Title           []string          `json:"title"`
 	Description     []null.String     `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
+	Budget          []int64           `json:"budget"`
+	BudgetFrom      null.Int          `json:"budget_from"`
+	BudgetTo        null.Int          `json:"budget_to"`
 	AutoApply       []bool            `json:"auto_apply"`
 	Group           []string          `json:"group"`
-	Priority        []int32           `json:"priority"`
-	PriorityFrom    null.Int32        `json:"priority_from"`
-	PriorityTo      null.Int32        `json:"priority_to"`
 	Data            []json.RawMessage `json:"data"`
 	DateStarted     []time.Time       `json:"date_started"`
 	DateStartedFrom null.Time         `json:"date_started_from"`
@@ -1128,12 +1131,12 @@ func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([
 		arg.Type,
 		arg.Title,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
+		arg.BudgetFrom,
+		arg.BudgetTo,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
 		arg.Data,
 		arg.DateStarted,
 		arg.DateStartedFrom,
@@ -1164,10 +1167,10 @@ func (q *Queries) ListPromotion(ctx context.Context, arg ListPromotionParams) ([
 			&i.Type,
 			&i.Title,
 			&i.Description,
-			&i.IsActive,
+			&i.IsEnabled,
+			&i.Budget,
 			&i.AutoApply,
 			&i.Group,
-			&i.Priority,
 			&i.Data,
 			&i.DateStarted,
 			&i.DateEnded,
@@ -1331,17 +1334,17 @@ SET "code" = COALESCE($1, "code"),
     "type" = COALESCE($4, "type"),
     "title" = COALESCE($5, "title"),
     "description" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "description") END,
-    "is_active" = COALESCE($8, "is_active"),
-    "auto_apply" = COALESCE($9, "auto_apply"),
-    "group" = COALESCE($10, "group"),
-    "priority" = COALESCE($11, "priority"),
+    "is_enabled" = COALESCE($8, "is_enabled"),
+    "budget" = COALESCE($9, "budget"),
+    "auto_apply" = COALESCE($10, "auto_apply"),
+    "group" = COALESCE($11, "group"),
     "data" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "data") END,
     "date_started" = COALESCE($14, "date_started"),
     "date_ended" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "date_ended") END,
     "date_created" = COALESCE($17, "date_created"),
     "date_updated" = COALESCE($18, "date_updated")
 WHERE id = $19
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+RETURNING id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 `
 
 type UpdatePromotionParams struct {
@@ -1352,10 +1355,10 @@ type UpdatePromotionParams struct {
 	Title           null.String       `json:"title"`
 	NullDescription bool              `json:"null_description"`
 	Description     null.String       `json:"description"`
-	IsActive        null.Bool         `json:"is_active"`
+	IsEnabled       null.Bool         `json:"is_enabled"`
+	Budget          null.Int          `json:"budget"`
 	AutoApply       null.Bool         `json:"auto_apply"`
 	Group           null.String       `json:"group"`
-	Priority        null.Int32        `json:"priority"`
 	NullData        bool              `json:"null_data"`
 	Data            json.RawMessage   `json:"data"`
 	DateStarted     null.Time         `json:"date_started"`
@@ -1375,10 +1378,10 @@ func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams
 		arg.Title,
 		arg.NullDescription,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
+		arg.Budget,
 		arg.AutoApply,
 		arg.Group,
-		arg.Priority,
 		arg.NullData,
 		arg.Data,
 		arg.DateStarted,
@@ -1396,10 +1399,10 @@ func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams
 		&i.Type,
 		&i.Title,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
+		&i.Budget,
 		&i.AutoApply,
 		&i.Group,
-		&i.Priority,
 		&i.Data,
 		&i.DateStarted,
 		&i.DateEnded,

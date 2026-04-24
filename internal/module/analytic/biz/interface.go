@@ -42,7 +42,7 @@ type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 type AnalyticHandler struct {
 	storage           AnalyticStorage
 	promotion         promotionbiz.PromotionBiz
-	popularityWeights map[string]float64
+	popularityWeights map[analyticmodel.Event]float64
 }
 
 func (b *AnalyticHandler) ServiceName() string {

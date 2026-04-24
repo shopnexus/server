@@ -268,7 +268,7 @@ func (r iteratorForCreateCopyDefaultTransaction) Values() ([]interface{}, error)
 		r.rows[0].Status,
 		r.rows[0].Note,
 		r.rows[0].PaymentOption,
-		r.rows[0].InstrumentID,
+		r.rows[0].WalletID,
 		r.rows[0].Data,
 		r.rows[0].Amount,
 		r.rows[0].FromCurrency,
@@ -284,7 +284,7 @@ func (r iteratorForCreateCopyDefaultTransaction) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultTransaction(ctx context.Context, arg []CreateCopyDefaultTransactionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "transaction"}, []string{"from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultTransaction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "transaction"}, []string{"from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultTransaction{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultTransport implements pgx.CopyFromSource.
@@ -520,7 +520,7 @@ func (r iteratorForCreateCopyTransaction) Values() ([]interface{}, error) {
 		r.rows[0].Status,
 		r.rows[0].Note,
 		r.rows[0].PaymentOption,
-		r.rows[0].InstrumentID,
+		r.rows[0].WalletID,
 		r.rows[0].Data,
 		r.rows[0].Amount,
 		r.rows[0].FromCurrency,
@@ -537,7 +537,7 @@ func (r iteratorForCreateCopyTransaction) Err() error {
 }
 
 func (q *Queries) CreateCopyTransaction(ctx context.Context, arg []CreateCopyTransactionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "transaction"}, []string{"from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired"}, &iteratorForCreateCopyTransaction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "transaction"}, []string{"from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired"}, &iteratorForCreateCopyTransaction{rows: arg})
 }
 
 // iteratorForCreateCopyTransport implements pgx.CopyFromSource.

@@ -18,7 +18,7 @@ type Transaction struct {
 	Status        orderdb.OrderStatus
 	Note          string
 	PaymentOption *string
-	InstrumentID  *uuid.UUID
+	WalletID  *uuid.UUID
 	Data          json.RawMessage
 
 	Amount       int64

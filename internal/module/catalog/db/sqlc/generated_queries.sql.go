@@ -134,7 +134,7 @@ WHERE (
     ("price" = ANY($3) OR $3 IS NULL) AND
     ("price" >= $4 OR $4 IS NULL) AND
     ("price" <= $5 OR $5 IS NULL) AND
-    ("combinable" = ANY($6) OR $6 IS NULL) AND
+    ("shared_packaging" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
@@ -152,7 +152,7 @@ type CountProductSkuParams struct {
 	Price           []int64           `json:"price"`
 	PriceFrom       null.Int          `json:"price_from"`
 	PriceTo         null.Int          `json:"price_to"`
-	Combinable      []bool            `json:"combinable"`
+	SharedPackaging []bool            `json:"shared_packaging"`
 	Attributes      []json.RawMessage `json:"attributes"`
 	PackageDetails  []json.RawMessage `json:"package_details"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -170,7 +170,7 @@ func (q *Queries) CountProductSku(ctx context.Context, arg CountProductSkuParams
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -199,7 +199,7 @@ WHERE (
     ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
-    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("is_enabled" = ANY($11) OR $11 IS NULL) AND
     ("currency" = ANY($12) OR $12 IS NULL) AND
     ("specifications" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
@@ -225,7 +225,7 @@ type CountProductSpuParams struct {
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
 	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -251,7 +251,7 @@ func (q *Queries) CountProductSpu(ctx context.Context, arg CountProductSpuParams
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -491,12 +491,12 @@ type CreateCopyDefaultCommentParams struct {
 }
 
 type CreateCopyDefaultProductSkuParams struct {
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 type CreateCopyDefaultProductSpuParams struct {
@@ -506,7 +506,7 @@ type CreateCopyDefaultProductSpuParams struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateDeleted    null.Time       `json:"date_deleted"`
@@ -530,14 +530,14 @@ type CreateCopyDefaultTagParams struct {
 }
 
 type CreateCopyProductSkuParams struct {
-	ID             uuid.UUID       `json:"id"`
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateCreated    time.Time       `json:"date_created"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	ID              uuid.UUID       `json:"id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 type CreateCopyProductSpuParams struct {
@@ -548,7 +548,7 @@ type CreateCopyProductSpuParams struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
@@ -643,25 +643,25 @@ func (q *Queries) CreateDefaultComment(ctx context.Context, arg CreateDefaultCom
 }
 
 const createDefaultProductSku = `-- name: CreateDefaultProductSku :one
-INSERT INTO "catalog"."product_sku" ("spu_id", "price", "combinable", "attributes", "package_details", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("spu_id", "price", "shared_packaging", "attributes", "package_details", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+RETURNING id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 `
 
 type CreateDefaultProductSkuParams struct {
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 func (q *Queries) CreateDefaultProductSku(ctx context.Context, arg CreateDefaultProductSkuParams) (CatalogProductSku, error) {
 	row := q.db.QueryRow(ctx, createDefaultProductSku,
 		arg.SpuID,
 		arg.Price,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateDeleted,
@@ -671,7 +671,7 @@ func (q *Queries) CreateDefaultProductSku(ctx context.Context, arg CreateDefault
 		&i.ID,
 		&i.SpuID,
 		&i.Price,
-		&i.Combinable,
+		&i.SharedPackaging,
 		&i.Attributes,
 		&i.PackageDetails,
 		&i.DateCreated,
@@ -681,9 +681,9 @@ func (q *Queries) CreateDefaultProductSku(ctx context.Context, arg CreateDefault
 }
 
 const createDefaultProductSpu = `-- name: CreateDefaultProductSpu :one
-INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_deleted")
+INSERT INTO "catalog"."product_spu" ("slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_enabled", "currency", "specifications", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateDefaultProductSpuParams struct {
@@ -693,7 +693,7 @@ type CreateDefaultProductSpuParams struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateDeleted    null.Time       `json:"date_deleted"`
@@ -707,7 +707,7 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateDeleted,
@@ -722,7 +722,7 @@ func (q *Queries) CreateDefaultProductSpu(ctx context.Context, arg CreateDefault
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
@@ -807,20 +807,20 @@ func (q *Queries) CreateDefaultTag(ctx context.Context, arg CreateDefaultTagPara
 }
 
 const createProductSku = `-- name: CreateProductSku :one
-INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "combinable", "attributes", "package_details", "date_created", "date_deleted")
+INSERT INTO "catalog"."product_sku" ("id", "spu_id", "price", "shared_packaging", "attributes", "package_details", "date_created", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+RETURNING id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 `
 
 type CreateProductSkuParams struct {
-	ID             uuid.UUID       `json:"id"`
-	SpuID          uuid.UUID       `json:"spu_id"`
-	Price          int64           `json:"price"`
-	Combinable     bool            `json:"combinable"`
-	Attributes     json.RawMessage `json:"attributes"`
-	PackageDetails json.RawMessage `json:"package_details"`
-	DateCreated    time.Time       `json:"date_created"`
-	DateDeleted    null.Time       `json:"date_deleted"`
+	ID              uuid.UUID       `json:"id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
+	Price           int64           `json:"price"`
+	SharedPackaging bool            `json:"shared_packaging"`
+	Attributes      json.RawMessage `json:"attributes"`
+	PackageDetails  json.RawMessage `json:"package_details"`
+	DateCreated     time.Time       `json:"date_created"`
+	DateDeleted     null.Time       `json:"date_deleted"`
 }
 
 func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuParams) (CatalogProductSku, error) {
@@ -828,7 +828,7 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 		arg.ID,
 		arg.SpuID,
 		arg.Price,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -839,7 +839,7 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 		&i.ID,
 		&i.SpuID,
 		&i.Price,
-		&i.Combinable,
+		&i.SharedPackaging,
 		&i.Attributes,
 		&i.PackageDetails,
 		&i.DateCreated,
@@ -849,9 +849,9 @@ func (q *Queries) CreateProductSku(ctx context.Context, arg CreateProductSkuPara
 }
 
 const createProductSpu = `-- name: CreateProductSpu :one
-INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_active", "currency", "specifications", "date_created", "date_updated", "date_deleted")
+INSERT INTO "catalog"."product_spu" ("id", "slug", "account_id", "category_id", "featured_sku_id", "name", "description", "is_enabled", "currency", "specifications", "date_created", "date_updated", "date_deleted")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type CreateProductSpuParams struct {
@@ -862,7 +862,7 @@ type CreateProductSpuParams struct {
 	FeaturedSkuID  uuid.NullUUID   `json:"featured_sku_id"`
 	Name           string          `json:"name"`
 	Description    string          `json:"description"`
-	IsActive       bool            `json:"is_active"`
+	IsEnabled      bool            `json:"is_enabled"`
 	Currency       string          `json:"currency"`
 	Specifications json.RawMessage `json:"specifications"`
 	DateCreated    time.Time       `json:"date_created"`
@@ -879,7 +879,7 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -896,7 +896,7 @@ func (q *Queries) CreateProductSpu(ctx context.Context, arg CreateProductSpuPara
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
@@ -1104,7 +1104,7 @@ WHERE (
     ("price" = ANY($3) OR $3 IS NULL) AND
     ("price" >= $4 OR $4 IS NULL) AND
     ("price" <= $5 OR $5 IS NULL) AND
-    ("combinable" = ANY($6) OR $6 IS NULL) AND
+    ("shared_packaging" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
@@ -1122,7 +1122,7 @@ type DeleteProductSkuParams struct {
 	Price           []int64           `json:"price"`
 	PriceFrom       null.Int          `json:"price_from"`
 	PriceTo         null.Int          `json:"price_to"`
-	Combinable      []bool            `json:"combinable"`
+	SharedPackaging []bool            `json:"shared_packaging"`
 	Attributes      []json.RawMessage `json:"attributes"`
 	PackageDetails  []json.RawMessage `json:"package_details"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -1140,7 +1140,7 @@ func (q *Queries) DeleteProductSku(ctx context.Context, arg DeleteProductSkuPara
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -1166,7 +1166,7 @@ WHERE (
     ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
-    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("is_enabled" = ANY($11) OR $11 IS NULL) AND
     ("currency" = ANY($12) OR $12 IS NULL) AND
     ("specifications" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
@@ -1192,7 +1192,7 @@ type DeleteProductSpuParams struct {
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
 	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -1218,7 +1218,7 @@ func (q *Queries) DeleteProductSpu(ctx context.Context, arg DeleteProductSpuPara
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -1391,7 +1391,7 @@ func (q *Queries) GetComment(ctx context.Context, id uuid.NullUUID) (CatalogComm
 
 const getProductSku = `-- name: GetProductSku :one
 
-SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+SELECT id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE ("id" = $1)
 `
@@ -1406,7 +1406,7 @@ func (q *Queries) GetProductSku(ctx context.Context, id uuid.NullUUID) (CatalogP
 		&i.ID,
 		&i.SpuID,
 		&i.Price,
-		&i.Combinable,
+		&i.SharedPackaging,
 		&i.Attributes,
 		&i.PackageDetails,
 		&i.DateCreated,
@@ -1417,7 +1417,7 @@ func (q *Queries) GetProductSku(ctx context.Context, id uuid.NullUUID) (CatalogP
 
 const getProductSpu = `-- name: GetProductSpu :one
 
-SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE ("id" = $1) OR ("slug" = $2) OR ("featured_sku_id" = $3)
 `
@@ -1443,7 +1443,7 @@ func (q *Queries) GetProductSpu(ctx context.Context, arg GetProductSpuParams) (C
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,
@@ -1878,7 +1878,7 @@ func (q *Queries) ListCountComment(ctx context.Context, arg ListCountCommentPara
 }
 
 const listCountProductSku = `-- name: ListCountProductSku :many
-SELECT embed_product_sku.id, embed_product_sku.spu_id, embed_product_sku.price, embed_product_sku.combinable, embed_product_sku.attributes, embed_product_sku.package_details, embed_product_sku.date_created, embed_product_sku.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_sku.id, embed_product_sku.spu_id, embed_product_sku.price, embed_product_sku.shared_packaging, embed_product_sku.attributes, embed_product_sku.package_details, embed_product_sku.date_created, embed_product_sku.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_sku" embed_product_sku
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1886,7 +1886,7 @@ WHERE (
     ("price" = ANY($3) OR $3 IS NULL) AND
     ("price" >= $4 OR $4 IS NULL) AND
     ("price" <= $5 OR $5 IS NULL) AND
-    ("combinable" = ANY($6) OR $6 IS NULL) AND
+    ("shared_packaging" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
@@ -1907,7 +1907,7 @@ type ListCountProductSkuParams struct {
 	Price           []int64           `json:"price"`
 	PriceFrom       null.Int          `json:"price_from"`
 	PriceTo         null.Int          `json:"price_to"`
-	Combinable      []bool            `json:"combinable"`
+	SharedPackaging []bool            `json:"shared_packaging"`
 	Attributes      []json.RawMessage `json:"attributes"`
 	PackageDetails  []json.RawMessage `json:"package_details"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -1932,7 +1932,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -1955,7 +1955,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSku.ID,
 			&i.CatalogProductSku.SpuID,
 			&i.CatalogProductSku.Price,
-			&i.CatalogProductSku.Combinable,
+			&i.CatalogProductSku.SharedPackaging,
 			&i.CatalogProductSku.Attributes,
 			&i.CatalogProductSku.PackageDetails,
 			&i.CatalogProductSku.DateCreated,
@@ -1973,7 +1973,7 @@ func (q *Queries) ListCountProductSku(ctx context.Context, arg ListCountProductS
 }
 
 const listCountProductSpu = `-- name: ListCountProductSpu :many
-SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_active, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
+SELECT embed_product_spu.id, embed_product_spu.number, embed_product_spu.slug, embed_product_spu.account_id, embed_product_spu.category_id, embed_product_spu.featured_sku_id, embed_product_spu.name, embed_product_spu.description, embed_product_spu.is_enabled, embed_product_spu.currency, embed_product_spu.specifications, embed_product_spu.date_created, embed_product_spu.date_updated, embed_product_spu.date_deleted, COUNT(*) OVER() as total_count
 FROM "catalog"."product_spu" embed_product_spu
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1986,7 +1986,7 @@ WHERE (
     ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
-    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("is_enabled" = ANY($11) OR $11 IS NULL) AND
     ("currency" = ANY($12) OR $12 IS NULL) AND
     ("specifications" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
@@ -2015,7 +2015,7 @@ type ListCountProductSpuParams struct {
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
 	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -2048,7 +2048,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -2079,7 +2079,7 @@ func (q *Queries) ListCountProductSpu(ctx context.Context, arg ListCountProductS
 			&i.CatalogProductSpu.FeaturedSkuID,
 			&i.CatalogProductSpu.Name,
 			&i.CatalogProductSpu.Description,
-			&i.CatalogProductSpu.IsActive,
+			&i.CatalogProductSpu.IsEnabled,
 			&i.CatalogProductSpu.Currency,
 			&i.CatalogProductSpu.Specifications,
 			&i.CatalogProductSpu.DateCreated,
@@ -2301,7 +2301,7 @@ func (q *Queries) ListCountTag(ctx context.Context, arg ListCountTagParams) ([]L
 }
 
 const listProductSku = `-- name: ListProductSku :many
-SELECT id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+SELECT id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 FROM "catalog"."product_sku"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2309,7 +2309,7 @@ WHERE (
     ("price" = ANY($3) OR $3 IS NULL) AND
     ("price" >= $4 OR $4 IS NULL) AND
     ("price" <= $5 OR $5 IS NULL) AND
-    ("combinable" = ANY($6) OR $6 IS NULL) AND
+    ("shared_packaging" = ANY($6) OR $6 IS NULL) AND
     ("attributes" = ANY($7) OR $7 IS NULL) AND
     ("package_details" = ANY($8) OR $8 IS NULL) AND
     ("date_created" = ANY($9) OR $9 IS NULL) AND
@@ -2330,7 +2330,7 @@ type ListProductSkuParams struct {
 	Price           []int64           `json:"price"`
 	PriceFrom       null.Int          `json:"price_from"`
 	PriceTo         null.Int          `json:"price_to"`
-	Combinable      []bool            `json:"combinable"`
+	SharedPackaging []bool            `json:"shared_packaging"`
 	Attributes      []json.RawMessage `json:"attributes"`
 	PackageDetails  []json.RawMessage `json:"package_details"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -2350,7 +2350,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 		arg.Price,
 		arg.PriceFrom,
 		arg.PriceTo,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -2373,7 +2373,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 			&i.ID,
 			&i.SpuID,
 			&i.Price,
-			&i.Combinable,
+			&i.SharedPackaging,
 			&i.Attributes,
 			&i.PackageDetails,
 			&i.DateCreated,
@@ -2390,7 +2390,7 @@ func (q *Queries) ListProductSku(ctx context.Context, arg ListProductSkuParams) 
 }
 
 const listProductSpu = `-- name: ListProductSpu :many
-SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+SELECT id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 FROM "catalog"."product_spu"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2403,7 +2403,7 @@ WHERE (
     ("featured_sku_id" = ANY($8) OR $8 IS NULL) AND
     ("name" = ANY($9) OR $9 IS NULL) AND
     ("description" = ANY($10) OR $10 IS NULL) AND
-    ("is_active" = ANY($11) OR $11 IS NULL) AND
+    ("is_enabled" = ANY($11) OR $11 IS NULL) AND
     ("currency" = ANY($12) OR $12 IS NULL) AND
     ("specifications" = ANY($13) OR $13 IS NULL) AND
     ("date_created" = ANY($14) OR $14 IS NULL) AND
@@ -2432,7 +2432,7 @@ type ListProductSpuParams struct {
 	FeaturedSkuID   []uuid.NullUUID   `json:"featured_sku_id"`
 	Name            []string          `json:"name"`
 	Description     []string          `json:"description"`
-	IsActive        []bool            `json:"is_active"`
+	IsEnabled       []bool            `json:"is_enabled"`
 	Currency        []string          `json:"currency"`
 	Specifications  []json.RawMessage `json:"specifications"`
 	DateCreated     []time.Time       `json:"date_created"`
@@ -2460,7 +2460,7 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -2491,7 +2491,7 @@ func (q *Queries) ListProductSpu(ctx context.Context, arg ListProductSpuParams) 
 			&i.FeaturedSkuID,
 			&i.Name,
 			&i.Description,
-			&i.IsActive,
+			&i.IsEnabled,
 			&i.Currency,
 			&i.Specifications,
 			&i.DateCreated,
@@ -2791,19 +2791,19 @@ const updateProductSku = `-- name: UpdateProductSku :one
 UPDATE "catalog"."product_sku"
 SET "spu_id" = COALESCE($1, "spu_id"),
     "price" = COALESCE($2, "price"),
-    "combinable" = COALESCE($3, "combinable"),
+    "shared_packaging" = COALESCE($3, "shared_packaging"),
     "attributes" = COALESCE($4, "attributes"),
     "package_details" = COALESCE($5, "package_details"),
     "date_created" = COALESCE($6, "date_created"),
     "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END
 WHERE id = $9
-RETURNING id, spu_id, price, combinable, attributes, package_details, date_created, date_deleted
+RETURNING id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 `
 
 type UpdateProductSkuParams struct {
 	SpuID           uuid.NullUUID   `json:"spu_id"`
 	Price           null.Int        `json:"price"`
-	Combinable      null.Bool       `json:"combinable"`
+	SharedPackaging null.Bool       `json:"shared_packaging"`
 	Attributes      json.RawMessage `json:"attributes"`
 	PackageDetails  json.RawMessage `json:"package_details"`
 	DateCreated     null.Time       `json:"date_created"`
@@ -2816,7 +2816,7 @@ func (q *Queries) UpdateProductSku(ctx context.Context, arg UpdateProductSkuPara
 	row := q.db.QueryRow(ctx, updateProductSku,
 		arg.SpuID,
 		arg.Price,
-		arg.Combinable,
+		arg.SharedPackaging,
 		arg.Attributes,
 		arg.PackageDetails,
 		arg.DateCreated,
@@ -2829,7 +2829,7 @@ func (q *Queries) UpdateProductSku(ctx context.Context, arg UpdateProductSkuPara
 		&i.ID,
 		&i.SpuID,
 		&i.Price,
-		&i.Combinable,
+		&i.SharedPackaging,
 		&i.Attributes,
 		&i.PackageDetails,
 		&i.DateCreated,
@@ -2846,14 +2846,14 @@ SET "slug" = COALESCE($1, "slug"),
     "featured_sku_id" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "featured_sku_id") END,
     "name" = COALESCE($6, "name"),
     "description" = COALESCE($7, "description"),
-    "is_active" = COALESCE($8, "is_active"),
+    "is_enabled" = COALESCE($8, "is_enabled"),
     "currency" = COALESCE($9, "currency"),
     "specifications" = COALESCE($10, "specifications"),
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated"),
     "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
 WHERE id = $15
-RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_active, currency, specifications, date_created, date_updated, date_deleted
+RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 `
 
 type UpdateProductSpuParams struct {
@@ -2864,7 +2864,7 @@ type UpdateProductSpuParams struct {
 	FeaturedSkuID     uuid.NullUUID   `json:"featured_sku_id"`
 	Name              null.String     `json:"name"`
 	Description       null.String     `json:"description"`
-	IsActive          null.Bool       `json:"is_active"`
+	IsEnabled         null.Bool       `json:"is_enabled"`
 	Currency          null.String     `json:"currency"`
 	Specifications    json.RawMessage `json:"specifications"`
 	DateCreated       null.Time       `json:"date_created"`
@@ -2883,7 +2883,7 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		arg.FeaturedSkuID,
 		arg.Name,
 		arg.Description,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Currency,
 		arg.Specifications,
 		arg.DateCreated,
@@ -2902,7 +2902,7 @@ func (q *Queries) UpdateProductSpu(ctx context.Context, arg UpdateProductSpuPara
 		&i.FeaturedSkuID,
 		&i.Name,
 		&i.Description,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Currency,
 		&i.Specifications,
 		&i.DateCreated,

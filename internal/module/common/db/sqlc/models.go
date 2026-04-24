@@ -82,15 +82,15 @@ func AllCommonResourceRefTypeValues() []CommonResourceRefType {
 }
 
 type CommonResource struct {
-	ID         uuid.UUID       `json:"id"`
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 type CommonResourceReference struct {
@@ -105,7 +105,7 @@ type CommonServiceOption struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`

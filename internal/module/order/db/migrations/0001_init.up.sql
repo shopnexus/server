@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS "order"."transaction" (
 
     -- Pay by what? If all NULL means use internal wallet
     "payment_option" TEXT, -- Link to common.service_option; If paid by transfer
-    "instrument_id" UUID, -- If paid with user payment instrument (e.g. debit/credit card)
+    "wallet_id" UUID, -- If paid with a stored account.wallet (e.g. debit/credit card, e-wallet)
 
     -- Audit trail
     -- Cost breakdown and metadata for payment processing (e.g. line items, applied promotions, tax, fees)

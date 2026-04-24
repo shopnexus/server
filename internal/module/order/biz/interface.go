@@ -177,7 +177,7 @@ type BuyerCheckoutParams struct {
 	Address       string        `json:"address" validate:"required,min=1,max=500"`
 	UseWallet     bool          `json:"use_wallet"`
 	PaymentOption string        `json:"payment_option" validate:"max=100"`
-	InstrumentID  *uuid.UUID    `json:"instrument_id,omitempty"`
+	WalletID  *uuid.UUID    `json:"wallet_id,omitempty"`
 	Items         []CheckoutItem `json:"items" validate:"required,min=1,dive"`
 }
 
@@ -218,7 +218,7 @@ type ConfirmSellerPendingParams struct {
 	ItemIDs       []int64    `json:"item_ids" validate:"required,min=1,max=1000"`
 	UseWallet     bool       `json:"use_wallet"`
 	PaymentOption string     `json:"payment_option" validate:"max=100"`
-	InstrumentID  *uuid.UUID `json:"instrument_id,omitempty"`
+	WalletID  *uuid.UUID `json:"wallet_id,omitempty"`
 	Note          string     `json:"note" validate:"max=500"`
 }
 

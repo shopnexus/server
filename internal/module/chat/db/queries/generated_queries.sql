@@ -127,7 +127,7 @@ WHERE (
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -143,7 +143,7 @@ WHERE (
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -162,7 +162,7 @@ WHERE (
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
@@ -172,27 +172,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "data", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchMessage :batchone
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "data", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyMessage :copyfrom
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created")
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "status", "data", "date_created")
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "content", "metadata")
-VALUES ($1, $2, $3, $4)
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "data")
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateCopyDefaultMessage :copyfrom
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "content", "metadata")
-VALUES ($1, $2, $3, $4);
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "data")
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: UpdateMessage :one
 UPDATE "chat"."message"
@@ -201,7 +201,7 @@ SET "conversation_id" = COALESCE(sqlc.narg('conversation_id'), "conversation_id"
     "type" = COALESCE(sqlc.narg('type'), "type"),
     "content" = COALESCE(sqlc.narg('content'), "content"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
-    "metadata" = CASE WHEN sqlc.arg('null_metadata')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('metadata'), "metadata") END,
+    "data" = CASE WHEN sqlc.arg('null_data')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('data'), "data") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
@@ -215,7 +215,7 @@ WHERE (
     ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
     ("content" = ANY(sqlc.slice('content')) OR sqlc.slice('content') IS NULL) AND
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
-    ("metadata" = ANY(sqlc.slice('metadata')) OR sqlc.slice('metadata') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)

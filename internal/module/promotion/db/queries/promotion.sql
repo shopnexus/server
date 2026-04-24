@@ -12,4 +12,4 @@ WHERE is_active = true
       "code" = ANY(sqlc.slice('code'))
     )
   )
-ORDER BY "group", "priority" DESC;
+ORDER BY "group" DESC;

@@ -8,49 +8,50 @@ import (
 	"github.com/google/uuid"
 )
 
+type Event string
+
 const (
 	// High intent events.
-	EventPurchase    = "purchase"
-	EventAddToCart   = "add_to_cart"
-	EventView        = "view"
-	EventWriteReview = "write_review"
-	EventRatingHigh  = "rating_high"
-	EventRatingMed   = "rating_medium"
-	EventRatingLow   = "rating_low"
+	EventPurchase     Event = "purchase"
+	EventAddToCart    Event = "add_to_cart"
+	EventView         Event = "view"
+	EventWriteReview  Event = "write_review"
+	EventRatingHigh   Event = "rating_high"
+	EventRatingMedium Event = "rating_medium"
+	EventRatingLow    Event = "rating_low"
 
 	// Discovery events.
-	EventClickFromSearch     = "click_from_search"
-	EventClickFromRecommend  = "click_from_recommendation"
-	EventClickFromCategory   = "click_from_category"
-	EventViewSimilarProducts = "view_similar_products"
+	EventClickFromSearch     Event = "click_from_search"
+	EventClickFromRecommend  Event = "click_from_recommendation"
+	EventClickFromCategory   Event = "click_from_category"
+	EventViewSimilarProducts Event = "view_similar_products"
 
 	// Funnel events.
-	EventProductImpression = "product_impression"
-	EventCheckoutStarted   = "checkout_started"
+	EventProductImpression Event = "product_impression"
+	EventCheckoutStarted   Event = "checkout_started"
 
 	// Additional signals.
-	EventAddToFavorites = "add_to_favorites"
-	EventAskQuestion    = "ask_question"
+	EventAddToFavorites Event = "add_to_favorites"
+	EventAskQuestion    Event = "ask_question"
 
 	// Negative signals.
-	EventRemoveFromCart = "remove_from_cart"
-	EventCancelOrder    = "cancel_order"
-	EventRefundReq      = "refund_requested"
-	EventReturnProduct  = "return_product"
-	EventReportProduct  = "report_product"
-	EventDislike        = "dislike"
-	EventHideItem       = "hide_item"
-	EventNotInterested  = "not_interested"
-	EventViewBounce     = "view_bounce"
+	EventRemoveFromCart  Event = "remove_from_cart"
+	EventCancelOrder     Event = "cancel_order"
+	EventRefundRequested Event = "refund_requested"
+	EventReturnProduct   Event = "return_product"
+	EventReportProduct   Event = "report_product"
+	EventDislike         Event = "dislike"
+	EventHideItem        Event = "hide_item"
+	EventNotInterested   Event = "not_interested"
+	EventViewBounce      Event = "view_bounce"
 )
 
 type Interaction struct {
-	ID            int64                                 `json:"id"`
-	AccountID     uuid.NullUUID                         `json:"account_id"`
-	AccountNumber int64                                 `json:"account_number"`
-	EventType     string                                `json:"event_type"`
-	RefType       analyticdb.AnalyticInteractionRefType `json:"ref_type"`
-	RefID         string                                `json:"ref_id"`
-	Metadata      json.RawMessage                       `json:"metadata"`
-	DateCreated   time.Time                             `json:"date_created"`
+	ID          int64                                 `json:"id"`
+	AccountID   uuid.NullUUID                         `json:"account_id"`
+	EventType   Event                                 `json:"event_type"`
+	RefType     analyticdb.AnalyticInteractionRefType `json:"ref_type"`
+	RefID       uuid.UUID                             `json:"ref_id"`
+	Metadata    json.RawMessage                       `json:"metadata"`
+	DateCreated time.Time                             `json:"date_created"`
 }

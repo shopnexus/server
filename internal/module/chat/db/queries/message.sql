@@ -1,6 +1,6 @@
 -- name: CreateChatMessage :one
-INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "metadata")
-VALUES (sqlc.arg('conversation_id'), sqlc.arg('sender_id'), sqlc.arg('type'), sqlc.arg('content'), sqlc.arg('metadata'))
+INSERT INTO "chat"."message" ("conversation_id", "sender_id", "type", "content", "data")
+VALUES (sqlc.arg('conversation_id'), sqlc.arg('sender_id'), sqlc.arg('type'), sqlc.arg('content'), sqlc.arg('data'))
 RETURNING *;
 
 -- name: ListMessageByConversation :many

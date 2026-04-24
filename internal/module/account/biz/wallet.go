@@ -84,7 +84,7 @@ func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditPa
 	return nil
 }
 
-// --- Payment instrument (account.wallet) CRUD ---
+// --- Wallet (account.wallet) CRUD ---
 
 type CreateWalletParams struct {
 	AccountID uuid.UUID       `json:"account_id" validate:"required"`
@@ -102,7 +102,7 @@ type DeleteWalletParams struct {
 	WalletID  uuid.UUID `json:"wallet_id" validate:"required"`
 }
 
-// CreateWallet stores a new payment instrument for the account (card token, e-wallet ref, etc.).
+// CreateWallet stores a new wallet entry for the account (card token, e-wallet ref, bank).
 func (b *AccountHandler) CreateWallet(ctx restate.Context, params CreateWalletParams) (accountdb.AccountWallet, error) {
 	wallet, err := restate.Run(ctx, func(ctx restate.RunContext) (accountdb.AccountWallet, error) {
 		return b.storage.Querier().CreateDefaultWallet(ctx, accountdb.CreateDefaultWalletParams{
@@ -118,7 +118,7 @@ func (b *AccountHandler) CreateWallet(ctx restate.Context, params CreateWalletPa
 	return wallet, nil
 }
 
-// ListWallets returns all payment instruments for an account.
+// ListWallets returns all wallets for an account.
 func (b *AccountHandler) ListWallets(ctx restate.Context, params ListWalletsParams) ([]accountdb.AccountWallet, error) {
 	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]accountdb.AccountWallet, error) {
 		return b.storage.Querier().ListWallet(ctx, accountdb.ListWalletParams{
@@ -131,7 +131,7 @@ func (b *AccountHandler) ListWallets(ctx restate.Context, params ListWalletsPara
 	return rows, nil
 }
 
-// DeleteWallet removes a payment instrument. Ownership is enforced by the composite filter.
+// DeleteWallet removes a wallet. Ownership is enforced by the composite filter.
 func (b *AccountHandler) DeleteWallet(ctx restate.Context, params DeleteWalletParams) error {
 	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		return b.storage.Querier().DeleteWallet(ctx, accountdb.DeleteWalletParams{

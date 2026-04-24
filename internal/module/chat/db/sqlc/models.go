@@ -151,6 +151,6 @@ type ChatMessage struct {
 	Type           ChatMessageType   `json:"type"`
 	Content        string            `json:"content"`
 	Status         ChatMessageStatus `json:"status"`
-	Metadata       json.RawMessage   `json:"metadata"`
+	Data           json.RawMessage   `json:"data"`
 	DateCreated    time.Time         `json:"date_created"`
 }

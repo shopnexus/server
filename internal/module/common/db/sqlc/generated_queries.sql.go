@@ -19,7 +19,7 @@ SELECT COUNT(*)
 FROM "common"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by_id" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
@@ -36,7 +36,7 @@ WHERE (
 
 type CountResourceParams struct {
 	ID            []uuid.UUID       `json:"id"`
-	UploadedBy    []uuid.NullUUID   `json:"uploaded_by"`
+	UploadedByID  []uuid.NullUUID   `json:"uploaded_by_id"`
 	Provider      []string          `json:"provider"`
 	ObjectKey     []string          `json:"object_key"`
 	Mime          []string          `json:"mime"`
@@ -53,7 +53,7 @@ type CountResourceParams struct {
 func (q *Queries) CountResource(ctx context.Context, arg CountResourceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countResource,
 		arg.ID,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -117,7 +117,7 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("category" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_active" = ANY($4) OR $4 IS NULL) AND
+    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
     ("priority" = ANY($7) OR $7 IS NULL) AND
@@ -132,7 +132,7 @@ type CountServiceOptionParams struct {
 	ID           []string          `json:"id"`
 	Category     []string          `json:"category"`
 	Provider     []string          `json:"provider"`
-	IsActive     []bool            `json:"is_active"`
+	IsEnabled    []bool            `json:"is_enabled"`
 	Name         []string          `json:"name"`
 	Description  []string          `json:"description"`
 	Priority     []int32           `json:"priority"`
@@ -147,7 +147,7 @@ func (q *Queries) CountServiceOption(ctx context.Context, arg CountServiceOption
 		arg.ID,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -162,13 +162,13 @@ func (q *Queries) CountServiceOption(ctx context.Context, arg CountServiceOption
 }
 
 type CreateCopyDefaultResourceParams struct {
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
 }
 
 type CreateCopyDefaultResourceReferenceParams struct {
@@ -182,6 +182,7 @@ type CreateCopyDefaultServiceOptionParams struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
@@ -190,15 +191,15 @@ type CreateCopyDefaultServiceOptionParams struct {
 }
 
 type CreateCopyResourceParams struct {
-	ID         uuid.UUID       `json:"id"`
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 type CreateCopyResourceReferenceParams struct {
@@ -212,7 +213,7 @@ type CreateCopyServiceOptionParams struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
@@ -221,24 +222,24 @@ type CreateCopyServiceOptionParams struct {
 }
 
 const createDefaultResource = `-- name: CreateDefaultResource :one
-INSERT INTO "common"."resource" ("uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum")
+INSERT INTO "common"."resource" ("uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum")
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+RETURNING id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 `
 
 type CreateDefaultResourceParams struct {
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
 }
 
 func (q *Queries) CreateDefaultResource(ctx context.Context, arg CreateDefaultResourceParams) (CommonResource, error) {
 	row := q.db.QueryRow(ctx, createDefaultResource,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -249,7 +250,7 @@ func (q *Queries) CreateDefaultResource(ctx context.Context, arg CreateDefaultRe
 	var i CommonResource
 	err := row.Scan(
 		&i.ID,
-		&i.UploadedBy,
+		&i.UploadedByID,
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
@@ -293,15 +294,16 @@ func (q *Queries) CreateDefaultResourceReference(ctx context.Context, arg Create
 }
 
 const createDefaultServiceOption = `-- name: CreateDefaultServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, category, provider, is_active, name, description, priority, config, logo_rs_id
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 `
 
 type CreateDefaultServiceOptionParams struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
@@ -314,6 +316,7 @@ func (q *Queries) CreateDefaultServiceOption(ctx context.Context, arg CreateDefa
 		arg.ID,
 		arg.Category,
 		arg.Provider,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -325,7 +328,7 @@ func (q *Queries) CreateDefaultServiceOption(ctx context.Context, arg CreateDefa
 		&i.ID,
 		&i.Category,
 		&i.Provider,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Name,
 		&i.Description,
 		&i.Priority,
@@ -336,27 +339,27 @@ func (q *Queries) CreateDefaultServiceOption(ctx context.Context, arg CreateDefa
 }
 
 const createResource = `-- name: CreateResource :one
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+RETURNING id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 `
 
 type CreateResourceParams struct {
-	ID         uuid.UUID       `json:"id"`
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 func (q *Queries) CreateResource(ctx context.Context, arg CreateResourceParams) (CommonResource, error) {
 	row := q.db.QueryRow(ctx, createResource,
 		arg.ID,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -368,7 +371,7 @@ func (q *Queries) CreateResource(ctx context.Context, arg CreateResourceParams) 
 	var i CommonResource
 	err := row.Scan(
 		&i.ID,
-		&i.UploadedBy,
+		&i.UploadedByID,
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
@@ -412,16 +415,16 @@ func (q *Queries) CreateResourceReference(ctx context.Context, arg CreateResourc
 }
 
 const createServiceOption = `-- name: CreateServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, category, provider, is_active, name, description, priority, config, logo_rs_id
+RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 `
 
 type CreateServiceOptionParams struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
@@ -434,7 +437,7 @@ func (q *Queries) CreateServiceOption(ctx context.Context, arg CreateServiceOpti
 		arg.ID,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -446,7 +449,7 @@ func (q *Queries) CreateServiceOption(ctx context.Context, arg CreateServiceOpti
 		&i.ID,
 		&i.Category,
 		&i.Provider,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Name,
 		&i.Description,
 		&i.Priority,
@@ -460,7 +463,7 @@ const deleteResource = `-- name: DeleteResource :exec
 DELETE FROM "common"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by_id" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
@@ -477,7 +480,7 @@ WHERE (
 
 type DeleteResourceParams struct {
 	ID            []uuid.UUID       `json:"id"`
-	UploadedBy    []uuid.NullUUID   `json:"uploaded_by"`
+	UploadedByID  []uuid.NullUUID   `json:"uploaded_by_id"`
 	Provider      []string          `json:"provider"`
 	ObjectKey     []string          `json:"object_key"`
 	Mime          []string          `json:"mime"`
@@ -494,7 +497,7 @@ type DeleteResourceParams struct {
 func (q *Queries) DeleteResource(ctx context.Context, arg DeleteResourceParams) error {
 	_, err := q.db.Exec(ctx, deleteResource,
 		arg.ID,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -552,7 +555,7 @@ WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("category" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_active" = ANY($4) OR $4 IS NULL) AND
+    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
     ("priority" = ANY($7) OR $7 IS NULL) AND
@@ -567,7 +570,7 @@ type DeleteServiceOptionParams struct {
 	ID           []string          `json:"id"`
 	Category     []string          `json:"category"`
 	Provider     []string          `json:"provider"`
-	IsActive     []bool            `json:"is_active"`
+	IsEnabled    []bool            `json:"is_enabled"`
 	Name         []string          `json:"name"`
 	Description  []string          `json:"description"`
 	Priority     []int32           `json:"priority"`
@@ -582,7 +585,7 @@ func (q *Queries) DeleteServiceOption(ctx context.Context, arg DeleteServiceOpti
 		arg.ID,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -598,7 +601,7 @@ const getResource = `-- name: GetResource :one
 
 
 
-SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+SELECT id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 FROM "common"."resource"
 WHERE ("id" = $1) OR ("provider" = $2 AND "object_key" = $3)
 `
@@ -619,7 +622,7 @@ func (q *Queries) GetResource(ctx context.Context, arg GetResourceParams) (Commo
 	var i CommonResource
 	err := row.Scan(
 		&i.ID,
-		&i.UploadedBy,
+		&i.UploadedByID,
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
@@ -656,7 +659,7 @@ func (q *Queries) GetResourceReference(ctx context.Context, id null.Int) (Common
 
 const getServiceOption = `-- name: GetServiceOption :one
 
-SELECT id, category, provider, is_active, name, description, priority, config, logo_rs_id
+SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 FROM "common"."service_option"
 WHERE ("id" = $1)
 `
@@ -671,7 +674,7 @@ func (q *Queries) GetServiceOption(ctx context.Context, id null.String) (CommonS
 		&i.ID,
 		&i.Category,
 		&i.Provider,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Name,
 		&i.Description,
 		&i.Priority,
@@ -682,11 +685,11 @@ func (q *Queries) GetServiceOption(ctx context.Context, id null.String) (CommonS
 }
 
 const listCountResource = `-- name: ListCountResource :many
-SELECT embed_resource.id, embed_resource.uploaded_by, embed_resource.provider, embed_resource.object_key, embed_resource.mime, embed_resource.size, embed_resource.metadata, embed_resource.checksum, embed_resource.created_at, COUNT(*) OVER() as total_count
+SELECT embed_resource.id, embed_resource.uploaded_by_id, embed_resource.provider, embed_resource.object_key, embed_resource.mime, embed_resource.size, embed_resource.metadata, embed_resource.checksum, embed_resource.created_at, COUNT(*) OVER() as total_count
 FROM "common"."resource" embed_resource
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by_id" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
@@ -706,7 +709,7 @@ OFFSET $14::int
 
 type ListCountResourceParams struct {
 	ID            []uuid.UUID       `json:"id"`
-	UploadedBy    []uuid.NullUUID   `json:"uploaded_by"`
+	UploadedByID  []uuid.NullUUID   `json:"uploaded_by_id"`
 	Provider      []string          `json:"provider"`
 	ObjectKey     []string          `json:"object_key"`
 	Mime          []string          `json:"mime"`
@@ -730,7 +733,7 @@ type ListCountResourceRow struct {
 func (q *Queries) ListCountResource(ctx context.Context, arg ListCountResourceParams) ([]ListCountResourceRow, error) {
 	rows, err := q.db.Query(ctx, listCountResource,
 		arg.ID,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -754,7 +757,7 @@ func (q *Queries) ListCountResource(ctx context.Context, arg ListCountResourcePa
 		var i ListCountResourceRow
 		if err := rows.Scan(
 			&i.CommonResource.ID,
-			&i.CommonResource.UploadedBy,
+			&i.CommonResource.UploadedByID,
 			&i.CommonResource.Provider,
 			&i.CommonResource.ObjectKey,
 			&i.CommonResource.Mime,
@@ -846,13 +849,13 @@ func (q *Queries) ListCountResourceReference(ctx context.Context, arg ListCountR
 }
 
 const listCountServiceOption = `-- name: ListCountServiceOption :many
-SELECT embed_service_option.id, embed_service_option.category, embed_service_option.provider, embed_service_option.is_active, embed_service_option.name, embed_service_option.description, embed_service_option.priority, embed_service_option.config, embed_service_option.logo_rs_id, COUNT(*) OVER() as total_count
+SELECT embed_service_option.id, embed_service_option.category, embed_service_option.provider, embed_service_option.is_enabled, embed_service_option.name, embed_service_option.description, embed_service_option.priority, embed_service_option.config, embed_service_option.logo_rs_id, COUNT(*) OVER() as total_count
 FROM "common"."service_option" embed_service_option
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("category" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_active" = ANY($4) OR $4 IS NULL) AND
+    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
     ("priority" = ANY($7) OR $7 IS NULL) AND
@@ -870,7 +873,7 @@ type ListCountServiceOptionParams struct {
 	ID           []string          `json:"id"`
 	Category     []string          `json:"category"`
 	Provider     []string          `json:"provider"`
-	IsActive     []bool            `json:"is_active"`
+	IsEnabled    []bool            `json:"is_enabled"`
 	Name         []string          `json:"name"`
 	Description  []string          `json:"description"`
 	Priority     []int32           `json:"priority"`
@@ -892,7 +895,7 @@ func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServi
 		arg.ID,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -914,7 +917,7 @@ func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServi
 			&i.CommonServiceOption.ID,
 			&i.CommonServiceOption.Category,
 			&i.CommonServiceOption.Provider,
-			&i.CommonServiceOption.IsActive,
+			&i.CommonServiceOption.IsEnabled,
 			&i.CommonServiceOption.Name,
 			&i.CommonServiceOption.Description,
 			&i.CommonServiceOption.Priority,
@@ -933,11 +936,11 @@ func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServi
 }
 
 const listResource = `-- name: ListResource :many
-SELECT id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+SELECT id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 FROM "common"."resource"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("uploaded_by" = ANY($2) OR $2 IS NULL) AND
+    ("uploaded_by_id" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
     ("object_key" = ANY($4) OR $4 IS NULL) AND
     ("mime" = ANY($5) OR $5 IS NULL) AND
@@ -957,7 +960,7 @@ OFFSET $14::int
 
 type ListResourceParams struct {
 	ID            []uuid.UUID       `json:"id"`
-	UploadedBy    []uuid.NullUUID   `json:"uploaded_by"`
+	UploadedByID  []uuid.NullUUID   `json:"uploaded_by_id"`
 	Provider      []string          `json:"provider"`
 	ObjectKey     []string          `json:"object_key"`
 	Mime          []string          `json:"mime"`
@@ -976,7 +979,7 @@ type ListResourceParams struct {
 func (q *Queries) ListResource(ctx context.Context, arg ListResourceParams) ([]CommonResource, error) {
 	rows, err := q.db.Query(ctx, listResource,
 		arg.ID,
-		arg.UploadedBy,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -1000,7 +1003,7 @@ func (q *Queries) ListResource(ctx context.Context, arg ListResourceParams) ([]C
 		var i CommonResource
 		if err := rows.Scan(
 			&i.ID,
-			&i.UploadedBy,
+			&i.UploadedByID,
 			&i.Provider,
 			&i.ObjectKey,
 			&i.Mime,
@@ -1085,13 +1088,13 @@ func (q *Queries) ListResourceReference(ctx context.Context, arg ListResourceRef
 }
 
 const listServiceOption = `-- name: ListServiceOption :many
-SELECT id, category, provider, is_active, name, description, priority, config, logo_rs_id
+SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 FROM "common"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("category" = ANY($2) OR $2 IS NULL) AND
     ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_active" = ANY($4) OR $4 IS NULL) AND
+    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
     ("name" = ANY($5) OR $5 IS NULL) AND
     ("description" = ANY($6) OR $6 IS NULL) AND
     ("priority" = ANY($7) OR $7 IS NULL) AND
@@ -1109,7 +1112,7 @@ type ListServiceOptionParams struct {
 	ID           []string          `json:"id"`
 	Category     []string          `json:"category"`
 	Provider     []string          `json:"provider"`
-	IsActive     []bool            `json:"is_active"`
+	IsEnabled    []bool            `json:"is_enabled"`
 	Name         []string          `json:"name"`
 	Description  []string          `json:"description"`
 	Priority     []int32           `json:"priority"`
@@ -1126,7 +1129,7 @@ func (q *Queries) ListServiceOption(ctx context.Context, arg ListServiceOptionPa
 		arg.ID,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -1148,7 +1151,7 @@ func (q *Queries) ListServiceOption(ctx context.Context, arg ListServiceOptionPa
 			&i.ID,
 			&i.Category,
 			&i.Provider,
-			&i.IsActive,
+			&i.IsEnabled,
 			&i.Name,
 			&i.Description,
 			&i.Priority,
@@ -1167,7 +1170,7 @@ func (q *Queries) ListServiceOption(ctx context.Context, arg ListServiceOptionPa
 
 const updateResource = `-- name: UpdateResource :one
 UPDATE "common"."resource"
-SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by") END,
+SET "uploaded_by_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploaded_by_id") END,
     "provider" = COALESCE($3, "provider"),
     "object_key" = COALESCE($4, "object_key"),
     "mime" = COALESCE($5, "mime"),
@@ -1176,27 +1179,27 @@ SET "uploaded_by" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "uploa
     "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
     "created_at" = COALESCE($10, "created_at")
 WHERE id = $11
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+RETURNING id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 `
 
 type UpdateResourceParams struct {
-	NullUploadedBy bool            `json:"null_uploaded_by"`
-	UploadedBy     uuid.NullUUID   `json:"uploaded_by"`
-	Provider       null.String     `json:"provider"`
-	ObjectKey      null.String     `json:"object_key"`
-	Mime           null.String     `json:"mime"`
-	Size           null.Int        `json:"size"`
-	Metadata       json.RawMessage `json:"metadata"`
-	NullChecksum   bool            `json:"null_checksum"`
-	Checksum       null.String     `json:"checksum"`
-	CreatedAt      null.Time       `json:"created_at"`
-	ID             uuid.UUID       `json:"id"`
+	NullUploadedByID bool            `json:"null_uploaded_by_id"`
+	UploadedByID     uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider         null.String     `json:"provider"`
+	ObjectKey        null.String     `json:"object_key"`
+	Mime             null.String     `json:"mime"`
+	Size             null.Int        `json:"size"`
+	Metadata         json.RawMessage `json:"metadata"`
+	NullChecksum     bool            `json:"null_checksum"`
+	Checksum         null.String     `json:"checksum"`
+	CreatedAt        null.Time       `json:"created_at"`
+	ID               uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdateResource(ctx context.Context, arg UpdateResourceParams) (CommonResource, error) {
 	row := q.db.QueryRow(ctx, updateResource,
-		arg.NullUploadedBy,
-		arg.UploadedBy,
+		arg.NullUploadedByID,
+		arg.UploadedByID,
 		arg.Provider,
 		arg.ObjectKey,
 		arg.Mime,
@@ -1210,7 +1213,7 @@ func (q *Queries) UpdateResource(ctx context.Context, arg UpdateResourceParams) 
 	var i CommonResource
 	err := row.Scan(
 		&i.ID,
-		&i.UploadedBy,
+		&i.UploadedByID,
 		&i.Provider,
 		&i.ObjectKey,
 		&i.Mime,
@@ -1263,20 +1266,20 @@ const updateServiceOption = `-- name: UpdateServiceOption :one
 UPDATE "common"."service_option"
 SET "category" = COALESCE($1, "category"),
     "provider" = COALESCE($2, "provider"),
-    "is_active" = COALESCE($3, "is_active"),
+    "is_enabled" = COALESCE($3, "is_enabled"),
     "name" = COALESCE($4, "name"),
     "description" = COALESCE($5, "description"),
     "priority" = COALESCE($6, "priority"),
     "config" = COALESCE($7, "config"),
     "logo_rs_id" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "logo_rs_id") END
 WHERE id = $10
-RETURNING id, category, provider, is_active, name, description, priority, config, logo_rs_id
+RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 `
 
 type UpdateServiceOptionParams struct {
 	Category     null.String     `json:"category"`
 	Provider     null.String     `json:"provider"`
-	IsActive     null.Bool       `json:"is_active"`
+	IsEnabled    null.Bool       `json:"is_enabled"`
 	Name         null.String     `json:"name"`
 	Description  null.String     `json:"description"`
 	Priority     null.Int32      `json:"priority"`
@@ -1290,7 +1293,7 @@ func (q *Queries) UpdateServiceOption(ctx context.Context, arg UpdateServiceOpti
 	row := q.db.QueryRow(ctx, updateServiceOption,
 		arg.Category,
 		arg.Provider,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
@@ -1304,7 +1307,7 @@ func (q *Queries) UpdateServiceOption(ctx context.Context, arg UpdateServiceOpti
 		&i.ID,
 		&i.Category,
 		&i.Provider,
-		&i.IsActive,
+		&i.IsEnabled,
 		&i.Name,
 		&i.Description,
 		&i.Priority,

@@ -1,8 +1,6 @@
 package analyticbiz
 
 import (
-	"log/slog"
-
 	restate "github.com/restatedev/sdk-go"
 
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
@@ -18,12 +16,6 @@ func (b *AnalyticHandler) HandlePopularityEvent(ctx restate.Context, event analy
 		return nil
 	}
 
-	spuID, err := uuid.Parse(event.RefID)
-	if err != nil {
-		slog.Warn("invalid spu_id in interaction event", "ref_id", event.RefID, "error", err)
-		return nil
-	}
-
 	weight, ok := b.popularityWeights[event.EventType]
 	if !ok {
 		return nil
@@ -31,20 +23,21 @@ func (b *AnalyticHandler) HandlePopularityEvent(ctx restate.Context, event analy
 
 	var viewCount, purchaseCount, favoriteCount, cartCount, reviewCount int64
 	switch event.EventType {
-	case "view", "view_bounce":
+	case analyticmodel.EventView, analyticmodel.EventViewBounce:
 		viewCount = 1
-	case "purchase":
+	case analyticmodel.EventPurchase:
 		purchaseCount = 1
-	case "add_to_favorites":
+	case analyticmodel.EventAddToFavorites:
 		favoriteCount = 1
-	case "add_to_cart", "remove_from_cart":
+	case analyticmodel.EventAddToCart, analyticmodel.EventRemoveFromCart:
 		cartCount = 1
-	case "write_review", "rating_high", "rating_medium", "rating_low":
+	case analyticmodel.EventWriteReview, analyticmodel.EventRatingHigh, analyticmodel.EventRatingMedium,
+		analyticmodel.EventRatingLow:
 		reviewCount = 1
 	}
 
 	if _, err := b.storage.Querier().UpsertProductPopularity(ctx, analyticdb.UpsertProductPopularityParams{
-		ID:            spuID,
+		ID:            event.RefID,
 		Score:         weight,
 		ViewCount:     viewCount,
 		PurchaseCount: purchaseCount,

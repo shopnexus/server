@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchPromotion = `-- name: CreateBatchPromotion :batchone
-INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_active", "auto_apply", "group", "priority", "data", "date_started", "date_ended", "date_created", "date_updated")
+INSERT INTO "promotion"."promotion" ("id", "code", "owner_id", "type", "title", "description", "is_enabled", "budget", "auto_apply", "group", "data", "date_started", "date_ended", "date_created", "date_updated")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+RETURNING id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 `
 
 type CreateBatchPromotionBatchResults struct {
@@ -39,10 +39,10 @@ type CreateBatchPromotionParams struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`
@@ -60,10 +60,10 @@ func (q *Queries) CreateBatchPromotion(ctx context.Context, arg []CreateBatchPro
 			a.Type,
 			a.Title,
 			a.Description,
-			a.IsActive,
+			a.IsEnabled,
+			a.Budget,
 			a.AutoApply,
 			a.Group,
-			a.Priority,
 			a.Data,
 			a.DateStarted,
 			a.DateEnded,
@@ -94,10 +94,10 @@ func (b *CreateBatchPromotionBatchResults) QueryRow(f func(int, PromotionPromoti
 			&i.Type,
 			&i.Title,
 			&i.Description,
-			&i.IsActive,
+			&i.IsEnabled,
+			&i.Budget,
 			&i.AutoApply,
 			&i.Group,
-			&i.Priority,
 			&i.Data,
 			&i.DateStarted,
 			&i.DateEnded,

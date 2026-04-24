@@ -27,10 +27,10 @@ func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 		v := tx.PaymentOption.String
 		paymentOption = &v
 	}
-	var instrumentID *uuid.UUID
-	if tx.InstrumentID.Valid {
-		v := tx.InstrumentID.UUID
-		instrumentID = &v
+	var walletID *uuid.UUID
+	if tx.WalletID.Valid {
+		v := tx.WalletID.UUID
+		walletID = &v
 	}
 	var datePaid *time.Time
 	if tx.DatePaid.Valid {
@@ -55,7 +55,7 @@ func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 		Status:        tx.Status,
 		Note:          tx.Note,
 		PaymentOption: paymentOption,
-		InstrumentID:  instrumentID,
+		WalletID:      walletID,
 		Data:          tx.Data,
 		Amount:        tx.Amount,
 		FromCurrency:  tx.FromCurrency,

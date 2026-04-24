@@ -32,7 +32,6 @@ func (r *iteratorForCreateCopyDefaultInteraction) Next() bool {
 func (r iteratorForCreateCopyDefaultInteraction) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
-		r.rows[0].AccountNumber,
 		r.rows[0].SessionID,
 		r.rows[0].EventType,
 		r.rows[0].RefType,
@@ -48,7 +47,7 @@ func (r iteratorForCreateCopyDefaultInteraction) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultInteraction(ctx context.Context, arg []CreateCopyDefaultInteractionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address"}, &iteratorForCreateCopyDefaultInteraction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address"}, &iteratorForCreateCopyDefaultInteraction{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultProductPopularity implements pgx.CopyFromSource.
@@ -104,7 +103,6 @@ func (r *iteratorForCreateCopyInteraction) Next() bool {
 func (r iteratorForCreateCopyInteraction) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].AccountID,
-		r.rows[0].AccountNumber,
 		r.rows[0].SessionID,
 		r.rows[0].EventType,
 		r.rows[0].RefType,
@@ -121,7 +119,7 @@ func (r iteratorForCreateCopyInteraction) Err() error {
 }
 
 func (q *Queries) CreateCopyInteraction(ctx context.Context, arg []CreateCopyInteractionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "account_number", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created"}, &iteratorForCreateCopyInteraction{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"analytic", "interaction"}, []string{"account_id", "session_id", "event_type", "ref_type", "ref_id", "metadata", "user_agent", "ip_address", "date_created"}, &iteratorForCreateCopyInteraction{rows: arg})
 }
 
 // iteratorForCreateCopyProductPopularity implements pgx.CopyFromSource.

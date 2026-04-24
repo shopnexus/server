@@ -218,7 +218,7 @@ type OrderTransaction struct {
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	PaymentOption null.String     `json:"payment_option"`
-	InstrumentID  uuid.NullUUID   `json:"instrument_id"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`

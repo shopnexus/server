@@ -101,8 +101,9 @@ func (r iteratorForCreateCopyDefaultMessage) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ConversationID,
 		r.rows[0].SenderID,
+		r.rows[0].Type,
 		r.rows[0].Content,
-		r.rows[0].Metadata,
+		r.rows[0].Data,
 	}, nil
 }
 
@@ -111,7 +112,7 @@ func (r iteratorForCreateCopyDefaultMessage) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultMessage(ctx context.Context, arg []CreateCopyDefaultMessageParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"chat", "message"}, []string{"conversation_id", "sender_id", "content", "metadata"}, &iteratorForCreateCopyDefaultMessage{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"chat", "message"}, []string{"conversation_id", "sender_id", "type", "content", "data"}, &iteratorForCreateCopyDefaultMessage{rows: arg})
 }
 
 // iteratorForCreateCopyMessage implements pgx.CopyFromSource.
@@ -139,7 +140,7 @@ func (r iteratorForCreateCopyMessage) Values() ([]interface{}, error) {
 		r.rows[0].Type,
 		r.rows[0].Content,
 		r.rows[0].Status,
-		r.rows[0].Metadata,
+		r.rows[0].Data,
 		r.rows[0].DateCreated,
 	}, nil
 }
@@ -149,5 +150,5 @@ func (r iteratorForCreateCopyMessage) Err() error {
 }
 
 func (q *Queries) CreateCopyMessage(ctx context.Context, arg []CreateCopyMessageParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"chat", "message"}, []string{"conversation_id", "sender_id", "type", "content", "status", "metadata", "date_created"}, &iteratorForCreateCopyMessage{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"chat", "message"}, []string{"conversation_id", "sender_id", "type", "content", "status", "data", "date_created"}, &iteratorForCreateCopyMessage{rows: arg})
 }

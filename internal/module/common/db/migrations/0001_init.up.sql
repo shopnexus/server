@@ -18,21 +18,15 @@ CREATE TYPE "common"."resource_ref_type" AS ENUM ('ProductSpu', 'ProductSku', 'R
 -- Uploaded file/media record. provider identifies the storage backend.
 CREATE TABLE IF NOT EXISTS "common"."resource" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    -- Account that uploaded the file; NULL for system-generated resources
-    "uploaded_by" UUID,
-    -- Storage backend identifier (e.g. 'S3', 'Local', 'MinIO')
-    "provider" TEXT NOT NULL,
-    -- Provider-specific path or key (up to 2048 chars for S3 compatibility)
-    "object_key" VARCHAR(2048) NOT NULL,
-    -- MIME type (e.g. 'image/jpeg', 'application/pdf')
-    "mime" VARCHAR(100) NOT NULL,
-    -- File size in bytes
-    "size" BIGINT NOT NULL,
-    -- Provider-specific metadata (dimensions, duration, CDN URL, etc.)
-    "metadata" JSONB NOT NULL,
-    -- Optional content hash for deduplication
-    "checksum" TEXT,
+    "uploaded_by_id" UUID, -- Account that uploaded the file; NULL for system-generated resources
+    "provider" TEXT NOT NULL, -- Storage backend identifier (e.g. 'S3', 'Local', 'MinIO')
+    "object_key" VARCHAR(2048) NOT NULL, -- Provider-specific path or key (up to 2048 chars for S3 compatibility)
+    "mime" VARCHAR(100) NOT NULL, -- MIME type (e.g. 'image/jpeg', 'application/pdf')
+    "size" BIGINT NOT NULL, -- File size in bytes
+    "metadata" JSONB NOT NULL, -- Provider-specific metadata (dimensions, duration, CDN URL, etc.)
+    "checksum" TEXT, -- Optional content hash
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT "resource_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "resource_provider_object_key_key" UNIQUE ("provider", "object_key")
 );
@@ -41,33 +35,31 @@ CREATE TABLE IF NOT EXISTS "common"."resource" (
 -- This indirection allows a single file to be referenced by multiple entities.
 CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
     "id" BIGSERIAL NOT NULL,
-    -- The resource being referenced
-    "rs_id" UUID NOT NULL,
+    "rs_id" UUID NOT NULL, -- The resource being referenced
     "ref_type" "common"."resource_ref_type" NOT NULL,
-    -- ID of the owning entity (product, comment, etc.)
-    "ref_id" UUID NOT NULL,
-    -- Display order position among other resources for the same entity
-    "order" INTEGER NOT NULL,
+    "ref_id" UUID NOT NULL, -- ID of the owning entity (product, comment, etc.)
+    "order" INTEGER NOT NULL, -- Display order position among other resources for the same entity
+
     CONSTRAINT "resource_reference_pkey" PRIMARY KEY ("id"),
+
     CONSTRAINT "resource_reference_rs_id_fkey" FOREIGN KEY ("rs_id")
         REFERENCES "common"."resource" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Registry of pluggable service integrations selectable at checkout or configuration time.
 CREATE TABLE IF NOT EXISTS "common"."service_option" (
-    -- Stable identifier for this option (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
-    "id" VARCHAR(100) NOT NULL,
-    -- Grouping key (e.g. 'payment', 'transport', ...)
-    "category" TEXT NOT NULL,
-    -- Backend adapter identifier (e.g. 'stripe', 'ghn')
-    "provider" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "id" VARCHAR(100) NOT NULL, -- Stable identifier for this option (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
+    "category" TEXT NOT NULL, -- Grouping key (e.g. 'payment', 'transport', ...)
+    "provider" TEXT NOT NULL, -- Adapter identifier (e.g. 'stripe', 'ghn')
+    "is_enabled" BOOLEAN NOT NULL, -- System admin can toggle availability without redeploying code
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
-    "priority" INTEGER NOT NULL,
+    "priority" INTEGER NOT NULL, -- Better UX if options are displayed in a consistent order
     "config" JSONB NOT NULL,
     "logo_rs_id" UUID,
+
     CONSTRAINT "service_option_pkey" PRIMARY KEY ("id"),
+
     CONSTRAINT "service_option_logo_rs_id_fkey" FOREIGN KEY ("logo_rs_id")
         REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );

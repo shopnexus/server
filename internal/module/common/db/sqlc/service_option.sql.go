@@ -12,11 +12,11 @@ import (
 )
 
 const listSortedServiceOption = `-- name: ListSortedServiceOption :many
-SELECT id, category, provider, is_active, name, description, priority, config, logo_rs_id
+SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 FROM "common"."service_option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("is_active" = ANY($2) OR $2 IS NULL) AND
+    ("is_enabled" = ANY($2) OR $2 IS NULL) AND
     ("category" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "priority", "id" ASC
@@ -25,17 +25,17 @@ OFFSET $4
 `
 
 type ListSortedServiceOptionParams struct {
-	ID       []string    `json:"id"`
-	IsActive []bool      `json:"is_active"`
-	Category []string    `json:"category"`
-	Offset   pgtype.Int4 `json:"offset"`
-	Limit    pgtype.Int4 `json:"limit"`
+	ID        []string    `json:"id"`
+	IsEnabled []bool      `json:"is_enabled"`
+	Category  []string    `json:"category"`
+	Offset    pgtype.Int4 `json:"offset"`
+	Limit     pgtype.Int4 `json:"limit"`
 }
 
 func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedServiceOptionParams) ([]CommonServiceOption, error) {
 	rows, err := q.db.Query(ctx, listSortedServiceOption,
 		arg.ID,
-		arg.IsActive,
+		arg.IsEnabled,
 		arg.Category,
 		arg.Offset,
 		arg.Limit,
@@ -51,7 +51,7 @@ func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedSer
 			&i.ID,
 			&i.Category,
 			&i.Provider,
-			&i.IsActive,
+			&i.IsEnabled,
 			&i.Name,
 			&i.Description,
 			&i.Priority,

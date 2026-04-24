@@ -13,7 +13,7 @@ import (
 )
 
 const getPendingPayoutTxForOrder = `-- name: GetPendingPayoutTxForOrder :one
-SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.instrument_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
+SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
 JOIN "order"."item" i ON i."order_id" = $1
 WHERE t."type" = 'payout'
   AND t."status" = 'Pending'
@@ -32,7 +32,7 @@ func (q *Queries) GetPendingPayoutTxForOrder(ctx context.Context, orderID uuid.N
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -46,7 +46,7 @@ func (q *Queries) GetPendingPayoutTxForOrder(ctx context.Context, orderID uuid.N
 }
 
 const listCheckoutSiblingsForTx = `-- name: ListCheckoutSiblingsForTx :many
-SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.instrument_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
+SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.wallet_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
 JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
     AND t2."type" = 'checkout'
     AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
@@ -71,7 +71,7 @@ func (q *Queries) ListCheckoutSiblingsForTx(ctx context.Context, txID int64) ([]
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -92,7 +92,7 @@ func (q *Queries) ListCheckoutSiblingsForTx(ctx context.Context, txID int64) ([]
 }
 
 const listConfirmFeeSiblingsForTx = `-- name: ListConfirmFeeSiblingsForTx :many
-SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.instrument_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
+SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.wallet_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
 JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
     AND t2."type" = 'confirm_fee'
     AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
@@ -117,7 +117,7 @@ func (q *Queries) ListConfirmFeeSiblingsForTx(ctx context.Context, txID int64) (
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -138,7 +138,7 @@ func (q *Queries) ListConfirmFeeSiblingsForTx(ctx context.Context, txID int64) (
 }
 
 const listExpiredPendingTransactions = `-- name: ListExpiredPendingTransactions :many
-SELECT id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired FROM "order"."transaction"
+SELECT id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired FROM "order"."transaction"
 WHERE "status" = 'Pending' AND "date_expired" < $1::TIMESTAMPTZ
 ORDER BY "date_expired"
 LIMIT $2::INTEGER
@@ -166,7 +166,7 @@ func (q *Queries) ListExpiredPendingTransactions(ctx context.Context, arg ListEx
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -187,7 +187,7 @@ func (q *Queries) ListExpiredPendingTransactions(ctx context.Context, arg ListEx
 }
 
 const listTransactionsByItem = `-- name: ListTransactionsByItem :many
-SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.instrument_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
+SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
 JOIN "order"."item" i ON (i."payment_tx_id" = t."id" OR i."refund_tx_id" = t."id")
 WHERE i."id" = $1
 ORDER BY t."date_created"
@@ -210,7 +210,7 @@ func (q *Queries) ListTransactionsByItem(ctx context.Context, itemID int64) ([]O
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -231,7 +231,7 @@ func (q *Queries) ListTransactionsByItem(ctx context.Context, itemID int64) ([]O
 }
 
 const listTransactionsByOrder = `-- name: ListTransactionsByOrder :many
-SELECT DISTINCT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.instrument_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
+SELECT DISTINCT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
 WHERE t."id" IN (
     SELECT o."seller_tx_id" FROM "order"."order" o WHERE o."id" = $1
     UNION
@@ -259,7 +259,7 @@ func (q *Queries) ListTransactionsByOrder(ctx context.Context, orderID uuid.UUID
 			&i.Status,
 			&i.Note,
 			&i.PaymentOption,
-			&i.InstrumentID,
+			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -283,7 +283,7 @@ const markTransactionCancelled = `-- name: MarkTransactionCancelled :one
 UPDATE "order"."transaction"
 SET "status" = 'Cancelled'
 WHERE "id" = $1 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (OrderTransaction, error) {
@@ -297,7 +297,7 @@ func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (Order
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -314,7 +314,7 @@ const markTransactionFailed = `-- name: MarkTransactionFailed :one
 UPDATE "order"."transaction"
 SET "status" = 'Failed'
 WHERE "id" = $1 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 func (q *Queries) MarkTransactionFailed(ctx context.Context, id int64) (OrderTransaction, error) {
@@ -328,7 +328,7 @@ func (q *Queries) MarkTransactionFailed(ctx context.Context, id int64) (OrderTra
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -348,7 +348,7 @@ UPDATE "order"."transaction"
 SET "status" = 'Success',
     "date_paid" = COALESCE($1::TIMESTAMPTZ, CURRENT_TIMESTAMP)
 WHERE "id" = $2 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, instrument_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
 `
 
 type MarkTransactionSuccessParams struct {
@@ -376,7 +376,7 @@ func (q *Queries) MarkTransactionSuccess(ctx context.Context, arg MarkTransactio
 		&i.Status,
 		&i.Note,
 		&i.PaymentOption,
-		&i.InstrumentID,
+		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,

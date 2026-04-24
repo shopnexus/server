@@ -149,10 +149,10 @@ type PromotionPromotion struct {
 	Type        PromotionType   `json:"type"`
 	Title       string          `json:"title"`
 	Description null.String     `json:"description"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Budget      int64           `json:"budget"`
 	AutoApply   bool            `json:"auto_apply"`
 	Group       string          `json:"group"`
-	Priority    int32           `json:"priority"`
 	Data        json.RawMessage `json:"data"`
 	DateStarted time.Time       `json:"date_started"`
 	DateEnded   null.Time       `json:"date_ended"`

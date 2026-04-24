@@ -13,7 +13,7 @@ import (
 )
 
 const listActivePromotion = `-- name: ListActivePromotion :many
-SELECT id, code, owner_id, type, title, description, is_active, auto_apply, "group", priority, data, date_started, date_ended, date_created, date_updated
+SELECT id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 FROM promotion.promotion
 WHERE is_active = true
   AND date_started <= NOW()
@@ -26,7 +26,7 @@ WHERE is_active = true
       "code" = ANY($4)
     )
   )
-ORDER BY "group", "priority" DESC
+ORDER BY "group" DESC
 `
 
 type ListActivePromotionParams struct {
@@ -57,10 +57,10 @@ func (q *Queries) ListActivePromotion(ctx context.Context, arg ListActivePromoti
 			&i.Type,
 			&i.Title,
 			&i.Description,
-			&i.IsActive,
+			&i.IsEnabled,
+			&i.Budget,
 			&i.AutoApply,
 			&i.Group,
-			&i.Priority,
 			&i.Data,
 			&i.DateStarted,
 			&i.DateEnded,

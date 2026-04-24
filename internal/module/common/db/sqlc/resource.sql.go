@@ -15,7 +15,7 @@ import (
 )
 
 const listSortedResources = `-- name: ListSortedResources :many
-SELECT r.id, r.uploaded_by, r.provider, r.object_key, r.mime, r.size, r.metadata, r.checksum, r.created_at, rr.ref_id
+SELECT r.id, r.uploaded_by_id, r.provider, r.object_key, r.mime, r.size, r.metadata, r.checksum, r.created_at, rr.ref_id
 FROM "common"."resource_reference" AS rr
 INNER JOIN "common"."resource" AS r ON rr.rs_id = r.id
 WHERE
@@ -30,16 +30,16 @@ type ListSortedResourcesParams struct {
 }
 
 type ListSortedResourcesRow struct {
-	ID         uuid.UUID       `json:"id"`
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
-	CreatedAt  time.Time       `json:"created_at"`
-	RefID      uuid.UUID       `json:"ref_id"`
+	ID           uuid.UUID       `json:"id"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
+	CreatedAt    time.Time       `json:"created_at"`
+	RefID        uuid.UUID       `json:"ref_id"`
 }
 
 func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourcesParams) ([]ListSortedResourcesRow, error) {
@@ -53,7 +53,7 @@ func (q *Queries) ListSortedResources(ctx context.Context, arg ListSortedResourc
 		var i ListSortedResourcesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.UploadedBy,
+			&i.UploadedByID,
 			&i.Provider,
 			&i.ObjectKey,
 			&i.Mime,

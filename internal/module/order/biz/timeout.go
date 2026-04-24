@@ -80,7 +80,7 @@ func (b *OrderHandler) TimeoutCheckoutTx(ctx restate.Context, params TimeoutChec
 		if err == nil {
 			var totalWallet int64
 			for _, s := range siblings {
-				// Wallet tx: status=Success and no payment_option (no gateway instrument)
+				// Wallet tx: status=Success and no payment_option (internal wallet, no gateway)
 				if s.Status == orderdb.OrderStatusSuccess && !s.PaymentOption.Valid {
 					totalWallet += s.Amount
 				}

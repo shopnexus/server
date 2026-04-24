@@ -45,7 +45,7 @@ type ConfirmSellerPendingRequest struct {
 	ItemIDs       []int64    `json:"item_ids"       validate:"required,min=1"`
 	UseWallet     bool       `json:"use_wallet"`
 	PaymentOption string     `json:"payment_option" validate:"max=100"`
-	InstrumentID  *uuid.UUID `json:"instrument_id,omitempty"`
+	WalletID  *uuid.UUID `json:"wallet_id,omitempty"`
 	Note          string     `json:"note"           validate:"max=500"`
 }
 
@@ -68,7 +68,7 @@ func (h *Handler) ConfirmSellerPending(c echo.Context) error {
 		ItemIDs:       req.ItemIDs,
 		UseWallet:     req.UseWallet,
 		PaymentOption: req.PaymentOption,
-		InstrumentID:  req.InstrumentID,
+		WalletID:  req.WalletID,
 		Note:          req.Note,
 	})
 	if err != nil {

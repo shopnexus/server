@@ -21,9 +21,9 @@ var (
 )
 
 const createBatchResource = `-- name: CreateBatchResource :batchone
-INSERT INTO "common"."resource" ("id", "uploaded_by", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
+INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, uploaded_by, provider, object_key, mime, size, metadata, checksum, created_at
+RETURNING id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 `
 
 type CreateBatchResourceBatchResults struct {
@@ -33,15 +33,15 @@ type CreateBatchResourceBatchResults struct {
 }
 
 type CreateBatchResourceParams struct {
-	ID         uuid.UUID       `json:"id"`
-	UploadedBy uuid.NullUUID   `json:"uploaded_by"`
-	Provider   string          `json:"provider"`
-	ObjectKey  string          `json:"object_key"`
-	Mime       string          `json:"mime"`
-	Size       int64           `json:"size"`
-	Metadata   json.RawMessage `json:"metadata"`
-	Checksum   null.String     `json:"checksum"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
+	Provider     string          `json:"provider"`
+	ObjectKey    string          `json:"object_key"`
+	Mime         string          `json:"mime"`
+	Size         int64           `json:"size"`
+	Metadata     json.RawMessage `json:"metadata"`
+	Checksum     null.String     `json:"checksum"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 func (q *Queries) CreateBatchResource(ctx context.Context, arg []CreateBatchResourceParams) *CreateBatchResourceBatchResults {
@@ -49,7 +49,7 @@ func (q *Queries) CreateBatchResource(ctx context.Context, arg []CreateBatchReso
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
-			a.UploadedBy,
+			a.UploadedByID,
 			a.Provider,
 			a.ObjectKey,
 			a.Mime,
@@ -77,7 +77,7 @@ func (b *CreateBatchResourceBatchResults) QueryRow(f func(int, CommonResource, e
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.UploadedBy,
+			&i.UploadedByID,
 			&i.Provider,
 			&i.ObjectKey,
 			&i.Mime,
@@ -161,9 +161,9 @@ func (b *CreateBatchResourceReferenceBatchResults) Close() error {
 }
 
 const createBatchServiceOption = `-- name: CreateBatchServiceOption :batchone
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_active", "name", "description", "priority", "config", "logo_rs_id")
+INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, category, provider, is_active, name, description, priority, config, logo_rs_id
+RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
 `
 
 type CreateBatchServiceOptionBatchResults struct {
@@ -176,7 +176,7 @@ type CreateBatchServiceOptionParams struct {
 	ID          string          `json:"id"`
 	Category    string          `json:"category"`
 	Provider    string          `json:"provider"`
-	IsActive    bool            `json:"is_active"`
+	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
@@ -191,7 +191,7 @@ func (q *Queries) CreateBatchServiceOption(ctx context.Context, arg []CreateBatc
 			a.ID,
 			a.Category,
 			a.Provider,
-			a.IsActive,
+			a.IsEnabled,
 			a.Name,
 			a.Description,
 			a.Priority,
@@ -219,7 +219,7 @@ func (b *CreateBatchServiceOptionBatchResults) QueryRow(f func(int, CommonServic
 			&i.ID,
 			&i.Category,
 			&i.Provider,
-			&i.IsActive,
+			&i.IsEnabled,
 			&i.Name,
 			&i.Description,
 			&i.Priority,

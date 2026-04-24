@@ -115,7 +115,7 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("instrument_id" = ANY(sqlc.slice('instrument_id')) OR sqlc.slice('instrument_id') IS NULL) AND
+    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -145,7 +145,7 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("instrument_id" = ANY(sqlc.slice('instrument_id')) OR sqlc.slice('instrument_id') IS NULL) AND
+    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -178,7 +178,7 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("instrument_id" = ANY(sqlc.slice('instrument_id')) OR sqlc.slice('instrument_id') IS NULL) AND
+    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -201,26 +201,26 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateTransaction :one
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateBatchTransaction :batchone
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateCopyTransaction :copyfrom
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultTransaction :one
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateCopyDefaultTransaction :copyfrom
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "instrument_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_paid", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
 
 -- name: UpdateTransaction :one
@@ -231,7 +231,7 @@ SET "from_id" = CASE WHEN sqlc.arg('null_from_id')::bool = TRUE THEN NULL ELSE C
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
     "payment_option" = CASE WHEN sqlc.arg('null_payment_option')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_option'), "payment_option") END,
-    "instrument_id" = CASE WHEN sqlc.arg('null_instrument_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('instrument_id'), "instrument_id") END,
+    "wallet_id" = CASE WHEN sqlc.arg('null_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('wallet_id'), "wallet_id") END,
     "data" = COALESCE(sqlc.narg('data'), "data"),
     "amount" = COALESCE(sqlc.narg('amount'), "amount"),
     "from_currency" = COALESCE(sqlc.narg('from_currency'), "from_currency"),
@@ -253,7 +253,7 @@ WHERE (
     ("status" = ANY(sqlc.slice('status')) OR sqlc.slice('status') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("instrument_id" = ANY(sqlc.slice('instrument_id')) OR sqlc.slice('instrument_id') IS NULL) AND
+    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
