@@ -51,10 +51,8 @@ type Querier interface {
 	CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error)
 	CreateWallet(ctx context.Context, arg CreateWalletParams) (AccountWallet, error)
 	CreditProfileBalance(ctx context.Context, arg CreditProfileBalanceParams) (int64, error)
-	CreditWallet(ctx context.Context, arg CreditWalletParams) (AccountProfile, error)
 	// Deducts min(balance, amount). Returns new balance after the deduction.
 	DebitProfileBalance(ctx context.Context, arg DebitProfileBalanceParams) (int64, error)
-	DebitWallet(ctx context.Context, arg DebitWalletParams) (AccountProfile, error)
 	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error

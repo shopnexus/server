@@ -656,6 +656,12 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 		return sharedmodel.WrapErr("release inventory", err)
 	}
 
+	// Resolve buyer currency (outside Run — cross-module).
+	buyerCurrency, err := b.inferCurrency(ctx, params.AccountID)
+	if err != nil {
+		return sharedmodel.WrapErr("infer buyer currency", err)
+	}
+
 	// Create refund tx and cancel item atomically.
 	type cancelResult struct {
 		RefundTx orderdb.OrderTransaction `json:"refund_tx"`
@@ -676,8 +682,8 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 				InstrumentID:  uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
 				Amount:        item.PaidAmount,
-				FromCurrency:  "VND", // TODO(currency): infer from buyer profile
-				ToCurrency:    "VND",
+				FromCurrency:  buyerCurrency,
+				ToCurrency:    buyerCurrency,
 				ExchangeRate:  mustNumericOne(),
 				DatePaid:      null.TimeFrom(time.Now()),
 				DateExpired:   time.Now(),

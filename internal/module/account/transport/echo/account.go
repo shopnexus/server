@@ -54,12 +54,15 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	favoriteApi.GET("", h.ListFavorite)
 
 	// Payment method endpoints
-	// TODO(account-refactor): re-add routes for account.wallet CRUD once wallet biz is ready.
+	instrumentApi := api.Group("/wallet-instruments")
+	instrumentApi.POST("", h.CreateWallet)
+	instrumentApi.GET("", h.ListWallets)
+	instrumentApi.DELETE("/:id", h.DeleteWallet)
 
 	// Wallet endpoints
 	walletApi := api.Group("/wallet")
 	walletApi.GET("", h.GetWalletBalance)
-	// TODO(account-refactor): add transaction ledger list route (source: order.transaction).
+	// Transaction list lives in the order module (order.transaction ledger); no account-level route.
 
 	// Notification endpoints
 	notifApi := api.Group("/notification")

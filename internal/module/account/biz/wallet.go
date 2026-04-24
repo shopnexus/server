@@ -1,6 +1,8 @@
 package accountbiz
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	restate "github.com/restatedev/sdk-go"
 
@@ -78,6 +80,66 @@ func (b *AccountHandler) WalletCredit(ctx restate.Context, params WalletCreditPa
 		return err
 	}); err != nil {
 		return sharedmodel.WrapErr("wallet credit", err)
+	}
+	return nil
+}
+
+// --- Payment instrument (account.wallet) CRUD ---
+
+type CreateWalletParams struct {
+	AccountID uuid.UUID       `json:"account_id" validate:"required"`
+	Option    string          `json:"option" validate:"required,max=100"`
+	Label     string          `json:"label" validate:"required,max=100"`
+	Data      json.RawMessage `json:"data"`
+}
+
+type ListWalletsParams struct {
+	AccountID uuid.UUID `json:"account_id" validate:"required"`
+}
+
+type DeleteWalletParams struct {
+	AccountID uuid.UUID `json:"account_id" validate:"required"`
+	WalletID  uuid.UUID `json:"wallet_id" validate:"required"`
+}
+
+// CreateWallet stores a new payment instrument for the account (card token, e-wallet ref, etc.).
+func (b *AccountHandler) CreateWallet(ctx restate.Context, params CreateWalletParams) (accountdb.AccountWallet, error) {
+	wallet, err := restate.Run(ctx, func(ctx restate.RunContext) (accountdb.AccountWallet, error) {
+		return b.storage.Querier().CreateDefaultWallet(ctx, accountdb.CreateDefaultWalletParams{
+			AccountID: params.AccountID,
+			Option:    params.Option,
+			Label:     params.Label,
+			Data:      params.Data,
+		})
+	})
+	if err != nil {
+		return wallet, sharedmodel.WrapErr("create wallet", err)
+	}
+	return wallet, nil
+}
+
+// ListWallets returns all payment instruments for an account.
+func (b *AccountHandler) ListWallets(ctx restate.Context, params ListWalletsParams) ([]accountdb.AccountWallet, error) {
+	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]accountdb.AccountWallet, error) {
+		return b.storage.Querier().ListWallet(ctx, accountdb.ListWalletParams{
+			AccountID: []uuid.UUID{params.AccountID},
+		})
+	})
+	if err != nil {
+		return nil, sharedmodel.WrapErr("list wallets", err)
+	}
+	return rows, nil
+}
+
+// DeleteWallet removes a payment instrument. Ownership is enforced by the composite filter.
+func (b *AccountHandler) DeleteWallet(ctx restate.Context, params DeleteWalletParams) error {
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		return b.storage.Querier().DeleteWallet(ctx, accountdb.DeleteWalletParams{
+			ID:        []uuid.UUID{params.WalletID},
+			AccountID: []uuid.UUID{params.AccountID},
+		})
+	}); err != nil {
+		return sharedmodel.WrapErr("delete wallet", err)
 	}
 	return nil
 }
