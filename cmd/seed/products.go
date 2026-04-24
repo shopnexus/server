@@ -59,23 +59,17 @@ func processProduct(
 	// is missing or malformed (e.g. a symbol like "$" instead of "USD").
 	currency := strings.ToUpper(strings.TrimSpace(input.Currency))
 	if len(currency) != 3 {
-		currency = "VND"
+		return fmt.Errorf("invalid currency code: %s", input.Currency)
 	}
-	spuID := uuid.New()
-	spu, err := catalogStore.CreateProductSpu(ctx, catalogdb.CreateProductSpuParams{
-		ID:             spuID,
+	spu, err := catalogStore.CreateDefaultProductSpu(ctx, catalogdb.CreateDefaultProductSpuParams{
 		Slug:           productSlug,
 		AccountID:      accountID,
 		CategoryID:     categoryID,
-		FeaturedSkuID:  uuid.NullUUID{Valid: false},
 		Name:           input.Title,
 		Description:    input.ProductDescription,
-		IsActive:       strings.ToLower(input.IsAvailable) != "false",
+		IsEnabled:      strings.ToLower(input.IsAvailable) != "false",
 		Currency:       currency,
 		Specifications: specsJSON,
-		DateCreated:    time.Now(),
-		DateUpdated:    time.Now(),
-		DateDeleted:    null.Time{},
 	})
 	if err != nil {
 		return fmt.Errorf("create product spu: %w", err)
@@ -120,16 +114,12 @@ func processProduct(
 			price = basePrice
 		}
 
-		skuID := uuid.New()
-		sku, err := catalogStore.CreateProductSku(ctx, catalogdb.CreateProductSkuParams{
-			ID:             skuID,
-			SpuID:          spu.ID,
-			Price:          price,
-			Combinable:     false,
-			Attributes:     attributesJSON,
-			PackageDetails: packageDetailsJSON,
-			DateCreated:    time.Now(),
-			DateDeleted:    null.Time{},
+		sku, err := catalogStore.CreateDefaultProductSku(ctx, catalogdb.CreateDefaultProductSkuParams{
+			SpuID:           spu.ID,
+			Price:           price,
+			SharedPackaging: false,
+			Attributes:      attributesJSON,
+			PackageDetails:  packageDetailsJSON,
 		})
 		if err != nil {
 			return fmt.Errorf("create product sku: %w", err)
@@ -179,7 +169,7 @@ func processProduct(
 			continue
 		}
 
-		resourceID := uuid.New()
+		// TODO: update this mime check
 		mimeType := "image/jpeg"
 		if strings.Contains(imageURL, ".png") {
 			mimeType = "image/png"
@@ -191,16 +181,13 @@ func processProduct(
 			ObjectKey: null.StringFrom(imageURL),
 		})
 		if err != nil {
-			resource, err = commonStore.CreateResource(ctx, commondb.CreateResourceParams{
-				ID:         resourceID,
-				UploadedBy: uuid.NullUUID{UUID: accountID, Valid: true},
-				Provider:   "remote",
+			resource, err = commonStore.CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
+				UploadedByID: uuid.NullUUID{UUID: accountID, Valid: true},
+				Provider:     "remote",
 				ObjectKey:  imageURL,
 				Mime:       mimeType,
 				Size:       0,
 				Metadata:   []byte("null"),
-				Checksum:   null.String{},
-				CreatedAt:  time.Now(),
 			})
 			if err != nil {
 				return fmt.Errorf("create resource for %s: %w", imageURL, err)

@@ -61,7 +61,7 @@ func (h *Handler) CreateInteraction(c echo.Context) error {
 		Interactions: lo.Map(req.Interactions, func(i CreateInteraction, _ int) analyticbiz.CreateInteraction {
 			return analyticbiz.CreateInteraction{
 				Account:   claims.Account,
-				EventType: i.EventType,
+				EventType: analyticmodel.Event(i.EventType),
 				RefType:   i.RefType,
 				RefID:     i.RefID,
 			}

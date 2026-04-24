@@ -34,7 +34,6 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	meApi := api.Group("/me")
 	meApi.GET("", h.GetMe)
 	meApi.PATCH("", h.UpdateMe)
-	meApi.PATCH("/settings", h.UpdateMeSettings)
 
 	// Profile endpoints
 	profileApi := api.Group("/profile")
@@ -55,13 +54,7 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	favoriteApi.GET("", h.ListFavorite)
 
 	// Payment method endpoints
-	paymentApi := api.Group("/payment-method")
-	paymentApi.POST("", h.CreatePaymentMethod)
-	paymentApi.GET("", h.ListPaymentMethod)
-	paymentApi.PATCH("", h.UpdatePaymentMethod)
-	paymentApi.DELETE("", h.DeletePaymentMethod)
-	paymentApi.PUT("/:id/default", h.SetDefaultPaymentMethod)
-	paymentApi.POST("/tokenize", h.TokenizeCard)
+	// TODO(account-refactor): re-add routes for account.wallet CRUD once wallet biz is ready.
 
 	// Wallet endpoints
 	walletApi := api.Group("/wallet")

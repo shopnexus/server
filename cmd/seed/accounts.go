@@ -54,21 +54,20 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 			Phone:       null.StringFrom(fake.Phone()),
 			Password:    null.StringFrom(hashed),
 			DateCreated: time.Now(),
-			DateUpdated: time.Now(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create account %s: %w", sa.Username, err)
 		}
 
 		// Create contact
-		contact, err := store.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
+		_, err = store.CreateDefaultContact(ctx, accountdb.CreateDefaultContactParams{
 			AccountID:   account.ID,
 			FullName:    fake.Name(),
 			Phone:       fake.Phone(),
 			Address:     fmt.Sprintf("%s, %s, %s", fake.Street(), fake.City(), fake.Country()),
 			AddressType: accountdb.AccountAddressTypeHome,
-			Latitude:    null.FloatFrom(fake.Latitude()),
-			Longitude:   null.FloatFrom(fake.Longitude()),
+			Latitude:    fake.Latitude(),
+			Longitude:   fake.Longitude(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create contact for %s: %w", sa.Username, err)
@@ -84,14 +83,14 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 		_, err = store.CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
 			ID:     account.ID,
 			Gender: accountdb.NullAccountGender{AccountGender: gender, Valid: true},
-			Name:   null.StringFrom(fake.Name()),
+			Name:   fake.Name(),
 			DateOfBirth: null.TimeFrom(
 				fake.DateRange(
 					time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
 					time.Date(2003, 1, 1, 0, 0, 0, 0, time.UTC),
 				),
 			),
-			DefaultContactID: uuid.NullUUID{UUID: contact.ID, Valid: true},
+			// TODO(account-refactor): default_contact_id moved to account table.
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create profile for %s: %w", sa.Username, err)
