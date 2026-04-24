@@ -188,12 +188,44 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	for _, o := range orders {
 		base := mapOrder(o)
 
-		// TODO(tx-enrichment): load ConfirmFeeTx, PayoutTx, TotalAmount via transaction queries
 		if t, ok := transportMap[o.TransportID]; ok {
 			tr := mapTransport(t)
 			base.Transport = &tr
 		}
 		base.Items = enrichedItemsMap[o.ID]
+
+		// Load transactions and total amount for this order.
+		type txEnrichResult struct {
+			Txs         []orderdb.OrderTransaction `json:"txs"`
+			TotalAmount int64                      `json:"total_amount"`
+		}
+		orderID := o.ID
+		sellerTxID := o.SellerTxID
+		enriched, err := restate.Run(ctx, func(ctx restate.RunContext) (txEnrichResult, error) {
+			txs, err := b.storage.Querier().ListTransactionsByOrder(ctx, orderID)
+			if err != nil {
+				return txEnrichResult{}, sharedmodel.WrapErr("list transactions by order", err)
+			}
+			total, err := b.storage.Querier().SumPaidAmountByOrder(ctx, uuid.NullUUID{UUID: orderID, Valid: true})
+			if err != nil {
+				return txEnrichResult{}, sharedmodel.WrapErr("sum paid amount by order", err)
+			}
+			return txEnrichResult{Txs: txs, TotalAmount: total}, nil
+		})
+		if err != nil {
+			return nil, sharedmodel.WrapErr("enrich order transactions", err)
+		}
+
+		base.TotalAmount = enriched.TotalAmount
+		for _, tx := range enriched.Txs {
+			mapped := mapTransaction(tx)
+			switch {
+			case tx.ID == sellerTxID && tx.Type == TxTypeConfirmFee:
+				base.ConfirmFeeTx = &mapped
+			case tx.Type == TxTypePayout:
+				base.PayoutTx = &mapped
+			}
+		}
 
 		result = append(result, base)
 	}
