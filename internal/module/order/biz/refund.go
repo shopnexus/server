@@ -3,480 +3,261 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
-
-	restate "github.com/restatedev/sdk-go"
-
-	"shopnexus-server/internal/infras/metrics"
-	accountbiz "shopnexus-server/internal/module/account/biz"
-	accountmodel "shopnexus-server/internal/module/account/model"
-	analyticbiz "shopnexus-server/internal/module/analytic/biz"
-	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
-	analyticmodel "shopnexus-server/internal/module/analytic/model"
-	commonbiz "shopnexus-server/internal/module/common/biz"
-	commondb "shopnexus-server/internal/module/common/db/sqlc"
-	orderdb "shopnexus-server/internal/module/order/db/sqlc"
-	ordermodel "shopnexus-server/internal/module/order/model"
-	"shopnexus-server/internal/provider/payment"
-	sharedmodel "shopnexus-server/internal/shared/model"
-	"shopnexus-server/internal/shared/validator"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/samber/lo"
+	restate "github.com/restatedev/sdk-go"
+
+	accountbiz "shopnexus-server/internal/module/account/biz"
+	orderdb "shopnexus-server/internal/module/order/db/sqlc"
+	ordermodel "shopnexus-server/internal/module/order/model"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-// ListBuyerRefunds returns paginated refund requests with attached resources.
-// TODO: add casbin authorization — filter by caller's account_id
+// ListBuyerRefunds returns paginated refunds owned by the requesting buyer.
 func (b *OrderHandler) ListBuyerRefunds(
 	ctx restate.Context,
 	params ListBuyerRefundsParams,
 ) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
 	var zero sharedmodel.PaginateResult[ordermodel.Refund]
 
-	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate list refunds", err)
-	}
+	pagination := params.PaginationParams.Constrain()
 
-	type listResult struct {
-		Refunds []orderdb.ListCountRefundRow `json:"refunds"`
-	}
-	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (listResult, error) {
-		rows, err := b.storage.Querier().ListCountRefund(ctx, orderdb.ListCountRefundParams{
-			Offset: params.Offset(),
-			Limit:  params.Limit,
+	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderRefund, error) {
+		return b.storage.Querier().ListBuyerRefunds(ctx, orderdb.ListBuyerRefundsParams{
+			AccountID:   params.BuyerID,
+			OffsetCount: int32(pagination.Offset()),
+			LimitCount:  pagination.Limit.Int32,
 		})
-		if err != nil {
-			return listResult{}, err
-		}
-		return listResult{Refunds: rows}, nil
 	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("db list refunds", err)
+		return zero, sharedmodel.WrapErr("list buyer refunds", err)
 	}
 
-	var total null.Int64
-	if len(dbResult.Refunds) > 0 {
-		total.SetValid(dbResult.Refunds[0].TotalCount)
+	data := make([]ordermodel.Refund, 0, len(rows))
+	for _, r := range rows {
+		data = append(data, mapRefund(r))
 	}
-
-	ids := lo.Map(dbResult.Refunds, func(r orderdb.ListCountRefundRow, _ int) uuid.UUID {
-		return r.OrderRefund.ID
-	})
-
-	resourcesMap, err := b.common.GetResources(ctx, commonbiz.GetResourcesParams{
-		RefType: commondb.CommonResourceRefTypeRefund,
-		RefIDs:  ids,
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("get refund resources", err)
-	}
-
 	return sharedmodel.PaginateResult[ordermodel.Refund]{
-		PageParams: params.PaginationParams,
-		Total:      total,
-		Data: lo.Map(dbResult.Refunds, func(r orderdb.ListCountRefundRow, _ int) ordermodel.Refund {
-			m := mapRefund(r.OrderRefund)
-			m.Resources = resourcesMap[r.OrderRefund.ID]
-			return m
-		}),
+		PageParams: pagination,
+		Data:       data,
 	}, nil
 }
 
-// CreateBuyerRefund creates a new refund request for an order and tracks refund analytics.
+// CreateBuyerRefund creates a new 2-stage refund request for a paid order item.
+// A return transport is created automatically; the buyer supplies the return method and address.
 func (b *OrderHandler) CreateBuyerRefund(
 	ctx restate.Context,
 	params CreateBuyerRefundParams,
-) (_ ordermodel.Refund, err error) {
-	defer metrics.TrackHandler("order", "CreateBuyerRefund", &err)()
-
+) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
-	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate create refund", err)
-	}
-
-	if params.Method == orderdb.OrderRefundMethodPickUp && !params.Address.Valid {
-		return zero, ordermodel.ErrRefundAddressRequired.Terminal()
-	}
-
-	// Validate order exists and belongs to the buyer
-	order, err := b.GetBuyerOrder(ctx, params.OrderID)
+	// Validate item ownership, confirmation, and guard against duplicate active refunds.
+	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
+		it, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.OrderItemID))
+		if err != nil {
+			return it, sharedmodel.WrapErr("get item", err)
+		}
+		if it.AccountID != params.Account.ID {
+			return it, ordermodel.ErrItemNotOwnedByBuyer.Terminal()
+		}
+		if !it.OrderID.Valid {
+			return it, ordermodel.ErrItemNotConfirmed.Terminal()
+		}
+		if it.DateCancelled.Valid {
+			return it, ordermodel.ErrItemAlreadyCancelled.Terminal()
+		}
+		active, err := b.storage.Querier().HasActiveRefundForItem(ctx, params.OrderItemID)
+		if err != nil {
+			return it, sharedmodel.WrapErr("check active refund", err)
+		}
+		if active {
+			return it, ordermodel.ErrRefundAlreadyAccepted.Terminal()
+		}
+		return it, nil
+	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("get order for refund", err)
+		return zero, err
 	}
-	if order.BuyerID != params.Account.ID {
-		return zero, ordermodel.ErrOrderNotFound.Terminal()
+	_ = item
+
+	// Create a placeholder return transport (logistics filled in when seller accepts stage 1).
+	returnTransport, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransport, error) {
+		return b.storage.Querier().CreateDefaultTransport(ctx, orderdb.CreateDefaultTransportParams{
+			Option: params.ReturnTransportOption,
+			Data:   json.RawMessage(`{"direction":"return"}`),
+		})
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("create return transport", err)
 	}
 
-	// Validate that all params.ItemIDs belong to the order
-	if len(params.ItemIDs) > 0 {
-		orderItemSet := make(map[int64]struct{}, len(order.Items))
-		for _, item := range order.Items {
-			orderItemSet[item.ID] = struct{}{}
-		}
-		for _, id := range params.ItemIDs {
-			if _, ok := orderItemSet[id]; !ok {
-				return zero, fmt.Errorf("item %d does not belong to order %s: %w", id, params.OrderID, ordermodel.ErrOrderItemNotFound)
-			}
-		}
+	var addr null.String
+	if params.Address != "" {
+		addr = null.StringFrom(params.Address)
 	}
 
-	// Validate that params.Amount does not exceed the sum of the items' paid_amount
-	{
-		var maxRefund int64
-		if len(params.ItemIDs) > 0 {
-			itemPaidMap := make(map[int64]int64, len(order.Items))
-			for _, item := range order.Items {
-				itemPaidMap[item.ID] = item.PaidAmount
-			}
-			for _, id := range params.ItemIDs {
-				maxRefund += itemPaidMap[id]
-			}
-		} else {
-			for _, item := range order.Items {
-				maxRefund += item.PaidAmount
-			}
-		}
-		if params.Amount > maxRefund {
-			return zero, ordermodel.ErrRefundAmountExceedsPaid.Terminal()
-		}
-	}
-
-	// Partial refund: serialize item_ids to JSONB (null = full refund)
-	var itemIdsJSON json.RawMessage
-	if len(params.ItemIDs) > 0 {
-		// Reject duplicates
-		seen := make(map[int64]bool, len(params.ItemIDs))
-		for _, id := range params.ItemIDs {
-			if seen[id] {
-				return zero, ordermodel.ErrRefundDuplicateItem.Terminal()
-			}
-			seen[id] = true
-		}
-		itemIdsJSON, _ = json.Marshal(params.ItemIDs)
-	}
-
-	// Partial amount: wrap in null.Int (null = compute from order total)
-	var amount null.Int
-	if params.Amount > 0 {
-		amount = null.IntFrom(params.Amount)
-	}
-
-	// Create refund in durable step
-	dbRefund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
+	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
 		return b.storage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
-			AccountID: params.Account.ID,
-			OrderID:   params.OrderID,
-			Method:    params.Method,
-			Reason:    params.Reason,
-			Address:   params.Address,
-			ItemIds:   itemIdsJSON,
-			Amount:    amount,
+			AccountID:   params.Account.ID,
+			OrderItemID: params.OrderItemID,
+			TransportID: returnTransport.ID,
+			Method:      params.Method,
+			Reason:      params.Reason,
+			Address:     addr,
 		})
 	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("db create refund", err)
+		return zero, sharedmodel.WrapErr("create refund", err)
 	}
 
-	metrics.RefundsCreatedTotal.Inc()
-
-	// Update resources outside Run (cross-module Restate call)
-	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-		Account:         params.Account,
-		RefType:         commondb.CommonResourceRefTypeRefund,
-		RefID:           dbRefund.ID,
-		ResourceIDs:     params.ResourceIDs,
-		EmptyResources:  false,
-		DeleteResources: false,
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("update refund resources", err)
-	}
-
-	refund := mapRefund(dbRefund)
-	refund.Resources = resources
-
-	// Track refund_requested interaction + notify seller
-	if order, err := b.GetBuyerOrder(ctx, params.OrderID); err == nil {
-		var refundInteractions []analyticbiz.CreateInteraction
-		for _, item := range order.Items {
-			refundInteractions = append(refundInteractions, analyticbiz.CreateInteraction{
-				Account:   params.Account,
-				EventType: analyticmodel.EventRefundReq,
-				RefType:   analyticdb.AnalyticInteractionRefTypeProduct,
-				RefID:     item.SkuID.String(),
-			})
-		}
-		restate.ServiceSend(ctx, "Analytic", "CreateInteraction").Send(analyticbiz.CreateInteractionParams{
-			Interactions: refundInteractions,
-		})
-
-		// Notify seller: refund requested
-		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-			AccountID: order.SellerID,
-			Type:      accountmodel.NotiRefundRequested,
-			Channel:   accountmodel.ChannelInApp,
-			Title:     "Refund requested",
-			Content:   fmt.Sprintf("A refund has been requested for %s.", ordermodel.SummarizeItems(order.Items)),
-			Metadata:  json.RawMessage(fmt.Sprintf(`{"order_id":"%s","refund_id":"%s"}`, refund.OrderID, refund.ID)),
-		})
-	}
-
-	return refund, nil
+	return mapRefund(refund), nil
 }
 
-// UpdateBuyerRefund updates a pending refund's method, reason, address, or status.
-// TODO: add casbin authorization — verify caller owns this refund
-func (b *OrderHandler) UpdateBuyerRefund(
+// AcceptRefundStage1 is called by the seller to accept a Pending refund and move it to Processing.
+// The seller provides shipping details for the buyer's return transport.
+func (b *OrderHandler) AcceptRefundStage1(
 	ctx restate.Context,
-	params UpdateBuyerRefundParams,
+	params AcceptRefundStage1Params,
+) (ordermodel.Refund, error) {
+	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().AcceptRefundStage1(ctx, orderdb.AcceptRefundStage1Params{
+			ID:           params.RefundID,
+			AcceptedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+		})
+	})
+	if err != nil {
+		return ordermodel.Refund{}, sharedmodel.WrapErr("accept stage 1", err)
+	}
+	return mapRefund(refund), nil
+}
+
+// ApproveRefundStage2 is called by the seller after the returned item is received and inspected.
+// It creates a refund tx (Success), credits the buyer's wallet, cancels the item,
+// and cancels the pending payout if the order had one.
+func (b *OrderHandler) ApproveRefundStage2(
+	ctx restate.Context,
+	params ApproveRefundStage2Params,
 ) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
-	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate update refund", err)
+	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("get refund", err)
+	}
+	if refund.Status != orderdb.OrderStatusProcessing {
+		return zero, ordermodel.ErrRefundStageSkipped.Terminal()
 	}
 
-	updatedRefund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
+		return b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("get item", err)
+	}
+	if item.SellerID != params.Account.ID {
+		return zero, ordermodel.ErrItemNotOwnedBySeller.Terminal()
+	}
+
+	// All mutations in one durable Run: create refund tx, approve refund row, cancel item, cancel payout.
+	result, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
+		refundTx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+			FromID:        uuid.NullUUID{},
+			ToID:          uuid.NullUUID{UUID: item.AccountID, Valid: true},
+			Type:          TxTypeRefund,
+			Status:        orderdb.OrderStatusSuccess,
+			Note:          fmt.Sprintf("refund approved for item %d", item.ID),
+			Amount:        item.PaidAmount,
+			FromCurrency:  "VND", // TODO(currency): resolve from buyer profile
+			ToCurrency:    "VND", // TODO(currency): resolve from buyer profile
+			Data:          json.RawMessage("{}"),
+			DatePaid:      null.TimeFrom(time.Now()),
+			DateExpired:   time.Now(),
+		})
 		if err != nil {
-			return orderdb.OrderRefund{}, sharedmodel.WrapErr("db get refund", err)
+			return orderdb.OrderRefund{}, sharedmodel.WrapErr("create refund tx", err)
 		}
 
-		if refund.Status != orderdb.OrderStatusPending {
-			return orderdb.OrderRefund{}, ordermodel.ErrRefundCannotBeUpdated.Terminal()
-		}
-
-		nullAddress := params.Method == orderdb.OrderRefundMethodDropOff
-
-		return b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
-			ID:            params.RefundID,
-			Method:        orderdb.NullOrderRefundMethod{OrderRefundMethod: params.Method, Valid: params.Method != ""},
-			Reason:        params.Reason,
-			Address:       params.Address,
-			NullAddress:   nullAddress,
-			Status:        orderdb.NullOrderStatus{OrderStatus: params.Status, Valid: params.Status != ""},
-			ConfirmedByID: params.ConfirmedByID,
+		updated, err := b.storage.Querier().ApproveRefundStage2(ctx, orderdb.ApproveRefundStage2Params{
+			ID:           refund.ID,
+			ApprovedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+			RefundTxID:   null.IntFrom(refundTx.ID),
 		})
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db update refund", err)
-	}
-
-	// Update resources outside Run (cross-module Restate call)
-	resources, err := b.common.UpdateResources(ctx, commonbiz.UpdateResourcesParams{
-		Account:         params.Account,
-		RefType:         commondb.CommonResourceRefTypeRefund,
-		RefID:           updatedRefund.ID,
-		ResourceIDs:     params.ResourceIDs,
-		DeleteResources: true,
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("update refund resources", err)
-	}
-
-	m := mapRefund(updatedRefund)
-	m.Resources = resources
-	return m, nil
-}
-
-// mapRefund maps a DB OrderRefund row to the model type.
-func mapRefund(r orderdb.OrderRefund) ordermodel.Refund {
-	var confirmedByID *uuid.UUID
-	if r.ConfirmedByID.Valid {
-		confirmedByID = &r.ConfirmedByID.UUID
-	}
-	var transportID *uuid.UUID
-	if r.TransportID.Valid {
-		transportID = &r.TransportID.UUID
-	}
-	var address *string
-	if r.Address.Valid {
-		address = &r.Address.String
-	}
-
-	refund := ordermodel.Refund{
-		ID:            r.ID,
-		AccountID:     r.AccountID,
-		OrderID:       r.OrderID,
-		ConfirmedByID: confirmedByID,
-		TransportID:   transportID,
-		Method:        r.Method,
-		Reason:        r.Reason,
-		Address:       address,
-		Status:        r.Status,
-		DateCreated:   r.DateCreated,
-	}
-
-	if r.ItemIds != nil {
-		_ = json.Unmarshal(r.ItemIds, &refund.ItemIDs)
-	}
-	if r.Amount.Valid {
-		refund.Amount = r.Amount.Int64
-	}
-
-	return refund
-}
-
-// CancelBuyerRefund cancels a refund request by setting its status to canceled.
-// TODO: add casbin authorization — verify caller owns this refund
-func (b *OrderHandler) CancelBuyerRefund(ctx restate.Context, params CancelBuyerRefundParams) error {
-	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate cancel refund", err)
-	}
-
-	// Distributed lock per refund — prevents race with ConfirmSellerRefund
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund:%s", params.RefundID))
-	defer unlock()
-
-	// Fetch refund before cancelling to get order_id for notification
-	type refundInfo struct {
-		OrderID string `json:"order_id"`
-	}
-	ri, err := restate.Run(ctx, func(ctx restate.RunContext) (refundInfo, error) {
-		r, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 		if err != nil {
-			return refundInfo{}, err
+			return orderdb.OrderRefund{}, sharedmodel.WrapErr("approve stage 2", err)
 		}
-		return refundInfo{OrderID: r.OrderID.String()}, nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("fetch refund", err)
-	}
 
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().UpdateRefund(ctx, orderdb.UpdateRefundParams{
-			ID:     params.RefundID,
-			Status: orderdb.NullOrderStatus{OrderStatus: orderdb.OrderStatusCancelled, Valid: true},
-		})
-		return err
-	}); err != nil {
-		return sharedmodel.WrapErr("db cancel refund", err)
-	}
-
-	// Notify seller (fire-and-forget, best effort)
-	orderID, _ := uuid.Parse(ri.OrderID)
-	order, err := b.GetBuyerOrder(ctx, orderID)
-	if err == nil {
-		meta, _ := json.Marshal(map[string]string{"order_id": ri.OrderID, "refund_id": params.RefundID.String()})
-		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-			AccountID: order.SellerID,
-			Type:      accountmodel.NotiRefundCancelled,
-			Channel:   accountmodel.ChannelInApp,
-			Title:     "Refund cancelled",
-			Content: fmt.Sprintf(
-				"Refund request for %s has been cancelled by the buyer.",
-				ordermodel.SummarizeItems(order.Items),
-			),
-			Metadata: meta,
-		})
-	}
-
-	return nil
-}
-
-// ConfirmSellerRefund marks a refund as confirmed by the vendor and transitions it to processing.
-// TODO: add casbin authorization — verify caller is the order's seller
-func (b *OrderHandler) ConfirmSellerRefund(
-	ctx restate.Context,
-	params ConfirmSellerRefundParams,
-) (ordermodel.Refund, error) {
-	var err error
-	defer metrics.TrackHandler("order", "ConfirmSellerRefund", &err)()
-
-	var zero ordermodel.Refund
-
-	if err = validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate confirm refund", err)
-	}
-
-	// Distributed lock per refund — prevents race with CancelBuyerRefund
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:refund:%s", params.RefundID))
-	defer unlock()
-
-	refund, err := b.UpdateBuyerRefund(ctx, UpdateBuyerRefundParams{
-		Account:       params.Account,
-		RefundID:      params.RefundID,
-		Status:        orderdb.OrderStatusProcessing,
-		ConfirmedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("confirm refund", err)
-	}
-
-	// Notify customer: refund confirmed + check for auto-refund
-	refundOrder, orderErr := b.GetBuyerOrder(ctx, refund.OrderID)
-	if orderErr != nil {
-		slog.Warn("get order for refund notification", slog.Any("error", orderErr))
-	}
-	refundSummary := "your order"
-	if refundOrder.Items != nil {
-		refundSummary = ordermodel.SummarizeItems(refundOrder.Items)
-	}
-	meta, _ := json.Marshal(map[string]string{"order_id": refund.OrderID.String(), "refund_id": refund.ID.String()})
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: refund.AccountID,
-		Type:      accountmodel.NotiRefundApproved,
-		Channel:   accountmodel.ChannelInApp,
-		Title:     "Refund approved",
-		Content:   fmt.Sprintf("Your refund for %s has been approved.", refundSummary),
-		Metadata:  meta,
-	})
-
-	// Auto-refund for card payments: reuse hydrated order's payment data
-	if refundOrder.Payment != nil && refundOrder.Payment.PaymentMethodID.Valid {
-		var data struct {
-			ProviderChargeID string `json:"provider_charge_id"`
-			Provider         string `json:"provider"`
+		if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+			ID:            item.ID,
+			CancelledByID: uuid.NullUUID{UUID: item.AccountID, Valid: true},
+			RefundTxID:    null.IntFrom(refundTx.ID),
+		}); err != nil {
+			return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel item", err)
 		}
-		_ = json.Unmarshal(refundOrder.Payment.Data, &data)
-		if data.ProviderChargeID != "" {
-			cardClient, err := b.getPaymentClientByProvider(data.Provider)
-			if err == nil {
-				// Partial refund: use refund.Amount if set, else full payment amount
-				refundAmount := refundOrder.Payment.Amount
-				if refund.Amount > 0 {
-					refundAmount = refund.Amount
+
+		// Cancel pending payout if one exists for the order.
+		if item.OrderID.Valid {
+			if payout, err := b.storage.Querier().GetPendingPayoutTxForOrder(ctx, item.OrderID); err == nil {
+				if _, err := b.storage.Querier().MarkTransactionCancelled(ctx, payout.ID); err != nil {
+					return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel payout", err)
 				}
-				restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-					_, refundErr := cardClient.Refund(ctx, payment.RefundParams{
-						ProviderChargeID: data.ProviderChargeID,
-						Amount:           refundAmount,
-					})
-					if refundErr != nil {
-						slog.Error("auto-refund failed",
-							slog.String("refund_id", refund.ID.String()),
-							slog.Any("error", refundErr),
-						)
-					}
-					return nil
-				})
 			}
 		}
+
+		return updated, nil
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("approve stage 2", err)
 	}
 
-	return refund, nil
+	// Credit buyer's wallet outside Run (cross-module Restate call).
+	if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+		AccountID: item.AccountID,
+		Amount:    item.PaidAmount,
+		Type:      "Refund",
+		Reference: fmt.Sprintf("refund:%s", refund.ID),
+		Note:      "refund approved",
+	}); err != nil {
+		return zero, sharedmodel.WrapErr("wallet credit buyer", err)
+	}
+
+	return mapRefund(result), nil
 }
 
-// refundBuyerWallet credits the buyer's wallet in buyer-currency units.
-// amount is already in buyer currency (order.item.paid_amount and
-// order.payment.amount are both buyer-currency after the multi-currency
-// checkout refactor), so no FX conversion is needed here.
-func (b *OrderHandler) refundBuyerWallet(
+// RejectRefund rejects either stage 1 (Pending→Failed) or stage 2 (Processing→Failed).
+// After rejection, schedules a short Restate timer to re-attempt escrow release for the
+// associated order in case no other refunds block it.
+func (b *OrderHandler) RejectRefund(
 	ctx restate.Context,
-	buyerID uuid.UUID,
-	amount int64,
-	paymentID int64,
-) error {
-	if amount <= 0 {
-		return nil
+	params RejectRefundParams,
+) (ordermodel.Refund, error) {
+	if params.RejectionNote == "" {
+		return ordermodel.Refund{}, ordermodel.ErrRefundRejectionWithoutReason.Terminal()
 	}
-	return b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-		AccountID: buyerID,
-		Amount:    amount,
-		Type:      "Refund",
-		Reference: fmt.Sprintf("payment-%d", paymentID),
-		Note:      "refund from payment",
+
+	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().RejectRefund(ctx, orderdb.RejectRefundParams{
+			ID:            params.RefundID,
+			RejectionNote: null.StringFrom(params.RejectionNote),
+		})
 	})
+	if err != nil {
+		return ordermodel.Refund{}, sharedmodel.WrapErr("reject refund", err)
+	}
+
+	// Re-fire escrow release (short delay) so payout can proceed if no other refunds block.
+	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
+		return b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+	})
+	if err == nil && item.OrderID.Valid {
+		restate.ServiceSend(ctx, b.ServiceName(), "ReleaseEscrow").Send(
+			ReleaseEscrowParams{OrderID: item.OrderID.UUID},
+			restate.WithDelay(1*time.Minute),
+		)
+	}
+
+	return mapRefund(refund), nil
 }

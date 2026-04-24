@@ -134,6 +134,85 @@ func mapOrder(o orderdb.OrderOrder) ordermodel.Order {
 	}
 }
 
+func mapRefund(r orderdb.OrderRefund) ordermodel.Refund {
+	var address *string
+	if r.Address.Valid {
+		v := r.Address.String
+		address = &v
+	}
+	var acceptedByID *uuid.UUID
+	if r.AcceptedByID.Valid {
+		v := r.AcceptedByID.UUID
+		acceptedByID = &v
+	}
+	var dateAccepted *time.Time
+	if r.DateAccepted.Valid {
+		v := r.DateAccepted.Time
+		dateAccepted = &v
+	}
+	var rejectionNote *string
+	if r.RejectionNote.Valid {
+		v := r.RejectionNote.String
+		rejectionNote = &v
+	}
+	var approvedByID *uuid.UUID
+	if r.ApprovedByID.Valid {
+		v := r.ApprovedByID.UUID
+		approvedByID = &v
+	}
+	var dateApproved *time.Time
+	if r.DateApproved.Valid {
+		v := r.DateApproved.Time
+		dateApproved = &v
+	}
+	var refundTxID *int64
+	if r.RefundTxID.Valid {
+		v := r.RefundTxID.Int64
+		refundTxID = &v
+	}
+	return ordermodel.Refund{
+		ID:            r.ID,
+		AccountID:     r.AccountID,
+		OrderItemID:   r.OrderItemID,
+		TransportID:   r.TransportID,
+		Method:        r.Method,
+		Reason:        r.Reason,
+		Address:       address,
+		DateCreated:   r.DateCreated,
+		Status:        r.Status,
+		AcceptedByID:  acceptedByID,
+		DateAccepted:  dateAccepted,
+		RejectionNote: rejectionNote,
+		ApprovedByID:  approvedByID,
+		DateApproved:  dateApproved,
+		RefundTxID:    refundTxID,
+	}
+}
+
+func mapRefundDispute(d orderdb.OrderRefundDispute) ordermodel.RefundDispute {
+	var resolvedByID *uuid.UUID
+	if d.ResolvedByID.Valid {
+		v := d.ResolvedByID.UUID
+		resolvedByID = &v
+	}
+	var dateResolved *time.Time
+	if d.DateResolved.Valid {
+		v := d.DateResolved.Time
+		dateResolved = &v
+	}
+	return ordermodel.RefundDispute{
+		ID:           d.ID,
+		AccountID:    d.AccountID,
+		RefundID:     d.RefundID,
+		Reason:       d.Reason,
+		Status:       d.Status,
+		Note:         d.Note,
+		DateCreated:  d.DateCreated,
+		ResolvedByID: resolvedByID,
+		DateResolved: dateResolved,
+	}
+}
+
 func toNullUUID(p *uuid.UUID) uuid.NullUUID {
 	if p == nil {
 		return uuid.NullUUID{}

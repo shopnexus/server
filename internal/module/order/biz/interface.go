@@ -297,6 +297,7 @@ type ClearCartParams struct {
 // --- Refund 2-stage ---
 
 type ListBuyerRefundsParams struct {
+	BuyerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 
@@ -356,6 +357,7 @@ type CreateRefundDisputeParams struct {
 	Account  accountmodel.AuthenticatedAccount
 	RefundID uuid.UUID `validate:"required"`
 	Reason   string    `validate:"required,min=1,max=1000"`
+	Note     string    `validate:"required,min=1,max=2000"`
 }
 
 type ListRefundDisputesParams struct {
