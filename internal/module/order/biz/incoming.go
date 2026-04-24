@@ -14,6 +14,7 @@ import (
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
@@ -40,11 +41,7 @@ func (b *OrderHandler) ListSellerPendingItems(
 	}
 
 	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (incomingResult, error) {
-		items, err := b.storage.Querier().ListSellerPendingItems(ctx, orderdb.ListSellerPendingItemsParams{
-			SellerID: params.SellerID,
-			Off:      params.Offset().Int32,
-			Lim:      params.Limit.Int32,
-		})
+		items, err := b.storage.Querier().ListSellerPendingItems(ctx, params.SellerID)
 		if err != nil {
 			return incomingResult{}, err
 		}
@@ -65,134 +62,75 @@ func (b *OrderHandler) ListSellerPendingItems(
 		return zero, err
 	}
 
-	var total null.Int64
-	total.SetValid(dbResult.Total)
+	var totalVal null.Int64
+	totalVal.SetValid(dbResult.Total)
 
 	return sharedmodel.PaginateResult[ordermodel.OrderItem]{
 		PageParams: params.PaginationParams,
-		Total:      total,
+		Total:      totalVal,
 		Data:       enriched,
 	}, nil
 }
 
-// ConfirmSellerPending groups selected pending items into an order with transport.
+// ConfirmSellerPending groups selected pending items into an order with transport and fee transactions.
 func (b *OrderHandler) ConfirmSellerPending(
 	ctx restate.Context,
 	params ConfirmSellerPendingParams,
-) (_ ordermodel.Order, err error) {
+) (_ ConfirmSellerPendingResult, err error) {
 	defer metrics.TrackHandler("order", "ConfirmSellerPending", &err)()
 
-	var zero ordermodel.Order
+	var zero ConfirmSellerPendingResult
 
 	if err := validator.Validate(params); err != nil {
 		return zero, sharedmodel.WrapErr("validate confirm items", err)
 	}
 
-	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
+	sellerID := params.Account.ID
+
+	// Step 1: Acquire seller lock.
+	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", sellerID))
 	defer unlock()
 
-	// Step 1: Fetch items and validate
-	type fetchedItem struct {
-		ID                    int64  `json:"id"`
-		AccountID             string `json:"account_id"`
-		SellerID              string `json:"seller_id"`
-		Address               string `json:"address"`
-		SkuID                 string `json:"sku_id"`
-		SkuName               string `json:"sku_name"`
-		Quantity              int64  `json:"quantity"`
-		UnitPrice             int64  `json:"unit_price"`
-		PaidAmount            int64  `json:"paid_amount"`
-		TransportOption       string `json:"transport_option"`
-		TransportCostEstimate int64  `json:"transport_cost_estimate"`
-		OrderIDValid          bool   `json:"order_id_valid"`
-		DateCancelledValid    bool   `json:"date_cancelled_valid"`
-		PaymentID             int64  `json:"payment_id"`
-		PaymentIDValid        bool   `json:"payment_id_valid"`
-	}
-	type fetchResult struct {
-		Items []fetchedItem `json:"items"`
-	}
-
-	fetched, err := restate.Run(ctx, func(ctx restate.RunContext) (fetchResult, error) {
+	// Step 2: Fetch and validate items.
+	orderItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
 		items, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
 			ID: params.ItemIDs,
 		})
 		if err != nil {
-			return fetchResult{}, sharedmodel.WrapErr("db list items", err)
+			return nil, sharedmodel.WrapErr("db list items", err)
 		}
 		if len(items) != len(params.ItemIDs) {
-			return fetchResult{}, ordermodel.ErrOrderItemNotFound.Terminal()
+			return nil, ordermodel.ErrOrderItemNotFound.Terminal()
 		}
-
-		result := make([]fetchedItem, 0, len(items))
-		for _, item := range items {
-			result = append(result, fetchedItem{
-				ID:                    item.ID,
-				AccountID:             item.AccountID.String(),
-				SellerID:              item.SellerID.String(),
-				Address:               item.Address,
-				SkuID:                 item.SkuID.String(),
-				SkuName:               item.SkuName,
-				Quantity:              item.Quantity,
-				UnitPrice:             item.UnitPrice,
-				PaidAmount:            item.PaidAmount,
-				TransportOption:       item.TransportOption.String,
-				TransportCostEstimate: item.TransportCostEstimate,
-				OrderIDValid:          item.OrderID.Valid,
-				DateCancelledValid:    item.DateCancelled.Valid,
-				PaymentID:             item.PaymentID.Int64,
-				PaymentIDValid:        item.PaymentID.Valid,
-			})
-		}
-		return fetchResult{Items: result}, nil
+		return items, nil
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("fetch items", err)
 	}
 
-	// Verify that items' payment status is Success before confirming
-	if len(fetched.Items) > 0 && fetched.Items[0].PaymentIDValid {
-		type paymentCheck struct {
-			Status string `json:"status"`
-		}
-		pc, err := restate.Run(ctx, func(ctx restate.RunContext) (paymentCheck, error) {
-			p, err := b.storage.Querier().GetPayment(ctx, null.IntFrom(fetched.Items[0].PaymentID))
-			if err != nil {
-				return paymentCheck{}, sharedmodel.WrapErr("get payment", err)
-			}
-			return paymentCheck{Status: string(p.Status)}, nil
-		})
-		if err != nil {
-			return zero, sharedmodel.WrapErr("check payment status", err)
-		}
-		if pc.Status != string(orderdb.OrderStatusSuccess) {
-			return zero, ordermodel.ErrPaymentNotSuccess.Terminal()
-		}
-	}
-
-	// Validate all items: not yet in an order, not cancelled, same seller, same buyer, same transport option
-	sellerID := params.Account.ID
+	// Validate items and aggregate shared fields.
 	var buyerID uuid.UUID
 	var address string
 	var transportOption string
-	for i, item := range fetched.Items {
-		if item.OrderIDValid {
+	var paidTotal int64
+	uniquePaymentTxIDs := make(map[int64]struct{})
+
+	for i, item := range orderItems {
+		if item.OrderID.Valid {
 			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyConfirmed)
 		}
-		if item.DateCancelledValid {
+		if item.DateCancelled.Valid {
 			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyCancelled)
 		}
-		itemSellerID, _ := uuid.Parse(item.SellerID)
-		if itemSellerID != sellerID {
+		if item.SellerID != sellerID {
 			return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemNotOwnedBySeller)
 		}
-		itemBuyerID, _ := uuid.Parse(item.AccountID)
 		if i == 0 {
-			buyerID = itemBuyerID
+			buyerID = item.AccountID
 			address = item.Address
 			transportOption = item.TransportOption
 		} else {
-			if itemBuyerID != buyerID {
+			if item.AccountID != buyerID {
 				return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameBuyer)
 			}
 			if item.Address != address {
@@ -202,109 +140,201 @@ func (b *OrderHandler) ConfirmSellerPending(
 				return zero, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsTransportMismatch)
 			}
 		}
+		paidTotal += item.PaidAmount
+		uniquePaymentTxIDs[item.PaymentTxID] = struct{}{}
 	}
 
-	// Step 2: Get seller's default contact address (for transport from_address)
+	// Step 3: Verify every unique payment tx is Success.
+	for txID := range uniquePaymentTxIDs {
+		status, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderStatus, error) {
+			tx, err := b.storage.Querier().GetTransaction(ctx, null.IntFrom(txID))
+			if err != nil {
+				return "", sharedmodel.WrapErr("get payment tx", err)
+			}
+			return tx.Status, nil
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("check payment tx status", err)
+		}
+		if status != orderdb.OrderStatusSuccess {
+			return zero, ordermodel.ErrPaymentNotSuccess.Terminal()
+		}
+	}
+
+	// Step 4: Get seller contact address for transport from_address.
 	contactMap, err := b.account.GetDefaultContact(ctx, []uuid.UUID{sellerID})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get seller contact", err)
 	}
 	fromAddress := contactMap[sellerID].Address
 
-	// Step 3: Get transport client and create transport
+	// Step 5: Get transport client and quote cost.
 	transportClient, err := b.getTransportClient(transportOption)
 	if err != nil {
 		return zero, err
 	}
 
-	// Build item metadata for transport
-	transportItems := lo.Map(fetched.Items, func(item fetchedItem, _ int) transport.ItemMetadata {
-		skuID, _ := uuid.Parse(item.SkuID)
+	transportItems := lo.Map(orderItems, func(item orderdb.OrderItem, _ int) transport.ItemMetadata {
 		return transport.ItemMetadata{
-			SkuID:    skuID,
+			SkuID:    item.SkuID,
 			Quantity: item.Quantity,
 		}
 	})
 
-	type transportResult struct {
-		TransportID string `json:"transport_id"`
-		Cost        int64  `json:"cost"`
-	}
-
-	tResult, err := restate.Run(ctx, func(ctx restate.RunContext) (transportResult, error) {
-		created, err := transportClient.Create(ctx, transport.CreateParams{
-			Items:       transportItems,
-			FromAddress: fromAddress,
-			ToAddress:   address,
-			Option:      transportOption,
-		})
-		if err != nil {
-			return transportResult{}, sharedmodel.WrapErr("create transport", err)
-		}
-
-		// Store transport in DB
-		dbTransport, err := b.storage.Querier().CreateTransport(ctx, orderdb.CreateTransportParams{
-			ID:     created.ID,
-			Option: transportOption,
-			Cost:   created.Cost,
-			Data:   created.Data,
-		})
-		if err != nil {
-			return transportResult{}, sharedmodel.WrapErr("db save transport", err)
-		}
-
-		return transportResult{
-			TransportID: dbTransport.ID.String(),
-			Cost:        dbTransport.Cost,
-		}, nil
+	quote, err := transportClient.Quote(ctx, transport.QuoteParams{
+		Items:       transportItems,
+		FromAddress: fromAddress,
+		ToAddress:   address,
 	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("create transport", err)
+		return zero, sharedmodel.WrapErr("quote transport", err)
 	}
 
-	transportID, _ := uuid.Parse(tResult.TransportID)
+	platformFee := int64(0) // TODO: plug config
+	confirmFeeTotal := quote.Cost + platformFee
 
-	// Step 4: Calculate costs (buyer already paid full at checkout, so discount is 0)
-	var productCost int64
-	for _, item := range fetched.Items {
-		productCost += item.UnitPrice * item.Quantity
+	// Step 6: Wallet / gateway split for confirmFeeTotal.
+	var confirmFeeWallet, confirmFeeGateway int64
+	if params.UseWallet && confirmFeeTotal > 0 {
+		balance, err := b.account.GetWalletBalance(ctx, sellerID)
+		if err != nil {
+			return zero, sharedmodel.WrapErr("get seller wallet balance", err)
+		}
+		if balance >= confirmFeeTotal {
+			confirmFeeWallet = confirmFeeTotal
+		} else {
+			confirmFeeWallet = balance
+		}
 	}
-	transportCost := tResult.Cost
-	total := productCost + transportCost
+	confirmFeeGateway = confirmFeeTotal - confirmFeeWallet
 
-	// Step 5: Create order and set items' order_id
-	type orderResult struct {
-		OrderID string `json:"order_id"`
+	if confirmFeeGateway > 0 && params.PaymentOption == "" {
+		return zero, ordermodel.ErrInsufficientWalletBalance.Terminal()
 	}
-	oResult, err := restate.Run(ctx, func(ctx restate.RunContext) (orderResult, error) {
-		order, err := b.storage.Querier().CreateOrder(ctx, orderdb.CreateOrderParams{
-			ID:              uuid.Must(uuid.NewRandom()),
-			BuyerID:         buyerID,
-			SellerID:        sellerID,
-			TransportID:     uuid.NullUUID{UUID: transportID, Valid: true},
-			ConfirmedByID:   uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-			Address:         address,
-			ProductCost:     productCost,
-			ProductDiscount: 0,
-			TransportCost:   transportCost,
-			Total:           total,
-			Note:            null.NewString(params.Note, params.Note != ""),
-			Data:            json.RawMessage("{}"),
-			DateCreated:     time.Now(),
+
+	// Step 7: Create transport, confirm_fee txs, payout tx, order, link items — all in one Run.
+	type confirmRunResult struct {
+		Transport       orderdb.OrderTransport   `json:"transport"`
+		WalletTx        *orderdb.OrderTransaction `json:"wallet_tx,omitempty"`
+		GatewayTx       *orderdb.OrderTransaction `json:"gateway_tx,omitempty"`
+		PayoutTx        orderdb.OrderTransaction  `json:"payout_tx"`
+		Order           orderdb.OrderOrder        `json:"order"`
+		ConfirmFeeTxIDs []int64                   `json:"confirm_fee_tx_ids"`
+		BlockerTxID     int64                     `json:"blocker_tx_id"`
+	}
+
+	runRes, err := restate.Run(ctx, func(ctx restate.RunContext) (confirmRunResult, error) {
+		var res confirmRunResult
+
+		// Create transport record.
+		quoteData, _ := json.Marshal(map[string]int64{"quote": quote.Cost})
+		trRow, err := b.storage.Querier().CreateDefaultTransport(ctx, orderdb.CreateDefaultTransportParams{
+			Option: transportOption,
+			Data:   json.RawMessage(quoteData),
 		})
 		if err != nil {
-			return orderResult{}, sharedmodel.WrapErr("db create order", err)
+			return res, sharedmodel.WrapErr("db create transport", err)
+		}
+		res.Transport = trRow
+
+		// Confirm_fee wallet tx (if any).
+		if confirmFeeWallet > 0 {
+			tx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+				FromID:        uuid.NullUUID{UUID: sellerID, Valid: true},
+				ToID:          uuid.NullUUID{},
+				Type:          TxTypeConfirmFee,
+				Status:        orderdb.OrderStatusSuccess,
+				Note:          "confirm fee wallet payment",
+				PaymentOption: null.String{},
+				InstrumentID:  uuid.NullUUID{},
+				Data:          json.RawMessage("{}"),
+				Amount:        confirmFeeWallet,
+				FromCurrency:  "VND", // TODO(currency): infer from seller profile
+				ToCurrency:    "VND",
+				ExchangeRate:  mustNumericOne(),
+				DatePaid:      null.TimeFrom(time.Now()),
+				DateExpired:   time.Now(),
+			})
+			if err != nil {
+				return res, sharedmodel.WrapErr("db create confirm_fee wallet tx", err)
+			}
+			res.WalletTx = &tx
+			res.ConfirmFeeTxIDs = append(res.ConfirmFeeTxIDs, tx.ID)
+			res.BlockerTxID = tx.ID
 		}
 
-		// Link items to the order
-		if _, err := b.storage.Querier().SetItemsOrderID(ctx, orderdb.SetItemsOrderIDParams{
+		// Confirm_fee gateway tx (if any).
+		if confirmFeeGateway > 0 {
+			tx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+				FromID:        uuid.NullUUID{UUID: sellerID, Valid: true},
+				ToID:          uuid.NullUUID{},
+				Type:          TxTypeConfirmFee,
+				Status:        orderdb.OrderStatusPending,
+				Note:          "confirm fee gateway payment",
+				PaymentOption: null.StringFrom(params.PaymentOption),
+				InstrumentID:  toNullUUID(params.InstrumentID),
+				Data:          json.RawMessage("{}"),
+				Amount:        confirmFeeGateway,
+				FromCurrency:  "VND", // TODO(currency): infer from seller profile
+				ToCurrency:    "VND",
+				ExchangeRate:  mustNumericOne(),
+				DatePaid:      null.Time{},
+				DateExpired:   time.Now().Add(paymentExpiry),
+			})
+			if err != nil {
+				return res, sharedmodel.WrapErr("db create confirm_fee gateway tx", err)
+			}
+			res.GatewayTx = &tx
+			res.ConfirmFeeTxIDs = append(res.ConfirmFeeTxIDs, tx.ID)
+			res.BlockerTxID = tx.ID // gateway wins as blocker
+		}
+
+		// Payout tx: platform → seller, Pending until escrow releases.
+		payoutTx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+			FromID:        uuid.NullUUID{},
+			ToID:          uuid.NullUUID{UUID: sellerID, Valid: true},
+			Type:          TxTypePayout,
+			Status:        orderdb.OrderStatusPending,
+			Note:          "seller payout (escrow)",
+			PaymentOption: null.String{},
+			InstrumentID:  uuid.NullUUID{},
+			Data:          json.RawMessage("{}"),
+			Amount:        paidTotal,
+			FromCurrency:  "VND", // TODO(currency): infer from seller profile
+			ToCurrency:    "VND",
+			ExchangeRate:  mustNumericOne(),
+			DatePaid:      null.Time{},
+			DateExpired:   time.Now().Add(365 * 24 * time.Hour), // far-future sentinel
+		})
+		if err != nil {
+			return res, sharedmodel.WrapErr("db create payout tx", err)
+		}
+		res.PayoutTx = payoutTx
+
+		// Create order (seller_tx_id = blocker confirm_fee tx).
+		order, err := b.storage.Querier().CreateDefaultOrder(ctx, orderdb.CreateDefaultOrderParams{
+			BuyerID:       buyerID,
+			SellerID:      sellerID,
+			TransportID:   trRow.ID,
+			Address:       address,
+			ConfirmedByID: params.Account.ID,
+			SellerTxID:    res.BlockerTxID,
+			Note:          null.NewString(params.Note, params.Note != ""),
+		})
+		if err != nil {
+			return res, sharedmodel.WrapErr("db create order", err)
+		}
+		res.Order = order
+
+		// Link items to order.
+		if err = b.storage.Querier().SetItemsOrderID(ctx, orderdb.SetItemsOrderIDParams{
 			OrderID: uuid.NullUUID{UUID: order.ID, Valid: true},
 			ItemIds: params.ItemIDs,
 		}); err != nil {
-			return orderResult{}, sharedmodel.WrapErr("db set items order id", err)
+			return res, sharedmodel.WrapErr("db set items order id", err)
 		}
 
-		return orderResult{OrderID: order.ID.String()}, nil
+		return res, nil
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("create order", err)
@@ -312,17 +342,52 @@ func (b *OrderHandler) ConfirmSellerPending(
 
 	metrics.OrdersCreatedTotal.Inc()
 
-	orderID, _ := uuid.Parse(oResult.OrderID)
-
-	// Step 6: Notify buyer (fire-and-forget)
-	itemNames := make([]string, 0, len(fetched.Items))
-	for _, fi := range fetched.Items {
-		if fi.SkuName != "" {
-			itemNames = append(itemNames, fi.SkuName)
+	// Step 8: Debit seller wallet for confirm fee (outside Run — cross-module).
+	if confirmFeeWallet > 0 {
+		if _, err = b.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
+			AccountID: sellerID,
+			Amount:    confirmFeeWallet,
+			Reference: fmt.Sprintf("tx:%d", runRes.BlockerTxID),
+			Note:      "confirm fee wallet payment",
+		}); err != nil {
+			return zero, sharedmodel.WrapErr("seller wallet debit", err)
 		}
 	}
+
+	// Step 9: Initiate gateway payment for confirm fee (outside Run — cross-module + I/O).
+	var gatewayURL *string
+	if confirmFeeGateway > 0 {
+		paymentClient, err := b.getPaymentClient(params.PaymentOption)
+		if err != nil {
+			return zero, sharedmodel.WrapErr("get payment client", err)
+		}
+
+		result, err := paymentClient.Create(ctx, payment.CreateParams{
+			RefID:       runRes.BlockerTxID,
+			Amount:      confirmFeeGateway,
+			Description: fmt.Sprintf("Confirm fee tx %d", runRes.BlockerTxID),
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("create gateway payment for confirm fee", err)
+		}
+		if result.RedirectURL != "" {
+			gatewayURL = &result.RedirectURL
+		}
+
+		// Schedule timeout for confirm_fee gateway tx.
+		restate.ServiceSend(ctx, b.ServiceName(), "TimeoutConfirmFeeTx").Send(
+			TimeoutConfirmFeeTxParams{
+				TxID:    runRes.BlockerTxID,
+				OrderID: runRes.Order.ID,
+			},
+			restate.WithDelay(paymentExpiry),
+		)
+	}
+
+	// Notify buyer (fire-and-forget).
+	itemNames := lo.Map(orderItems, func(it orderdb.OrderItem, _ int) string { return it.SkuName })
 	summary := ordermodel.SummarizeNames(itemNames)
-	notiMeta, _ := json.Marshal(map[string]string{"order_id": orderID.String()})
+	notiMeta, _ := json.Marshal(map[string]string{"order_id": runRes.Order.ID.String()})
 	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
 		AccountID: buyerID,
 		Type:      accountmodel.NotiItemsConfirmed,
@@ -332,13 +397,25 @@ func (b *OrderHandler) ConfirmSellerPending(
 		Metadata:  notiMeta,
 	})
 
-	// Step 7: Return hydrated order
-	return b.GetBuyerOrder(ctx, orderID)
+	// Hydrate and return order.
+	hydratedOrder, err := b.GetBuyerOrder(ctx, runRes.Order.ID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("get hydrated order", err)
+	}
+
+	return ConfirmSellerPendingResult{
+		Order:                  hydratedOrder,
+		ConfirmFeeTxIDs:        runRes.ConfirmFeeTxIDs,
+		PayoutTxID:             runRes.PayoutTx.ID,
+		BlockerTxID:            runRes.BlockerTxID,
+		RequiresGatewayPayment: confirmFeeGateway > 0,
+		GatewayURL:             gatewayURL,
+	}, nil
 }
 
-// RejectSellerPending rejects pending items owned by the seller, releases inventory, and refunds wallet.
+// RejectSellerPending rejects pending items owned by the seller, releases inventory, and refunds buyers.
 func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSellerPendingParams) error {
-	// Lock: exclusive — same key as ConfirmSellerPending
+	// Lock: exclusive — same key as ConfirmSellerPending.
 	unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
 	defer unlock()
 
@@ -348,18 +425,8 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 
 	sellerID := params.Account.ID
 
-	// Fetch items and validate
-	type itemInfo struct {
-		ID                    int64  `json:"id"`
-		SkuID                 string `json:"sku_id"`
-		SkuName               string `json:"sku_name"`
-		Quantity              int64  `json:"quantity"`
-		BuyerID               string `json:"buyer_id"`
-		PaidAmount            int64  `json:"paid_amount"`
-		TransportCostEstimate int64  `json:"transport_cost_estimate"`
-		PaymentID             int64  `json:"payment_id"`
-	}
-	items, err := restate.Run(ctx, func(ctx restate.RunContext) ([]itemInfo, error) {
+	// Fetch and validate items.
+	items, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
 		dbItems, err := b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
 			ID: params.ItemIDs,
 		})
@@ -370,7 +437,6 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 			return nil, ordermodel.ErrOrderItemNotFound.Terminal()
 		}
 
-		result := make([]itemInfo, 0, len(dbItems))
 		for _, item := range dbItems {
 			if item.OrderID.Valid {
 				return nil, ordermodel.ErrItemAlreadyConfirmed
@@ -381,29 +447,18 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 			if item.SellerID != sellerID {
 				return nil, ordermodel.ErrItemNotOwnedBySeller
 			}
-			result = append(result, itemInfo{
-				ID:                    item.ID,
-				SkuID:                 item.SkuID.String(),
-				SkuName:               item.SkuName,
-				Quantity:              item.Quantity,
-				BuyerID:               item.AccountID.String(),
-				PaidAmount:            item.PaidAmount,
-				TransportCostEstimate: item.TransportCostEstimate,
-				PaymentID:             item.PaymentID.Int64,
-			})
 		}
-		return result, nil
+		return dbItems, nil
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("fetch items", err)
 	}
 
-	// Release inventory for each item
-	releaseItems := lo.Map(items, func(item itemInfo, _ int) inventorybiz.ReleaseInventoryItem {
-		skuID, _ := uuid.Parse(item.SkuID)
+	// Release inventory for each item (outside Run — cross-module).
+	releaseItems := lo.Map(items, func(item orderdb.OrderItem, _ int) inventorybiz.ReleaseInventoryItem {
 		return inventorybiz.ReleaseInventoryItem{
 			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   skuID,
+			RefID:   item.SkuID,
 			Amount:  item.Quantity,
 		}
 	})
@@ -413,54 +468,97 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		return sharedmodel.WrapErr("release inventory", err)
 	}
 
-	// Cancel items
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().CancelItemsByIDs(ctx, params.ItemIDs)
-		return err
-	}); err != nil {
-		return sharedmodel.WrapErr("db cancel items", err)
+	// Group items by buyer and process refunds per buyer.
+	buyerItems := make(map[uuid.UUID][]orderdb.OrderItem)
+	for _, item := range items {
+		buyerItems[item.AccountID] = append(buyerItems[item.AccountID], item)
 	}
 
-	// Refund wallet for each item's paid_amount + transport_cost_estimate, grouped by buyer
-	if len(items) > 0 {
-		// Group items by buyer
-		buyerItems := make(map[string][]itemInfo)
-		for _, item := range items {
-			buyerItems[item.BuyerID] = append(buyerItems[item.BuyerID], item)
+	for buyerID, buyerItemList := range buyerItems {
+		var totalRefund int64
+		for _, item := range buyerItemList {
+			totalRefund += item.PaidAmount
 		}
 
-		for buyerIDStr, buyerItemList := range buyerItems {
-			buyerID, _ := uuid.Parse(buyerIDStr)
+		itemIDs := lo.Map(buyerItemList, func(it orderdb.OrderItem, _ int) int64 { return it.ID })
 
-			var totalRefund int64
-			var paymentID int64
-			for _, item := range buyerItemList {
-				totalRefund += item.PaidAmount + item.TransportCostEstimate
-				if paymentID == 0 {
-					paymentID = item.PaymentID
+		// Create refund tx and cancel each item atomically.
+		type rejectResult struct {
+			RefundTx orderdb.OrderTransaction `json:"refund_tx"`
+		}
+
+		rejRes, err := restate.Run(ctx, func(ctx restate.RunContext) (rejectResult, error) {
+			var res rejectResult
+
+			// Create refund tx (platform → buyer, Success immediately).
+			if totalRefund > 0 {
+				tx, txErr := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+					FromID:        uuid.NullUUID{},
+					ToID:          uuid.NullUUID{UUID: buyerID, Valid: true},
+					Type:          TxTypeRefund,
+					Status:        orderdb.OrderStatusSuccess,
+					Note:          "seller reject pre-confirm",
+					PaymentOption: null.String{},
+					InstrumentID:  uuid.NullUUID{},
+					Data:          json.RawMessage("{}"),
+					Amount:        totalRefund,
+					FromCurrency:  "VND", // TODO(currency): infer from buyer profile
+					ToCurrency:    "VND",
+					ExchangeRate:  mustNumericOne(),
+					DatePaid:      null.TimeFrom(time.Now()),
+					DateExpired:   time.Now(),
+				})
+				if txErr != nil {
+					return res, sharedmodel.WrapErr("db create refund tx", txErr)
+				}
+				res.RefundTx = tx
+			}
+
+			// Cancel each item with seller as cancelled_by_id.
+			for _, id := range itemIDs {
+				var refundTxID null.Int
+				if res.RefundTx.ID != 0 {
+					refundTxID = null.IntFrom(res.RefundTx.ID)
+				}
+				if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+					CancelledByID: uuid.NullUUID{UUID: sellerID, Valid: true},
+					RefundTxID:    refundTxID,
+					ID:            id,
+				}); err != nil {
+					return res, sharedmodel.WrapErr("db cancel item", err)
 				}
 			}
-			if err := b.refundBuyerWallet(ctx, buyerID, totalRefund, paymentID); err != nil {
-				return sharedmodel.WrapErr("refund buyer wallet", err)
-			}
 
-			// Notify buyer (fire-and-forget)
-			rejectedNames := make([]string, 0, len(buyerItemList))
-			for _, it := range buyerItemList {
-				if it.SkuName != "" {
-					rejectedNames = append(rejectedNames, it.SkuName)
-				}
-			}
-			rejectSummary := ordermodel.SummarizeNames(rejectedNames)
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			return res, nil
+		})
+		if err != nil {
+			return sharedmodel.WrapErr("reject items for buyer", err)
+		}
+
+		// Credit buyer wallet (outside Run — cross-module).
+		if totalRefund > 0 && rejRes.RefundTx.ID != 0 {
+			if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
 				AccountID: buyerID,
-				Type:      accountmodel.NotiItemsRejected,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Items rejected",
-				Content:   fmt.Sprintf("%s has been rejected by the seller.", rejectSummary),
-				Metadata:  json.RawMessage(`{}`),
-			})
+				Amount:    totalRefund,
+				Type:      "Refund",
+				Reference: fmt.Sprintf("tx:%d", rejRes.RefundTx.ID),
+				Note:      "seller reject pre-confirm refund",
+			}); err != nil {
+				return sharedmodel.WrapErr("wallet credit buyer", err)
+			}
 		}
+
+		// Notify buyer (fire-and-forget).
+		rejectedNames := lo.Map(buyerItemList, func(it orderdb.OrderItem, _ int) string { return it.SkuName })
+		rejectSummary := ordermodel.SummarizeNames(rejectedNames)
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: buyerID,
+			Type:      accountmodel.NotiItemsRejected,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Items rejected",
+			Content:   fmt.Sprintf("%s has been rejected by the seller.", rejectSummary),
+			Metadata:  json.RawMessage(`{}`),
+		})
 	}
 
 	return nil
