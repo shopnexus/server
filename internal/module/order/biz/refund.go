@@ -162,6 +162,12 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, ordermodel.ErrItemNotOwnedBySeller.Terminal()
 	}
 
+	// Infer buyer currency before the durable Run (outside Run — cross-module).
+	buyerCurrency, err := b.inferCurrency(ctx, item.AccountID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("infer buyer currency", err)
+	}
+
 	// All mutations in one durable Run: create refund tx, approve refund row, cancel item, cancel payout.
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
 		refundTx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
@@ -171,8 +177,8 @@ func (b *OrderHandler) ApproveRefundStage2(
 			Status:        orderdb.OrderStatusSuccess,
 			Note:          fmt.Sprintf("refund approved for item %d", item.ID),
 			Amount:        item.PaidAmount,
-			FromCurrency:  "VND", // TODO(currency): resolve from buyer profile
-			ToCurrency:    "VND", // TODO(currency): resolve from buyer profile
+			FromCurrency:  buyerCurrency,
+			ToCurrency:    buyerCurrency,
 			Data:          json.RawMessage("{}"),
 			DatePaid:      null.TimeFrom(time.Now()),
 			DateExpired:   time.Now(),

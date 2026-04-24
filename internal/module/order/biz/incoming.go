@@ -193,6 +193,12 @@ func (b *OrderHandler) ConfirmSellerPending(
 	platformFee := int64(0) // TODO: plug config
 	confirmFeeTotal := quote.Cost + platformFee
 
+	// Infer seller currency for all transactions in this flow (outside Run — cross-module).
+	sellerCurrency, err := b.inferCurrency(ctx, sellerID)
+	if err != nil {
+		return zero, sharedmodel.WrapErr("infer seller currency", err)
+	}
+
 	// Step 6: Wallet / gateway split for confirmFeeTotal.
 	var confirmFeeWallet, confirmFeeGateway int64
 	if params.UseWallet && confirmFeeTotal > 0 {
@@ -249,8 +255,8 @@ func (b *OrderHandler) ConfirmSellerPending(
 				InstrumentID:  uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
 				Amount:        confirmFeeWallet,
-				FromCurrency:  "VND", // TODO(currency): infer from seller profile
-				ToCurrency:    "VND",
+				FromCurrency:  sellerCurrency,
+				ToCurrency:    sellerCurrency,
 				ExchangeRate:  mustNumericOne(),
 				DatePaid:      null.TimeFrom(time.Now()),
 				DateExpired:   time.Now(),
@@ -275,8 +281,8 @@ func (b *OrderHandler) ConfirmSellerPending(
 				InstrumentID:  toNullUUID(params.InstrumentID),
 				Data:          json.RawMessage("{}"),
 				Amount:        confirmFeeGateway,
-				FromCurrency:  "VND", // TODO(currency): infer from seller profile
-				ToCurrency:    "VND",
+				FromCurrency:  sellerCurrency,
+				ToCurrency:    sellerCurrency,
 				ExchangeRate:  mustNumericOne(),
 				DatePaid:      null.Time{},
 				DateExpired:   time.Now().Add(paymentExpiry),
@@ -300,8 +306,8 @@ func (b *OrderHandler) ConfirmSellerPending(
 			InstrumentID:  uuid.NullUUID{},
 			Data:          json.RawMessage("{}"),
 			Amount:        paidTotal,
-			FromCurrency:  "VND", // TODO(currency): infer from seller profile
-			ToCurrency:    "VND",
+			FromCurrency:  sellerCurrency,
+			ToCurrency:    sellerCurrency,
 			ExchangeRate:  mustNumericOne(),
 			DatePaid:      null.Time{},
 			DateExpired:   time.Now().Add(365 * 24 * time.Hour), // far-future sentinel
@@ -482,6 +488,12 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 
 		itemIDs := lo.Map(buyerItemList, func(it orderdb.OrderItem, _ int) int64 { return it.ID })
 
+		// Infer buyer currency before the durable Run (outside Run — cross-module).
+		buyerCurrency, err := b.inferCurrency(ctx, buyerID)
+		if err != nil {
+			return sharedmodel.WrapErr("infer buyer currency", err)
+		}
+
 		// Create refund tx and cancel each item atomically.
 		type rejectResult struct {
 			RefundTx orderdb.OrderTransaction `json:"refund_tx"`
@@ -502,8 +514,8 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 					InstrumentID:  uuid.NullUUID{},
 					Data:          json.RawMessage("{}"),
 					Amount:        totalRefund,
-					FromCurrency:  "VND", // TODO(currency): infer from buyer profile
-					ToCurrency:    "VND",
+					FromCurrency:  buyerCurrency,
+					ToCurrency:    buyerCurrency,
 					ExchangeRate:  mustNumericOne(),
 					DatePaid:      null.TimeFrom(time.Now()),
 					DateExpired:   time.Now(),
