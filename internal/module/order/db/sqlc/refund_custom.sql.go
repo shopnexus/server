@@ -176,6 +176,56 @@ func (q *Queries) ListBuyerRefunds(ctx context.Context, arg ListBuyerRefundsPara
 	return items, nil
 }
 
+const listSellerRefunds = `-- name: ListSellerRefunds :many
+SELECT r.id, r.account_id, r.order_item_id, r.transport_id, r.method, r.reason, r.address, r.date_created, r.status, r.accepted_by_id, r.date_accepted, r.rejection_note, r.approved_by_id, r.date_approved, r.refund_tx_id FROM "order"."refund" r
+JOIN "order"."item" i ON i."id" = r."order_item_id"
+WHERE i."seller_id" = $1
+ORDER BY r."date_created" DESC
+LIMIT $3::INTEGER OFFSET $2::INTEGER
+`
+
+type ListSellerRefundsParams struct {
+	SellerID    uuid.UUID `json:"seller_id"`
+	OffsetCount int32     `json:"offset_count"`
+	LimitCount  int32     `json:"limit_count"`
+}
+
+func (q *Queries) ListSellerRefunds(ctx context.Context, arg ListSellerRefundsParams) ([]OrderRefund, error) {
+	rows, err := q.db.Query(ctx, listSellerRefunds, arg.SellerID, arg.OffsetCount, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderRefund{}
+	for rows.Next() {
+		var i OrderRefund
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.OrderItemID,
+			&i.TransportID,
+			&i.Method,
+			&i.Reason,
+			&i.Address,
+			&i.DateCreated,
+			&i.Status,
+			&i.AcceptedByID,
+			&i.DateAccepted,
+			&i.RejectionNote,
+			&i.ApprovedByID,
+			&i.DateApproved,
+			&i.RefundTxID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rejectRefund = `-- name: RejectRefund :one
 UPDATE "order"."refund"
 SET "status" = 'Failed',

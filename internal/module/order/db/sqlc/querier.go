@@ -157,6 +157,7 @@ type Querier interface {
 	ListRefundDisputesByRefund(ctx context.Context, refundID uuid.UUID) ([]OrderRefundDispute, error)
 	ListSellerOrders(ctx context.Context, arg ListSellerOrdersParams) ([]OrderOrder, error)
 	ListSellerPendingItems(ctx context.Context, sellerID uuid.UUID) ([]OrderItem, error)
+	ListSellerRefunds(ctx context.Context, arg ListSellerRefundsParams) ([]OrderRefund, error)
 	ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOrdersBySkusParams) ([]OrderOrder, error)
 	ListTransaction(ctx context.Context, arg ListTransactionParams) ([]OrderTransaction, error)
 	ListTransactionsByItem(ctx context.Context, itemID int64) ([]OrderTransaction, error)

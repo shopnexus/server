@@ -85,6 +85,10 @@ type OrderBiz interface {
 		ctx context.Context,
 		params ListBuyerRefundsParams,
 	) (sharedmodel.PaginateResult[ordermodel.Refund], error)
+	ListSellerRefunds(
+		ctx context.Context,
+		params ListSellerRefundsParams,
+	) (sharedmodel.PaginateResult[ordermodel.Refund], error)
 	CreateBuyerRefund(ctx context.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error)
 	AcceptRefundStage1(ctx context.Context, params AcceptRefundStage1Params) (ordermodel.Refund, error)
 	ApproveRefundStage2(ctx context.Context, params ApproveRefundStage2Params) (ordermodel.Refund, error)
@@ -298,6 +302,11 @@ type ClearCartParams struct {
 
 type ListBuyerRefundsParams struct {
 	BuyerID uuid.UUID `validate:"required"`
+	sharedmodel.PaginationParams
+}
+
+type ListSellerRefundsParams struct {
+	SellerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
 }
 

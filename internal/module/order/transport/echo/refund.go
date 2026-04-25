@@ -54,6 +54,35 @@ type ListBuyerRefundsRequest struct {
 	sharedmodel.PaginationParams
 }
 
+type ListSellerRefundsRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListSellerRefunds(c echo.Context) error {
+	var req ListSellerRefundsRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	result, err := h.biz.ListSellerRefunds(c.Request().Context(), orderbiz.ListSellerRefundsParams{
+		SellerID:         claims.Account.ID,
+		PaginationParams: req.PaginationParams.Constrain(),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromPaginate(c.Response().Writer, result)
+}
+
 func (h *Handler) ListBuyerRefunds(c echo.Context) error {
 	var req ListBuyerRefundsRequest
 	if err := c.Bind(&req); err != nil {

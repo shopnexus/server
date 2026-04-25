@@ -45,6 +45,37 @@ func (b *OrderHandler) ListBuyerRefunds(
 	}, nil
 }
 
+// ListSellerRefunds returns paginated refunds raised against items the
+// requesting seller fulfilled. The list is the seller's pending-action queue.
+func (b *OrderHandler) ListSellerRefunds(
+	ctx restate.Context,
+	params ListSellerRefundsParams,
+) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+	var zero sharedmodel.PaginateResult[ordermodel.Refund]
+
+	pagination := params.PaginationParams.Constrain()
+
+	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderRefund, error) {
+		return b.storage.Querier().ListSellerRefunds(ctx, orderdb.ListSellerRefundsParams{
+			SellerID:    params.SellerID,
+			OffsetCount: pagination.Offset().Int32,
+			LimitCount:  pagination.Limit.Int32,
+		})
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list seller refunds", err)
+	}
+
+	data := make([]ordermodel.Refund, 0, len(rows))
+	for _, r := range rows {
+		data = append(data, mapRefund(r))
+	}
+	return sharedmodel.PaginateResult[ordermodel.Refund]{
+		PageParams: pagination,
+		Data:       data,
+	}, nil
+}
+
 // CreateBuyerRefund creates a new 2-stage refund request for a paid order item.
 // A return transport is created automatically; the buyer supplies the return method and address.
 func (b *OrderHandler) CreateBuyerRefund(

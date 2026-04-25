@@ -111,6 +111,10 @@ func (p *OrderRestateClient) ListBuyerRefunds(ctx context.Context, params ListBu
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Refund]](ctx, p.client, serviceName, "ListBuyerRefunds", params)
 }
 
+func (p *OrderRestateClient) ListSellerRefunds(ctx context.Context, params ListSellerRefundsParams) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Refund]](ctx, p.client, serviceName, "ListSellerRefunds", params)
+}
+
 func (p *OrderRestateClient) CreateBuyerRefund(ctx context.Context, params CreateBuyerRefundParams) (ordermodel.Refund, error) {
 	return restateclient.Call[ordermodel.Refund](ctx, p.client, serviceName, "CreateBuyerRefund", params)
 }

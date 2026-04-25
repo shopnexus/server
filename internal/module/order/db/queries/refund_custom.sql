@@ -50,3 +50,10 @@ SELECT * FROM "order"."refund"
 WHERE "account_id" = @account_id
 ORDER BY "date_created" DESC
 LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;
+
+-- name: ListSellerRefunds :many
+SELECT r.* FROM "order"."refund" r
+JOIN "order"."item" i ON i."id" = r."order_item_id"
+WHERE i."seller_id" = @seller_id
+ORDER BY r."date_created" DESC
+LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;

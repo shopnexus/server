@@ -68,6 +68,9 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.GET("/seller/confirmed", h.ListSellerConfirmed)
 	g.GET("/seller/confirmed/:id", h.GetSellerOrder)
 
+	// Seller - Refund
+	g.GET("/seller/refund", h.ListSellerRefunds)
+
 	// Refund stage actions
 	refund := g.Group("/refunds/:id")
 	refund.POST("/accept", h.AcceptRefundStage1, rlRefund)
