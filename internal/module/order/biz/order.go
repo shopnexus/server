@@ -169,7 +169,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	}
 
 	// Enrich all items in one batch (single ListProductSku + GetResources call)
-	allEnriched, err := b.enrichItems(ctx, dbData.OrderItems)
+	allEnriched, err := b.enrichItems(dbData.OrderItems)
 	if err != nil {
 		return nil, sharedmodel.WrapErr("enrich order items", err)
 	}
@@ -177,8 +177,8 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 	// Group enriched items by order_id
 	enrichedItemsMap := make(map[uuid.UUID][]ordermodel.OrderItem)
 	for _, item := range allEnriched {
-		if item.OrderID != nil {
-			enrichedItemsMap[*item.OrderID] = append(enrichedItemsMap[*item.OrderID], item)
+		if item.OrderID.Valid {
+			enrichedItemsMap[item.OrderID.UUID] = append(enrichedItemsMap[item.OrderID.UUID], item)
 		}
 	}
 

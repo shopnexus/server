@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/guregu/null/v6"
+	"github.com/shopspring/decimal"
 
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 )
@@ -12,22 +14,22 @@ import (
 // Transaction is the domain-layer representation of an entry in the order.transaction ledger.
 type Transaction struct {
 	ID            int64
-	FromID        *uuid.UUID
-	ToID          *uuid.UUID
+	FromID        uuid.NullUUID
+	ToID          uuid.NullUUID
 	Type          string
 	Status        orderdb.OrderStatus
 	Note          string
-	PaymentOption *string
-	WalletID  *uuid.UUID
+	PaymentOption null.String
+	WalletID      uuid.NullUUID
 	Data          json.RawMessage
 
 	Amount       int64
 	FromCurrency string
 	ToCurrency   string
-	ExchangeRate string // pgtype.Numeric surfaced as string for precision
+	ExchangeRate decimal.Decimal
 
 	DateCreated time.Time
-	DatePaid    *time.Time
+	DatePaid    null.Time
 	DateExpired time.Time
 }
 
@@ -43,13 +45,13 @@ type Transport struct {
 // OrderItem is the domain-layer item (pre- and post-confirmation).
 type OrderItem struct {
 	ID        int64
-	OrderID   *uuid.UUID
+	OrderID   uuid.NullUUID
 	AccountID uuid.UUID
 	SellerID  uuid.UUID
 	SkuID     uuid.UUID
 	SkuName   string
 	Address   string
-	Note      *string
+	Note      null.String
 	SerialIDs json.RawMessage
 
 	Quantity        int64
@@ -59,9 +61,9 @@ type OrderItem struct {
 	PaymentTxID     int64
 
 	DateCreated   time.Time
-	DateCancelled *time.Time
-	CancelledByID *uuid.UUID
-	RefundTxID    *int64
+	DateCancelled null.Time
+	CancelledByID uuid.NullUUID
+	RefundTxID    null.Int
 }
 
 // Order is the domain-layer confirmed order (exists only after seller confirm).
@@ -75,7 +77,7 @@ type Order struct {
 
 	ConfirmedByID uuid.UUID
 	SellerTxID    int64
-	Note          *string
+	Note          null.String
 
 	// Derived (optional loaded):
 	TotalAmount  int64
@@ -93,17 +95,17 @@ type Refund struct {
 	TransportID int64
 	Method      orderdb.OrderRefundMethod
 	Reason      string
-	Address     *string
+	Address     null.String
 	DateCreated time.Time
 	Status      orderdb.OrderStatus
 
-	AcceptedByID  *uuid.UUID
-	DateAccepted  *time.Time
-	RejectionNote *string
+	AcceptedByID  uuid.NullUUID
+	DateAccepted  null.Time
+	RejectionNote null.String
 
-	ApprovedByID *uuid.UUID
-	DateApproved *time.Time
-	RefundTxID   *int64
+	ApprovedByID uuid.NullUUID
+	DateApproved null.Time
+	RefundTxID   null.Int
 }
 
 // RefundDispute is the domain-layer dispute raised against a refund decision.
@@ -115,6 +117,6 @@ type RefundDispute struct {
 	Status       orderdb.OrderStatus
 	Note         string
 	DateCreated  time.Time
-	ResolvedByID *uuid.UUID
-	DateResolved *time.Time
+	ResolvedByID uuid.NullUUID
+	DateResolved null.Time
 }

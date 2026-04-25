@@ -57,7 +57,7 @@ func (b *OrderHandler) ListSellerPendingItems(
 		return zero, err
 	}
 
-	enriched, err := b.enrichItems(ctx, dbResult.Items)
+	enriched, err := b.enrichItems(dbResult.Items)
 	if err != nil {
 		return zero, err
 	}
@@ -220,7 +220,7 @@ func (b *OrderHandler) ConfirmSellerPending(
 
 	// Step 7: Create transport, confirm_fee txs, payout tx, order, link items — all in one Run.
 	type confirmRunResult struct {
-		Transport       orderdb.OrderTransport   `json:"transport"`
+		Transport       orderdb.OrderTransport    `json:"transport"`
 		WalletTx        *orderdb.OrderTransaction `json:"wallet_tx,omitempty"`
 		GatewayTx       *orderdb.OrderTransaction `json:"gateway_tx,omitempty"`
 		PayoutTx        orderdb.OrderTransaction  `json:"payout_tx"`
@@ -252,7 +252,7 @@ func (b *OrderHandler) ConfirmSellerPending(
 				Status:        orderdb.OrderStatusSuccess,
 				Note:          "confirm fee wallet payment",
 				PaymentOption: null.String{},
-				WalletID:  uuid.NullUUID{},
+				WalletID:      uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
 				Amount:        confirmFeeWallet,
 				FromCurrency:  sellerCurrency,
@@ -278,7 +278,7 @@ func (b *OrderHandler) ConfirmSellerPending(
 				Status:        orderdb.OrderStatusPending,
 				Note:          "confirm fee gateway payment",
 				PaymentOption: null.StringFrom(params.PaymentOption),
-				WalletID:  toNullUUID(params.WalletID),
+				WalletID:      toNullUUID(params.WalletID),
 				Data:          json.RawMessage("{}"),
 				Amount:        confirmFeeGateway,
 				FromCurrency:  sellerCurrency,
@@ -303,7 +303,7 @@ func (b *OrderHandler) ConfirmSellerPending(
 			Status:        orderdb.OrderStatusPending,
 			Note:          "seller payout (escrow)",
 			PaymentOption: null.String{},
-			WalletID:  uuid.NullUUID{},
+			WalletID:      uuid.NullUUID{},
 			Data:          json.RawMessage("{}"),
 			Amount:        paidTotal,
 			FromCurrency:  sellerCurrency,
@@ -511,7 +511,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 					Status:        orderdb.OrderStatusSuccess,
 					Note:          "seller reject pre-confirm",
 					PaymentOption: null.String{},
-					WalletID:  uuid.NullUUID{},
+					WalletID:      uuid.NullUUID{},
 					Data:          json.RawMessage("{}"),
 					Amount:        totalRefund,
 					FromCurrency:  buyerCurrency,

@@ -38,6 +38,7 @@ import (
 	"github.com/guregu/null/v6"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/lo"
+	"github.com/shopspring/decimal"
 )
 
 // BuyerCheckout creates pending items and checkout transactions (wallet + optional gateway).
@@ -163,29 +164,33 @@ func (b *OrderHandler) BuyerCheckout(
 		}
 	}
 
-	exchangeRate := 1.0
+	// Stored rate convention: FROM buyer TO seller — i.e.
+	// amount_seller = amount_buyer * exchangeRate.
+	// Math: with Rates[X] = "1 USD = X target", the multiplier from
+	// currency A to B is Rates[B]/Rates[A]; here A=buyer, B=seller.
+	exchangeRate := decimal.NewFromInt(1)
 	if buyerCurrency != sellerCurrency {
-		rateFrom := 1.0
-		if sellerCurrency != fxSnapshot.Base {
-			r, ok := fxSnapshot.Rates[sellerCurrency]
-			if !ok || r <= 0 {
-				return zero, ordermodel.ErrFXRateUnavailable.Fmt(sellerCurrency).Terminal()
+		rateFrom := decimal.NewFromInt(1)
+		if buyerCurrency != fxSnapshot.Base {
+			r, ok := fxSnapshot.Rates[buyerCurrency]
+			if !ok || r.Sign() <= 0 {
+				return zero, ordermodel.ErrFXRateUnavailable.Fmt(buyerCurrency).Terminal()
 			}
 			rateFrom = r
 		}
-		rateTo := 1.0
-		if buyerCurrency != fxSnapshot.Base {
-			r, ok := fxSnapshot.Rates[buyerCurrency]
-			if !ok || r <= 0 {
-				return zero, ordermodel.ErrFXRateUnavailable.Fmt(buyerCurrency).Terminal()
+		rateTo := decimal.NewFromInt(1)
+		if sellerCurrency != fxSnapshot.Base {
+			r, ok := fxSnapshot.Rates[sellerCurrency]
+			if !ok || r.Sign() <= 0 {
+				return zero, ordermodel.ErrFXRateUnavailable.Fmt(sellerCurrency).Terminal()
 			}
 			rateTo = r
 		}
-		exchangeRate = rateTo / rateFrom
+		exchangeRate = rateTo.Div(rateFrom)
 	}
 
 	var exchangeRateNumeric pgtype.Numeric
-	if err := exchangeRateNumeric.Scan(fmt.Sprintf("%.10f", exchangeRate)); err != nil {
+	if err = exchangeRateNumeric.Scan(exchangeRate.String()); err != nil {
 		return zero, sharedmodel.WrapErr("encode exchange rate", err)
 	}
 
@@ -311,11 +316,11 @@ func (b *OrderHandler) BuyerCheckout(
 
 	// Step 7: Create transactions and items atomically inside restate.Run.
 	type runResult struct {
-		WalletTx       *orderdb.OrderTransaction `json:"wallet_tx,omitempty"`
-		GatewayTx      *orderdb.OrderTransaction `json:"gateway_tx,omitempty"`
-		CheckoutTxIDs  []int64                   `json:"checkout_tx_ids"`
-		BlockerTxID    int64                     `json:"blocker_tx_id"`
-		Items          []orderdb.OrderItem       `json:"items"`
+		WalletTx      *orderdb.OrderTransaction `json:"wallet_tx,omitempty"`
+		GatewayTx     *orderdb.OrderTransaction `json:"gateway_tx,omitempty"`
+		CheckoutTxIDs []int64                   `json:"checkout_tx_ids"`
+		BlockerTxID   int64                     `json:"blocker_tx_id"`
+		Items         []orderdb.OrderItem       `json:"items"`
 	}
 
 	created, err := restate.Run(ctx, func(ctx restate.RunContext) (runResult, error) {
@@ -330,7 +335,7 @@ func (b *OrderHandler) BuyerCheckout(
 				Status:        orderdb.OrderStatusSuccess,
 				Note:          "checkout wallet payment",
 				PaymentOption: null.String{},
-				WalletID:  uuid.NullUUID{},
+				WalletID:      uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
 				Amount:        walletAmount,
 				FromCurrency:  buyerCurrency,
@@ -356,7 +361,7 @@ func (b *OrderHandler) BuyerCheckout(
 				Status:        orderdb.OrderStatusPending,
 				Note:          "checkout gateway payment",
 				PaymentOption: null.StringFrom(params.PaymentOption),
-				WalletID:  toNullUUID(params.WalletID),
+				WalletID:      toNullUUID(params.WalletID),
 				Data:          json.RawMessage("{}"),
 				Amount:        gatewayAmount,
 				FromCurrency:  buyerCurrency,
@@ -397,22 +402,22 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 
 			dbItem, err := b.storage.Querier().CreateDefaultItem(ctx, orderdb.CreateDefaultItemParams{
-				OrderID:       uuid.NullUUID{},
-				AccountID:     params.Account.ID,
-				SellerID:      spu.AccountID,
-				SkuID:         sku.ID,
-				SkuName:       skuName,
-				Address:       params.Address,
-				Note:          null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
-				SerialIds:     jsonSerialIDs,
-				Quantity:      checkoutItem.Quantity,
+				OrderID:         uuid.NullUUID{},
+				AccountID:       params.Account.ID,
+				SellerID:        spu.AccountID,
+				SkuID:           sku.ID,
+				SkuName:         skuName,
+				Address:         params.Address,
+				Note:            null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
+				SerialIds:       jsonSerialIDs,
+				Quantity:        checkoutItem.Quantity,
 				TransportOption: tq.Option,
 				SubtotalAmount:  amounts.subtotalAmount,
-				PaidAmount:    amounts.paidAmount,
-				PaymentTxID:   res.BlockerTxID,
-				DateCancelled: null.Time{},
-				CancelledByID: uuid.NullUUID{},
-				RefundTxID:    null.Int{},
+				PaidAmount:      amounts.paidAmount,
+				PaymentTxID:     res.BlockerTxID,
+				DateCancelled:   null.Time{},
+				CancelledByID:   uuid.NullUUID{},
+				RefundTxID:      null.Int{},
 			})
 			if err != nil {
 				return res, sharedmodel.WrapErr("db create item", err)
@@ -552,11 +557,11 @@ func (b *OrderHandler) hydrateItems(ctx restate.Context, itemIDs []int64) ([]ord
 		return nil, err
 	}
 
-	return b.enrichItems(ctx, dbItems)
+	return b.enrichItems(dbItems)
 }
 
 // enrichItems converts DB items to model items (no separate resources enrichment needed here).
-func (b *OrderHandler) enrichItems(ctx restate.Context, dbItems []orderdb.OrderItem) ([]ordermodel.OrderItem, error) {
+func (b *OrderHandler) enrichItems(dbItems []orderdb.OrderItem) ([]ordermodel.OrderItem, error) {
 	if len(dbItems) == 0 {
 		return []ordermodel.OrderItem{}, nil
 	}
@@ -602,7 +607,7 @@ func (b *OrderHandler) ListBuyerPendingItems(
 		return zero, sharedmodel.WrapErr("db list pending items", err)
 	}
 
-	enriched, err := b.enrichItems(ctx, dbResult.Items)
+	enriched, err := b.enrichItems(dbResult.Items)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("enrich pending items", err)
 	}
@@ -679,7 +684,7 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 				Status:        orderdb.OrderStatusSuccess,
 				Note:          "buyer cancel pre-confirm",
 				PaymentOption: null.String{},
-				WalletID:  uuid.NullUUID{},
+				WalletID:      uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
 				Amount:        item.PaidAmount,
 				FromCurrency:  buyerCurrency,

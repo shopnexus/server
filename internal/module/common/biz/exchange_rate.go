@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"slices"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
+	"github.com/shopspring/decimal"
 
 	commonmodel "shopnexus-server/internal/module/common/model"
 )
@@ -37,32 +37,38 @@ type ConvertAmountParams struct {
 // maps target currency to "1 USD = rate target". Returns the original
 // amount unchanged when a rate is missing (fail-open; callers display
 // original currency). Exported for testability without cache setup.
-func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]float64) int64 {
+func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]decimal.Decimal) int64 {
 	if from == to {
 		return amount
 	}
-	rateFrom := 1.0
+	one := decimal.NewFromInt(1)
+	rateFrom := one
 	if from != "USD" {
 		r, ok := ratesFromUSD[from]
-		if !ok || r <= 0 {
+		if !ok || r.Sign() <= 0 {
 			return amount
 		}
 		rateFrom = r
 	}
-	rateTo := 1.0
+	rateTo := one
 	if to != "USD" {
 		r, ok := ratesFromUSD[to]
-		if !ok || r <= 0 {
+		if !ok || r.Sign() <= 0 {
 			return amount
 		}
 		rateTo = r
 	}
 	decFrom := decimalsFor(from)
 	decTo := decimalsFor(to)
-	majorFrom := float64(amount) / math.Pow10(decFrom)
-	majorUSD := majorFrom / rateFrom
-	majorTo := majorUSD * rateTo
-	return int64(math.Round(majorTo * math.Pow10(decTo)))
+	// amount * 10^-decFrom (major units of `from`) / rateFrom (major USD)
+	// * rateTo (major units of `to`) * 10^decTo (minor units of `to`).
+	return decimal.NewFromInt(amount).
+		Shift(int32(-decFrom)).
+		Div(rateFrom).
+		Mul(rateTo).
+		Shift(int32(decTo)).
+		Round(0).
+		IntPart()
 }
 
 // GetExchangeRates reads the latest snapshot from cache. On cache miss
@@ -78,7 +84,7 @@ func (b *CommonHandler) GetExchangeRates(ctx restate.Context, _ GetExchangeRates
 
 	// Cache miss leaves snap at zero value — Rates will be nil.
 	if snap.Rates == nil {
-		snap.Rates = map[string]float64{}
+		snap.Rates = map[string]decimal.Decimal{}
 	}
 	snap.Base = base
 	snap.Supported = b.config.App.Exchange.Supported
@@ -120,9 +126,15 @@ func (b *CommonHandler) RefreshExchangeRates(ctx context.Context) error {
 		return fmt.Errorf("refresh rates: fetch: %w", err)
 	}
 
+	// Provider returns float64 (JSON wire format from upstream).
+	// Convert to decimal at the boundary so all internal compute is exact.
+	rates := make(map[string]decimal.Decimal, len(fetched.Rates))
+	for k, v := range fetched.Rates {
+		rates[k] = decimal.NewFromFloat(v)
+	}
 	snap := commonmodel.ExchangeRateSnapshot{
 		Base:      base,
-		Rates:     fetched.Rates,
+		Rates:     rates,
 		FetchedAt: fetched.FetchedAt,
 	}
 	if err := b.cache.Set(ctx, exchangeRateCacheKey(base), snap, exchangeRateCacheTTL); err != nil {
