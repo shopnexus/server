@@ -85,10 +85,12 @@ func (q *Queries) CountBuyerPendingItems(ctx context.Context, accountID uuid.UUI
 }
 
 const countSellerPendingItems = `-- name: CountSellerPendingItems :one
-SELECT COUNT(*) FROM "order"."item"
-WHERE "seller_id" = $1
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."transaction" tx ON tx."id" = i."payment_tx_id"
+WHERE i."seller_id" = $1
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND tx."status" = 'Success'
 `
 
 func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUID) (int64, error) {
@@ -241,13 +243,17 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 }
 
 const listSellerPendingItems = `-- name: ListSellerPendingItems :many
-SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
-WHERE "seller_id" = $1
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
-ORDER BY "date_created" DESC
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.spu_id, i.sku_name, i.address, i.note, i.serial_ids, i.quantity, i.transport_option, i.subtotal_amount, i.paid_amount, i.payment_tx_id, i.date_created, i.date_cancelled, i.cancelled_by_id, i.refund_tx_id FROM "order"."item" i
+JOIN "order"."transaction" tx ON tx."id" = i."payment_tx_id"
+WHERE i."seller_id" = $1
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND tx."status" = 'Success'
+ORDER BY i."date_created" DESC
 `
 
+// Only items whose checkout transaction has succeeded — sellers should not see
+// items that are still awaiting buyer payment or whose checkout has failed.
 func (q *Queries) ListSellerPendingItems(ctx context.Context, sellerID uuid.UUID) ([]OrderItem, error) {
 	rows, err := q.db.Query(ctx, listSellerPendingItems, sellerID)
 	if err != nil {

@@ -469,6 +469,19 @@ func (b *OrderHandler) BuyerCheckout(
 		}
 		if result.RedirectURL != "" {
 			gatewayURL = &result.RedirectURL
+
+			// Persist the URL on tx.data so the buyer can resume payment from the
+			// pending list ("Continue Payment") even after the checkout response
+			// is gone from memory.
+			data, _ := json.Marshal(map[string]string{"gateway_url": result.RedirectURL})
+			if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+				return b.storage.Querier().SetTransactionData(ctx, orderdb.SetTransactionDataParams{
+					ID:   created.BlockerTxID,
+					Data: data,
+				})
+			}); err != nil {
+				return zero, sharedmodel.WrapErr("persist gateway url on tx", err)
+			}
 		}
 
 		// Schedule timeout for gateway tx.
@@ -611,6 +624,25 @@ func (b *OrderHandler) ListBuyerPendingItems(
 	enriched, err := b.enrichItems(dbResult.Items)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("enrich pending items", err)
+	}
+
+	// Attach the payment transaction so the FE can branch on its status —
+	// "Awaiting Payment" + Continue Payment when Pending, "Awaiting Seller" when Success.
+	if len(enriched) > 0 {
+		txIDs := lo.Uniq(lo.Map(enriched, func(it ordermodel.OrderItem, _ int) int64 { return it.PaymentTxID }))
+		txs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
+			return b.storage.Querier().ListTransactionsByIDs(ctx, txIDs)
+		})
+		if err != nil {
+			return zero, sharedmodel.WrapErr("db fetch payment txs", err)
+		}
+		txMap := lo.KeyBy(txs, func(t orderdb.OrderTransaction) int64 { return t.ID })
+		for i := range enriched {
+			if tx, ok := txMap[enriched[i].PaymentTxID]; ok {
+				mapped := mapTransaction(tx)
+				enriched[i].PaymentTx = &mapped
+			}
+		}
 	}
 
 	var totalVal null.Int64

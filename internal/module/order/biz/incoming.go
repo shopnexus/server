@@ -378,6 +378,19 @@ func (b *OrderHandler) ConfirmSellerPending(
 		}
 		if result.RedirectURL != "" {
 			gatewayURL = &result.RedirectURL
+
+			// Persist the URL on tx.data so the seller can resume payment from
+			// the pending list ("Continue Payment") even after the confirm
+			// response is gone from memory.
+			data, _ := json.Marshal(map[string]string{"gateway_url": result.RedirectURL})
+			if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+				return b.storage.Querier().SetTransactionData(ctx, orderdb.SetTransactionDataParams{
+					ID:   runRes.BlockerTxID,
+					Data: data,
+				})
+			}); err != nil {
+				return zero, sharedmodel.WrapErr("persist gateway url on tx", err)
+			}
 		}
 
 		// Schedule timeout for confirm_fee gateway tx.

@@ -5,17 +5,23 @@
 SELECT * FROM "order"."item" WHERE "payment_tx_id" = @payment_tx_id;
 
 -- name: ListSellerPendingItems :many
-SELECT * FROM "order"."item"
-WHERE "seller_id" = @seller_id
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
-ORDER BY "date_created" DESC;
+-- Only items whose checkout transaction has succeeded — sellers should not see
+-- items that are still awaiting buyer payment or whose checkout has failed.
+SELECT i.* FROM "order"."item" i
+JOIN "order"."transaction" tx ON tx."id" = i."payment_tx_id"
+WHERE i."seller_id" = @seller_id
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND tx."status" = 'Success'
+ORDER BY i."date_created" DESC;
 
 -- name: CountSellerPendingItems :one
-SELECT COUNT(*) FROM "order"."item"
-WHERE "seller_id" = @seller_id
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL;
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."transaction" tx ON tx."id" = i."payment_tx_id"
+WHERE i."seller_id" = @seller_id
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND tx."status" = 'Success';
 
 -- name: ListBuyerPendingItems :many
 SELECT * FROM "order"."item"
