@@ -70,7 +70,7 @@ type OrderBiz interface {
 	// Escrow
 	ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error
 
-	// Cart (unchanged)
+	// Cart
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
 	UpdateCart(ctx context.Context, params UpdateCartParams) error
 	ClearCart(ctx context.Context, params ClearCartParams) error
@@ -173,11 +173,11 @@ func NewOrderHandler(
 
 type BuyerCheckoutParams struct {
 	Account       accountmodel.AuthenticatedAccount
-	BuyNow        bool          `json:"buy_now"`
-	Address       string        `json:"address" validate:"required,min=1,max=500"`
-	UseWallet     bool          `json:"use_wallet"`
-	PaymentOption string        `json:"payment_option" validate:"max=100"`
-	WalletID  *uuid.UUID    `json:"wallet_id,omitempty"`
+	BuyNow        bool           `json:"buy_now"`
+	Address       string         `json:"address" validate:"required,min=1,max=500"`
+	UseWallet     bool           `json:"use_wallet"`
+	PaymentOption string         `json:"payment_option" validate:"max=100"`
+	WalletID      *uuid.UUID     `json:"wallet_id,omitempty"`
 	Items         []CheckoutItem `json:"items" validate:"required,min=1,dive"`
 }
 
@@ -218,7 +218,7 @@ type ConfirmSellerPendingParams struct {
 	ItemIDs       []int64    `json:"item_ids" validate:"required,min=1,max=1000"`
 	UseWallet     bool       `json:"use_wallet"`
 	PaymentOption string     `json:"payment_option" validate:"max=100"`
-	WalletID  *uuid.UUID `json:"wallet_id,omitempty"`
+	WalletID      *uuid.UUID `json:"wallet_id,omitempty"`
 	Note          string     `json:"note" validate:"max=500"`
 }
 
@@ -373,7 +373,7 @@ type GetRefundDisputeParams struct {
 // --- Transport ---
 
 type UpdateTransportStatusParams struct {
-	TrackingID string          `validate:"omitempty"`
+	TrackingID string              `validate:"omitempty"`
 	Status     orderdb.OrderStatus `validate:"required,validateFn=Valid"`
-	Data       json.RawMessage `validate:"omitempty"`
+	Data       json.RawMessage     `validate:"omitempty"`
 }

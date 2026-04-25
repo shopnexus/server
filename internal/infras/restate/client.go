@@ -109,11 +109,22 @@ func WithBaseBackoff(d time.Duration) CallOption {
 	return func(o *callOpts) { o.BaseBackoff = d }
 }
 
-// Call invokes a Restate service method and decodes the response.
-// Transient failures (network errors, 5xx) are retried with exponential backoff.
-// Terminal errors (4xx) short-circuit. All requests include an idempotency-key
-// header so retries dedupe against Restate's built-in idempotency store.
+// Call invokes a Restate service method.
+//
+// Path selection:
+//   - If ctx is a restate.Context (caller is inside a Restate handler), the call
+//     is journaled into the parent handler's invocation: the result is recorded
+//     and replayed on parent retry/restart. Exactly-once semantics, no caller-side
+//     retry needed (Restate engine handles delivery).
+//   - Otherwise (plain context.Context, e.g. from transport/echo), the call goes
+//     out as HTTP POST to Restate ingress with caller-side retry + idempotency-key
+//     dedupe. Transient failures (network, 5xx) retried with exponential backoff;
+//     terminal 4xx short-circuit.
 func Call[O any](ctx context.Context, c *Client, service, method string, input any, opts ...CallOption) (O, error) {
+	if rctx, ok := ctx.(restate.Context); ok {
+		return restate.Service[O](rctx, service, method).Request(input)
+	}
+
 	o := defaultCallOpts()
 	for _, opt := range opts {
 		opt(&o)
@@ -196,9 +207,18 @@ func doCall[O any](
 	return zero, fmt.Errorf("restate: %s/%s returned %d: %s", service, method, resp.StatusCode, string(respBody)), true
 }
 
-// Send invokes a Restate service method without decoding the response body.
-// Same retry + idempotency semantics as Call.
+// Send invokes a Restate service method as fire-and-forget.
+//
+// Path selection mirrors Call:
+//   - restate.Context caller → journaled ServiceSend (durable, exactly-once delivery
+//     orchestrated by Restate against the parent handler's journal).
+//   - plain context.Context → HTTP POST with retry + idempotency-key.
 func Send(ctx context.Context, c *Client, service, method string, input any, opts ...CallOption) error {
+	if rctx, ok := ctx.(restate.Context); ok {
+		restate.ServiceSend(rctx, service, method).Send(input)
+		return nil
+	}
+
 	o := defaultCallOpts()
 	for _, opt := range opts {
 		opt(&o)
