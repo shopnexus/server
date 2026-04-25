@@ -1,7 +1,6 @@
 package accountbiz
 
 import (
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
@@ -215,7 +214,7 @@ func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountry
 		return sharedmodel.WrapErr("update profile country", err)
 	}
 	if _, err := sharedcurrency.Infer(params.Country); err != nil {
-		return sharedmodel.WrapErr("validate country", err)
+		return sharedmodel.WrapErr("infer currency from country", err)
 	}
 
 	balance, err := b.GetWalletBalance(ctx, params.AccountID)
@@ -226,8 +225,8 @@ func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountry
 		return accountmodel.ErrWalletNotEmpty.Fmt(balance).Terminal()
 	}
 
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err := b.storage.Querier().UpdateProfileCountry(ctx, accountdb.UpdateProfileCountryParams{
+	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err = b.storage.Querier().UpdateProfileCountry(ctx, accountdb.UpdateProfileCountryParams{
 			ID:      params.AccountID,
 			Country: params.Country,
 		})
