@@ -18,7 +18,7 @@ SET "date_cancelled" = CURRENT_TIMESTAMP,
     "cancelled_by_id" = $1,
     "refund_tx_id" = $2
 WHERE "id" = $3 AND "date_cancelled" IS NULL
-RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 `
 
 type CancelItemParams struct {
@@ -36,6 +36,7 @@ func (q *Queries) CancelItem(ctx context.Context, arg CancelItemParams) (OrderIt
 		&i.AccountID,
 		&i.SellerID,
 		&i.SkuID,
+		&i.SpuID,
 		&i.SkuName,
 		&i.Address,
 		&i.Note,
@@ -98,7 +99,7 @@ func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUI
 }
 
 const listBuyerPendingItems = `-- name: ListBuyerPendingItems :many
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
 WHERE "account_id" = $1
   AND "order_id" IS NULL
   AND "date_cancelled" IS NULL
@@ -120,6 +121,7 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, accountID uuid.UUID
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,
@@ -146,7 +148,7 @@ func (q *Queries) ListBuyerPendingItems(ctx context.Context, accountID uuid.UUID
 
 const listItemsByPaymentTx = `-- name: ListItemsByPaymentTx :many
 
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item" WHERE "payment_tx_id" = $1
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item" WHERE "payment_tx_id" = $1
 `
 
 // Custom item queries
@@ -166,6 +168,7 @@ func (q *Queries) ListItemsByPaymentTx(ctx context.Context, paymentTxID int64) (
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,
@@ -191,7 +194,7 @@ func (q *Queries) ListItemsByPaymentTx(ctx context.Context, paymentTxID int64) (
 }
 
 const listPendingPaymentItemsByPaymentID = `-- name: ListPendingPaymentItemsByPaymentID :many
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
 WHERE "payment_tx_id" = $1
   AND "order_id" IS NULL
   AND "date_cancelled" IS NULL
@@ -212,6 +215,7 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,
@@ -237,7 +241,7 @@ func (q *Queries) ListPendingPaymentItemsByPaymentID(ctx context.Context, paymen
 }
 
 const listSellerPendingItems = `-- name: ListSellerPendingItems :many
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id FROM "order"."item"
 WHERE "seller_id" = $1
   AND "order_id" IS NULL
   AND "date_cancelled" IS NULL
@@ -259,6 +263,7 @@ func (q *Queries) ListSellerPendingItems(ctx context.Context, sellerID uuid.UUID
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,

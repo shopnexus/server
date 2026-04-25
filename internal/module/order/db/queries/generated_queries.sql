@@ -506,6 +506,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("sku_name" = ANY(sqlc.slice('sku_name')) OR sqlc.slice('sku_name') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
@@ -538,6 +539,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("sku_name" = ANY(sqlc.slice('sku_name')) OR sqlc.slice('sku_name') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
@@ -573,6 +575,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("sku_name" = ANY(sqlc.slice('sku_name')) OR sqlc.slice('sku_name') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
@@ -600,27 +603,27 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 RETURNING *;
 
 -- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 RETURNING *;
 
 -- name: CreateCopyItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);
 
 -- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: CreateCopyDefaultItem :copyfrom
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
 
 -- name: UpdateItem :one
 UPDATE "order"."item"
@@ -628,6 +631,7 @@ SET "order_id" = CASE WHEN sqlc.arg('null_order_id')::bool = TRUE THEN NULL ELSE
     "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "seller_id" = COALESCE(sqlc.narg('seller_id'), "seller_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
+    "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "sku_name" = COALESCE(sqlc.narg('sku_name'), "sku_name"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END,
@@ -652,6 +656,7 @@ WHERE (
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("seller_id" = ANY(sqlc.slice('seller_id')) OR sqlc.slice('seller_id') IS NULL) AND
     ("sku_id" = ANY(sqlc.slice('sku_id')) OR sqlc.slice('sku_id') IS NULL) AND
+    ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
     ("sku_name" = ANY(sqlc.slice('sku_name')) OR sqlc.slice('sku_name') IS NULL) AND
     ("address" = ANY(sqlc.slice('address')) OR sqlc.slice('address') IS NULL) AND
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND

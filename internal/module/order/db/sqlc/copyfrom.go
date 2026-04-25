@@ -101,6 +101,7 @@ func (r iteratorForCreateCopyDefaultItem) Values() ([]interface{}, error) {
 		r.rows[0].AccountID,
 		r.rows[0].SellerID,
 		r.rows[0].SkuID,
+		r.rows[0].SpuID,
 		r.rows[0].SkuName,
 		r.rows[0].Address,
 		r.rows[0].Note,
@@ -121,7 +122,7 @@ func (r iteratorForCreateCopyDefaultItem) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultItem(ctx context.Context, arg []CreateCopyDefaultItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id"}, &iteratorForCreateCopyDefaultItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id"}, &iteratorForCreateCopyDefaultItem{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultOrder implements pgx.CopyFromSource.
@@ -344,6 +345,7 @@ func (r iteratorForCreateCopyItem) Values() ([]interface{}, error) {
 		r.rows[0].AccountID,
 		r.rows[0].SellerID,
 		r.rows[0].SkuID,
+		r.rows[0].SpuID,
 		r.rows[0].SkuName,
 		r.rows[0].Address,
 		r.rows[0].Note,
@@ -365,7 +367,7 @@ func (r iteratorForCreateCopyItem) Err() error {
 }
 
 func (q *Queries) CreateCopyItem(ctx context.Context, arg []CreateCopyItemParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id"}, &iteratorForCreateCopyItem{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "item"}, []string{"order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id"}, &iteratorForCreateCopyItem{rows: arg})
 }
 
 // iteratorForCreateCopyOrder implements pgx.CopyFromSource.

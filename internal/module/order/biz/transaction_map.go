@@ -48,6 +48,7 @@ func mapOrderItem(it orderdb.OrderItem) ordermodel.OrderItem {
 		AccountID:       it.AccountID,
 		SellerID:        it.SellerID,
 		SkuID:           it.SkuID,
+		SpuID:           it.SpuID,
 		SkuName:         it.SkuName,
 		Address:         it.Address,
 		Note:            it.Note,

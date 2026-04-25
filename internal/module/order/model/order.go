@@ -49,6 +49,7 @@ type OrderItem struct {
 	AccountID uuid.UUID
 	SellerID  uuid.UUID
 	SkuID     uuid.UUID
+	SpuID     uuid.UUID
 	SkuName   string
 	Address   string
 	Note      null.String

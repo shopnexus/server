@@ -82,9 +82,9 @@ func (b *CreateBatchCartItemBatchResults) Close() error {
 }
 
 const createBatchItem = `-- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 `
 
 type CreateBatchItemBatchResults struct {
@@ -98,6 +98,7 @@ type CreateBatchItemParams struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`
@@ -121,6 +122,7 @@ func (q *Queries) CreateBatchItem(ctx context.Context, arg []CreateBatchItemPara
 			a.AccountID,
 			a.SellerID,
 			a.SkuID,
+			a.SpuID,
 			a.SkuName,
 			a.Address,
 			a.Note,
@@ -158,6 +160,7 @@ func (b *CreateBatchItemBatchResults) QueryRow(f func(int, OrderItem, error)) {
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,

@@ -153,6 +153,7 @@ type OrderItem struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`

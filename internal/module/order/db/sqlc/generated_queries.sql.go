@@ -60,27 +60,28 @@ WHERE (
     ("account_id" = ANY($3) OR $3 IS NULL) AND
     ("seller_id" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_name" = ANY($6) OR $6 IS NULL) AND
-    ("address" = ANY($7) OR $7 IS NULL) AND
-    ("note" = ANY($8) OR $8 IS NULL) AND
-    ("serial_ids" = ANY($9) OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
-    ("transport_option" = ANY($13) OR $13 IS NULL) AND
-    ("subtotal_amount" = ANY($14) OR $14 IS NULL) AND
-    ("subtotal_amount" >= $15 OR $15 IS NULL) AND
-    ("subtotal_amount" <= $16 OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
-    ("payment_tx_id" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" = ANY($19) OR $19 IS NULL) AND
-    ("date_created" >= $20 OR $20 IS NULL) AND
-    ("date_created" <= $21 OR $21 IS NULL) AND
-    ("date_cancelled" = ANY($22) OR $22 IS NULL) AND
-    ("date_cancelled" >= $23 OR $23 IS NULL) AND
-    ("date_cancelled" <= $24 OR $24 IS NULL) AND
-    ("cancelled_by_id" = ANY($25) OR $25 IS NULL) AND
-    ("refund_tx_id" = ANY($26) OR $26 IS NULL)
+    ("spu_id" = ANY($6) OR $6 IS NULL) AND
+    ("sku_name" = ANY($7) OR $7 IS NULL) AND
+    ("address" = ANY($8) OR $8 IS NULL) AND
+    ("note" = ANY($9) OR $9 IS NULL) AND
+    ("serial_ids" = ANY($10) OR $10 IS NULL) AND
+    ("quantity" = ANY($11) OR $11 IS NULL) AND
+    ("quantity" >= $12 OR $12 IS NULL) AND
+    ("quantity" <= $13 OR $13 IS NULL) AND
+    ("transport_option" = ANY($14) OR $14 IS NULL) AND
+    ("subtotal_amount" = ANY($15) OR $15 IS NULL) AND
+    ("subtotal_amount" >= $16 OR $16 IS NULL) AND
+    ("subtotal_amount" <= $17 OR $17 IS NULL) AND
+    ("paid_amount" = ANY($18) OR $18 IS NULL) AND
+    ("payment_tx_id" = ANY($19) OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_cancelled" = ANY($23) OR $23 IS NULL) AND
+    ("date_cancelled" >= $24 OR $24 IS NULL) AND
+    ("date_cancelled" <= $25 OR $25 IS NULL) AND
+    ("cancelled_by_id" = ANY($26) OR $26 IS NULL) AND
+    ("refund_tx_id" = ANY($27) OR $27 IS NULL)
 )
 `
 
@@ -90,6 +91,7 @@ type CountItemParams struct {
 	AccountID          []uuid.UUID       `json:"account_id"`
 	SellerID           []uuid.UUID       `json:"seller_id"`
 	SkuID              []uuid.UUID       `json:"sku_id"`
+	SpuID              []uuid.UUID       `json:"spu_id"`
 	SkuName            []string          `json:"sku_name"`
 	Address            []string          `json:"address"`
 	Note               []null.String     `json:"note"`
@@ -120,6 +122,7 @@ func (q *Queries) CountItem(ctx context.Context, arg CountItemParams) (int64, er
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -506,6 +509,7 @@ type CreateCopyDefaultItemParams struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`
@@ -581,6 +585,7 @@ type CreateCopyItemParams struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`
@@ -688,9 +693,9 @@ func (q *Queries) CreateDefaultCartItem(ctx context.Context, arg CreateDefaultCa
 }
 
 const createDefaultItem = `-- name: CreateDefaultItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 `
 
 type CreateDefaultItemParams struct {
@@ -698,6 +703,7 @@ type CreateDefaultItemParams struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`
@@ -718,6 +724,7 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -738,6 +745,7 @@ func (q *Queries) CreateDefaultItem(ctx context.Context, arg CreateDefaultItemPa
 		&i.AccountID,
 		&i.SellerID,
 		&i.SkuID,
+		&i.SpuID,
 		&i.SkuName,
 		&i.Address,
 		&i.Note,
@@ -979,9 +987,9 @@ func (q *Queries) CreateDefaultTransport(ctx context.Context, arg CreateDefaultT
 }
 
 const createItem = `-- name: CreateItem :one
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 `
 
 type CreateItemParams struct {
@@ -989,6 +997,7 @@ type CreateItemParams struct {
 	AccountID       uuid.UUID       `json:"account_id"`
 	SellerID        uuid.UUID       `json:"seller_id"`
 	SkuID           uuid.UUID       `json:"sku_id"`
+	SpuID           uuid.UUID       `json:"spu_id"`
 	SkuName         string          `json:"sku_name"`
 	Address         string          `json:"address"`
 	Note            null.String     `json:"note"`
@@ -1010,6 +1019,7 @@ func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderIt
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -1031,6 +1041,7 @@ func (q *Queries) CreateItem(ctx context.Context, arg CreateItemParams) (OrderIt
 		&i.AccountID,
 		&i.SellerID,
 		&i.SkuID,
+		&i.SpuID,
 		&i.SkuName,
 		&i.Address,
 		&i.Note,
@@ -1337,27 +1348,28 @@ WHERE (
     ("account_id" = ANY($3) OR $3 IS NULL) AND
     ("seller_id" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_name" = ANY($6) OR $6 IS NULL) AND
-    ("address" = ANY($7) OR $7 IS NULL) AND
-    ("note" = ANY($8) OR $8 IS NULL) AND
-    ("serial_ids" = ANY($9) OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
-    ("transport_option" = ANY($13) OR $13 IS NULL) AND
-    ("subtotal_amount" = ANY($14) OR $14 IS NULL) AND
-    ("subtotal_amount" >= $15 OR $15 IS NULL) AND
-    ("subtotal_amount" <= $16 OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
-    ("payment_tx_id" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" = ANY($19) OR $19 IS NULL) AND
-    ("date_created" >= $20 OR $20 IS NULL) AND
-    ("date_created" <= $21 OR $21 IS NULL) AND
-    ("date_cancelled" = ANY($22) OR $22 IS NULL) AND
-    ("date_cancelled" >= $23 OR $23 IS NULL) AND
-    ("date_cancelled" <= $24 OR $24 IS NULL) AND
-    ("cancelled_by_id" = ANY($25) OR $25 IS NULL) AND
-    ("refund_tx_id" = ANY($26) OR $26 IS NULL)
+    ("spu_id" = ANY($6) OR $6 IS NULL) AND
+    ("sku_name" = ANY($7) OR $7 IS NULL) AND
+    ("address" = ANY($8) OR $8 IS NULL) AND
+    ("note" = ANY($9) OR $9 IS NULL) AND
+    ("serial_ids" = ANY($10) OR $10 IS NULL) AND
+    ("quantity" = ANY($11) OR $11 IS NULL) AND
+    ("quantity" >= $12 OR $12 IS NULL) AND
+    ("quantity" <= $13 OR $13 IS NULL) AND
+    ("transport_option" = ANY($14) OR $14 IS NULL) AND
+    ("subtotal_amount" = ANY($15) OR $15 IS NULL) AND
+    ("subtotal_amount" >= $16 OR $16 IS NULL) AND
+    ("subtotal_amount" <= $17 OR $17 IS NULL) AND
+    ("paid_amount" = ANY($18) OR $18 IS NULL) AND
+    ("payment_tx_id" = ANY($19) OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_cancelled" = ANY($23) OR $23 IS NULL) AND
+    ("date_cancelled" >= $24 OR $24 IS NULL) AND
+    ("date_cancelled" <= $25 OR $25 IS NULL) AND
+    ("cancelled_by_id" = ANY($26) OR $26 IS NULL) AND
+    ("refund_tx_id" = ANY($27) OR $27 IS NULL)
 )
 `
 
@@ -1367,6 +1379,7 @@ type DeleteItemParams struct {
 	AccountID          []uuid.UUID       `json:"account_id"`
 	SellerID           []uuid.UUID       `json:"seller_id"`
 	SkuID              []uuid.UUID       `json:"sku_id"`
+	SpuID              []uuid.UUID       `json:"spu_id"`
 	SkuName            []string          `json:"sku_name"`
 	Address            []string          `json:"address"`
 	Note               []null.String     `json:"note"`
@@ -1397,6 +1410,7 @@ func (q *Queries) DeleteItem(ctx context.Context, arg DeleteItemParams) error {
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -1759,7 +1773,7 @@ func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (Order
 
 const getItem = `-- name: GetItem :one
 
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 FROM "order"."item"
 WHERE ("id" = $1)
 `
@@ -1776,6 +1790,7 @@ func (q *Queries) GetItem(ctx context.Context, id null.Int) (OrderItem, error) {
 		&i.AccountID,
 		&i.SellerID,
 		&i.SkuID,
+		&i.SpuID,
 		&i.SkuName,
 		&i.Address,
 		&i.Note,
@@ -2066,7 +2081,7 @@ func (q *Queries) ListCountCartItem(ctx context.Context, arg ListCountCartItemPa
 }
 
 const listCountItem = `-- name: ListCountItem :many
-SELECT embed_item.id, embed_item.order_id, embed_item.account_id, embed_item.seller_id, embed_item.sku_id, embed_item.sku_name, embed_item.address, embed_item.note, embed_item.serial_ids, embed_item.quantity, embed_item.transport_option, embed_item.subtotal_amount, embed_item.paid_amount, embed_item.payment_tx_id, embed_item.date_created, embed_item.date_cancelled, embed_item.cancelled_by_id, embed_item.refund_tx_id, COUNT(*) OVER() as total_count
+SELECT embed_item.id, embed_item.order_id, embed_item.account_id, embed_item.seller_id, embed_item.sku_id, embed_item.spu_id, embed_item.sku_name, embed_item.address, embed_item.note, embed_item.serial_ids, embed_item.quantity, embed_item.transport_option, embed_item.subtotal_amount, embed_item.paid_amount, embed_item.payment_tx_id, embed_item.date_created, embed_item.date_cancelled, embed_item.cancelled_by_id, embed_item.refund_tx_id, COUNT(*) OVER() as total_count
 FROM "order"."item" embed_item
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2074,31 +2089,32 @@ WHERE (
     ("account_id" = ANY($3) OR $3 IS NULL) AND
     ("seller_id" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_name" = ANY($6) OR $6 IS NULL) AND
-    ("address" = ANY($7) OR $7 IS NULL) AND
-    ("note" = ANY($8) OR $8 IS NULL) AND
-    ("serial_ids" = ANY($9) OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
-    ("transport_option" = ANY($13) OR $13 IS NULL) AND
-    ("subtotal_amount" = ANY($14) OR $14 IS NULL) AND
-    ("subtotal_amount" >= $15 OR $15 IS NULL) AND
-    ("subtotal_amount" <= $16 OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
-    ("payment_tx_id" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" = ANY($19) OR $19 IS NULL) AND
-    ("date_created" >= $20 OR $20 IS NULL) AND
-    ("date_created" <= $21 OR $21 IS NULL) AND
-    ("date_cancelled" = ANY($22) OR $22 IS NULL) AND
-    ("date_cancelled" >= $23 OR $23 IS NULL) AND
-    ("date_cancelled" <= $24 OR $24 IS NULL) AND
-    ("cancelled_by_id" = ANY($25) OR $25 IS NULL) AND
-    ("refund_tx_id" = ANY($26) OR $26 IS NULL)
+    ("spu_id" = ANY($6) OR $6 IS NULL) AND
+    ("sku_name" = ANY($7) OR $7 IS NULL) AND
+    ("address" = ANY($8) OR $8 IS NULL) AND
+    ("note" = ANY($9) OR $9 IS NULL) AND
+    ("serial_ids" = ANY($10) OR $10 IS NULL) AND
+    ("quantity" = ANY($11) OR $11 IS NULL) AND
+    ("quantity" >= $12 OR $12 IS NULL) AND
+    ("quantity" <= $13 OR $13 IS NULL) AND
+    ("transport_option" = ANY($14) OR $14 IS NULL) AND
+    ("subtotal_amount" = ANY($15) OR $15 IS NULL) AND
+    ("subtotal_amount" >= $16 OR $16 IS NULL) AND
+    ("subtotal_amount" <= $17 OR $17 IS NULL) AND
+    ("paid_amount" = ANY($18) OR $18 IS NULL) AND
+    ("payment_tx_id" = ANY($19) OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_cancelled" = ANY($23) OR $23 IS NULL) AND
+    ("date_cancelled" >= $24 OR $24 IS NULL) AND
+    ("date_cancelled" <= $25 OR $25 IS NULL) AND
+    ("cancelled_by_id" = ANY($26) OR $26 IS NULL) AND
+    ("refund_tx_id" = ANY($27) OR $27 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $29::int
+OFFSET $28::int
 `
 
 type ListCountItemParams struct {
@@ -2107,6 +2123,7 @@ type ListCountItemParams struct {
 	AccountID          []uuid.UUID       `json:"account_id"`
 	SellerID           []uuid.UUID       `json:"seller_id"`
 	SkuID              []uuid.UUID       `json:"sku_id"`
+	SpuID              []uuid.UUID       `json:"spu_id"`
 	SkuName            []string          `json:"sku_name"`
 	Address            []string          `json:"address"`
 	Note               []null.String     `json:"note"`
@@ -2144,6 +2161,7 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -2181,6 +2199,7 @@ func (q *Queries) ListCountItem(ctx context.Context, arg ListCountItemParams) ([
 			&i.OrderItem.AccountID,
 			&i.OrderItem.SellerID,
 			&i.OrderItem.SkuID,
+			&i.OrderItem.SpuID,
 			&i.OrderItem.SkuName,
 			&i.OrderItem.Address,
 			&i.OrderItem.Note,
@@ -2714,7 +2733,7 @@ func (q *Queries) ListCountTransport(ctx context.Context, arg ListCountTransport
 }
 
 const listItem = `-- name: ListItem :many
-SELECT id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 FROM "order"."item"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2722,31 +2741,32 @@ WHERE (
     ("account_id" = ANY($3) OR $3 IS NULL) AND
     ("seller_id" = ANY($4) OR $4 IS NULL) AND
     ("sku_id" = ANY($5) OR $5 IS NULL) AND
-    ("sku_name" = ANY($6) OR $6 IS NULL) AND
-    ("address" = ANY($7) OR $7 IS NULL) AND
-    ("note" = ANY($8) OR $8 IS NULL) AND
-    ("serial_ids" = ANY($9) OR $9 IS NULL) AND
-    ("quantity" = ANY($10) OR $10 IS NULL) AND
-    ("quantity" >= $11 OR $11 IS NULL) AND
-    ("quantity" <= $12 OR $12 IS NULL) AND
-    ("transport_option" = ANY($13) OR $13 IS NULL) AND
-    ("subtotal_amount" = ANY($14) OR $14 IS NULL) AND
-    ("subtotal_amount" >= $15 OR $15 IS NULL) AND
-    ("subtotal_amount" <= $16 OR $16 IS NULL) AND
-    ("paid_amount" = ANY($17) OR $17 IS NULL) AND
-    ("payment_tx_id" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" = ANY($19) OR $19 IS NULL) AND
-    ("date_created" >= $20 OR $20 IS NULL) AND
-    ("date_created" <= $21 OR $21 IS NULL) AND
-    ("date_cancelled" = ANY($22) OR $22 IS NULL) AND
-    ("date_cancelled" >= $23 OR $23 IS NULL) AND
-    ("date_cancelled" <= $24 OR $24 IS NULL) AND
-    ("cancelled_by_id" = ANY($25) OR $25 IS NULL) AND
-    ("refund_tx_id" = ANY($26) OR $26 IS NULL)
+    ("spu_id" = ANY($6) OR $6 IS NULL) AND
+    ("sku_name" = ANY($7) OR $7 IS NULL) AND
+    ("address" = ANY($8) OR $8 IS NULL) AND
+    ("note" = ANY($9) OR $9 IS NULL) AND
+    ("serial_ids" = ANY($10) OR $10 IS NULL) AND
+    ("quantity" = ANY($11) OR $11 IS NULL) AND
+    ("quantity" >= $12 OR $12 IS NULL) AND
+    ("quantity" <= $13 OR $13 IS NULL) AND
+    ("transport_option" = ANY($14) OR $14 IS NULL) AND
+    ("subtotal_amount" = ANY($15) OR $15 IS NULL) AND
+    ("subtotal_amount" >= $16 OR $16 IS NULL) AND
+    ("subtotal_amount" <= $17 OR $17 IS NULL) AND
+    ("paid_amount" = ANY($18) OR $18 IS NULL) AND
+    ("payment_tx_id" = ANY($19) OR $19 IS NULL) AND
+    ("date_created" = ANY($20) OR $20 IS NULL) AND
+    ("date_created" >= $21 OR $21 IS NULL) AND
+    ("date_created" <= $22 OR $22 IS NULL) AND
+    ("date_cancelled" = ANY($23) OR $23 IS NULL) AND
+    ("date_cancelled" >= $24 OR $24 IS NULL) AND
+    ("date_cancelled" <= $25 OR $25 IS NULL) AND
+    ("cancelled_by_id" = ANY($26) OR $26 IS NULL) AND
+    ("refund_tx_id" = ANY($27) OR $27 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $29::int
+OFFSET $28::int
 `
 
 type ListItemParams struct {
@@ -2755,6 +2775,7 @@ type ListItemParams struct {
 	AccountID          []uuid.UUID       `json:"account_id"`
 	SellerID           []uuid.UUID       `json:"seller_id"`
 	SkuID              []uuid.UUID       `json:"sku_id"`
+	SpuID              []uuid.UUID       `json:"spu_id"`
 	SkuName            []string          `json:"sku_name"`
 	Address            []string          `json:"address"`
 	Note               []null.String     `json:"note"`
@@ -2787,6 +2808,7 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.Note,
@@ -2824,6 +2846,7 @@ func (q *Queries) ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem
 			&i.AccountID,
 			&i.SellerID,
 			&i.SkuID,
+			&i.SpuID,
 			&i.SkuName,
 			&i.Address,
 			&i.Note,
@@ -3364,21 +3387,22 @@ SET "order_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "order_id
     "account_id" = COALESCE($3, "account_id"),
     "seller_id" = COALESCE($4, "seller_id"),
     "sku_id" = COALESCE($5, "sku_id"),
-    "sku_name" = COALESCE($6, "sku_name"),
-    "address" = COALESCE($7, "address"),
-    "note" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "note") END,
-    "serial_ids" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "serial_ids") END,
-    "quantity" = COALESCE($12, "quantity"),
-    "transport_option" = COALESCE($13, "transport_option"),
-    "subtotal_amount" = COALESCE($14, "subtotal_amount"),
-    "paid_amount" = COALESCE($15, "paid_amount"),
-    "payment_tx_id" = COALESCE($16, "payment_tx_id"),
-    "date_created" = COALESCE($17, "date_created"),
-    "date_cancelled" = CASE WHEN $18::bool = TRUE THEN NULL ELSE COALESCE($19, "date_cancelled") END,
-    "cancelled_by_id" = CASE WHEN $20::bool = TRUE THEN NULL ELSE COALESCE($21, "cancelled_by_id") END,
-    "refund_tx_id" = CASE WHEN $22::bool = TRUE THEN NULL ELSE COALESCE($23, "refund_tx_id") END
-WHERE id = $24
-RETURNING id, order_id, account_id, seller_id, sku_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+    "spu_id" = COALESCE($6, "spu_id"),
+    "sku_name" = COALESCE($7, "sku_name"),
+    "address" = COALESCE($8, "address"),
+    "note" = CASE WHEN $9::bool = TRUE THEN NULL ELSE COALESCE($10, "note") END,
+    "serial_ids" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "serial_ids") END,
+    "quantity" = COALESCE($13, "quantity"),
+    "transport_option" = COALESCE($14, "transport_option"),
+    "subtotal_amount" = COALESCE($15, "subtotal_amount"),
+    "paid_amount" = COALESCE($16, "paid_amount"),
+    "payment_tx_id" = COALESCE($17, "payment_tx_id"),
+    "date_created" = COALESCE($18, "date_created"),
+    "date_cancelled" = CASE WHEN $19::bool = TRUE THEN NULL ELSE COALESCE($20, "date_cancelled") END,
+    "cancelled_by_id" = CASE WHEN $21::bool = TRUE THEN NULL ELSE COALESCE($22, "cancelled_by_id") END,
+    "refund_tx_id" = CASE WHEN $23::bool = TRUE THEN NULL ELSE COALESCE($24, "refund_tx_id") END
+WHERE id = $25
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
 `
 
 type UpdateItemParams struct {
@@ -3387,6 +3411,7 @@ type UpdateItemParams struct {
 	AccountID         uuid.NullUUID   `json:"account_id"`
 	SellerID          uuid.NullUUID   `json:"seller_id"`
 	SkuID             uuid.NullUUID   `json:"sku_id"`
+	SpuID             uuid.NullUUID   `json:"spu_id"`
 	SkuName           null.String     `json:"sku_name"`
 	Address           null.String     `json:"address"`
 	NullNote          bool            `json:"null_note"`
@@ -3415,6 +3440,7 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 		arg.AccountID,
 		arg.SellerID,
 		arg.SkuID,
+		arg.SpuID,
 		arg.SkuName,
 		arg.Address,
 		arg.NullNote,
@@ -3442,6 +3468,7 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderIt
 		&i.AccountID,
 		&i.SellerID,
 		&i.SkuID,
+		&i.SpuID,
 		&i.SkuName,
 		&i.Address,
 		&i.Note,

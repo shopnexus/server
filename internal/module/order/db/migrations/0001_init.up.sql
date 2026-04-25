@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
     "account_id" UUID NOT NULL,
     "seller_id" UUID NOT NULL, -- Denormalized from sku->spu->seller
     "sku_id" UUID NOT NULL,
+    "spu_id" UUID NOT NULL, -- Snapshot of the SKU's parent SPU at time of purchase; used by review flows to scope comments to product family
     "sku_name" TEXT NOT NULL, -- Snapshot of SKU display name at time of purchase (prevents display issues if renamed)
     "address" TEXT NOT NULL, -- Snapshot of the delivery address
     "note" TEXT, -- Buyer note

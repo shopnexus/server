@@ -406,6 +406,7 @@ func (b *OrderHandler) BuyerCheckout(
 				AccountID:       params.Account.ID,
 				SellerID:        spu.AccountID,
 				SkuID:           sku.ID,
+				SpuID:           sku.SpuID,
 				SkuName:         skuName,
 				Address:         params.Address,
 				Note:            null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
