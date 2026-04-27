@@ -17,7 +17,7 @@ type Promotion struct {
 	Type        promotiondb.PromotionType `json:"type"`
 	Title       string                    `json:"title"`
 	Description null.String               `json:"description"`
-	IsEnabled    bool                      `json:"is_active"`
+	IsEnabled   bool                      `json:"is_enabled"`
 	AutoApply   bool                      `json:"auto_apply"`
 	Group       string                    `json:"group"`
 	Priority    int32                     `json:"priority"`

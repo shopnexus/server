@@ -15,7 +15,7 @@ import (
 const listActivePromotion = `-- name: ListActivePromotion :many
 SELECT id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 FROM promotion.promotion
-WHERE is_active = true
+WHERE is_enabled = true
   AND date_started <= NOW()
   AND (date_ended IS NULL OR date_ended > NOW())
   AND (

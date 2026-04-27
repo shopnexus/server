@@ -1,7 +1,7 @@
 -- name: ListActivePromotion :many
 SELECT *
 FROM promotion.promotion
-WHERE is_active = true
+WHERE is_enabled = true
   AND date_started <= NOW()
   AND (date_ended IS NULL OR date_ended > NOW())
   AND (
