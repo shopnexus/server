@@ -7,7 +7,7 @@ CROSS JOIN LATERAL (
     SELECT ps.id
     FROM "catalog"."product_spu" ps
     WHERE ps.category_id = c.id
-      AND ps.is_active = true
+      AND ps.is_enabled = true
       AND ps.date_deleted IS NULL
     ORDER BY ps.date_created DESC
     LIMIT sqlc.arg('product_limit')::int

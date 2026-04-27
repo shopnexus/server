@@ -51,9 +51,7 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_spu" (
     CONSTRAINT "product_spu_featured_sku_id_key" UNIQUE ("featured_sku_id"),
 
     CONSTRAINT "product_spu_category_id_fkey" FOREIGN KEY ("category_id")
-        REFERENCES "catalog"."category" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "product_featured_sku_id_fkey" FOREIGN KEY ("featured_sku_id")
-        REFERENCES "catalog"."product_sku" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+        REFERENCES "catalog"."category" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "product_spu_account_id_idx" ON "catalog"."product_spu" ("account_id");
 CREATE INDEX IF NOT EXISTS "product_spu_category_id_idx" ON "catalog"."product_spu" ("category_id");
@@ -75,6 +73,12 @@ CREATE TABLE IF NOT EXISTS "catalog"."product_sku" (
         REFERENCES "catalog"."product_spu" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "product_sku_spu_id_idx" ON "catalog"."product_sku" ("spu_id");
+
+-- Cross-table FK from product_spu.featured_sku_id, deferred because
+-- product_sku also FKs back to product_spu (circular).
+ALTER TABLE "catalog"."product_spu"
+    ADD CONSTRAINT "product_featured_sku_id_fkey" FOREIGN KEY ("featured_sku_id")
+        REFERENCES "catalog"."product_sku" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Flat tag dictionary. id is the tag slug (e.g. 'eco-friendly', 'handmade').
 CREATE TABLE IF NOT EXISTS "catalog"."tag" (
