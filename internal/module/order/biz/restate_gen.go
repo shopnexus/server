@@ -71,12 +71,12 @@ func (p *OrderRestateClient) MarkTxFailed(ctx context.Context, params MarkTxFail
 	return restateclient.Send(ctx, p.client, serviceName, "MarkTxFailed", params)
 }
 
-func (p *OrderRestateClient) TimeoutCheckoutTx(ctx context.Context, params TimeoutCheckoutTxParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "TimeoutCheckoutTx", params)
+func (p *OrderRestateClient) TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "TimeoutCheckoutSession", params)
 }
 
-func (p *OrderRestateClient) TimeoutConfirmFeeTx(ctx context.Context, params TimeoutConfirmFeeTxParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "TimeoutConfirmFeeTx", params)
+func (p *OrderRestateClient) TimeoutConfirmFeeSession(ctx context.Context, params TimeoutConfirmFeeSessionParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "TimeoutConfirmFeeSession", params)
 }
 
 func (p *OrderRestateClient) ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error {

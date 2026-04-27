@@ -148,37 +148,51 @@ type OrderCartItem struct {
 }
 
 type OrderItem struct {
-	ID              int64           `json:"id"`
-	OrderID         uuid.NullUUID   `json:"order_id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	SellerID        uuid.UUID       `json:"seller_id"`
-	SkuID           uuid.UUID       `json:"sku_id"`
-	SpuID           uuid.UUID       `json:"spu_id"`
-	SkuName         string          `json:"sku_name"`
-	Address         string          `json:"address"`
-	Note            null.String     `json:"note"`
-	SerialIds       json.RawMessage `json:"serial_ids"`
-	Quantity        int64           `json:"quantity"`
-	TransportOption string          `json:"transport_option"`
-	SubtotalAmount  int64           `json:"subtotal_amount"`
-	PaidAmount      int64           `json:"paid_amount"`
-	PaymentTxID     int64           `json:"payment_tx_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DateCancelled   null.Time       `json:"date_cancelled"`
-	CancelledByID   uuid.NullUUID   `json:"cancelled_by_id"`
-	RefundTxID      null.Int        `json:"refund_tx_id"`
+	ID               int64           `json:"id"`
+	OrderID          uuid.NullUUID   `json:"order_id"`
+	AccountID        uuid.UUID       `json:"account_id"`
+	SellerID         uuid.UUID       `json:"seller_id"`
+	SkuID            uuid.UUID       `json:"sku_id"`
+	SpuID            uuid.UUID       `json:"spu_id"`
+	SkuName          string          `json:"sku_name"`
+	Address          string          `json:"address"`
+	Note             null.String     `json:"note"`
+	SerialIds        json.RawMessage `json:"serial_ids"`
+	Quantity         int64           `json:"quantity"`
+	TransportOption  string          `json:"transport_option"`
+	SubtotalAmount   int64           `json:"subtotal_amount"`
+	TotalAmount      int64           `json:"total_amount"`
+	PaymentSessionID int64           `json:"payment_session_id"`
+	DateCancelled    null.Time       `json:"date_cancelled"`
+	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
+	DateCreated      time.Time       `json:"date_created"`
 }
 
 type OrderOrder struct {
-	ID            uuid.UUID   `json:"id"`
-	BuyerID       uuid.UUID   `json:"buyer_id"`
-	SellerID      uuid.UUID   `json:"seller_id"`
-	TransportID   int64       `json:"transport_id"`
-	Address       string      `json:"address"`
-	DateCreated   time.Time   `json:"date_created"`
-	ConfirmedByID uuid.UUID   `json:"confirmed_by_id"`
-	SellerTxID    int64       `json:"seller_tx_id"`
-	Note          null.String `json:"note"`
+	ID               uuid.UUID   `json:"id"`
+	BuyerID          uuid.UUID   `json:"buyer_id"`
+	SellerID         uuid.UUID   `json:"seller_id"`
+	TransportID      int64       `json:"transport_id"`
+	Address          string      `json:"address"`
+	DateCreated      time.Time   `json:"date_created"`
+	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
+	ConfirmSessionID int64       `json:"confirm_session_id"`
+	Note             null.String `json:"note"`
+}
+
+type OrderPaymentSession struct {
+	ID          int64           `json:"id"`
+	Kind        string          `json:"kind"`
+	Status      OrderStatus     `json:"status"`
+	FromID      uuid.NullUUID   `json:"from_id"`
+	ToID        uuid.NullUUID   `json:"to_id"`
+	Note        string          `json:"note"`
+	Currency    string          `json:"currency"`
+	TotalAmount int64           `json:"total_amount"`
+	Data        json.RawMessage `json:"data"`
+	DateCreated time.Time       `json:"date_created"`
+	DatePaid    null.Time       `json:"date_paid"`
+	DateExpired time.Time       `json:"date_expired"`
 }
 
 type OrderRefund struct {
@@ -213,11 +227,10 @@ type OrderRefundDispute struct {
 
 type OrderTransaction struct {
 	ID            int64           `json:"id"`
-	FromID        uuid.NullUUID   `json:"from_id"`
-	ToID          uuid.NullUUID   `json:"to_id"`
-	Type          string          `json:"type"`
+	SessionID     int64           `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
+	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
 	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
@@ -225,9 +238,29 @@ type OrderTransaction struct {
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
+	ReversesID    null.Int        `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
-	DatePaid      null.Time       `json:"date_paid"`
-	DateExpired   time.Time       `json:"date_expired"`
+	DateSettled   null.Time       `json:"date_settled"`
+	DateExpired   null.Time       `json:"date_expired"`
+}
+
+type OrderTransactionSettled struct {
+	ID            int64           `json:"id"`
+	SessionID     int64           `json:"session_id"`
+	Status        OrderStatus     `json:"status"`
+	Note          string          `json:"note"`
+	Error         null.String     `json:"error"`
+	PaymentOption null.String     `json:"payment_option"`
+	WalletID      uuid.NullUUID   `json:"wallet_id"`
+	Data          json.RawMessage `json:"data"`
+	Amount        int64           `json:"amount"`
+	FromCurrency  string          `json:"from_currency"`
+	ToCurrency    string          `json:"to_currency"`
+	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
+	ReversesID    null.Int        `json:"reverses_id"`
+	DateCreated   time.Time       `json:"date_created"`
+	DateSettled   null.Time       `json:"date_settled"`
+	DateExpired   null.Time       `json:"date_expired"`
 }
 
 type OrderTransport struct {

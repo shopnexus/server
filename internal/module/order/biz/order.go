@@ -194,37 +194,40 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		}
 		base.Items = enrichedItemsMap[o.ID]
 
-		// Load transactions and total amount for this order.
-		type txEnrichResult struct {
-			Txs         []orderdb.OrderTransaction `json:"txs"`
-			TotalAmount int64                      `json:"total_amount"`
+		// Load the confirm-fee session, payout session (if any), and total amount.
+		type orderEnrich struct {
+			ConfirmSession orderdb.OrderPaymentSession  `json:"confirm_session"`
+			PayoutSession  *orderdb.OrderPaymentSession `json:"payout_session,omitempty"`
+			TotalAmount    int64                        `json:"total_amount"`
 		}
 		orderID := o.ID
-		sellerTxID := o.SellerTxID
-		enriched, err := restate.Run(ctx, func(ctx restate.RunContext) (txEnrichResult, error) {
-			txs, err := b.storage.Querier().ListTransactionsByOrder(ctx, orderID)
+		confirmSessionID := o.ConfirmSessionID
+		enriched, err := restate.Run(ctx, func(ctx restate.RunContext) (orderEnrich, error) {
+			confirmSession, err := b.storage.Querier().GetPaymentSession(ctx, null.IntFrom(confirmSessionID))
 			if err != nil {
-				return txEnrichResult{}, sharedmodel.WrapErr("list transactions by order", err)
+				return orderEnrich{}, sharedmodel.WrapErr("get confirm session", err)
 			}
-			total, err := b.storage.Querier().SumPaidAmountByOrder(ctx, uuid.NullUUID{UUID: orderID, Valid: true})
+			res := orderEnrich{ConfirmSession: confirmSession}
+			if payoutSession, perr := b.storage.Querier().GetPendingPayoutSessionForOrder(ctx, orderID); perr == nil {
+				res.PayoutSession = &payoutSession
+			}
+			total, err := b.storage.Querier().SumTotalAmountByOrder(ctx, uuid.NullUUID{UUID: orderID, Valid: true})
 			if err != nil {
-				return txEnrichResult{}, sharedmodel.WrapErr("sum paid amount by order", err)
+				return orderEnrich{}, sharedmodel.WrapErr("sum paid amount by order", err)
 			}
-			return txEnrichResult{Txs: txs, TotalAmount: total}, nil
+			res.TotalAmount = total
+			return res, nil
 		})
 		if err != nil {
-			return nil, sharedmodel.WrapErr("enrich order transactions", err)
+			return nil, sharedmodel.WrapErr("enrich order sessions", err)
 		}
 
 		base.TotalAmount = enriched.TotalAmount
-		for _, tx := range enriched.Txs {
-			mapped := mapTransaction(tx)
-			switch {
-			case tx.ID == sellerTxID && tx.Type == TxTypeConfirmFee:
-				base.ConfirmFeeTx = &mapped
-			case tx.Type == TxTypePayout:
-				base.PayoutTx = &mapped
-			}
+		confirmMapped := mapPaymentSession(enriched.ConfirmSession)
+		base.ConfirmSession = &confirmMapped
+		if enriched.PayoutSession != nil {
+			payoutMapped := mapPaymentSession(*enriched.PayoutSession)
+			base.PayoutSession = &payoutMapped
 		}
 
 		result = append(result, base)
@@ -242,56 +245,4 @@ func mapTransport(t orderdb.OrderTransport) ordermodel.Transport {
 		Data:        t.Data,
 		DateCreated: t.DateCreated,
 	}
-}
-
-// HasPurchasedProduct checks if an account has a successful order containing any of the given SKU IDs.
-func (b *OrderHandler) HasPurchasedProduct(ctx restate.Context, params HasPurchasedProductParams) (bool, error) {
-	if err := validator.Validate(params); err != nil {
-		return false, sharedmodel.WrapErr("validate has purchased product", err)
-	}
-
-	return b.storage.Querier().HasPurchasedSku(ctx, orderdb.HasPurchasedSkuParams{
-		AccountID: params.AccountID,
-		SkuIds:    params.SkuIDs,
-	})
-}
-
-// ListReviewableOrders returns successful orders that contain items matching the given SKU IDs.
-func (b *OrderHandler) ListReviewableOrders(
-	ctx restate.Context,
-	params ListReviewableOrdersParams,
-) ([]ReviewableOrder, error) {
-	if err := validator.Validate(params); err != nil {
-		return nil, sharedmodel.WrapErr("validate list reviewable orders", err)
-	}
-
-	orders, err := b.storage.Querier().ListSuccessOrdersBySkus(ctx, orderdb.ListSuccessOrdersBySkusParams{
-		BuyerID: params.AccountID,
-		SkuIds:  params.SkuIDs,
-	})
-	if err != nil {
-		return nil, sharedmodel.WrapErr("db list reviewable orders", err)
-	}
-
-	result := make([]ReviewableOrder, len(orders))
-	for i, o := range orders {
-		result[i] = ReviewableOrder{
-			ID:          o.ID,
-			DateCreated: o.DateCreated,
-		}
-	}
-	return result, nil
-}
-
-// ValidateOrderForReview checks if a specific order is eligible for review.
-func (b *OrderHandler) ValidateOrderForReview(ctx restate.Context, params ValidateOrderForReviewParams) (bool, error) {
-	if err := validator.Validate(params); err != nil {
-		return false, sharedmodel.WrapErr("validate order for review", err)
-	}
-
-	return b.storage.Querier().ValidateOrderForReview(ctx, orderdb.ValidateOrderForReviewParams{
-		OrderID: params.OrderID,
-		BuyerID: params.AccountID,
-		SkuIds:  params.SkuIDs,
-	})
 }

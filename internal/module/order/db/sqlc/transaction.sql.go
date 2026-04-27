@@ -11,184 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	null "github.com/guregu/null/v6"
 )
 
-const getPendingPayoutTxForOrder = `-- name: GetPendingPayoutTxForOrder :one
-SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
-JOIN "order"."item" i ON i."order_id" = $1
-WHERE t."type" = 'payout'
-  AND t."status" = 'Pending'
-  AND t."to_id" = i."seller_id"
-LIMIT 1
-`
-
-func (q *Queries) GetPendingPayoutTxForOrder(ctx context.Context, orderID uuid.NullUUID) (OrderTransaction, error) {
-	row := q.db.QueryRow(ctx, getPendingPayoutTxForOrder, orderID)
-	var i OrderTransaction
-	err := row.Scan(
-		&i.ID,
-		&i.FromID,
-		&i.ToID,
-		&i.Type,
-		&i.Status,
-		&i.Note,
-		&i.PaymentOption,
-		&i.WalletID,
-		&i.Data,
-		&i.Amount,
-		&i.FromCurrency,
-		&i.ToCurrency,
-		&i.ExchangeRate,
-		&i.DateCreated,
-		&i.DatePaid,
-		&i.DateExpired,
-	)
-	return i, err
-}
-
-const listCheckoutSiblingsForTx = `-- name: ListCheckoutSiblingsForTx :many
-SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.wallet_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
-JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
-    AND t2."type" = 'checkout'
-    AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
-WHERE t1."id" = $1
-`
-
-// Siblings = checkout txs with same from_id, within ±2s of the given tx.
-func (q *Queries) ListCheckoutSiblingsForTx(ctx context.Context, txID int64) ([]OrderTransaction, error) {
-	rows, err := q.db.Query(ctx, listCheckoutSiblingsForTx, txID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []OrderTransaction{}
-	for rows.Next() {
-		var i OrderTransaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
-			&i.Status,
-			&i.Note,
-			&i.PaymentOption,
-			&i.WalletID,
-			&i.Data,
-			&i.Amount,
-			&i.FromCurrency,
-			&i.ToCurrency,
-			&i.ExchangeRate,
-			&i.DateCreated,
-			&i.DatePaid,
-			&i.DateExpired,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listConfirmFeeSiblingsForTx = `-- name: ListConfirmFeeSiblingsForTx :many
-SELECT t2.id, t2.from_id, t2.to_id, t2.type, t2.status, t2.note, t2.payment_option, t2.wallet_id, t2.data, t2.amount, t2.from_currency, t2.to_currency, t2.exchange_rate, t2.date_created, t2.date_paid, t2.date_expired FROM "order"."transaction" t1
-JOIN "order"."transaction" t2 ON t2."from_id" = t1."from_id"
-    AND t2."type" = 'confirm_fee'
-    AND abs(extract(epoch from (t2."date_created" - t1."date_created"))) < 2
-WHERE t1."id" = $1
-`
-
-// Siblings = confirm_fee txs with same from_id, within ±2s of the given tx.
-func (q *Queries) ListConfirmFeeSiblingsForTx(ctx context.Context, txID int64) ([]OrderTransaction, error) {
-	rows, err := q.db.Query(ctx, listConfirmFeeSiblingsForTx, txID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []OrderTransaction{}
-	for rows.Next() {
-		var i OrderTransaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
-			&i.Status,
-			&i.Note,
-			&i.PaymentOption,
-			&i.WalletID,
-			&i.Data,
-			&i.Amount,
-			&i.FromCurrency,
-			&i.ToCurrency,
-			&i.ExchangeRate,
-			&i.DateCreated,
-			&i.DatePaid,
-			&i.DateExpired,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listExpiredPendingTransactions = `-- name: ListExpiredPendingTransactions :many
-SELECT id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired FROM "order"."transaction"
-WHERE "status" = 'Pending' AND "date_expired" < $1::TIMESTAMPTZ
-ORDER BY "date_expired"
-LIMIT $2::INTEGER
-`
-
-type ListExpiredPendingTransactionsParams struct {
-	Cutoff     time.Time `json:"cutoff"`
-	LimitCount int32     `json:"limit_count"`
-}
-
-func (q *Queries) ListExpiredPendingTransactions(ctx context.Context, arg ListExpiredPendingTransactionsParams) ([]OrderTransaction, error) {
-	rows, err := q.db.Query(ctx, listExpiredPendingTransactions, arg.Cutoff, arg.LimitCount)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []OrderTransaction{}
-	for rows.Next() {
-		var i OrderTransaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
-			&i.Status,
-			&i.Note,
-			&i.PaymentOption,
-			&i.WalletID,
-			&i.Data,
-			&i.Amount,
-			&i.FromCurrency,
-			&i.ToCurrency,
-			&i.ExchangeRate,
-			&i.DateCreated,
-			&i.DatePaid,
-			&i.DateExpired,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTransactionsByIDs = `-- name: ListTransactionsByIDs :many
-SELECT id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired FROM "order"."transaction" WHERE "id" = ANY($1::BIGINT[])
+SELECT id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired FROM "order"."transaction" WHERE "id" = ANY($1::BIGINT[])
 `
 
 func (q *Queries) ListTransactionsByIDs(ctx context.Context, ids []int64) ([]OrderTransaction, error) {
@@ -202,11 +29,10 @@ func (q *Queries) ListTransactionsByIDs(ctx context.Context, ids []int64) ([]Ord
 		var i OrderTransaction
 		if err := rows.Scan(
 			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
+			&i.SessionID,
 			&i.Status,
 			&i.Note,
+			&i.Error,
 			&i.PaymentOption,
 			&i.WalletID,
 			&i.Data,
@@ -214,8 +40,9 @@ func (q *Queries) ListTransactionsByIDs(ctx context.Context, ids []int64) ([]Ord
 			&i.FromCurrency,
 			&i.ToCurrency,
 			&i.ExchangeRate,
+			&i.ReversesID,
 			&i.DateCreated,
-			&i.DatePaid,
+			&i.DateSettled,
 			&i.DateExpired,
 		); err != nil {
 			return nil, err
@@ -229,9 +56,8 @@ func (q *Queries) ListTransactionsByIDs(ctx context.Context, ids []int64) ([]Ord
 }
 
 const listTransactionsByItem = `-- name: ListTransactionsByItem :many
-SELECT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
-JOIN "order"."item" i ON (i."payment_tx_id" = t."id" OR i."refund_tx_id" = t."id")
-WHERE i."id" = $1
+SELECT t.id, t.session_id, t.status, t.note, t.error, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.reverses_id, t.date_created, t.date_settled, t.date_expired FROM "order"."transaction" t
+WHERE t."session_id" = (SELECT i."payment_session_id" FROM "order"."item" i WHERE i."id" = $1)
 ORDER BY t."date_created"
 `
 
@@ -246,11 +72,10 @@ func (q *Queries) ListTransactionsByItem(ctx context.Context, itemID int64) ([]O
 		var i OrderTransaction
 		if err := rows.Scan(
 			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
+			&i.SessionID,
 			&i.Status,
 			&i.Note,
+			&i.Error,
 			&i.PaymentOption,
 			&i.WalletID,
 			&i.Data,
@@ -258,8 +83,9 @@ func (q *Queries) ListTransactionsByItem(ctx context.Context, itemID int64) ([]O
 			&i.FromCurrency,
 			&i.ToCurrency,
 			&i.ExchangeRate,
+			&i.ReversesID,
 			&i.DateCreated,
-			&i.DatePaid,
+			&i.DateSettled,
 			&i.DateExpired,
 		); err != nil {
 			return nil, err
@@ -273,13 +99,11 @@ func (q *Queries) ListTransactionsByItem(ctx context.Context, itemID int64) ([]O
 }
 
 const listTransactionsByOrder = `-- name: ListTransactionsByOrder :many
-SELECT DISTINCT t.id, t.from_id, t.to_id, t.type, t.status, t.note, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.date_created, t.date_paid, t.date_expired FROM "order"."transaction" t
-WHERE t."id" IN (
-    SELECT o."seller_tx_id" FROM "order"."order" o WHERE o."id" = $1
+SELECT t.id, t.session_id, t.status, t.note, t.error, t.payment_option, t.wallet_id, t.data, t.amount, t.from_currency, t.to_currency, t.exchange_rate, t.reverses_id, t.date_created, t.date_settled, t.date_expired FROM "order"."transaction" t
+WHERE t."session_id" IN (
+    SELECT o."confirm_session_id" FROM "order"."order" o WHERE o."id" = $1
     UNION
-    SELECT i."payment_tx_id" FROM "order"."item" i WHERE i."order_id" = $1
-    UNION
-    SELECT i."refund_tx_id" FROM "order"."item" i WHERE i."order_id" = $1 AND i."refund_tx_id" IS NOT NULL
+    SELECT i."payment_session_id" FROM "order"."item" i WHERE i."order_id" = $1
 )
 ORDER BY t."date_created"
 `
@@ -295,11 +119,10 @@ func (q *Queries) ListTransactionsByOrder(ctx context.Context, orderID uuid.UUID
 		var i OrderTransaction
 		if err := rows.Scan(
 			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
+			&i.SessionID,
 			&i.Status,
 			&i.Note,
+			&i.Error,
 			&i.PaymentOption,
 			&i.WalletID,
 			&i.Data,
@@ -307,8 +130,52 @@ func (q *Queries) ListTransactionsByOrder(ctx context.Context, orderID uuid.UUID
 			&i.FromCurrency,
 			&i.ToCurrency,
 			&i.ExchangeRate,
+			&i.ReversesID,
 			&i.DateCreated,
-			&i.DatePaid,
+			&i.DateSettled,
+			&i.DateExpired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTransactionsBySession = `-- name: ListTransactionsBySession :many
+SELECT id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired FROM "order"."transaction"
+WHERE "session_id" = $1
+ORDER BY "date_created"
+`
+
+func (q *Queries) ListTransactionsBySession(ctx context.Context, sessionID int64) ([]OrderTransaction, error) {
+	rows, err := q.db.Query(ctx, listTransactionsBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderTransaction{}
+	for rows.Next() {
+		var i OrderTransaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Status,
+			&i.Note,
+			&i.Error,
+			&i.PaymentOption,
+			&i.WalletID,
+			&i.Data,
+			&i.Amount,
+			&i.FromCurrency,
+			&i.ToCurrency,
+			&i.ExchangeRate,
+			&i.ReversesID,
+			&i.DateCreated,
+			&i.DateSettled,
 			&i.DateExpired,
 		); err != nil {
 			return nil, err
@@ -325,7 +192,7 @@ const markTransactionCancelled = `-- name: MarkTransactionCancelled :one
 UPDATE "order"."transaction"
 SET "status" = 'Cancelled'
 WHERE "id" = $1 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (OrderTransaction, error) {
@@ -333,11 +200,10 @@ func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (Order
 	var i OrderTransaction
 	err := row.Scan(
 		&i.ID,
-		&i.FromID,
-		&i.ToID,
-		&i.Type,
+		&i.SessionID,
 		&i.Status,
 		&i.Note,
+		&i.Error,
 		&i.PaymentOption,
 		&i.WalletID,
 		&i.Data,
@@ -345,8 +211,9 @@ func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (Order
 		&i.FromCurrency,
 		&i.ToCurrency,
 		&i.ExchangeRate,
+		&i.ReversesID,
 		&i.DateCreated,
-		&i.DatePaid,
+		&i.DateSettled,
 		&i.DateExpired,
 	)
 	return i, err
@@ -354,21 +221,26 @@ func (q *Queries) MarkTransactionCancelled(ctx context.Context, id int64) (Order
 
 const markTransactionFailed = `-- name: MarkTransactionFailed :one
 UPDATE "order"."transaction"
-SET "status" = 'Failed'
-WHERE "id" = $1 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+SET "status" = 'Failed',
+    "error" = $1
+WHERE "id" = $2 AND "status" = 'Pending'
+RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
-func (q *Queries) MarkTransactionFailed(ctx context.Context, id int64) (OrderTransaction, error) {
-	row := q.db.QueryRow(ctx, markTransactionFailed, id)
+type MarkTransactionFailedParams struct {
+	Error null.String `json:"error"`
+	ID    int64       `json:"id"`
+}
+
+func (q *Queries) MarkTransactionFailed(ctx context.Context, arg MarkTransactionFailedParams) (OrderTransaction, error) {
+	row := q.db.QueryRow(ctx, markTransactionFailed, arg.Error, arg.ID)
 	var i OrderTransaction
 	err := row.Scan(
 		&i.ID,
-		&i.FromID,
-		&i.ToID,
-		&i.Type,
+		&i.SessionID,
 		&i.Status,
 		&i.Note,
+		&i.Error,
 		&i.PaymentOption,
 		&i.WalletID,
 		&i.Data,
@@ -376,8 +248,9 @@ func (q *Queries) MarkTransactionFailed(ctx context.Context, id int64) (OrderTra
 		&i.FromCurrency,
 		&i.ToCurrency,
 		&i.ExchangeRate,
+		&i.ReversesID,
 		&i.DateCreated,
-		&i.DatePaid,
+		&i.DateSettled,
 		&i.DateExpired,
 	)
 	return i, err
@@ -386,26 +259,25 @@ func (q *Queries) MarkTransactionFailed(ctx context.Context, id int64) (OrderTra
 const markTransactionSuccess = `-- name: MarkTransactionSuccess :one
 UPDATE "order"."transaction"
 SET "status" = 'Success',
-    "date_paid" = COALESCE($1::TIMESTAMPTZ, CURRENT_TIMESTAMP)
+    "date_settled" = COALESCE($1::TIMESTAMPTZ, CURRENT_TIMESTAMP)
 WHERE "id" = $2 AND "status" = 'Pending'
-RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 type MarkTransactionSuccessParams struct {
-	DatePaid time.Time `json:"date_paid"`
-	ID       int64     `json:"id"`
+	DateSettled time.Time `json:"date_settled"`
+	ID          int64     `json:"id"`
 }
 
 func (q *Queries) MarkTransactionSuccess(ctx context.Context, arg MarkTransactionSuccessParams) (OrderTransaction, error) {
-	row := q.db.QueryRow(ctx, markTransactionSuccess, arg.DatePaid, arg.ID)
+	row := q.db.QueryRow(ctx, markTransactionSuccess, arg.DateSettled, arg.ID)
 	var i OrderTransaction
 	err := row.Scan(
 		&i.ID,
-		&i.FromID,
-		&i.ToID,
-		&i.Type,
+		&i.SessionID,
 		&i.Status,
 		&i.Note,
+		&i.Error,
 		&i.PaymentOption,
 		&i.WalletID,
 		&i.Data,
@@ -413,8 +285,9 @@ func (q *Queries) MarkTransactionSuccess(ctx context.Context, arg MarkTransactio
 		&i.FromCurrency,
 		&i.ToCurrency,
 		&i.ExchangeRate,
+		&i.ReversesID,
 		&i.DateCreated,
-		&i.DatePaid,
+		&i.DateSettled,
 		&i.DateExpired,
 	)
 	return i, err
@@ -434,9 +307,11 @@ type SetTransactionDataParams struct {
 // =============================================
 // Module:      order
 // File:        transaction.sql
-// Purpose:     Universal ledger of money events. Append-only; only status/date_paid
+// Purpose:     Append-only ledger leg per payment_session rail movement. Status
 //
-//	mutate after creation.
+//	transitions Pending -> Success/Failed; Success is terminal.
+//	Reversals are NEW rows (negative amount + reverses_id) within the
+//	SAME session as the original — convention, not DB-enforced.
 //
 // =============================================
 // Create/Get are auto-generated by pgtempl (CreateDefaultTransaction / GetTransaction).

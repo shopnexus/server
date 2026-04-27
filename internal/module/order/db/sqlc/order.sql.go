@@ -36,7 +36,7 @@ func (q *Queries) HasPurchasedSku(ctx context.Context, arg HasPurchasedSkuParams
 
 const listBuyerOrders = `-- name: ListBuyerOrders :many
 
-SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, seller_tx_id, note FROM "order"."order"
+SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, confirm_session_id, note FROM "order"."order"
 WHERE "buyer_id" = $1
 ORDER BY "date_created" DESC
 LIMIT $3::INTEGER OFFSET $2::INTEGER
@@ -67,7 +67,7 @@ func (q *Queries) ListBuyerOrders(ctx context.Context, arg ListBuyerOrdersParams
 			&i.Address,
 			&i.DateCreated,
 			&i.ConfirmedByID,
-			&i.SellerTxID,
+			&i.ConfirmSessionID,
 			&i.Note,
 		); err != nil {
 			return nil, err
@@ -81,7 +81,7 @@ func (q *Queries) ListBuyerOrders(ctx context.Context, arg ListBuyerOrdersParams
 }
 
 const listCountBuyerOrder = `-- name: ListCountBuyerOrder :many
-SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.address, embed_order.date_created, embed_order.confirmed_by_id, embed_order.seller_tx_id, embed_order.note, COUNT(*) OVER() as total_count
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.address, embed_order.date_created, embed_order.confirmed_by_id, embed_order.confirm_session_id, embed_order.note, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
 WHERE embed_order."buyer_id" = $1
     AND (embed_order."id"::text ILIKE '%' || $2::text || '%' OR $2 IS NULL)
@@ -124,7 +124,7 @@ func (q *Queries) ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrd
 			&i.OrderOrder.Address,
 			&i.OrderOrder.DateCreated,
 			&i.OrderOrder.ConfirmedByID,
-			&i.OrderOrder.SellerTxID,
+			&i.OrderOrder.ConfirmSessionID,
 			&i.OrderOrder.Note,
 			&i.TotalCount,
 		); err != nil {
@@ -139,7 +139,7 @@ func (q *Queries) ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrd
 }
 
 const listCountSellerOrder = `-- name: ListCountSellerOrder :many
-SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.address, embed_order.date_created, embed_order.confirmed_by_id, embed_order.seller_tx_id, embed_order.note, COUNT(*) OVER() as total_count
+SELECT embed_order.id, embed_order.buyer_id, embed_order.seller_id, embed_order.transport_id, embed_order.address, embed_order.date_created, embed_order.confirmed_by_id, embed_order.confirm_session_id, embed_order.note, COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
 WHERE embed_order."seller_id" = $1
     AND (embed_order."id"::text ILIKE '%' || $2::text || '%' OR $2 IS NULL)
@@ -182,7 +182,7 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 			&i.OrderOrder.Address,
 			&i.OrderOrder.DateCreated,
 			&i.OrderOrder.ConfirmedByID,
-			&i.OrderOrder.SellerTxID,
+			&i.OrderOrder.ConfirmSessionID,
 			&i.OrderOrder.Note,
 			&i.TotalCount,
 		); err != nil {
@@ -197,7 +197,7 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 }
 
 const listOrdersByTransportID = `-- name: ListOrdersByTransportID :many
-SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, seller_tx_id, note FROM "order"."order" WHERE "transport_id" = $1
+SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, confirm_session_id, note FROM "order"."order" WHERE "transport_id" = $1
 `
 
 func (q *Queries) ListOrdersByTransportID(ctx context.Context, transportID int64) ([]OrderOrder, error) {
@@ -217,7 +217,7 @@ func (q *Queries) ListOrdersByTransportID(ctx context.Context, transportID int64
 			&i.Address,
 			&i.DateCreated,
 			&i.ConfirmedByID,
-			&i.SellerTxID,
+			&i.ConfirmSessionID,
 			&i.Note,
 		); err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func (q *Queries) ListOrdersByTransportID(ctx context.Context, transportID int64
 }
 
 const listSellerOrders = `-- name: ListSellerOrders :many
-SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, seller_tx_id, note FROM "order"."order"
+SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, confirm_session_id, note FROM "order"."order"
 WHERE "seller_id" = $1
 ORDER BY "date_created" DESC
 LIMIT $3::INTEGER OFFSET $2::INTEGER
@@ -260,7 +260,7 @@ func (q *Queries) ListSellerOrders(ctx context.Context, arg ListSellerOrdersPara
 			&i.Address,
 			&i.DateCreated,
 			&i.ConfirmedByID,
-			&i.SellerTxID,
+			&i.ConfirmSessionID,
 			&i.Note,
 		); err != nil {
 			return nil, err
@@ -274,7 +274,7 @@ func (q *Queries) ListSellerOrders(ctx context.Context, arg ListSellerOrdersPara
 }
 
 const listSuccessOrdersBySkus = `-- name: ListSuccessOrdersBySkus :many
-SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.transport_id, o.address, o.date_created, o.confirmed_by_id, o.seller_tx_id, o.note FROM "order"."order" o
+SELECT DISTINCT o.id, o.buyer_id, o.seller_id, o.transport_id, o.address, o.date_created, o.confirmed_by_id, o.confirm_session_id, o.note FROM "order"."order" o
 JOIN "order".item i ON i.order_id = o.id
 WHERE o.buyer_id = $1
   AND i.sku_id = ANY($2::UUID[])
@@ -304,7 +304,7 @@ func (q *Queries) ListSuccessOrdersBySkus(ctx context.Context, arg ListSuccessOr
 			&i.Address,
 			&i.DateCreated,
 			&i.ConfirmedByID,
-			&i.SellerTxID,
+			&i.ConfirmSessionID,
 			&i.Note,
 		); err != nil {
 			return nil, err

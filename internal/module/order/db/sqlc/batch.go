@@ -82,9 +82,9 @@ func (b *CreateBatchCartItemBatchResults) Close() error {
 }
 
 const createBatchItem = `-- name: CreateBatchItem :batchone
-INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "paid_amount", "payment_tx_id", "date_created", "date_cancelled", "cancelled_by_id", "refund_tx_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, paid_amount, payment_tx_id, date_created, date_cancelled, cancelled_by_id, refund_tx_id
+INSERT INTO "order"."item" ("order_id", "account_id", "seller_id", "sku_id", "spu_id", "sku_name", "address", "note", "serial_ids", "quantity", "transport_option", "subtotal_amount", "total_amount", "payment_session_id", "date_cancelled", "cancelled_by_id", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+RETURNING id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, total_amount, payment_session_id, date_cancelled, cancelled_by_id, date_created
 `
 
 type CreateBatchItemBatchResults struct {
@@ -94,24 +94,23 @@ type CreateBatchItemBatchResults struct {
 }
 
 type CreateBatchItemParams struct {
-	OrderID         uuid.NullUUID   `json:"order_id"`
-	AccountID       uuid.UUID       `json:"account_id"`
-	SellerID        uuid.UUID       `json:"seller_id"`
-	SkuID           uuid.UUID       `json:"sku_id"`
-	SpuID           uuid.UUID       `json:"spu_id"`
-	SkuName         string          `json:"sku_name"`
-	Address         string          `json:"address"`
-	Note            null.String     `json:"note"`
-	SerialIds       json.RawMessage `json:"serial_ids"`
-	Quantity        int64           `json:"quantity"`
-	TransportOption string          `json:"transport_option"`
-	SubtotalAmount  int64           `json:"subtotal_amount"`
-	PaidAmount      int64           `json:"paid_amount"`
-	PaymentTxID     int64           `json:"payment_tx_id"`
-	DateCreated     time.Time       `json:"date_created"`
-	DateCancelled   null.Time       `json:"date_cancelled"`
-	CancelledByID   uuid.NullUUID   `json:"cancelled_by_id"`
-	RefundTxID      null.Int        `json:"refund_tx_id"`
+	OrderID          uuid.NullUUID   `json:"order_id"`
+	AccountID        uuid.UUID       `json:"account_id"`
+	SellerID         uuid.UUID       `json:"seller_id"`
+	SkuID            uuid.UUID       `json:"sku_id"`
+	SpuID            uuid.UUID       `json:"spu_id"`
+	SkuName          string          `json:"sku_name"`
+	Address          string          `json:"address"`
+	Note             null.String     `json:"note"`
+	SerialIds        json.RawMessage `json:"serial_ids"`
+	Quantity         int64           `json:"quantity"`
+	TransportOption  string          `json:"transport_option"`
+	SubtotalAmount   int64           `json:"subtotal_amount"`
+	TotalAmount      int64           `json:"total_amount"`
+	PaymentSessionID int64           `json:"payment_session_id"`
+	DateCancelled    null.Time       `json:"date_cancelled"`
+	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
+	DateCreated      time.Time       `json:"date_created"`
 }
 
 func (q *Queries) CreateBatchItem(ctx context.Context, arg []CreateBatchItemParams) *CreateBatchItemBatchResults {
@@ -130,12 +129,11 @@ func (q *Queries) CreateBatchItem(ctx context.Context, arg []CreateBatchItemPara
 			a.Quantity,
 			a.TransportOption,
 			a.SubtotalAmount,
-			a.PaidAmount,
-			a.PaymentTxID,
-			a.DateCreated,
+			a.TotalAmount,
+			a.PaymentSessionID,
 			a.DateCancelled,
 			a.CancelledByID,
-			a.RefundTxID,
+			a.DateCreated,
 		}
 		batch.Queue(createBatchItem, vals...)
 	}
@@ -168,12 +166,11 @@ func (b *CreateBatchItemBatchResults) QueryRow(f func(int, OrderItem, error)) {
 			&i.Quantity,
 			&i.TransportOption,
 			&i.SubtotalAmount,
-			&i.PaidAmount,
-			&i.PaymentTxID,
-			&i.DateCreated,
+			&i.TotalAmount,
+			&i.PaymentSessionID,
 			&i.DateCancelled,
 			&i.CancelledByID,
-			&i.RefundTxID,
+			&i.DateCreated,
 		)
 		if f != nil {
 			f(t, i, err)
@@ -187,9 +184,9 @@ func (b *CreateBatchItemBatchResults) Close() error {
 }
 
 const createBatchOrder = `-- name: CreateBatchOrder :batchone
-INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "transport_id", "address", "date_created", "confirmed_by_id", "seller_tx_id", "note")
+INSERT INTO "order"."order" ("id", "buyer_id", "seller_id", "transport_id", "address", "date_created", "confirmed_by_id", "confirm_session_id", "note")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, seller_tx_id, note
+RETURNING id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, confirm_session_id, note
 `
 
 type CreateBatchOrderBatchResults struct {
@@ -199,15 +196,15 @@ type CreateBatchOrderBatchResults struct {
 }
 
 type CreateBatchOrderParams struct {
-	ID            uuid.UUID   `json:"id"`
-	BuyerID       uuid.UUID   `json:"buyer_id"`
-	SellerID      uuid.UUID   `json:"seller_id"`
-	TransportID   int64       `json:"transport_id"`
-	Address       string      `json:"address"`
-	DateCreated   time.Time   `json:"date_created"`
-	ConfirmedByID uuid.UUID   `json:"confirmed_by_id"`
-	SellerTxID    int64       `json:"seller_tx_id"`
-	Note          null.String `json:"note"`
+	ID               uuid.UUID   `json:"id"`
+	BuyerID          uuid.UUID   `json:"buyer_id"`
+	SellerID         uuid.UUID   `json:"seller_id"`
+	TransportID      int64       `json:"transport_id"`
+	Address          string      `json:"address"`
+	DateCreated      time.Time   `json:"date_created"`
+	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
+	ConfirmSessionID int64       `json:"confirm_session_id"`
+	Note             null.String `json:"note"`
 }
 
 func (q *Queries) CreateBatchOrder(ctx context.Context, arg []CreateBatchOrderParams) *CreateBatchOrderBatchResults {
@@ -221,7 +218,7 @@ func (q *Queries) CreateBatchOrder(ctx context.Context, arg []CreateBatchOrderPa
 			a.Address,
 			a.DateCreated,
 			a.ConfirmedByID,
-			a.SellerTxID,
+			a.ConfirmSessionID,
 			a.Note,
 		}
 		batch.Queue(createBatchOrder, vals...)
@@ -249,7 +246,7 @@ func (b *CreateBatchOrderBatchResults) QueryRow(f func(int, OrderOrder, error)) 
 			&i.Address,
 			&i.DateCreated,
 			&i.ConfirmedByID,
-			&i.SellerTxID,
+			&i.ConfirmSessionID,
 			&i.Note,
 		)
 		if f != nil {
@@ -259,6 +256,90 @@ func (b *CreateBatchOrderBatchResults) QueryRow(f func(int, OrderOrder, error)) 
 }
 
 func (b *CreateBatchOrderBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const createBatchPaymentSession = `-- name: CreateBatchPaymentSession :batchone
+INSERT INTO "order"."payment_session" ("kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
+`
+
+type CreateBatchPaymentSessionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchPaymentSessionParams struct {
+	Kind        string          `json:"kind"`
+	Status      OrderStatus     `json:"status"`
+	FromID      uuid.NullUUID   `json:"from_id"`
+	ToID        uuid.NullUUID   `json:"to_id"`
+	Note        string          `json:"note"`
+	Currency    string          `json:"currency"`
+	TotalAmount int64           `json:"total_amount"`
+	Data        json.RawMessage `json:"data"`
+	DateCreated time.Time       `json:"date_created"`
+	DatePaid    null.Time       `json:"date_paid"`
+	DateExpired time.Time       `json:"date_expired"`
+}
+
+func (q *Queries) CreateBatchPaymentSession(ctx context.Context, arg []CreateBatchPaymentSessionParams) *CreateBatchPaymentSessionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.Kind,
+			a.Status,
+			a.FromID,
+			a.ToID,
+			a.Note,
+			a.Currency,
+			a.TotalAmount,
+			a.Data,
+			a.DateCreated,
+			a.DatePaid,
+			a.DateExpired,
+		}
+		batch.Queue(createBatchPaymentSession, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchPaymentSessionBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchPaymentSessionBatchResults) QueryRow(f func(int, OrderPaymentSession, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i OrderPaymentSession
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Status,
+			&i.FromID,
+			&i.ToID,
+			&i.Note,
+			&i.Currency,
+			&i.TotalAmount,
+			&i.Data,
+			&i.DateCreated,
+			&i.DatePaid,
+			&i.DateExpired,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchPaymentSessionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
@@ -436,9 +517,9 @@ func (b *CreateBatchRefundDisputeBatchResults) Close() error {
 }
 
 const createBatchTransaction = `-- name: CreateBatchTransaction :batchone
-INSERT INTO "order"."transaction" ("from_id", "to_id", "type", "status", "note", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "date_created", "date_paid", "date_expired")
+INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, from_id, to_id, type, status, note, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, date_created, date_paid, date_expired
+RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 type CreateBatchTransactionBatchResults struct {
@@ -448,11 +529,10 @@ type CreateBatchTransactionBatchResults struct {
 }
 
 type CreateBatchTransactionParams struct {
-	FromID        uuid.NullUUID   `json:"from_id"`
-	ToID          uuid.NullUUID   `json:"to_id"`
-	Type          string          `json:"type"`
+	SessionID     int64           `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
+	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
 	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
@@ -460,20 +540,20 @@ type CreateBatchTransactionParams struct {
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
+	ReversesID    null.Int        `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
-	DatePaid      null.Time       `json:"date_paid"`
-	DateExpired   time.Time       `json:"date_expired"`
+	DateSettled   null.Time       `json:"date_settled"`
+	DateExpired   null.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreateBatchTransaction(ctx context.Context, arg []CreateBatchTransactionParams) *CreateBatchTransactionBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
-			a.FromID,
-			a.ToID,
-			a.Type,
+			a.SessionID,
 			a.Status,
 			a.Note,
+			a.Error,
 			a.PaymentOption,
 			a.WalletID,
 			a.Data,
@@ -481,8 +561,9 @@ func (q *Queries) CreateBatchTransaction(ctx context.Context, arg []CreateBatchT
 			a.FromCurrency,
 			a.ToCurrency,
 			a.ExchangeRate,
+			a.ReversesID,
 			a.DateCreated,
-			a.DatePaid,
+			a.DateSettled,
 			a.DateExpired,
 		}
 		batch.Queue(createBatchTransaction, vals...)
@@ -504,11 +585,10 @@ func (b *CreateBatchTransactionBatchResults) QueryRow(f func(int, OrderTransacti
 		row := b.br.QueryRow()
 		err := row.Scan(
 			&i.ID,
-			&i.FromID,
-			&i.ToID,
-			&i.Type,
+			&i.SessionID,
 			&i.Status,
 			&i.Note,
+			&i.Error,
 			&i.PaymentOption,
 			&i.WalletID,
 			&i.Data,
@@ -516,8 +596,9 @@ func (b *CreateBatchTransactionBatchResults) QueryRow(f func(int, OrderTransacti
 			&i.FromCurrency,
 			&i.ToCurrency,
 			&i.ExchangeRate,
+			&i.ReversesID,
 			&i.DateCreated,
-			&i.DatePaid,
+			&i.DateSettled,
 			&i.DateExpired,
 		)
 		if f != nil {

@@ -10,6 +10,24 @@ import (
 	ordermodel "shopnexus-server/internal/module/order/model"
 )
 
+// mapPaymentSession converts an sqlc OrderPaymentSession row to the domain model.
+func mapPaymentSession(s orderdb.OrderPaymentSession) ordermodel.PaymentSession {
+	return ordermodel.PaymentSession{
+		ID:             s.ID,
+		Kind:           s.Kind,
+		Status:         s.Status,
+		FromID:         s.FromID,
+		ToID:           s.ToID,
+		Note:           s.Note,
+		Currency:    s.Currency,
+		TotalAmount: s.TotalAmount,
+		Data:        s.Data,
+		DateCreated: s.DateCreated,
+		DatePaid:       s.DatePaid,
+		DateExpired:    s.DateExpired,
+	}
+}
+
 // mapTransaction converts an sqlc OrderTransaction row to the domain Transaction.
 func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 	var exchangeRate decimal.Decimal
@@ -23,11 +41,10 @@ func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 
 	return ordermodel.Transaction{
 		ID:            tx.ID,
-		FromID:        tx.FromID,
-		ToID:          tx.ToID,
-		Type:          tx.Type,
+		SessionID:     tx.SessionID,
 		Status:        tx.Status,
 		Note:          tx.Note,
+		Error:         tx.Error,
 		PaymentOption: tx.PaymentOption,
 		WalletID:      tx.WalletID,
 		Data:          tx.Data,
@@ -35,47 +52,47 @@ func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 		FromCurrency:  tx.FromCurrency,
 		ToCurrency:    tx.ToCurrency,
 		ExchangeRate:  exchangeRate,
+		ReversesID:    tx.ReversesID,
 		DateCreated:   tx.DateCreated,
-		DatePaid:      tx.DatePaid,
+		DateSettled:   tx.DateSettled,
 		DateExpired:   tx.DateExpired,
 	}
 }
 
 func mapOrderItem(it orderdb.OrderItem) ordermodel.OrderItem {
 	return ordermodel.OrderItem{
-		ID:              it.ID,
-		OrderID:         it.OrderID,
-		AccountID:       it.AccountID,
-		SellerID:        it.SellerID,
-		SkuID:           it.SkuID,
-		SpuID:           it.SpuID,
-		SkuName:         it.SkuName,
-		Address:         it.Address,
-		Note:            it.Note,
-		SerialIDs:       it.SerialIds,
-		Quantity:        it.Quantity,
-		TransportOption: it.TransportOption,
-		SubtotalAmount:  it.SubtotalAmount,
-		PaidAmount:      it.PaidAmount,
-		PaymentTxID:     it.PaymentTxID,
-		DateCreated:     it.DateCreated,
-		DateCancelled:   it.DateCancelled,
-		CancelledByID:   it.CancelledByID,
-		RefundTxID:      it.RefundTxID,
+		ID:               it.ID,
+		OrderID:          it.OrderID,
+		AccountID:        it.AccountID,
+		SellerID:         it.SellerID,
+		SkuID:            it.SkuID,
+		SpuID:            it.SpuID,
+		SkuName:          it.SkuName,
+		Address:          it.Address,
+		Note:             it.Note,
+		SerialIDs:        it.SerialIds,
+		Quantity:         it.Quantity,
+		TransportOption:  it.TransportOption,
+		SubtotalAmount:   it.SubtotalAmount,
+		TotalAmount:      it.TotalAmount,
+		PaymentSessionID: it.PaymentSessionID,
+		DateCreated:      it.DateCreated,
+		DateCancelled:    it.DateCancelled,
+		CancelledByID:    it.CancelledByID,
 	}
 }
 
 func mapOrder(o orderdb.OrderOrder) ordermodel.Order {
 	return ordermodel.Order{
-		ID:            o.ID,
-		BuyerID:       o.BuyerID,
-		SellerID:      o.SellerID,
-		TransportID:   o.TransportID,
-		Address:       o.Address,
-		DateCreated:   o.DateCreated,
-		ConfirmedByID: o.ConfirmedByID,
-		SellerTxID:    o.SellerTxID,
-		Note:          o.Note,
+		ID:               o.ID,
+		BuyerID:          o.BuyerID,
+		SellerID:         o.SellerID,
+		TransportID:      o.TransportID,
+		Address:          o.Address,
+		DateCreated:      o.DateCreated,
+		ConfirmedByID:    o.ConfirmedByID,
+		ConfirmSessionID: o.ConfirmSessionID,
+		Note:             o.Note,
 	}
 }
 

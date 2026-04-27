@@ -1,7 +1,6 @@
 package orderbiz
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -25,9 +24,6 @@ import (
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	"shopnexus-server/internal/provider/payment"
-	"shopnexus-server/internal/provider/payment/card"
-	"shopnexus-server/internal/provider/payment/sepay"
-	"shopnexus-server/internal/provider/payment/vnpay"
 	"shopnexus-server/internal/provider/transport"
 	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -83,9 +79,38 @@ func (b *OrderHandler) BuyerCheckout(
 	var (
 		inventoryReserved bool
 		walletDeducted    int64
-		itemsCreated      bool
+		sessionID         int64
 	)
+	// sessionID is set after Run() succeeds. Once set, compensate handles cleanup
+	// session-aware: mark Failed, cancel items, refund settled portion via
+	// CreditFromSession. Wallet legs are kept Pending until WalletDebit cross-module
+	// ack flips them Success — so unsettled portions contribute 0 to the refund.
 	compensate := func() {
+		if sessionID != 0 {
+			if _, mfErr := b.storage.Querier().MarkPaymentSessionFailed(ctx, sessionID); mfErr != nil {
+				slog.Error("saga compensate: mark session failed", slog.Any("error", mfErr))
+			}
+			if items, lErr := b.storage.Querier().ListItemsByPaymentSession(ctx, sessionID); lErr == nil {
+				for _, it := range items {
+					if _, cErr := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+						ID:            it.ID,
+						CancelledByID: uuid.NullUUID{},
+					}); cErr != nil {
+						slog.Error("saga compensate: cancel item", slog.Any("error", cErr))
+					}
+				}
+			} else {
+				slog.Error("saga compensate: list items by session", slog.Any("error", lErr))
+			}
+			if _, cfErr := b.CreditFromSession(ctx, CreditFromSessionParams{
+				SessionID:  sessionID,
+				AccountID:  params.Account.ID,
+				CreditType: "Refund",
+				Note:       "checkout saga compensation",
+			}); cfErr != nil {
+				slog.Error("saga compensate: credit from session", slog.Any("error", cfErr))
+			}
+		}
 		if inventoryReserved {
 			if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
 				Items: lo.Map(params.Items, func(item CheckoutItem, _ int) inventorybiz.ReleaseInventoryItem {
@@ -99,20 +124,9 @@ func (b *OrderHandler) BuyerCheckout(
 				slog.Error("saga compensate: release inventory", slog.Any("error", err))
 			}
 		}
-		if walletDeducted > 0 {
-			if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-				AccountID: params.Account.ID,
-				Amount:    walletDeducted,
-				Type:      "Refund",
-				Reference: fmt.Sprintf("checkout-compensate-%s", params.Account.ID),
-				Note:      "checkout saga compensation",
-			}); err != nil {
-				slog.Error("saga compensate: wallet credit", slog.Any("error", err))
-			}
-		}
 	}
 	defer func() {
-		if err != nil && (inventoryReserved || walletDeducted > 0) && !itemsCreated {
+		if err != nil && (inventoryReserved || sessionID != 0) {
 			compensate()
 			err = restate.TerminalError(err)
 		}
@@ -279,10 +293,10 @@ func (b *OrderHandler) BuyerCheckout(
 
 	// Step 5: Calculate totals.
 	// subtotal_amount = product cost in buyer currency (per item).
-	// paid_amount = subtotal_amount + transport cost in buyer currency (per item).
+	// total_amount = subtotal_amount + transport cost in buyer currency (per item).
 	type itemAmounts struct {
 		subtotalAmount int64
-		paidAmount     int64
+		totalAmount    int64
 	}
 	itemAmountsMap := make(map[uuid.UUID]itemAmounts)
 	var total int64
@@ -291,7 +305,7 @@ func (b *OrderHandler) BuyerCheckout(
 		tq := transportQuotes[item.SkuID]
 		subtotal := convertToBuyer(int64(sku.Price) * item.Quantity)
 		paid := subtotal + convertToBuyer(tq.Cost)
-		itemAmountsMap[item.SkuID] = itemAmounts{subtotalAmount: subtotal, paidAmount: paid}
+		itemAmountsMap[item.SkuID] = itemAmounts{subtotalAmount: subtotal, totalAmount: paid}
 		total += paid
 	}
 
@@ -314,26 +328,50 @@ func (b *OrderHandler) BuyerCheckout(
 		return zero, ordermodel.ErrInsufficientWalletBalance.Terminal()
 	}
 
-	// Step 7: Create transactions and items atomically inside restate.Run.
+	// Step 7: Create payment_session, child txs, and items atomically inside restate.Run.
+	// One session per checkout (kind=buyer-checkout), 1-2 child txs (wallet + gateway split),
+	// and N items pointing at the session.
 	type runResult struct {
-		WalletTx      *orderdb.OrderTransaction `json:"wallet_tx,omitempty"`
-		GatewayTx     *orderdb.OrderTransaction `json:"gateway_tx,omitempty"`
-		CheckoutTxIDs []int64                   `json:"checkout_tx_ids"`
-		BlockerTxID   int64                     `json:"blocker_tx_id"`
-		Items         []orderdb.OrderItem       `json:"items"`
+		Session       orderdb.OrderPaymentSession `json:"session"`
+		WalletTx      *orderdb.OrderTransaction   `json:"wallet_tx,omitempty"`
+		GatewayTx     *orderdb.OrderTransaction   `json:"gateway_tx,omitempty"`
+		CheckoutTxIDs []int64                     `json:"checkout_tx_ids"`
+		BlockerTxID   int64                       `json:"blocker_tx_id"`
+		Items         []orderdb.OrderItem         `json:"items"`
 	}
 
 	created, err := restate.Run(ctx, func(ctx restate.RunContext) (runResult, error) {
 		var res runResult
 
-		// Wallet tx (if any) — created first, status Success immediately.
+		// Session is created Pending unconditionally. It is auto-promoted to Success
+		// by MarkTxSuccess once every child tx settles (wallet tx after WalletDebit
+		// ack; gateway tx after webhook). This keeps order DB and account DB
+		// consistent across the saga split.
+		session, err := b.storage.Querier().CreateDefaultPaymentSession(ctx, orderdb.CreateDefaultPaymentSessionParams{
+			Kind:        SessionKindBuyerCheckout,
+			Status:      orderdb.OrderStatusPending,
+			FromID:      uuid.NullUUID{UUID: params.Account.ID, Valid: true},
+			ToID:        uuid.NullUUID{},
+			Note:        "buyer checkout",
+			Currency:    buyerCurrency,
+			TotalAmount: total,
+			Data:        json.RawMessage("{}"),
+			DatePaid:    null.Time{},
+			DateExpired: time.Now().Add(paymentExpiry),
+		})
+		if err != nil {
+			return res, sharedmodel.WrapErr("db create payment session", err)
+		}
+		res.Session = session
+
+		// Wallet tx (if any) — Pending until WalletDebit cross-module ack flips it
+		// Success. Avoids minting balance via CreditFromSession on saga rollback.
 		if walletAmount > 0 {
 			tx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-				FromID:        uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-				ToID:          uuid.NullUUID{},
-				Type:          TxTypeCheckout,
-				Status:        orderdb.OrderStatusSuccess,
+				SessionID:     session.ID,
+				Status:        orderdb.OrderStatusPending,
 				Note:          "checkout wallet payment",
+				Error:         null.String{},
 				PaymentOption: null.String{},
 				WalletID:      uuid.NullUUID{},
 				Data:          json.RawMessage("{}"),
@@ -341,8 +379,9 @@ func (b *OrderHandler) BuyerCheckout(
 				FromCurrency:  buyerCurrency,
 				ToCurrency:    buyerCurrency,
 				ExchangeRate:  exchangeRateNumeric,
-				DatePaid:      null.TimeFrom(time.Now()),
-				DateExpired:   time.Now(), // sentinel: already expired (instant)
+				ReversesID:    null.Int{},
+				DateSettled:   null.Time{},
+				DateExpired:   null.Time{},
 			})
 			if err != nil {
 				return res, sharedmodel.WrapErr("db create wallet tx", err)
@@ -352,14 +391,13 @@ func (b *OrderHandler) BuyerCheckout(
 			res.BlockerTxID = tx.ID
 		}
 
-		// Gateway tx (if any) — status Pending until webhook confirms.
+		// Gateway tx (if any) — Pending until webhook confirms.
 		if gatewayAmount > 0 {
 			tx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-				FromID:        uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-				ToID:          uuid.NullUUID{},
-				Type:          TxTypeCheckout,
+				SessionID:     session.ID,
 				Status:        orderdb.OrderStatusPending,
 				Note:          "checkout gateway payment",
+				Error:         null.String{},
 				PaymentOption: null.StringFrom(params.PaymentOption),
 				WalletID:      toNullUUID(params.WalletID),
 				Data:          json.RawMessage("{}"),
@@ -367,8 +405,9 @@ func (b *OrderHandler) BuyerCheckout(
 				FromCurrency:  buyerCurrency,
 				ToCurrency:    buyerCurrency,
 				ExchangeRate:  exchangeRateNumeric,
-				DatePaid:      null.Time{},
-				DateExpired:   time.Now().Add(paymentExpiry),
+				ReversesID:    null.Int{},
+				DateSettled:   null.Time{},
+				DateExpired:   null.TimeFrom(time.Now().Add(paymentExpiry)),
 			})
 			if err != nil {
 				return res, sharedmodel.WrapErr("db create gateway tx", err)
@@ -402,23 +441,22 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 
 			dbItem, err := b.storage.Querier().CreateDefaultItem(ctx, orderdb.CreateDefaultItemParams{
-				OrderID:         uuid.NullUUID{},
-				AccountID:       params.Account.ID,
-				SellerID:        spu.AccountID,
-				SkuID:           sku.ID,
-				SpuID:           sku.SpuID,
-				SkuName:         skuName,
-				Address:         params.Address,
-				Note:            null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
-				SerialIds:       jsonSerialIDs,
-				Quantity:        checkoutItem.Quantity,
-				TransportOption: tq.Option,
-				SubtotalAmount:  amounts.subtotalAmount,
-				PaidAmount:      amounts.paidAmount,
-				PaymentTxID:     res.BlockerTxID,
-				DateCancelled:   null.Time{},
-				CancelledByID:   uuid.NullUUID{},
-				RefundTxID:      null.Int{},
+				OrderID:          uuid.NullUUID{},
+				AccountID:        params.Account.ID,
+				SellerID:         spu.AccountID,
+				SkuID:            sku.ID,
+				SpuID:            sku.SpuID,
+				SkuName:          skuName,
+				Address:          params.Address,
+				Note:             null.NewString(checkoutItem.Note, checkoutItem.Note != ""),
+				SerialIds:        jsonSerialIDs,
+				Quantity:         checkoutItem.Quantity,
+				TransportOption:  tq.Option,
+				SubtotalAmount:   amounts.subtotalAmount,
+				TotalAmount:      amounts.totalAmount,
+				PaymentSessionID: res.Session.ID,
+				DateCancelled:    null.Time{},
+				CancelledByID:    uuid.NullUUID{},
 			})
 			if err != nil {
 				return res, sharedmodel.WrapErr("db create item", err)
@@ -435,20 +473,25 @@ func (b *OrderHandler) BuyerCheckout(
 	}
 
 	metrics.CheckoutItemsCreatedTotal.WithLabelValues("success").Add(float64(len(created.Items)))
-	itemsCreated = true
+	sessionID = created.Session.ID
 
-	// Step 8: Debit wallet (outside Run — cross-module).
-	if walletAmount > 0 {
+	// Step 8: Debit wallet (outside Run — cross-module). On success, mark the
+	// wallet tx Success so it counts toward CreditFromSession sums going forward;
+	// MarkTxSuccess auto-promotes the session if there's no gateway leg.
+	if walletAmount > 0 && created.WalletTx != nil {
 		walletResult, err := b.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
 			AccountID: params.Account.ID,
 			Amount:    walletAmount,
-			Reference: fmt.Sprintf("tx:%d", created.BlockerTxID),
+			Reference: fmt.Sprintf("tx:%d", created.WalletTx.ID),
 			Note:      "checkout wallet payment",
 		})
 		if err != nil {
 			return zero, sharedmodel.WrapErr("wallet debit", err)
 		}
 		walletDeducted = walletResult.Deducted
+		if err := b.MarkTxSuccess(ctx, MarkTxSuccessParams{TxID: created.WalletTx.ID}); err != nil {
+			return zero, sharedmodel.WrapErr("mark wallet tx success", err)
+		}
 	}
 
 	// Step 9: Initiate gateway payment (outside Run — cross-module + I/O).
@@ -484,9 +527,10 @@ func (b *OrderHandler) BuyerCheckout(
 			}
 		}
 
-		// Schedule timeout for gateway tx.
-		restate.ServiceSend(ctx, b.ServiceName(), "TimeoutCheckoutTx").Send(
-			TimeoutCheckoutTxParams{TxID: created.BlockerTxID},
+		// Schedule timeout for the checkout session (covers both the gateway URL window
+		// and any orphan Pending state if the webhook never lands).
+		restate.ServiceSend(ctx, b.ServiceName(), "TimeoutCheckoutSession").Send(
+			TimeoutCheckoutSessionParams{SessionID: created.Session.ID},
 			restate.WithDelay(paymentExpiry),
 		)
 	}
@@ -556,301 +600,9 @@ func (b *OrderHandler) BuyerCheckout(
 	}, nil
 }
 
-// hydrateItems fetches items by IDs and enriches them with product resources.
-func (b *OrderHandler) hydrateItems(ctx restate.Context, itemIDs []int64) ([]ordermodel.OrderItem, error) {
-	if len(itemIDs) == 0 {
-		return []ordermodel.OrderItem{}, nil
-	}
-
-	dbItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
-		return b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
-			ID: itemIDs,
-		})
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return b.enrichItems(dbItems)
-}
-
-// enrichItems converts DB items to model items (no separate resources enrichment needed here).
-func (b *OrderHandler) enrichItems(dbItems []orderdb.OrderItem) ([]ordermodel.OrderItem, error) {
-	if len(dbItems) == 0 {
-		return []ordermodel.OrderItem{}, nil
-	}
-
-	result := make([]ordermodel.OrderItem, 0, len(dbItems))
-	for _, it := range dbItems {
-		result = append(result, mapOrderItem(it))
-	}
-
-	return result, nil
-}
-
-// ListBuyerPendingItems returns paginated paid pending items for the buyer.
-func (b *OrderHandler) ListBuyerPendingItems(
-	ctx restate.Context,
-	params ListBuyerPendingItemsParams,
-) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
-	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
-
-	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate list pending items", err)
-	}
-
-	type pendingResult struct {
-		Items []orderdb.OrderItem `json:"items"`
-		Total int64               `json:"total"`
-	}
-
-	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (pendingResult, error) {
-		items, err := b.storage.Querier().ListBuyerPendingItems(ctx, params.AccountID)
-		if err != nil {
-			return pendingResult{}, err
-		}
-
-		total, err := b.storage.Querier().CountBuyerPendingItems(ctx, params.AccountID)
-		if err != nil {
-			return pendingResult{}, err
-		}
-
-		return pendingResult{Items: items, Total: total}, nil
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db list pending items", err)
-	}
-
-	enriched, err := b.enrichItems(dbResult.Items)
-	if err != nil {
-		return zero, sharedmodel.WrapErr("enrich pending items", err)
-	}
-
-	// Attach the payment transaction so the FE can branch on its status —
-	// "Awaiting Payment" + Continue Payment when Pending, "Awaiting Seller" when Success.
-	if len(enriched) > 0 {
-		txIDs := lo.Uniq(lo.Map(enriched, func(it ordermodel.OrderItem, _ int) int64 { return it.PaymentTxID }))
-		txs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
-			return b.storage.Querier().ListTransactionsByIDs(ctx, txIDs)
-		})
-		if err != nil {
-			return zero, sharedmodel.WrapErr("db fetch payment txs", err)
-		}
-		txMap := lo.KeyBy(txs, func(t orderdb.OrderTransaction) int64 { return t.ID })
-		for i := range enriched {
-			if tx, ok := txMap[enriched[i].PaymentTxID]; ok {
-				mapped := mapTransaction(tx)
-				enriched[i].PaymentTx = &mapped
-			}
-		}
-	}
-
-	var totalVal null.Int64
-	totalVal.SetValid(dbResult.Total)
-
-	return sharedmodel.PaginateResult[ordermodel.OrderItem]{
-		PageParams: params.PaginationParams,
-		Total:      totalVal,
-		Data:       enriched,
-	}, nil
-}
-
-// CancelBuyerPending cancels a pending item, releases inventory, creates a refund tx, and credits wallet.
-func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuyerPendingParams) error {
-	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate cancel pending item", err)
-	}
-
-	// Fetch and validate item.
-	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
-		var zero orderdb.OrderItem
-		dbItem, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.ItemID))
-		if err != nil {
-			return zero, sharedmodel.WrapErr("db get item", err)
-		}
-		if dbItem.AccountID != params.AccountID {
-			return zero, ordermodel.ErrOrderItemNotFound.Terminal()
-		}
-		if dbItem.OrderID.Valid {
-			return zero, ordermodel.ErrItemAlreadyConfirmed
-		}
-		if dbItem.DateCancelled.Valid {
-			return zero, ordermodel.ErrItemAlreadyCancelled
-		}
-		return dbItem, nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("fetch item", err)
-	}
-
-	// Release inventory (outside Run — cross-module).
-	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: []inventorybiz.ReleaseInventoryItem{{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   item.SkuID,
-			Amount:  item.Quantity,
-		}},
-	}); err != nil {
-		return sharedmodel.WrapErr("release inventory", err)
-	}
-
-	// Resolve buyer currency (outside Run — cross-module).
-	buyerCurrency, err := b.inferCurrency(ctx, params.AccountID)
-	if err != nil {
-		return sharedmodel.WrapErr("infer buyer currency", err)
-	}
-
-	// Create refund tx and cancel item atomically.
-	type cancelResult struct {
-		RefundTx orderdb.OrderTransaction `json:"refund_tx"`
-	}
-	cancelRes, err := restate.Run(ctx, func(ctx restate.RunContext) (cancelResult, error) {
-		// Create a refund tx (platform → buyer, Success immediately).
-		// Only create if there is something to refund.
-		var refundTx orderdb.OrderTransaction
-		if item.PaidAmount > 0 {
-			var txErr error
-			refundTx, txErr = b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-				FromID:        uuid.NullUUID{},
-				ToID:          uuid.NullUUID{UUID: params.AccountID, Valid: true},
-				Type:          TxTypeRefund,
-				Status:        orderdb.OrderStatusSuccess,
-				Note:          "buyer cancel pre-confirm",
-				PaymentOption: null.String{},
-				WalletID:      uuid.NullUUID{},
-				Data:          json.RawMessage("{}"),
-				Amount:        item.PaidAmount,
-				FromCurrency:  buyerCurrency,
-				ToCurrency:    buyerCurrency,
-				ExchangeRate:  mustNumericOne(),
-				DatePaid:      null.TimeFrom(time.Now()),
-				DateExpired:   time.Now(),
-			})
-			if txErr != nil {
-				return cancelResult{}, sharedmodel.WrapErr("db create refund tx", txErr)
-			}
-		}
-
-		// Cancel item, linking refund tx.
-		var refundTxID null.Int
-		if refundTx.ID != 0 {
-			refundTxID = null.IntFrom(refundTx.ID)
-		}
-		if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
-			CancelledByID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
-			RefundTxID:    refundTxID,
-			ID:            params.ItemID,
-		}); err != nil {
-			return cancelResult{}, sharedmodel.WrapErr("db cancel item", err)
-		}
-
-		return cancelResult{RefundTx: refundTx}, nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("cancel item", err)
-	}
-
-	// Credit buyer wallet (outside Run — cross-module).
-	if item.PaidAmount > 0 && cancelRes.RefundTx.ID != 0 {
-		if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-			AccountID: params.AccountID,
-			Amount:    item.PaidAmount,
-			Type:      "Refund",
-			Reference: fmt.Sprintf("tx:%d", cancelRes.RefundTx.ID),
-			Note:      "buyer cancel pre-confirm refund",
-		}); err != nil {
-			return sharedmodel.WrapErr("wallet credit", err)
-		}
-	}
-
-	// Notify seller (fire-and-forget).
-	restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-		AccountID: item.SellerID,
-		Type:      accountmodel.NotiPendingItemCancelled,
-		Channel:   accountmodel.ChannelInApp,
-		Title:     "Pending item cancelled",
-		Content:   "A buyer has cancelled a pending item.",
-	})
-
-	return nil
-}
-
 // mustNumericOne returns a pgtype.Numeric with value 1 for identity-rate wallet txs.
 func mustNumericOne() pgtype.Numeric {
 	var n pgtype.Numeric
 	_ = n.Scan("1")
 	return n
-}
-
-// SetupPaymentMap initialises the payment client registry from config.
-func (b *OrderHandler) SetupPaymentMap() error {
-	var configs []sharedmodel.OptionConfig
-
-	b.paymentMap = make(map[string]payment.Client)
-
-	vnpayClients := vnpay.NewClients(vnpay.ClientOptions{
-		TmnCode:    b.config.App.Vnpay.TmnCode,
-		HashSecret: b.config.App.Vnpay.HashSecret,
-		ReturnURL:  b.config.App.Vnpay.ReturnURL,
-	})
-	for _, c := range vnpayClients {
-		b.paymentMap[c.Config().ID] = c
-		configs = append(configs, c.Config())
-	}
-
-	sepayCfg := b.config.App.Sepay
-	if sepayCfg.MerchantID != "" {
-		sepayClient := sepay.NewClient(sepay.ClientOptions{
-			MerchantID:   sepayCfg.MerchantID,
-			SecretKey:    sepayCfg.SecretKey,
-			IPNSecretKey: sepayCfg.IPNSecretKey,
-			SuccessURL:   sepayCfg.SuccessURL,
-			ErrorURL:     sepayCfg.ErrorURL,
-			CancelURL:    sepayCfg.CancelURL,
-			Sandbox:      sepayCfg.Sandbox,
-		})
-		b.paymentMap[sepayClient.Config().ID] = sepayClient
-		configs = append(configs, sepayClient.Config())
-	}
-
-	cardCfg := b.config.App.CardPayment
-	if cardCfg.Provider != "" {
-		cardClient := card.NewClient(card.ClientOptions{
-			Provider:  cardCfg.Provider,
-			SecretKey: cardCfg.SecretKey,
-			PublicKey: cardCfg.PublicKey,
-		})
-		b.paymentMap[cardClient.Config().ID] = cardClient
-		configs = append(configs, cardClient.Config())
-	}
-
-	go func() {
-		if err := b.common.UpdateServiceOptions(context.Background(), commonbiz.UpdateServiceOptionsParams{
-			Category: "payment",
-			Configs:  configs,
-		}); err != nil {
-			slog.Warn("register payment options: %v", slog.Any("error", err))
-		}
-	}()
-
-	return nil
-}
-
-// getPaymentClient looks up a payment client by option ID.
-func (b *OrderHandler) getPaymentClient(option string) (payment.Client, error) {
-	client, ok := b.paymentMap[option]
-	if !ok {
-		return nil, ordermodel.ErrUnknownPaymentOption.Fmt(option).Terminal()
-	}
-	return client, nil
-}
-
-// getPaymentClientByProvider looks up a payment client by provider name.
-func (b *OrderHandler) getPaymentClientByProvider(provider string) (payment.Client, error) {
-	for _, client := range b.paymentMap {
-		if client.Config().Provider == provider {
-			return client, nil
-		}
-	}
-	return nil, ordermodel.ErrUnknownPaymentOption.Fmt(provider).Terminal()
 }

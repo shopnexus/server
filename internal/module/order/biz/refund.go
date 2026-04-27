@@ -9,72 +9,10 @@ import (
 	"github.com/guregu/null/v6"
 	restate "github.com/restatedev/sdk-go"
 
-	accountbiz "shopnexus-server/internal/module/account/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
-
-// ListBuyerRefunds returns paginated refunds owned by the requesting buyer.
-func (b *OrderHandler) ListBuyerRefunds(
-	ctx restate.Context,
-	params ListBuyerRefundsParams,
-) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
-	var zero sharedmodel.PaginateResult[ordermodel.Refund]
-
-	pagination := params.PaginationParams.Constrain()
-
-	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderRefund, error) {
-		return b.storage.Querier().ListBuyerRefunds(ctx, orderdb.ListBuyerRefundsParams{
-			AccountID:   params.BuyerID,
-			OffsetCount: pagination.Offset().Int32,
-			LimitCount:  pagination.Limit.Int32,
-		})
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("list buyer refunds", err)
-	}
-
-	data := make([]ordermodel.Refund, 0, len(rows))
-	for _, r := range rows {
-		data = append(data, mapRefund(r))
-	}
-	return sharedmodel.PaginateResult[ordermodel.Refund]{
-		PageParams: pagination,
-		Data:       data,
-	}, nil
-}
-
-// ListSellerRefunds returns paginated refunds raised against items the
-// requesting seller fulfilled. The list is the seller's pending-action queue.
-func (b *OrderHandler) ListSellerRefunds(
-	ctx restate.Context,
-	params ListSellerRefundsParams,
-) (sharedmodel.PaginateResult[ordermodel.Refund], error) {
-	var zero sharedmodel.PaginateResult[ordermodel.Refund]
-
-	pagination := params.PaginationParams.Constrain()
-
-	rows, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderRefund, error) {
-		return b.storage.Querier().ListSellerRefunds(ctx, orderdb.ListSellerRefundsParams{
-			SellerID:    params.SellerID,
-			OffsetCount: pagination.Offset().Int32,
-			LimitCount:  pagination.Limit.Int32,
-		})
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("list seller refunds", err)
-	}
-
-	data := make([]ordermodel.Refund, 0, len(rows))
-	for _, r := range rows {
-		data = append(data, mapRefund(r))
-	}
-	return sharedmodel.PaginateResult[ordermodel.Refund]{
-		PageParams: pagination,
-		Data:       data,
-	}, nil
-}
 
 // CreateBuyerRefund creates a new 2-stage refund request for a paid order item.
 // A return transport is created automatically; the buyer supplies the return method and address.
@@ -199,20 +137,41 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, sharedmodel.WrapErr("infer buyer currency", err)
 	}
 
-	// All mutations in one durable Run: create refund tx, approve refund row, cancel item, cancel payout.
+	// Find the original payment tx in the item's session — refund leg reverses it.
+	sessionTxs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
+		return b.storage.Querier().ListTransactionsBySession(ctx, item.PaymentSessionID)
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list session txs", err)
+	}
+	var originalTxID null.Int
+	for _, tx := range sessionTxs {
+		if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
+			originalTxID = null.IntFrom(tx.ID)
+			break
+		}
+	}
+	if !originalTxID.Valid {
+		return zero, sharedmodel.WrapErr("no settled original tx in session", ordermodel.ErrOrderItemNotFound)
+	}
+
+	// All mutations in one durable Run: create refund leg, approve refund row, cancel item, cancel payout.
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
 		refundTx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-			FromID:        uuid.NullUUID{},
-			ToID:          uuid.NullUUID{UUID: item.AccountID, Valid: true},
-			Type:          TxTypeRefund,
+			SessionID:     item.PaymentSessionID,
 			Status:        orderdb.OrderStatusSuccess,
 			Note:          fmt.Sprintf("refund approved for item %d", item.ID),
-			Amount:        item.PaidAmount,
+			Error:         null.String{},
+			PaymentOption: null.String{},
+			WalletID:      uuid.NullUUID{},
+			Data:          json.RawMessage("{}"),
+			Amount:        -item.TotalAmount,
 			FromCurrency:  buyerCurrency,
 			ToCurrency:    buyerCurrency,
-			Data:          json.RawMessage("{}"),
-			DatePaid:      null.TimeFrom(time.Now()),
-			DateExpired:   time.Now(),
+			ExchangeRate:  mustNumericOne(),
+			ReversesID:    originalTxID,
+			DateSettled:   null.TimeFrom(time.Now()),
+			DateExpired:   null.Time{},
 		})
 		if err != nil {
 			return orderdb.OrderRefund{}, sharedmodel.WrapErr("create refund tx", err)
@@ -230,16 +189,15 @@ func (b *OrderHandler) ApproveRefundStage2(
 		if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
 			ID:            item.ID,
 			CancelledByID: uuid.NullUUID{UUID: item.AccountID, Valid: true},
-			RefundTxID:    null.IntFrom(refundTx.ID),
 		}); err != nil {
 			return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel item", err)
 		}
 
-		// Cancel pending payout if one exists for the order.
+		// Cancel pending payout session if one exists for the order.
 		if item.OrderID.Valid {
-			if payout, err := b.storage.Querier().GetPendingPayoutTxForOrder(ctx, item.OrderID); err == nil {
-				if _, err := b.storage.Querier().MarkTransactionCancelled(ctx, payout.ID); err != nil {
-					return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel payout", err)
+			if payoutSession, err := b.storage.Querier().GetPendingPayoutSessionForOrder(ctx, item.OrderID.UUID); err == nil {
+				if _, err := b.storage.Querier().MarkPaymentSessionCancelled(ctx, payoutSession.ID); err != nil {
+					return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel payout session", err)
 				}
 			}
 		}
@@ -250,13 +208,15 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, sharedmodel.WrapErr("approve stage 2", err)
 	}
 
-	// Credit buyer's wallet outside Run (cross-module Restate call).
-	if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-		AccountID: item.AccountID,
-		Amount:    item.PaidAmount,
-		Type:      "Refund",
-		Reference: fmt.Sprintf("refund:%s", refund.ID),
-		Note:      "refund approved",
+	// Credit buyer's wallet via the shared helper. CreditFromSession sums positive
+	// Success txs in the session — the just-inserted negative refund leg is filtered
+	// out, leaving the original settled amount.
+	if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
+		SessionID:  item.PaymentSessionID,
+		AccountID:  item.AccountID,
+		CreditType: "Refund",
+		Reference:  fmt.Sprintf("refund:%s", refund.ID),
+		Note:       "refund approved",
 	}); err != nil {
 		return zero, sharedmodel.WrapErr("wallet credit buyer", err)
 	}

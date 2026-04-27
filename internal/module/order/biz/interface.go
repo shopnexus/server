@@ -64,8 +64,8 @@ type OrderBiz interface {
 	MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error
 
 	// Timeout handlers
-	TimeoutCheckoutTx(ctx context.Context, params TimeoutCheckoutTxParams) error
-	TimeoutConfirmFeeTx(ctx context.Context, params TimeoutConfirmFeeTxParams) error
+	TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error
+	TimeoutConfirmFeeSession(ctx context.Context, params TimeoutConfirmFeeSessionParams) error
 
 	// Escrow
 	ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error
@@ -265,13 +265,13 @@ type MarkTxFailedParams struct {
 
 // --- Timeout handlers ---
 
-type TimeoutCheckoutTxParams struct {
-	TxID int64 `json:"tx_id"`
+type TimeoutCheckoutSessionParams struct {
+	SessionID int64 `json:"session_id"`
 }
 
-type TimeoutConfirmFeeTxParams struct {
-	TxID    int64     `json:"tx_id"`
-	OrderID uuid.UUID `json:"order_id"`
+type TimeoutConfirmFeeSessionParams struct {
+	SessionID int64     `json:"session_id"`
+	OrderID   uuid.UUID `json:"order_id"`
 }
 
 // --- Escrow ---

@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/samber/lo"
 	restate "github.com/restatedev/sdk-go"
+	"github.com/samber/lo"
 
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -17,46 +17,45 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-// TimeoutCheckoutTx is fired by a Restate delayed send (paymentExpiry) after a Pending
-// checkout gateway tx is created. If the tx is still Pending, it marks it Failed,
-// cancels all items that reference it, releases inventory, and credits back any wallet
-// portion that was already deducted.
-func (b *OrderHandler) TimeoutCheckoutTx(ctx restate.Context, params TimeoutCheckoutTxParams) error {
-	tx, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransaction, error) {
-		return b.storage.Querier().GetTransaction(ctx, null.IntFrom(params.TxID))
+// TimeoutCheckoutSession is fired by a Restate delayed send (paymentExpiry) after a
+// Pending checkout session is created. If the session is still Pending, it marks
+// it Failed, cancels all items in the session, releases inventory, and credits back
+// any wallet portion that was already deducted.
+func (b *OrderHandler) TimeoutCheckoutSession(ctx restate.Context, params TimeoutCheckoutSessionParams) error {
+	session, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderPaymentSession, error) {
+		return b.storage.Querier().GetPaymentSession(ctx, null.IntFrom(params.SessionID))
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("get tx", err)
+		return sharedmodel.WrapErr("get session", err)
 	}
-	// Idempotent: already processed (paid or otherwise terminal).
-	if tx.Status != orderdb.OrderStatusPending {
+	// Idempotent: already terminal (paid / failed / cancelled).
+	if session.Status != orderdb.OrderStatusPending {
 		return nil
 	}
 
 	items, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
-		return b.storage.Querier().ListItemsByPaymentTx(ctx, params.TxID)
+		return b.storage.Querier().ListItemsByPaymentSession(ctx, params.SessionID)
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("list items by payment tx", err)
+		return sharedmodel.WrapErr("list items by payment session", err)
 	}
 
-	// Mark tx Failed and cancel items in a single durable step.
+	// Mark session Failed and cancel items in a single durable step.
 	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		if _, err := b.storage.Querier().MarkTransactionFailed(ctx, params.TxID); err != nil {
-			return sharedmodel.WrapErr("mark tx failed", err)
+		if _, err := b.storage.Querier().MarkPaymentSessionFailed(ctx, params.SessionID); err != nil {
+			return sharedmodel.WrapErr("mark session failed", err)
 		}
 		for _, it := range items {
 			if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
 				ID:            it.ID,
 				CancelledByID: uuid.NullUUID{},
-				RefundTxID:    null.Int{},
 			}); err != nil {
 				return sharedmodel.WrapErr("cancel item", err)
 			}
 		}
 		return nil
 	}); err != nil {
-		return sharedmodel.WrapErr("fail tx + cancel items", err)
+		return sharedmodel.WrapErr("fail session + cancel items", err)
 	}
 
 	// Release inventory outside Run (cross-module Restate call).
@@ -71,40 +70,25 @@ func (b *OrderHandler) TimeoutCheckoutTx(ctx restate.Context, params TimeoutChec
 		return sharedmodel.WrapErr("release inventory", err)
 	}
 
-	// Credit buyer's wallet portion back if this was a hybrid checkout (wallet + gateway).
-	// The wallet sibling tx was already Success; we refund it now that the gateway blocker failed.
-	if tx.FromID.Valid {
-		siblings, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
-			return b.storage.Querier().ListCheckoutSiblingsForTx(ctx, params.TxID)
-		})
-		if err == nil {
-			var totalWallet int64
-			for _, s := range siblings {
-				// Wallet tx: status=Success and no payment_option (internal wallet, no gateway)
-				if s.Status == orderdb.OrderStatusSuccess && !s.PaymentOption.Valid {
-					totalWallet += s.Amount
-				}
-			}
-			if totalWallet > 0 {
-				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-					AccountID: tx.FromID.UUID,
-					Amount:    totalWallet,
-					Type:      "Refund",
-					Reference: fmt.Sprintf("tx-timeout:%d", params.TxID),
-					Note:      "checkout timeout wallet refund",
-				}); err != nil {
-					return sharedmodel.WrapErr("wallet credit timeout refund", err)
-				}
-			}
+	// Credit buyer's settled portion back. CreditFromSession sums positive Success
+	// txs only — pending/failed gateway leg contributes nothing, no minting risk.
+	if session.FromID.Valid {
+		if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
+			SessionID:  params.SessionID,
+			AccountID:  session.FromID.UUID,
+			CreditType: "Refund",
+			Note:       "checkout timeout wallet refund",
+		}); err != nil {
+			return sharedmodel.WrapErr("wallet credit timeout refund", err)
 		}
 	}
 
 	// Notify buyer.
-	if tx.FromID.Valid && len(items) > 0 {
+	if session.FromID.Valid && len(items) > 0 {
 		itemNames := lo.Map(items, func(it orderdb.OrderItem, _ int) string { return it.SkuName })
 		summary := ordermodel.SummarizeNames(itemNames)
 		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-			AccountID: tx.FromID.UUID,
+			AccountID: session.FromID.UUID,
 			Type:      accountmodel.NotiOrderCancelled,
 			Channel:   accountmodel.ChannelInApp,
 			Title:     "Payment expired",
@@ -115,21 +99,21 @@ func (b *OrderHandler) TimeoutCheckoutTx(ctx restate.Context, params TimeoutChec
 	return nil
 }
 
-// TimeoutConfirmFeeTx is fired by a Restate delayed send (paymentExpiry) after a Pending
-// confirm_fee gateway tx is created. If the tx is still Pending:
-// - Marks confirm_fee tx Failed
-// - Marks the associated payout tx Failed
+// TimeoutConfirmFeeSession is fired by a Restate delayed send (paymentExpiry) after a
+// Pending confirm-fee session is created. If the session is still Pending:
+// - Marks confirm-fee session Failed
+// - Marks the associated payout session Failed
 // - Unlinks items from the order (order_id → NULL)
 // - Deletes the order row
 // - Credits back any wallet portion the seller already paid
-func (b *OrderHandler) TimeoutConfirmFeeTx(ctx restate.Context, params TimeoutConfirmFeeTxParams) error {
-	tx, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransaction, error) {
-		return b.storage.Querier().GetTransaction(ctx, null.IntFrom(params.TxID))
+func (b *OrderHandler) TimeoutConfirmFeeSession(ctx restate.Context, params TimeoutConfirmFeeSessionParams) error {
+	session, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderPaymentSession, error) {
+		return b.storage.Querier().GetPaymentSession(ctx, null.IntFrom(params.SessionID))
 	})
 	if err != nil {
-		return sharedmodel.WrapErr("get tx", err)
+		return sharedmodel.WrapErr("get session", err)
 	}
-	if tx.Status != orderdb.OrderStatusPending {
+	if session.Status != orderdb.OrderStatusPending {
 		return nil
 	}
 
@@ -140,14 +124,14 @@ func (b *OrderHandler) TimeoutConfirmFeeTx(ctx restate.Context, params TimeoutCo
 		return sharedmodel.WrapErr("get order", err)
 	}
 
-	// Rollback: mark txs Failed, unlink items, delete order — all in one durable step.
+	// Rollback: mark sessions Failed, unlink items, delete order — all in one durable step.
 	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		if _, err := b.storage.Querier().MarkTransactionFailed(ctx, params.TxID); err != nil {
-			return sharedmodel.WrapErr("mark confirm_fee tx failed", err)
+		if _, err := b.storage.Querier().MarkPaymentSessionFailed(ctx, params.SessionID); err != nil {
+			return sharedmodel.WrapErr("mark confirm-fee session failed", err)
 		}
-		if payout, err := b.storage.Querier().GetPendingPayoutTxForOrder(ctx, toNullUUID(&order.ID)); err == nil {
-			if _, err := b.storage.Querier().MarkTransactionFailed(ctx, payout.ID); err != nil {
-				return sharedmodel.WrapErr("mark payout tx failed", err)
+		if payoutSession, perr := b.storage.Querier().GetPendingPayoutSessionForOrder(ctx, order.ID); perr == nil {
+			if _, err := b.storage.Querier().MarkPaymentSessionFailed(ctx, payoutSession.ID); err != nil {
+				return sharedmodel.WrapErr("mark payout session failed", err)
 			}
 		}
 		if err := b.storage.Querier().UnlinkItemsFromOrder(ctx, toNullUUID(&order.ID)); err != nil {
@@ -161,29 +145,15 @@ func (b *OrderHandler) TimeoutConfirmFeeTx(ctx restate.Context, params TimeoutCo
 		return sharedmodel.WrapErr("rollback confirm fee", err)
 	}
 
-	// Credit seller's wallet portion back if this was a hybrid confirm_fee.
-	if tx.FromID.Valid {
-		siblings, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
-			return b.storage.Querier().ListConfirmFeeSiblingsForTx(ctx, params.TxID)
-		})
-		if err == nil {
-			var totalWallet int64
-			for _, s := range siblings {
-				if s.Status == orderdb.OrderStatusSuccess && !s.PaymentOption.Valid {
-					totalWallet += s.Amount
-				}
-			}
-			if totalWallet > 0 {
-				if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-					AccountID: tx.FromID.UUID,
-					Amount:    totalWallet,
-					Type:      "Refund",
-					Reference: fmt.Sprintf("confirm-fee-timeout:%d", params.TxID),
-					Note:      "confirm fee timeout wallet refund",
-				}); err != nil {
-					return sharedmodel.WrapErr("wallet credit confirm-fee timeout refund", err)
-				}
-			}
+	// Credit seller's settled portion back via the same shared helper.
+	if session.FromID.Valid {
+		if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
+			SessionID:  params.SessionID,
+			AccountID:  session.FromID.UUID,
+			CreditType: "Refund",
+			Note:       "confirm fee timeout wallet refund",
+		}); err != nil {
+			return sharedmodel.WrapErr("wallet credit confirm-fee timeout refund", err)
 		}
 	}
 
