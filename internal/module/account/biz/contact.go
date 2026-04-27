@@ -163,13 +163,13 @@ func (b *AccountHandler) CreateContact(
 
 type UpdateContactParams struct {
 	Account     accountmodel.AuthenticatedAccount
-	ContactID   uuid.UUID                        `validate:"required"`
-	FullName    null.String                      `validate:"omitnil"`
-	Phone       null.String                      `validate:"omitnil"`
-	Address     null.String                      `validate:"omitnil"`
-	AddressType accountdb.NullAccountAddressType `validate:"omitnil,validateFn=Valid"`
-	Latitude    null.Float                       `validate:"omitnil"`
-	Longitude   null.Float                       `validate:"omitnil"`
+	ContactID   uuid.UUID                     `validate:"required"`
+	FullName    null.String                   `validate:"omitnil"`
+	Phone       null.String                   `validate:"omitnil"`
+	Address     null.String                   `validate:"omitnil"`
+	AddressType *accountdb.AccountAddressType `validate:"omitnil,validateFn=Valid"`
+	Latitude    null.Float                    `validate:"omitnil"`
+	Longitude   null.Float                    `validate:"omitnil"`
 
 	PhoneVerified null.Bool `validate:"omitnil"`
 }
@@ -191,12 +191,20 @@ func (b *AccountHandler) UpdateContact(
 		}
 	}
 
+	var addressType accountdb.NullAccountAddressType
+	if params.AddressType != nil {
+		addressType = accountdb.NullAccountAddressType{
+			AccountAddressType: *params.AddressType,
+			Valid:              true,
+		}
+	}
+
 	updatedContact, err := b.storage.Querier().UpdateContact(ctx, accountdb.UpdateContactParams{
 		ID:            params.ContactID,
 		FullName:      params.FullName,
 		Phone:         params.Phone,
 		Address:       params.Address,
-		AddressType:   params.AddressType,
+		AddressType:   addressType,
 		Latitude:      params.Latitude,
 		Longitude:     params.Longitude,
 		PhoneVerified: params.PhoneVerified,

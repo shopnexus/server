@@ -26,9 +26,7 @@ WHERE (
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 );
 
 -- name: ListAccount :many
@@ -46,9 +44,7 @@ WHERE (
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
@@ -69,36 +65,34 @@ WHERE (
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
-    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateAccount :one
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateBatchAccount :batchone
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: CreateCopyAccount :copyfrom
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: CreateDefaultAccount :one
-INSERT INTO "account"."account" ("phone", "email", "username", "password", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO "account"."account" ("phone", "email", "username", "password")
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateCopyDefaultAccount :copyfrom
-INSERT INTO "account"."account" ("phone", "email", "username", "password", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO "account"."account" ("phone", "email", "username", "password")
+VALUES ($1, $2, $3, $4);
 
 -- name: UpdateAccount :one
 UPDATE "account"."account"
@@ -107,9 +101,7 @@ SET "status" = COALESCE(sqlc.narg('status'), "status"),
     "email" = CASE WHEN sqlc.arg('null_email')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('email'), "email") END,
     "username" = CASE WHEN sqlc.arg('null_username')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('username'), "username") END,
     "password" = CASE WHEN sqlc.arg('null_password')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('password'), "password") END,
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
-    "default_wallet_id" = CASE WHEN sqlc.arg('null_default_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_wallet_id'), "default_wallet_id") END
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
@@ -127,7 +119,159 @@ WHERE (
     ("password" = ANY(sqlc.slice('password')) OR sqlc.slice('password') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
+);
+
+-- ========================================
+-- Queries for table: account.profile
+-- ========================================
+
+-- name: GetProfile :one
+SELECT *
+FROM "account"."profile"
+WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
+
+-- name: CountProfile :one
+SELECT COUNT(*)
+FROM "account"."profile"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
+    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+);
+
+-- name: ListProfile :many
+SELECT *
+FROM "account"."profile"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
+    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: ListCountProfile :many
+SELECT sqlc.embed(embed_profile), COUNT(*) OVER() as total_count
+FROM "account"."profile" embed_profile
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
+    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
+    ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateProfile :one
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING *;
+
+-- name: CreateBatchProfile :batchone
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING *;
+
+-- name: CreateCopyProfile :copyfrom
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+
+-- name: CreateDefaultProfile :one
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: CreateCopyDefaultProfile :copyfrom
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: UpdateProfile :one
+UPDATE "account"."profile"
+SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('gender'), "gender") END,
+    "name" = COALESCE(sqlc.narg('name'), "name"),
+    "description" = COALESCE(sqlc.narg('description'), "description"),
+    "date_of_birth" = CASE WHEN sqlc.arg('null_date_of_birth')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_of_birth'), "date_of_birth") END,
+    "avatar_rs_id" = CASE WHEN sqlc.arg('null_avatar_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('avatar_rs_id'), "avatar_rs_id") END,
+    "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
+    "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
+    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
+    "balance" = COALESCE(sqlc.narg('balance'), "balance"),
+    "country" = COALESCE(sqlc.narg('country'), "country"),
+    "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
+    "default_wallet_id" = CASE WHEN sqlc.arg('null_default_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_wallet_id'), "default_wallet_id") END
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteProfile :exec
+DELETE FROM "account"."profile"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
+    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
+    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
+    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
+    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
+    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
+    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
+    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
+    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
+    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
+    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
+    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
 );
@@ -269,150 +413,6 @@ WHERE (
     ("longitude" = ANY(sqlc.slice('longitude')) OR sqlc.slice('longitude') IS NULL) AND
     ("longitude" >= sqlc.narg('longitude_from') OR sqlc.narg('longitude_from') IS NULL) AND
     ("longitude" <= sqlc.narg('longitude_to') OR sqlc.narg('longitude_to') IS NULL)
-);
-
--- ========================================
--- Queries for table: account.profile
--- ========================================
-
--- name: GetProfile :one
-SELECT *
-FROM "account"."profile"
-WHERE ("id" = sqlc.narg('id')) OR ("avatar_rs_id" = sqlc.narg('avatar_rs_id'));
-
--- name: CountProfile :one
-SELECT COUNT(*)
-FROM "account"."profile"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
-    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL)
-);
-
--- name: ListProfile :many
-SELECT *
-FROM "account"."profile"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
-    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: ListCountProfile :many
-SELECT sqlc.embed(embed_profile), COUNT(*) OVER() as total_count
-FROM "account"."profile" embed_profile
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
-    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING *;
-
--- name: CreateCopyProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
-
--- name: CreateDefaultProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING *;
-
--- name: CreateCopyDefaultProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country")
-VALUES ($1, $2, $3, $4, $5, $6);
-
--- name: UpdateProfile :one
-UPDATE "account"."profile"
-SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('gender'), "gender") END,
-    "name" = COALESCE(sqlc.narg('name'), "name"),
-    "description" = COALESCE(sqlc.narg('description'), "description"),
-    "date_of_birth" = CASE WHEN sqlc.arg('null_date_of_birth')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_of_birth'), "date_of_birth") END,
-    "avatar_rs_id" = CASE WHEN sqlc.arg('null_avatar_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('avatar_rs_id'), "avatar_rs_id") END,
-    "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
-    "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "balance" = COALESCE(sqlc.narg('balance'), "balance"),
-    "country" = COALESCE(sqlc.narg('country'), "country")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: DeleteProfile :exec
-DELETE FROM "account"."profile"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("gender" = ANY(sqlc.slice('gender')) OR sqlc.slice('gender') IS NULL) AND
-    ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
-    ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
-    ("date_of_birth" = ANY(sqlc.slice('date_of_birth')) OR sqlc.slice('date_of_birth') IS NULL) AND
-    ("date_of_birth" >= sqlc.narg('date_of_birth_from') OR sqlc.narg('date_of_birth_from') IS NULL) AND
-    ("date_of_birth" <= sqlc.narg('date_of_birth_to') OR sqlc.narg('date_of_birth_to') IS NULL) AND
-    ("avatar_rs_id" = ANY(sqlc.slice('avatar_rs_id')) OR sqlc.slice('avatar_rs_id') IS NULL) AND
-    ("email_verified" = ANY(sqlc.slice('email_verified')) OR sqlc.slice('email_verified') IS NULL) AND
-    ("phone_verified" = ANY(sqlc.slice('phone_verified')) OR sqlc.slice('phone_verified') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL)
 );
 
 -- ========================================

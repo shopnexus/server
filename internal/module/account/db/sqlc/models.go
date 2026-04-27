@@ -192,16 +192,14 @@ func AllAccountStatusValues() []AccountStatus {
 }
 
 type AccountAccount struct {
-	ID               uuid.UUID     `json:"id"`
-	Number           int64         `json:"number"`
-	Status           AccountStatus `json:"status"`
-	Phone            null.String   `json:"phone"`
-	Email            null.String   `json:"email"`
-	Username         null.String   `json:"username"`
-	Password         null.String   `json:"password"`
-	DateCreated      time.Time     `json:"date_created"`
-	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+	ID          uuid.UUID     `json:"id"`
+	Number      int64         `json:"number"`
+	Status      AccountStatus `json:"status"`
+	Phone       null.String   `json:"phone"`
+	Email       null.String   `json:"email"`
+	Username    null.String   `json:"username"`
+	Password    null.String   `json:"password"`
+	DateCreated time.Time     `json:"date_created"`
 }
 
 type AccountContact struct {
@@ -239,17 +237,19 @@ type AccountNotification struct {
 }
 
 type AccountProfile struct {
-	ID            uuid.UUID         `json:"id"`
-	Gender        NullAccountGender `json:"gender"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	DateOfBirth   null.Time         `json:"date_of_birth"`
-	AvatarRsID    uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified bool              `json:"email_verified"`
-	PhoneVerified bool              `json:"phone_verified"`
-	DateCreated   time.Time         `json:"date_created"`
-	Balance       int64             `json:"balance"`
-	Country       string            `json:"country"`
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    bool              `json:"email_verified"`
+	PhoneVerified    bool              `json:"phone_verified"`
+	DateCreated      time.Time         `json:"date_created"`
+	Balance          int64             `json:"balance"`
+	Country          string            `json:"country"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 type AccountWallet struct {

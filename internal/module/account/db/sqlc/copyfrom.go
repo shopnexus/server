@@ -36,8 +36,6 @@ func (r iteratorForCreateCopyAccount) Values() ([]interface{}, error) {
 		r.rows[0].Username,
 		r.rows[0].Password,
 		r.rows[0].DateCreated,
-		r.rows[0].DefaultContactID,
-		r.rows[0].DefaultWalletID,
 	}, nil
 }
 
@@ -46,7 +44,7 @@ func (r iteratorForCreateCopyAccount) Err() error {
 }
 
 func (q *Queries) CreateCopyAccount(ctx context.Context, arg []CreateCopyAccountParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyAccount{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"id", "status", "phone", "email", "username", "password", "date_created"}, &iteratorForCreateCopyAccount{rows: arg})
 }
 
 // iteratorForCreateCopyContact implements pgx.CopyFromSource.
@@ -114,8 +112,6 @@ func (r iteratorForCreateCopyDefaultAccount) Values() ([]interface{}, error) {
 		r.rows[0].Email,
 		r.rows[0].Username,
 		r.rows[0].Password,
-		r.rows[0].DefaultContactID,
-		r.rows[0].DefaultWalletID,
 	}, nil
 }
 
@@ -124,7 +120,7 @@ func (r iteratorForCreateCopyDefaultAccount) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultAccount(ctx context.Context, arg []CreateCopyDefaultAccountParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"phone", "email", "username", "password", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyDefaultAccount{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "account"}, []string{"phone", "email", "username", "password"}, &iteratorForCreateCopyDefaultAccount{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultContact implements pgx.CopyFromSource.
@@ -263,6 +259,8 @@ func (r iteratorForCreateCopyDefaultProfile) Values() ([]interface{}, error) {
 		r.rows[0].DateOfBirth,
 		r.rows[0].AvatarRsID,
 		r.rows[0].Country,
+		r.rows[0].DefaultContactID,
+		r.rows[0].DefaultWalletID,
 	}, nil
 }
 
@@ -271,7 +269,7 @@ func (r iteratorForCreateCopyDefaultProfile) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultProfile(ctx context.Context, arg []CreateCopyDefaultProfileParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "date_of_birth", "avatar_rs_id", "country"}, &iteratorForCreateCopyDefaultProfile{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyDefaultProfile{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultWallet implements pgx.CopyFromSource.
@@ -415,6 +413,8 @@ func (r iteratorForCreateCopyProfile) Values() ([]interface{}, error) {
 		r.rows[0].DateCreated,
 		r.rows[0].Balance,
 		r.rows[0].Country,
+		r.rows[0].DefaultContactID,
+		r.rows[0].DefaultWalletID,
 	}, nil
 }
 
@@ -423,7 +423,7 @@ func (r iteratorForCreateCopyProfile) Err() error {
 }
 
 func (q *Queries) CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country"}, &iteratorForCreateCopyProfile{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyProfile{rows: arg})
 }
 
 // iteratorForCreateCopyWallet implements pgx.CopyFromSource.

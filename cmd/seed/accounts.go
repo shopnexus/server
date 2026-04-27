@@ -87,9 +87,10 @@ func createAccounts(ctx context.Context, store *accountdb.Queries, fake *gofakei
 		}[fake.IntRange(0, 2)]
 
 		_, err = store.CreateDefaultProfile(ctx, accountdb.CreateDefaultProfileParams{
-			ID:     account.ID,
-			Gender: accountdb.NullAccountGender{AccountGender: gender, Valid: true},
-			Name:   fake.Name(),
+			ID:      account.ID,
+			Gender:  accountdb.NullAccountGender{AccountGender: gender, Valid: true},
+			Name:    fake.Name(),
+			Country: "VN",
 			DateOfBirth: null.TimeFrom(
 				fake.DateRange(
 					time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),

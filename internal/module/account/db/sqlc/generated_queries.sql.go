@@ -29,27 +29,23 @@ WHERE (
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("default_contact_id" = ANY($13) OR $13 IS NULL) AND
-    ("default_wallet_id" = ANY($14) OR $14 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
 type CountAccountParams struct {
-	ID               []uuid.UUID     `json:"id"`
-	Number           []int64         `json:"number"`
-	NumberFrom       null.Int        `json:"number_from"`
-	NumberTo         null.Int        `json:"number_to"`
-	Status           []AccountStatus `json:"status"`
-	Phone            []null.String   `json:"phone"`
-	Email            []null.String   `json:"email"`
-	Username         []null.String   `json:"username"`
-	Password         []null.String   `json:"password"`
-	DateCreated      []time.Time     `json:"date_created"`
-	DateCreatedFrom  null.Time       `json:"date_created_from"`
-	DateCreatedTo    null.Time       `json:"date_created_to"`
-	DefaultContactID []uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  []uuid.NullUUID `json:"default_wallet_id"`
+	ID              []uuid.UUID     `json:"id"`
+	Number          []int64         `json:"number"`
+	NumberFrom      null.Int        `json:"number_from"`
+	NumberTo        null.Int        `json:"number_to"`
+	Status          []AccountStatus `json:"status"`
+	Phone           []null.String   `json:"phone"`
+	Email           []null.String   `json:"email"`
+	Username        []null.String   `json:"username"`
+	Password        []null.String   `json:"password"`
+	DateCreated     []time.Time     `json:"date_created"`
+	DateCreatedFrom null.Time       `json:"date_created_from"`
+	DateCreatedTo   null.Time       `json:"date_created_to"`
 }
 
 func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int64, error) {
@@ -66,8 +62,6 @@ func (q *Queries) CountAccount(ctx context.Context, arg CountAccountParams) (int
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -265,28 +259,32 @@ WHERE (
     ("balance" = ANY($14) OR $14 IS NULL) AND
     ("balance" >= $15 OR $15 IS NULL) AND
     ("balance" <= $16 OR $16 IS NULL) AND
-    ("country" = ANY($17) OR $17 IS NULL)
+    ("country" = ANY($17) OR $17 IS NULL) AND
+    ("default_contact_id" = ANY($18) OR $18 IS NULL) AND
+    ("default_wallet_id" = ANY($19) OR $19 IS NULL)
 )
 `
 
 type CountProfileParams struct {
-	ID              []uuid.UUID         `json:"id"`
-	Gender          []NullAccountGender `json:"gender"`
-	Name            []string            `json:"name"`
-	Description     []string            `json:"description"`
-	DateOfBirth     []null.Time         `json:"date_of_birth"`
-	DateOfBirthFrom null.Time           `json:"date_of_birth_from"`
-	DateOfBirthTo   null.Time           `json:"date_of_birth_to"`
-	AvatarRsID      []uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified   []bool              `json:"email_verified"`
-	PhoneVerified   []bool              `json:"phone_verified"`
-	DateCreated     []time.Time         `json:"date_created"`
-	DateCreatedFrom null.Time           `json:"date_created_from"`
-	DateCreatedTo   null.Time           `json:"date_created_to"`
-	Balance         []int64             `json:"balance"`
-	BalanceFrom     null.Int            `json:"balance_from"`
-	BalanceTo       null.Int            `json:"balance_to"`
-	Country         []string            `json:"country"`
+	ID               []uuid.UUID         `json:"id"`
+	Gender           []NullAccountGender `json:"gender"`
+	Name             []string            `json:"name"`
+	Description      []string            `json:"description"`
+	DateOfBirth      []null.Time         `json:"date_of_birth"`
+	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
+	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
+	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    []bool              `json:"email_verified"`
+	PhoneVerified    []bool              `json:"phone_verified"`
+	DateCreated      []time.Time         `json:"date_created"`
+	DateCreatedFrom  null.Time           `json:"date_created_from"`
+	DateCreatedTo    null.Time           `json:"date_created_to"`
+	Balance          []int64             `json:"balance"`
+	BalanceFrom      null.Int            `json:"balance_from"`
+	BalanceTo        null.Int            `json:"balance_to"`
+	Country          []string            `json:"country"`
+	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  []uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int64, error) {
@@ -308,6 +306,8 @@ func (q *Queries) CountProfile(ctx context.Context, arg CountProfileParams) (int
 		arg.BalanceFrom,
 		arg.BalanceTo,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -357,21 +357,19 @@ func (q *Queries) CountWallet(ctx context.Context, arg CountWalletParams) (int64
 }
 
 const createAccount = `-- name: CreateAccount :one
-INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
+INSERT INTO "account"."account" ("id", "status", "phone", "email", "username", "password", "date_created")
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, number, status, phone, email, username, password, date_created
 `
 
 type CreateAccountParams struct {
-	ID               uuid.UUID     `json:"id"`
-	Status           AccountStatus `json:"status"`
-	Phone            null.String   `json:"phone"`
-	Email            null.String   `json:"email"`
-	Username         null.String   `json:"username"`
-	Password         null.String   `json:"password"`
-	DateCreated      time.Time     `json:"date_created"`
-	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+	ID          uuid.UUID     `json:"id"`
+	Status      AccountStatus `json:"status"`
+	Phone       null.String   `json:"phone"`
+	Email       null.String   `json:"email"`
+	Username    null.String   `json:"username"`
+	Password    null.String   `json:"password"`
+	DateCreated time.Time     `json:"date_created"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (AccountAccount, error) {
@@ -383,8 +381,6 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		arg.Username,
 		arg.Password,
 		arg.DateCreated,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 	)
 	var i AccountAccount
 	err := row.Scan(
@@ -396,8 +392,6 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Username,
 		&i.Password,
 		&i.DateCreated,
-		&i.DefaultContactID,
-		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -451,15 +445,13 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (A
 }
 
 type CreateCopyAccountParams struct {
-	ID               uuid.UUID     `json:"id"`
-	Status           AccountStatus `json:"status"`
-	Phone            null.String   `json:"phone"`
-	Email            null.String   `json:"email"`
-	Username         null.String   `json:"username"`
-	Password         null.String   `json:"password"`
-	DateCreated      time.Time     `json:"date_created"`
-	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+	ID          uuid.UUID     `json:"id"`
+	Status      AccountStatus `json:"status"`
+	Phone       null.String   `json:"phone"`
+	Email       null.String   `json:"email"`
+	Username    null.String   `json:"username"`
+	Password    null.String   `json:"password"`
+	DateCreated time.Time     `json:"date_created"`
 }
 
 type CreateCopyContactParams struct {
@@ -476,12 +468,10 @@ type CreateCopyContactParams struct {
 }
 
 type CreateCopyDefaultAccountParams struct {
-	Phone            null.String   `json:"phone"`
-	Email            null.String   `json:"email"`
-	Username         null.String   `json:"username"`
-	Password         null.String   `json:"password"`
-	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+	Phone    null.String `json:"phone"`
+	Email    null.String `json:"email"`
+	Username null.String `json:"username"`
+	Password null.String `json:"password"`
 }
 
 type CreateCopyDefaultContactParams struct {
@@ -511,12 +501,14 @@ type CreateCopyDefaultNotificationParams struct {
 }
 
 type CreateCopyDefaultProfileParams struct {
-	ID          uuid.UUID         `json:"id"`
-	Gender      NullAccountGender `json:"gender"`
-	Name        string            `json:"name"`
-	DateOfBirth null.Time         `json:"date_of_birth"`
-	AvatarRsID  uuid.NullUUID     `json:"avatar_rs_id"`
-	Country     string            `json:"country"`
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             string            `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	Country          string            `json:"country"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 type CreateCopyDefaultWalletParams struct {
@@ -546,17 +538,19 @@ type CreateCopyNotificationParams struct {
 }
 
 type CreateCopyProfileParams struct {
-	ID            uuid.UUID         `json:"id"`
-	Gender        NullAccountGender `json:"gender"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	DateOfBirth   null.Time         `json:"date_of_birth"`
-	AvatarRsID    uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified bool              `json:"email_verified"`
-	PhoneVerified bool              `json:"phone_verified"`
-	DateCreated   time.Time         `json:"date_created"`
-	Balance       int64             `json:"balance"`
-	Country       string            `json:"country"`
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    bool              `json:"email_verified"`
+	PhoneVerified    bool              `json:"phone_verified"`
+	DateCreated      time.Time         `json:"date_created"`
+	Balance          int64             `json:"balance"`
+	Country          string            `json:"country"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 type CreateCopyWalletParams struct {
@@ -569,18 +563,16 @@ type CreateCopyWalletParams struct {
 }
 
 const createDefaultAccount = `-- name: CreateDefaultAccount :one
-INSERT INTO "account"."account" ("phone", "email", "username", "password", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
+INSERT INTO "account"."account" ("phone", "email", "username", "password")
+VALUES ($1, $2, $3, $4)
+RETURNING id, number, status, phone, email, username, password, date_created
 `
 
 type CreateDefaultAccountParams struct {
-	Phone            null.String   `json:"phone"`
-	Email            null.String   `json:"email"`
-	Username         null.String   `json:"username"`
-	Password         null.String   `json:"password"`
-	DefaultContactID uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  uuid.NullUUID `json:"default_wallet_id"`
+	Phone    null.String `json:"phone"`
+	Email    null.String `json:"email"`
+	Username null.String `json:"username"`
+	Password null.String `json:"password"`
 }
 
 func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAccountParams) (AccountAccount, error) {
@@ -589,8 +581,6 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 		arg.Email,
 		arg.Username,
 		arg.Password,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 	)
 	var i AccountAccount
 	err := row.Scan(
@@ -602,8 +592,6 @@ func (q *Queries) CreateDefaultAccount(ctx context.Context, arg CreateDefaultAcc
 		&i.Username,
 		&i.Password,
 		&i.DateCreated,
-		&i.DefaultContactID,
-		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -719,18 +707,20 @@ func (q *Queries) CreateDefaultNotification(ctx context.Context, arg CreateDefau
 }
 
 const createDefaultProfile = `-- name: CreateDefaultProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
+INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
 `
 
 type CreateDefaultProfileParams struct {
-	ID          uuid.UUID         `json:"id"`
-	Gender      NullAccountGender `json:"gender"`
-	Name        string            `json:"name"`
-	DateOfBirth null.Time         `json:"date_of_birth"`
-	AvatarRsID  uuid.NullUUID     `json:"avatar_rs_id"`
-	Country     string            `json:"country"`
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             string            `json:"name"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	Country          string            `json:"country"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultProfileParams) (AccountProfile, error) {
@@ -741,6 +731,8 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 		arg.DateOfBirth,
 		arg.AvatarRsID,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 	)
 	var i AccountProfile
 	err := row.Scan(
@@ -755,6 +747,8 @@ func (q *Queries) CreateDefaultProfile(ctx context.Context, arg CreateDefaultPro
 		&i.DateCreated,
 		&i.Balance,
 		&i.Country,
+		&i.DefaultContactID,
+		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -865,23 +859,25 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 }
 
 const createProfile = `-- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
 `
 
 type CreateProfileParams struct {
-	ID            uuid.UUID         `json:"id"`
-	Gender        NullAccountGender `json:"gender"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	DateOfBirth   null.Time         `json:"date_of_birth"`
-	AvatarRsID    uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified bool              `json:"email_verified"`
-	PhoneVerified bool              `json:"phone_verified"`
-	DateCreated   time.Time         `json:"date_created"`
-	Balance       int64             `json:"balance"`
-	Country       string            `json:"country"`
+	ID               uuid.UUID         `json:"id"`
+	Gender           NullAccountGender `json:"gender"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	DateOfBirth      null.Time         `json:"date_of_birth"`
+	AvatarRsID       uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    bool              `json:"email_verified"`
+	PhoneVerified    bool              `json:"phone_verified"`
+	DateCreated      time.Time         `json:"date_created"`
+	Balance          int64             `json:"balance"`
+	Country          string            `json:"country"`
+	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error) {
@@ -897,6 +893,8 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		arg.DateCreated,
 		arg.Balance,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 	)
 	var i AccountProfile
 	err := row.Scan(
@@ -911,6 +909,8 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (A
 		&i.DateCreated,
 		&i.Balance,
 		&i.Country,
+		&i.DefaultContactID,
+		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -965,27 +965,23 @@ WHERE (
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("default_contact_id" = ANY($13) OR $13 IS NULL) AND
-    ("default_wallet_id" = ANY($14) OR $14 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 `
 
 type DeleteAccountParams struct {
-	ID               []uuid.UUID     `json:"id"`
-	Number           []int64         `json:"number"`
-	NumberFrom       null.Int        `json:"number_from"`
-	NumberTo         null.Int        `json:"number_to"`
-	Status           []AccountStatus `json:"status"`
-	Phone            []null.String   `json:"phone"`
-	Email            []null.String   `json:"email"`
-	Username         []null.String   `json:"username"`
-	Password         []null.String   `json:"password"`
-	DateCreated      []time.Time     `json:"date_created"`
-	DateCreatedFrom  null.Time       `json:"date_created_from"`
-	DateCreatedTo    null.Time       `json:"date_created_to"`
-	DefaultContactID []uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  []uuid.NullUUID `json:"default_wallet_id"`
+	ID              []uuid.UUID     `json:"id"`
+	Number          []int64         `json:"number"`
+	NumberFrom      null.Int        `json:"number_from"`
+	NumberTo        null.Int        `json:"number_to"`
+	Status          []AccountStatus `json:"status"`
+	Phone           []null.String   `json:"phone"`
+	Email           []null.String   `json:"email"`
+	Username        []null.String   `json:"username"`
+	Password        []null.String   `json:"password"`
+	DateCreated     []time.Time     `json:"date_created"`
+	DateCreatedFrom null.Time       `json:"date_created_from"`
+	DateCreatedTo   null.Time       `json:"date_created_to"`
 }
 
 func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) error {
@@ -1002,8 +998,6 @@ func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) er
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 	)
 	return err
 }
@@ -1189,28 +1183,32 @@ WHERE (
     ("balance" = ANY($14) OR $14 IS NULL) AND
     ("balance" >= $15 OR $15 IS NULL) AND
     ("balance" <= $16 OR $16 IS NULL) AND
-    ("country" = ANY($17) OR $17 IS NULL)
+    ("country" = ANY($17) OR $17 IS NULL) AND
+    ("default_contact_id" = ANY($18) OR $18 IS NULL) AND
+    ("default_wallet_id" = ANY($19) OR $19 IS NULL)
 )
 `
 
 type DeleteProfileParams struct {
-	ID              []uuid.UUID         `json:"id"`
-	Gender          []NullAccountGender `json:"gender"`
-	Name            []string            `json:"name"`
-	Description     []string            `json:"description"`
-	DateOfBirth     []null.Time         `json:"date_of_birth"`
-	DateOfBirthFrom null.Time           `json:"date_of_birth_from"`
-	DateOfBirthTo   null.Time           `json:"date_of_birth_to"`
-	AvatarRsID      []uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified   []bool              `json:"email_verified"`
-	PhoneVerified   []bool              `json:"phone_verified"`
-	DateCreated     []time.Time         `json:"date_created"`
-	DateCreatedFrom null.Time           `json:"date_created_from"`
-	DateCreatedTo   null.Time           `json:"date_created_to"`
-	Balance         []int64             `json:"balance"`
-	BalanceFrom     null.Int            `json:"balance_from"`
-	BalanceTo       null.Int            `json:"balance_to"`
-	Country         []string            `json:"country"`
+	ID               []uuid.UUID         `json:"id"`
+	Gender           []NullAccountGender `json:"gender"`
+	Name             []string            `json:"name"`
+	Description      []string            `json:"description"`
+	DateOfBirth      []null.Time         `json:"date_of_birth"`
+	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
+	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
+	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    []bool              `json:"email_verified"`
+	PhoneVerified    []bool              `json:"phone_verified"`
+	DateCreated      []time.Time         `json:"date_created"`
+	DateCreatedFrom  null.Time           `json:"date_created_from"`
+	DateCreatedTo    null.Time           `json:"date_created_to"`
+	Balance          []int64             `json:"balance"`
+	BalanceFrom      null.Int            `json:"balance_from"`
+	BalanceTo        null.Int            `json:"balance_to"`
+	Country          []string            `json:"country"`
+	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  []uuid.NullUUID     `json:"default_wallet_id"`
 }
 
 func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) error {
@@ -1232,6 +1230,8 @@ func (q *Queries) DeleteProfile(ctx context.Context, arg DeleteProfileParams) er
 		arg.BalanceFrom,
 		arg.BalanceTo,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 	)
 	return err
 }
@@ -1279,7 +1279,7 @@ const getAccount = `-- name: GetAccount :one
 
 
 
-SELECT id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
+SELECT id, number, status, phone, email, username, password, date_created
 FROM "account"."account"
 WHERE ("id" = $1) OR ("phone" = $2) OR ("email" = $3) OR ("username" = $4)
 `
@@ -1313,8 +1313,6 @@ func (q *Queries) GetAccount(ctx context.Context, arg GetAccountParams) (Account
 		&i.Username,
 		&i.Password,
 		&i.DateCreated,
-		&i.DefaultContactID,
-		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -1406,7 +1404,7 @@ func (q *Queries) GetNotification(ctx context.Context, id null.Int) (AccountNoti
 
 const getProfile = `-- name: GetProfile :one
 
-SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
+SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
 FROM "account"."profile"
 WHERE ("id" = $1) OR ("avatar_rs_id" = $2)
 `
@@ -1434,6 +1432,8 @@ func (q *Queries) GetProfile(ctx context.Context, arg GetProfileParams) (Account
 		&i.DateCreated,
 		&i.Balance,
 		&i.Country,
+		&i.DefaultContactID,
+		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -1463,7 +1463,7 @@ func (q *Queries) GetWallet(ctx context.Context, id uuid.NullUUID) (AccountWalle
 }
 
 const listAccount = `-- name: ListAccount :many
-SELECT id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
+SELECT id, number, status, phone, email, username, password, date_created
 FROM "account"."account"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1477,32 +1477,28 @@ WHERE (
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("default_contact_id" = ANY($13) OR $13 IS NULL) AND
-    ("default_wallet_id" = ANY($14) OR $14 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $14::int
+OFFSET $13::int
 `
 
 type ListAccountParams struct {
-	ID               []uuid.UUID     `json:"id"`
-	Number           []int64         `json:"number"`
-	NumberFrom       null.Int        `json:"number_from"`
-	NumberTo         null.Int        `json:"number_to"`
-	Status           []AccountStatus `json:"status"`
-	Phone            []null.String   `json:"phone"`
-	Email            []null.String   `json:"email"`
-	Username         []null.String   `json:"username"`
-	Password         []null.String   `json:"password"`
-	DateCreated      []time.Time     `json:"date_created"`
-	DateCreatedFrom  null.Time       `json:"date_created_from"`
-	DateCreatedTo    null.Time       `json:"date_created_to"`
-	DefaultContactID []uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  []uuid.NullUUID `json:"default_wallet_id"`
-	Offset           null.Int32      `json:"offset"`
-	Limit            null.Int32      `json:"limit"`
+	ID              []uuid.UUID     `json:"id"`
+	Number          []int64         `json:"number"`
+	NumberFrom      null.Int        `json:"number_from"`
+	NumberTo        null.Int        `json:"number_to"`
+	Status          []AccountStatus `json:"status"`
+	Phone           []null.String   `json:"phone"`
+	Email           []null.String   `json:"email"`
+	Username        []null.String   `json:"username"`
+	Password        []null.String   `json:"password"`
+	DateCreated     []time.Time     `json:"date_created"`
+	DateCreatedFrom null.Time       `json:"date_created_from"`
+	DateCreatedTo   null.Time       `json:"date_created_to"`
+	Offset          null.Int32      `json:"offset"`
+	Limit           null.Int32      `json:"limit"`
 }
 
 func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]AccountAccount, error) {
@@ -1519,8 +1515,6 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1540,8 +1534,6 @@ func (q *Queries) ListAccount(ctx context.Context, arg ListAccountParams) ([]Acc
 			&i.Username,
 			&i.Password,
 			&i.DateCreated,
-			&i.DefaultContactID,
-			&i.DefaultWalletID,
 		); err != nil {
 			return nil, err
 		}
@@ -1651,7 +1643,7 @@ func (q *Queries) ListContact(ctx context.Context, arg ListContactParams) ([]Acc
 }
 
 const listCountAccount = `-- name: ListCountAccount :many
-SELECT embed_account.id, embed_account.number, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, embed_account.default_contact_id, embed_account.default_wallet_id, COUNT(*) OVER() as total_count
+SELECT embed_account.id, embed_account.number, embed_account.status, embed_account.phone, embed_account.email, embed_account.username, embed_account.password, embed_account.date_created, COUNT(*) OVER() as total_count
 FROM "account"."account" embed_account
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -1665,32 +1657,28 @@ WHERE (
     ("password" = ANY($9) OR $9 IS NULL) AND
     ("date_created" = ANY($10) OR $10 IS NULL) AND
     ("date_created" >= $11 OR $11 IS NULL) AND
-    ("date_created" <= $12 OR $12 IS NULL) AND
-    ("default_contact_id" = ANY($13) OR $13 IS NULL) AND
-    ("default_wallet_id" = ANY($14) OR $14 IS NULL)
+    ("date_created" <= $12 OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $16::int
-OFFSET $15::int
+LIMIT $14::int
+OFFSET $13::int
 `
 
 type ListCountAccountParams struct {
-	ID               []uuid.UUID     `json:"id"`
-	Number           []int64         `json:"number"`
-	NumberFrom       null.Int        `json:"number_from"`
-	NumberTo         null.Int        `json:"number_to"`
-	Status           []AccountStatus `json:"status"`
-	Phone            []null.String   `json:"phone"`
-	Email            []null.String   `json:"email"`
-	Username         []null.String   `json:"username"`
-	Password         []null.String   `json:"password"`
-	DateCreated      []time.Time     `json:"date_created"`
-	DateCreatedFrom  null.Time       `json:"date_created_from"`
-	DateCreatedTo    null.Time       `json:"date_created_to"`
-	DefaultContactID []uuid.NullUUID `json:"default_contact_id"`
-	DefaultWalletID  []uuid.NullUUID `json:"default_wallet_id"`
-	Offset           null.Int32      `json:"offset"`
-	Limit            null.Int32      `json:"limit"`
+	ID              []uuid.UUID     `json:"id"`
+	Number          []int64         `json:"number"`
+	NumberFrom      null.Int        `json:"number_from"`
+	NumberTo        null.Int        `json:"number_to"`
+	Status          []AccountStatus `json:"status"`
+	Phone           []null.String   `json:"phone"`
+	Email           []null.String   `json:"email"`
+	Username        []null.String   `json:"username"`
+	Password        []null.String   `json:"password"`
+	DateCreated     []time.Time     `json:"date_created"`
+	DateCreatedFrom null.Time       `json:"date_created_from"`
+	DateCreatedTo   null.Time       `json:"date_created_to"`
+	Offset          null.Int32      `json:"offset"`
+	Limit           null.Int32      `json:"limit"`
 }
 
 type ListCountAccountRow struct {
@@ -1712,8 +1700,6 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 		arg.DateCreated,
 		arg.DateCreatedFrom,
 		arg.DateCreatedTo,
-		arg.DefaultContactID,
-		arg.DefaultWalletID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1733,8 +1719,6 @@ func (q *Queries) ListCountAccount(ctx context.Context, arg ListCountAccountPara
 			&i.AccountAccount.Username,
 			&i.AccountAccount.Password,
 			&i.AccountAccount.DateCreated,
-			&i.AccountAccount.DefaultContactID,
-			&i.AccountAccount.DefaultWalletID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2025,7 +2009,7 @@ func (q *Queries) ListCountNotification(ctx context.Context, arg ListCountNotifi
 }
 
 const listCountProfile = `-- name: ListCountProfile :many
-SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.description, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.date_created, embed_profile.balance, embed_profile.country, COUNT(*) OVER() as total_count
+SELECT embed_profile.id, embed_profile.gender, embed_profile.name, embed_profile.description, embed_profile.date_of_birth, embed_profile.avatar_rs_id, embed_profile.email_verified, embed_profile.phone_verified, embed_profile.date_created, embed_profile.balance, embed_profile.country, embed_profile.default_contact_id, embed_profile.default_wallet_id, COUNT(*) OVER() as total_count
 FROM "account"."profile" embed_profile
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2044,33 +2028,37 @@ WHERE (
     ("balance" = ANY($14) OR $14 IS NULL) AND
     ("balance" >= $15 OR $15 IS NULL) AND
     ("balance" <= $16 OR $16 IS NULL) AND
-    ("country" = ANY($17) OR $17 IS NULL)
+    ("country" = ANY($17) OR $17 IS NULL) AND
+    ("default_contact_id" = ANY($18) OR $18 IS NULL) AND
+    ("default_wallet_id" = ANY($19) OR $19 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19::int
-OFFSET $18::int
+LIMIT $21::int
+OFFSET $20::int
 `
 
 type ListCountProfileParams struct {
-	ID              []uuid.UUID         `json:"id"`
-	Gender          []NullAccountGender `json:"gender"`
-	Name            []string            `json:"name"`
-	Description     []string            `json:"description"`
-	DateOfBirth     []null.Time         `json:"date_of_birth"`
-	DateOfBirthFrom null.Time           `json:"date_of_birth_from"`
-	DateOfBirthTo   null.Time           `json:"date_of_birth_to"`
-	AvatarRsID      []uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified   []bool              `json:"email_verified"`
-	PhoneVerified   []bool              `json:"phone_verified"`
-	DateCreated     []time.Time         `json:"date_created"`
-	DateCreatedFrom null.Time           `json:"date_created_from"`
-	DateCreatedTo   null.Time           `json:"date_created_to"`
-	Balance         []int64             `json:"balance"`
-	BalanceFrom     null.Int            `json:"balance_from"`
-	BalanceTo       null.Int            `json:"balance_to"`
-	Country         []string            `json:"country"`
-	Offset          null.Int32          `json:"offset"`
-	Limit           null.Int32          `json:"limit"`
+	ID               []uuid.UUID         `json:"id"`
+	Gender           []NullAccountGender `json:"gender"`
+	Name             []string            `json:"name"`
+	Description      []string            `json:"description"`
+	DateOfBirth      []null.Time         `json:"date_of_birth"`
+	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
+	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
+	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    []bool              `json:"email_verified"`
+	PhoneVerified    []bool              `json:"phone_verified"`
+	DateCreated      []time.Time         `json:"date_created"`
+	DateCreatedFrom  null.Time           `json:"date_created_from"`
+	DateCreatedTo    null.Time           `json:"date_created_to"`
+	Balance          []int64             `json:"balance"`
+	BalanceFrom      null.Int            `json:"balance_from"`
+	BalanceTo        null.Int            `json:"balance_to"`
+	Country          []string            `json:"country"`
+	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  []uuid.NullUUID     `json:"default_wallet_id"`
+	Offset           null.Int32          `json:"offset"`
+	Limit            null.Int32          `json:"limit"`
 }
 
 type ListCountProfileRow struct {
@@ -2097,6 +2085,8 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 		arg.BalanceFrom,
 		arg.BalanceTo,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2119,6 +2109,8 @@ func (q *Queries) ListCountProfile(ctx context.Context, arg ListCountProfilePara
 			&i.AccountProfile.DateCreated,
 			&i.AccountProfile.Balance,
 			&i.AccountProfile.Country,
+			&i.AccountProfile.DefaultContactID,
+			&i.AccountProfile.DefaultWalletID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2369,7 +2361,7 @@ func (q *Queries) ListNotification(ctx context.Context, arg ListNotificationPara
 }
 
 const listProfile = `-- name: ListProfile :many
-SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
+SELECT id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
 FROM "account"."profile"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2388,33 +2380,37 @@ WHERE (
     ("balance" = ANY($14) OR $14 IS NULL) AND
     ("balance" >= $15 OR $15 IS NULL) AND
     ("balance" <= $16 OR $16 IS NULL) AND
-    ("country" = ANY($17) OR $17 IS NULL)
+    ("country" = ANY($17) OR $17 IS NULL) AND
+    ("default_contact_id" = ANY($18) OR $18 IS NULL) AND
+    ("default_wallet_id" = ANY($19) OR $19 IS NULL)
 )
 ORDER BY "id"
-LIMIT $19::int
-OFFSET $18::int
+LIMIT $21::int
+OFFSET $20::int
 `
 
 type ListProfileParams struct {
-	ID              []uuid.UUID         `json:"id"`
-	Gender          []NullAccountGender `json:"gender"`
-	Name            []string            `json:"name"`
-	Description     []string            `json:"description"`
-	DateOfBirth     []null.Time         `json:"date_of_birth"`
-	DateOfBirthFrom null.Time           `json:"date_of_birth_from"`
-	DateOfBirthTo   null.Time           `json:"date_of_birth_to"`
-	AvatarRsID      []uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified   []bool              `json:"email_verified"`
-	PhoneVerified   []bool              `json:"phone_verified"`
-	DateCreated     []time.Time         `json:"date_created"`
-	DateCreatedFrom null.Time           `json:"date_created_from"`
-	DateCreatedTo   null.Time           `json:"date_created_to"`
-	Balance         []int64             `json:"balance"`
-	BalanceFrom     null.Int            `json:"balance_from"`
-	BalanceTo       null.Int            `json:"balance_to"`
-	Country         []string            `json:"country"`
-	Offset          null.Int32          `json:"offset"`
-	Limit           null.Int32          `json:"limit"`
+	ID               []uuid.UUID         `json:"id"`
+	Gender           []NullAccountGender `json:"gender"`
+	Name             []string            `json:"name"`
+	Description      []string            `json:"description"`
+	DateOfBirth      []null.Time         `json:"date_of_birth"`
+	DateOfBirthFrom  null.Time           `json:"date_of_birth_from"`
+	DateOfBirthTo    null.Time           `json:"date_of_birth_to"`
+	AvatarRsID       []uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified    []bool              `json:"email_verified"`
+	PhoneVerified    []bool              `json:"phone_verified"`
+	DateCreated      []time.Time         `json:"date_created"`
+	DateCreatedFrom  null.Time           `json:"date_created_from"`
+	DateCreatedTo    null.Time           `json:"date_created_to"`
+	Balance          []int64             `json:"balance"`
+	BalanceFrom      null.Int            `json:"balance_from"`
+	BalanceTo        null.Int            `json:"balance_to"`
+	Country          []string            `json:"country"`
+	DefaultContactID []uuid.NullUUID     `json:"default_contact_id"`
+	DefaultWalletID  []uuid.NullUUID     `json:"default_wallet_id"`
+	Offset           null.Int32          `json:"offset"`
+	Limit            null.Int32          `json:"limit"`
 }
 
 func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]AccountProfile, error) {
@@ -2436,6 +2432,8 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 		arg.BalanceFrom,
 		arg.BalanceTo,
 		arg.Country,
+		arg.DefaultContactID,
+		arg.DefaultWalletID,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -2458,6 +2456,8 @@ func (q *Queries) ListProfile(ctx context.Context, arg ListProfileParams) ([]Acc
 			&i.DateCreated,
 			&i.Balance,
 			&i.Country,
+			&i.DefaultContactID,
+			&i.DefaultWalletID,
 		); err != nil {
 			return nil, err
 		}
@@ -2545,29 +2545,23 @@ SET "status" = COALESCE($1, "status"),
     "email" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "email") END,
     "username" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "username") END,
     "password" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "password") END,
-    "date_created" = COALESCE($10, "date_created"),
-    "default_contact_id" = CASE WHEN $11::bool = TRUE THEN NULL ELSE COALESCE($12, "default_contact_id") END,
-    "default_wallet_id" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "default_wallet_id") END
-WHERE id = $15
-RETURNING id, number, status, phone, email, username, password, date_created, default_contact_id, default_wallet_id
+    "date_created" = COALESCE($10, "date_created")
+WHERE id = $11
+RETURNING id, number, status, phone, email, username, password, date_created
 `
 
 type UpdateAccountParams struct {
-	Status               NullAccountStatus `json:"status"`
-	NullPhone            bool              `json:"null_phone"`
-	Phone                null.String       `json:"phone"`
-	NullEmail            bool              `json:"null_email"`
-	Email                null.String       `json:"email"`
-	NullUsername         bool              `json:"null_username"`
-	Username             null.String       `json:"username"`
-	NullPassword         bool              `json:"null_password"`
-	Password             null.String       `json:"password"`
-	DateCreated          null.Time         `json:"date_created"`
-	NullDefaultContactID bool              `json:"null_default_contact_id"`
-	DefaultContactID     uuid.NullUUID     `json:"default_contact_id"`
-	NullDefaultWalletID  bool              `json:"null_default_wallet_id"`
-	DefaultWalletID      uuid.NullUUID     `json:"default_wallet_id"`
-	ID                   uuid.UUID         `json:"id"`
+	Status       NullAccountStatus `json:"status"`
+	NullPhone    bool              `json:"null_phone"`
+	Phone        null.String       `json:"phone"`
+	NullEmail    bool              `json:"null_email"`
+	Email        null.String       `json:"email"`
+	NullUsername bool              `json:"null_username"`
+	Username     null.String       `json:"username"`
+	NullPassword bool              `json:"null_password"`
+	Password     null.String       `json:"password"`
+	DateCreated  null.Time         `json:"date_created"`
+	ID           uuid.UUID         `json:"id"`
 }
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (AccountAccount, error) {
@@ -2582,10 +2576,6 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		arg.NullPassword,
 		arg.Password,
 		arg.DateCreated,
-		arg.NullDefaultContactID,
-		arg.DefaultContactID,
-		arg.NullDefaultWalletID,
-		arg.DefaultWalletID,
 		arg.ID,
 	)
 	var i AccountAccount
@@ -2598,8 +2588,6 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.Username,
 		&i.Password,
 		&i.DateCreated,
-		&i.DefaultContactID,
-		&i.DefaultWalletID,
 	)
 	return i, err
 }
@@ -2772,26 +2760,32 @@ SET "gender" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "gender") E
     "phone_verified" = COALESCE($10, "phone_verified"),
     "date_created" = COALESCE($11, "date_created"),
     "balance" = COALESCE($12, "balance"),
-    "country" = COALESCE($13, "country")
-WHERE id = $14
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country
+    "country" = COALESCE($13, "country"),
+    "default_contact_id" = CASE WHEN $14::bool = TRUE THEN NULL ELSE COALESCE($15, "default_contact_id") END,
+    "default_wallet_id" = CASE WHEN $16::bool = TRUE THEN NULL ELSE COALESCE($17, "default_wallet_id") END
+WHERE id = $18
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
 `
 
 type UpdateProfileParams struct {
-	NullGender      bool              `json:"null_gender"`
-	Gender          NullAccountGender `json:"gender"`
-	Name            null.String       `json:"name"`
-	Description     null.String       `json:"description"`
-	NullDateOfBirth bool              `json:"null_date_of_birth"`
-	DateOfBirth     null.Time         `json:"date_of_birth"`
-	NullAvatarRsID  bool              `json:"null_avatar_rs_id"`
-	AvatarRsID      uuid.NullUUID     `json:"avatar_rs_id"`
-	EmailVerified   null.Bool         `json:"email_verified"`
-	PhoneVerified   null.Bool         `json:"phone_verified"`
-	DateCreated     null.Time         `json:"date_created"`
-	Balance         null.Int          `json:"balance"`
-	Country         null.String       `json:"country"`
-	ID              uuid.UUID         `json:"id"`
+	NullGender           bool              `json:"null_gender"`
+	Gender               NullAccountGender `json:"gender"`
+	Name                 null.String       `json:"name"`
+	Description          null.String       `json:"description"`
+	NullDateOfBirth      bool              `json:"null_date_of_birth"`
+	DateOfBirth          null.Time         `json:"date_of_birth"`
+	NullAvatarRsID       bool              `json:"null_avatar_rs_id"`
+	AvatarRsID           uuid.NullUUID     `json:"avatar_rs_id"`
+	EmailVerified        null.Bool         `json:"email_verified"`
+	PhoneVerified        null.Bool         `json:"phone_verified"`
+	DateCreated          null.Time         `json:"date_created"`
+	Balance              null.Int          `json:"balance"`
+	Country              null.String       `json:"country"`
+	NullDefaultContactID bool              `json:"null_default_contact_id"`
+	DefaultContactID     uuid.NullUUID     `json:"default_contact_id"`
+	NullDefaultWalletID  bool              `json:"null_default_wallet_id"`
+	DefaultWalletID      uuid.NullUUID     `json:"default_wallet_id"`
+	ID                   uuid.UUID         `json:"id"`
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (AccountProfile, error) {
@@ -2809,6 +2803,10 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		arg.DateCreated,
 		arg.Balance,
 		arg.Country,
+		arg.NullDefaultContactID,
+		arg.DefaultContactID,
+		arg.NullDefaultWalletID,
+		arg.DefaultWalletID,
 		arg.ID,
 	)
 	var i AccountProfile
@@ -2824,6 +2822,8 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		&i.DateCreated,
 		&i.Balance,
 		&i.Country,
+		&i.DefaultContactID,
+		&i.DefaultWalletID,
 	)
 	return i, err
 }

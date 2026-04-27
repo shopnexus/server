@@ -25,9 +25,9 @@ WHERE "id" = @id
 RETURNING "balance" AS new_balance;
 
 -- name: SetAccountDefaultContact :exec
-UPDATE "account"."account"
+UPDATE "account"."profile"
 SET "default_contact_id" = @default_contact_id
 WHERE "id" = @id;
 
 -- name: GetAccountDefaults :one
-SELECT "default_contact_id", "default_wallet_id" FROM "account"."account" WHERE "id" = @id;
+SELECT "default_contact_id", "default_wallet_id" FROM "account"."profile" WHERE "id" = @id;

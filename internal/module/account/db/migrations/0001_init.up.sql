@@ -31,24 +31,42 @@ CREATE TABLE IF NOT EXISTS "account"."account" (
     "password" VARCHAR(255),
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
+    CONSTRAINT "account_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "account_phone_key" UNIQUE ("phone"),
+    CONSTRAINT "account_email_key" UNIQUE ("email"),
+    CONSTRAINT "account_username_key" UNIQUE ("username")
+);
+
+-- Extended public profile details; 1-1 with account via shared PK.
+CREATE TABLE IF NOT EXISTS "account"."profile" (
+    "id" UUID NOT NULL,
+    "gender" "account"."gender",
+    "name" VARCHAR(100) NOT NULL,
+    "description" TEXT NOT NULL DEFAULT '',
+    "date_of_birth" TIMESTAMP(3),
+    "avatar_rs_id" UUID,
+    "email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "phone_verified" BOOLEAN NOT NULL DEFAULT false,
+    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    "balance" BIGINT NOT NULL DEFAULT 0, -- Internal money
+    "country" VARCHAR(2) NOT NULL, -- Explicit for money currency, can only updated when balance is zero
+
     -- Default
     "default_contact_id" UUID,
     "default_wallet_id" UUID,
 
-    CONSTRAINT "account_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "account_phone_key" UNIQUE ("phone"),
-    CONSTRAINT "account_email_key" UNIQUE ("email"),
-    CONSTRAINT "account_username_key" UNIQUE ("username"),
-    
-    CONSTRAINT "account_default_contact_id_fkey" FOREIGN KEY ("default_contact_id")
-        REFERENCES "account"."contact" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "account_default_wallet_id_fkey" FOREIGN KEY ("default_wallet_id")
-        REFERENCES "account"."wallet" ("id") ON DELETE SET NULL ON UPDATE CASCADE
-    
+    CONSTRAINT "profile_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "profile_avatar_rs_id_key" UNIQUE ("avatar_rs_id"),
+    CONSTRAINT "profile_country_format" CHECK ("country" ~ '^[A-Z]{2}$'),
+    CONSTRAINT "profile_balance_non_negative" CHECK ("balance" >= 0),
+
+    -- profile shares the same PK as account (1-1 relationship)
+    CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id")
+        REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Saved addresses and contact details used for shipping and billing.
--- Declared before profile so profile.default_contact_id can reference it inline.
 CREATE TABLE IF NOT EXISTS "account"."contact" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "account_id" UUID NOT NULL,
@@ -70,31 +88,6 @@ CREATE TABLE IF NOT EXISTS "account"."contact" (
 );
 -- At most one default contact per account (partial unique: stays out-of-line)
 CREATE INDEX IF NOT EXISTS "contact_account_id_idx" ON "account"."contact" ("account_id");
-
--- Extended public profile details; 1-1 with account via shared PK.
-CREATE TABLE IF NOT EXISTS "account"."profile" (
-    "id" UUID NOT NULL,
-    "gender" "account"."gender",
-    "name" VARCHAR(100) NOT NULL,
-    "description" TEXT NOT NULL DEFAULT '',
-    "date_of_birth" TIMESTAMP(3),
-    "avatar_rs_id" UUID,
-    "email_verified" BOOLEAN NOT NULL DEFAULT false,
-    "phone_verified" BOOLEAN NOT NULL DEFAULT false,
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    "balance" BIGINT NOT NULL DEFAULT 0, -- Internal money
-    "country" VARCHAR(2) NOT NULL, -- Explicit for money currency, can only updated when balance is zero
-
-    CONSTRAINT "profile_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "profile_avatar_rs_id_key" UNIQUE ("avatar_rs_id"),
-    CONSTRAINT "profile_country_format" CHECK ("country" ~ '^[A-Z]{2}$'),
-    CONSTRAINT "profile_balance_non_negative" CHECK ("balance" >= 0),
-
-    -- profile shares the same PK as account (1-1 relationship)
-    CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id")
-        REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
 
 -- In-app notifications delivered via various channels (push, email, SMS, etc.).
 CREATE TABLE IF NOT EXISTS "account"."notification" (
@@ -150,3 +143,11 @@ CREATE TABLE IF NOT EXISTS "account"."wallet" (
         REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "wallet_account_id_idx" ON "account"."wallet" ("account_id");
+
+-- Cross-table FKs from account.account, deferred to here because contact
+-- and wallet also FK back to account (circular).
+ALTER TABLE "account"."account"
+    ADD CONSTRAINT "profile_default_contact_id_fkey" FOREIGN KEY ("default_contact_id")
+        REFERENCES "account"."contact" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    ADD CONSTRAINT "profile_default_wallet_id_fkey" FOREIGN KEY ("default_wallet_id")
+        REFERENCES "account"."wallet" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
