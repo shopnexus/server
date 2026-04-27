@@ -17,3 +17,5 @@
 
 - nên mã hoá các data nhạy cảm như credit card, service option config trong db, tránh lưu plain object
 - những hàm nào ko có side effect external module thì nên bọc trong transaction, mặc định là phải bọc các side effect database ở trong restate.Run để journal nhưng nếu ko gọi external service/module thì ko cần bọc, chỉ cần atomic operation là đc
+
+- trong refund session wallet dùng currency A, sau đó user đổi sang currency B trước thời điểm refund -> phải convert -> ko nên cho đổi currency khi đang có refund hoặc đang hold escrow

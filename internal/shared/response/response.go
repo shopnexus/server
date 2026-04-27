@@ -25,6 +25,12 @@ const (
 // to contain ": " (e.g. "failed to load item: not found") are not misparsed.
 var errorCodePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,49}$`)
 
+// restateCodePrefix matches "[400] " markers that Restate prepends to terminal
+// error messages. We strip every occurrence so the message handed to the FE is
+// the human chain ("resolve address country: address_not_found: address could
+// not be located") with no transport noise.
+var restateCodePrefix = regexp.MustCompile(`\[\d+\]\s+`)
+
 func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	// Preserve the original sharedmodel.Error struct (including Code) when the
 	// error originates same-process. Only fall back to reconstructing when the
@@ -37,6 +43,10 @@ func writeError(w http.ResponseWriter, httpCode int, err error) error {
 	} else {
 		e = sharedmodel.NewError(uint16(httpCode), "", err.Error())
 	}
+
+	// Strip any "[400] " transport markers that survived Restate hops before
+	// the message reaches FE or our code-extraction below.
+	e.Message = restateCodePrefix.ReplaceAllString(e.Message, "")
 
 	// Cross-service safety: when Code is empty but the message starts with a
 	// valid identifier prefix ("wallet_not_empty: ..."), extract it back into

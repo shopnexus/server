@@ -15,7 +15,10 @@ import (
 	restate "github.com/restatedev/sdk-go"
 )
 
-var codePrefix = regexp.MustCompile(`^\[\d+\]\s*`)
+// Strips leading "[CODE] " markers that Restate prepends to error messages.
+// Matches one or more consecutive brackets so doubled prefixes (which can
+// appear after multi-hop service calls) collapse in a single pass.
+var codePrefix = regexp.MustCompile(`^(?:\[\d+\]\s*)+`)
 
 // parseRestateError tries to extract the original error message from a Restate JSON error response.
 // Falls back to a generic message if the body isn't parseable.
