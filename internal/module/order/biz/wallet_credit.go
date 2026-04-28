@@ -12,7 +12,7 @@ import (
 )
 
 type CreditFromSessionParams struct {
-	SessionID  int64     `json:"session_id"`
+	SessionID  uuid.UUID `json:"session_id"`
 	AccountID  uuid.UUID `json:"account_id"`
 	CreditType string    `json:"credit_type"`
 	Reference  string    `json:"reference"`
@@ -51,7 +51,7 @@ func (b *OrderHandler) CreditFromSession(
 		AccountID: params.AccountID,
 		Amount:    settled,
 		Type:      params.CreditType,
-		Reference: fmt.Sprintf("session:%d %s", params.SessionID, params.Reference),
+		Reference: fmt.Sprintf("session:%s %s", params.SessionID, params.Reference),
 		Note:      params.Note,
 	}); err != nil {
 		return 0, sharedmodel.WrapErr("wallet credit from session", err)
