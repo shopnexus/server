@@ -29,9 +29,6 @@ import (
 //
 //go:generate go run shopnexus-server/cmd/genrestate -interface OrderBiz -service Order
 type OrderBiz interface {
-	// Checkout
-	BuyerCheckout(ctx context.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error)
-
 	// Pending Items (buyer)
 	ListBuyerPendingItems(
 		ctx context.Context,
@@ -44,7 +41,6 @@ type OrderBiz interface {
 		ctx context.Context,
 		params ListSellerPendingItemsParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
-	ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ConfirmSellerPendingResult, error)
 	RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error
 
 	// Orders
@@ -63,13 +59,6 @@ type OrderBiz interface {
 	MarkTxSuccess(ctx context.Context, params MarkTxSuccessParams) error
 	MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error
 	OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error
-
-	// Timeout handlers
-	TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error
-	TimeoutConfirmFeeSession(ctx context.Context, params TimeoutConfirmFeeSessionParams) error
-
-	// Escrow
-	ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error
 
 	// Cart
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
@@ -176,31 +165,11 @@ func NewOrderHandler(
 
 // --- Param structs ---
 
-type BuyerCheckoutParams struct {
-	Account       accountmodel.AuthenticatedAccount
-	BuyNow        bool           `json:"buy_now"`
-	Address       string         `json:"address" validate:"required,min=1,max=500"`
-	UseWallet     bool           `json:"use_wallet"`
-	PaymentOption string         `json:"payment_option" validate:"max=100"`
-	WalletID      *uuid.UUID     `json:"wallet_id,omitempty"`
-	Items         []CheckoutItem `json:"items" validate:"required,min=1,dive"`
-}
-
 type CheckoutItem struct {
 	SkuID           uuid.UUID `json:"sku_id" validate:"required"`
 	Quantity        int64     `json:"quantity" validate:"required,gt=0,max=100000"`
 	TransportOption string    `json:"transport_option" validate:"required,min=1,max=100"`
 	Note            string    `json:"note" validate:"max=500"`
-}
-
-type BuyerCheckoutResult struct {
-	Items                  []ordermodel.OrderItem `json:"items"`
-	CheckoutTxIDs          []int64                `json:"checkout_tx_ids"`
-	BlockerTxID            int64                  `json:"blocker_tx_id"`
-	RequiresGatewayPayment bool                   `json:"requires_gateway_payment"`
-	GatewayURL             *string                `json:"gateway_url,omitempty"`
-	WalletDeducted         int64                  `json:"wallet_deducted"`
-	Total                  int64                  `json:"total"`
 }
 
 type ListBuyerPendingItemsParams struct {
@@ -216,24 +185,6 @@ type CancelBuyerPendingParams struct {
 type ListSellerPendingItemsParams struct {
 	SellerID uuid.UUID `validate:"required"`
 	sharedmodel.PaginationParams
-}
-
-type ConfirmSellerPendingParams struct {
-	Account       accountmodel.AuthenticatedAccount
-	ItemIDs       []int64    `json:"item_ids" validate:"required,min=1,max=1000"`
-	UseWallet     bool       `json:"use_wallet"`
-	PaymentOption string     `json:"payment_option" validate:"max=100"`
-	WalletID      *uuid.UUID `json:"wallet_id,omitempty"`
-	Note          string     `json:"note" validate:"max=500"`
-}
-
-type ConfirmSellerPendingResult struct {
-	Order                  ordermodel.Order `json:"order"`
-	ConfirmFeeTxIDs        []int64          `json:"confirm_fee_tx_ids"`
-	PayoutTxID             int64            `json:"payout_tx_id"`
-	BlockerTxID            int64            `json:"blocker_tx_id"`
-	RequiresGatewayPayment bool             `json:"requires_gateway_payment"`
-	GatewayURL             *string          `json:"gateway_url,omitempty"`
 }
 
 type RejectSellerPendingParams struct {
@@ -262,23 +213,6 @@ type MarkTxSuccessParams struct {
 type MarkTxFailedParams struct {
 	TxID   int64  `json:"tx_id" validate:"required"`
 	Reason string `json:"reason"`
-}
-
-// --- Timeout handlers ---
-
-type TimeoutCheckoutSessionParams struct {
-	SessionID int64 `json:"session_id"`
-}
-
-type TimeoutConfirmFeeSessionParams struct {
-	SessionID int64     `json:"session_id"`
-	OrderID   uuid.UUID `json:"order_id"`
-}
-
-// --- Escrow ---
-
-type ReleaseEscrowParams struct {
-	OrderID uuid.UUID `json:"order_id"`
 }
 
 // --- Cart ---

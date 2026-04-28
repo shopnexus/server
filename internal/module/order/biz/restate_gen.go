@@ -23,10 +23,6 @@ func NewOrderRestateClient(restateIngressURL string) *OrderRestateClient {
 	return &OrderRestateClient{client: restateclient.NewClient(restateIngressURL)}
 }
 
-func (p *OrderRestateClient) BuyerCheckout(ctx context.Context, params BuyerCheckoutParams) (BuyerCheckoutResult, error) {
-	return restateclient.Call[BuyerCheckoutResult](ctx, p.client, serviceName, "BuyerCheckout", params)
-}
-
 func (p *OrderRestateClient) ListBuyerPendingItems(ctx context.Context, params ListBuyerPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListBuyerPendingItems", params)
 }
@@ -37,10 +33,6 @@ func (p *OrderRestateClient) CancelBuyerPending(ctx context.Context, params Canc
 
 func (p *OrderRestateClient) ListSellerPendingItems(ctx context.Context, params ListSellerPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListSellerPendingItems", params)
-}
-
-func (p *OrderRestateClient) ConfirmSellerPending(ctx context.Context, params ConfirmSellerPendingParams) (ConfirmSellerPendingResult, error) {
-	return restateclient.Call[ConfirmSellerPendingResult](ctx, p.client, serviceName, "ConfirmSellerPending", params)
 }
 
 func (p *OrderRestateClient) RejectSellerPending(ctx context.Context, params RejectSellerPendingParams) error {
@@ -73,18 +65,6 @@ func (p *OrderRestateClient) MarkTxFailed(ctx context.Context, params MarkTxFail
 
 func (p *OrderRestateClient) OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "OnPaymentResult", params)
-}
-
-func (p *OrderRestateClient) TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "TimeoutCheckoutSession", params)
-}
-
-func (p *OrderRestateClient) TimeoutConfirmFeeSession(ctx context.Context, params TimeoutConfirmFeeSessionParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "TimeoutConfirmFeeSession", params)
-}
-
-func (p *OrderRestateClient) ReleaseEscrow(ctx context.Context, params ReleaseEscrowParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "ReleaseEscrow", params)
 }
 
 func (p *OrderRestateClient) GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error) {

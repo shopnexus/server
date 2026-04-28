@@ -93,14 +93,14 @@ func (b *OrderHandler) ListBuyerPendingItems(
 	// Attach the payment session so the FE can branch on its status —
 	// "Awaiting Payment" + Continue Payment when Pending, "Awaiting Seller" when Success.
 	if len(enriched) > 0 {
-		sessionIDs := lo.Uniq(lo.Map(enriched, func(it ordermodel.OrderItem, _ int) int64 { return it.PaymentSessionID }))
+		sessionIDs := lo.Uniq(lo.Map(enriched, func(it ordermodel.OrderItem, _ int) uuid.UUID { return it.PaymentSessionID }))
 		sessions, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPaymentSession, error) {
 			return b.storage.Querier().ListPaymentSession(ctx, orderdb.ListPaymentSessionParams{ID: sessionIDs})
 		})
 		if err != nil {
 			return zero, sharedmodel.WrapErr("db fetch payment sessions", err)
 		}
-		sessionMap := lo.KeyBy(sessions, func(s orderdb.OrderPaymentSession) int64 { return s.ID })
+		sessionMap := lo.KeyBy(sessions, func(s orderdb.OrderPaymentSession) uuid.UUID { return s.ID })
 		for i := range enriched {
 			if s, ok := sessionMap[enriched[i].PaymentSessionID]; ok {
 				mapped := mapPaymentSession(s)
@@ -169,7 +169,7 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	// (gateway didn't complete); a Failed session means payment was rejected.
 	// Either way, no money moved into the platform — we must not create a refund.
 	paymentSession, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderPaymentSession, error) {
-		return b.storage.Querier().GetPaymentSession(ctx, null.IntFrom(item.PaymentSessionID))
+		return b.storage.Querier().GetPaymentSession(ctx, uuid.NullUUID{UUID: item.PaymentSessionID, Valid: true})
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("db get payment session", err)

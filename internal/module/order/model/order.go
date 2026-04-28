@@ -14,7 +14,7 @@ import (
 // PaymentSession is the domain-layer payment intent: one logical money flow
 // (checkout, confirmation fee, payout). Has 0..N child Transaction rail movements.
 type PaymentSession struct {
-	ID             int64               `json:"id"`
+	ID             uuid.UUID           `json:"id"`
 	Kind           string              `json:"kind"`
 	Status         orderdb.OrderStatus `json:"status"`
 	FromID         uuid.NullUUID       `json:"from_id"`
@@ -33,7 +33,7 @@ type PaymentSession struct {
 // Reversals are NEW rows with negative amount + ReversesID pointing to the original.
 type Transaction struct {
 	ID            int64               `json:"id"`
-	SessionID     int64               `json:"session_id"`
+	SessionID     uuid.UUID           `json:"session_id"`
 	Status        orderdb.OrderStatus `json:"status"`
 	Note          string              `json:"note"`
 	Error         null.String         `json:"error"`
@@ -80,7 +80,7 @@ type OrderItem struct {
 	TransportOption  string `json:"transport_option"`
 	SubtotalAmount   int64  `json:"subtotal_amount"`
 	TotalAmount      int64  `json:"total_amount"`
-	PaymentSessionID int64  `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID `json:"payment_session_id"`
 
 	DateCreated   time.Time     `json:"date_created"`
 	DateCancelled null.Time     `json:"date_cancelled"`
@@ -100,7 +100,7 @@ type Order struct {
 	DateCreated time.Time `json:"date_created"`
 
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 
 	// Derived (optional loaded):

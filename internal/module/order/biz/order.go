@@ -203,7 +203,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 		orderID := o.ID
 		confirmSessionID := o.ConfirmSessionID
 		enriched, err := restate.Run(ctx, func(ctx restate.RunContext) (orderEnrich, error) {
-			confirmSession, err := b.storage.Querier().GetPaymentSession(ctx, null.IntFrom(confirmSessionID))
+			confirmSession, err := b.storage.Querier().GetPaymentSession(ctx, uuid.NullUUID{UUID: confirmSessionID, Valid: true})
 			if err != nil {
 				return orderEnrich{}, sharedmodel.WrapErr("get confirm session", err)
 			}

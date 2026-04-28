@@ -88,18 +88,18 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		// Look up the payment session for every distinct item. We refund only
 		// items whose session actually settled to Success — Pending/Failed
 		// items had no money flow through the platform.
-		sessionIDs := lo.Uniq(lo.Map(buyerItemList, func(it orderdb.OrderItem, _ int) int64 { return it.PaymentSessionID }))
+		sessionIDs := lo.Uniq(lo.Map(buyerItemList, func(it orderdb.OrderItem, _ int) uuid.UUID { return it.PaymentSessionID }))
 		sessions, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPaymentSession, error) {
 			return b.storage.Querier().ListPaymentSession(ctx, orderdb.ListPaymentSessionParams{ID: sessionIDs})
 		})
 		if err != nil {
 			return sharedmodel.WrapErr("db fetch payment sessions", err)
 		}
-		sessionByID := lo.KeyBy(sessions, func(s orderdb.OrderPaymentSession) int64 { return s.ID })
+		sessionByID := lo.KeyBy(sessions, func(s orderdb.OrderPaymentSession) uuid.UUID { return s.ID })
 
 		// For each Success session, fetch its original tx (positive Success, no reverses_id)
 		// to use as reverses_id on the refund leg. Per design: single original per session.
-		originalTxBySession := make(map[int64]int64)
+		originalTxBySession := make(map[uuid.UUID]int64)
 		for sid, s := range sessionByID {
 			if s.Status != orderdb.OrderStatusSuccess {
 				continue
@@ -123,7 +123,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 			OriginalID int64
 		}
 		var refundPlans []itemRefundPlan
-		var pendingSessionIDs []int64
+		var pendingSessionIDs []uuid.UUID
 		var totalRefund int64
 		for _, item := range buyerItemList {
 			s, ok := sessionByID[item.PaymentSessionID]
