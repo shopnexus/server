@@ -71,6 +71,10 @@ func (p *OrderRestateClient) MarkTxFailed(ctx context.Context, params MarkTxFail
 	return restateclient.Send(ctx, p.client, serviceName, "MarkTxFailed", params)
 }
 
+func (p *OrderRestateClient) OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "OnPaymentResult", params)
+}
+
 func (p *OrderRestateClient) TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "TimeoutCheckoutSession", params)
 }
@@ -143,8 +147,8 @@ func (p *OrderRestateClient) GetRefundDispute(ctx context.Context, params GetRef
 	return restateclient.Call[ordermodel.RefundDispute](ctx, p.client, serviceName, "GetRefundDispute", params)
 }
 
-func (p *OrderRestateClient) UpdateTransportStatus(ctx context.Context, params UpdateTransportStatusParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "UpdateTransportStatus", params)
+func (p *OrderRestateClient) OnTransportResult(ctx context.Context, params UpdateTransportStatusParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "OnTransportResult", params)
 }
 
 func (p *OrderRestateClient) GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error) {

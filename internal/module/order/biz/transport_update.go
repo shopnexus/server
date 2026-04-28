@@ -37,12 +37,15 @@ var validTransitions = map[orderdb.OrderStatus]map[orderdb.OrderStatus]bool{
 	orderdb.OrderStatusCancelled: {},
 }
 
-// UpdateTransportStatus updates a transport record's status and data field.
-// When transport reaches OrderStatusSuccess (Delivered), schedules a 7-day
-// Restate delayed send for ReleaseEscrow on all orders on that transport.
-func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateTransportStatusParams) error {
+// OnTransportResult updates a transport record's status and data field. When
+// transport reaches OrderStatusSuccess (Delivered) it signals each affected
+// order's PayoutWorkflow via OnRefundChanged so the in-flight workflow can
+// re-evaluate its release-escrow timer; when transport fails or is cancelled
+// it fires the corresponding buyer/seller notifications. Called by the
+// transport-provider webhook bridge (transport/echo).
+func (b *OrderHandler) OnTransportResult(ctx restate.Context, params UpdateTransportStatusParams) error {
 	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate update transport status", err)
+		return sharedmodel.WrapErr("validate on transport result", err)
 	}
 
 	type transportInfo struct {
@@ -91,7 +94,8 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 		return sharedmodel.WrapErr("update transport status", err)
 	}
 
-	// Step 2: If Delivered (Success), fetch orders on this transport and schedule escrow release.
+	// Step 2: If Delivered (Success), fetch orders on this transport and signal
+	// PayoutWorkflow so it can re-arm / wake up its escrow-release evaluation.
 	if params.Status == orderdb.OrderStatusSuccess {
 		orders, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderOrder, error) {
 			return b.storage.Querier().ListOrdersByTransportID(ctx, fetched.TransportID)
@@ -100,10 +104,8 @@ func (b *OrderHandler) UpdateTransportStatus(ctx restate.Context, params UpdateT
 			return sharedmodel.WrapErr("list orders by transport", err)
 		}
 		for _, o := range orders {
-			restate.ServiceSend(ctx, b.ServiceName(), "ReleaseEscrow").Send(
-				ReleaseEscrowParams{OrderID: o.ID},
-				restate.WithDelay(escrowWindow),
-			)
+			restate.WorkflowSend(ctx, "PayoutWorkflow", o.ID.String(), "OnRefundChanged").
+				Send(struct{}{})
 			// Notify buyer about delivery.
 			meta, _ := json.Marshal(map[string]string{
 				"tracking_id": fetched.TrackingID,

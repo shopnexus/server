@@ -83,16 +83,22 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.POST("/refunds/:refundID/disputes", h.CreateRefundDispute, rlDispute)
 	g.GET("/refunds/:refundID/disputes", h.ListRefundDisputesByRefund)
 
-	// Payment webhooks — parse "tx:<id>" ref_id and dispatch Mark* methods
+	// Payment webhooks — RefID is the session UUID string (== workflow ID).
+	// OnPaymentResult resolves the gateway-leg tx from the session, marks it,
+	// and signals the owning workflow's payment_event promise.
 	onResult := func(ctx context.Context, result payment.WebhookResult) error {
-		var txID int64
-		if _, err := fmt.Sscanf(result.RefID, "tx:%d", &txID); err != nil {
+		sessionID, err := uuid.Parse(result.RefID)
+		if err != nil {
 			return fmt.Errorf("malformed webhook ref id %q: %w", result.RefID, err)
 		}
+		outcome := "failed"
 		if result.Status == payment.StatusSuccess {
-			return biz.MarkTxSuccess(ctx, orderbiz.MarkTxSuccessParams{TxID: txID})
+			outcome = "paid"
 		}
-		return biz.MarkTxFailed(ctx, orderbiz.MarkTxFailedParams{TxID: txID, Reason: string(result.Status)})
+		return biz.OnPaymentResult(ctx, orderbiz.OnPaymentResultParams{
+			SessionID: sessionID,
+			Outcome:   outcome,
+		})
 	}
 	for _, client := range handler.PaymentClients() {
 		client.OnResult(onResult)
@@ -105,7 +111,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 		if err != nil {
 			return fmt.Errorf("marshal transport webhook data: %w", err)
 		}
-		return biz.UpdateTransportStatus(ctx, orderbiz.UpdateTransportStatusParams{
+		return biz.OnTransportResult(ctx, orderbiz.UpdateTransportStatusParams{
 			TrackingID: result.TransportID,
 			Status:     orderdb.OrderStatus(result.Status),
 			Data:       data,

@@ -62,6 +62,7 @@ type OrderBiz interface {
 	// Transaction webhook callbacks
 	MarkTxSuccess(ctx context.Context, params MarkTxSuccessParams) error
 	MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error
+	OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error
 
 	// Timeout handlers
 	TimeoutCheckoutSession(ctx context.Context, params TimeoutCheckoutSessionParams) error
@@ -103,7 +104,7 @@ type OrderBiz interface {
 	GetRefundDispute(ctx context.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error)
 
 	// Transport
-	UpdateTransportStatus(ctx context.Context, params UpdateTransportStatusParams) error
+	OnTransportResult(ctx context.Context, params UpdateTransportStatusParams) error
 
 	// Dashboard
 	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)

@@ -1,6 +1,7 @@
 package orderbiz
 
 import (
+	"encoding/json"
 	"time"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
@@ -82,6 +83,21 @@ type PayoutInput struct {
 type PayoutOutput struct {
 	OrderID uuid.UUID `json:"order_id"`
 	Outcome string    `json:"outcome"`
+}
+
+// OnPaymentResultParams is the unified payload payment-gateway webhooks send
+// into the Order service. The webhook handler parses RefID (== session UUID
+// string) and dispatches here; OnPaymentResult marks the underlying tx,
+// auto-promotes the session, and signals the owning workflow.
+//
+// TxID is optional: webhooks that already know the gateway-leg tx pass it
+// directly; otherwise OnPaymentResult resolves it from the session by picking
+// the single Pending non-wallet (gateway) tx.
+type OnPaymentResultParams struct {
+	SessionID    uuid.UUID       `json:"session_id" validate:"required"`
+	TxID         int64           `json:"tx_id,omitempty"`
+	Outcome      string          `json:"outcome" validate:"required,oneof=paid failed"`
+	ProviderData json.RawMessage `json:"provider_data,omitempty"`
 }
 
 // RefundSnapshot is a small projection of the refund table used by
