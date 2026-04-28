@@ -42,3 +42,35 @@ type CheckoutWorkflowOutput struct {
 	Status    string    `json:"status"`
 	SessionID uuid.UUID `json:"session_id"`
 }
+
+// ConfirmWorkflowInput is the payload submitted to ConfirmWorkflow.Run. The
+// confirm-fee session UUID is derived from the workflow ID (ctx.Key()) inside
+// Run — same convention as CheckoutWorkflow so webhooks can route by RefID
+// without a DB lookup.
+type ConfirmWorkflowInput struct {
+	Account       accountmodel.AuthenticatedAccount `json:"account"`
+	ItemIDs       []int64                           `json:"item_ids" validate:"required,min=1,max=1000"`
+	UseWallet     bool                              `json:"use_wallet"`
+	WalletID      *uuid.UUID                        `json:"wallet_id,omitempty"`
+	PaymentOption string                            `json:"payment_option" validate:"max=100"`
+	Note          string                            `json:"note" validate:"max=500"`
+}
+
+// ConfirmWorkflowOutput is the terminal value returned from ConfirmWorkflow.Run.
+// Status is one of "confirmed", "expired", "cancelled". OrderID is only set on
+// the success ("confirmed") path.
+type ConfirmWorkflowOutput struct {
+	Status           string    `json:"status"`
+	OrderID          uuid.UUID `json:"order_id,omitempty"`
+	ConfirmSessionID uuid.UUID `json:"confirm_session_id"`
+}
+
+// PayoutInput is the payload submitted to PayoutWorkflow.Run when a confirm
+// settles. It carries everything PayoutWorkflow needs to open the escrow
+// session and schedule the eventual seller credit.
+type PayoutInput struct {
+	OrderID   uuid.UUID `json:"order_id"`
+	SellerID  uuid.UUID `json:"seller_id"`
+	PaidTotal int64     `json:"paid_total"`
+	Currency  string    `json:"currency"`
+}
