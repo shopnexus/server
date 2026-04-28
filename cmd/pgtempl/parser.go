@@ -453,6 +453,12 @@ func parseIndexStmt(idx *pgv6.IndexStmt, tableMap map[string]*Table) {
 	if idx.GetRelation() == nil {
 		return
 	}
+	// Partial unique indexes (CREATE UNIQUE INDEX ... WHERE ...) only enforce
+	// uniqueness over the subset of rows matching the predicate, so they do
+	// NOT uniquely identify a row globally. Skip them as identifier sets.
+	if idx.GetWhereClause() != nil {
+		return
+	}
 
 	tableKey := idx.GetRelation().GetSchemaname() + "." + idx.GetRelation().GetRelname()
 	tbl, ok := tableMap[tableKey]

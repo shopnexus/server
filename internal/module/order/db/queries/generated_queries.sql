@@ -251,7 +251,7 @@ WHERE (
 -- name: GetTransaction :one
 SELECT *
 FROM "order"."transaction"
-WHERE ("id" = sqlc.narg('id')) OR ("reverses_id" = sqlc.narg('reverses_id'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: CountTransaction :one
 SELECT COUNT(*)
@@ -847,7 +847,7 @@ WHERE (
 -- name: GetRefund :one
 SELECT *
 FROM "order"."refund"
-WHERE ("id" = sqlc.narg('id')) OR ("order_id" = sqlc.narg('order_id'));
+WHERE ("id" = sqlc.narg('id'));
 
 -- name: CountRefund :one
 SELECT COUNT(*)

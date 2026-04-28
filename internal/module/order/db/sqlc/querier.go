@@ -105,7 +105,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: order.refund
 	// ========================================
-	GetRefund(ctx context.Context, arg GetRefundParams) (OrderRefund, error)
+	GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund, error)
 	// ========================================
 	// Queries for table: order.refund_dispute
 	// ========================================
@@ -123,7 +123,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: order.transaction
 	// ========================================
-	GetTransaction(ctx context.Context, arg GetTransactionParams) (OrderTransaction, error)
+	GetTransaction(ctx context.Context, id null.Int) (OrderTransaction, error)
 	// ========================================
 	// Queries for table: order.transport
 	// ========================================

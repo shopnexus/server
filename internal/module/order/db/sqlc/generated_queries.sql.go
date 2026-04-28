@@ -2148,19 +2148,14 @@ const getRefund = `-- name: GetRefund :one
 
 SELECT id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 FROM "order"."refund"
-WHERE ("id" = $1) OR ("order_id" = $2)
+WHERE ("id" = $1)
 `
-
-type GetRefundParams struct {
-	ID      uuid.NullUUID `json:"id"`
-	OrderID uuid.NullUUID `json:"order_id"`
-}
 
 // ========================================
 // Queries for table: order.refund
 // ========================================
-func (q *Queries) GetRefund(ctx context.Context, arg GetRefundParams) (OrderRefund, error) {
-	row := q.db.QueryRow(ctx, getRefund, arg.ID, arg.OrderID)
+func (q *Queries) GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund, error) {
+	row := q.db.QueryRow(ctx, getRefund, id)
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
@@ -2213,19 +2208,14 @@ const getTransaction = `-- name: GetTransaction :one
 
 SELECT id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 FROM "order"."transaction"
-WHERE ("id" = $1) OR ("reverses_id" = $2)
+WHERE ("id" = $1)
 `
-
-type GetTransactionParams struct {
-	ID         null.Int `json:"id"`
-	ReversesID null.Int `json:"reverses_id"`
-}
 
 // ========================================
 // Queries for table: order.transaction
 // ========================================
-func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (OrderTransaction, error) {
-	row := q.db.QueryRow(ctx, getTransaction, arg.ID, arg.ReversesID)
+func (q *Queries) GetTransaction(ctx context.Context, id null.Int) (OrderTransaction, error) {
+	row := q.db.QueryRow(ctx, getTransaction, id)
 	var i OrderTransaction
 	err := row.Scan(
 		&i.ID,
