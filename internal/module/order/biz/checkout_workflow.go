@@ -3,6 +3,7 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -95,12 +96,28 @@ func (h *CheckoutWorkflowHandler) Run(
 
 	saga := NewSaga(ctx)
 	var (
-		cancelled bool
-		expired   bool
+		cancelled                bool
+		expired                  bool
+		sessionIDForCompensation uuid.UUID
 	)
 	defer func() {
 		if err != nil || cancelled || expired {
 			saga.Compensate()
+			// CreditFromSession is a cross-module call (WalletCredit) and must
+			// run on the workflow context, not inside a saga RunVoid. We invoke
+			// it here, after the saga has marked the session Failed and
+			// cancelled items, so that the credit reflects only legs that
+			// actually settled.
+			if sessionIDForCompensation != uuid.Nil {
+				if _, ce := h.CreditFromSession(ctx, CreditFromSessionParams{
+					SessionID:  sessionIDForCompensation,
+					AccountID:  input.Account.ID,
+					CreditType: "Refund",
+					Note:       "checkout saga compensation",
+				}); ce != nil {
+					slog.Error("checkout compensation: credit from session", slog.Any("error", ce))
+				}
+			}
 			if err != nil && !restate.IsTerminalError(err) {
 				err = restate.TerminalError(err)
 			}
@@ -371,10 +388,10 @@ func (h *CheckoutWorkflowHandler) Run(
 	// declared BEFORE the Run() so a panic mid-Run still triggers cleanup —
 	// session/items/txs are all visible in DB even on partial commit because
 	// each statement auto-commits in the absence of an outer tx (sqlc Queries
-	// pool here). MarkPaymentSessionFailed is idempotent on already-final
-	// sessions; CancelItem and CreditFromSession likewise.
-	var sessionIDForCompensation uuid.UUID
-	saga.Defer("mark_session_failed_and_credit", func(rctx restate.RunContext) error {
+	// pool here). MarkPaymentSessionFailed and CancelItem are idempotent on
+	// already-final rows. CreditFromSession is a cross-module call and is
+	// invoked from the top-level defer (above), not from this RunContext.
+	saga.Defer("mark_session_failed_and_cancel_items", func(rctx restate.RunContext) error {
 		if sessionIDForCompensation == uuid.Nil {
 			return nil
 		}
@@ -393,13 +410,7 @@ func (h *CheckoutWorkflowHandler) Run(
 				return ce
 			}
 		}
-		_, e = h.CreditFromSession(ctx, CreditFromSessionParams{
-			SessionID:  sessionIDForCompensation,
-			AccountID:  input.Account.ID,
-			CreditType: "Refund",
-			Note:       "checkout saga compensation",
-		})
-		return e
+		return nil
 	})
 
 	created, err := restate.Run(ctx, func(rctx restate.RunContext) (runResult, error) {
