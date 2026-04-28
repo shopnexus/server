@@ -490,53 +490,26 @@ paymentClient.Create(ctx, payment.CreateParams{
 
 ---
 
-## 14. Schema migrations summary
+## 14. Schema changes (edit init script directly)
 
-In one migration file `0002_workflow_refactor.up.sql`:
+Repo is still in dev phase — edit `internal/module/order/db/migrations/0001_init.up.sql` directly instead of writing an additive migration file. Reset dev DB after.
 
-1. `ALTER TABLE "order".refund DROP COLUMN order_item_id;`
-2. `ALTER TABLE "order".refund ADD COLUMN order_id uuid NOT NULL REFERENCES "order".order(id);`
-3. `CREATE UNIQUE INDEX refund_one_active_per_order ...`
+Changes to `order.refund`:
 
-Optional (audit): `ALTER TABLE "order".payment_session ADD COLUMN workflow_id text;` — populated from workflow input for cross-reference.
+- Replace column `order_item_id bigint REFERENCES "order".item(id)` with `order_id uuid NOT NULL REFERENCES "order".order(id)`.
+- Add `CREATE UNIQUE INDEX refund_one_active_per_order ON "order".refund(order_id) WHERE status IN ('Pending', 'Processing');`
 
-Per `feedback_no_drop_schemas.md`: dev DB only, but still confirm with user before applying. Per `feedback_no_edit_generated_queries.md`: regen via `make pgtempl` + `sqlc generate`, do not hand-edit.
+Optional (audit): add `workflow_id text` column to `order.payment_session` for cross-reference. Skip if not needed.
 
----
-
-## 15. Testing strategy
-
-### 15.1 Unit
-
-- `Saga` helper: mock compensator funcs, verify LIFO order on `Compensate`, no-op on `Clear`.
-- `workflowForSession` mapping table-driven test.
-
-### 15.2 Workflow integration
-
-Use `github.com/restatedev/sdk-go/testing` (`test_env.go`) to spin up an in-memory Restate runtime. Mock cross-module clients (account, inventory, catalog, common).
-
-For each workflow, three minimum test cases:
-1. **Happy path** — payment "paid", workflow returns Status: "paid", no compensators fire.
-2. **Expired** — no signal, timer wins WaitFirst, Status: "expired", compensators fire LIFO.
-3. **Cancelled** — `CancelCheckout` shared handler resolves event, Status: "cancelled", compensators fire LIFO.
-
-### 15.3 PayoutWorkflow specific
-
-Sequence test: snapshot returns `(NoActive, NotApproved)` → workflow waits → signal → snapshot returns `(Active, NotApproved)` → workflow waits → signal → snapshot returns `(NoActive, Approved)` → workflow returns `Outcome: "refunded"`, payout session cancelled.
-
-Long-timer test: use `test_env`'s manual time advance to simulate 7-day passage.
-
-### 15.4 End-to-end
-
-Existing integration tests in `internal/module/order/biz/*_test.go` updated to call workflow Submit + Attach instead of direct method calls. Webhook tests verify `OnPaymentResult` signals correct workflow.
+Per `feedback_no_edit_generated_queries.md`: regen via `make pgtempl` + `sqlc generate` after editing the init script. Do not hand-edit `generated_queries.sql` or `db/sqlc/*.sql.go`.
 
 ---
 
-## 16. Migration & rollout
+## 15. Migration & rollout
 
 Dev only — no feature flag needed. Order:
 
-1. Land schema migration + regen queries.
+1. Edit `0001_init.up.sql` for refund schema change + regen queries (`make pgtempl` + `sqlc generate`).
 2. Add Saga helper.
 3. Add CheckoutWorkflowHandler, register in `app/restate.go`. Update HTTP transport for `/buyer/checkout` and webhook handler.
 4. Add ConfirmWorkflowHandler, register, update transport for `/seller/pending/confirm`.
@@ -544,11 +517,11 @@ Dev only — no feature flag needed. Order:
 6. Remove legacy `BuyerCheckout` and `ConfirmSellerPending` methods from `OrderHandler`.
 7. Remove `MarkTxSuccess` cross-module ServiceSend call sites in webhook handlers (replaced by `OnPaymentResult` indirection).
 
-Each step is independently shippable and testable.
+Each step is independently shippable.
 
 ---
 
-## 17. Open questions deferred to implementation plan
+## 16. Open questions deferred to implementation plan
 
 - `payment.CreateParams.RefID` type unification (int64 vs string).
 - Whether `OnTransportResult` should also be a `restate.Workflow.Send` to PayoutWorkflow when delivery completes early (vs the current `ReleaseEscrow` ServiceSend pattern).
