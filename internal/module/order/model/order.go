@@ -116,7 +116,7 @@ type Order struct {
 type Refund struct {
 	ID          uuid.UUID                 `json:"id"`
 	AccountID   uuid.UUID                 `json:"account_id"`
-	OrderItemID int64                     `json:"order_item_id"`
+	OrderID     uuid.UUID                 `json:"order_id"`
 	TransportID int64                     `json:"transport_id"`
 	Method      orderdb.OrderRefundMethod `json:"method"`
 	Reason      string                    `json:"reason"`

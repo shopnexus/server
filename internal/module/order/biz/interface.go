@@ -312,7 +312,7 @@ type ListSellerRefundsParams struct {
 
 type CreateBuyerRefundParams struct {
 	Account               accountmodel.AuthenticatedAccount
-	OrderItemID           int64                     `json:"order_item_id" validate:"required"`
+	OrderID               uuid.UUID                 `json:"order_id" validate:"required"`
 	Method                orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
 	Reason                string                    `json:"reason" validate:"required,max=500"`
 	Address               string                    `json:"address" validate:"omitempty,max=500"`

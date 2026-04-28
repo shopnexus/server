@@ -100,7 +100,7 @@ func mapRefund(r orderdb.OrderRefund) ordermodel.Refund {
 	return ordermodel.Refund{
 		ID:            r.ID,
 		AccountID:     r.AccountID,
-		OrderItemID:   r.OrderItemID,
+		OrderID:       r.OrderID,
 		TransportID:   r.TransportID,
 		Method:        r.Method,
 		Reason:        r.Reason,

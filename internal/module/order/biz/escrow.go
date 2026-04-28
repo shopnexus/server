@@ -23,7 +23,7 @@ func (b *OrderHandler) ReleaseEscrow(ctx restate.Context, params ReleaseEscrowPa
 	}
 
 	hasActive, err := restate.Run(ctx, func(ctx restate.RunContext) (bool, error) {
-		return b.storage.Querier().HasActiveRefundForOrder(ctx, toNullUUID(&params.OrderID))
+		return b.storage.Querier().HasActiveRefundForOrder(ctx, params.OrderID)
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("check active refund", err)

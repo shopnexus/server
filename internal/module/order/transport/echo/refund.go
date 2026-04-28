@@ -14,7 +14,7 @@ import (
 )
 
 type CreateBuyerRefundRequest struct {
-	OrderItemID           int64                     `json:"order_item_id"           validate:"required"`
+	OrderID               uuid.UUID                 `json:"order_id"                validate:"required"`
 	Method                orderdb.OrderRefundMethod `json:"method"                  validate:"required,validateFn=Valid"`
 	Reason                string                    `json:"reason"                  validate:"required,min=1,max=1000"`
 	Address               string                    `json:"address"                 validate:"omitempty,max=500"`
@@ -37,7 +37,7 @@ func (h *Handler) CreateBuyerRefund(c echo.Context) error {
 
 	result, err := h.biz.CreateBuyerRefund(c.Request().Context(), orderbiz.CreateBuyerRefundParams{
 		Account:               claims.Account,
-		OrderItemID:           req.OrderItemID,
+		OrderID:               req.OrderID,
 		Method:                req.Method,
 		Reason:                req.Reason,
 		Address:               req.Address,

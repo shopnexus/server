@@ -14,46 +14,71 @@ import (
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
-// CreateBuyerRefund creates a new 2-stage refund request for a paid order item.
-// A return transport is created automatically; the buyer supplies the return method and address.
+// signalPayoutWorkflowOnRefundChanged fires a fire-and-forget signal to the
+// PayoutWorkflow keyed on the refund's order ID, telling it to re-evaluate
+// whether to release escrow or short-circuit into a refunded outcome.
+func signalPayoutWorkflowOnRefundChanged(ctx restate.Context, orderID uuid.UUID) {
+	restate.WorkflowSend(ctx, "PayoutWorkflow", orderID.String(), "OnRefundChanged").Send(struct{}{})
+}
+
+// CreateBuyerRefund creates a new 2-stage refund request for a paid order.
+// A return transport is created automatically; the buyer supplies the return
+// method and address. After the refund row is persisted, PayoutWorkflow is
+// signalled so it can pause any pending escrow release.
 func (b *OrderHandler) CreateBuyerRefund(
 	ctx restate.Context,
 	params CreateBuyerRefundParams,
 ) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
-	// Validate item ownership, confirmation, and guard against duplicate active refunds.
-	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
-		it, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.OrderItemID))
-		if err != nil {
-			return it, sharedmodel.WrapErr("get item", err)
+	// Validate order ownership.
+	if _, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderOrder, error) {
+		o, e := b.storage.Querier().GetOrder(rctx, uuid.NullUUID{UUID: params.OrderID, Valid: true})
+		if e != nil {
+			return orderdb.OrderOrder{}, sharedmodel.WrapErr("get order", e)
 		}
-		if it.AccountID != params.Account.ID {
-			return it, ordermodel.ErrItemNotOwnedByBuyer.Terminal()
+		if o.BuyerID != params.Account.ID {
+			return orderdb.OrderOrder{}, ordermodel.ErrItemNotOwnedByBuyer.Terminal()
 		}
-		if !it.OrderID.Valid {
-			return it, ordermodel.ErrItemNotConfirmed.Terminal()
-		}
-		if it.DateCancelled.Valid {
-			return it, ordermodel.ErrItemAlreadyCancelled.Terminal()
-		}
-		active, err := b.storage.Querier().HasActiveRefundForItem(ctx, params.OrderItemID)
-		if err != nil {
-			return it, sharedmodel.WrapErr("check active refund", err)
-		}
-		if active {
-			return it, ordermodel.ErrRefundAlreadyAccepted.Terminal()
-		}
-		return it, nil
-	})
-	if err != nil {
+		return o, nil
+	}); err != nil {
 		return zero, err
 	}
-	_ = item
+
+	// At least one non-cancelled item must exist on the order.
+	items, err := restate.Run(ctx, func(rctx restate.RunContext) ([]orderdb.OrderItem, error) {
+		return b.storage.Querier().ListItem(rctx, orderdb.ListItemParams{
+			OrderID: []uuid.NullUUID{{UUID: params.OrderID, Valid: true}},
+		})
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list order items", err)
+	}
+	hasUncancelled := false
+	for _, it := range items {
+		if !it.DateCancelled.Valid {
+			hasUncancelled = true
+			break
+		}
+	}
+	if !hasUncancelled {
+		return zero, ordermodel.ErrItemAlreadyCancelled.Terminal()
+	}
+
+	// Guard against duplicate active refunds on the same order.
+	active, err := restate.Run(ctx, func(rctx restate.RunContext) (bool, error) {
+		return b.storage.Querier().HasActiveRefundForOrder(rctx, params.OrderID)
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("check active refund", err)
+	}
+	if active {
+		return zero, ordermodel.ErrRefundAlreadyAccepted.Terminal()
+	}
 
 	// Create a placeholder return transport (logistics filled in when seller accepts stage 1).
-	returnTransport, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderTransport, error) {
-		return b.storage.Querier().CreateDefaultTransport(ctx, orderdb.CreateDefaultTransportParams{
+	returnTransport, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderTransport, error) {
+		return b.storage.Querier().CreateDefaultTransport(rctx, orderdb.CreateDefaultTransportParams{
 			Option: params.ReturnTransportOption,
 			Data:   json.RawMessage(`{"direction":"return"}`),
 		})
@@ -67,10 +92,10 @@ func (b *OrderHandler) CreateBuyerRefund(
 		addr = null.StringFrom(params.Address)
 	}
 
-	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		return b.storage.Querier().CreateDefaultRefund(ctx, orderdb.CreateDefaultRefundParams{
+	refund, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().CreateDefaultRefund(rctx, orderdb.CreateDefaultRefundParams{
 			AccountID:   params.Account.ID,
-			OrderItemID: params.OrderItemID,
+			OrderID:     params.OrderID,
 			TransportID: returnTransport.ID,
 			Method:      params.Method,
 			Reason:      params.Reason,
@@ -81,6 +106,8 @@ func (b *OrderHandler) CreateBuyerRefund(
 		return zero, sharedmodel.WrapErr("create refund", err)
 	}
 
+	signalPayoutWorkflowOnRefundChanged(ctx, refund.OrderID)
+
 	return mapRefund(refund), nil
 }
 
@@ -90,8 +117,8 @@ func (b *OrderHandler) AcceptRefundStage1(
 	ctx restate.Context,
 	params AcceptRefundStage1Params,
 ) (ordermodel.Refund, error) {
-	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		return b.storage.Querier().AcceptRefundStage1(ctx, orderdb.AcceptRefundStage1Params{
+	refund, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().AcceptRefundStage1(rctx, orderdb.AcceptRefundStage1Params{
 			ID:           params.RefundID,
 			AcceptedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		})
@@ -99,20 +126,24 @@ func (b *OrderHandler) AcceptRefundStage1(
 	if err != nil {
 		return ordermodel.Refund{}, sharedmodel.WrapErr("accept stage 1", err)
 	}
+
+	signalPayoutWorkflowOnRefundChanged(ctx, refund.OrderID)
+
 	return mapRefund(refund), nil
 }
 
-// ApproveRefundStage2 is called by the seller after the returned item is received and inspected.
-// It creates a refund tx (Success), credits the buyer's wallet, cancels the item,
-// and cancels the pending payout if the order had one.
+// ApproveRefundStage2 is called by the seller after the returned items are received and inspected.
+// It creates a refund tx (Success), credits the buyer's wallet, and cancels every non-cancelled
+// item in the order. PayoutWorkflow is signalled afterwards so it self-cancels its pending payout
+// session if any.
 func (b *OrderHandler) ApproveRefundStage2(
 	ctx restate.Context,
 	params ApproveRefundStage2Params,
 ) (ordermodel.Refund, error) {
 	var zero ordermodel.Refund
 
-	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		return b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+	refund, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().GetRefund(rctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get refund", err)
@@ -121,25 +152,50 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, ordermodel.ErrRefundStageSkipped.Terminal()
 	}
 
-	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
-		return b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+	// Fetch order so we can authorise the seller and learn the buyer ID.
+	order, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderOrder, error) {
+		return b.storage.Querier().GetOrder(rctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
 	})
 	if err != nil {
-		return zero, sharedmodel.WrapErr("get item", err)
+		return zero, sharedmodel.WrapErr("get order", err)
 	}
-	if item.SellerID != params.Account.ID {
+	if order.SellerID != params.Account.ID {
 		return zero, ordermodel.ErrItemNotOwnedBySeller.Terminal()
 	}
 
-	// Infer buyer currency before the durable Run (outside Run — cross-module).
-	buyerCurrency, err := b.inferCurrency(ctx, item.AccountID)
+	// All items in an order share a single checkout payment session and a
+	// single buyer — pick the first non-cancelled item as our reference.
+	items, err := restate.Run(ctx, func(rctx restate.RunContext) ([]orderdb.OrderItem, error) {
+		return b.storage.Querier().ListItem(rctx, orderdb.ListItemParams{
+			OrderID: []uuid.NullUUID{{UUID: refund.OrderID, Valid: true}},
+		})
+	})
+	if err != nil {
+		return zero, sharedmodel.WrapErr("list order items", err)
+	}
+	var anyItem orderdb.OrderItem
+	var refundAmount int64
+	for _, it := range items {
+		if !it.DateCancelled.Valid {
+			if anyItem.ID == 0 {
+				anyItem = it
+			}
+			refundAmount += it.TotalAmount
+		}
+	}
+	if anyItem.ID == 0 {
+		return zero, sharedmodel.WrapErr("no non-cancelled items in order", ordermodel.ErrOrderItemNotFound)
+	}
+
+	// Infer buyer currency before the durable Run (cross-module call).
+	buyerCurrency, err := b.inferCurrency(ctx, order.BuyerID)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("infer buyer currency", err)
 	}
 
-	// Find the original payment tx in the item's session — refund leg reverses it.
-	sessionTxs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
-		return b.storage.Querier().ListTransactionsBySession(ctx, item.PaymentSessionID)
+	// Find the original payment tx in the buyer's checkout session — refund leg reverses it.
+	sessionTxs, err := restate.Run(ctx, func(rctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
+		return b.storage.Querier().ListTransactionsBySession(rctx, anyItem.PaymentSessionID)
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("list session txs", err)
@@ -155,17 +211,17 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, sharedmodel.WrapErr("no settled original tx in session", ordermodel.ErrOrderItemNotFound)
 	}
 
-	// All mutations in one durable Run: create refund leg, approve refund row, cancel item, cancel payout.
-	result, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		refundTx, err := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-			SessionID:     item.PaymentSessionID,
+	// All mutations in one durable Run: create refund leg, approve refund row, cancel every item.
+	result, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
+		refundTx, err := b.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+			SessionID:     anyItem.PaymentSessionID,
 			Status:        orderdb.OrderStatusSuccess,
-			Note:          fmt.Sprintf("refund approved for item %d", item.ID),
+			Note:          fmt.Sprintf("refund approved for order %s", refund.OrderID),
 			Error:         null.String{},
 			PaymentOption: null.String{},
 			WalletID:      uuid.NullUUID{},
 			Data:          json.RawMessage("{}"),
-			Amount:        -item.TotalAmount,
+			Amount:        -refundAmount,
 			FromCurrency:  buyerCurrency,
 			ToCurrency:    buyerCurrency,
 			ExchangeRate:  mustNumericOne(),
@@ -177,7 +233,7 @@ func (b *OrderHandler) ApproveRefundStage2(
 			return orderdb.OrderRefund{}, sharedmodel.WrapErr("create refund tx", err)
 		}
 
-		updated, err := b.storage.Querier().ApproveRefundStage2(ctx, orderdb.ApproveRefundStage2Params{
+		updated, err := b.storage.Querier().ApproveRefundStage2(rctx, orderdb.ApproveRefundStage2Params{
 			ID:           refund.ID,
 			ApprovedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 			RefundTxID:   null.IntFrom(refundTx.ID),
@@ -186,19 +242,15 @@ func (b *OrderHandler) ApproveRefundStage2(
 			return orderdb.OrderRefund{}, sharedmodel.WrapErr("approve stage 2", err)
 		}
 
-		if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
-			ID:            item.ID,
-			CancelledByID: uuid.NullUUID{UUID: item.AccountID, Valid: true},
-		}); err != nil {
-			return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel item", err)
-		}
-
-		// Cancel pending payout session if one exists for the order.
-		if item.OrderID.Valid {
-			if payoutSession, err := b.storage.Querier().GetPendingPayoutSessionForOrder(ctx, item.OrderID.UUID); err == nil {
-				if _, err := b.storage.Querier().MarkPaymentSessionCancelled(ctx, payoutSession.ID); err != nil {
-					return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel payout session", err)
-				}
+		for _, it := range items {
+			if it.DateCancelled.Valid {
+				continue
+			}
+			if _, err := b.storage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
+				ID:            it.ID,
+				CancelledByID: uuid.NullUUID{UUID: refund.AccountID, Valid: true},
+			}); err != nil {
+				return orderdb.OrderRefund{}, sharedmodel.WrapErr("cancel item", err)
 			}
 		}
 
@@ -212,8 +264,8 @@ func (b *OrderHandler) ApproveRefundStage2(
 	// Success txs in the session — the just-inserted negative refund leg is filtered
 	// out, leaving the original settled amount.
 	if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
-		SessionID:  item.PaymentSessionID,
-		AccountID:  item.AccountID,
+		SessionID:  anyItem.PaymentSessionID,
+		AccountID:  order.BuyerID,
 		CreditType: "Refund",
 		Reference:  fmt.Sprintf("refund:%s", refund.ID),
 		Note:       "refund approved",
@@ -221,12 +273,14 @@ func (b *OrderHandler) ApproveRefundStage2(
 		return zero, sharedmodel.WrapErr("wallet credit buyer", err)
 	}
 
+	signalPayoutWorkflowOnRefundChanged(ctx, refund.OrderID)
+
 	return mapRefund(result), nil
 }
 
-// RejectRefund rejects either stage 1 (Pending→Failed) or stage 2 (Processing→Failed).
-// After rejection, schedules a short Restate timer to re-attempt escrow release for the
-// associated order in case no other refunds block it.
+// RejectRefund rejects either stage 1 (Pending->Failed) or stage 2 (Processing->Failed).
+// PayoutWorkflow is signalled afterwards so it can resume its escrow timer if no other
+// refund blocks payout.
 func (b *OrderHandler) RejectRefund(
 	ctx restate.Context,
 	params RejectRefundParams,
@@ -235,8 +289,8 @@ func (b *OrderHandler) RejectRefund(
 		return ordermodel.Refund{}, ordermodel.ErrRefundRejectionWithoutReason.Terminal()
 	}
 
-	refund, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderRefund, error) {
-		return b.storage.Querier().RejectRefund(ctx, orderdb.RejectRefundParams{
+	refund, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
+		return b.storage.Querier().RejectRefund(rctx, orderdb.RejectRefundParams{
 			ID:            params.RefundID,
 			RejectionNote: null.StringFrom(params.RejectionNote),
 		})
@@ -245,16 +299,7 @@ func (b *OrderHandler) RejectRefund(
 		return ordermodel.Refund{}, sharedmodel.WrapErr("reject refund", err)
 	}
 
-	// Re-fire escrow release (short delay) so payout can proceed if no other refunds block.
-	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
-		return b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
-	})
-	if err == nil && item.OrderID.Valid {
-		restate.ServiceSend(ctx, b.ServiceName(), "ReleaseEscrow").Send(
-			ReleaseEscrowParams{OrderID: item.OrderID.UUID},
-			restate.WithDelay(1*time.Minute),
-		)
-	}
+	signalPayoutWorkflowOnRefundChanged(ctx, refund.OrderID)
 
 	return mapRefund(refund), nil
 }

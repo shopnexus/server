@@ -53,14 +53,14 @@ func (b *OrderHandler) CreateRefundDispute(
 			return disputeRunResult{}, ordermodel.ErrInvalidDisputeState.Terminal()
 		}
 
-		// Fetch the item to determine seller identity.
-		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+		// Fetch the order to determine seller identity (all items in an order share one seller).
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
 		if err != nil {
-			return disputeRunResult{}, sharedmodel.WrapErr("get item", err)
+			return disputeRunResult{}, sharedmodel.WrapErr("get order", err)
 		}
 
-		// Permission: buyer (refund.AccountID) or seller (item.SellerID).
-		if params.Account.ID != refund.AccountID && params.Account.ID != item.SellerID {
+		// Permission: buyer (refund.AccountID) or seller (order.SellerID).
+		if params.Account.ID != refund.AccountID && params.Account.ID != order.SellerID {
 			return disputeRunResult{}, ordermodel.ErrUnauthorized.Terminal()
 		}
 
@@ -88,7 +88,7 @@ func (b *OrderHandler) CreateRefundDispute(
 
 		return disputeRunResult{
 			BuyerID:  refund.AccountID,
-			SellerID: item.SellerID,
+			SellerID: order.SellerID,
 			Dispute:  dbDispute,
 		}, nil
 	})
@@ -149,11 +149,11 @@ func (b *OrderHandler) ListRefundDisputes(
 			if err != nil {
 				return authCheck{}, sharedmodel.WrapErr("get refund", err)
 			}
-			item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+			order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
 			if err != nil {
-				return authCheck{}, sharedmodel.WrapErr("get item", err)
+				return authCheck{}, sharedmodel.WrapErr("get order", err)
 			}
-			if params.Account.ID != refund.AccountID && params.Account.ID != item.SellerID {
+			if params.Account.ID != refund.AccountID && params.Account.ID != order.SellerID {
 				return authCheck{}, ordermodel.ErrDisputeNotAuthorized.Terminal()
 			}
 			return authCheck{}, nil
@@ -229,15 +229,15 @@ func (b *OrderHandler) GetRefundDispute(
 			return disputeResult{}, sharedmodel.WrapErr("get refund", err)
 		}
 
-		item, err := b.storage.Querier().GetItem(ctx, null.IntFrom(refund.OrderItemID))
+		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
 		if err != nil {
-			return disputeResult{}, sharedmodel.WrapErr("get item", err)
+			return disputeResult{}, sharedmodel.WrapErr("get order", err)
 		}
 
 		return disputeResult{
 			Dispute:  dispute,
 			BuyerID:  refund.AccountID,
-			SellerID: item.SellerID,
+			SellerID: order.SellerID,
 		}, nil
 	})
 	if err != nil {
