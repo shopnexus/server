@@ -847,7 +847,7 @@ WHERE (
 -- name: GetRefund :one
 SELECT *
 FROM "order"."refund"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("order_id" = sqlc.narg('order_id'));
 
 -- name: CountRefund :one
 SELECT COUNT(*)
@@ -855,7 +855,7 @@ FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -882,7 +882,7 @@ FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -912,7 +912,7 @@ FROM "order"."refund" embed_refund
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND
@@ -937,32 +937,32 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_item_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_item_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateCopyRefund :copyfrom
-INSERT INTO "order"."refund" ("id", "account_id", "order_item_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_item_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("account_id", "order_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyDefaultRefund :copyfrom
-INSERT INTO "order"."refund" ("account_id", "order_item_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("account_id", "order_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: UpdateRefund :one
 UPDATE "order"."refund"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "order_item_id" = COALESCE(sqlc.narg('order_item_id'), "order_item_id"),
+    "order_id" = COALESCE(sqlc.narg('order_id'), "order_id"),
     "transport_id" = COALESCE(sqlc.narg('transport_id'), "transport_id"),
     "method" = COALESCE(sqlc.narg('method'), "method"),
     "reason" = COALESCE(sqlc.narg('reason'), "reason"),
@@ -983,7 +983,7 @@ DELETE FROM "order"."refund"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("order_item_id" = ANY(sqlc.slice('order_item_id')) OR sqlc.slice('order_item_id') IS NULL) AND
+    ("order_id" = ANY(sqlc.slice('order_id')) OR sqlc.slice('order_id') IS NULL) AND
     ("transport_id" = ANY(sqlc.slice('transport_id')) OR sqlc.slice('transport_id') IS NULL) AND
     ("method" = ANY(sqlc.slice('method')) OR sqlc.slice('method') IS NULL) AND
     ("reason" = ANY(sqlc.slice('reason')) OR sqlc.slice('reason') IS NULL) AND

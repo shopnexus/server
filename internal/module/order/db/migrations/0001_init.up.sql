@@ -182,7 +182,7 @@ CREATE INDEX IF NOT EXISTS "idx_item_seller_pending" ON "order"."item" ("seller_
 CREATE TABLE IF NOT EXISTS "order"."refund" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "account_id" UUID NOT NULL,
-    "order_item_id" BIGINT NOT NULL,
+    "order_id" UUID NOT NULL,
     "transport_id" BIGINT NOT NULL,
     "method" "order"."refund_method" NOT NULL,
     "reason" TEXT NOT NULL,
@@ -203,18 +203,21 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
 
     CONSTRAINT "refund_pkey" PRIMARY KEY ("id"),
 
-    CONSTRAINT "refund_order_item_id_fkey" FOREIGN KEY ("order_item_id")
-        REFERENCES "order"."item" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,
+    CONSTRAINT "refund_order_id_fkey" FOREIGN KEY ("order_id")
+        REFERENCES "order"."order" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     CONSTRAINT "refund_transport_id_fkey" FOREIGN KEY ("transport_id")
         REFERENCES "order"."transport" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     CONSTRAINT "refund_refund_tx_id_fkey" FOREIGN KEY ("refund_tx_id")
         REFERENCES "order"."transaction" ("id") ON DELETE NO ACTION ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "refund_account_id_idx" ON "order"."refund" ("account_id");
-CREATE INDEX IF NOT EXISTS "refund_order_item_id_idx" ON "order"."refund" ("order_item_id");
+CREATE INDEX IF NOT EXISTS "refund_order_id_idx" ON "order"."refund" ("order_id");
 CREATE INDEX IF NOT EXISTS "refund_accepted_by_id_idx" ON "order"."refund" ("accepted_by_id");
 CREATE INDEX IF NOT EXISTS "refund_transport_id_idx" ON "order"."refund" ("transport_id");
 CREATE INDEX IF NOT EXISTS "refund_approved_by_id_idx" ON "order"."refund" ("approved_by_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "refund_one_active_per_order"
+    ON "order"."refund" ("order_id")
+    WHERE "status" IN ('Pending', 'Processing');
 
 -- Formal dispute raised against a refund decision by the any account (buyer, seller) for platform review and resolution.
 CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (

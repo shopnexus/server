@@ -23,6 +23,7 @@ ALTER TABLE IF EXISTS "order"."order"
 DROP INDEX IF EXISTS "order"."refund_dispute_resolved_by_id_idx";
 DROP INDEX IF EXISTS "order"."refund_dispute_issued_by_id_idx";
 DROP INDEX IF EXISTS "order"."refund_dispute_refund_id_idx";
+DROP INDEX IF EXISTS "order"."refund_one_active_per_order";
 DROP INDEX IF EXISTS "order"."refund_transport_id_idx";
 DROP INDEX IF EXISTS "order"."refund_confirmed_by_id_idx";
 DROP INDEX IF EXISTS "order"."refund_order_id_idx";

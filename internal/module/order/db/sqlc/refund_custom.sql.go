@@ -20,7 +20,7 @@ SET "status" = 'Processing',
     "accepted_by_id" = $1,
     "date_accepted" = CURRENT_TIMESTAMP
 WHERE "id" = $2 AND "status" = 'Pending'
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type AcceptRefundStage1Params struct {
@@ -40,7 +40,7 @@ func (q *Queries) AcceptRefundStage1(ctx context.Context, arg AcceptRefundStage1
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,
@@ -64,7 +64,7 @@ SET "status" = 'Success',
     "date_approved" = CURRENT_TIMESTAMP,
     "refund_tx_id" = $2
 WHERE "id" = $3 AND "status" = 'Processing'
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type ApproveRefundStage2Params struct {
@@ -79,7 +79,7 @@ func (q *Queries) ApproveRefundStage2(ctx context.Context, arg ApproveRefundStag
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,
@@ -96,31 +96,15 @@ func (q *Queries) ApproveRefundStage2(ctx context.Context, arg ApproveRefundStag
 	return i, err
 }
 
-const hasActiveRefundForItem = `-- name: HasActiveRefundForItem :one
+const hasActiveRefundForOrder = `-- name: HasActiveRefundForOrder :one
 SELECT EXISTS (
     SELECT 1 FROM "order"."refund"
-    WHERE "order_item_id" = $1
+    WHERE "order_id" = $1
       AND "status" IN ('Pending', 'Processing')
 ) AS has_active
 `
 
-func (q *Queries) HasActiveRefundForItem(ctx context.Context, orderItemID int64) (bool, error) {
-	row := q.db.QueryRow(ctx, hasActiveRefundForItem, orderItemID)
-	var has_active bool
-	err := row.Scan(&has_active)
-	return has_active, err
-}
-
-const hasActiveRefundForOrder = `-- name: HasActiveRefundForOrder :one
-SELECT EXISTS (
-    SELECT 1 FROM "order"."refund" r
-    JOIN "order"."item" i ON i."id" = r."order_item_id"
-    WHERE i."order_id" = $1
-      AND r."status" IN ('Pending', 'Processing')
-) AS has_active
-`
-
-func (q *Queries) HasActiveRefundForOrder(ctx context.Context, orderID uuid.NullUUID) (bool, error) {
+func (q *Queries) HasActiveRefundForOrder(ctx context.Context, orderID uuid.UUID) (bool, error) {
 	row := q.db.QueryRow(ctx, hasActiveRefundForOrder, orderID)
 	var has_active bool
 	err := row.Scan(&has_active)
@@ -128,7 +112,7 @@ func (q *Queries) HasActiveRefundForOrder(ctx context.Context, orderID uuid.Null
 }
 
 const listBuyerRefunds = `-- name: ListBuyerRefunds :many
-SELECT id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id FROM "order"."refund"
+SELECT id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id FROM "order"."refund"
 WHERE "account_id" = $1
 ORDER BY "date_created" DESC
 LIMIT $3::INTEGER OFFSET $2::INTEGER
@@ -152,7 +136,7 @@ func (q *Queries) ListBuyerRefunds(ctx context.Context, arg ListBuyerRefundsPara
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.OrderItemID,
+			&i.OrderID,
 			&i.TransportID,
 			&i.Method,
 			&i.Reason,
@@ -177,9 +161,9 @@ func (q *Queries) ListBuyerRefunds(ctx context.Context, arg ListBuyerRefundsPara
 }
 
 const listSellerRefunds = `-- name: ListSellerRefunds :many
-SELECT r.id, r.account_id, r.order_item_id, r.transport_id, r.method, r.reason, r.address, r.date_created, r.status, r.accepted_by_id, r.date_accepted, r.rejection_note, r.approved_by_id, r.date_approved, r.refund_tx_id FROM "order"."refund" r
-JOIN "order"."item" i ON i."id" = r."order_item_id"
-WHERE i."seller_id" = $1
+SELECT r.id, r.account_id, r.order_id, r.transport_id, r.method, r.reason, r.address, r.date_created, r.status, r.accepted_by_id, r.date_accepted, r.rejection_note, r.approved_by_id, r.date_approved, r.refund_tx_id FROM "order"."refund" r
+JOIN "order"."order" o ON o."id" = r."order_id"
+WHERE o."seller_id" = $1
 ORDER BY r."date_created" DESC
 LIMIT $3::INTEGER OFFSET $2::INTEGER
 `
@@ -202,7 +186,7 @@ func (q *Queries) ListSellerRefunds(ctx context.Context, arg ListSellerRefundsPa
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.OrderItemID,
+			&i.OrderID,
 			&i.TransportID,
 			&i.Method,
 			&i.Reason,
@@ -231,7 +215,7 @@ UPDATE "order"."refund"
 SET "status" = 'Failed',
     "rejection_note" = $1
 WHERE "id" = $2 AND "status" IN ('Pending', 'Processing')
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type RejectRefundParams struct {
@@ -245,7 +229,7 @@ func (q *Queries) RejectRefund(ctx context.Context, arg RejectRefundParams) (Ord
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,

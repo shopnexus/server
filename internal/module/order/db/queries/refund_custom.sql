@@ -30,19 +30,11 @@ SET "status" = 'Failed',
 WHERE "id" = @id AND "status" IN ('Pending', 'Processing')
 RETURNING *;
 
--- name: HasActiveRefundForItem :one
-SELECT EXISTS (
-    SELECT 1 FROM "order"."refund"
-    WHERE "order_item_id" = @order_item_id
-      AND "status" IN ('Pending', 'Processing')
-) AS has_active;
-
 -- name: HasActiveRefundForOrder :one
 SELECT EXISTS (
-    SELECT 1 FROM "order"."refund" r
-    JOIN "order"."item" i ON i."id" = r."order_item_id"
-    WHERE i."order_id" = @order_id
-      AND r."status" IN ('Pending', 'Processing')
+    SELECT 1 FROM "order"."refund"
+    WHERE "order_id" = @order_id
+      AND "status" IN ('Pending', 'Processing')
 ) AS has_active;
 
 -- name: ListBuyerRefunds :many
@@ -53,7 +45,7 @@ LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;
 
 -- name: ListSellerRefunds :many
 SELECT r.* FROM "order"."refund" r
-JOIN "order"."item" i ON i."id" = r."order_item_id"
-WHERE i."seller_id" = @seller_id
+JOIN "order"."order" o ON o."id" = r."order_id"
+WHERE o."seller_id" = @seller_id
 ORDER BY r."date_created" DESC
 LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;

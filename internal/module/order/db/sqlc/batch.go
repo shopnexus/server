@@ -345,9 +345,9 @@ func (b *CreateBatchPaymentSessionBatchResults) Close() error {
 }
 
 const createBatchRefund = `-- name: CreateBatchRefund :batchone
-INSERT INTO "order"."refund" ("id", "account_id", "order_item_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type CreateBatchRefundBatchResults struct {
@@ -359,7 +359,7 @@ type CreateBatchRefundBatchResults struct {
 type CreateBatchRefundParams struct {
 	ID            uuid.UUID         `json:"id"`
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderItemID   int64             `json:"order_item_id"`
+	OrderID       uuid.UUID         `json:"order_id"`
 	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
@@ -380,7 +380,7 @@ func (q *Queries) CreateBatchRefund(ctx context.Context, arg []CreateBatchRefund
 		vals := []interface{}{
 			a.ID,
 			a.AccountID,
-			a.OrderItemID,
+			a.OrderID,
 			a.TransportID,
 			a.Method,
 			a.Reason,
@@ -414,7 +414,7 @@ func (b *CreateBatchRefundBatchResults) QueryRow(f func(int, OrderRefund, error)
 		err := row.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.OrderItemID,
+			&i.OrderID,
 			&i.TransportID,
 			&i.Method,
 			&i.Reason,

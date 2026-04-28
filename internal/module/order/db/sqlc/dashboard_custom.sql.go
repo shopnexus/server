@@ -107,8 +107,8 @@ SELECT
        AND x."order_id" IS NULL
        AND x."date_cancelled" IS NULL) AS pending_items,
     (SELECT COUNT(*)::BIGINT FROM "order"."refund" r
-     JOIN "order"."item" i ON i."id" = r."order_item_id"
-     WHERE i."seller_id" = $1
+     JOIN "order"."order" o ON o."id" = r."order_id"
+     WHERE o."seller_id" = $1
        AND r."status" = 'Pending') AS pending_refunds
 `
 

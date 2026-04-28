@@ -282,7 +282,7 @@ FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("transport_id" = ANY($4) OR $4 IS NULL) AND
     ("method" = ANY($5) OR $5 IS NULL) AND
     ("reason" = ANY($6) OR $6 IS NULL) AND
@@ -307,7 +307,7 @@ WHERE (
 type CountRefundParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	AccountID        []uuid.UUID         `json:"account_id"`
-	OrderItemID      []int64             `json:"order_item_id"`
+	OrderID          []uuid.UUID         `json:"order_id"`
 	TransportID      []int64             `json:"transport_id"`
 	Method           []OrderRefundMethod `json:"method"`
 	Reason           []string            `json:"reason"`
@@ -332,7 +332,7 @@ func (q *Queries) CountRefund(ctx context.Context, arg CountRefundParams) (int64
 	row := q.db.QueryRow(ctx, countRefund,
 		arg.ID,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -629,7 +629,7 @@ type CreateCopyDefaultPaymentSessionParams struct {
 
 type CreateCopyDefaultRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderItemID   int64             `json:"order_item_id"`
+	OrderID       uuid.UUID         `json:"order_id"`
 	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
@@ -722,7 +722,7 @@ type CreateCopyPaymentSessionParams struct {
 type CreateCopyRefundParams struct {
 	ID            uuid.UUID         `json:"id"`
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderItemID   int64             `json:"order_item_id"`
+	OrderID       uuid.UUID         `json:"order_id"`
 	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
@@ -958,14 +958,14 @@ func (q *Queries) CreateDefaultPaymentSession(ctx context.Context, arg CreateDef
 }
 
 const createDefaultRefund = `-- name: CreateDefaultRefund :one
-INSERT INTO "order"."refund" ("account_id", "order_item_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("account_id", "order_id", "transport_id", "method", "reason", "address", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type CreateDefaultRefundParams struct {
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderItemID   int64             `json:"order_item_id"`
+	OrderID       uuid.UUID         `json:"order_id"`
 	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
@@ -981,7 +981,7 @@ type CreateDefaultRefundParams struct {
 func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefundParams) (OrderRefund, error) {
 	row := q.db.QueryRow(ctx, createDefaultRefund,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -997,7 +997,7 @@ func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefu
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,
@@ -1307,15 +1307,15 @@ func (q *Queries) CreatePaymentSession(ctx context.Context, arg CreatePaymentSes
 }
 
 const createRefund = `-- name: CreateRefund :one
-INSERT INTO "order"."refund" ("id", "account_id", "order_item_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
+INSERT INTO "order"."refund" ("id", "account_id", "order_id", "transport_id", "method", "reason", "address", "date_created", "status", "accepted_by_id", "date_accepted", "rejection_note", "approved_by_id", "date_approved", "refund_tx_id")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type CreateRefundParams struct {
 	ID            uuid.UUID         `json:"id"`
 	AccountID     uuid.UUID         `json:"account_id"`
-	OrderItemID   int64             `json:"order_item_id"`
+	OrderID       uuid.UUID         `json:"order_id"`
 	TransportID   int64             `json:"transport_id"`
 	Method        OrderRefundMethod `json:"method"`
 	Reason        string            `json:"reason"`
@@ -1334,7 +1334,7 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 	row := q.db.QueryRow(ctx, createRefund,
 		arg.ID,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -1352,7 +1352,7 @@ func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (Ord
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,
@@ -1763,7 +1763,7 @@ DELETE FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("transport_id" = ANY($4) OR $4 IS NULL) AND
     ("method" = ANY($5) OR $5 IS NULL) AND
     ("reason" = ANY($6) OR $6 IS NULL) AND
@@ -1788,7 +1788,7 @@ WHERE (
 type DeleteRefundParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	AccountID        []uuid.UUID         `json:"account_id"`
-	OrderItemID      []int64             `json:"order_item_id"`
+	OrderID          []uuid.UUID         `json:"order_id"`
 	TransportID      []int64             `json:"transport_id"`
 	Method           []OrderRefundMethod `json:"method"`
 	Reason           []string            `json:"reason"`
@@ -1813,7 +1813,7 @@ func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) erro
 	_, err := q.db.Exec(ctx, deleteRefund,
 		arg.ID,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -2146,21 +2146,26 @@ func (q *Queries) GetPaymentSession(ctx context.Context, id null.Int) (OrderPaym
 
 const getRefund = `-- name: GetRefund :one
 
-SELECT id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+SELECT id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 FROM "order"."refund"
-WHERE ("id" = $1)
+WHERE ("id" = $1) OR ("order_id" = $2)
 `
+
+type GetRefundParams struct {
+	ID      uuid.NullUUID `json:"id"`
+	OrderID uuid.NullUUID `json:"order_id"`
+}
 
 // ========================================
 // Queries for table: order.refund
 // ========================================
-func (q *Queries) GetRefund(ctx context.Context, id uuid.NullUUID) (OrderRefund, error) {
-	row := q.db.QueryRow(ctx, getRefund, id)
+func (q *Queries) GetRefund(ctx context.Context, arg GetRefundParams) (OrderRefund, error) {
+	row := q.db.QueryRow(ctx, getRefund, arg.ID, arg.OrderID)
 	var i OrderRefund
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,
@@ -2740,12 +2745,12 @@ func (q *Queries) ListCountPaymentSession(ctx context.Context, arg ListCountPaym
 }
 
 const listCountRefund = `-- name: ListCountRefund :many
-SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_item_id, embed_refund.transport_id, embed_refund.method, embed_refund.reason, embed_refund.address, embed_refund.date_created, embed_refund.status, embed_refund.accepted_by_id, embed_refund.date_accepted, embed_refund.rejection_note, embed_refund.approved_by_id, embed_refund.date_approved, embed_refund.refund_tx_id, COUNT(*) OVER() as total_count
+SELECT embed_refund.id, embed_refund.account_id, embed_refund.order_id, embed_refund.transport_id, embed_refund.method, embed_refund.reason, embed_refund.address, embed_refund.date_created, embed_refund.status, embed_refund.accepted_by_id, embed_refund.date_accepted, embed_refund.rejection_note, embed_refund.approved_by_id, embed_refund.date_approved, embed_refund.refund_tx_id, COUNT(*) OVER() as total_count
 FROM "order"."refund" embed_refund
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("transport_id" = ANY($4) OR $4 IS NULL) AND
     ("method" = ANY($5) OR $5 IS NULL) AND
     ("reason" = ANY($6) OR $6 IS NULL) AND
@@ -2773,7 +2778,7 @@ OFFSET $22::int
 type ListCountRefundParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	AccountID        []uuid.UUID         `json:"account_id"`
-	OrderItemID      []int64             `json:"order_item_id"`
+	OrderID          []uuid.UUID         `json:"order_id"`
 	TransportID      []int64             `json:"transport_id"`
 	Method           []OrderRefundMethod `json:"method"`
 	Reason           []string            `json:"reason"`
@@ -2805,7 +2810,7 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 	rows, err := q.db.Query(ctx, listCountRefund,
 		arg.ID,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -2837,7 +2842,7 @@ func (q *Queries) ListCountRefund(ctx context.Context, arg ListCountRefundParams
 		if err := rows.Scan(
 			&i.OrderRefund.ID,
 			&i.OrderRefund.AccountID,
-			&i.OrderRefund.OrderItemID,
+			&i.OrderRefund.OrderID,
 			&i.OrderRefund.TransportID,
 			&i.OrderRefund.Method,
 			&i.OrderRefund.Reason,
@@ -3493,12 +3498,12 @@ func (q *Queries) ListPaymentSession(ctx context.Context, arg ListPaymentSession
 }
 
 const listRefund = `-- name: ListRefund :many
-SELECT id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+SELECT id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 FROM "order"."refund"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("account_id" = ANY($2) OR $2 IS NULL) AND
-    ("order_item_id" = ANY($3) OR $3 IS NULL) AND
+    ("order_id" = ANY($3) OR $3 IS NULL) AND
     ("transport_id" = ANY($4) OR $4 IS NULL) AND
     ("method" = ANY($5) OR $5 IS NULL) AND
     ("reason" = ANY($6) OR $6 IS NULL) AND
@@ -3526,7 +3531,7 @@ OFFSET $22::int
 type ListRefundParams struct {
 	ID               []uuid.UUID         `json:"id"`
 	AccountID        []uuid.UUID         `json:"account_id"`
-	OrderItemID      []int64             `json:"order_item_id"`
+	OrderID          []uuid.UUID         `json:"order_id"`
 	TransportID      []int64             `json:"transport_id"`
 	Method           []OrderRefundMethod `json:"method"`
 	Reason           []string            `json:"reason"`
@@ -3553,7 +3558,7 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 	rows, err := q.db.Query(ctx, listRefund,
 		arg.ID,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -3585,7 +3590,7 @@ func (q *Queries) ListRefund(ctx context.Context, arg ListRefundParams) ([]Order
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
-			&i.OrderItemID,
+			&i.OrderID,
 			&i.TransportID,
 			&i.Method,
 			&i.Reason,
@@ -4155,7 +4160,7 @@ func (q *Queries) UpdatePaymentSession(ctx context.Context, arg UpdatePaymentSes
 const updateRefund = `-- name: UpdateRefund :one
 UPDATE "order"."refund"
 SET "account_id" = COALESCE($1, "account_id"),
-    "order_item_id" = COALESCE($2, "order_item_id"),
+    "order_id" = COALESCE($2, "order_id"),
     "transport_id" = COALESCE($3, "transport_id"),
     "method" = COALESCE($4, "method"),
     "reason" = COALESCE($5, "reason"),
@@ -4169,12 +4174,12 @@ SET "account_id" = COALESCE($1, "account_id"),
     "date_approved" = CASE WHEN $18::bool = TRUE THEN NULL ELSE COALESCE($19, "date_approved") END,
     "refund_tx_id" = CASE WHEN $20::bool = TRUE THEN NULL ELSE COALESCE($21, "refund_tx_id") END
 WHERE id = $22
-RETURNING id, account_id, order_item_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
+RETURNING id, account_id, order_id, transport_id, method, reason, address, date_created, status, accepted_by_id, date_accepted, rejection_note, approved_by_id, date_approved, refund_tx_id
 `
 
 type UpdateRefundParams struct {
 	AccountID         uuid.NullUUID         `json:"account_id"`
-	OrderItemID       null.Int              `json:"order_item_id"`
+	OrderID           uuid.NullUUID         `json:"order_id"`
 	TransportID       null.Int              `json:"transport_id"`
 	Method            NullOrderRefundMethod `json:"method"`
 	Reason            null.String           `json:"reason"`
@@ -4200,7 +4205,7 @@ type UpdateRefundParams struct {
 func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (OrderRefund, error) {
 	row := q.db.QueryRow(ctx, updateRefund,
 		arg.AccountID,
-		arg.OrderItemID,
+		arg.OrderID,
 		arg.TransportID,
 		arg.Method,
 		arg.Reason,
@@ -4226,7 +4231,7 @@ func (q *Queries) UpdateRefund(ctx context.Context, arg UpdateRefundParams) (Ord
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.OrderItemID,
+		&i.OrderID,
 		&i.TransportID,
 		&i.Method,
 		&i.Reason,

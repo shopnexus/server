@@ -35,8 +35,8 @@ SELECT
        AND x."order_id" IS NULL
        AND x."date_cancelled" IS NULL) AS pending_items,
     (SELECT COUNT(*)::BIGINT FROM "order"."refund" r
-     JOIN "order"."item" i ON i."id" = r."order_item_id"
-     WHERE i."seller_id" = @seller_id
+     JOIN "order"."order" o ON o."id" = r."order_id"
+     WHERE o."seller_id" = @seller_id
        AND r."status" = 'Pending') AS pending_refunds;
 
 -- name: GetSellerTopProducts :many
