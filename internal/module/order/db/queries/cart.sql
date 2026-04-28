@@ -4,6 +4,15 @@ WHERE account_id = sqlc.arg('account_id')
 AND sku_id = ANY(sqlc.slice('sku_id'))
 RETURNING *;
 
+-- name: RestoreCheckoutItems :exec
+INSERT INTO "order"."cart_item" (account_id, sku_id, quantity)
+SELECT
+    UNNEST(sqlc.arg('account_ids')::uuid[]),
+    UNNEST(sqlc.arg('sku_ids')::uuid[]),
+    UNNEST(sqlc.arg('quantities')::bigint[])
+ON CONFLICT (account_id, sku_id) DO UPDATE
+    SET quantity = EXCLUDED.quantity;
+
 -- name: UpdateCart :exec
 WITH updated AS (
     UPDATE "order"."cart_item"

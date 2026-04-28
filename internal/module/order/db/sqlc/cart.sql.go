@@ -48,6 +48,27 @@ func (q *Queries) RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItem
 	return items, nil
 }
 
+const restoreCheckoutItems = `-- name: RestoreCheckoutItems :exec
+INSERT INTO "order"."cart_item" (account_id, sku_id, quantity)
+SELECT
+    UNNEST($1::uuid[]),
+    UNNEST($2::uuid[]),
+    UNNEST($3::bigint[])
+ON CONFLICT (account_id, sku_id) DO UPDATE
+    SET quantity = EXCLUDED.quantity
+`
+
+type RestoreCheckoutItemsParams struct {
+	AccountIds []uuid.UUID `json:"account_ids"`
+	SkuIds     []uuid.UUID `json:"sku_ids"`
+	Quantities []int64     `json:"quantities"`
+}
+
+func (q *Queries) RestoreCheckoutItems(ctx context.Context, arg RestoreCheckoutItemsParams) error {
+	_, err := q.db.Exec(ctx, restoreCheckoutItems, arg.AccountIds, arg.SkuIds, arg.Quantities)
+	return err
+}
+
 const updateCart = `-- name: UpdateCart :exec
 WITH updated AS (
     UPDATE "order"."cart_item"

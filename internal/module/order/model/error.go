@@ -95,6 +95,7 @@ var (
 	ErrItemAlreadyConfirmed   = sharedmodel.NewError(http.StatusConflict, "item_already_confirmed", "item already confirmed in an order")
 	ErrItemsTransportMismatch = sharedmodel.NewError(http.StatusBadRequest, "items_transport_mismatch", "all items must have the same transport option")
 	ErrPaymentTimeout         = sharedmodel.NewError(http.StatusConflict, "payment_timeout", "payment session expired")
+	ErrPaymentFailed          = sharedmodel.NewError(http.StatusPaymentRequired, "payment_failed", "payment failed")
 	ErrSellerConfirmTimeout   = sharedmodel.NewError(http.StatusConflict, "seller_confirm_timeout", "seller confirmation expired")
 
 	ErrUnknownPaymentOption = sharedmodel.NewError(http.StatusBadRequest, "unknown_payment_option", "Unknown payment option: %s")
