@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/ratelimit"
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
@@ -20,16 +21,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
 	"github.com/labstack/echo/v4"
+	"github.com/restatedev/sdk-go/ingress"
 )
 
 // Handler handles HTTP requests for the order module.
 type Handler struct {
-	biz orderbiz.OrderBiz
+	biz     orderbiz.OrderBiz
+	ingress *ingress.Client
 }
 
 // NewHandler registers order module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory) *Handler {
-	h := &Handler{biz: biz}
+func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory, cfg *config.Config) *Handler {
+	h := &Handler{
+		biz:     biz,
+		ingress: ingress.NewClient(cfg.Restate.IngressAddress),
+	}
 	g := e.Group("/api/v1/order")
 
 	// Per-endpoint rate limits on write-heavy / abuse-prone operations. Read
@@ -46,6 +52,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 
 	// Buyer - Pending
 	g.POST("/buyer/checkout", h.BuyerCheckout, rlCheckout)
+	g.POST("/buyer/checkout/:sessionID/cancel", h.CancelBuyerCheckout)
 	g.GET("/buyer/pending", h.ListBuyerPendingItems)
 	g.DELETE("/buyer/pending/:id", h.CancelBuyerPending)
 
@@ -62,6 +69,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	// TODO: add casbin role middleware for /seller/* routes
 	g.GET("/seller/pending", h.ListSellerPendingItems)
 	g.POST("/seller/pending/confirm", h.ConfirmSellerPending)
+	g.POST("/seller/pending/confirm/:sessionID/cancel", h.CancelConfirmSellerPending)
 	g.POST("/seller/pending/reject", h.RejectSellerPending)
 
 	// Seller - Confirmed
@@ -241,6 +249,7 @@ type BuyerCheckoutRequest struct {
 	Address       string                `json:"address" validate:"required,min=1,max=500"`
 	PaymentOption string                `json:"payment_option" validate:"max=100"`
 	UseWallet     bool                  `json:"use_wallet"`
+	WalletID      *uuid.UUID            `json:"wallet_id,omitempty"`
 	Items         []CheckoutItemRequest `json:"items"   validate:"required,min=1,dive"`
 }
 
@@ -251,6 +260,20 @@ type CheckoutItemRequest struct {
 	Note            string    `json:"note"              validate:"max=500"`
 }
 
+// BuyerCheckoutResponse is the sync envelope returned by /buyer/checkout. The
+// session ID doubles as the workflow ID and the payment-gateway RefID, so
+// clients can poll/cancel against the same key. PaymentURL is empty for
+// wallet-only checkouts (no gateway redirect needed).
+type BuyerCheckoutResponse struct {
+	CheckoutSessionID string `json:"checkout_session_id"`
+	PaymentURL        string `json:"payment_url"`
+}
+
+// BuyerCheckout submits a CheckoutWorkflow and synchronously attaches to its
+// shared WaitPaymentURL handler so the response carries the gateway redirect
+// (or empty for wallet-only). The workflow continues running asynchronously
+// after this handler returns; the buyer can later cancel via
+// /buyer/checkout/:sessionID/cancel which signals CancelCheckout.
 func (h *Handler) BuyerCheckout(c echo.Context) error {
 	var req BuyerCheckoutRequest
 	if err := c.Bind(&req); err != nil {
@@ -275,19 +298,61 @@ func (h *Handler) BuyerCheckout(c echo.Context) error {
 		})
 	}
 
-	result, err := h.biz.BuyerCheckout(c.Request().Context(), orderbiz.BuyerCheckoutParams{
+	workflowID := uuid.NewString()
+	input := orderbiz.CheckoutWorkflowInput{
 		Account:       claims.Account,
-		BuyNow:        req.BuyNow,
-		Address:       req.Address,
-		PaymentOption: req.PaymentOption,
-		UseWallet:     req.UseWallet,
 		Items:         items,
-	})
+		Address:       req.Address,
+		BuyNow:        req.BuyNow,
+		UseWallet:     req.UseWallet,
+		WalletID:      req.WalletID,
+		PaymentOption: req.PaymentOption,
+	}
+
+	ctx := c.Request().Context()
+
+	// Submit Run as fire-and-forget — Restate journal owns the lifecycle from
+	// here. We don't wait for Run() to return; instead we attach to the shared
+	// WaitPaymentURL promise which Run() resolves once the gateway URL is known.
+	if _, err := ingress.Workflow[orderbiz.CheckoutWorkflowInput, struct{}](
+		h.ingress, "CheckoutWorkflow", workflowID, "Run",
+	).Send(ctx, input); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	url, err := ingress.Workflow[struct{}, string](
+		h.ingress, "CheckoutWorkflow", workflowID, "WaitPaymentURL",
+	).Request(ctx, struct{}{})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
 	}
 
-	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
+	return response.FromDTO(c.Response().Writer, http.StatusOK, BuyerCheckoutResponse{
+		CheckoutSessionID: workflowID,
+		PaymentURL:        url,
+	})
+}
+
+// CancelBuyerCheckout signals CheckoutWorkflow.CancelCheckout for the given
+// session, which resolves the workflow's payment_event promise with
+// kind="cancelled" so Run() unwinds via its saga compensators.
+func (h *Handler) CancelBuyerCheckout(c echo.Context) error {
+	sessionID := c.Param("sessionID")
+	if _, err := uuid.Parse(sessionID); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, fmt.Errorf("invalid session id: %w", err))
+	}
+
+	if _, err := authclaims.GetClaims(c.Request()); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	if _, err := ingress.Workflow[struct{}, struct{}](
+		h.ingress, "CheckoutWorkflow", sessionID, "CancelCheckout",
+	).Send(c.Request().Context(), struct{}{}); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+
+	return response.FromMessage(c.Response().Writer, http.StatusOK, "Checkout cancelled")
 }
 
 // --- Buyer Pending Items ---
@@ -342,4 +407,3 @@ func (h *Handler) CancelBuyerPending(c echo.Context) error {
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Item cancelled successfully")
 }
-
