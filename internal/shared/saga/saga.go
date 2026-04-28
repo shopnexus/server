@@ -1,4 +1,4 @@
-package orderbiz
+package saga
 
 import (
 	"log/slog"
@@ -14,22 +14,22 @@ import (
 // exact state it had at the crash point.
 type Saga struct {
 	ctx          restate.WorkflowContext
-	compensators []sagaStep
+	compensators []step
 }
 
-type sagaStep struct {
+type step struct {
 	name string
 	fn   func(restate.RunContext) error
 }
 
-// NewSaga creates an empty saga bound to the given workflow context.
-func NewSaga(ctx restate.WorkflowContext) *Saga {
+// New creates an empty saga bound to the given workflow context.
+func New(ctx restate.WorkflowContext) *Saga {
 	return &Saga{ctx: ctx}
 }
 
 // Defer appends a compensator. Call BEFORE performing the action it compensates.
 func (s *Saga) Defer(name string, fn func(restate.RunContext) error) {
-	s.compensators = append(s.compensators, sagaStep{name: name, fn: fn})
+	s.compensators = append(s.compensators, step{name: name, fn: fn})
 }
 
 // Compensate runs all deferred compensators LIFO. Each runs in restate.RunVoid

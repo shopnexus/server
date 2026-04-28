@@ -27,6 +27,7 @@ import (
 	"shopnexus-server/internal/provider/transport"
 	sharedcurrency "shopnexus-server/internal/shared/currency"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/saga"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/bytedance/sonic"
@@ -94,7 +95,7 @@ func (h *CheckoutWorkflowHandler) Run(
 		return out, ordermodel.ErrBuyNowSingleSkuOnly.Terminal()
 	}
 
-	saga := NewSaga(ctx)
+	saga := saga.New(ctx)
 	var (
 		cancelled                bool
 		expired                  bool

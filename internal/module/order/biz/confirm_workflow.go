@@ -16,6 +16,7 @@ import (
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/saga"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -221,7 +222,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Saga setup. Compensators are registered BEFORE side effects; on err /
 	// cancel / expire we run them LIFO. CreditFromSession is invoked from
 	// this top-level defer (cross-module → can't run inside saga RunVoid).
-	saga := NewSaga(ctx)
+	saga := saga.New(ctx)
 	var (
 		cancelled                     bool
 		expired                       bool
