@@ -110,6 +110,11 @@ type Querier interface {
 	// Queries for table: order.refund_dispute
 	// ========================================
 	GetRefundDispute(ctx context.Context, id uuid.NullUUID) (OrderRefundDispute, error)
+	// GetRefundSnapshotByOrder is the per-iteration projection PayoutWorkflow
+	// reads while watching escrow. has_active_refund flips while any refund is
+	// being negotiated; last_refund_approved becomes true once the most recent
+	// refund row for this order has settled in Success.
+	GetRefundSnapshotByOrder(ctx context.Context, orderID uuid.UUID) (GetRefundSnapshotByOrderRow, error)
 	// Custom dashboard aggregation queries for seller analytics
 	// Aggregates revenue, order count, and items sold for a seller within a date range.
 	GetSellerOrderStats(ctx context.Context, arg GetSellerOrderStatsParams) (GetSellerOrderStatsRow, error)

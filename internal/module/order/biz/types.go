@@ -74,3 +74,22 @@ type PayoutInput struct {
 	PaidTotal int64     `json:"paid_total"`
 	Currency  string    `json:"currency"`
 }
+
+// PayoutOutput is the terminal value returned from PayoutWorkflow.Run.
+// Outcome is one of "released" (escrow expired, seller wallet credited) or
+// "refunded" (a refund was approved before the escrow timer fired and the
+// payout session was cancelled).
+type PayoutOutput struct {
+	OrderID uuid.UUID `json:"order_id"`
+	Outcome string    `json:"outcome"`
+}
+
+// RefundSnapshot is a small projection of the refund table used by
+// PayoutWorkflow each iteration to decide whether to release escrow or
+// short-circuit into a refunded outcome. HasActiveRefund flips while a refund
+// is being negotiated; LastRefundApproved becomes true once any refund for
+// this order reaches Success.
+type RefundSnapshot struct {
+	HasActiveRefund    bool `json:"has_active_refund"`
+	LastRefundApproved bool `json:"last_refund_approved"`
+}

@@ -37,6 +37,26 @@ SELECT EXISTS (
       AND "status" IN ('Pending', 'Processing')
 ) AS has_active;
 
+-- GetRefundSnapshotByOrder is the per-iteration projection PayoutWorkflow
+-- reads while watching escrow. has_active_refund flips while any refund is
+-- being negotiated; last_refund_approved becomes true once the most recent
+-- refund row for this order has settled in Success.
+-- name: GetRefundSnapshotByOrder :one
+WITH all_refunds AS (
+    SELECT "status", "date_created"
+    FROM "order"."refund"
+    WHERE "order_id" = @order_id
+)
+SELECT
+    EXISTS (
+        SELECT 1 FROM all_refunds
+        WHERE "status" IN ('Pending', 'Processing')
+    )::BOOLEAN AS has_active_refund,
+    COALESCE(
+        (SELECT "status" FROM all_refunds ORDER BY "date_created" DESC LIMIT 1) = 'Success'::"order"."status",
+        false
+    )::BOOLEAN AS last_refund_approved;
+
 -- name: ListBuyerRefunds :many
 SELECT * FROM "order"."refund"
 WHERE "account_id" = @account_id

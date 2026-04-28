@@ -96,6 +96,39 @@ func (q *Queries) ApproveRefundStage2(ctx context.Context, arg ApproveRefundStag
 	return i, err
 }
 
+const getRefundSnapshotByOrder = `-- name: GetRefundSnapshotByOrder :one
+WITH all_refunds AS (
+    SELECT "status", "date_created"
+    FROM "order"."refund"
+    WHERE "order_id" = $1
+)
+SELECT
+    EXISTS (
+        SELECT 1 FROM all_refunds
+        WHERE "status" IN ('Pending', 'Processing')
+    )::BOOLEAN AS has_active_refund,
+    COALESCE(
+        (SELECT "status" FROM all_refunds ORDER BY "date_created" DESC LIMIT 1) = 'Success'::"order"."status",
+        false
+    )::BOOLEAN AS last_refund_approved
+`
+
+type GetRefundSnapshotByOrderRow struct {
+	HasActiveRefund    bool `json:"has_active_refund"`
+	LastRefundApproved bool `json:"last_refund_approved"`
+}
+
+// GetRefundSnapshotByOrder is the per-iteration projection PayoutWorkflow
+// reads while watching escrow. has_active_refund flips while any refund is
+// being negotiated; last_refund_approved becomes true once the most recent
+// refund row for this order has settled in Success.
+func (q *Queries) GetRefundSnapshotByOrder(ctx context.Context, orderID uuid.UUID) (GetRefundSnapshotByOrderRow, error) {
+	row := q.db.QueryRow(ctx, getRefundSnapshotByOrder, orderID)
+	var i GetRefundSnapshotByOrderRow
+	err := row.Scan(&i.HasActiveRefund, &i.LastRefundApproved)
+	return i, err
+}
+
 const hasActiveRefundForOrder = `-- name: HasActiveRefundForOrder :one
 SELECT EXISTS (
     SELECT 1 FROM "order"."refund"

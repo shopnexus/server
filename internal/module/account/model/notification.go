@@ -23,6 +23,8 @@ const (
 	NotiRefundCancelled          NotificationType = "refund_cancelled"
 	NotiSellerTransportFailed    NotificationType = "seller_transport_failed"
 	NotiSellerTransportCancelled NotificationType = "seller_transport_cancelled"
+	NotiPayoutReleased           NotificationType = "payout_released"
+	NotiPayoutCancelled          NotificationType = "payout_cancelled"
 
 	// Catalog — seller notifications.
 	NotiNewReview NotificationType = "new_review"
