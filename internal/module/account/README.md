@@ -9,15 +9,13 @@ Handles user identity, authentication, and account-related data. Accounts are **
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"account.profile" |o--|| "account.account" : "id"
-"account.profile" }o--|o "account.contact" : "default_contact_id"
-"account.income_history" }o--|| "account.account" : "account_id"
-"account.notification" }o--|| "account.account" : "account_id"
+"account.account" }o--|o "account.contact" : "default_contact_id"
+"account.account" }o--|o "account.wallet" : "default_wallet_id"
 "account.contact" }o--|| "account.account" : "account_id"
+"account.profile" |o--|| "account.account" : "id"
+"account.notification" }o--|| "account.account" : "account_id"
 "account.favorite" }o--|| "account.account" : "account_id"
-"chat.conversation" }o--|| "account.account" : "buyer_id"
-"chat.conversation" }o--|| "account.account" : "seller_id"
-"chat.message" }o--|| "account.account" : "sender_id"
+"account.wallet" }o--|| "account.account" : "account_id"
 
 "account.account" {
   uuid id
@@ -28,7 +26,8 @@ erDiagram
   varchar(100) username
   varchar(255) password
   timestamptz date_created
-  timestamptz date_updated
+  uuid default_contact_id
+  uuid default_wallet_id
 }
 "account.contact" {
   uuid id
@@ -36,26 +35,16 @@ erDiagram
   varchar(100) full_name
   varchar(30) phone
   boolean phone_verified
-  varchar(255) address
   address_type address_type
+  timestamptz date_created
+  varchar(255) address
   float8 latitude
   float8 longitude
-  timestamptz date_created
-  timestamptz date_updated
 }
 "account.favorite" {
   bigint id
   uuid account_id
   uuid spu_id
-  timestamptz date_created
-}
-"account.income_history" {
-  bigint id
-  uuid account_id
-  varchar(50) type
-  bigint income
-  bigint current_balance
-  varchar(100) note
   timestamptz date_created
 }
 "account.notification" {
@@ -68,19 +57,8 @@ erDiagram
   text content
   jsonb metadata
   timestamptz date_created
-  timestamptz date_updated
   timestamptz date_sent
   timestamptz date_scheduled
-}
-"account.payment_method" {
-  uuid id
-  uuid account_id
-  varchar(100) service_option_id
-  varchar(100) label
-  jsonb data
-  boolean is_default
-  timestamptz date_created
-  timestamptz date_updated
 }
 "account.profile" {
   uuid id
@@ -91,9 +69,19 @@ erDiagram
   uuid avatar_rs_id
   boolean email_verified
   boolean phone_verified
-  uuid default_contact_id
   timestamptz date_created
-  timestamptz date_updated
+  bigint balance
+  varchar(2) country
+  uuid default_contact_id
+  uuid default_wallet_id
+}
+"account.wallet" {
+  uuid id
+  uuid account_id
+  varchar(100) option
+  varchar(100) label
+  jsonb data
+  timestamptz date_created
 }
 ```
 <!--END_SECTION:mermaid-->

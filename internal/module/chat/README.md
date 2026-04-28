@@ -9,9 +9,6 @@ Messaging between any two accounts. REST API for conversation management, messag
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"chat.conversation" }o--|| "account.account" : "buyer_id"
-"chat.conversation" }o--|| "account.account" : "seller_id"
-"chat.message" }o--|| "account.account" : "sender_id"
 "chat.message" }o--|| "chat.conversation" : "conversation_id"
 
 "chat.conversation" {
@@ -28,7 +25,7 @@ erDiagram
   message_type type
   text content
   message_status status
-  jsonb metadata
+  jsonb data
   timestamptz date_created
 }
 ```

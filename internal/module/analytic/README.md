@@ -13,7 +13,6 @@ erDiagram
 "analytic.interaction" {
   bigint id
   uuid account_id
-  bigint account_number
   text session_id
   text event_type
   interaction_ref_type ref_type

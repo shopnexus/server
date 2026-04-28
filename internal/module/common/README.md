@@ -10,10 +10,11 @@ Shared infrastructure services: resource management, object storage, service opt
 ```mermaid
 erDiagram
 "common.resource_reference" }o--|| "common.resource" : "rs_id"
+"common.service_option" }o--|o "common.resource" : "logo_rs_id"
 
 "common.resource" {
   uuid id
-  uuid uploaded_by
+  uuid uploaded_by_id
   text provider
   varchar(2048) object_key
   varchar(100) mime
@@ -33,7 +34,7 @@ erDiagram
   varchar(100) id
   text category
   text provider
-  boolean is_active
+  boolean is_enabled
   text name
   text description
   integer priority

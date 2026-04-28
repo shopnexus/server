@@ -9,9 +9,14 @@ Manages the full order lifecycle: cart, checkout, seller confirmation, payment, 
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
-"order.order" }o--|o "order.transport" : "transport_id"
+"order.transaction" }o--|| "order.payment_session" : "session_id"
+"order.transaction" }o--|o "order.transaction" : "reverses_id"
+"order.order" }o--|| "order.payment_session" : "confirm_session_id"
+"order.order" }o--|| "order.transport" : "transport_id"
+"order.item" }o--|| "order.payment_session" : "payment_session_id"
 "order.item" }o--|o "order.order" : "order_id"
-"order.refund" }o--|o "order.transport" : "transport_id"
+"order.refund" }o--|o "order.transaction" : "refund_tx_id"
+"order.refund" }o--|| "order.transport" : "transport_id"
 "order.refund" }o--|| "order.order" : "order_id"
 "order.refund_dispute" }o--|| "order.refund" : "refund_id"
 
@@ -27,42 +32,41 @@ erDiagram
   uuid account_id
   uuid seller_id
   uuid sku_id
+  uuid spu_id
   text sku_name
-  bigint quantity
-  bigint unit_price
-  bigint paid_amount
   text address
-  item_status status
   text note
   jsonb serial_ids
+  bigint quantity
+  text transport_option
+  bigint subtotal_amount
+  bigint total_amount
+  uuid payment_session_id
+  timestamptz date_cancelled
+  uuid cancelled_by_id
   timestamptz date_created
-  timestamptz date_updated
 }
 "order.order" {
   uuid id
   uuid buyer_id
   uuid seller_id
-  bigint payment_id
-  uuid transport_id
-  uuid confirmed_by_id
-  status status
+  bigint transport_id
   text address
-  bigint product_cost
-  bigint product_discount
-  bigint transport_cost
-  bigint total
-  text note
-  jsonb data
   timestamptz date_created
+  uuid confirmed_by_id
+  uuid confirm_session_id
+  text note
 }
-"order.payment" {
-  bigint id
-  uuid account_id
-  text option
+"order.payment_session" {
+  uuid id
+  text kind
   status status
-  bigint amount
+  uuid from_id
+  uuid to_id
+  text note
+  varchar(3) currency
+  bigint total_amount
   jsonb data
-  uuid payment_method_id
   timestamptz date_created
   timestamptz date_paid
   timestamptz date_expired
@@ -71,28 +75,70 @@ erDiagram
   uuid id
   uuid account_id
   uuid order_id
-  uuid confirmed_by_id
-  uuid transport_id
+  bigint transport_id
   refund_method method
-  status status
   text reason
   text address
   timestamptz date_created
+  status status
+  uuid accepted_by_id
+  timestamptz date_accepted
+  text rejection_note
+  uuid approved_by_id
+  timestamptz date_approved
+  bigint refund_tx_id
 }
 "order.refund_dispute" {
   uuid id
+  uuid account_id
   uuid refund_id
-  uuid issued_by_id
   text reason
   status status
+  text note
   timestamptz date_created
-  timestamptz date_updated
+  uuid resolved_by_id
+  timestamptz date_resolved
+}
+"order.transaction" {
+  bigint id
+  uuid session_id
+  status status
+  text note
+  text error
+  text payment_option
+  uuid wallet_id
+  jsonb data
+  bigint amount
+  varchar(3) from_currency
+  varchar(3) to_currency
+  numeric exchange_rate
+  bigint reverses_id
+  timestamptz date_created
+  timestamptz date_settled
+  timestamptz date_expired
+}
+"order.transaction_settled" {
+  bigint id
+  uuid session_id
+  status status
+  text note
+  text error
+  text payment_option
+  uuid wallet_id
+  jsonb data
+  bigint amount
+  varchar(3) from_currency
+  varchar(3) to_currency
+  numeric exchange_rate
+  bigint reverses_id
+  timestamptz date_created
+  timestamptz date_settled
+  timestamptz date_expired
 }
 "order.transport" {
-  uuid id
+  bigint id
   text option
-  transport_status status
-  bigint cost
+  status status
   jsonb data
   timestamptz date_created
 }

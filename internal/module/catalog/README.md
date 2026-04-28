@@ -10,6 +10,7 @@ Product catalog with SPU/SKU model, categories, tags, comments/reviews, hybrid s
 ```mermaid
 erDiagram
 "catalog.product_spu" }o--|| "catalog.category" : "category_id"
+"catalog.product_spu" |o--|o "catalog.product_sku" : "featured_sku_id"
 "catalog.product_sku" }o--|| "catalog.product_spu" : "spu_id"
 "catalog.product_spu_tag" }o--|| "catalog.product_spu" : "spu_id"
 "catalog.product_spu_tag" }o--|| "catalog.tag" : "tag"
@@ -18,11 +19,12 @@ erDiagram
   uuid id
   varchar(100) name
   text description
-  bigint parent_id
+  uuid parent_id
 }
 "catalog.comment" {
   uuid id
   uuid account_id
+  uuid order_id
   comment_ref_type ref_type
   uuid ref_id
   text body
@@ -31,13 +33,12 @@ erDiagram
   float8 score
   timestamptz date_created
   timestamptz date_updated
-  uuid order_id
 }
 "catalog.product_sku" {
   uuid id
   uuid spu_id
   bigint price
-  boolean combinable
+  boolean shared_packaging
   jsonb attributes
   jsonb package_details
   timestamptz date_created
@@ -52,7 +53,8 @@ erDiagram
   uuid featured_sku_id
   text name
   text description
-  boolean is_active
+  boolean is_enabled
+  varchar(3) currency
   jsonb specifications
   timestamptz date_created
   timestamptz date_updated
@@ -74,6 +76,8 @@ erDiagram
 }
 "catalog.tag" {
   varchar(100) id
+  uuid account_id
+  varchar(100) name
   varchar(255) description
 }
 ```

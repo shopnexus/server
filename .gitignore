@@ -39,3 +39,8 @@ internal/module/embedding
 erdiagram
 /seed
 /migrate
+/server
+/pgtempl
+/erdiagram
+
+.claude

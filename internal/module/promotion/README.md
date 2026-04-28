@@ -19,10 +19,10 @@ erDiagram
   type type
   text title
   text description
-  boolean is_active
+  boolean is_enabled
+  bigint budget
   boolean auto_apply
   text group
-  integer priority
   jsonb data
   timestamptz date_started
   timestamptz date_ended

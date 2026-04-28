@@ -19,3 +19,5 @@
 - những hàm nào ko có side effect external module thì nên bọc trong transaction, mặc định là phải bọc các side effect database ở trong restate.Run để journal nhưng nếu ko gọi external service/module thì ko cần bọc, chỉ cần atomic operation là đc
 
 - trong refund session wallet dùng currency A, sau đó user đổi sang currency B trước thời điểm refund -> phải convert -> ko nên cho đổi currency khi đang có refund hoặc đang hold escrow
+
+- chỉ dùng workflow nếu cần saga pattern trong xuyên suốt quá trình tạo entity đó, ví dụ tạo payment session (checkout), tạo order (order confirm), 1 step fail cần đc rollback toàn tuần tự
