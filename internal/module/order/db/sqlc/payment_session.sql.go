@@ -50,7 +50,7 @@ WHERE s1."id" = $1
 `
 
 // Sibling = buyer-checkout sessions with same from_id, within ±2s of the given session.
-func (q *Queries) ListCheckoutSiblingsForSession(ctx context.Context, sessionID int64) ([]OrderPaymentSession, error) {
+func (q *Queries) ListCheckoutSiblingsForSession(ctx context.Context, sessionID uuid.UUID) ([]OrderPaymentSession, error) {
 	rows, err := q.db.Query(ctx, listCheckoutSiblingsForSession, sessionID)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ WHERE s1."id" = $1
 `
 
 // Sibling = seller-confirmation-fee sessions with same from_id, within ±2s of the given session.
-func (q *Queries) ListConfirmFeeSiblingsForSession(ctx context.Context, sessionID int64) ([]OrderPaymentSession, error) {
+func (q *Queries) ListConfirmFeeSiblingsForSession(ctx context.Context, sessionID uuid.UUID) ([]OrderPaymentSession, error) {
 	rows, err := q.db.Query(ctx, listConfirmFeeSiblingsForSession, sessionID)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ WHERE "id" = $1 AND "status" = 'Pending'
 RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
 `
 
-func (q *Queries) MarkPaymentSessionCancelled(ctx context.Context, id int64) (OrderPaymentSession, error) {
+func (q *Queries) MarkPaymentSessionCancelled(ctx context.Context, id uuid.UUID) (OrderPaymentSession, error) {
 	row := q.db.QueryRow(ctx, markPaymentSessionCancelled, id)
 	var i OrderPaymentSession
 	err := row.Scan(
@@ -204,7 +204,7 @@ WHERE "id" = $1 AND "status" = 'Pending'
 RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
 `
 
-func (q *Queries) MarkPaymentSessionFailed(ctx context.Context, id int64) (OrderPaymentSession, error) {
+func (q *Queries) MarkPaymentSessionFailed(ctx context.Context, id uuid.UUID) (OrderPaymentSession, error) {
 	row := q.db.QueryRow(ctx, markPaymentSessionFailed, id)
 	var i OrderPaymentSession
 	err := row.Scan(
@@ -234,7 +234,7 @@ RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, 
 
 type MarkPaymentSessionSuccessParams struct {
 	DatePaid time.Time `json:"date_paid"`
-	ID       int64     `json:"id"`
+	ID       uuid.UUID `json:"id"`
 }
 
 func (q *Queries) MarkPaymentSessionSuccess(ctx context.Context, arg MarkPaymentSessionSuccessParams) (OrderPaymentSession, error) {
@@ -265,7 +265,7 @@ UPDATE "order"."payment_session" SET "data" = $1 WHERE "id" = $2
 
 type SetPaymentSessionDataParams struct {
 	Data json.RawMessage `json:"data"`
-	ID   int64           `json:"id"`
+	ID   uuid.UUID       `json:"id"`
 }
 
 // =============================================

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"shopnexus-server/internal/provider/payment"
@@ -92,14 +91,14 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 	q.Add("vnp_OrderType", "billpayment")
 	q.Add("vnp_ReturnUrl", returnURL)
 	q.Add("vnp_ExpireDate", formatTime(time.Now().Add(30*time.Minute)))
-	q.Add("vnp_TxnRef", strconv.FormatInt(params.RefID, 10))
+	q.Add("vnp_TxnRef", params.RefID)
 
 	encodedQuery := q.Encode()
 	secureHash := sign(encodedQuery, []byte(c.hashSecret))
 	redirectURL := req.URL.String() + "?" + encodedQuery + "&vnp_SecureHash=" + secureHash
 
 	return payment.CreateResult{
-		ProviderID:  strconv.FormatInt(params.RefID, 10),
+		ProviderID:  params.RefID,
 		RedirectURL: redirectURL,
 	}, nil
 }

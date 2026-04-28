@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS "order"."cart_item" (
 -- Payment intent: one logical money flow (checkout, refund, payout, fee).
 -- Mutable status; has 0..N transaction rows below for split-tender support.
 CREATE TABLE IF NOT EXISTS "order"."payment_session" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL, -- App-allocated UUID; equals the Restate workflow ID for sessions backed by a workflow
     "kind" TEXT NOT NULL, -- 'buyer-checkout' | 'seller-confirmation-fee' | 'seller-payout'; enum defined in app layer
     "status" "order"."status" NOT NULL,
     "from_id" UUID, -- Account initiating (buyer, seller, NULL = system)
@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS "payment_session_status_pending_idx" ON "order"."paym
 -- Reversals are NEW rows with negative amount + reverses_id pointing to the original.
 CREATE TABLE IF NOT EXISTS "order"."transaction" (
     "id" BIGSERIAL NOT NULL,
-    "session_id" BIGINT NOT NULL,
+    "session_id" UUID NOT NULL,
     "status" "order"."status" NOT NULL,
     "note" TEXT NOT NULL,
     "error" TEXT,
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS "order"."order" (
 
     -- Seller confirmation of the order
     "confirmed_by_id" UUID NOT NULL, -- Seller may have many accounts (staff)
-    "confirm_session_id" BIGINT NOT NULL, -- Seller confirmation fee session (kind='seller-confirmation-fee')
+    "confirm_session_id" UUID NOT NULL, -- Seller confirmation fee session (kind='seller-confirmation-fee')
     "note" TEXT, -- Seller note
 
     CONSTRAINT "order_pkey" PRIMARY KEY ("id"),
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS "order"."item" (
     "transport_option" TEXT NOT NULL,
     "subtotal_amount" BIGINT NOT NULL, -- quantity * unit price. Used for display
     "total_amount" BIGINT NOT NULL, -- Final paid amount after discounts, taxes, etc. Used for display & refunds
-    "payment_session_id" BIGINT NOT NULL,
+    "payment_session_id" UUID NOT NULL,
 
     -- Cancellation
     "date_cancelled" TIMESTAMPTZ(3), -- Set when buyer or seller cancels the item

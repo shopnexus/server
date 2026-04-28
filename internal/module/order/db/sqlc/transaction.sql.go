@@ -151,7 +151,7 @@ WHERE "session_id" = $1
 ORDER BY "date_created"
 `
 
-func (q *Queries) ListTransactionsBySession(ctx context.Context, sessionID int64) ([]OrderTransaction, error) {
+func (q *Queries) ListTransactionsBySession(ctx context.Context, sessionID uuid.UUID) ([]OrderTransaction, error) {
 	rows, err := q.db.Query(ctx, listTransactionsBySession, sessionID)
 	if err != nil {
 		return nil, err

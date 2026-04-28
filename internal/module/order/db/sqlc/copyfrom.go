@@ -182,6 +182,7 @@ func (r *iteratorForCreateCopyDefaultPaymentSession) Next() bool {
 
 func (r iteratorForCreateCopyDefaultPaymentSession) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].Kind,
 		r.rows[0].Status,
 		r.rows[0].FromID,
@@ -200,7 +201,7 @@ func (r iteratorForCreateCopyDefaultPaymentSession) Err() error {
 }
 
 func (q *Queries) CreateCopyDefaultPaymentSession(ctx context.Context, arg []CreateCopyDefaultPaymentSessionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "payment_session"}, []string{"kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultPaymentSession{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "payment_session"}, []string{"id", "kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_paid", "date_expired"}, &iteratorForCreateCopyDefaultPaymentSession{rows: arg})
 }
 
 // iteratorForCreateCopyDefaultRefund implements pgx.CopyFromSource.
@@ -469,6 +470,7 @@ func (r *iteratorForCreateCopyPaymentSession) Next() bool {
 
 func (r iteratorForCreateCopyPaymentSession) Values() ([]interface{}, error) {
 	return []interface{}{
+		r.rows[0].ID,
 		r.rows[0].Kind,
 		r.rows[0].Status,
 		r.rows[0].FromID,
@@ -488,7 +490,7 @@ func (r iteratorForCreateCopyPaymentSession) Err() error {
 }
 
 func (q *Queries) CreateCopyPaymentSession(ctx context.Context, arg []CreateCopyPaymentSessionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"order", "payment_session"}, []string{"kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired"}, &iteratorForCreateCopyPaymentSession{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"order", "payment_session"}, []string{"id", "kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired"}, &iteratorForCreateCopyPaymentSession{rows: arg})
 }
 
 // iteratorForCreateCopyRefund implements pgx.CopyFromSource.

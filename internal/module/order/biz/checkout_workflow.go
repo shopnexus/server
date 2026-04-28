@@ -56,9 +56,13 @@ func NewCheckoutWorkflowHandler(base *OrderHandler) *CheckoutWorkflowHandler {
 // registers this struct under "CheckoutWorkflow".
 func (h *CheckoutWorkflowHandler) ServiceName() string { return "CheckoutWorkflow" }
 
-// Run is the workflow body. The HTTP transport submits with a pre-allocated
-// SessionID equal to the workflow ID so callers can attach to the
-// `payment_url` promise before Run reaches its publish step.
+// Run is the workflow body. The HTTP transport allocates a UUID, uses its
+// string form as the workflow ID when calling restate.Workflow(...), and
+// the workflow recovers it via ctx.Key() — the session row is then INSERTed
+// with that exact UUID. This keeps workflow ID, session ID, and webhook
+// RefID in lockstep so callers can attach to the `payment_url` promise
+// before Run reaches its publish step, and webhooks can route directly
+// without a DB lookup.
 //
 // Saga semantics: every committed side effect (cart deletion, inventory
 // reservation, session/tx/item rows, wallet debit) is paired with a Defer()
@@ -70,6 +74,16 @@ func (h *CheckoutWorkflowHandler) Run(
 	input CheckoutWorkflowInput,
 ) (out CheckoutWorkflowOutput, err error) {
 	defer metrics.TrackHandler("checkout_workflow", "Run", &err)()
+
+	// The workflow ID set at submission time IS the session UUID. Parse once
+	// here so every downstream insert / log / webhook routing key uses the
+	// same identifier. A bad workflow ID is a programmer error from the
+	// caller — terminal, no retry.
+	workflowID := restate.Key(ctx)
+	sessionID, err := uuid.Parse(workflowID)
+	if err != nil {
+		return out, restate.TerminalError(sharedmodel.WrapErr("invalid workflow id (expected uuid)", err))
+	}
 
 	// Step 1: Validate.
 	if err = validator.Validate(input); err != nil {
@@ -359,9 +373,9 @@ func (h *CheckoutWorkflowHandler) Run(
 	// each statement auto-commits in the absence of an outer tx (sqlc Queries
 	// pool here). MarkPaymentSessionFailed is idempotent on already-final
 	// sessions; CancelItem and CreditFromSession likewise.
-	var sessionIDForCompensation int64
+	var sessionIDForCompensation uuid.UUID
 	saga.Defer("mark_session_failed_and_credit", func(rctx restate.RunContext) error {
-		if sessionIDForCompensation == 0 {
+		if sessionIDForCompensation == uuid.Nil {
 			return nil
 		}
 		if _, e := h.storage.Querier().MarkPaymentSessionFailed(rctx, sessionIDForCompensation); e != nil {
@@ -392,6 +406,7 @@ func (h *CheckoutWorkflowHandler) Run(
 		var res runResult
 
 		session, sErr := h.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
+			ID:          sessionID,
 			Kind:        SessionKindBuyerCheckout,
 			Status:      orderdb.OrderStatusPending,
 			FromID:      uuid.NullUUID{UUID: input.Account.ID, Valid: true},
@@ -550,11 +565,14 @@ func (h *CheckoutWorkflowHandler) Run(
 
 		blockerTxID := created.BlockerTxID
 		gatewayAmt := gatewayAmount
+		// RefID == workflow ID (== session UUID string) so the webhook can
+		// route back to this exact workflow without a DB lookup.
+		paymentRef := workflowID
 		res, rErr := restate.Run(ctx, func(rctx restate.RunContext) (string, error) {
 			r, e := paymentClient.Create(rctx, payment.CreateParams{
-				RefID:       blockerTxID,
+				RefID:       paymentRef,
 				Amount:      gatewayAmt,
-				Description: fmt.Sprintf("Checkout tx %d", blockerTxID),
+				Description: fmt.Sprintf("Checkout session %s", paymentRef),
 			})
 			if e != nil {
 				return "", e
@@ -604,7 +622,7 @@ func (h *CheckoutWorkflowHandler) Run(
 			// fall through to success tail.
 		case "cancelled":
 			cancelled = true
-			return CheckoutWorkflowOutput{Status: "cancelled", SessionID: input.SessionID}, nil
+			return CheckoutWorkflowOutput{Status: "cancelled", SessionID: sessionID}, nil
 		case "failed":
 			return out, ordermodel.ErrPaymentFailed.Terminal()
 		default:
@@ -612,7 +630,7 @@ func (h *CheckoutWorkflowHandler) Run(
 		}
 	case expiryFut:
 		expired = true
-		return CheckoutWorkflowOutput{Status: "expired", SessionID: input.SessionID}, nil
+		return CheckoutWorkflowOutput{Status: "expired", SessionID: sessionID}, nil
 	}
 
 	// Step 12: Success tail — clear saga, fan out side effects.
@@ -648,7 +666,7 @@ func (h *CheckoutWorkflowHandler) Run(
 		})
 	}
 
-	return CheckoutWorkflowOutput{Status: "paid", SessionID: input.SessionID}, nil
+	return CheckoutWorkflowOutput{Status: "paid", SessionID: sessionID}, nil
 }
 
 // WaitPaymentURL blocks the caller until Run() resolves the `payment_url`

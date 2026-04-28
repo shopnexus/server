@@ -25,10 +25,10 @@ const (
 
 // CreateParams contains the parameters needed to create a payment with any provider.
 type CreateParams struct {
-	RefID       int64                   // internal payment record ID
-	Amount      int64 // payment amount
-	Description string                  // human-readable description
-	ReturnURL   string                  // where to redirect after payment (provider may override)
+	RefID       string // internal payment reference (used as workflow ID for webhook routing)
+	Amount      int64  // payment amount
+	Description string // human-readable description
+	ReturnURL   string // where to redirect after payment (provider may override)
 }
 
 // CreateResult contains the result of creating a payment.

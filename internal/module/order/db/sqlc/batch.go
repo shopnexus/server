@@ -107,7 +107,7 @@ type CreateBatchItemParams struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 	DateCreated      time.Time       `json:"date_created"`
@@ -203,7 +203,7 @@ type CreateBatchOrderParams struct {
 	Address          string      `json:"address"`
 	DateCreated      time.Time   `json:"date_created"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
@@ -261,8 +261,8 @@ func (b *CreateBatchOrderBatchResults) Close() error {
 }
 
 const createBatchPaymentSession = `-- name: CreateBatchPaymentSession :batchone
-INSERT INTO "order"."payment_session" ("kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "order"."payment_session" ("id", "kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
 `
 
@@ -273,6 +273,7 @@ type CreateBatchPaymentSessionBatchResults struct {
 }
 
 type CreateBatchPaymentSessionParams struct {
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -290,6 +291,7 @@ func (q *Queries) CreateBatchPaymentSession(ctx context.Context, arg []CreateBat
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
+			a.ID,
 			a.Kind,
 			a.Status,
 			a.FromID,
@@ -529,7 +531,7 @@ type CreateBatchTransactionBatchResults struct {
 }
 
 type CreateBatchTransactionParams struct {
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`

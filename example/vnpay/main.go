@@ -17,7 +17,7 @@ func main() {
 	})[0]
 
 	result, err := client.Create(context.TODO(), payment.CreateParams{
-		RefID:       13,
+		RefID:       "13",
 		Amount:      100000,
 		Description: "Don hang 1",
 	})

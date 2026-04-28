@@ -162,7 +162,7 @@ type OrderItem struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 	DateCreated      time.Time       `json:"date_created"`
@@ -176,12 +176,12 @@ type OrderOrder struct {
 	Address          string      `json:"address"`
 	DateCreated      time.Time   `json:"date_created"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
 type OrderPaymentSession struct {
-	ID          int64           `json:"id"`
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -227,7 +227,7 @@ type OrderRefundDispute struct {
 
 type OrderTransaction struct {
 	ID            int64           `json:"id"`
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
@@ -246,7 +246,7 @@ type OrderTransaction struct {
 
 type OrderTransactionSettled struct {
 	ID            int64           `json:"id"`
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`

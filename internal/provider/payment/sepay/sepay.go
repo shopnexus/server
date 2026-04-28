@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -80,7 +79,7 @@ func (c *ClientImpl) Config() sharedmodel.OptionConfig {
 }
 
 func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
-	invoiceNumber := strconv.FormatInt(params.RefID, 10)
+	invoiceNumber := params.RefID
 
 	// Build form fields in SePay's required order for signature
 	fields := []keyValue{

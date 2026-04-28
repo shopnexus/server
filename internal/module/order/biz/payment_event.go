@@ -1,8 +1,6 @@
 package orderbiz
 
 import (
-	"strconv"
-
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 )
 
@@ -14,24 +12,17 @@ type PaymentEvent struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// CheckoutWorkflowID stringifies an int64 session ID for use as workflow ID.
-func CheckoutWorkflowID(sessionID int64) string {
-	return strconv.FormatInt(sessionID, 10)
-}
-
-// ConfirmWorkflowID stringifies an int64 confirm-session ID.
-func ConfirmWorkflowID(sessionID int64) string {
-	return strconv.FormatInt(sessionID, 10)
-}
-
 // WorkflowForSession maps payment_session.kind to (workflowName, workflowID).
-// Returns ("", "") for sessions that have no associated workflow (e.g. payout).
+// Returns ("", "") for sessions outside the workflow scheme (e.g. payout).
+// The workflow ID is the session UUID stringified — both workflow.Run and the
+// HTTP submission path agree on this convention so webhook routing is a
+// direct map (RefID == workflow ID) without a DB lookup.
 func WorkflowForSession(s orderdb.OrderPaymentSession) (workflowName, workflowID string) {
 	switch s.Kind {
 	case SessionKindBuyerCheckout:
-		return "CheckoutWorkflow", CheckoutWorkflowID(s.ID)
+		return "CheckoutWorkflow", s.ID.String()
 	case SessionKindSellerConfirmationFee:
-		return "ConfirmWorkflow", ConfirmWorkflowID(s.ID)
+		return "ConfirmWorkflow", s.ID.String()
 	default:
 		return "", ""
 	}

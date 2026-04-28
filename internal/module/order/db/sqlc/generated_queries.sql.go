@@ -107,7 +107,7 @@ type CountItemParams struct {
 	TotalAmount        []int64           `json:"total_amount"`
 	TotalAmountFrom    null.Int          `json:"total_amount_from"`
 	TotalAmountTo      null.Int          `json:"total_amount_to"`
-	PaymentSessionID   []int64           `json:"payment_session_id"`
+	PaymentSessionID   []uuid.UUID       `json:"payment_session_id"`
 	DateCancelled      []null.Time       `json:"date_cancelled"`
 	DateCancelledFrom  null.Time         `json:"date_cancelled_from"`
 	DateCancelledTo    null.Time         `json:"date_cancelled_to"`
@@ -181,7 +181,7 @@ type CountOrderParams struct {
 	DateCreatedFrom  null.Time     `json:"date_created_from"`
 	DateCreatedTo    null.Time     `json:"date_created_to"`
 	ConfirmedByID    []uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID []int64       `json:"confirm_session_id"`
+	ConfirmSessionID []uuid.UUID   `json:"confirm_session_id"`
 	Note             []null.String `json:"note"`
 }
 
@@ -230,7 +230,7 @@ WHERE (
 `
 
 type CountPaymentSessionParams struct {
-	ID              []int64           `json:"id"`
+	ID              []uuid.UUID       `json:"id"`
 	Kind            []string          `json:"kind"`
 	Status          []OrderStatus     `json:"status"`
 	FromID          []uuid.NullUUID   `json:"from_id"`
@@ -449,7 +449,7 @@ WHERE (
 
 type CountTransactionParams struct {
 	ID               []int64           `json:"id"`
-	SessionID        []int64           `json:"session_id"`
+	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
@@ -599,7 +599,7 @@ type CreateCopyDefaultItemParams struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 }
@@ -610,11 +610,12 @@ type CreateCopyDefaultOrderParams struct {
 	TransportID      int64       `json:"transport_id"`
 	Address          string      `json:"address"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
 type CreateCopyDefaultPaymentSessionParams struct {
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -652,7 +653,7 @@ type CreateCopyDefaultRefundDisputeParams struct {
 }
 
 type CreateCopyDefaultTransactionParams struct {
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
@@ -687,7 +688,7 @@ type CreateCopyItemParams struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 	DateCreated      time.Time       `json:"date_created"`
@@ -701,11 +702,12 @@ type CreateCopyOrderParams struct {
 	Address          string      `json:"address"`
 	DateCreated      time.Time   `json:"date_created"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
 type CreateCopyPaymentSessionParams struct {
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -750,7 +752,7 @@ type CreateCopyRefundDisputeParams struct {
 }
 
 type CreateCopyTransactionParams struct {
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
@@ -818,7 +820,7 @@ type CreateDefaultItemParams struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 }
@@ -878,7 +880,7 @@ type CreateDefaultOrderParams struct {
 	TransportID      int64       `json:"transport_id"`
 	Address          string      `json:"address"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
@@ -908,12 +910,13 @@ func (q *Queries) CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrder
 }
 
 const createDefaultPaymentSession = `-- name: CreateDefaultPaymentSession :one
-INSERT INTO "order"."payment_session" ("kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO "order"."payment_session" ("id", "kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
 `
 
 type CreateDefaultPaymentSessionParams struct {
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -928,6 +931,7 @@ type CreateDefaultPaymentSessionParams struct {
 
 func (q *Queries) CreateDefaultPaymentSession(ctx context.Context, arg CreateDefaultPaymentSessionParams) (OrderPaymentSession, error) {
 	row := q.db.QueryRow(ctx, createDefaultPaymentSession,
+		arg.ID,
 		arg.Kind,
 		arg.Status,
 		arg.FromID,
@@ -1060,7 +1064,7 @@ RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, 
 `
 
 type CreateDefaultTransactionParams struct {
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
@@ -1159,7 +1163,7 @@ type CreateItemParams struct {
 	TransportOption  string          `json:"transport_option"`
 	SubtotalAmount   int64           `json:"subtotal_amount"`
 	TotalAmount      int64           `json:"total_amount"`
-	PaymentSessionID int64           `json:"payment_session_id"`
+	PaymentSessionID uuid.UUID       `json:"payment_session_id"`
 	DateCancelled    null.Time       `json:"date_cancelled"`
 	CancelledByID    uuid.NullUUID   `json:"cancelled_by_id"`
 	DateCreated      time.Time       `json:"date_created"`
@@ -1223,7 +1227,7 @@ type CreateOrderParams struct {
 	Address          string      `json:"address"`
 	DateCreated      time.Time   `json:"date_created"`
 	ConfirmedByID    uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID int64       `json:"confirm_session_id"`
+	ConfirmSessionID uuid.UUID   `json:"confirm_session_id"`
 	Note             null.String `json:"note"`
 }
 
@@ -1255,12 +1259,13 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 }
 
 const createPaymentSession = `-- name: CreatePaymentSession :one
-INSERT INTO "order"."payment_session" ("kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO "order"."payment_session" ("id", "kind", "status", "from_id", "to_id", "note", "currency", "total_amount", "data", "date_created", "date_paid", "date_expired")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, kind, status, from_id, to_id, note, currency, total_amount, data, date_created, date_paid, date_expired
 `
 
 type CreatePaymentSessionParams struct {
+	ID          uuid.UUID       `json:"id"`
 	Kind        string          `json:"kind"`
 	Status      OrderStatus     `json:"status"`
 	FromID      uuid.NullUUID   `json:"from_id"`
@@ -1276,6 +1281,7 @@ type CreatePaymentSessionParams struct {
 
 func (q *Queries) CreatePaymentSession(ctx context.Context, arg CreatePaymentSessionParams) (OrderPaymentSession, error) {
 	row := q.db.QueryRow(ctx, createPaymentSession,
+		arg.ID,
 		arg.Kind,
 		arg.Status,
 		arg.FromID,
@@ -1421,7 +1427,7 @@ RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, 
 `
 
 type CreateTransactionParams struct {
-	SessionID     int64           `json:"session_id"`
+	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
@@ -1597,7 +1603,7 @@ type DeleteItemParams struct {
 	TotalAmount        []int64           `json:"total_amount"`
 	TotalAmountFrom    null.Int          `json:"total_amount_from"`
 	TotalAmountTo      null.Int          `json:"total_amount_to"`
-	PaymentSessionID   []int64           `json:"payment_session_id"`
+	PaymentSessionID   []uuid.UUID       `json:"payment_session_id"`
 	DateCancelled      []null.Time       `json:"date_cancelled"`
 	DateCancelledFrom  null.Time         `json:"date_cancelled_from"`
 	DateCancelledTo    null.Time         `json:"date_cancelled_to"`
@@ -1668,7 +1674,7 @@ type DeleteOrderParams struct {
 	DateCreatedFrom  null.Time     `json:"date_created_from"`
 	DateCreatedTo    null.Time     `json:"date_created_to"`
 	ConfirmedByID    []uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID []int64       `json:"confirm_session_id"`
+	ConfirmSessionID []uuid.UUID   `json:"confirm_session_id"`
 	Note             []null.String `json:"note"`
 }
 
@@ -1714,7 +1720,7 @@ WHERE (
 `
 
 type DeletePaymentSessionParams struct {
-	ID              []int64           `json:"id"`
+	ID              []uuid.UUID       `json:"id"`
 	Kind            []string          `json:"kind"`
 	Status          []OrderStatus     `json:"status"`
 	FromID          []uuid.NullUUID   `json:"from_id"`
@@ -1924,7 +1930,7 @@ WHERE (
 
 type DeleteTransactionParams struct {
 	ID               []int64           `json:"id"`
-	SessionID        []int64           `json:"session_id"`
+	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
@@ -2124,7 +2130,7 @@ WHERE ("id" = $1)
 // ========================================
 // Queries for table: order.payment_session
 // ========================================
-func (q *Queries) GetPaymentSession(ctx context.Context, id null.Int) (OrderPaymentSession, error) {
+func (q *Queries) GetPaymentSession(ctx context.Context, id uuid.NullUUID) (OrderPaymentSession, error) {
 	row := q.db.QueryRow(ctx, getPaymentSession, id)
 	var i OrderPaymentSession
 	err := row.Scan(
@@ -2448,7 +2454,7 @@ type ListCountItemParams struct {
 	TotalAmount        []int64           `json:"total_amount"`
 	TotalAmountFrom    null.Int          `json:"total_amount_from"`
 	TotalAmountTo      null.Int          `json:"total_amount_to"`
-	PaymentSessionID   []int64           `json:"payment_session_id"`
+	PaymentSessionID   []uuid.UUID       `json:"payment_session_id"`
 	DateCancelled      []null.Time       `json:"date_cancelled"`
 	DateCancelledFrom  null.Time         `json:"date_cancelled_from"`
 	DateCancelledTo    null.Time         `json:"date_cancelled_to"`
@@ -2567,7 +2573,7 @@ type ListCountOrderParams struct {
 	DateCreatedFrom  null.Time     `json:"date_created_from"`
 	DateCreatedTo    null.Time     `json:"date_created_to"`
 	ConfirmedByID    []uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID []int64       `json:"confirm_session_id"`
+	ConfirmSessionID []uuid.UUID   `json:"confirm_session_id"`
 	Note             []null.String `json:"note"`
 	Offset           null.Int32    `json:"offset"`
 	Limit            null.Int32    `json:"limit"`
@@ -2652,7 +2658,7 @@ OFFSET $19::int
 `
 
 type ListCountPaymentSessionParams struct {
-	ID              []int64           `json:"id"`
+	ID              []uuid.UUID       `json:"id"`
 	Kind            []string          `json:"kind"`
 	Status          []OrderStatus     `json:"status"`
 	FromID          []uuid.NullUUID   `json:"from_id"`
@@ -2988,7 +2994,7 @@ OFFSET $27::int
 
 type ListCountTransactionParams struct {
 	ID               []int64           `json:"id"`
-	SessionID        []int64           `json:"session_id"`
+	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
@@ -3219,7 +3225,7 @@ type ListItemParams struct {
 	TotalAmount        []int64           `json:"total_amount"`
 	TotalAmountFrom    null.Int          `json:"total_amount_from"`
 	TotalAmountTo      null.Int          `json:"total_amount_to"`
-	PaymentSessionID   []int64           `json:"payment_session_id"`
+	PaymentSessionID   []uuid.UUID       `json:"payment_session_id"`
 	DateCancelled      []null.Time       `json:"date_cancelled"`
 	DateCancelledFrom  null.Time         `json:"date_cancelled_from"`
 	DateCancelledTo    null.Time         `json:"date_cancelled_to"`
@@ -3332,7 +3338,7 @@ type ListOrderParams struct {
 	DateCreatedFrom  null.Time     `json:"date_created_from"`
 	DateCreatedTo    null.Time     `json:"date_created_to"`
 	ConfirmedByID    []uuid.UUID   `json:"confirmed_by_id"`
-	ConfirmSessionID []int64       `json:"confirm_session_id"`
+	ConfirmSessionID []uuid.UUID   `json:"confirm_session_id"`
 	Note             []null.String `json:"note"`
 	Offset           null.Int32    `json:"offset"`
 	Limit            null.Int32    `json:"limit"`
@@ -3411,7 +3417,7 @@ OFFSET $19::int
 `
 
 type ListPaymentSessionParams struct {
-	ID              []int64           `json:"id"`
+	ID              []uuid.UUID       `json:"id"`
 	Kind            []string          `json:"kind"`
 	Status          []OrderStatus     `json:"status"`
 	FromID          []uuid.NullUUID   `json:"from_id"`
@@ -3729,7 +3735,7 @@ OFFSET $27::int
 
 type ListTransactionParams struct {
 	ID               []int64           `json:"id"`
-	SessionID        []int64           `json:"session_id"`
+	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
@@ -3962,7 +3968,7 @@ type UpdateItemParams struct {
 	TransportOption   null.String     `json:"transport_option"`
 	SubtotalAmount    null.Int        `json:"subtotal_amount"`
 	TotalAmount       null.Int        `json:"total_amount"`
-	PaymentSessionID  null.Int        `json:"payment_session_id"`
+	PaymentSessionID  uuid.NullUUID   `json:"payment_session_id"`
 	NullDateCancelled bool            `json:"null_date_cancelled"`
 	DateCancelled     null.Time       `json:"date_cancelled"`
 	NullCancelledByID bool            `json:"null_cancelled_by_id"`
@@ -4042,7 +4048,7 @@ type UpdateOrderParams struct {
 	Address          null.String   `json:"address"`
 	DateCreated      null.Time     `json:"date_created"`
 	ConfirmedByID    uuid.NullUUID `json:"confirmed_by_id"`
-	ConfirmSessionID null.Int      `json:"confirm_session_id"`
+	ConfirmSessionID uuid.NullUUID `json:"confirm_session_id"`
 	NullNote         bool          `json:"null_note"`
 	Note             null.String   `json:"note"`
 	ID               uuid.UUID     `json:"id"`
@@ -4108,7 +4114,7 @@ type UpdatePaymentSessionParams struct {
 	NullDatePaid bool            `json:"null_date_paid"`
 	DatePaid     null.Time       `json:"date_paid"`
 	DateExpired  null.Time       `json:"date_expired"`
-	ID           int64           `json:"id"`
+	ID           uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdatePaymentSession(ctx context.Context, arg UpdatePaymentSessionParams) (OrderPaymentSession, error) {
@@ -4317,7 +4323,7 @@ RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, 
 `
 
 type UpdateTransactionParams struct {
-	SessionID         null.Int        `json:"session_id"`
+	SessionID         uuid.NullUUID   `json:"session_id"`
 	Status            NullOrderStatus `json:"status"`
 	Note              null.String     `json:"note"`
 	NullError         bool            `json:"null_error"`
