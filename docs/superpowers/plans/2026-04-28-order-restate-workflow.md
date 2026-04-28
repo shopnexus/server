@@ -99,13 +99,11 @@ SELECT EXISTS (
 );
 ```
 
-- [ ] **Step 5: Reset dev DB and regen**
+- [ ] **Step 5: Regen**
 
 Run:
 
 ```bash
-docker compose -f deployment/docker-compose.yml down postgres -v && \
-docker compose -f deployment/docker-compose.yml up -d postgres && \
 make migrate && \
 make pgtempl && \
 sqlc generate
