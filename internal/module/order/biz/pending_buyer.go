@@ -14,6 +14,7 @@ import (
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	sharedmodel "shopnexus-server/internal/shared/model"
+	"shopnexus-server/internal/shared/saga"
 	"shopnexus-server/internal/shared/validator"
 
 	"github.com/google/uuid"
@@ -174,7 +175,10 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 
 	case orderdb.OrderStatusSuccess:
 		// Workflow exited; partial refund this single item.
-		if err := b.partialRefundPendingItem(ctx, item, paymentSession); err != nil {
+		if err = b.RefundPendingItem(ctx, RefundPendingItemParams{
+			Item:             item,
+			PaymentSessionID: paymentSession.ID,
+		}); err != nil {
 			return err
 		}
 
@@ -194,35 +198,48 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 	return nil
 }
 
-// partialRefundPendingItem refunds a single paid-but-not-yet-confirmed item
-// without touching its sibling items. Releases inventory, creates a reversing
-// refund tx in the buyer's checkout session, marks the item cancelled, then
-// credits the buyer wallet via CreditFromSession.
-func (b *OrderHandler) partialRefundPendingItem(
-	ctx restate.Context,
-	item orderdb.OrderItem,
-	paymentSession orderdb.OrderPaymentSession,
-) error {
-	// Release reserved inventory (cross-module — outside Run).
-	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: []inventorybiz.ReleaseInventoryItem{{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   item.SkuID,
-			Amount:  item.Quantity,
-		}},
-	}); err != nil {
-		return sharedmodel.WrapErr("release inventory", err)
-	}
+type RefundPendingItemParams struct {
+	Item             orderdb.OrderItem
+	PaymentSessionID uuid.UUID
+}
 
-	buyerCurrency, err := b.inferCurrency(ctx, item.AccountID)
+// RefundPendingItem refunds a single paid-but-not-yet-confirmed item
+// without touching its sibling items in the same payment session.
+//
+// Saga ordering: each compensable side effect runs AFTER its compensator is
+// deferred, and the atomic Run (refund tx + cancel item) is placed last so it
+// needs no compensator. If any step fails, the deferred top-level guard fires
+// saga.Compensate() which unwinds LIFO via restate.RunVoid (idempotent retry).
+//
+//	1. find original positive Success tx (read-only, no compensator)
+//	2. release inventory  → defer re-reserve
+//	3. wallet credit      → defer wallet debit
+//	4. refund tx + cancel item (last action, no compensator)
+func (b *OrderHandler) RefundPendingItem(
+	ctx restate.Context,
+	params RefundPendingItemParams,
+) error {
+	var err error
+
+	sagaTx := saga.New(ctx)
+	defer func() {
+		if err != nil {
+			sagaTx.Compensate()
+		}
+	}()
+
+	var buyerCurrency string
+	buyerCurrency, err = b.InferCurrency(ctx, params.Item.AccountID)
 	if err != nil {
 		return sharedmodel.WrapErr("infer buyer currency", err)
 	}
 
-	// Find the original positive Success tx in this session — refund leg
-	// reverses it. Single original tx per session (no split-tender).
-	originalTxID, err := restate.Run(ctx, func(ctx restate.RunContext) (null.Int, error) {
-		txs, err := b.storage.Querier().ListTransactionsBySession(ctx, paymentSession.ID)
+	// Step 1: find the original positive Success tx — refund leg reverses it.
+	// Single original tx per session (no split-tender).
+	var originalTxID null.Int
+	originalTxID, err = restate.Run(ctx, func(rctx restate.RunContext) (null.Int, error) {
+		var txs []orderdb.OrderTransaction
+		txs, err = b.storage.Querier().ListTransactionsBySession(rctx, params.PaymentSessionID)
 		if err != nil {
 			return null.Int{}, err
 		}
@@ -237,45 +254,77 @@ func (b *OrderHandler) partialRefundPendingItem(
 		return sharedmodel.WrapErr("find original tx", err)
 	}
 
-	// Atomic: refund tx + cancel item.
-	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		if _, txErr := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-			SessionID:    paymentSession.ID,
+	// Step 2: release inventory. Compensator re-reserves so cancellation rollback
+	// restores stock state.
+	sagaTx.Defer("reserve_inventory", func(rctx restate.RunContext) error {
+		_, e := b.inventory.ReserveInventory(rctx, inventorybiz.ReserveInventoryParams{
+			Items: []inventorybiz.ReserveInventoryItem{{
+				RefType: inventorydb.InventoryStockRefTypeProductSku,
+				RefID:   params.Item.SkuID,
+				Amount:  params.Item.Quantity,
+			}},
+		})
+		return e
+	})
+	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+		Items: []inventorybiz.ReleaseInventoryItem{{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   params.Item.SkuID,
+			Amount:  params.Item.Quantity,
+		}},
+	}); err != nil {
+		return sharedmodel.WrapErr("release inventory", err)
+	}
+
+	// Step 3: credit only the partial item amount. CreditFromSession would
+	// over-credit (it sums all positive Success txs in the session, ignoring
+	// our negative refund leg). Direct WalletCredit with an item-scoped
+	// Reference is the right primitive for partial refunds.
+	creditRef := fmt.Sprintf("partial-refund:item:%d", params.Item.ID)
+	sagaTx.Defer("wallet_debit", func(rctx restate.RunContext) error {
+		_, e := b.account.WalletDebit(rctx, accountbiz.WalletDebitParams{
+			AccountID: params.Item.AccountID,
+			Amount:    params.Item.TotalAmount,
+			Reference: "rollback:" + creditRef,
+			Note:      "rollback partial refund credit",
+		})
+		return e
+	})
+	if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+		AccountID: params.Item.AccountID,
+		Amount:    params.Item.TotalAmount,
+		Type:      "Refund",
+		Reference: creditRef,
+		Note:      "buyer cancel pre-confirm partial refund",
+	}); err != nil {
+		return sharedmodel.WrapErr("credit buyer wallet", err)
+	}
+
+	// Step 4 (last, no compensator): atomic refund tx + cancel item.
+	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+		if _, e := b.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+			SessionID:    params.PaymentSessionID,
 			Status:       orderdb.OrderStatusSuccess,
 			Note:         "buyer cancel pre-confirm",
 			Data:         json.RawMessage("{}"),
-			Amount:       -item.TotalAmount,
+			Amount:       -params.Item.TotalAmount,
 			FromCurrency: buyerCurrency,
 			ToCurrency:   buyerCurrency,
 			ExchangeRate: mustNumericOne(),
 			ReversesID:   originalTxID,
 			DateSettled:  null.TimeFrom(time.Now()),
-		}); txErr != nil {
-			return sharedmodel.WrapErr("db create refund tx", txErr)
+		}); e != nil {
+			return sharedmodel.WrapErr("db create refund tx", e)
 		}
-		if _, cErr := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
-			CancelledByID: uuid.NullUUID{UUID: item.AccountID, Valid: true},
-			ID:            item.ID,
-		}); cErr != nil {
-			return sharedmodel.WrapErr("db cancel item", cErr)
+		if _, e := b.storage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
+			CancelledByID: uuid.NullUUID{UUID: params.Item.AccountID, Valid: true},
+			ID:            params.Item.ID,
+		}); e != nil {
+			return sharedmodel.WrapErr("db cancel item", e)
 		}
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	// Credit only the partial item amount — CreditFromSession would over-credit
-	// (it sums all positive Success txs in the session, ignoring our negative
-	// refund leg, so it'd refund the whole session). Direct WalletCredit with
-	// an item-scoped Reference is the right primitive for partial refunds.
-	if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-		AccountID: item.AccountID,
-		Amount:    item.TotalAmount,
-		Type:      "Refund",
-		Reference: fmt.Sprintf("partial-refund:item:%d", item.ID),
-		Note:      "buyer cancel pre-confirm partial refund",
-	}); err != nil {
-		return sharedmodel.WrapErr("credit buyer wallet", err)
 	}
 
 	return nil

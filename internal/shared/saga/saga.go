@@ -12,8 +12,12 @@ import (
 // is rebuilt deterministically because every action between Defer() calls is
 // itself wrapped in restate.Run, so journal replay restores the slice to the
 // exact state it had at the crash point.
+//
+// Works with both Workflow handlers (restate.WorkflowContext is-a Context) and
+// Service handlers (restate.Context). The compensator body always receives a
+// RunContext.
 type Saga struct {
-	ctx          restate.WorkflowContext
+	ctx          restate.Context
 	compensators []step
 }
 
@@ -22,8 +26,9 @@ type step struct {
 	fn   func(restate.RunContext) error
 }
 
-// New creates an empty saga bound to the given workflow context.
-func New(ctx restate.WorkflowContext) *Saga {
+// New creates an empty saga bound to the given Restate context.
+// Accepts WorkflowContext or plain Context — both satisfy restate.Context.
+func New(ctx restate.Context) *Saga {
 	return &Saga{ctx: ctx}
 }
 
