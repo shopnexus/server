@@ -43,7 +43,7 @@ var validTransitions = map[orderdb.OrderStatus]map[orderdb.OrderStatus]bool{
 // re-evaluate its release-escrow timer; when transport fails or is cancelled
 // it fires the corresponding buyer/seller notifications. Called by the
 // transport-provider webhook bridge (transport/echo).
-func (b *OrderHandler) OnTransportResult(ctx restate.Context, params UpdateTransportStatusParams) error {
+func (b *OrderHandler) OnTransportResult(ctx restate.Context, params OnTransportResultParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate on transport result", err)
 	}

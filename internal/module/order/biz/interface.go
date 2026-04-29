@@ -55,9 +55,8 @@ type OrderBiz interface {
 		params ListSellerConfirmedParams,
 	) (sharedmodel.PaginateResult[ordermodel.Order], error)
 
-	// Transaction webhook callbacks
-	MarkTxSuccess(ctx context.Context, params MarkTxSuccessParams) error
-	MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error
+	// Payment webhook entrypoint — gateway providers and internal callers
+	// route through here. MarkTxSuccess/MarkTxFailed are package-internal helpers.
 	OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error
 
 	// Cart
@@ -93,7 +92,7 @@ type OrderBiz interface {
 	GetRefundDispute(ctx context.Context, params GetRefundDisputeParams) (ordermodel.RefundDispute, error)
 
 	// Transport
-	OnTransportResult(ctx context.Context, params UpdateTransportStatusParams) error
+	OnTransportResult(ctx context.Context, params OnTransportResultParams) error
 
 	// Dashboard
 	GetSellerOrderStats(ctx context.Context, params GetSellerOrderStatsParams) (SellerOrderStats, error)
@@ -203,14 +202,14 @@ type ListSellerConfirmedParams struct {
 	sharedmodel.PaginationParams
 }
 
-// --- Transaction webhook ---
+// --- Transaction internal helpers (used by OnPaymentResult and workflows) ---
 
-type MarkTxSuccessParams struct {
+type markTxSuccessParams struct {
 	TxID   int64     `json:"tx_id" validate:"required"`
 	DateAt time.Time `json:"date_at"`
 }
 
-type MarkTxFailedParams struct {
+type markTxFailedParams struct {
 	TxID   int64  `json:"tx_id" validate:"required"`
 	Reason string `json:"reason"`
 }
@@ -316,7 +315,7 @@ type GetRefundDisputeParams struct {
 
 // --- Transport ---
 
-type UpdateTransportStatusParams struct {
+type OnTransportResultParams struct {
 	TrackingID string              `validate:"omitempty"`
 	Status     orderdb.OrderStatus `validate:"required,validateFn=Valid"`
 	Data       json.RawMessage     `validate:"omitempty"`

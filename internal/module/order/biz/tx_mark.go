@@ -14,11 +14,11 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-// MarkTxSuccess transitions a Pending transaction to Success and, if this was the
+// markTxSuccess transitions a Pending transaction to Success and, if this was the
 // last Pending tx in its session (and no leg failed), auto-promotes the session
-// to Success. Called by payment gateway webhooks; also used internally after
-// successful cross-module debit/credit acknowledgements.
-func (b *OrderHandler) MarkTxSuccess(ctx restate.Context, params MarkTxSuccessParams) error {
+// to Success. Internal — invoked by OnPaymentResult and the workflow handlers
+// after wallet debit/credit acknowledgements.
+func (b *OrderHandler) markTxSuccess(ctx restate.Context, params markTxSuccessParams) error {
 	dateAt := params.DateAt
 	if dateAt.IsZero() {
 		dateAt = time.Now()
@@ -62,9 +62,9 @@ func (b *OrderHandler) MarkTxSuccess(ctx restate.Context, params MarkTxSuccessPa
 	})
 }
 
-// MarkTxFailed transitions a Pending transaction to Failed.
-// Called by payment gateway webhooks on decline / error.
-func (b *OrderHandler) MarkTxFailed(ctx restate.Context, params MarkTxFailedParams) error {
+// markTxFailed transitions a Pending transaction to Failed.
+// Internal — invoked by OnPaymentResult on gateway decline/error.
+func (b *OrderHandler) markTxFailed(ctx restate.Context, params markTxFailedParams) error {
 	return restate.RunVoid(ctx, func(ctx restate.RunContext) error {
 		_, err := b.storage.Querier().MarkTransactionFailed(ctx, orderdb.MarkTransactionFailedParams{
 			ID:    params.TxID,
@@ -118,11 +118,11 @@ func (b *OrderHandler) OnPaymentResult(ctx restate.Context, params OnPaymentResu
 	if txID != 0 {
 		switch params.Outcome {
 		case "paid":
-			if err := b.MarkTxSuccess(ctx, MarkTxSuccessParams{TxID: txID}); err != nil {
+			if err := b.markTxSuccess(ctx, markTxSuccessParams{TxID: txID}); err != nil {
 				return sharedmodel.WrapErr("mark tx success", err)
 			}
 		case "failed":
-			if err := b.MarkTxFailed(ctx, MarkTxFailedParams{TxID: txID, Reason: "gateway"}); err != nil {
+			if err := b.markTxFailed(ctx, markTxFailedParams{TxID: txID, Reason: "gateway"}); err != nil {
 				return sharedmodel.WrapErr("mark tx failed", err)
 			}
 		}

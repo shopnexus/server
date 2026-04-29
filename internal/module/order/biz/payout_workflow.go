@@ -24,7 +24,7 @@ import (
 // each iteration, reloading the refund snapshot, and races a per-iteration
 // signal promise against the remaining escrow timer.
 type PayoutWorkflowHandler struct {
-	*OrderHandler
+	base *OrderHandler
 }
 
 // NewPayoutWorkflowHandler wraps an OrderHandler so the workflow can reuse
@@ -32,7 +32,7 @@ type PayoutWorkflowHandler struct {
 // etc.). The workflow ID is the order UUID — set by the upstream
 // ConfirmWorkflow when it hands off via WorkflowSend.
 func NewPayoutWorkflowHandler(base *OrderHandler) *PayoutWorkflowHandler {
-	return &PayoutWorkflowHandler{OrderHandler: base}
+	return &PayoutWorkflowHandler{base: base}
 }
 
 // ServiceName overrides the embedded OrderHandler's name so restate.Reflect
@@ -65,7 +65,7 @@ func (h *PayoutWorkflowHandler) Run(
 	init, err := restate.Run(ctx, func(rctx restate.RunContext) (initResult, error) {
 		var res initResult
 		sessionID := uuid.New()
-		_, sErr := h.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
+		_, sErr := h.base.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
 			ID:          sessionID,
 			Kind:        SessionKindSellerPayout,
 			Status:      orderdb.OrderStatusPending,
@@ -81,7 +81,7 @@ func (h *PayoutWorkflowHandler) Run(
 		if sErr != nil {
 			return res, sharedmodel.WrapErr("db create payout session", sErr)
 		}
-		tx, txErr := h.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+		tx, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
 			SessionID:     sessionID,
 			Status:        orderdb.OrderStatusPending,
 			Note:          "seller payout (escrow)",
@@ -115,7 +115,7 @@ func (h *PayoutWorkflowHandler) Run(
 		// Reload the refund snapshot each iteration. It's tiny and journaling
 		// it lets the next decision branch off a deterministic value.
 		snap, snapErr := restate.Run(ctx, func(rctx restate.RunContext) (RefundSnapshot, error) {
-			row, e := h.storage.Querier().GetRefundSnapshotByOrder(rctx, input.OrderID)
+			row, e := h.base.storage.Querier().GetRefundSnapshotByOrder(rctx, input.OrderID)
 			if e != nil {
 				return RefundSnapshot{}, e
 			}
@@ -133,7 +133,7 @@ func (h *PayoutWorkflowHandler) Run(
 			// A refund has settled — cancel the pending payout session/tx
 			// and notify the seller. No wallet credit happens.
 			if cErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-				if _, e := h.storage.Querier().MarkPaymentSessionCancelled(rctx, init.SessionID); e != nil {
+				if _, e := h.base.storage.Querier().MarkPaymentSessionCancelled(rctx, init.SessionID); e != nil {
 					return sharedmodel.WrapErr("mark payout session cancelled", e)
 				}
 				return nil
@@ -147,7 +147,7 @@ func (h *PayoutWorkflowHandler) Run(
 		case !snap.HasActiveRefund && !time.Now().Before(deadline):
 			// Escrow window has elapsed with no active refund — release.
 			if rErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-				return h.releasePayout(rctx, releasePayoutParams{
+				return h.base.releasePayout(rctx, releasePayoutParams{
 					SessionID: init.SessionID,
 					TxID:      init.TxID,
 					Input:     input,

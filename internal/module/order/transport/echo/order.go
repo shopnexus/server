@@ -119,7 +119,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 		if err != nil {
 			return fmt.Errorf("marshal transport webhook data: %w", err)
 		}
-		return biz.OnTransportResult(ctx, orderbiz.UpdateTransportStatusParams{
+		return biz.OnTransportResult(ctx, orderbiz.OnTransportResultParams{
 			TrackingID: result.TransportID,
 			Status:     orderdb.OrderStatus(result.Status),
 			Data:       data,

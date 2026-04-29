@@ -13,7 +13,6 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
-	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/saga"
@@ -31,18 +30,19 @@ import (
 // (see saga.go) and the confirm-fee payment outcome awaited via a durable
 // promise + expiry timer.
 type ConfirmWorkflowHandler struct {
-	*OrderHandler
+	base *OrderHandler
 }
 
 // NewConfirmWorkflowHandler wraps an OrderHandler so the workflow can reuse
 // every helper (storage, locker, account/catalog/inventory/common clients,
-// payment/transport maps, MarkTxSuccess, CreditFromSession, etc.).
+// payment/transport maps, MarkTxSuccess, CreditFromSession, etc.). The base
+// is held as a named field (not embedded) so reflection-driven Restate
+// registration only sees workflow-typed methods on this struct.
 func NewConfirmWorkflowHandler(base *OrderHandler) *ConfirmWorkflowHandler {
-	return &ConfirmWorkflowHandler{OrderHandler: base}
+	return &ConfirmWorkflowHandler{base: base}
 }
 
-// ServiceName overrides the embedded OrderHandler's name so restate.Reflect
-// registers this struct under "ConfirmWorkflow".
+// ServiceName registers this struct under "ConfirmWorkflow" for restate.Reflect.
 func (h *ConfirmWorkflowHandler) ServiceName() string { return "ConfirmWorkflow" }
 
 // Run is the workflow body. The HTTP transport allocates a UUID, uses its
@@ -84,13 +84,13 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 2: Lock seller pending so two concurrent confirms over an
 	// overlapping ItemIDs slice can't double-spend wallet balance or skip
 	// validation. The lock's lifetime is the workflow run.
-	unlock := h.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", sellerID))
+	unlock := h.base.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", sellerID))
 	defer unlock()
 
 	// Step 3: Fetch and validate items inside a Run so list ordering and
 	// missing-row checks are journaled (replay returns the exact same slice).
 	orderItems, err := restate.Run(ctx, func(rctx restate.RunContext) ([]orderdb.OrderItem, error) {
-		items, e := h.storage.Querier().ListItem(rctx, orderdb.ListItemParams{
+		items, e := h.base.storage.Querier().ListItem(rctx, orderdb.ListItemParams{
 			ID: input.ItemIDs,
 		})
 		if e != nil {
@@ -150,7 +150,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	// free.
 	for psID := range uniquePaymentSessionIDs {
 		status, sErr := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderStatus, error) {
-			session, e := h.storage.Querier().GetPaymentSession(rctx, uuid.NullUUID{UUID: psID, Valid: true})
+			session, e := h.base.storage.Querier().GetPaymentSession(rctx, uuid.NullUUID{UUID: psID, Valid: true})
 			if e != nil {
 				return "", sharedmodel.WrapErr("get payment session", e)
 			}
@@ -167,13 +167,13 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 5: Quote transport for the aggregate shipment. One quote covers
 	// all confirmed items because they share the same transport_option and
 	// destination address (asserted above).
-	contactMap, err := h.account.GetDefaultContact(ctx, []uuid.UUID{sellerID})
+	contactMap, err := h.base.account.GetDefaultContact(ctx, []uuid.UUID{sellerID})
 	if err != nil {
 		return out, sharedmodel.WrapErr("get seller contact", err)
 	}
 	fromAddress := contactMap[sellerID].Address
 
-	transportClient, err := h.getTransportClient(transportOption)
+	transportClient, err := h.base.getTransportClient(transportOption)
 	if err != nil {
 		return out, err
 	}
@@ -195,7 +195,7 @@ func (h *ConfirmWorkflowHandler) Run(
 
 	// Confirm-fee txs are denominated in the seller's currency (the seller
 	// is paying the platform). inferCurrency is cross-module → outside Run.
-	sellerCurrency, err := h.inferCurrency(ctx, sellerID)
+	sellerCurrency, err := h.base.inferCurrency(ctx, sellerID)
 	if err != nil {
 		return out, sharedmodel.WrapErr("infer seller currency", err)
 	}
@@ -203,7 +203,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 6: Wallet / gateway split for confirmFeeTotal.
 	var confirmFeeWallet, confirmFeeGateway int64
 	if input.UseWallet && confirmFeeTotal > 0 {
-		balance, balErr := h.account.GetWalletBalance(ctx, sellerID)
+		balance, balErr := h.base.account.GetWalletBalance(ctx, sellerID)
 		if balErr != nil {
 			return out, sharedmodel.WrapErr("get seller wallet balance", balErr)
 		}
@@ -232,7 +232,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		if err != nil || cancelled || expired {
 			saga.Compensate()
 			if confirmSessionForCompensation != uuid.Nil {
-				if _, ce := h.CreditFromSession(ctx, CreditFromSessionParams{
+				if _, ce := h.base.CreditFromSession(ctx, CreditFromSessionParams{
 					SessionID:  confirmSessionForCompensation,
 					AccountID:  sellerID,
 					CreditType: "Refund",
@@ -264,7 +264,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		if confirmSessionForCompensation == uuid.Nil {
 			return nil
 		}
-		if _, e := h.storage.Querier().MarkPaymentSessionFailed(rctx, confirmSessionForCompensation); e != nil {
+		if _, e := h.base.storage.Querier().MarkPaymentSessionFailed(rctx, confirmSessionForCompensation); e != nil {
 			return e
 		}
 		return nil
@@ -273,7 +273,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	created, err := restate.Run(ctx, func(rctx restate.RunContext) (confirmRunResult, error) {
 		var res confirmRunResult
 
-		session, sErr := h.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
+		session, sErr := h.base.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
 			ID:          sessionID,
 			Kind:        SessionKindSellerConfirmationFee,
 			Status:      orderdb.OrderStatusPending,
@@ -292,7 +292,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		res.Session = session
 
 		if confirmFeeWallet > 0 {
-			tx, txErr := h.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+			tx, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
 				SessionID:     session.ID,
 				Status:        orderdb.OrderStatusPending,
 				Note:          "confirm fee wallet payment",
@@ -317,7 +317,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		}
 
 		if confirmFeeGateway > 0 {
-			tx, txErr := h.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+			tx, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
 				SessionID:     session.ID,
 				Status:        orderdb.OrderStatusPending,
 				Note:          "confirm fee gateway payment",
@@ -354,7 +354,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		walletTxID := created.WalletTx.ID
 		amount := confirmFeeWallet
 		saga.Defer("credit_wallet", func(rctx restate.RunContext) error {
-			return h.account.WalletCredit(rctx, accountbiz.WalletCreditParams{
+			return h.base.account.WalletCredit(rctx, accountbiz.WalletCreditParams{
 				AccountID: sellerID,
 				Amount:    amount,
 				Type:      "Refund",
@@ -362,7 +362,7 @@ func (h *ConfirmWorkflowHandler) Run(
 				Note:      "confirm saga compensation",
 			})
 		})
-		if _, dErr := h.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
+		if _, dErr := h.base.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
 			AccountID: sellerID,
 			Amount:    amount,
 			Reference: fmt.Sprintf("tx:%d", walletTxID),
@@ -370,7 +370,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		}); dErr != nil {
 			return out, sharedmodel.WrapErr("seller wallet debit", dErr)
 		}
-		if mErr := h.MarkTxSuccess(ctx, MarkTxSuccessParams{TxID: walletTxID}); mErr != nil {
+		if mErr := h.base.markTxSuccess(ctx, markTxSuccessParams{TxID: walletTxID}); mErr != nil {
 			return out, sharedmodel.WrapErr("mark confirm-fee wallet tx success", mErr)
 		}
 	}
@@ -378,45 +378,15 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 9: Initiate gateway payment + publish payment_url so HTTP attach
 	// can return synchronously. The promise must be resolved on every path
 	// (including wallet-only) so attached callers don't hang.
-	var url string
-	if confirmFeeGateway > 0 {
-		paymentClient, pcErr := h.getPaymentClient(input.PaymentOption)
-		if pcErr != nil {
-			return out, sharedmodel.WrapErr("get payment client", pcErr)
-		}
-
-		blockerTxID := created.BlockerTxID
-		gatewayAmt := confirmFeeGateway
-		// RefID == workflow ID (== session UUID string) so the webhook can
-		// route back to this exact workflow without a DB lookup.
-		paymentRef := workflowID
-		res, rErr := restate.Run(ctx, func(rctx restate.RunContext) (string, error) {
-			r, e := paymentClient.Create(rctx, payment.CreateParams{
-				RefID:       paymentRef,
-				Amount:      gatewayAmt,
-				Description: fmt.Sprintf("Confirm fee session %s", paymentRef),
-			})
-			if e != nil {
-				return "", e
-			}
-			return r.RedirectURL, nil
-		})
-		if rErr != nil {
-			return out, sharedmodel.WrapErr("create gateway payment for confirm fee", rErr)
-		}
-		url = res
-
-		if url != "" {
-			if pErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-				data, _ := json.Marshal(map[string]string{"gateway_url": url})
-				return h.storage.Querier().SetTransactionData(rctx, orderdb.SetTransactionDataParams{
-					ID:   blockerTxID,
-					Data: data,
-				})
-			}); pErr != nil {
-				return out, sharedmodel.WrapErr("persist gateway url on tx", pErr)
-			}
-		}
+	url, gErr := h.base.InitGatewayPayment(ctx, InitGatewayPaymentParams{
+		Amount:        confirmFeeGateway,
+		PaymentOption: input.PaymentOption,
+		BlockerTxID:   created.BlockerTxID,
+		RefID:         workflowID,
+		Description:   fmt.Sprintf("Confirm fee session %s", workflowID),
+	})
+	if gErr != nil {
+		return out, gErr
 	}
 	if pErr := restate.Promise[string](ctx, "payment_url").Resolve(url); pErr != nil {
 		return out, sharedmodel.WrapErr("resolve payment url promise", pErr)
@@ -468,7 +438,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		var res postPayRunResult
 
 		quoteData, _ := json.Marshal(map[string]int64{"quote": quote.Cost})
-		trRow, tErr := h.storage.Querier().CreateDefaultTransport(rctx, orderdb.CreateDefaultTransportParams{
+		trRow, tErr := h.base.storage.Querier().CreateDefaultTransport(rctx, orderdb.CreateDefaultTransportParams{
 			Option: transportOption,
 			Data:   json.RawMessage(quoteData),
 		})
@@ -477,7 +447,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		}
 		res.Transport = trRow
 
-		order, oErr := h.storage.Querier().CreateDefaultOrder(rctx, orderdb.CreateDefaultOrderParams{
+		order, oErr := h.base.storage.Querier().CreateDefaultOrder(rctx, orderdb.CreateDefaultOrderParams{
 			BuyerID:          buyerID,
 			SellerID:         sellerID,
 			TransportID:      trRow.ID,
@@ -491,7 +461,7 @@ func (h *ConfirmWorkflowHandler) Run(
 		}
 		res.Order = order
 
-		if lErr := h.storage.Querier().SetItemsOrderID(rctx, orderdb.SetItemsOrderIDParams{
+		if lErr := h.base.storage.Querier().SetItemsOrderID(rctx, orderdb.SetItemsOrderIDParams{
 			OrderID: uuid.NullUUID{UUID: order.ID, Valid: true},
 			ItemIds: input.ItemIDs,
 		}); lErr != nil {

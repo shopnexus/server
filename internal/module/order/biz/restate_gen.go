@@ -55,14 +55,6 @@ func (p *OrderRestateClient) ListSellerConfirmed(ctx context.Context, params Lis
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListSellerConfirmed", params)
 }
 
-func (p *OrderRestateClient) MarkTxSuccess(ctx context.Context, params MarkTxSuccessParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "MarkTxSuccess", params)
-}
-
-func (p *OrderRestateClient) MarkTxFailed(ctx context.Context, params MarkTxFailedParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "MarkTxFailed", params)
-}
-
 func (p *OrderRestateClient) OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "OnPaymentResult", params)
 }
@@ -127,7 +119,7 @@ func (p *OrderRestateClient) GetRefundDispute(ctx context.Context, params GetRef
 	return restateclient.Call[ordermodel.RefundDispute](ctx, p.client, serviceName, "GetRefundDispute", params)
 }
 
-func (p *OrderRestateClient) OnTransportResult(ctx context.Context, params UpdateTransportStatusParams) error {
+func (p *OrderRestateClient) OnTransportResult(ctx context.Context, params OnTransportResultParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "OnTransportResult", params)
 }
 
