@@ -2,6 +2,7 @@ package orderbiz
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -119,13 +120,24 @@ func (b *OrderHandler) ListBuyerPendingItems(
 	}, nil
 }
 
-// CancelBuyerPending cancels a pending item, releases inventory, creates a refund tx, and credits wallet.
+// CancelBuyerPending cancels a pre-confirm pending item. Branches on the
+// item's payment session status:
+//
+//   - Pending → CheckoutWorkflow is still alive in WaitFirst; signal its
+//     user_cancel promise and let the workflow saga compensate (release
+//     inventory, mark session Failed, cancel all items, credit wallet from
+//     any settled legs). Cancels the entire checkout session.
+//
+//   - Success → workflow has exited successfully (buyer paid, awaiting
+//     seller confirm). No saga to run. Issue a partial refund for this
+//     item only: create a reversing refund tx in the session, release
+//     inventory, mark item cancelled, credit buyer wallet via
+//     CreditFromSession. Sibling items in the session stay active.
 func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuyerPendingParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate cancel pending item", err)
 	}
 
-	// Fetch and validate item.
 	item, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderItem, error) {
 		var zero orderdb.OrderItem
 		dbItem, err := b.storage.Querier().GetItem(ctx, null.IntFrom(params.ItemID))
@@ -147,119 +159,27 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 		return sharedmodel.WrapErr("fetch item", err)
 	}
 
-	// Release inventory (outside Run — cross-module).
-	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: []inventorybiz.ReleaseInventoryItem{{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   item.SkuID,
-			Amount:  item.Quantity,
-		}},
-	}); err != nil {
-		return sharedmodel.WrapErr("release inventory", err)
-	}
-
-	// Resolve buyer currency (outside Run — cross-module).
-	buyerCurrency, err := b.inferCurrency(ctx, params.AccountID)
-	if err != nil {
-		return sharedmodel.WrapErr("infer buyer currency", err)
-	}
-
-	// Read source payment session — only sessions whose status is Success are
-	// eligible for a refund. A still-Pending session means the buyer never paid
-	// (gateway didn't complete); a Failed session means payment was rejected.
-	// Either way, no money moved into the platform — we must not create a refund.
 	paymentSession, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderPaymentSession, error) {
 		return b.storage.Querier().GetPaymentSession(ctx, uuid.NullUUID{UUID: item.PaymentSessionID, Valid: true})
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("db get payment session", err)
 	}
-	sessionSettled := paymentSession.Status == orderdb.OrderStatusSuccess
 
-	// Find the original (positive-amount, Success, no reverses_id) tx in this session
-	// to use as the reverses_id target. Assumption: single original tx per session
-	// (refund split-tender not supported per design).
-	var originalTxID null.Int
-	if sessionSettled {
-		sessionTxs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderTransaction, error) {
-			return b.storage.Querier().ListTransactionsBySession(ctx, paymentSession.ID)
-		})
-		if err != nil {
-			return sharedmodel.WrapErr("db list session txs", err)
-		}
-		for _, tx := range sessionTxs {
-			if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
-				originalTxID = null.IntFrom(tx.ID)
-				break
-			}
-		}
-		if !originalTxID.Valid {
-			return sharedmodel.WrapErr("no settled original tx in session", ordermodel.ErrOrderItemNotFound)
-		}
-	}
+	switch paymentSession.Status {
+	case orderdb.OrderStatusPending:
+		// Workflow is still in WaitFirst — signal cancel and let saga compensate.
+		restate.WorkflowSend(ctx, "CheckoutWorkflow", item.PaymentSessionID.String(), "CancelCheckout").
+			Send(struct{}{})
 
-	// Create refund tx (only when buyer actually paid) and cancel item atomically.
-	type cancelResult struct {
-		RefundTx orderdb.OrderTransaction `json:"refund_tx"`
-	}
-	cancelRes, err := restate.Run(ctx, func(ctx restate.RunContext) (cancelResult, error) {
-		var refundTx orderdb.OrderTransaction
-		if sessionSettled && item.TotalAmount > 0 {
-			var txErr error
-			refundTx, txErr = b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
-				SessionID:     paymentSession.ID,
-				Status:        orderdb.OrderStatusSuccess,
-				Note:          "buyer cancel pre-confirm",
-				Error:         null.String{},
-				PaymentOption: null.String{},
-				WalletID:      uuid.NullUUID{},
-				Data:          json.RawMessage("{}"),
-				Amount:        -item.TotalAmount,
-				FromCurrency:  buyerCurrency,
-				ToCurrency:    buyerCurrency,
-				ExchangeRate:  mustNumericOne(),
-				ReversesID:    originalTxID,
-				DateSettled:   null.TimeFrom(time.Now()),
-				DateExpired:   null.Time{},
-			})
-			if txErr != nil {
-				return cancelResult{}, sharedmodel.WrapErr("db create refund tx", txErr)
-			}
+	case orderdb.OrderStatusSuccess:
+		// Workflow exited; partial refund this single item.
+		if err := b.partialRefundPendingItem(ctx, item, paymentSession); err != nil {
+			return err
 		}
 
-		// If the session is still Pending, mark it Cancelled so the timeout
-		// timer / webhook no-ops when it eventually fires.
-		if paymentSession.Status == orderdb.OrderStatusPending {
-			if _, err := b.storage.Querier().MarkPaymentSessionCancelled(ctx, paymentSession.ID); err != nil {
-				return cancelResult{}, sharedmodel.WrapErr("db cancel pending session", err)
-			}
-		}
-
-		if _, err := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
-			CancelledByID: uuid.NullUUID{UUID: params.AccountID, Valid: true},
-			ID:            params.ItemID,
-		}); err != nil {
-			return cancelResult{}, sharedmodel.WrapErr("db cancel item", err)
-		}
-
-		return cancelResult{RefundTx: refundTx}, nil
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("cancel item", err)
-	}
-
-	// Credit buyer wallet (outside Run — cross-module). Routed through the
-	// guard helper so we never mint balance for a buyer whose payment never
-	// actually settled.
-	if cancelRes.RefundTx.ID != 0 {
-		if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
-			SessionID:  item.PaymentSessionID,
-			AccountID:  params.AccountID,
-			CreditType: "Refund",
-			Note:       "buyer cancel pre-confirm refund",
-		}); err != nil {
-			return sharedmodel.WrapErr("credit buyer", err)
-		}
+	default:
+		return ordermodel.ErrItemAlreadyCancelled.Terminal()
 	}
 
 	// Notify seller (fire-and-forget).
@@ -270,6 +190,93 @@ func (b *OrderHandler) CancelBuyerPending(ctx restate.Context, params CancelBuye
 		Title:     "Pending item cancelled",
 		Content:   "A buyer has cancelled a pending item.",
 	})
+
+	return nil
+}
+
+// partialRefundPendingItem refunds a single paid-but-not-yet-confirmed item
+// without touching its sibling items. Releases inventory, creates a reversing
+// refund tx in the buyer's checkout session, marks the item cancelled, then
+// credits the buyer wallet via CreditFromSession.
+func (b *OrderHandler) partialRefundPendingItem(
+	ctx restate.Context,
+	item orderdb.OrderItem,
+	paymentSession orderdb.OrderPaymentSession,
+) error {
+	// Release reserved inventory (cross-module — outside Run).
+	if err := b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+		Items: []inventorybiz.ReleaseInventoryItem{{
+			RefType: inventorydb.InventoryStockRefTypeProductSku,
+			RefID:   item.SkuID,
+			Amount:  item.Quantity,
+		}},
+	}); err != nil {
+		return sharedmodel.WrapErr("release inventory", err)
+	}
+
+	buyerCurrency, err := b.inferCurrency(ctx, item.AccountID)
+	if err != nil {
+		return sharedmodel.WrapErr("infer buyer currency", err)
+	}
+
+	// Find the original positive Success tx in this session — refund leg
+	// reverses it. Single original tx per session (no split-tender).
+	originalTxID, err := restate.Run(ctx, func(ctx restate.RunContext) (null.Int, error) {
+		txs, err := b.storage.Querier().ListTransactionsBySession(ctx, paymentSession.ID)
+		if err != nil {
+			return null.Int{}, err
+		}
+		for _, tx := range txs {
+			if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
+				return null.IntFrom(tx.ID), nil
+			}
+		}
+		return null.Int{}, ordermodel.ErrOrderItemNotFound
+	})
+	if err != nil {
+		return sharedmodel.WrapErr("find original tx", err)
+	}
+
+	// Atomic: refund tx + cancel item.
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		if _, txErr := b.storage.Querier().CreateDefaultTransaction(ctx, orderdb.CreateDefaultTransactionParams{
+			SessionID:    paymentSession.ID,
+			Status:       orderdb.OrderStatusSuccess,
+			Note:         "buyer cancel pre-confirm",
+			Data:         json.RawMessage("{}"),
+			Amount:       -item.TotalAmount,
+			FromCurrency: buyerCurrency,
+			ToCurrency:   buyerCurrency,
+			ExchangeRate: mustNumericOne(),
+			ReversesID:   originalTxID,
+			DateSettled:  null.TimeFrom(time.Now()),
+		}); txErr != nil {
+			return sharedmodel.WrapErr("db create refund tx", txErr)
+		}
+		if _, cErr := b.storage.Querier().CancelItem(ctx, orderdb.CancelItemParams{
+			CancelledByID: uuid.NullUUID{UUID: item.AccountID, Valid: true},
+			ID:            item.ID,
+		}); cErr != nil {
+			return sharedmodel.WrapErr("db cancel item", cErr)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Credit only the partial item amount — CreditFromSession would over-credit
+	// (it sums all positive Success txs in the session, ignoring our negative
+	// refund leg, so it'd refund the whole session). Direct WalletCredit with
+	// an item-scoped Reference is the right primitive for partial refunds.
+	if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+		AccountID: item.AccountID,
+		Amount:    item.TotalAmount,
+		Type:      "Refund",
+		Reference: fmt.Sprintf("partial-refund:item:%d", item.ID),
+		Note:      "buyer cancel pre-confirm partial refund",
+	}); err != nil {
+		return sharedmodel.WrapErr("credit buyer wallet", err)
+	}
 
 	return nil
 }
