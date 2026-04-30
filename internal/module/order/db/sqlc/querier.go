@@ -117,7 +117,11 @@ type Querier interface {
 	// Queries for table: order.payment_session
 	// ========================================
 	GetPaymentSession(ctx context.Context, id uuid.NullUUID) (OrderPaymentSession, error)
-	GetPendingPayoutSessionForOrder(ctx context.Context, orderID uuid.UUID) (OrderPaymentSession, error)
+	// PayoutWorkflow sets payment_session.id = order.id for the seller-payout
+	// session (workflow_payout.go:51, sessionID = restate.Key(ctx) = orderID).
+	// Returns the row regardless of status so callers can render "Funds released"
+	// when status='Success'. Returns sql.ErrNoRows if no payout has started.
+	GetPayoutSessionForOrder(ctx context.Context, orderID uuid.UUID) (OrderPaymentSession, error)
 	// ========================================
 	// Queries for table: order.refund
 	// ========================================

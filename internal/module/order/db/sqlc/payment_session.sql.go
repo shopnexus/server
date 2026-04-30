@@ -13,16 +13,18 @@ import (
 	"github.com/google/uuid"
 )
 
-const getPendingPayoutSessionForOrder = `-- name: GetPendingPayoutSessionForOrder :one
+const getPayoutSessionForOrder = `-- name: GetPayoutSessionForOrder :one
 SELECT s.id, s.kind, s.status, s.from_id, s.to_id, s.note, s.currency, s.total_amount, s.data, s.date_created, s.date_paid, s.date_expired FROM "order"."payment_session" s
-WHERE s."kind" = 'seller-payout'
-  AND s."status" = 'Pending'
-  AND s."to_id" = (SELECT o."seller_id" FROM "order"."order" o WHERE o."id" = $1)
+WHERE s."id" = $1 AND s."kind" = 'seller-payout'
 LIMIT 1
 `
 
-func (q *Queries) GetPendingPayoutSessionForOrder(ctx context.Context, orderID uuid.UUID) (OrderPaymentSession, error) {
-	row := q.db.QueryRow(ctx, getPendingPayoutSessionForOrder, orderID)
+// PayoutWorkflow sets payment_session.id = order.id for the seller-payout
+// session (workflow_payout.go:51, sessionID = restate.Key(ctx) = orderID).
+// Returns the row regardless of status so callers can render "Funds released"
+// when status='Success'. Returns sql.ErrNoRows if no payout has started.
+func (q *Queries) GetPayoutSessionForOrder(ctx context.Context, orderID uuid.UUID) (OrderPaymentSession, error) {
+	row := q.db.QueryRow(ctx, getPayoutSessionForOrder, orderID)
 	var i OrderPaymentSession
 	err := row.Scan(
 		&i.ID,

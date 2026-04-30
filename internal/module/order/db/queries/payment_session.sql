@@ -35,11 +35,13 @@ WHERE "status" = 'Pending' AND "date_expired" < @cutoff::TIMESTAMPTZ
 ORDER BY "date_expired"
 LIMIT @limit_count::INTEGER;
 
--- name: GetPendingPayoutSessionForOrder :one
+-- name: GetPayoutSessionForOrder :one
+-- PayoutWorkflow sets payment_session.id = order.id for the seller-payout
+-- session (workflow_payout.go:51, sessionID = restate.Key(ctx) = orderID).
+-- Returns the row regardless of status so callers can render "Funds released"
+-- when status='Success'. Returns sql.ErrNoRows if no payout has started.
 SELECT s.* FROM "order"."payment_session" s
-WHERE s."kind" = 'seller-payout'
-  AND s."status" = 'Pending'
-  AND s."to_id" = (SELECT o."seller_id" FROM "order"."order" o WHERE o."id" = @order_id)
+WHERE s."id" = @order_id AND s."kind" = 'seller-payout'
 LIMIT 1;
 
 -- name: ListCheckoutSiblingsForSession :many
