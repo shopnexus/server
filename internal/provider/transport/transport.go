@@ -21,18 +21,18 @@ type WebhookResult struct {
 type ResultHandler func(ctx context.Context, result WebhookResult) error
 
 type Client interface {
-	Config() sharedmodel.OptionConfig
+	Config() sharedmodel.Option
 	Quote(ctx context.Context, params QuoteParams) (QuoteResult, error)
 	Create(ctx context.Context, params CreateParams) (Transport, error)
 	Track(ctx context.Context, id string) (TrackResult, error)
 	Cancel(ctx context.Context, id string) error
 
-	// OnResult registers a callback for verified webhook events.
-	// Multiple handlers can be registered; all are called (fan-out).
-	OnResult(handler ResultHandler)
-
-	// InitializeWebhook registers the provider's webhook route on Echo.
-	InitializeWebhook(e *echo.Echo)
+	// WireWebhooks mounts the provider's webhook route on Echo, delivering
+	// verified events to `deliver`, and returns an idempotency key identifying
+	// that route. If the key already appears in `registered`, the call is a
+	// no-op (returns the key without mounting). An empty key means the provider
+	// has no webhooks.
+	WireWebhooks(e *echo.Echo, deliver ResultHandler, registered map[string]struct{}) string
 }
 
 type QuoteParams struct {

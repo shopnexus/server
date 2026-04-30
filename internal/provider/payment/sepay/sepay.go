@@ -19,71 +19,45 @@ var _ payment.Client = (*ClientImpl)(nil)
 const (
 	sandboxCheckoutURL = "https://pay-sandbox.sepay.vn/v1/checkout/init"
 	prodCheckoutURL    = "https://pay.sepay.vn/v1/checkout/init"
-
-	sandboxAPIURL = "https://pgapi-sandbox.sepay.vn"
-	prodAPIURL    = "https://pgapi.sepay.vn"
 )
 
+type Data struct {
+	MerchantID   string `json:"merchant_id"`
+	SecretKey    string `json:"secret_key"`
+	IPNSecretKey string `json:"ipn_secret_key"`
+	SuccessURL   string `json:"success_url"`
+	ErrorURL     string `json:"error_url"`
+	CancelURL    string `json:"cancel_url"`
+	Sandbox      bool   `json:"sandbox"`
+}
+
 type ClientImpl struct {
-	config sharedmodel.OptionConfig
-
-	merchantID   string
-	secretKey    string
-	ipnSecretKey string
-	checkoutURL  string
-	apiURL       string
-	successURL   string
-	errorURL     string
-	cancelURL    string
-
-	handlers []payment.ResultHandler
+	config      sharedmodel.Option
+	data        Data
+	checkoutURL string
 }
 
-type ClientOptions struct {
-	MerchantID   string
-	SecretKey    string // checkout signing + API Basic Auth
-	IPNSecretKey string // X-Secret-Key webhook verification
-	SuccessURL   string
-	ErrorURL     string
-	CancelURL    string
-	Sandbox      bool
-}
-
-func NewClient(cfg ClientOptions) *ClientImpl {
+func NewClient(cfg sharedmodel.Option) payment.Client {
+	var data Data
+	if len(cfg.Data) > 0 {
+		_ = json.Unmarshal(cfg.Data, &data)
+	}
 	checkoutURL := prodCheckoutURL
-	apiURL := prodAPIURL
-	if cfg.Sandbox {
+	if data.Sandbox {
 		checkoutURL = sandboxCheckoutURL
-		apiURL = sandboxAPIURL
 	}
-
-	return &ClientImpl{
-		config: sharedmodel.OptionConfig{
-			ID:       "sepay_bank_transfer",
-			Provider: "sepay",
-			Name:     "SePay - Bank Transfer",
-		},
-		merchantID:   cfg.MerchantID,
-		secretKey:    cfg.SecretKey,
-		ipnSecretKey: cfg.IPNSecretKey,
-		checkoutURL:  checkoutURL,
-		apiURL:       apiURL,
-		successURL:   cfg.SuccessURL,
-		errorURL:     cfg.ErrorURL,
-		cancelURL:    cfg.CancelURL,
-	}
+	return &ClientImpl{config: cfg, data: data, checkoutURL: checkoutURL}
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+func (c *ClientImpl) Config() sharedmodel.Option {
 	return c.config
 }
 
-func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
+func (c *ClientImpl) Charge(ctx context.Context, params payment.ChargeParams) (payment.ChargeResult, error) {
 	invoiceNumber := params.RefID
 
-	// Build form fields in SePay's required order for signature
 	fields := []keyValue{
-		{"merchant", c.merchantID},
+		{"merchant", c.data.MerchantID},
 		{"operation", "PURCHASE"},
 		{"payment_method", "BANK_TRANSFER"},
 		{"order_amount", fmt.Sprintf("%.0f", float64(params.Amount))},
@@ -94,74 +68,39 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 
 	if params.ReturnURL != "" {
 		fields = append(fields, keyValue{"success_url", params.ReturnURL})
-	} else if c.successURL != "" {
-		fields = append(fields, keyValue{"success_url", c.successURL})
+	} else if c.data.SuccessURL != "" {
+		fields = append(fields, keyValue{"success_url", c.data.SuccessURL})
 	}
-	if c.errorURL != "" {
-		fields = append(fields, keyValue{"error_url", c.errorURL})
+	if c.data.ErrorURL != "" {
+		fields = append(fields, keyValue{"error_url", c.data.ErrorURL})
 	}
-	if c.cancelURL != "" {
-		fields = append(fields, keyValue{"cancel_url", c.cancelURL})
+	if c.data.CancelURL != "" {
+		fields = append(fields, keyValue{"cancel_url", c.data.CancelURL})
 	}
 
-	sig := signFields(fields, c.secretKey)
+	sig := signFields(fields, c.data.SecretKey)
 
-	// Build the redirect URL with form params
 	q := url.Values{}
 	for _, kv := range fields {
 		q.Set(kv.key, kv.value)
 	}
 	q.Set("signature", sig)
 
-	redirectURL := c.checkoutURL + "?" + q.Encode()
-
-	return payment.CreateResult{
+	return payment.ChargeResult{
 		ProviderID:  invoiceNumber,
-		RedirectURL: redirectURL,
+		RedirectURL: c.checkoutURL + "?" + q.Encode(),
+		Status:      payment.StatusPending,
 	}, nil
 }
 
-func (c *ClientImpl) Get(ctx context.Context, providerID string) (payment.PaymentInfo, error) {
-	reqURL := fmt.Sprintf("%s/orders/%s", c.apiURL, providerID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return payment.PaymentInfo{}, fmt.Errorf("build request: %w", err)
-	}
-	req.SetBasicAuth(c.merchantID, c.secretKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return payment.PaymentInfo{}, fmt.Errorf("request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return payment.PaymentInfo{}, fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	var body struct {
-		Data struct {
-			OrderStatus        string `json:"order_status"`
-			OrderInvoiceNumber string `json:"order_invoice_number"`
-			OrderAmount        string `json:"order_amount"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return payment.PaymentInfo{}, fmt.Errorf("decode response: %w", err)
-	}
-
-	return payment.PaymentInfo{
-		ProviderID: body.Data.OrderInvoiceNumber,
-		RefID:      body.Data.OrderInvoiceNumber,
-		Status:     mapOrderStatus(body.Data.OrderStatus),
-	}, nil
+func (c *ClientImpl) Refund(ctx context.Context, params payment.RefundParams) (payment.RefundResult, error) {
+	return payment.RefundResult{}, payment.ErrNotSupported
 }
 
-func (c *ClientImpl) OnResult(fn payment.ResultHandler) {
-	c.handlers = append(c.handlers, fn)
+func (c *ClientImpl) Tokenize(ctx context.Context, params payment.TokenizeParams) (payment.TokenizeResult, error) {
+	return payment.TokenizeResult{}, payment.ErrNotSupported
 }
 
-// ipnPayload represents the SePay Payment Gateway IPN webhook JSON body.
 type ipnPayload struct {
 	NotificationType string `json:"notification_type"`
 	Order            struct {
@@ -173,22 +112,13 @@ type ipnPayload struct {
 	} `json:"transaction"`
 }
 
-func (c *ClientImpl) Charge(ctx context.Context, params payment.ChargeParams) (payment.ChargeResult, error) {
-	return payment.ChargeResult{}, payment.ErrNotSupported
-}
-
-func (c *ClientImpl) Refund(ctx context.Context, params payment.RefundParams) (payment.RefundResult, error) {
-	return payment.RefundResult{}, payment.ErrNotSupported
-}
-
-func (c *ClientImpl) Tokenize(ctx context.Context, params payment.TokenizeParams) (payment.TokenizeResult, error) {
-	return payment.TokenizeResult{}, payment.ErrNotSupported
-}
-
-func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
+func (c *ClientImpl) WireWebhooks(e *echo.Echo, deliver payment.NotificationHandler, registered map[string]struct{}) string {
+	const key = "payment/sepay"
+	if _, ok := registered[key]; ok {
+		return key
+	}
 	e.POST("/api/v1/payment/webhook/sepay", func(ec echo.Context) error {
-		// Verify X-Secret-Key header (SePay PG IPN secret)
-		if ec.Request().Header.Get("X-Secret-Key") != c.ipnSecretKey {
+		if ec.Request().Header.Get("X-Secret-Key") != c.data.IPNSecretKey {
 			slog.Error("sepay webhook: invalid secret key")
 			return ec.JSON(http.StatusUnauthorized, map[string]bool{"success": false})
 		}
@@ -205,20 +135,18 @@ func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
 			return ec.JSON(http.StatusBadRequest, map[string]bool{"success": false})
 		}
 
-		result := payment.WebhookResult{
+		notification := payment.Notification{
 			RefID:  invoiceNumber,
 			Status: mapOrderStatus(payload.Order.OrderStatus),
 		}
 
-		ctx := ec.Request().Context()
-		for _, fn := range c.handlers {
-			if err := fn(ctx, result); err != nil {
-				slog.Error("sepay webhook: handler error", slog.Any("error", err))
-			}
+		if err := deliver(ec.Request().Context(), notification); err != nil {
+			slog.Error("sepay webhook: deliver error", slog.Any("error", err))
 		}
 
 		return ec.JSON(http.StatusOK, map[string]bool{"success": true})
 	})
+	return key
 }
 
 func mapOrderStatus(status string) payment.Status {

@@ -2,6 +2,7 @@ package vnpay
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Type guard.
 var _ payment.Client = (*ClientImpl)(nil)
 
 const (
@@ -22,57 +22,39 @@ const (
 	MethodATM  = "atm"
 )
 
+type Data struct {
+	TmnCode    string `json:"tmn_code"`
+	HashSecret string `json:"hash_secret"`
+	ReturnURL  string `json:"return_url"`
+	Method     string `json:"method"`
+}
+
 type ClientImpl struct {
-	config sharedmodel.OptionConfig
-	method string
-
-	tmnCode    string
-	hashSecret string
-	returnURL  string
-
-	handlers []payment.ResultHandler
+	config sharedmodel.Option
+	data   Data
 }
 
-type ClientOptions struct {
-	TmnCode    string
-	HashSecret string
-	ReturnURL  string
-}
-
-func NewClients(cfg ClientOptions) []*ClientImpl {
-	var clients []*ClientImpl
-
-	methods := []string{MethodQR, MethodBank, MethodATM}
-	for _, method := range methods {
-		clients = append(clients, &ClientImpl{
-			config: sharedmodel.OptionConfig{
-				ID:       "vnpay_" + method,
-				Provider: "vnpay",
-				Name:     "VNPay - " + method,
-			},
-			method:     method,
-			tmnCode:    cfg.TmnCode,
-			hashSecret: cfg.HashSecret,
-			returnURL:  cfg.ReturnURL,
-		})
+func NewClient(cfg sharedmodel.Option) payment.Client {
+	var data Data
+	if len(cfg.Data) > 0 {
+		_ = json.Unmarshal(cfg.Data, &data)
 	}
-
-	return clients
+	return &ClientImpl{config: cfg, data: data}
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
+func (c *ClientImpl) Config() sharedmodel.Option {
 	return c.config
 }
 
-func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (payment.CreateResult, error) {
-	var zero payment.CreateResult
+func (c *ClientImpl) Charge(ctx context.Context, params payment.ChargeParams) (payment.ChargeResult, error) {
+	var zero payment.ChargeResult
 
 	req, err := http.NewRequest(http.MethodGet, "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", nil)
 	if err != nil {
 		return zero, err
 	}
 
-	returnURL := c.returnURL
+	returnURL := c.data.ReturnURL
 	if params.ReturnURL != "" {
 		returnURL = params.ReturnURL
 	}
@@ -80,8 +62,8 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 	q := req.URL.Query()
 	q.Add("vnp_Version", "2.1.0")
 	q.Add("vnp_Command", "pay")
-	q.Add("vnp_TmnCode", c.tmnCode)
-	// VNPay expects amount in VND smallest unit (xu = VND * 100)
+	q.Add("vnp_TmnCode", c.data.TmnCode)
+	// VNPay amount is in xu (VND * 100)
 	q.Add("vnp_Amount", fmt.Sprintf("%d", params.Amount*100))
 	q.Add("vnp_CreateDate", formatTime(time.Now()))
 	q.Add("vnp_CurrCode", "VND")
@@ -94,29 +76,13 @@ func (c *ClientImpl) Create(ctx context.Context, params payment.CreateParams) (p
 	q.Add("vnp_TxnRef", params.RefID)
 
 	encodedQuery := q.Encode()
-	secureHash := sign(encodedQuery, []byte(c.hashSecret))
-	redirectURL := req.URL.String() + "?" + encodedQuery + "&vnp_SecureHash=" + secureHash
+	secureHash := sign(encodedQuery, []byte(c.data.HashSecret))
 
-	return payment.CreateResult{
+	return payment.ChargeResult{
 		ProviderID:  params.RefID,
-		RedirectURL: redirectURL,
+		RedirectURL: req.URL.String() + "?" + encodedQuery + "&vnp_SecureHash=" + secureHash,
+		Status:      payment.StatusPending,
 	}, nil
-}
-
-func (c *ClientImpl) Get(ctx context.Context, providerID string) (payment.PaymentInfo, error) {
-	// VNPay sandbox doesn't have a query API — status comes via IPN only
-	return payment.PaymentInfo{
-		ProviderID: providerID,
-		Status:     payment.StatusPending,
-	}, nil
-}
-
-func (c *ClientImpl) OnResult(fn payment.ResultHandler) {
-	c.handlers = append(c.handlers, fn)
-}
-
-func (c *ClientImpl) Charge(ctx context.Context, params payment.ChargeParams) (payment.ChargeResult, error) {
-	return payment.ChargeResult{}, payment.ErrNotSupported
 }
 
 func (c *ClientImpl) Refund(ctx context.Context, params payment.RefundParams) (payment.RefundResult, error) {
@@ -127,7 +93,11 @@ func (c *ClientImpl) Tokenize(ctx context.Context, params payment.TokenizeParams
 	return payment.TokenizeResult{}, payment.ErrNotSupported
 }
 
-func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
+func (c *ClientImpl) WireWebhooks(e *echo.Echo, deliver payment.NotificationHandler, registered map[string]struct{}) string {
+	const key = "payment/vnpay"
+	if _, ok := registered[key]; ok {
+		return key
+	}
 	e.GET("/api/v1/payment/webhook/vnpay", func(ec echo.Context) error {
 		r := ec.Request()
 		if err := r.ParseForm(); err != nil {
@@ -151,7 +121,7 @@ func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
 		delete(params, "vnp_SecureHashType")
 
 		hashData := buildSortedQuery(params)
-		hash := sign(hashData, []byte(c.hashSecret))
+		hash := sign(hashData, []byte(c.data.HashSecret))
 		if hash != expectedHash {
 			slog.Error("vnpay webhook: hash mismatch")
 			return ec.NoContent(http.StatusBadRequest)
@@ -169,19 +139,16 @@ func (c *ClientImpl) InitializeWebhook(e *echo.Echo) {
 			status = payment.StatusSuccess
 		}
 
-		result := payment.WebhookResult{
+		notification := payment.Notification{
 			RefID:  txnRef,
 			Status: status,
 		}
 
-		// Fan-out to all registered handlers
-		ctx := r.Context()
-		for _, fn := range c.handlers {
-			if err := fn(ctx, result); err != nil {
-				slog.Error("vnpay webhook: handler error", slog.Any("error", err))
-			}
+		if err := deliver(r.Context(), notification); err != nil {
+			slog.Error("vnpay webhook: deliver error", slog.Any("error", err))
 		}
 
 		return ec.NoContent(http.StatusOK)
 	})
+	return key
 }

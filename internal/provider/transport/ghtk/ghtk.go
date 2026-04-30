@@ -29,17 +29,21 @@ const (
 	ServiceEconomy  = "economy"
 )
 
+// Data is the provider-specific config carried in sharedmodel.Option.Data.
+type Data struct {
+	Method   string `json:"method"` // express, standard, economy
+	BaseURL  string `json:"base_url"`
+	APIKey   string `json:"api_key"`
+	ClientID string `json:"client_id"`
+	Secret   string `json:"secret"` // HMAC secret for webhook signature verification (optional)
+}
+
 // GHTKClient implements the transport.Client interface for GHTK (fake implementation).
 type GHTKClient struct {
-	config   sharedmodel.OptionConfig
-	method   string
-	baseURL  string
-	apiKey   string
-	clientID string
-	secret   string // HMAC secret for webhook signature verification (optional)
+	config sharedmodel.Option
+	data   Data
 
 	transports map[string]*fakeTransport // In-memory storage for fake tracking
-	handlers   []transport.ResultHandler
 }
 
 // fakeTransport represents a fake transport in our mock system.
@@ -74,37 +78,19 @@ type packageDetails struct {
 	HeightCM    int32 `json:"height_cm"`
 }
 
-// NewClients creates new GHTK transport clients — one per service variant.
-// secret is used for HMAC webhook verification; pass empty string to skip verification.
-func NewClients(baseURL, apiKey, clientID string, secret ...string) []*GHTKClient {
-	var clients []*GHTKClient
-	methods := []string{ServiceExpress, ServiceStandard, ServiceEconomy}
-
-	webhookSecret := ""
-	if len(secret) > 0 {
-		webhookSecret = secret[0]
+func NewClient(cfg sharedmodel.Option) transport.Client {
+	var data Data
+	if len(cfg.Data) > 0 {
+		_ = json.Unmarshal(cfg.Data, &data)
 	}
-
-	for _, method := range methods {
-		clients = append(clients, &GHTKClient{
-			config: sharedmodel.OptionConfig{
-				ID:          fmt.Sprintf("ghtk_%s", method),
-				Name:        fmt.Sprintf("Giao hàng tiết kiệm - %s", method),
-				Description: "Dịch vụ giao hàng nhanh của Giao hàng tiết kiệm",
-				Provider:    "ghtk",
-			},
-			method:     method,
-			baseURL:    baseURL,
-			apiKey:     apiKey,
-			clientID:   clientID,
-			secret:     webhookSecret,
-			transports: make(map[string]*fakeTransport),
-		})
+	return &GHTKClient{
+		config:     cfg,
+		data:       data,
+		transports: make(map[string]*fakeTransport),
 	}
-	return clients
 }
 
-func (g *GHTKClient) Config() sharedmodel.OptionConfig {
+func (g *GHTKClient) Config() sharedmodel.Option {
 	return g.config
 }
 
@@ -136,7 +122,7 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 
 	ship := &fakeTransport{
 		ID:          trackingID,
-		Service:     g.method,
+		Service:     g.data.Method,
 		Status:      "LabelCreated",
 		Cost:        cost,
 		FromAddress: params.FromAddress,
@@ -154,7 +140,7 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 
 	data, err := json.Marshal(ghtkData{
 		TrackingID: trackingID,
-		LabelURL:   fmt.Sprintf("%s/labels/%s.pdf", g.baseURL, trackingID),
+		LabelURL:   fmt.Sprintf("%s/labels/%s.pdf", g.data.BaseURL, trackingID),
 		ETA:        eta,
 	})
 	if err != nil {
@@ -163,7 +149,7 @@ func (g *GHTKClient) Create(ctx context.Context, params transport.CreateParams) 
 
 	return transport.Transport{
 		ID:     id,
-		Option: g.method,
+		Option: g.data.Method,
 		Cost:   int64(cost),
 		Data:   data,
 	}, nil
@@ -209,12 +195,6 @@ func (g *GHTKClient) Cancel(ctx context.Context, id string) error {
 	return nil
 }
 
-// OnResult registers a callback invoked when a webhook event is verified.
-// Multiple handlers can be registered and are called in fan-out fashion.
-func (g *GHTKClient) OnResult(handler transport.ResultHandler) {
-	g.handlers = append(g.handlers, handler)
-}
-
 // ghtkWebhookPayload is the expected JSON body from GHTK status webhooks.
 // See: https://docs.giaohangtietkiem.vn/webhook
 type ghtkWebhookPayload struct {
@@ -245,21 +225,19 @@ func mapGHTKStatus(statusID int) string {
 	}
 }
 
-// InitializeWebhook registers the GHTK webhook route on Echo.
+// WireWebhooks registers the GHTK webhooks route on Echo.
 // Route: POST /api/v1/transport/webhook/ghtk
-// Only the first GHTKClient (express) actually registers the route to avoid duplicate registration.
-// All clients share the same webhook secret and fan-out their own handlers.
-func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
-	// Only register the route once (the first method variant handles it).
-	// All GHTKClient instances share the same webhook endpoint since GHTK
-	// does not distinguish service variants in webhook callbacks.
-	if g.method != ServiceExpress {
-		return
+// All service variants (express/standard/economy) share the same endpoint;
+// the caller's `registered` map collapses duplicate registrations.
+func (g *GHTKClient) WireWebhooks(e *echo.Echo, deliver transport.ResultHandler, registered map[string]struct{}) string {
+	const key = "transport/ghtk"
+	if _, ok := registered[key]; ok {
+		return key
 	}
 
 	e.POST("/api/v1/transport/webhook/ghtk", func(ec echo.Context) error {
 		// Verify HMAC-SHA256 signature if secret is configured
-		if g.secret != "" {
+		if g.data.Secret != "" {
 			body, err := io.ReadAll(ec.Request().Body)
 			if err != nil {
 				return ec.NoContent(http.StatusBadRequest)
@@ -267,7 +245,7 @@ func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
 			ec.Request().Body = io.NopCloser(bytes.NewReader(body))
 
 			sig := ec.Request().Header.Get("X-GHTK-Signature")
-			mac := hmac.New(sha256.New, []byte(g.secret))
+			mac := hmac.New(sha256.New, []byte(g.data.Secret))
 			mac.Write(body)
 			expected := hex.EncodeToString(mac.Sum(nil))
 			if !hmac.Equal([]byte(sig), []byte(expected)) {
@@ -308,15 +286,13 @@ func (g *GHTKClient) InitializeWebhook(e *echo.Echo) {
 			Data:        data,
 		}
 
-		ctx := ec.Request().Context()
-		for _, fn := range g.handlers {
-			if err := fn(ctx, result); err != nil {
-				slog.Error("ghtk webhook: handler error", slog.Any("error", err))
-			}
+		if err := deliver(ec.Request().Context(), result); err != nil {
+			slog.Error("ghtk webhook: deliver error", slog.Any("error", err))
 		}
 
 		return ec.NoContent(http.StatusOK)
 	})
+	return key
 }
 
 // extractWeight pulls WeightGrams from the PackageDetails of the first item, defaulting to 500g.
@@ -341,7 +317,7 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32) int64 {
 	}
 
 	var serviceMultiplier float64
-	switch g.method {
+	switch g.data.Method {
 	case ServiceExpress:
 		serviceMultiplier = 1.5
 	case ServiceStandard:
@@ -359,7 +335,7 @@ func (g *GHTKClient) calculateShippingCost(weightGrams int32) int64 {
 // calculateETA calculates estimated time of arrival.
 func (g *GHTKClient) calculateETA() time.Time {
 	now := time.Now()
-	switch g.method {
+	switch g.data.Method {
 	case ServiceExpress:
 		return now.Add(24 * time.Hour)
 	case ServiceStandard:

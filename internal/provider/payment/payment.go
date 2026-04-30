@@ -13,7 +13,6 @@ import (
 
 var ErrNotSupported = errors.New("operation not supported by this payment provider")
 
-// Status represents the normalized payment status across all providers.
 type Status string
 
 const (
@@ -23,46 +22,19 @@ const (
 	StatusExpired Status = "expired"
 )
 
-// CreateParams contains the parameters needed to create a payment with any provider.
-type CreateParams struct {
-	RefID       string // internal payment reference (used as workflow ID for webhook routing)
-	Amount      int64  // payment amount
-	Description string // human-readable description
-	ReturnURL   string // where to redirect after payment (provider may override)
-}
-
-// CreateResult contains the result of creating a payment.
-type CreateResult struct {
-	ProviderID  string // provider-side transaction/order ID (for tracking)
-	RedirectURL string // redirect URL for online payments, empty for COD/offline
-}
-
-// PaymentInfo contains normalized payment information from the provider.
-type PaymentInfo struct {
-	ProviderID string
-	RefID      string // maps back to our internal reference
-	Status     Status
-	Amount     int64
-}
-
-// WebhookResult contains the result of verifying a webhook/IPN callback.
-type WebhookResult struct {
-	RefID  string // maps back to our internal payment reference
-	Status Status // the payment status reported by the provider
-}
-
-// ResultHandler is a callback invoked when a webhook is verified.
-type ResultHandler func(ctx context.Context, result WebhookResult) error
-
 type ChargeParams struct {
-	Token       string
+	RefID       string
 	Amount      int64
 	Description string
+	ReturnURL   string // redirect providers only
+	Token       string // direct-debit providers only
 }
 
+// Redirect: RedirectURL set, Status=Pending. Direct-debit: URL empty, Status final.
 type ChargeResult struct {
-	ProviderChargeID string
-	Status           Status
+	ProviderID  string
+	RedirectURL string
+	Status      Status
 }
 
 type RefundParams struct {
@@ -85,20 +57,23 @@ type TokenizeResult struct {
 	ClientConfig json.RawMessage `json:"client_config,omitempty"`
 }
 
-// Client is the interface that all payment providers must implement.
-type Client interface {
-	Config() sharedmodel.OptionConfig
-	Create(ctx context.Context, params CreateParams) (CreateResult, error)
-	Get(ctx context.Context, providerID string) (PaymentInfo, error)
+type Notification struct {
+	RefID  string `json:"ref_id" validate:"required"`
+	Status Status `json:"status" validate:"required"`
+}
 
+type NotificationHandler func(ctx context.Context, n Notification) error
+
+type Client interface {
+	Config() sharedmodel.Option
 	Charge(ctx context.Context, params ChargeParams) (ChargeResult, error)
 	Refund(ctx context.Context, params RefundParams) (RefundResult, error)
 	Tokenize(ctx context.Context, params TokenizeParams) (TokenizeResult, error)
 
-	// OnResult registers a handler that is called when a webhook is verified.
-	// Multiple handlers can be registered; all are called (fan-out).
-	OnResult(fn ResultHandler)
-
-	// InitializeWebhook registers the provider's webhook route on Echo.
-	InitializeWebhook(e *echo.Echo)
+	// WireWebhooks mounts the provider's IPN routes on Echo, delivering verified
+	// notifications to `deliver`, and returns an idempotency key identifying
+	// those routes. If the key already appears in `registered`, the call is a
+	// no-op (returns the key without mounting). An empty key means the provider
+	// has no webhooks (synchronous-only).
+	WireWebhooks(e *echo.Echo, deliver NotificationHandler, registered map[string]struct{}) string
 }

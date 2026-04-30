@@ -2,21 +2,30 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/payment/vnpay"
+	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 func main() {
-	client := vnpay.NewClients(vnpay.ClientOptions{
+	data, _ := json.Marshal(vnpay.Data{
 		TmnCode:    config.GetConfig().App.Vnpay.TmnCode,
 		HashSecret: config.GetConfig().App.Vnpay.HashSecret,
 		ReturnURL:  "localhost",
-	})[0]
+		Method:     vnpay.MethodQR,
+	})
+	client := vnpay.NewClient(sharedmodel.Option{
+		ID:       "vnpay_qr",
+		Type:     sharedmodel.OptionTypePayment,
+		Provider: "vnpay",
+		Data:     data,
+	})
 
-	result, err := client.Create(context.TODO(), payment.CreateParams{
+	result, err := client.Charge(context.TODO(), payment.ChargeParams{
 		RefID:       "13",
 		Amount:      100000,
 		Description: "Don hang 1",
