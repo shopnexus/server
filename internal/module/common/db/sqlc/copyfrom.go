@@ -9,6 +9,47 @@ import (
 	"context"
 )
 
+// iteratorForCreateCopyDefaultOption implements pgx.CopyFromSource.
+type iteratorForCreateCopyDefaultOption struct {
+	rows                 []CreateCopyDefaultOptionParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateCopyDefaultOption) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateCopyDefaultOption) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].ID,
+		r.rows[0].OwnerID,
+		r.rows[0].IsEnabled,
+		r.rows[0].Name,
+		r.rows[0].Description,
+		r.rows[0].Priority,
+		r.rows[0].LogoRsID,
+		r.rows[0].Data,
+		r.rows[0].Type,
+		r.rows[0].Provider,
+	}, nil
+}
+
+func (r iteratorForCreateCopyDefaultOption) Err() error {
+	return nil
+}
+
+func (q *Queries) CreateCopyDefaultOption(ctx context.Context, arg []CreateCopyDefaultOptionParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"common", "option"}, []string{"id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider"}, &iteratorForCreateCopyDefaultOption{rows: arg})
+}
+
 // iteratorForCreateCopyDefaultResource implements pgx.CopyFromSource.
 type iteratorForCreateCopyDefaultResource struct {
 	rows                 []CreateCopyDefaultResourceParams
@@ -82,13 +123,13 @@ func (q *Queries) CreateCopyDefaultResourceReference(ctx context.Context, arg []
 	return q.db.CopyFrom(ctx, []string{"common", "resource_reference"}, []string{"rs_id", "ref_type", "ref_id", "order"}, &iteratorForCreateCopyDefaultResourceReference{rows: arg})
 }
 
-// iteratorForCreateCopyDefaultServiceOption implements pgx.CopyFromSource.
-type iteratorForCreateCopyDefaultServiceOption struct {
-	rows                 []CreateCopyDefaultServiceOptionParams
+// iteratorForCreateCopyOption implements pgx.CopyFromSource.
+type iteratorForCreateCopyOption struct {
+	rows                 []CreateCopyOptionParams
 	skippedFirstNextCall bool
 }
 
-func (r *iteratorForCreateCopyDefaultServiceOption) Next() bool {
+func (r *iteratorForCreateCopyOption) Next() bool {
 	if len(r.rows) == 0 {
 		return false
 	}
@@ -100,26 +141,27 @@ func (r *iteratorForCreateCopyDefaultServiceOption) Next() bool {
 	return len(r.rows) > 0
 }
 
-func (r iteratorForCreateCopyDefaultServiceOption) Values() ([]interface{}, error) {
+func (r iteratorForCreateCopyOption) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].ID,
-		r.rows[0].Category,
-		r.rows[0].Provider,
+		r.rows[0].OwnerID,
 		r.rows[0].IsEnabled,
 		r.rows[0].Name,
 		r.rows[0].Description,
 		r.rows[0].Priority,
-		r.rows[0].Config,
 		r.rows[0].LogoRsID,
+		r.rows[0].Data,
+		r.rows[0].Type,
+		r.rows[0].Provider,
 	}, nil
 }
 
-func (r iteratorForCreateCopyDefaultServiceOption) Err() error {
+func (r iteratorForCreateCopyOption) Err() error {
 	return nil
 }
 
-func (q *Queries) CreateCopyDefaultServiceOption(ctx context.Context, arg []CreateCopyDefaultServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyDefaultServiceOption{rows: arg})
+func (q *Queries) CreateCopyOption(ctx context.Context, arg []CreateCopyOptionParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"common", "option"}, []string{"id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider"}, &iteratorForCreateCopyOption{rows: arg})
 }
 
 // iteratorForCreateCopyResource implements pgx.CopyFromSource.
@@ -195,44 +237,4 @@ func (r iteratorForCreateCopyResourceReference) Err() error {
 
 func (q *Queries) CreateCopyResourceReference(ctx context.Context, arg []CreateCopyResourceReferenceParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"common", "resource_reference"}, []string{"rs_id", "ref_type", "ref_id", "order"}, &iteratorForCreateCopyResourceReference{rows: arg})
-}
-
-// iteratorForCreateCopyServiceOption implements pgx.CopyFromSource.
-type iteratorForCreateCopyServiceOption struct {
-	rows                 []CreateCopyServiceOptionParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateCopyServiceOption) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateCopyServiceOption) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].ID,
-		r.rows[0].Category,
-		r.rows[0].Provider,
-		r.rows[0].IsEnabled,
-		r.rows[0].Name,
-		r.rows[0].Description,
-		r.rows[0].Priority,
-		r.rows[0].Config,
-		r.rows[0].LogoRsID,
-	}, nil
-}
-
-func (r iteratorForCreateCopyServiceOption) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateCopyServiceOption(ctx context.Context, arg []CreateCopyServiceOptionParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"common", "service_option"}, []string{"id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id"}, &iteratorForCreateCopyServiceOption{rows: arg})
 }

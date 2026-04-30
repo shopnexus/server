@@ -14,6 +14,60 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+const countOption = `-- name: CountOption :one
+SELECT COUNT(*)
+FROM "common"."option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("owner_id" = ANY($2) OR $2 IS NULL) AND
+    ("is_enabled" = ANY($3) OR $3 IS NULL) AND
+    ("name" = ANY($4) OR $4 IS NULL) AND
+    ("description" = ANY($5) OR $5 IS NULL) AND
+    ("priority" = ANY($6) OR $6 IS NULL) AND
+    ("priority" >= $7 OR $7 IS NULL) AND
+    ("priority" <= $8 OR $8 IS NULL) AND
+    ("logo_rs_id" = ANY($9) OR $9 IS NULL) AND
+    ("data" = ANY($10) OR $10 IS NULL) AND
+    ("type" = ANY($11) OR $11 IS NULL) AND
+    ("provider" = ANY($12) OR $12 IS NULL)
+)
+`
+
+type CountOptionParams struct {
+	ID           []string          `json:"id"`
+	OwnerID      []uuid.NullUUID   `json:"owner_id"`
+	IsEnabled    []bool            `json:"is_enabled"`
+	Name         []string          `json:"name"`
+	Description  []string          `json:"description"`
+	Priority     []int32           `json:"priority"`
+	PriorityFrom null.Int32        `json:"priority_from"`
+	PriorityTo   null.Int32        `json:"priority_to"`
+	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
+	Data         []json.RawMessage `json:"data"`
+	Type         []string          `json:"type"`
+	Provider     []string          `json:"provider"`
+}
+
+func (q *Queries) CountOption(ctx context.Context, arg CountOptionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOption,
+		arg.ID,
+		arg.OwnerID,
+		arg.IsEnabled,
+		arg.Name,
+		arg.Description,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countResource = `-- name: CountResource :one
 SELECT COUNT(*)
 FROM "common"."resource"
@@ -110,55 +164,17 @@ func (q *Queries) CountResourceReference(ctx context.Context, arg CountResourceR
 	return count, err
 }
 
-const countServiceOption = `-- name: CountServiceOption :one
-SELECT COUNT(*)
-FROM "common"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("description" = ANY($6) OR $6 IS NULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL) AND
-    ("priority" >= $8 OR $8 IS NULL) AND
-    ("priority" <= $9 OR $9 IS NULL) AND
-    ("config" = ANY($10) OR $10 IS NULL) AND
-    ("logo_rs_id" = ANY($11) OR $11 IS NULL)
-)
-`
-
-type CountServiceOptionParams struct {
-	ID           []string          `json:"id"`
-	Category     []string          `json:"category"`
-	Provider     []string          `json:"provider"`
-	IsEnabled    []bool            `json:"is_enabled"`
-	Name         []string          `json:"name"`
-	Description  []string          `json:"description"`
-	Priority     []int32           `json:"priority"`
-	PriorityFrom null.Int32        `json:"priority_from"`
-	PriorityTo   null.Int32        `json:"priority_to"`
-	Config       []json.RawMessage `json:"config"`
-	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
-}
-
-func (q *Queries) CountServiceOption(ctx context.Context, arg CountServiceOptionParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Provider,
-		arg.IsEnabled,
-		arg.Name,
-		arg.Description,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
-		arg.Config,
-		arg.LogoRsID,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+type CreateCopyDefaultOptionParams struct {
+	ID          string          `json:"id"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 }
 
 type CreateCopyDefaultResourceParams struct {
@@ -178,16 +194,17 @@ type CreateCopyDefaultResourceReferenceParams struct {
 	Order   int32                 `json:"order"`
 }
 
-type CreateCopyDefaultServiceOptionParams struct {
+type CreateCopyOptionParams struct {
 	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
 	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
 	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 }
 
 type CreateCopyResourceParams struct {
@@ -209,16 +226,52 @@ type CreateCopyResourceReferenceParams struct {
 	Order   int32                 `json:"order"`
 }
 
-type CreateCopyServiceOptionParams struct {
+const createDefaultOption = `-- name: CreateDefaultOption :one
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
+`
+
+type CreateDefaultOptionParams struct {
 	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
 	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
 	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
+}
+
+func (q *Queries) CreateDefaultOption(ctx context.Context, arg CreateDefaultOptionParams) (CommonOption, error) {
+	row := q.db.QueryRow(ctx, createDefaultOption,
+		arg.ID,
+		arg.OwnerID,
+		arg.IsEnabled,
+		arg.Name,
+		arg.Description,
+		arg.Priority,
+		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
+	)
+	var i CommonOption
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.IsEnabled,
+		&i.Name,
+		&i.Description,
+		&i.Priority,
+		&i.LogoRsID,
+		&i.Data,
+		&i.Type,
+		&i.Provider,
+	)
+	return i, err
 }
 
 const createDefaultResource = `-- name: CreateDefaultResource :one
@@ -293,47 +346,50 @@ func (q *Queries) CreateDefaultResourceReference(ctx context.Context, arg Create
 	return i, err
 }
 
-const createDefaultServiceOption = `-- name: CreateDefaultServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
+const createOption = `-- name: CreateOption :one
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
 `
 
-type CreateDefaultServiceOptionParams struct {
+type CreateOptionParams struct {
 	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
 	IsEnabled   bool            `json:"is_enabled"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
 	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
 }
 
-func (q *Queries) CreateDefaultServiceOption(ctx context.Context, arg CreateDefaultServiceOptionParams) (CommonServiceOption, error) {
-	row := q.db.QueryRow(ctx, createDefaultServiceOption,
+func (q *Queries) CreateOption(ctx context.Context, arg CreateOptionParams) (CommonOption, error) {
+	row := q.db.QueryRow(ctx, createOption,
 		arg.ID,
-		arg.Category,
-		arg.Provider,
+		arg.OwnerID,
 		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
-		arg.Config,
 		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
 	)
-	var i CommonServiceOption
+	var i CommonOption
 	err := row.Scan(
 		&i.ID,
-		&i.Category,
-		&i.Provider,
+		&i.OwnerID,
 		&i.IsEnabled,
 		&i.Name,
 		&i.Description,
 		&i.Priority,
-		&i.Config,
 		&i.LogoRsID,
+		&i.Data,
+		&i.Type,
+		&i.Provider,
 	)
 	return i, err
 }
@@ -414,49 +470,55 @@ func (q *Queries) CreateResourceReference(ctx context.Context, arg CreateResourc
 	return i, err
 }
 
-const createServiceOption = `-- name: CreateServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
+const deleteOption = `-- name: DeleteOption :exec
+DELETE FROM "common"."option"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("owner_id" = ANY($2) OR $2 IS NULL) AND
+    ("is_enabled" = ANY($3) OR $3 IS NULL) AND
+    ("name" = ANY($4) OR $4 IS NULL) AND
+    ("description" = ANY($5) OR $5 IS NULL) AND
+    ("priority" = ANY($6) OR $6 IS NULL) AND
+    ("priority" >= $7 OR $7 IS NULL) AND
+    ("priority" <= $8 OR $8 IS NULL) AND
+    ("logo_rs_id" = ANY($9) OR $9 IS NULL) AND
+    ("data" = ANY($10) OR $10 IS NULL) AND
+    ("type" = ANY($11) OR $11 IS NULL) AND
+    ("provider" = ANY($12) OR $12 IS NULL)
+)
 `
 
-type CreateServiceOptionParams struct {
-	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
-	IsEnabled   bool            `json:"is_enabled"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
-	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+type DeleteOptionParams struct {
+	ID           []string          `json:"id"`
+	OwnerID      []uuid.NullUUID   `json:"owner_id"`
+	IsEnabled    []bool            `json:"is_enabled"`
+	Name         []string          `json:"name"`
+	Description  []string          `json:"description"`
+	Priority     []int32           `json:"priority"`
+	PriorityFrom null.Int32        `json:"priority_from"`
+	PriorityTo   null.Int32        `json:"priority_to"`
+	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
+	Data         []json.RawMessage `json:"data"`
+	Type         []string          `json:"type"`
+	Provider     []string          `json:"provider"`
 }
 
-func (q *Queries) CreateServiceOption(ctx context.Context, arg CreateServiceOptionParams) (CommonServiceOption, error) {
-	row := q.db.QueryRow(ctx, createServiceOption,
+func (q *Queries) DeleteOption(ctx context.Context, arg DeleteOptionParams) error {
+	_, err := q.db.Exec(ctx, deleteOption,
 		arg.ID,
-		arg.Category,
-		arg.Provider,
+		arg.OwnerID,
 		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
-		arg.Config,
+		arg.PriorityFrom,
+		arg.PriorityTo,
 		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
 	)
-	var i CommonServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Provider,
-		&i.IsEnabled,
-		&i.Name,
-		&i.Description,
-		&i.Priority,
-		&i.Config,
-		&i.LogoRsID,
-	)
-	return i, err
+	return err
 }
 
 const deleteResource = `-- name: DeleteResource :exec
@@ -549,52 +611,32 @@ func (q *Queries) DeleteResourceReference(ctx context.Context, arg DeleteResourc
 	return err
 }
 
-const deleteServiceOption = `-- name: DeleteServiceOption :exec
-DELETE FROM "common"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("description" = ANY($6) OR $6 IS NULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL) AND
-    ("priority" >= $8 OR $8 IS NULL) AND
-    ("priority" <= $9 OR $9 IS NULL) AND
-    ("config" = ANY($10) OR $10 IS NULL) AND
-    ("logo_rs_id" = ANY($11) OR $11 IS NULL)
-)
+const getOption = `-- name: GetOption :one
+
+SELECT id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
+FROM "common"."option"
+WHERE ("id" = $1)
 `
 
-type DeleteServiceOptionParams struct {
-	ID           []string          `json:"id"`
-	Category     []string          `json:"category"`
-	Provider     []string          `json:"provider"`
-	IsEnabled    []bool            `json:"is_enabled"`
-	Name         []string          `json:"name"`
-	Description  []string          `json:"description"`
-	Priority     []int32           `json:"priority"`
-	PriorityFrom null.Int32        `json:"priority_from"`
-	PriorityTo   null.Int32        `json:"priority_to"`
-	Config       []json.RawMessage `json:"config"`
-	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
-}
-
-func (q *Queries) DeleteServiceOption(ctx context.Context, arg DeleteServiceOptionParams) error {
-	_, err := q.db.Exec(ctx, deleteServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Provider,
-		arg.IsEnabled,
-		arg.Name,
-		arg.Description,
-		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
-		arg.Config,
-		arg.LogoRsID,
+// ========================================
+// Queries for table: common.option
+// ========================================
+func (q *Queries) GetOption(ctx context.Context, id null.String) (CommonOption, error) {
+	row := q.db.QueryRow(ctx, getOption, id)
+	var i CommonOption
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.IsEnabled,
+		&i.Name,
+		&i.Description,
+		&i.Priority,
+		&i.LogoRsID,
+		&i.Data,
+		&i.Type,
+		&i.Provider,
 	)
-	return err
+	return i, err
 }
 
 const getResource = `-- name: GetResource :one
@@ -657,31 +699,95 @@ func (q *Queries) GetResourceReference(ctx context.Context, id null.Int) (Common
 	return i, err
 }
 
-const getServiceOption = `-- name: GetServiceOption :one
-
-SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
-FROM "common"."service_option"
-WHERE ("id" = $1)
+const listCountOption = `-- name: ListCountOption :many
+SELECT embed_option.id, embed_option.owner_id, embed_option.is_enabled, embed_option.name, embed_option.description, embed_option.priority, embed_option.logo_rs_id, embed_option.data, embed_option.type, embed_option.provider, COUNT(*) OVER() as total_count
+FROM "common"."option" embed_option
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("owner_id" = ANY($2) OR $2 IS NULL) AND
+    ("is_enabled" = ANY($3) OR $3 IS NULL) AND
+    ("name" = ANY($4) OR $4 IS NULL) AND
+    ("description" = ANY($5) OR $5 IS NULL) AND
+    ("priority" = ANY($6) OR $6 IS NULL) AND
+    ("priority" >= $7 OR $7 IS NULL) AND
+    ("priority" <= $8 OR $8 IS NULL) AND
+    ("logo_rs_id" = ANY($9) OR $9 IS NULL) AND
+    ("data" = ANY($10) OR $10 IS NULL) AND
+    ("type" = ANY($11) OR $11 IS NULL) AND
+    ("provider" = ANY($12) OR $12 IS NULL)
+)
+ORDER BY "id"
+LIMIT $14::int
+OFFSET $13::int
 `
 
-// ========================================
-// Queries for table: common.service_option
-// ========================================
-func (q *Queries) GetServiceOption(ctx context.Context, id null.String) (CommonServiceOption, error) {
-	row := q.db.QueryRow(ctx, getServiceOption, id)
-	var i CommonServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Provider,
-		&i.IsEnabled,
-		&i.Name,
-		&i.Description,
-		&i.Priority,
-		&i.Config,
-		&i.LogoRsID,
+type ListCountOptionParams struct {
+	ID           []string          `json:"id"`
+	OwnerID      []uuid.NullUUID   `json:"owner_id"`
+	IsEnabled    []bool            `json:"is_enabled"`
+	Name         []string          `json:"name"`
+	Description  []string          `json:"description"`
+	Priority     []int32           `json:"priority"`
+	PriorityFrom null.Int32        `json:"priority_from"`
+	PriorityTo   null.Int32        `json:"priority_to"`
+	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
+	Data         []json.RawMessage `json:"data"`
+	Type         []string          `json:"type"`
+	Provider     []string          `json:"provider"`
+	Offset       null.Int32        `json:"offset"`
+	Limit        null.Int32        `json:"limit"`
+}
+
+type ListCountOptionRow struct {
+	CommonOption CommonOption `json:"common_option"`
+	TotalCount   int64        `json:"total_count"`
+}
+
+func (q *Queries) ListCountOption(ctx context.Context, arg ListCountOptionParams) ([]ListCountOptionRow, error) {
+	rows, err := q.db.Query(ctx, listCountOption,
+		arg.ID,
+		arg.OwnerID,
+		arg.IsEnabled,
+		arg.Name,
+		arg.Description,
+		arg.Priority,
+		arg.PriorityFrom,
+		arg.PriorityTo,
+		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
+		arg.Offset,
+		arg.Limit,
 	)
-	return i, err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountOptionRow{}
+	for rows.Next() {
+		var i ListCountOptionRow
+		if err := rows.Scan(
+			&i.CommonOption.ID,
+			&i.CommonOption.OwnerID,
+			&i.CommonOption.IsEnabled,
+			&i.CommonOption.Name,
+			&i.CommonOption.Description,
+			&i.CommonOption.Priority,
+			&i.CommonOption.LogoRsID,
+			&i.CommonOption.Data,
+			&i.CommonOption.Type,
+			&i.CommonOption.Provider,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCountResource = `-- name: ListCountResource :many
@@ -848,61 +954,59 @@ func (q *Queries) ListCountResourceReference(ctx context.Context, arg ListCountR
 	return items, nil
 }
 
-const listCountServiceOption = `-- name: ListCountServiceOption :many
-SELECT embed_service_option.id, embed_service_option.category, embed_service_option.provider, embed_service_option.is_enabled, embed_service_option.name, embed_service_option.description, embed_service_option.priority, embed_service_option.config, embed_service_option.logo_rs_id, COUNT(*) OVER() as total_count
-FROM "common"."service_option" embed_service_option
+const listOption = `-- name: ListOption :many
+SELECT id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
+FROM "common"."option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("description" = ANY($6) OR $6 IS NULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL) AND
-    ("priority" >= $8 OR $8 IS NULL) AND
-    ("priority" <= $9 OR $9 IS NULL) AND
-    ("config" = ANY($10) OR $10 IS NULL) AND
-    ("logo_rs_id" = ANY($11) OR $11 IS NULL)
+    ("owner_id" = ANY($2) OR $2 IS NULL) AND
+    ("is_enabled" = ANY($3) OR $3 IS NULL) AND
+    ("name" = ANY($4) OR $4 IS NULL) AND
+    ("description" = ANY($5) OR $5 IS NULL) AND
+    ("priority" = ANY($6) OR $6 IS NULL) AND
+    ("priority" >= $7 OR $7 IS NULL) AND
+    ("priority" <= $8 OR $8 IS NULL) AND
+    ("logo_rs_id" = ANY($9) OR $9 IS NULL) AND
+    ("data" = ANY($10) OR $10 IS NULL) AND
+    ("type" = ANY($11) OR $11 IS NULL) AND
+    ("provider" = ANY($12) OR $12 IS NULL)
 )
 ORDER BY "id"
-LIMIT $13::int
-OFFSET $12::int
+LIMIT $14::int
+OFFSET $13::int
 `
 
-type ListCountServiceOptionParams struct {
+type ListOptionParams struct {
 	ID           []string          `json:"id"`
-	Category     []string          `json:"category"`
-	Provider     []string          `json:"provider"`
+	OwnerID      []uuid.NullUUID   `json:"owner_id"`
 	IsEnabled    []bool            `json:"is_enabled"`
 	Name         []string          `json:"name"`
 	Description  []string          `json:"description"`
 	Priority     []int32           `json:"priority"`
 	PriorityFrom null.Int32        `json:"priority_from"`
 	PriorityTo   null.Int32        `json:"priority_to"`
-	Config       []json.RawMessage `json:"config"`
 	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
+	Data         []json.RawMessage `json:"data"`
+	Type         []string          `json:"type"`
+	Provider     []string          `json:"provider"`
 	Offset       null.Int32        `json:"offset"`
 	Limit        null.Int32        `json:"limit"`
 }
 
-type ListCountServiceOptionRow struct {
-	CommonServiceOption CommonServiceOption `json:"common_service_option"`
-	TotalCount          int64               `json:"total_count"`
-}
-
-func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServiceOptionParams) ([]ListCountServiceOptionRow, error) {
-	rows, err := q.db.Query(ctx, listCountServiceOption,
+func (q *Queries) ListOption(ctx context.Context, arg ListOptionParams) ([]CommonOption, error) {
+	rows, err := q.db.Query(ctx, listOption,
 		arg.ID,
-		arg.Category,
-		arg.Provider,
+		arg.OwnerID,
 		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
 		arg.PriorityFrom,
 		arg.PriorityTo,
-		arg.Config,
 		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -910,20 +1014,20 @@ func (q *Queries) ListCountServiceOption(ctx context.Context, arg ListCountServi
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListCountServiceOptionRow{}
+	items := []CommonOption{}
 	for rows.Next() {
-		var i ListCountServiceOptionRow
+		var i CommonOption
 		if err := rows.Scan(
-			&i.CommonServiceOption.ID,
-			&i.CommonServiceOption.Category,
-			&i.CommonServiceOption.Provider,
-			&i.CommonServiceOption.IsEnabled,
-			&i.CommonServiceOption.Name,
-			&i.CommonServiceOption.Description,
-			&i.CommonServiceOption.Priority,
-			&i.CommonServiceOption.Config,
-			&i.CommonServiceOption.LogoRsID,
-			&i.TotalCount,
+			&i.ID,
+			&i.OwnerID,
+			&i.IsEnabled,
+			&i.Name,
+			&i.Description,
+			&i.Priority,
+			&i.LogoRsID,
+			&i.Data,
+			&i.Type,
+			&i.Provider,
 		); err != nil {
 			return nil, err
 		}
@@ -1087,85 +1191,65 @@ func (q *Queries) ListResourceReference(ctx context.Context, arg ListResourceRef
 	return items, nil
 }
 
-const listServiceOption = `-- name: ListServiceOption :many
-SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
-FROM "common"."service_option"
-WHERE (
-    ("id" = ANY($1) OR $1 IS NULL) AND
-    ("category" = ANY($2) OR $2 IS NULL) AND
-    ("provider" = ANY($3) OR $3 IS NULL) AND
-    ("is_enabled" = ANY($4) OR $4 IS NULL) AND
-    ("name" = ANY($5) OR $5 IS NULL) AND
-    ("description" = ANY($6) OR $6 IS NULL) AND
-    ("priority" = ANY($7) OR $7 IS NULL) AND
-    ("priority" >= $8 OR $8 IS NULL) AND
-    ("priority" <= $9 OR $9 IS NULL) AND
-    ("config" = ANY($10) OR $10 IS NULL) AND
-    ("logo_rs_id" = ANY($11) OR $11 IS NULL)
-)
-ORDER BY "id"
-LIMIT $13::int
-OFFSET $12::int
+const updateOption = `-- name: UpdateOption :one
+UPDATE "common"."option"
+SET "owner_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "owner_id") END,
+    "is_enabled" = COALESCE($3, "is_enabled"),
+    "name" = COALESCE($4, "name"),
+    "description" = COALESCE($5, "description"),
+    "priority" = COALESCE($6, "priority"),
+    "logo_rs_id" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "logo_rs_id") END,
+    "data" = COALESCE($9, "data"),
+    "type" = COALESCE($10, "type"),
+    "provider" = COALESCE($11, "provider")
+WHERE id = $12
+RETURNING id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
 `
 
-type ListServiceOptionParams struct {
-	ID           []string          `json:"id"`
-	Category     []string          `json:"category"`
-	Provider     []string          `json:"provider"`
-	IsEnabled    []bool            `json:"is_enabled"`
-	Name         []string          `json:"name"`
-	Description  []string          `json:"description"`
-	Priority     []int32           `json:"priority"`
-	PriorityFrom null.Int32        `json:"priority_from"`
-	PriorityTo   null.Int32        `json:"priority_to"`
-	Config       []json.RawMessage `json:"config"`
-	LogoRsID     []uuid.NullUUID   `json:"logo_rs_id"`
-	Offset       null.Int32        `json:"offset"`
-	Limit        null.Int32        `json:"limit"`
+type UpdateOptionParams struct {
+	NullOwnerID  bool            `json:"null_owner_id"`
+	OwnerID      uuid.NullUUID   `json:"owner_id"`
+	IsEnabled    null.Bool       `json:"is_enabled"`
+	Name         null.String     `json:"name"`
+	Description  null.String     `json:"description"`
+	Priority     null.Int32      `json:"priority"`
+	NullLogoRsID bool            `json:"null_logo_rs_id"`
+	LogoRsID     uuid.NullUUID   `json:"logo_rs_id"`
+	Data         json.RawMessage `json:"data"`
+	Type         null.String     `json:"type"`
+	Provider     null.String     `json:"provider"`
+	ID           string          `json:"id"`
 }
 
-func (q *Queries) ListServiceOption(ctx context.Context, arg ListServiceOptionParams) ([]CommonServiceOption, error) {
-	rows, err := q.db.Query(ctx, listServiceOption,
-		arg.ID,
-		arg.Category,
-		arg.Provider,
+func (q *Queries) UpdateOption(ctx context.Context, arg UpdateOptionParams) (CommonOption, error) {
+	row := q.db.QueryRow(ctx, updateOption,
+		arg.NullOwnerID,
+		arg.OwnerID,
 		arg.IsEnabled,
 		arg.Name,
 		arg.Description,
 		arg.Priority,
-		arg.PriorityFrom,
-		arg.PriorityTo,
-		arg.Config,
+		arg.NullLogoRsID,
 		arg.LogoRsID,
-		arg.Offset,
-		arg.Limit,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
+		arg.ID,
 	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CommonServiceOption{}
-	for rows.Next() {
-		var i CommonServiceOption
-		if err := rows.Scan(
-			&i.ID,
-			&i.Category,
-			&i.Provider,
-			&i.IsEnabled,
-			&i.Name,
-			&i.Description,
-			&i.Priority,
-			&i.Config,
-			&i.LogoRsID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	var i CommonOption
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.IsEnabled,
+		&i.Name,
+		&i.Description,
+		&i.Priority,
+		&i.LogoRsID,
+		&i.Data,
+		&i.Type,
+		&i.Provider,
+	)
+	return i, err
 }
 
 const updateResource = `-- name: UpdateResource :one
@@ -1258,61 +1342,6 @@ func (q *Queries) UpdateResourceReference(ctx context.Context, arg UpdateResourc
 		&i.RefType,
 		&i.RefID,
 		&i.Order,
-	)
-	return i, err
-}
-
-const updateServiceOption = `-- name: UpdateServiceOption :one
-UPDATE "common"."service_option"
-SET "category" = COALESCE($1, "category"),
-    "provider" = COALESCE($2, "provider"),
-    "is_enabled" = COALESCE($3, "is_enabled"),
-    "name" = COALESCE($4, "name"),
-    "description" = COALESCE($5, "description"),
-    "priority" = COALESCE($6, "priority"),
-    "config" = COALESCE($7, "config"),
-    "logo_rs_id" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "logo_rs_id") END
-WHERE id = $10
-RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
-`
-
-type UpdateServiceOptionParams struct {
-	Category     null.String     `json:"category"`
-	Provider     null.String     `json:"provider"`
-	IsEnabled    null.Bool       `json:"is_enabled"`
-	Name         null.String     `json:"name"`
-	Description  null.String     `json:"description"`
-	Priority     null.Int32      `json:"priority"`
-	Config       json.RawMessage `json:"config"`
-	NullLogoRsID bool            `json:"null_logo_rs_id"`
-	LogoRsID     uuid.NullUUID   `json:"logo_rs_id"`
-	ID           string          `json:"id"`
-}
-
-func (q *Queries) UpdateServiceOption(ctx context.Context, arg UpdateServiceOptionParams) (CommonServiceOption, error) {
-	row := q.db.QueryRow(ctx, updateServiceOption,
-		arg.Category,
-		arg.Provider,
-		arg.IsEnabled,
-		arg.Name,
-		arg.Description,
-		arg.Priority,
-		arg.Config,
-		arg.NullLogoRsID,
-		arg.LogoRsID,
-		arg.ID,
-	)
-	var i CommonServiceOption
-	err := row.Scan(
-		&i.ID,
-		&i.Category,
-		&i.Provider,
-		&i.IsEnabled,
-		&i.Name,
-		&i.Description,
-		&i.Priority,
-		&i.Config,
-		&i.LogoRsID,
 	)
 	return i, err
 }

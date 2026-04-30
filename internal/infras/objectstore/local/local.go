@@ -42,8 +42,8 @@ func (c *ClientImpl) fullPath(key string) string {
 	return filepath.Join(c.root, clean)
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
-	return sharedmodel.OptionConfig{
+func (c *ClientImpl) Config() sharedmodel.Option {
+	return sharedmodel.Option{
 		ID:          "local",
 		Name:        "Local Storage",
 		Provider:    "Local",

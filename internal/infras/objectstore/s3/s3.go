@@ -54,8 +54,8 @@ func NewClient(cfg S3Config) (*ClientImpl, error) {
 	}, nil
 }
 
-func (s *ClientImpl) Config() sharedmodel.OptionConfig {
-	return sharedmodel.OptionConfig{
+func (s *ClientImpl) Config() sharedmodel.Option {
+	return sharedmodel.Option{
 		ID:          "s3",
 		Name:        "Amazon S3",
 		Provider:    "AWS",

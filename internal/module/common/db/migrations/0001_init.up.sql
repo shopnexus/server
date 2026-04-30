@@ -3,7 +3,7 @@
 -- Schema: common
 -- Description: Cross-module shared infrastructure: file/media resources,
 --              resource-to-entity references, and pluggable service option registry
---              (payment providers, shipping providers, etc.).
+--              (payment providers, transport providers, etc.).
 -- =============================================
 
 CREATE SCHEMA IF NOT EXISTS "common";
@@ -47,20 +47,23 @@ CREATE TABLE IF NOT EXISTS "common"."resource_reference" (
 );
 
 -- Registry of pluggable service integrations selectable at checkout or configuration time.
-CREATE TABLE IF NOT EXISTS "common"."service_option" (
-    "id" VARCHAR(100) NOT NULL, -- Stable identifier for this option (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
-    "category" TEXT NOT NULL, -- Grouping key (e.g. 'payment', 'transport', ...)
-    "provider" TEXT NOT NULL, -- Adapter identifier (e.g. 'stripe', 'ghn')
-    "is_enabled" BOOLEAN NOT NULL, -- System admin can toggle availability without redeploying code
+CREATE TABLE IF NOT EXISTS "common"."option" (
+    "id" VARCHAR(100) NOT NULL, -- Stable identifier for this (e.g. 'stripe-xxx', 'vnpay-qr|bank|xxx', 'ghn-xxx')
+    "owner_id" UUID, -- Account that created this option; NULL for system-provided options
+    "is_enabled" BOOLEAN NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "priority" INTEGER NOT NULL, -- Better UX if options are displayed in a consistent order
-    "config" JSONB NOT NULL,
     "logo_rs_id" UUID,
+    "data" JSONB NOT NULL, -- specific configuration data (e.g. API keys, supported features, etc.)
 
-    CONSTRAINT "service_option_pkey" PRIMARY KEY ("id"),
+    -- Grouping
+    "type" TEXT NOT NULL, -- High-level grouping key (e.g. 'payment', 'transport', 'notification', ...)
+    "provider" TEXT NOT NULL, -- Sub-grouping key (e.g. 'stripe', 'vnpay', 'ghn', ...)
 
-    CONSTRAINT "service_option_logo_rs_id_fkey" FOREIGN KEY ("logo_rs_id")
+    CONSTRAINT "option_pkey" PRIMARY KEY ("id"),
+
+    CONSTRAINT "option_logo_rs_id_fkey" FOREIGN KEY ("logo_rs_id")
         REFERENCES "common"."resource" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
-CREATE INDEX IF NOT EXISTS "service_option_category_provider_idx" ON "common"."service_option" ("category", "provider");
+CREATE INDEX IF NOT EXISTS "option_type_provider_idx" ON "common"."option" ("type", "provider");

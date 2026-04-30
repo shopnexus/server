@@ -227,119 +227,124 @@ WHERE (
 );
 
 -- ========================================
--- Queries for table: common.service_option
+-- Queries for table: common.option
 -- ========================================
 
--- name: GetServiceOption :one
+-- name: GetOption :one
 SELECT *
-FROM "common"."service_option"
+FROM "common"."option"
 WHERE ("id" = sqlc.narg('id'));
 
--- name: CountServiceOption :one
+-- name: CountOption :one
 SELECT COUNT(*)
-FROM "common"."service_option"
+FROM "common"."option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
     ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
     ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
-    ("config" = ANY(sqlc.slice('config')) OR sqlc.slice('config') IS NULL) AND
-    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL)
+    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL)
 );
 
--- name: ListServiceOption :many
+-- name: ListOption :many
 SELECT *
-FROM "common"."service_option"
+FROM "common"."option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
     ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
     ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
-    ("config" = ANY(sqlc.slice('config')) OR sqlc.slice('config') IS NULL) AND
-    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL)
+    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
--- name: ListCountServiceOption :many
-SELECT sqlc.embed(embed_service_option), COUNT(*) OVER() as total_count
-FROM "common"."service_option" embed_service_option
+-- name: ListCountOption :many
+SELECT sqlc.embed(embed_option), COUNT(*) OVER() as total_count
+FROM "common"."option" embed_option
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
     ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
     ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
-    ("config" = ANY(sqlc.slice('config')) OR sqlc.slice('config') IS NULL) AND
-    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL)
+    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL)
 )
 ORDER BY "id"
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
--- name: CreateServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+-- name: CreateOption :one
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
--- name: CreateBatchServiceOption :batchone
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+-- name: CreateBatchOption :batchone
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
--- name: CreateCopyServiceOption :copyfrom
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+-- name: CreateCopyOption :copyfrom
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
--- name: CreateDefaultServiceOption :one
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+-- name: CreateDefaultOption :one
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
--- name: CreateCopyDefaultServiceOption :copyfrom
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+-- name: CreateCopyDefaultOption :copyfrom
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
--- name: UpdateServiceOption :one
-UPDATE "common"."service_option"
-SET "category" = COALESCE(sqlc.narg('category'), "category"),
-    "provider" = COALESCE(sqlc.narg('provider'), "provider"),
+-- name: UpdateOption :one
+UPDATE "common"."option"
+SET "owner_id" = CASE WHEN sqlc.arg('null_owner_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('owner_id'), "owner_id") END,
     "is_enabled" = COALESCE(sqlc.narg('is_enabled'), "is_enabled"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "priority" = COALESCE(sqlc.narg('priority'), "priority"),
-    "config" = COALESCE(sqlc.narg('config'), "config"),
-    "logo_rs_id" = CASE WHEN sqlc.arg('null_logo_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('logo_rs_id'), "logo_rs_id") END
+    "logo_rs_id" = CASE WHEN sqlc.arg('null_logo_rs_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('logo_rs_id'), "logo_rs_id") END,
+    "data" = COALESCE(sqlc.narg('data'), "data"),
+    "type" = COALESCE(sqlc.narg('type'), "type"),
+    "provider" = COALESCE(sqlc.narg('provider'), "provider")
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
--- name: DeleteServiceOption :exec
-DELETE FROM "common"."service_option"
+-- name: DeleteOption :exec
+DELETE FROM "common"."option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("category" = ANY(sqlc.slice('category')) OR sqlc.slice('category') IS NULL) AND
-    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL) AND
+    ("owner_id" = ANY(sqlc.slice('owner_id')) OR sqlc.slice('owner_id') IS NULL) AND
     ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
     ("name" = ANY(sqlc.slice('name')) OR sqlc.slice('name') IS NULL) AND
     ("description" = ANY(sqlc.slice('description')) OR sqlc.slice('description') IS NULL) AND
     ("priority" = ANY(sqlc.slice('priority')) OR sqlc.slice('priority') IS NULL) AND
     ("priority" >= sqlc.narg('priority_from') OR sqlc.narg('priority_from') IS NULL) AND
     ("priority" <= sqlc.narg('priority_to') OR sqlc.narg('priority_to') IS NULL) AND
-    ("config" = ANY(sqlc.slice('config')) OR sqlc.slice('config') IS NULL) AND
-    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL)
+    ("logo_rs_id" = ANY(sqlc.slice('logo_rs_id')) OR sqlc.slice('logo_rs_id') IS NULL) AND
+    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("provider" = ANY(sqlc.slice('provider')) OR sqlc.slice('provider') IS NULL)
 );

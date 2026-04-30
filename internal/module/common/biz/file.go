@@ -20,46 +20,33 @@ import (
 	"github.com/google/uuid"
 )
 
+// SetupObjectStore registers the available object-store options in the DB
+// catalog. Clients themselves are constructed on-demand per call —
+// nothing is cached here.
 func (b *CommonHandler) SetupObjectStore() error {
-	var err error
-	var configs []sharedmodel.OptionConfig
-	b.objectstoreMap = make(map[string]objectstore.Client)
-
-	// setup local
-	local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
-	if err != nil {
-		return sharedmodel.WrapErr("setup local objectstore", err)
-	}
-	b.objectstoreMap[local.Config().ID] = local
-	configs = append(configs, local.Config())
-
-	// setup s3
-	s3, err := objs3.NewClient(objs3.S3Config{
-		AccessKeyID:     b.config.Filestore.S3.AccessKeyID,
-		SecretAccessKey: b.config.Filestore.S3.SecretAccessKey,
-		Region:          b.config.Filestore.S3.Region,
-		Bucket:          b.config.Filestore.S3.Bucket,
-		CloudfrontURL:   b.config.Filestore.S3.CloudfrontURL,
+	return b.upsertOptions(context.Background(), UpsertOptionsParams{
+		Category: string(sharedmodel.OptionTypeObjectStore),
+		Configs:  b.objectstoreConfigs(),
 	})
-	if err != nil {
-		return sharedmodel.WrapErr("setup s3 objectstore", err)
+}
+
+// objectstoreConfigs lists all available object-store options. Cheap to call:
+// only "local" and "remote" build a real client; "s3" is described inline.
+func (b *CommonHandler) objectstoreConfigs() []sharedmodel.Option {
+	configs := make([]sharedmodel.Option, 0, 3)
+
+	if local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""}); err == nil {
+		configs = append(configs, local.Config())
 	}
-	b.objectstoreMap[s3.Config().ID] = s3
-	configs = append(configs, s3.Config())
+	configs = append(configs, sharedmodel.Option{
+		ID:          "s3",
+		Name:        "Amazon S3",
+		Provider:    "AWS",
+		Description: "Amazon S3 Object Storage",
+	})
+	configs = append(configs, objremote.NewClient(objremote.RemoteConfig{}).Config())
 
-	// setup remote
-	remote := objremote.NewClient(objremote.RemoteConfig{})
-	b.objectstoreMap[remote.Config().ID] = remote
-	configs = append(configs, remote.Config())
-
-	if err := b.updateServiceOptions(context.Background(), UpdateServiceOptionsParams{
-		Category: "objectstore",
-		Configs:  configs,
-	}); err != nil {
-		return sharedmodel.WrapErr("setup objectstore options", err)
-	}
-
-	return nil
+	return configs
 }
 
 // getPlaceholderURL returns the configured 404 placeholder image URL, if any.
@@ -67,12 +54,33 @@ func (b *CommonHandler) getPlaceholderURL() string {
 	return b.config.Filestore.Placeholder404Url
 }
 
+// mustGetObjectStore builds a fresh object-store client per call.
+// On unknown providers or s3 init failure, falls back to local.
 func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
-	client, ok := b.objectstoreMap[provider]
-	if !ok {
-		return b.objectstoreMap["local"]
+	switch provider {
+	case "s3":
+		s3, err := objs3.NewClient(objs3.S3Config{
+			AccessKeyID:     b.config.Filestore.S3.AccessKeyID,
+			SecretAccessKey: b.config.Filestore.S3.SecretAccessKey,
+			Region:          b.config.Filestore.S3.Region,
+			Bucket:          b.config.Filestore.S3.Bucket,
+			CloudfrontURL:   b.config.Filestore.S3.CloudfrontURL,
+		})
+		if err != nil {
+			slog.Warn("init s3 objectstore", slog.Any("error", err))
+			return b.mustGetObjectStore("local")
+		}
+		return s3
+	case "remote":
+		return objremote.NewClient(objremote.RemoteConfig{})
+	default:
+		local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
+		if err != nil {
+			slog.Warn("init local objectstore", slog.Any("error", err))
+			return nil
+		}
+		return local
 	}
-	return client
 }
 
 type UploadFileParams struct {
@@ -102,29 +110,27 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 		return zero, sharedmodel.WrapErr("invalid upload params", err)
 	}
 
-	var err error
-	var objectKey string
-
+	store := b.mustGetObjectStore(b.config.Filestore.Type)
 	myKey := fmt.Sprintf("%s_%s", uuid.New().String(), params.Filename)
 
-	objectKey, err = b.mustGetObjectStore(b.config.Filestore.Type).Upload(ctx, myKey, params.File, params.Private)
+	objectKey, err := store.Upload(ctx, myKey, params.File, params.Private)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("upload local", err)
 	}
 
 	resource, err := b.storage.Querier().CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
-		Provider:   b.config.Filestore.Type,
-		ObjectKey:  objectKey,
+		Provider:     b.config.Filestore.Type,
+		ObjectKey:    objectKey,
 		UploadedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-		Mime:       params.ContentType,
-		Size:       params.Size,
-		Metadata:   []byte("{}"),
+		Mime:         params.ContentType,
+		Size:         params.Size,
+		Metadata:     []byte("{}"),
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("insert resource", err)
 	}
 
-	url, err := b.mustGetObjectStore(b.config.Filestore.Type).GetURL(ctx, objectKey)
+	url, err := store.GetURL(ctx, objectKey)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get file url", err)
 	}

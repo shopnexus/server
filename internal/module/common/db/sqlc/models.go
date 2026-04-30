@@ -81,6 +81,19 @@ func AllCommonResourceRefTypeValues() []CommonResourceRefType {
 	}
 }
 
+type CommonOption struct {
+	ID          string          `json:"id"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
+}
+
 type CommonResource struct {
 	ID           uuid.UUID       `json:"id"`
 	UploadedByID uuid.NullUUID   `json:"uploaded_by_id"`
@@ -99,16 +112,4 @@ type CommonResourceReference struct {
 	RefType CommonResourceRefType `json:"ref_type"`
 	RefID   uuid.UUID             `json:"ref_id"`
 	Order   int32                 `json:"order"`
-}
-
-type CommonServiceOption struct {
-	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
-	IsEnabled   bool            `json:"is_enabled"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
-	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
 }

@@ -7,36 +7,38 @@ package commondb
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listSortedServiceOption = `-- name: ListSortedServiceOption :many
-SELECT id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
-FROM "common"."service_option"
+const listSortedOption = `-- name: ListSortedOption :many
+SELECT id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
+FROM "common"."option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("is_enabled" = ANY($2) OR $2 IS NULL) AND
-    ("category" = ANY($3) OR $3 IS NULL)
+    ("type" = ANY($3) OR $3 IS NULL)
 )
 ORDER BY "priority", "id" ASC
 LIMIT $5
 OFFSET $4
 `
 
-type ListSortedServiceOptionParams struct {
+type ListSortedOptionParams struct {
 	ID        []string    `json:"id"`
 	IsEnabled []bool      `json:"is_enabled"`
-	Category  []string    `json:"category"`
+	Type      []string    `json:"type"`
 	Offset    pgtype.Int4 `json:"offset"`
 	Limit     pgtype.Int4 `json:"limit"`
 }
 
-func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedServiceOptionParams) ([]CommonServiceOption, error) {
-	rows, err := q.db.Query(ctx, listSortedServiceOption,
+func (q *Queries) ListSortedOption(ctx context.Context, arg ListSortedOptionParams) ([]CommonOption, error) {
+	rows, err := q.db.Query(ctx, listSortedOption,
 		arg.ID,
 		arg.IsEnabled,
-		arg.Category,
+		arg.Type,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -44,19 +46,20 @@ func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedSer
 		return nil, err
 	}
 	defer rows.Close()
-	items := []CommonServiceOption{}
+	items := []CommonOption{}
 	for rows.Next() {
-		var i CommonServiceOption
+		var i CommonOption
 		if err := rows.Scan(
 			&i.ID,
-			&i.Category,
-			&i.Provider,
+			&i.OwnerID,
 			&i.IsEnabled,
 			&i.Name,
 			&i.Description,
 			&i.Priority,
-			&i.Config,
 			&i.LogoRsID,
+			&i.Data,
+			&i.Type,
+			&i.Provider,
 		); err != nil {
 			return nil, err
 		}
@@ -66,4 +69,47 @@ func (q *Queries) ListSortedServiceOption(ctx context.Context, arg ListSortedSer
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertOption = `-- name: UpsertOption :exec
+INSERT INTO "common"."option" (
+    "id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider"
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+ON CONFLICT ("id") DO UPDATE SET
+    "name"        = EXCLUDED."name",
+    "description" = EXCLUDED."description",
+    "priority"    = EXCLUDED."priority",
+    "logo_rs_id"  = EXCLUDED."logo_rs_id",
+    "data"        = EXCLUDED."data",
+    "type"        = EXCLUDED."type",
+    "provider"    = EXCLUDED."provider"
+`
+
+type UpsertOptionParams struct {
+	ID          string          `json:"id"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
+}
+
+func (q *Queries) UpsertOption(ctx context.Context, arg UpsertOptionParams) error {
+	_, err := q.db.Exec(ctx, upsertOption,
+		arg.ID,
+		arg.OwnerID,
+		arg.IsEnabled,
+		arg.Name,
+		arg.Description,
+		arg.Priority,
+		arg.LogoRsID,
+		arg.Data,
+		arg.Type,
+		arg.Provider,
+	)
+	return err
 }

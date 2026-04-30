@@ -28,12 +28,12 @@ func (p *CommonRestateClient) GetFileURL(ctx context.Context, params GetFileURLP
 	return restateclient.Call[string](ctx, p.client, serviceName, "GetFileURL", params)
 }
 
-func (p *CommonRestateClient) UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "UpdateServiceOptions", params)
+func (p *CommonRestateClient) ListOption(ctx context.Context, params ListOptionParams) ([]sharedmodel.Option, error) {
+	return restateclient.Call[[]sharedmodel.Option](ctx, p.client, serviceName, "ListOption", params)
 }
 
-func (p *CommonRestateClient) ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error) {
-	return restateclient.Call[[]sharedmodel.OptionConfig](ctx, p.client, serviceName, "ListServiceOption", params)
+func (p *CommonRestateClient) UpsertOptions(ctx context.Context, params UpsertOptionsParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "UpsertOptions", params)
 }
 
 func (p *CommonRestateClient) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {

@@ -2,10 +2,7 @@ package commonbiz
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 
-	"github.com/guregu/null/v6"
 	restate "github.com/restatedev/sdk-go"
 
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
@@ -13,103 +10,78 @@ import (
 	"shopnexus-server/internal/shared/validator"
 )
 
-type UpdateServiceOptionsParams struct {
-	Category string                     `validate:"required,oneof=objectstore payment transport"`
-	Configs  []sharedmodel.OptionConfig `validate:"required,dive"`
-}
-
-// UpdateServiceOptions creates or updates service option configurations for a given category.
-func (b *CommonHandler) UpdateServiceOptions(ctx restate.Context, params UpdateServiceOptionsParams) error {
-	return b.updateServiceOptions(ctx, params)
-}
-
-// updateServiceOptions is an internal helper that accepts context.Context,
-// used by both UpdateServiceOptions (restate.Context) and SetupObjectStore (context.Background()).
-func (b *CommonHandler) updateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error {
-	if err := validator.Validate(params); err != nil {
-		return sharedmodel.WrapErr("validate service options", err)
-	}
-
-	for index, cfg := range params.Configs {
-		config := cfg.Config
-		if config == nil {
-			config = []byte("{}")
-		}
-
-		_, err := b.storage.Querier().GetServiceOption(ctx, null.StringFrom(cfg.ID))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				_, err = b.storage.Querier().CreateServiceOption(ctx, commondb.CreateServiceOptionParams{
-					ID:          cfg.ID,
-					Category:    params.Category,
-					Provider:    cfg.Provider,
-					IsEnabled:   true,
-					Name:        cfg.Name,
-					Description: cfg.Description,
-					Priority:    int32(index),
-					Config:      config,
-					LogoRsID:    cfg.LogoRsID,
-				})
-				if err != nil {
-					return sharedmodel.WrapErr("db create service option", err)
-				}
-				continue
-			}
-
-			return sharedmodel.WrapErr("db get service option", err)
-		}
-
-		_, err = b.storage.Querier().UpdateServiceOption(ctx, commondb.UpdateServiceOptionParams{
-			ID:          cfg.ID,
-			Category:    null.StringFrom(params.Category),
-			Provider:    null.StringFrom(cfg.Provider),
-			IsEnabled:   null.BoolFrom(true),
-			Name:        null.StringFrom(cfg.Name),
-			Description: null.StringFrom(cfg.Description),
-			Priority:    null.Int32From(int32(index)),
-			Config:      config,
-			LogoRsID:    cfg.LogoRsID,
-		})
-		if err != nil {
-			return sharedmodel.WrapErr("db update service option", err)
-		}
-	}
-
-	return nil
-}
-
-type ListServiceOptionParams struct {
-	Category []string `validate:"required"`
+type ListOptionParams struct {
+	Type      []string `validate:"required"`
 	IsEnabled []bool   `validate:"omitempty,dive"`
 }
 
-// ListServiceOption returns active service options filtered by category.
-func (b *CommonHandler) ListServiceOption(
+type UpsertOptionsParams struct {
+	Category string               `json:"category" validate:"required"`
+	Configs  []sharedmodel.Option `json:"configs"  validate:"required"`
+}
+
+// UpsertOptions persists a batch of service options (insert or update by ID).
+func (b *CommonHandler) UpsertOptions(ctx restate.Context, params UpsertOptionsParams) error {
+	return b.upsertOptions(ctx, params)
+}
+
+// upsertOptions is the context-agnostic implementation, used at init time
+// where we hold a plain context.Context (not a Restate one).
+func (b *CommonHandler) upsertOptions(ctx context.Context, params UpsertOptionsParams) error {
+	if err := validator.Validate(params); err != nil {
+		return sharedmodel.WrapErr("validate upsert options", err)
+	}
+
+	q := b.storage.Querier()
+	for _, cfg := range params.Configs {
+		if err := q.UpsertOption(ctx, commondb.UpsertOptionParams{
+			ID:          cfg.ID,
+			OwnerID:     cfg.OwnerID,
+			IsEnabled:   true,
+			Name:        cfg.Name,
+			Description: cfg.Description,
+			Priority:    cfg.Priority,
+			LogoRsID:    cfg.LogoRsID,
+			Data:        cfg.Data,
+			Type:        string(cfg.Type),
+			Provider:    cfg.Provider,
+		}); err != nil {
+			return sharedmodel.WrapErr("db upsert option", err)
+		}
+	}
+	return nil
+}
+
+// ListOption returns active service options filtered by category.
+func (b *CommonHandler) ListOption(
 	ctx restate.Context,
-	params ListServiceOptionParams,
-) ([]sharedmodel.OptionConfig, error) {
+	params ListOptionParams,
+) ([]sharedmodel.Option, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list service option", err)
 	}
 
-	dbOptions, err := b.storage.Querier().ListSortedServiceOption(ctx, commondb.ListSortedServiceOptionParams{
-		Category:  params.Category,
+	dbOptions, err := b.storage.Querier().ListSortedOption(ctx, commondb.ListSortedOptionParams{
+		Type:      params.Type,
 		IsEnabled: params.IsEnabled,
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db list service option", err)
 	}
 
-	var result []sharedmodel.OptionConfig
-	for _, dbOpt := range dbOptions {
-		result = append(result, sharedmodel.OptionConfig{
-			ID:          dbOpt.ID,
-			Provider:    dbOpt.Provider,
-			Name:        dbOpt.Name,
-			Description: dbOpt.Description,
-			Priority:    dbOpt.Priority,
-			Config:      dbOpt.Config,
-			LogoRsID:    dbOpt.LogoRsID,
+	var result []sharedmodel.Option
+	for _, opts := range dbOptions {
+		result = append(result, sharedmodel.Option{
+			ID:          opts.ID,
+			OwnerID:     opts.OwnerID,
+			Type:        sharedmodel.OptionType(opts.Type),
+			IsEnabled:   opts.IsEnabled,
+			Provider:    opts.Provider,
+			Name:        opts.Name,
+			Description: opts.Description,
+			Priority:    opts.Priority,
+			LogoRsID:    opts.LogoRsID,
+			Data:        opts.Data,
 		})
 	}
 

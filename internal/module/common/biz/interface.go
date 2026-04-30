@@ -7,7 +7,6 @@ import (
 
 	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
-	"shopnexus-server/internal/infras/objectstore"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	"shopnexus-server/internal/provider/exchange"
@@ -26,8 +25,8 @@ type CommonBiz interface {
 	GetFileURL(ctx context.Context, params GetFileURLParams) (string, error)
 
 	// Option
-	UpdateServiceOptions(ctx context.Context, params UpdateServiceOptionsParams) error
-	ListServiceOption(ctx context.Context, params ListServiceOptionParams) ([]sharedmodel.OptionConfig, error)
+	ListOption(ctx context.Context, params ListOptionParams) ([]sharedmodel.Option, error)
+	UpsertOptions(ctx context.Context, params UpsertOptionsParams) error
 
 	// Resource
 	UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error)
@@ -60,12 +59,11 @@ type SSEClient struct {
 
 // CommonHandler implements shared business logic used across modules.
 type CommonHandler struct {
-	config         *config.Config
-	storage        CommonStorage
-	cache          cache.Client
-	objectstoreMap map[string]objectstore.Client
-	geocoder       geocoding.Client
-	exchange       exchange.Client
+	config   *config.Config
+	storage  CommonStorage
+	cache    cache.Client
+	geocoder geocoding.Client
+	exchange exchange.Client
 
 	// SSE client registry
 	sseMu      sync.RWMutex

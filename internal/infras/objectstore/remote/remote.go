@@ -17,8 +17,8 @@ func NewClient(cfg RemoteConfig) *ClientImpl {
 	return &ClientImpl{}
 }
 
-func (c *ClientImpl) Config() sharedmodel.OptionConfig {
-	return sharedmodel.OptionConfig{
+func (c *ClientImpl) Config() sharedmodel.Option {
+	return sharedmodel.Option{
 		ID:          "remote",
 		Name:        "Remote Storage",
 		Provider:    "Remote",

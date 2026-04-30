@@ -20,6 +20,86 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
+const createBatchOption = `-- name: CreateBatchOption :batchone
+INSERT INTO "common"."option" ("id", "owner_id", "is_enabled", "name", "description", "priority", "logo_rs_id", "data", "type", "provider")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
+`
+
+type CreateBatchOptionBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type CreateBatchOptionParams struct {
+	ID          string          `json:"id"`
+	OwnerID     uuid.NullUUID   `json:"owner_id"`
+	IsEnabled   bool            `json:"is_enabled"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Priority    int32           `json:"priority"`
+	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
+	Data        json.RawMessage `json:"data"`
+	Type        string          `json:"type"`
+	Provider    string          `json:"provider"`
+}
+
+func (q *Queries) CreateBatchOption(ctx context.Context, arg []CreateBatchOptionParams) *CreateBatchOptionBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.OwnerID,
+			a.IsEnabled,
+			a.Name,
+			a.Description,
+			a.Priority,
+			a.LogoRsID,
+			a.Data,
+			a.Type,
+			a.Provider,
+		}
+		batch.Queue(createBatchOption, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &CreateBatchOptionBatchResults{br, len(arg), false}
+}
+
+func (b *CreateBatchOptionBatchResults) QueryRow(f func(int, CommonOption, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		var i CommonOption
+		if b.closed {
+			if f != nil {
+				f(t, i, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		row := b.br.QueryRow()
+		err := row.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.IsEnabled,
+			&i.Name,
+			&i.Description,
+			&i.Priority,
+			&i.LogoRsID,
+			&i.Data,
+			&i.Type,
+			&i.Provider,
+		)
+		if f != nil {
+			f(t, i, err)
+		}
+	}
+}
+
+func (b *CreateBatchOptionBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
 const createBatchResource = `-- name: CreateBatchResource :batchone
 INSERT INTO "common"."resource" ("id", "uploaded_by_id", "provider", "object_key", "mime", "size", "metadata", "checksum", "created_at")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -156,83 +236,6 @@ func (b *CreateBatchResourceReferenceBatchResults) QueryRow(f func(int, CommonRe
 }
 
 func (b *CreateBatchResourceReferenceBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchServiceOption = `-- name: CreateBatchServiceOption :batchone
-INSERT INTO "common"."service_option" ("id", "category", "provider", "is_enabled", "name", "description", "priority", "config", "logo_rs_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, category, provider, is_enabled, name, description, priority, config, logo_rs_id
-`
-
-type CreateBatchServiceOptionBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchServiceOptionParams struct {
-	ID          string          `json:"id"`
-	Category    string          `json:"category"`
-	Provider    string          `json:"provider"`
-	IsEnabled   bool            `json:"is_enabled"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Priority    int32           `json:"priority"`
-	Config      json.RawMessage `json:"config"`
-	LogoRsID    uuid.NullUUID   `json:"logo_rs_id"`
-}
-
-func (q *Queries) CreateBatchServiceOption(ctx context.Context, arg []CreateBatchServiceOptionParams) *CreateBatchServiceOptionBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.Category,
-			a.Provider,
-			a.IsEnabled,
-			a.Name,
-			a.Description,
-			a.Priority,
-			a.Config,
-			a.LogoRsID,
-		}
-		batch.Queue(createBatchServiceOption, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchServiceOptionBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchServiceOptionBatchResults) QueryRow(f func(int, CommonServiceOption, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i CommonServiceOption
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.Category,
-			&i.Provider,
-			&i.IsEnabled,
-			&i.Name,
-			&i.Description,
-			&i.Priority,
-			&i.Config,
-			&i.LogoRsID,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchServiceOptionBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }
