@@ -52,12 +52,19 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	// Buyer - Pending
 	g.POST("/buyer/checkout", h.BuyerCheckout, rlCheckout)
 	g.POST("/buyer/checkout/:sessionID/cancel", h.CancelBuyerCheckout)
-	g.GET("/buyer/pending", h.ListBuyerPendingItems)
-	g.DELETE("/buyer/pending/:id", h.CancelBuyerPending)
+	g.GET("/buyer/pending-items", h.ListBuyerPendingItems)
+	g.GET("/buyer/pending-orders", h.ListBuyerPendingOrders)
+	g.DELETE("/buyer/pending-items/:id", h.CancelBuyerPending)
 
-	// Buyer - Confirmed
-	g.GET("/buyer/confirmed", h.ListBuyerConfirmed)
-	g.GET("/buyer/confirmed/:id", h.GetBuyerOrder)
+	// Buyer - Completed
+	g.GET("/buyer/completed-orders", h.ListBuyerCompletedOrders)
+
+	// Buyer - Cancelled
+	g.GET("/buyer/cancelled-items", h.ListBuyerCancelledItems)
+	g.GET("/buyer/cancelled-orders", h.ListBuyerCancelledOrders)
+
+	// Buyer - Order detail
+	g.GET("/buyer/orders/:id", h.GetBuyerOrder)
 
 	// Buyer - Refund
 	buyerRefund := g.Group("/buyer/refund")
@@ -411,4 +418,116 @@ func (h *Handler) CancelBuyerPending(c echo.Context) error {
 	}
 
 	return response.FromMessage(c.Response().Writer, http.StatusOK, "Item cancelled successfully")
+}
+
+// --- Buyer Pending Orders ---
+
+type ListBuyerPendingOrdersRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListBuyerPendingOrders(c echo.Context) error {
+	var req ListBuyerPendingOrdersRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+	result, err := h.biz.ListBuyerPendingOrders(c.Request().Context(), orderbiz.ListBuyerPendingOrdersParams{
+		BuyerID:          claims.Account.ID,
+		PaginationParams: req.PaginationParams.Constrain(),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromPaginate(c.Response().Writer, result)
+}
+
+// --- Buyer Completed Orders ---
+
+type ListBuyerCompletedOrdersRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListBuyerCompletedOrders(c echo.Context) error {
+	var req ListBuyerCompletedOrdersRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+	result, err := h.biz.ListBuyerCompletedOrders(c.Request().Context(), orderbiz.ListBuyerCompletedOrdersParams{
+		BuyerID:          claims.Account.ID,
+		PaginationParams: req.PaginationParams.Constrain(),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromPaginate(c.Response().Writer, result)
+}
+
+// --- Buyer Cancelled Orders ---
+
+type ListBuyerCancelledOrdersRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListBuyerCancelledOrders(c echo.Context) error {
+	var req ListBuyerCancelledOrdersRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+	result, err := h.biz.ListBuyerCancelledOrders(c.Request().Context(), orderbiz.ListBuyerCancelledOrdersParams{
+		BuyerID:          claims.Account.ID,
+		PaginationParams: req.PaginationParams.Constrain(),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromPaginate(c.Response().Writer, result)
+}
+
+// --- Buyer Cancelled Items ---
+
+type ListBuyerCancelledItemsRequest struct {
+	sharedmodel.PaginationParams
+}
+
+func (h *Handler) ListBuyerCancelledItems(c echo.Context) error {
+	var req ListBuyerCancelledItemsRequest
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	claims, err := authclaims.GetClaims(c.Request())
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+	result, err := h.biz.ListBuyerCancelledItems(c.Request().Context(), orderbiz.ListBuyerCancelledItemsParams{
+		AccountID:        claims.Account.ID,
+		PaginationParams: req.PaginationParams.Constrain(),
+	})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromPaginate(c.Response().Writer, result)
 }
