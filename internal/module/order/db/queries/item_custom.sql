@@ -24,17 +24,42 @@ WHERE i."seller_id" = @seller_id
   AND ps."status" = 'Success';
 
 -- name: ListBuyerPendingItems :many
-SELECT * FROM "order"."item"
-WHERE "account_id" = @account_id
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
-ORDER BY "date_created" DESC;
+-- Pre-confirm items still reachable to the buyer: payment session is either
+-- in-flight (Pending) or settled (Success, awaiting seller confirm). Failed /
+-- Cancelled sessions are excluded — they belong in ListBuyerCancelledItems.
+SELECT i.* FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = @account_id
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND ps."status" IN ('Pending', 'Success')
+ORDER BY i."date_created" DESC;
 
 -- name: CountBuyerPendingItems :one
-SELECT COUNT(*) FROM "order"."item"
-WHERE "account_id" = @account_id
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL;
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = @account_id
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND ps."status" IN ('Pending', 'Success');
+
+-- name: ListBuyerCancelledItems :many
+-- Pre-confirm items the buyer can no longer act on: either the checkout
+-- failed/was cancelled (session terminal) or the item was individually
+-- cancelled (date_cancelled set, e.g. RefundPendingItem on a Success session).
+SELECT i.* FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = @account_id
+  AND i."order_id" IS NULL
+  AND (ps."status" IN ('Failed', 'Cancelled') OR i."date_cancelled" IS NOT NULL)
+ORDER BY i."date_created" DESC;
+
+-- name: CountBuyerCancelledItems :one
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = @account_id
+  AND i."order_id" IS NULL
+  AND (ps."status" IN ('Failed', 'Cancelled') OR i."date_cancelled" IS NOT NULL);
 
 -- name: ListPendingPaymentItemsByPaymentSession :many
 SELECT * FROM "order"."item"

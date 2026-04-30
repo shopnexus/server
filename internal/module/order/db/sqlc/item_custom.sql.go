@@ -74,11 +74,28 @@ func (q *Queries) CancelItemsByIDs(ctx context.Context, arg CancelItemsByIDsPara
 	return result.RowsAffected(), nil
 }
 
+const countBuyerCancelledItems = `-- name: CountBuyerCancelledItems :one
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = $1
+  AND i."order_id" IS NULL
+  AND (ps."status" IN ('Failed', 'Cancelled') OR i."date_cancelled" IS NOT NULL)
+`
+
+func (q *Queries) CountBuyerCancelledItems(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countBuyerCancelledItems, accountID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countBuyerPendingItems = `-- name: CountBuyerPendingItems :one
-SELECT COUNT(*) FROM "order"."item"
-WHERE "account_id" = $1
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
+SELECT COUNT(*) FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = $1
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND ps."status" IN ('Pending', 'Success')
 `
 
 func (q *Queries) CountBuyerPendingItems(ctx context.Context, accountID uuid.UUID) (int64, error) {
@@ -104,14 +121,70 @@ func (q *Queries) CountSellerPendingItems(ctx context.Context, sellerID uuid.UUI
 	return count, err
 }
 
-const listBuyerPendingItems = `-- name: ListBuyerPendingItems :many
-SELECT id, order_id, account_id, seller_id, sku_id, spu_id, sku_name, address, note, serial_ids, quantity, transport_option, subtotal_amount, total_amount, payment_session_id, date_cancelled, cancelled_by_id, date_created FROM "order"."item"
-WHERE "account_id" = $1
-  AND "order_id" IS NULL
-  AND "date_cancelled" IS NULL
-ORDER BY "date_created" DESC
+const listBuyerCancelledItems = `-- name: ListBuyerCancelledItems :many
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.spu_id, i.sku_name, i.address, i.note, i.serial_ids, i.quantity, i.transport_option, i.subtotal_amount, i.total_amount, i.payment_session_id, i.date_cancelled, i.cancelled_by_id, i.date_created FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = $1
+  AND i."order_id" IS NULL
+  AND (ps."status" IN ('Failed', 'Cancelled') OR i."date_cancelled" IS NOT NULL)
+ORDER BY i."date_created" DESC
 `
 
+// Pre-confirm items the buyer can no longer act on: either the checkout
+// failed/was cancelled (session terminal) or the item was individually
+// cancelled (date_cancelled set, e.g. RefundPendingItem on a Success session).
+func (q *Queries) ListBuyerCancelledItems(ctx context.Context, accountID uuid.UUID) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listBuyerCancelledItems, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderItem{}
+	for rows.Next() {
+		var i OrderItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.AccountID,
+			&i.SellerID,
+			&i.SkuID,
+			&i.SpuID,
+			&i.SkuName,
+			&i.Address,
+			&i.Note,
+			&i.SerialIds,
+			&i.Quantity,
+			&i.TransportOption,
+			&i.SubtotalAmount,
+			&i.TotalAmount,
+			&i.PaymentSessionID,
+			&i.DateCancelled,
+			&i.CancelledByID,
+			&i.DateCreated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBuyerPendingItems = `-- name: ListBuyerPendingItems :many
+SELECT i.id, i.order_id, i.account_id, i.seller_id, i.sku_id, i.spu_id, i.sku_name, i.address, i.note, i.serial_ids, i.quantity, i.transport_option, i.subtotal_amount, i.total_amount, i.payment_session_id, i.date_cancelled, i.cancelled_by_id, i.date_created FROM "order"."item" i
+JOIN "order"."payment_session" ps ON ps."id" = i."payment_session_id"
+WHERE i."account_id" = $1
+  AND i."order_id" IS NULL
+  AND i."date_cancelled" IS NULL
+  AND ps."status" IN ('Pending', 'Success')
+ORDER BY i."date_created" DESC
+`
+
+// Pre-confirm items still reachable to the buyer: payment session is either
+// in-flight (Pending) or settled (Success, awaiting seller confirm). Failed /
+// Cancelled sessions are excluded — they belong in ListBuyerCancelledItems.
 func (q *Queries) ListBuyerPendingItems(ctx context.Context, accountID uuid.UUID) ([]OrderItem, error) {
 	rows, err := q.db.Query(ctx, listBuyerPendingItems, accountID)
 	if err != nil {
