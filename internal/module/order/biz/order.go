@@ -42,49 +42,6 @@ func (b *OrderHandler) GetSellerOrder(ctx restate.Context, orderID uuid.UUID) (o
 	return b.GetBuyerOrder(ctx, orderID)
 }
 
-// ListBuyerConfirmed returns paginated orders with hydrated items, payments, and product resources.
-func (b *OrderHandler) ListBuyerConfirmed(
-	ctx restate.Context,
-	params ListBuyerConfirmedParams,
-) (sharedmodel.PaginateResult[ordermodel.Order], error) {
-	var zero sharedmodel.PaginateResult[ordermodel.Order]
-
-	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate list orders", err)
-	}
-
-	listCountOrder, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.ListCountBuyerOrderRow, error) {
-		return b.storage.Querier().ListCountBuyerOrder(ctx, orderdb.ListCountBuyerOrderParams{
-			BuyerID: params.BuyerID,
-			Limit:   params.Limit,
-			Offset:  params.Offset(),
-		})
-	})
-
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db list orders", err)
-	}
-
-	var total null.Int64
-	if len(listCountOrder) > 0 {
-		total.SetValid(listCountOrder[0].TotalCount)
-	}
-
-	orders := lo.Map(listCountOrder, func(item orderdb.ListCountBuyerOrderRow, _ int) orderdb.OrderOrder {
-		return item.OrderOrder
-	})
-	data, err := b.hydrateOrders(ctx, orders)
-	if err != nil {
-		return zero, sharedmodel.WrapErr("hydrate orders", err)
-	}
-
-	return sharedmodel.PaginateResult[ordermodel.Order]{
-		PageParams: params.PaginationParams,
-		Total:      total,
-		Data:       data,
-	}, nil
-}
-
 // ListSellerConfirmed returns paginated orders for the seller with optional payment/order status filters.
 func (b *OrderHandler) ListSellerConfirmed(
 	ctx restate.Context,

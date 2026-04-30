@@ -50,10 +50,6 @@ type OrderBiz interface {
 	// Orders
 	GetBuyerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
 	GetSellerOrder(ctx context.Context, orderID uuid.UUID) (ordermodel.Order, error)
-	ListBuyerConfirmed(
-		ctx context.Context,
-		params ListBuyerConfirmedParams,
-	) (sharedmodel.PaginateResult[ordermodel.Order], error)
 	ListSellerConfirmed(
 		ctx context.Context,
 		params ListSellerConfirmedParams,
@@ -237,11 +233,6 @@ type ListSellerPendingItemsParams struct {
 type RejectSellerPendingParams struct {
 	Account accountmodel.AuthenticatedAccount
 	ItemIDs []int64 `validate:"required,min=1,max=1000"`
-}
-
-type ListBuyerConfirmedParams struct {
-	BuyerID uuid.UUID `validate:"required"`
-	sharedmodel.PaginationParams
 }
 
 type ListSellerConfirmedParams struct {

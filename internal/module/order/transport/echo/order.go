@@ -194,35 +194,6 @@ func (h *Handler) GetSellerOrder(c echo.Context) error {
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
 
-type ListBuyerConfirmedRequest struct {
-	sharedmodel.PaginationParams
-}
-
-func (h *Handler) ListBuyerConfirmed(c echo.Context) error {
-	var req ListBuyerConfirmedRequest
-	if err := c.Bind(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
-	}
-
-	claims, err := authclaims.GetClaims(c.Request())
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
-	}
-
-	result, err := h.biz.ListBuyerConfirmed(c.Request().Context(), orderbiz.ListBuyerConfirmedParams{
-		BuyerID:          claims.Account.ID,
-		PaginationParams: req.PaginationParams.Constrain(),
-	})
-	if err != nil {
-		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
-	}
-
-	return response.FromPaginate(c.Response().Writer, result)
-}
-
 type ListSellerConfirmedRequest struct {
 	Search null.String `query:"search"`
 	sharedmodel.PaginationParams

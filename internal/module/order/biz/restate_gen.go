@@ -68,10 +68,6 @@ func (p *OrderRestateClient) GetSellerOrder(ctx context.Context, orderID uuid.UU
 	return restateclient.Call[ordermodel.Order](ctx, p.client, serviceName, "GetSellerOrder", orderID)
 }
 
-func (p *OrderRestateClient) ListBuyerConfirmed(ctx context.Context, params ListBuyerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
-	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListBuyerConfirmed", params)
-}
-
 func (p *OrderRestateClient) ListSellerConfirmed(ctx context.Context, params ListSellerConfirmedParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListSellerConfirmed", params)
 }
