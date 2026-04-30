@@ -246,17 +246,7 @@ type AccountProfile struct {
 	EmailVerified    bool              `json:"email_verified"`
 	PhoneVerified    bool              `json:"phone_verified"`
 	DateCreated      time.Time         `json:"date_created"`
-	Balance          int64             `json:"balance"`
 	Country          string            `json:"country"`
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
-}
-
-type AccountWallet struct {
-	ID          uuid.UUID       `json:"id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Label       string          `json:"label"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
 }

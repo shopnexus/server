@@ -148,9 +148,6 @@ WHERE (
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
@@ -173,9 +170,6 @@ WHERE (
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
@@ -201,9 +195,6 @@ WHERE (
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
@@ -213,18 +204,18 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: CreateCopyProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: CreateDefaultProfile :one
 INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id")
@@ -245,7 +236,6 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "email_verified" = COALESCE(sqlc.narg('email_verified'), "email_verified"),
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
-    "balance" = COALESCE(sqlc.narg('balance'), "balance"),
     "country" = COALESCE(sqlc.narg('country'), "country"),
     "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
     "default_wallet_id" = CASE WHEN sqlc.arg('null_default_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_wallet_id'), "default_wallet_id") END
@@ -268,9 +258,6 @@ WHERE (
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
@@ -647,109 +634,6 @@ WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
     ("spu_id" = ANY(sqlc.slice('spu_id')) OR sqlc.slice('spu_id') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
-);
-
--- ========================================
--- Queries for table: account.wallet
--- ========================================
-
--- name: GetWallet :one
-SELECT *
-FROM "account"."wallet"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: CountWallet :one
-SELECT COUNT(*)
-FROM "account"."wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
-    ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
-    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
-);
-
--- name: ListWallet :many
-SELECT *
-FROM "account"."wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
-    ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
-    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: ListCountWallet :many
-SELECT sqlc.embed(embed_wallet), COUNT(*) OVER() as total_count
-FROM "account"."wallet" embed_wallet
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
-    ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
-    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
-    ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
-    ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
-    ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: CreateWallet :one
-INSERT INTO "account"."wallet" ("id", "account_id", "option", "label", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING *;
-
--- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("id", "account_id", "option", "label", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING *;
-
--- name: CreateCopyWallet :copyfrom
-INSERT INTO "account"."wallet" ("id", "account_id", "option", "label", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6);
-
--- name: CreateDefaultWallet :one
-INSERT INTO "account"."wallet" ("account_id", "option", "label", "data")
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: CreateCopyDefaultWallet :copyfrom
-INSERT INTO "account"."wallet" ("account_id", "option", "label", "data")
-VALUES ($1, $2, $3, $4);
-
--- name: UpdateWallet :one
-UPDATE "account"."wallet"
-SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
-    "option" = COALESCE(sqlc.narg('option'), "option"),
-    "label" = COALESCE(sqlc.narg('label'), "label"),
-    "data" = COALESCE(sqlc.narg('data'), "data"),
-    "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: DeleteWallet :exec
-DELETE FROM "account"."wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("account_id" = ANY(sqlc.slice('account_id')) OR sqlc.slice('account_id') IS NULL) AND
-    ("option" = ANY(sqlc.slice('option')) OR sqlc.slice('option') IS NULL) AND
-    ("label" = ANY(sqlc.slice('label')) OR sqlc.slice('label') IS NULL) AND
-    ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("date_created" = ANY(sqlc.slice('date_created')) OR sqlc.slice('date_created') IS NULL) AND
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL)

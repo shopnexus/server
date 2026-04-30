@@ -14,7 +14,7 @@ import (
 const createSignupProfile = `-- name: CreateSignupProfile :one
 INSERT INTO "account"."profile" ("id", "country", "name")
 VALUES ($1, $2, $3)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, default_contact_id, default_wallet_id
 `
 
 type CreateSignupProfileParams struct {
@@ -36,51 +36,11 @@ func (q *Queries) CreateSignupProfile(ctx context.Context, arg CreateSignupProfi
 		&i.EmailVerified,
 		&i.PhoneVerified,
 		&i.DateCreated,
-		&i.Balance,
 		&i.Country,
 		&i.DefaultContactID,
 		&i.DefaultWalletID,
 	)
 	return i, err
-}
-
-const creditProfileBalance = `-- name: CreditProfileBalance :one
-UPDATE "account"."profile"
-SET "balance" = "balance" + $1::BIGINT
-WHERE "id" = $2
-RETURNING "balance" AS new_balance
-`
-
-type CreditProfileBalanceParams struct {
-	Amount int64     `json:"amount"`
-	ID     uuid.UUID `json:"id"`
-}
-
-func (q *Queries) CreditProfileBalance(ctx context.Context, arg CreditProfileBalanceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, creditProfileBalance, arg.Amount, arg.ID)
-	var new_balance int64
-	err := row.Scan(&new_balance)
-	return new_balance, err
-}
-
-const debitProfileBalance = `-- name: DebitProfileBalance :one
-UPDATE "account"."profile"
-SET "balance" = GREATEST("balance" - $1::BIGINT, 0)
-WHERE "id" = $2
-RETURNING "balance" AS new_balance
-`
-
-type DebitProfileBalanceParams struct {
-	Amount int64     `json:"amount"`
-	ID     uuid.UUID `json:"id"`
-}
-
-// Deducts min(balance, amount). Returns new balance after the deduction.
-func (q *Queries) DebitProfileBalance(ctx context.Context, arg DebitProfileBalanceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, debitProfileBalance, arg.Amount, arg.ID)
-	var new_balance int64
-	err := row.Scan(&new_balance)
-	return new_balance, err
 }
 
 const getAccountDefaults = `-- name: GetAccountDefaults :one
@@ -97,17 +57,6 @@ func (q *Queries) GetAccountDefaults(ctx context.Context, id uuid.UUID) (GetAcco
 	var i GetAccountDefaultsRow
 	err := row.Scan(&i.DefaultContactID, &i.DefaultWalletID)
 	return i, err
-}
-
-const getProfileBalance = `-- name: GetProfileBalance :one
-SELECT "balance" FROM "account"."profile" WHERE "id" = $1
-`
-
-func (q *Queries) GetProfileBalance(ctx context.Context, id uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, getProfileBalance, id)
-	var balance int64
-	err := row.Scan(&balance)
-	return balance, err
 }
 
 const setAccountDefaultContact = `-- name: SetAccountDefaultContact :exec

@@ -115,27 +115,3 @@ func (p *AccountRestateClient) MarkAllRead(ctx context.Context, params MarkAllRe
 func (p *AccountRestateClient) CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error) {
 	return restateclient.Call[accountdb.AccountNotification](ctx, p.client, serviceName, "CreateNotification", params)
 }
-
-func (p *AccountRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {
-	return restateclient.Call[int64](ctx, p.client, serviceName, "GetWalletBalance", accountID)
-}
-
-func (p *AccountRestateClient) WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error) {
-	return restateclient.Call[WalletDebitResult](ctx, p.client, serviceName, "WalletDebit", params)
-}
-
-func (p *AccountRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
-}
-
-func (p *AccountRestateClient) CreateWallet(ctx context.Context, params CreateWalletParams) (accountdb.AccountWallet, error) {
-	return restateclient.Call[accountdb.AccountWallet](ctx, p.client, serviceName, "CreateWallet", params)
-}
-
-func (p *AccountRestateClient) ListWallets(ctx context.Context, params ListWalletsParams) ([]accountdb.AccountWallet, error) {
-	return restateclient.Call[[]accountdb.AccountWallet](ctx, p.client, serviceName, "ListWallets", params)
-}
-
-func (p *AccountRestateClient) DeleteWallet(ctx context.Context, params DeleteWalletParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "DeleteWallet", params)
-}

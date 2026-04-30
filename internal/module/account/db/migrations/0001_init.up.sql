@@ -49,7 +49,6 @@ CREATE TABLE IF NOT EXISTS "account"."profile" (
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    "balance" BIGINT NOT NULL DEFAULT 0, -- Internal money
     "country" VARCHAR(2) NOT NULL, -- Explicit for money currency, can only updated when balance is zero
 
     -- Default
@@ -127,22 +126,6 @@ CREATE TABLE IF NOT EXISTS "account"."favorite" (
         REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "favorite_spu_id_idx" ON "account"."favorite" ("spu_id");
-
--- Stored payment wallet (credit card tokens, e-wallet refs, bank accounts, etc.).
-CREATE TABLE IF NOT EXISTS "account"."wallet" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "account_id" UUID NOT NULL,
-    "option" VARCHAR(100) NOT NULL, -- References common.service_option (e.g. 'vnpay_qr', 'sepay_bank_transfer', 'card_stripe')
-    "label" VARCHAR(100) NOT NULL, -- Human-readable label shown in the UI (e.g. 'Visa ending in 4242')
-    "data" JSONB NOT NULL, -- Provider-specific token/reference data (no raw card numbers stored here)
-    "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "wallet_pkey" PRIMARY KEY ("id"),
-
-    CONSTRAINT "wallet_account_id_fkey" FOREIGN KEY ("account_id")
-        REFERENCES "account"."account" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-CREATE INDEX IF NOT EXISTS "wallet_account_id_idx" ON "account"."wallet" ("account_id");
 
 -- Cross-table FKs from account.account, deferred to here because contact
 -- and wallet also FK back to account (circular).

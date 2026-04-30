@@ -53,17 +53,6 @@ func NewHandler(e *echo.Echo, biz accountbiz.AccountBiz) *Handler {
 	favoriteApi.DELETE("/:spu_id", h.RemoveFavorite)
 	favoriteApi.GET("", h.ListFavorite)
 
-	// Payment method endpoints
-	walletsApi := api.Group("/wallets")
-	walletsApi.POST("", h.CreateWallet)
-	walletsApi.GET("", h.ListWallets)
-	walletsApi.DELETE("/:id", h.DeleteWallet)
-
-	// Wallet endpoints
-	walletApi := api.Group("/wallet")
-	walletApi.GET("", h.GetWalletBalance)
-	// Transaction list lives in the order module (order.transaction ledger); no account-level route.
-
 	// Notification endpoints
 	notifApi := api.Group("/notification")
 	notifApi.GET("", h.ListNotification)

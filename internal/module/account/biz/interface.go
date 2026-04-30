@@ -58,16 +58,6 @@ type AccountBiz interface {
 	MarkRead(ctx context.Context, params MarkReadParams) error
 	MarkAllRead(ctx context.Context, params MarkAllReadParams) error
 	CreateNotification(ctx context.Context, params CreateNotificationParams) (accountdb.AccountNotification, error)
-
-	// Wallet balance (internal money on profile.balance)
-	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
-	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
-	WalletCredit(ctx context.Context, params WalletCreditParams) error
-
-	// Wallets (stored payment methods on account.wallet)
-	CreateWallet(ctx context.Context, params CreateWalletParams) (accountdb.AccountWallet, error)
-	ListWallets(ctx context.Context, params ListWalletsParams) ([]accountdb.AccountWallet, error)
-	DeleteWallet(ctx context.Context, params DeleteWalletParams) error
 }
 
 type AccountStorage = pgsqlc.Storage[*accountdb.Queries]

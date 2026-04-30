@@ -314,9 +314,9 @@ func (b *CreateBatchNotificationBatchResults) Close() error {
 }
 
 const createBatchProfile = `-- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "balance", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, balance, country, default_contact_id, default_wallet_id
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, default_contact_id, default_wallet_id
 `
 
 type CreateBatchProfileBatchResults struct {
@@ -335,7 +335,6 @@ type CreateBatchProfileParams struct {
 	EmailVerified    bool              `json:"email_verified"`
 	PhoneVerified    bool              `json:"phone_verified"`
 	DateCreated      time.Time         `json:"date_created"`
-	Balance          int64             `json:"balance"`
 	Country          string            `json:"country"`
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
@@ -354,7 +353,6 @@ func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfi
 			a.EmailVerified,
 			a.PhoneVerified,
 			a.DateCreated,
-			a.Balance,
 			a.Country,
 			a.DefaultContactID,
 			a.DefaultWalletID,
@@ -386,7 +384,6 @@ func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, er
 			&i.EmailVerified,
 			&i.PhoneVerified,
 			&i.DateCreated,
-			&i.Balance,
 			&i.Country,
 			&i.DefaultContactID,
 			&i.DefaultWalletID,
@@ -398,74 +395,6 @@ func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, er
 }
 
 func (b *CreateBatchProfileBatchResults) Close() error {
-	b.closed = true
-	return b.br.Close()
-}
-
-const createBatchWallet = `-- name: CreateBatchWallet :batchone
-INSERT INTO "account"."wallet" ("id", "account_id", "option", "label", "data", "date_created")
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, account_id, option, label, data, date_created
-`
-
-type CreateBatchWalletBatchResults struct {
-	br     pgx.BatchResults
-	tot    int
-	closed bool
-}
-
-type CreateBatchWalletParams struct {
-	ID          uuid.UUID       `json:"id"`
-	AccountID   uuid.UUID       `json:"account_id"`
-	Option      string          `json:"option"`
-	Label       string          `json:"label"`
-	Data        json.RawMessage `json:"data"`
-	DateCreated time.Time       `json:"date_created"`
-}
-
-func (q *Queries) CreateBatchWallet(ctx context.Context, arg []CreateBatchWalletParams) *CreateBatchWalletBatchResults {
-	batch := &pgx.Batch{}
-	for _, a := range arg {
-		vals := []interface{}{
-			a.ID,
-			a.AccountID,
-			a.Option,
-			a.Label,
-			a.Data,
-			a.DateCreated,
-		}
-		batch.Queue(createBatchWallet, vals...)
-	}
-	br := q.db.SendBatch(ctx, batch)
-	return &CreateBatchWalletBatchResults{br, len(arg), false}
-}
-
-func (b *CreateBatchWalletBatchResults) QueryRow(f func(int, AccountWallet, error)) {
-	defer b.br.Close()
-	for t := 0; t < b.tot; t++ {
-		var i AccountWallet
-		if b.closed {
-			if f != nil {
-				f(t, i, ErrBatchAlreadyClosed)
-			}
-			continue
-		}
-		row := b.br.QueryRow()
-		err := row.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.Option,
-			&i.Label,
-			&i.Data,
-			&i.DateCreated,
-		)
-		if f != nil {
-			f(t, i, err)
-		}
-	}
-}
-
-func (b *CreateBatchWalletBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

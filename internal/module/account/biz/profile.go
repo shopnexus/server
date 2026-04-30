@@ -217,16 +217,8 @@ func (b *AccountHandler) UpdateCountry(ctx restate.Context, params UpdateCountry
 		return sharedmodel.WrapErr("infer currency from country", err)
 	}
 
-	balance, err := b.GetWalletBalance(ctx, params.AccountID)
-	if err != nil {
-		return err
-	}
-	if balance != 0 {
-		return accountmodel.ErrWalletNotEmpty.Fmt(balance).Terminal()
-	}
-
-	if err = restate.RunVoid(ctx, func(ctx restate.RunContext) error {
-		_, err = b.storage.Querier().UpdateProfileCountry(ctx, accountdb.UpdateProfileCountryParams{
+	if err := restate.RunVoid(ctx, func(ctx restate.RunContext) error {
+		_, err := b.storage.Querier().UpdateProfileCountry(ctx, accountdb.UpdateProfileCountryParams{
 			ID:      params.AccountID,
 			Country: params.Country,
 		})
