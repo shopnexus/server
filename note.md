@@ -21,3 +21,7 @@
 - trong refund session wallet dùng currency A, sau đó user đổi sang currency B trước thời điểm refund -> phải convert -> ko nên cho đổi currency khi đang có refund hoặc đang hold escrow
 
 - chỉ dùng workflow nếu cần saga pattern trong xuyên suốt quá trình tạo entity đó, ví dụ tạo payment session (checkout), tạo order (order confirm), 1 step fail cần đc rollback toàn tuần tự
+
+- đổi lại đống provider ko cho dynamic register webhook nữa, vì cần phát triển lên gateway -> webhook cần đc setup static /webhook/unipile/{accountID} kiểu thế
+
+- move toàn bộ model trong shared/model ra folder riêng của nó (pagination, err, ..)

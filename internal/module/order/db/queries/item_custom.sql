@@ -63,7 +63,8 @@ RETURNING *;
 
 -- name: CancelItemsByIDs :execrows
 UPDATE "order"."item"
-SET "date_cancelled" = CURRENT_TIMESTAMP
+SET "date_cancelled" = CURRENT_TIMESTAMP,
+    "cancelled_by_id" = @cancelled_by_id
 WHERE "id" = ANY(@item_ids::BIGINT[])
   AND "order_id" IS NULL
   AND "date_cancelled" IS NULL;

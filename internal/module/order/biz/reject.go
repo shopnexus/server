@@ -99,7 +99,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 
 		// For each Success session, fetch its original tx (positive Success, no reverses_id)
 		// to use as reverses_id on the refund leg. Per design: single original per session.
-		originalTxBySession := make(map[uuid.UUID]int64)
+		originalTxBySession := make(map[uuid.UUID]uuid.UUID)
 		for sid, s := range sessionByID {
 			if s.Status != orderdb.OrderStatusSuccess {
 				continue
@@ -120,7 +120,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 
 		type itemRefundPlan struct {
 			Item       orderdb.OrderItem
-			OriginalID int64
+			OriginalID uuid.UUID
 		}
 		var refundPlans []itemRefundPlan
 		var pendingSessionIDs []uuid.UUID
@@ -143,19 +143,14 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		pendingSessionIDs = lo.Uniq(pendingSessionIDs)
 
 		// Infer buyer currency before the durable Run (outside Run — cross-module).
-		buyerCurrency, err := b.inferCurrency(ctx, buyerID)
+		buyerCurrency, err := b.InferCurrency(ctx, buyerID)
 		if err != nil {
 			return sharedmodel.WrapErr("infer buyer currency", err)
 		}
 
 		// Create per-session refund txs and cancel each item atomically.
-		type rejectResult struct {
-			RefundTxIDs []int64 `json:"refund_tx_ids"`
-		}
-
-		rejRes, err := restate.Run(ctx, func(ctx restate.RunContext) (rejectResult, error) {
-			var res rejectResult
-
+		refundTxIDs, err := restate.Run(ctx, func(ctx restate.RunContext) ([]uuid.UUID, error) {
+      var txIDs []uuid.UUID
 			// One refund leg per item, in its own session, reversing the original tx.
 			for _, plan := range refundPlans {
 				if plan.Item.TotalAmount <= 0 {
@@ -167,26 +162,25 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 					Note:          "seller reject pre-confirm",
 					Error:         null.String{},
 					PaymentOption: null.String{},
-					WalletID:      uuid.NullUUID{},
 					Data:          json.RawMessage("{}"),
 					Amount:        -plan.Item.TotalAmount,
 					FromCurrency:  buyerCurrency,
 					ToCurrency:    buyerCurrency,
 					ExchangeRate:  mustNumericOne(),
-					ReversesID:    null.IntFrom(plan.OriginalID),
+					ReversesID:    uuid.NullUUID{UUID: plan.OriginalID, Valid: true},
 					DateSettled:   null.TimeFrom(time.Now()),
 					DateExpired:   null.Time{},
 				})
 				if txErr != nil {
-					return res, sharedmodel.WrapErr("db create refund tx", txErr)
+					return nil, sharedmodel.WrapErr("db create refund tx", txErr)
 				}
-				res.RefundTxIDs = append(res.RefundTxIDs, tx.ID)
+				txIDs = append(txIDs, tx.ID)
 			}
 
 			// Mark any Pending sessions as Cancelled so their timeout / webhook no-ops.
 			for _, sid := range pendingSessionIDs {
 				if _, err := b.storage.Querier().MarkPaymentSessionCancelled(ctx, sid); err != nil {
-					return res, sharedmodel.WrapErr("db cancel pending session", err)
+					return nil, sharedmodel.WrapErr("db cancel pending session", err)
 				}
 			}
 
@@ -196,11 +190,11 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 					CancelledByID: uuid.NullUUID{UUID: sellerID, Valid: true},
 					ID:            id,
 				}); err != nil {
-					return res, sharedmodel.WrapErr("db cancel item", err)
+					return nil, sharedmodel.WrapErr("db cancel item", err)
 				}
 			}
 
-			return res, nil
+			return txIDs, nil
 		})
 		if err != nil {
 			return sharedmodel.WrapErr("reject items for buyer", err)
@@ -209,7 +203,7 @@ func (b *OrderHandler) RejectSellerPending(ctx restate.Context, params RejectSel
 		// Credit buyer wallet per session — CreditFromSession sums settled positive
 		// txs in each session and skips no-ops, so unsettled sessions don't mint balance.
 		_ = totalRefund // kept above only for the empty-list short-circuit clarity
-		if len(rejRes.RefundTxIDs) > 0 {
+		if len(refundTxIDs) > 0 {
 			for _, plan := range refundPlans {
 				if _, err := b.CreditFromSession(ctx, CreditFromSessionParams{
 					SessionID:  plan.Item.PaymentSessionID,

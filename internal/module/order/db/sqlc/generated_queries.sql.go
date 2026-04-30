@@ -51,6 +51,39 @@ func (q *Queries) CountCartItem(ctx context.Context, arg CountCartItemParams) (i
 	return count, err
 }
 
+const countInternalWallet = `-- name: CountInternalWallet :one
+SELECT COUNT(*)
+FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL) AND
+    ("currency" = ANY($5) OR $5 IS NULL)
+)
+`
+
+type CountInternalWalletParams struct {
+	ID          []uuid.UUID `json:"id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Currency    []string    `json:"currency"`
+}
+
+func (q *Queries) CountInternalWallet(ctx context.Context, arg CountInternalWalletParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countInternalWallet,
+		arg.ID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Currency,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countItem = `-- name: CountItem :one
 SELECT COUNT(*)
 FROM "order"."item"
@@ -325,7 +358,7 @@ type CountRefundParams struct {
 	DateApproved     []null.Time         `json:"date_approved"`
 	DateApprovedFrom null.Time           `json:"date_approved_from"`
 	DateApprovedTo   null.Time           `json:"date_approved_to"`
-	RefundTxID       []null.Int          `json:"refund_tx_id"`
+	RefundTxID       []uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 func (q *Queries) CountRefund(ctx context.Context, arg CountRefundParams) (int64, error) {
@@ -424,37 +457,35 @@ WHERE (
     ("note" = ANY($4) OR $4 IS NULL) AND
     ("error" = ANY($5) OR $5 IS NULL) AND
     ("payment_option" = ANY($6) OR $6 IS NULL) AND
-    ("wallet_id" = ANY($7) OR $7 IS NULL) AND
-    ("data" = ANY($8) OR $8 IS NULL) AND
-    ("amount" = ANY($9) OR $9 IS NULL) AND
-    ("amount" >= $10 OR $10 IS NULL) AND
-    ("amount" <= $11 OR $11 IS NULL) AND
-    ("from_currency" = ANY($12) OR $12 IS NULL) AND
-    ("to_currency" = ANY($13) OR $13 IS NULL) AND
-    ("exchange_rate" = ANY($14) OR $14 IS NULL) AND
-    ("exchange_rate" >= $15 OR $15 IS NULL) AND
-    ("exchange_rate" <= $16 OR $16 IS NULL) AND
-    ("reverses_id" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
-    ("date_settled" = ANY($21) OR $21 IS NULL) AND
-    ("date_settled" >= $22 OR $22 IS NULL) AND
-    ("date_settled" <= $23 OR $23 IS NULL) AND
-    ("date_expired" = ANY($24) OR $24 IS NULL) AND
-    ("date_expired" >= $25 OR $25 IS NULL) AND
-    ("date_expired" <= $26 OR $26 IS NULL)
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("amount" = ANY($8) OR $8 IS NULL) AND
+    ("amount" >= $9 OR $9 IS NULL) AND
+    ("amount" <= $10 OR $10 IS NULL) AND
+    ("from_currency" = ANY($11) OR $11 IS NULL) AND
+    ("to_currency" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" = ANY($13) OR $13 IS NULL) AND
+    ("exchange_rate" >= $14 OR $14 IS NULL) AND
+    ("exchange_rate" <= $15 OR $15 IS NULL) AND
+    ("reverses_id" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" >= $18 OR $18 IS NULL) AND
+    ("date_created" <= $19 OR $19 IS NULL) AND
+    ("date_settled" = ANY($20) OR $20 IS NULL) AND
+    ("date_settled" >= $21 OR $21 IS NULL) AND
+    ("date_settled" <= $22 OR $22 IS NULL) AND
+    ("date_expired" = ANY($23) OR $23 IS NULL) AND
+    ("date_expired" >= $24 OR $24 IS NULL) AND
+    ("date_expired" <= $25 OR $25 IS NULL)
 )
 `
 
 type CountTransactionParams struct {
-	ID               []int64           `json:"id"`
+	ID               []uuid.UUID       `json:"id"`
 	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -464,7 +495,7 @@ type CountTransactionParams struct {
 	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
 	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
 	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
-	ReversesID       []null.Int        `json:"reverses_id"`
+	ReversesID       []uuid.NullUUID   `json:"reverses_id"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -484,7 +515,6 @@ func (q *Queries) CountTransaction(ctx context.Context, arg CountTransactionPara
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -585,6 +615,11 @@ type CreateCopyDefaultCartItemParams struct {
 	Quantity  int64     `json:"quantity"`
 }
 
+type CreateCopyDefaultInternalWalletParams struct {
+	ID       uuid.UUID `json:"id"`
+	Currency string    `json:"currency"`
+}
+
 type CreateCopyDefaultItemParams struct {
 	OrderID          uuid.NullUUID   `json:"order_id"`
 	AccountID        uuid.UUID       `json:"account_id"`
@@ -640,7 +675,7 @@ type CreateCopyDefaultRefundParams struct {
 	RejectionNote null.String       `json:"rejection_note"`
 	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
 	DateApproved  null.Time         `json:"date_approved"`
-	RefundTxID    null.Int          `json:"refund_tx_id"`
+	RefundTxID    uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 type CreateCopyDefaultRefundDisputeParams struct {
@@ -653,18 +688,18 @@ type CreateCopyDefaultRefundDisputeParams struct {
 }
 
 type CreateCopyDefaultTransactionParams struct {
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`
 }
@@ -672,6 +707,12 @@ type CreateCopyDefaultTransactionParams struct {
 type CreateCopyDefaultTransportParams struct {
 	Option string          `json:"option"`
 	Data   json.RawMessage `json:"data"`
+}
+
+type CreateCopyInternalWalletParams struct {
+	ID       uuid.UUID `json:"id"`
+	Balance  int64     `json:"balance"`
+	Currency string    `json:"currency"`
 }
 
 type CreateCopyItemParams struct {
@@ -736,7 +777,7 @@ type CreateCopyRefundParams struct {
 	RejectionNote null.String       `json:"rejection_note"`
 	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
 	DateApproved  null.Time         `json:"date_approved"`
-	RefundTxID    null.Int          `json:"refund_tx_id"`
+	RefundTxID    uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 type CreateCopyRefundDisputeParams struct {
@@ -752,18 +793,18 @@ type CreateCopyRefundDisputeParams struct {
 }
 
 type CreateCopyTransactionParams struct {
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`
@@ -797,6 +838,24 @@ func (q *Queries) CreateDefaultCartItem(ctx context.Context, arg CreateDefaultCa
 		&i.SkuID,
 		&i.Quantity,
 	)
+	return i, err
+}
+
+const createDefaultInternalWallet = `-- name: CreateDefaultInternalWallet :one
+INSERT INTO "order"."internal_wallet" ("id", "currency")
+VALUES ($1, $2)
+RETURNING id, balance, currency
+`
+
+type CreateDefaultInternalWalletParams struct {
+	ID       uuid.UUID `json:"id"`
+	Currency string    `json:"currency"`
+}
+
+func (q *Queries) CreateDefaultInternalWallet(ctx context.Context, arg CreateDefaultInternalWalletParams) (OrderInternalWallet, error) {
+	row := q.db.QueryRow(ctx, createDefaultInternalWallet, arg.ID, arg.Currency)
+	var i OrderInternalWallet
+	err := row.Scan(&i.ID, &i.Balance, &i.Currency)
 	return i, err
 }
 
@@ -979,7 +1038,7 @@ type CreateDefaultRefundParams struct {
 	RejectionNote null.String       `json:"rejection_note"`
 	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
 	DateApproved  null.Time         `json:"date_approved"`
-	RefundTxID    null.Int          `json:"refund_tx_id"`
+	RefundTxID    uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 func (q *Queries) CreateDefaultRefund(ctx context.Context, arg CreateDefaultRefundParams) (OrderRefund, error) {
@@ -1058,36 +1117,36 @@ func (q *Queries) CreateDefaultRefundDispute(ctx context.Context, arg CreateDefa
 }
 
 const createDefaultTransaction = `-- name: CreateDefaultTransaction :one
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
+RETURNING id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 type CreateDefaultTransactionParams struct {
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`
 }
 
 func (q *Queries) CreateDefaultTransaction(ctx context.Context, arg CreateDefaultTransactionParams) (OrderTransaction, error) {
 	row := q.db.QueryRow(ctx, createDefaultTransaction,
+		arg.ID,
 		arg.SessionID,
 		arg.Status,
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -1105,7 +1164,6 @@ func (q *Queries) CreateDefaultTransaction(ctx context.Context, arg CreateDefaul
 		&i.Note,
 		&i.Error,
 		&i.PaymentOption,
-		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -1140,6 +1198,25 @@ func (q *Queries) CreateDefaultTransport(ctx context.Context, arg CreateDefaultT
 		&i.Data,
 		&i.DateCreated,
 	)
+	return i, err
+}
+
+const createInternalWallet = `-- name: CreateInternalWallet :one
+INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
+VALUES ($1, $2, $3)
+RETURNING id, balance, currency
+`
+
+type CreateInternalWalletParams struct {
+	ID       uuid.UUID `json:"id"`
+	Balance  int64     `json:"balance"`
+	Currency string    `json:"currency"`
+}
+
+func (q *Queries) CreateInternalWallet(ctx context.Context, arg CreateInternalWalletParams) (OrderInternalWallet, error) {
+	row := q.db.QueryRow(ctx, createInternalWallet, arg.ID, arg.Balance, arg.Currency)
+	var i OrderInternalWallet
+	err := row.Scan(&i.ID, &i.Balance, &i.Currency)
 	return i, err
 }
 
@@ -1333,7 +1410,7 @@ type CreateRefundParams struct {
 	RejectionNote null.String       `json:"rejection_note"`
 	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
 	DateApproved  null.Time         `json:"date_approved"`
-	RefundTxID    null.Int          `json:"refund_tx_id"`
+	RefundTxID    uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 func (q *Queries) CreateRefund(ctx context.Context, arg CreateRefundParams) (OrderRefund, error) {
@@ -1421,24 +1498,24 @@ func (q *Queries) CreateRefundDispute(ctx context.Context, arg CreateRefundDispu
 }
 
 const createTransaction = `-- name: CreateTransaction :one
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
+RETURNING id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 type CreateTransactionParams struct {
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`
@@ -1446,12 +1523,12 @@ type CreateTransactionParams struct {
 
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (OrderTransaction, error) {
 	row := q.db.QueryRow(ctx, createTransaction,
+		arg.ID,
 		arg.SessionID,
 		arg.Status,
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -1470,7 +1547,6 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.Note,
 		&i.Error,
 		&i.PaymentOption,
-		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -1544,6 +1620,36 @@ func (q *Queries) DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) 
 		arg.Quantity,
 		arg.QuantityFrom,
 		arg.QuantityTo,
+	)
+	return err
+}
+
+const deleteInternalWallet = `-- name: DeleteInternalWallet :exec
+DELETE FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL) AND
+    ("currency" = ANY($5) OR $5 IS NULL)
+)
+`
+
+type DeleteInternalWalletParams struct {
+	ID          []uuid.UUID `json:"id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Currency    []string    `json:"currency"`
+}
+
+func (q *Queries) DeleteInternalWallet(ctx context.Context, arg DeleteInternalWalletParams) error {
+	_, err := q.db.Exec(ctx, deleteInternalWallet,
+		arg.ID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Currency,
 	)
 	return err
 }
@@ -1812,7 +1918,7 @@ type DeleteRefundParams struct {
 	DateApproved     []null.Time         `json:"date_approved"`
 	DateApprovedFrom null.Time           `json:"date_approved_from"`
 	DateApprovedTo   null.Time           `json:"date_approved_to"`
-	RefundTxID       []null.Int          `json:"refund_tx_id"`
+	RefundTxID       []uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 func (q *Queries) DeleteRefund(ctx context.Context, arg DeleteRefundParams) error {
@@ -1905,37 +2011,35 @@ WHERE (
     ("note" = ANY($4) OR $4 IS NULL) AND
     ("error" = ANY($5) OR $5 IS NULL) AND
     ("payment_option" = ANY($6) OR $6 IS NULL) AND
-    ("wallet_id" = ANY($7) OR $7 IS NULL) AND
-    ("data" = ANY($8) OR $8 IS NULL) AND
-    ("amount" = ANY($9) OR $9 IS NULL) AND
-    ("amount" >= $10 OR $10 IS NULL) AND
-    ("amount" <= $11 OR $11 IS NULL) AND
-    ("from_currency" = ANY($12) OR $12 IS NULL) AND
-    ("to_currency" = ANY($13) OR $13 IS NULL) AND
-    ("exchange_rate" = ANY($14) OR $14 IS NULL) AND
-    ("exchange_rate" >= $15 OR $15 IS NULL) AND
-    ("exchange_rate" <= $16 OR $16 IS NULL) AND
-    ("reverses_id" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
-    ("date_settled" = ANY($21) OR $21 IS NULL) AND
-    ("date_settled" >= $22 OR $22 IS NULL) AND
-    ("date_settled" <= $23 OR $23 IS NULL) AND
-    ("date_expired" = ANY($24) OR $24 IS NULL) AND
-    ("date_expired" >= $25 OR $25 IS NULL) AND
-    ("date_expired" <= $26 OR $26 IS NULL)
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("amount" = ANY($8) OR $8 IS NULL) AND
+    ("amount" >= $9 OR $9 IS NULL) AND
+    ("amount" <= $10 OR $10 IS NULL) AND
+    ("from_currency" = ANY($11) OR $11 IS NULL) AND
+    ("to_currency" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" = ANY($13) OR $13 IS NULL) AND
+    ("exchange_rate" >= $14 OR $14 IS NULL) AND
+    ("exchange_rate" <= $15 OR $15 IS NULL) AND
+    ("reverses_id" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" >= $18 OR $18 IS NULL) AND
+    ("date_created" <= $19 OR $19 IS NULL) AND
+    ("date_settled" = ANY($20) OR $20 IS NULL) AND
+    ("date_settled" >= $21 OR $21 IS NULL) AND
+    ("date_settled" <= $22 OR $22 IS NULL) AND
+    ("date_expired" = ANY($23) OR $23 IS NULL) AND
+    ("date_expired" >= $24 OR $24 IS NULL) AND
+    ("date_expired" <= $25 OR $25 IS NULL)
 )
 `
 
 type DeleteTransactionParams struct {
-	ID               []int64           `json:"id"`
+	ID               []uuid.UUID       `json:"id"`
 	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -1945,7 +2049,7 @@ type DeleteTransactionParams struct {
 	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
 	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
 	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
-	ReversesID       []null.Int        `json:"reverses_id"`
+	ReversesID       []uuid.NullUUID   `json:"reverses_id"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -1965,7 +2069,6 @@ func (q *Queries) DeleteTransaction(ctx context.Context, arg DeleteTransactionPa
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -2027,8 +2130,6 @@ func (q *Queries) DeleteTransport(ctx context.Context, arg DeleteTransportParams
 
 const getCartItem = `-- name: GetCartItem :one
 
-
-
 SELECT id, account_id, sku_id, quantity
 FROM "order"."cart_item"
 WHERE ("id" = $1) OR ("account_id" = $2 AND "sku_id" = $3)
@@ -2040,8 +2141,6 @@ type GetCartItemParams struct {
 	SkuID     uuid.NullUUID `json:"sku_id"`
 }
 
-// Code generated by pgtempl. DO NOT EDIT.
-// This file contains all queries for the database schema.
 // ========================================
 // Queries for table: order.cart_item
 // ========================================
@@ -2054,6 +2153,27 @@ func (q *Queries) GetCartItem(ctx context.Context, arg GetCartItemParams) (Order
 		&i.SkuID,
 		&i.Quantity,
 	)
+	return i, err
+}
+
+const getInternalWallet = `-- name: GetInternalWallet :one
+
+
+
+SELECT id, balance, currency
+FROM "order"."internal_wallet"
+WHERE ("id" = $1)
+`
+
+// Code generated by pgtempl. DO NOT EDIT.
+// This file contains all queries for the database schema.
+// ========================================
+// Queries for table: order.internal_wallet
+// ========================================
+func (q *Queries) GetInternalWallet(ctx context.Context, id uuid.NullUUID) (OrderInternalWallet, error) {
+	row := q.db.QueryRow(ctx, getInternalWallet, id)
+	var i OrderInternalWallet
+	err := row.Scan(&i.ID, &i.Balance, &i.Currency)
 	return i, err
 }
 
@@ -2212,7 +2332,7 @@ func (q *Queries) GetRefundDispute(ctx context.Context, id uuid.NullUUID) (Order
 
 const getTransaction = `-- name: GetTransaction :one
 
-SELECT id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
+SELECT id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 FROM "order"."transaction"
 WHERE ("id" = $1)
 `
@@ -2220,7 +2340,7 @@ WHERE ("id" = $1)
 // ========================================
 // Queries for table: order.transaction
 // ========================================
-func (q *Queries) GetTransaction(ctx context.Context, id null.Int) (OrderTransaction, error) {
+func (q *Queries) GetTransaction(ctx context.Context, id uuid.NullUUID) (OrderTransaction, error) {
 	row := q.db.QueryRow(ctx, getTransaction, id)
 	var i OrderTransaction
 	err := row.Scan(
@@ -2230,7 +2350,6 @@ func (q *Queries) GetTransaction(ctx context.Context, id null.Int) (OrderTransac
 		&i.Note,
 		&i.Error,
 		&i.PaymentOption,
-		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,
@@ -2383,6 +2502,69 @@ func (q *Queries) ListCountCartItem(ctx context.Context, arg ListCountCartItemPa
 			&i.OrderCartItem.AccountID,
 			&i.OrderCartItem.SkuID,
 			&i.OrderCartItem.Quantity,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCountInternalWallet = `-- name: ListCountInternalWallet :many
+SELECT embed_internal_wallet.id, embed_internal_wallet.balance, embed_internal_wallet.currency, COUNT(*) OVER() as total_count
+FROM "order"."internal_wallet" embed_internal_wallet
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL) AND
+    ("currency" = ANY($5) OR $5 IS NULL)
+)
+ORDER BY "id"
+LIMIT $7::int
+OFFSET $6::int
+`
+
+type ListCountInternalWalletParams struct {
+	ID          []uuid.UUID `json:"id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Currency    []string    `json:"currency"`
+	Offset      null.Int32  `json:"offset"`
+	Limit       null.Int32  `json:"limit"`
+}
+
+type ListCountInternalWalletRow struct {
+	OrderInternalWallet OrderInternalWallet `json:"order_internal_wallet"`
+	TotalCount          int64               `json:"total_count"`
+}
+
+func (q *Queries) ListCountInternalWallet(ctx context.Context, arg ListCountInternalWalletParams) ([]ListCountInternalWalletRow, error) {
+	rows, err := q.db.Query(ctx, listCountInternalWallet,
+		arg.ID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Currency,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCountInternalWalletRow{}
+	for rows.Next() {
+		var i ListCountInternalWalletRow
+		if err := rows.Scan(
+			&i.OrderInternalWallet.ID,
+			&i.OrderInternalWallet.Balance,
+			&i.OrderInternalWallet.Currency,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -2792,7 +2974,7 @@ type ListCountRefundParams struct {
 	DateApproved     []null.Time         `json:"date_approved"`
 	DateApprovedFrom null.Time           `json:"date_approved_from"`
 	DateApprovedTo   null.Time           `json:"date_approved_to"`
-	RefundTxID       []null.Int          `json:"refund_tx_id"`
+	RefundTxID       []uuid.NullUUID     `json:"refund_tx_id"`
 	Offset           null.Int32          `json:"offset"`
 	Limit            null.Int32          `json:"limit"`
 }
@@ -2957,7 +3139,7 @@ func (q *Queries) ListCountRefundDispute(ctx context.Context, arg ListCountRefun
 }
 
 const listCountTransaction = `-- name: ListCountTransaction :many
-SELECT embed_transaction.id, embed_transaction.session_id, embed_transaction.status, embed_transaction.note, embed_transaction.error, embed_transaction.payment_option, embed_transaction.wallet_id, embed_transaction.data, embed_transaction.amount, embed_transaction.from_currency, embed_transaction.to_currency, embed_transaction.exchange_rate, embed_transaction.reverses_id, embed_transaction.date_created, embed_transaction.date_settled, embed_transaction.date_expired, COUNT(*) OVER() as total_count
+SELECT embed_transaction.id, embed_transaction.session_id, embed_transaction.status, embed_transaction.note, embed_transaction.error, embed_transaction.payment_option, embed_transaction.data, embed_transaction.amount, embed_transaction.from_currency, embed_transaction.to_currency, embed_transaction.exchange_rate, embed_transaction.reverses_id, embed_transaction.date_created, embed_transaction.date_settled, embed_transaction.date_expired, COUNT(*) OVER() as total_count
 FROM "order"."transaction" embed_transaction
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -2966,40 +3148,38 @@ WHERE (
     ("note" = ANY($4) OR $4 IS NULL) AND
     ("error" = ANY($5) OR $5 IS NULL) AND
     ("payment_option" = ANY($6) OR $6 IS NULL) AND
-    ("wallet_id" = ANY($7) OR $7 IS NULL) AND
-    ("data" = ANY($8) OR $8 IS NULL) AND
-    ("amount" = ANY($9) OR $9 IS NULL) AND
-    ("amount" >= $10 OR $10 IS NULL) AND
-    ("amount" <= $11 OR $11 IS NULL) AND
-    ("from_currency" = ANY($12) OR $12 IS NULL) AND
-    ("to_currency" = ANY($13) OR $13 IS NULL) AND
-    ("exchange_rate" = ANY($14) OR $14 IS NULL) AND
-    ("exchange_rate" >= $15 OR $15 IS NULL) AND
-    ("exchange_rate" <= $16 OR $16 IS NULL) AND
-    ("reverses_id" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
-    ("date_settled" = ANY($21) OR $21 IS NULL) AND
-    ("date_settled" >= $22 OR $22 IS NULL) AND
-    ("date_settled" <= $23 OR $23 IS NULL) AND
-    ("date_expired" = ANY($24) OR $24 IS NULL) AND
-    ("date_expired" >= $25 OR $25 IS NULL) AND
-    ("date_expired" <= $26 OR $26 IS NULL)
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("amount" = ANY($8) OR $8 IS NULL) AND
+    ("amount" >= $9 OR $9 IS NULL) AND
+    ("amount" <= $10 OR $10 IS NULL) AND
+    ("from_currency" = ANY($11) OR $11 IS NULL) AND
+    ("to_currency" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" = ANY($13) OR $13 IS NULL) AND
+    ("exchange_rate" >= $14 OR $14 IS NULL) AND
+    ("exchange_rate" <= $15 OR $15 IS NULL) AND
+    ("reverses_id" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" >= $18 OR $18 IS NULL) AND
+    ("date_created" <= $19 OR $19 IS NULL) AND
+    ("date_settled" = ANY($20) OR $20 IS NULL) AND
+    ("date_settled" >= $21 OR $21 IS NULL) AND
+    ("date_settled" <= $22 OR $22 IS NULL) AND
+    ("date_expired" = ANY($23) OR $23 IS NULL) AND
+    ("date_expired" >= $24 OR $24 IS NULL) AND
+    ("date_expired" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListCountTransactionParams struct {
-	ID               []int64           `json:"id"`
+	ID               []uuid.UUID       `json:"id"`
 	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -3009,7 +3189,7 @@ type ListCountTransactionParams struct {
 	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
 	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
 	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
-	ReversesID       []null.Int        `json:"reverses_id"`
+	ReversesID       []uuid.NullUUID   `json:"reverses_id"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -3036,7 +3216,6 @@ func (q *Queries) ListCountTransaction(ctx context.Context, arg ListCountTransac
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -3073,7 +3252,6 @@ func (q *Queries) ListCountTransaction(ctx context.Context, arg ListCountTransac
 			&i.OrderTransaction.Note,
 			&i.OrderTransaction.Error,
 			&i.OrderTransaction.PaymentOption,
-			&i.OrderTransaction.WalletID,
 			&i.OrderTransaction.Data,
 			&i.OrderTransaction.Amount,
 			&i.OrderTransaction.FromCurrency,
@@ -3156,6 +3334,59 @@ func (q *Queries) ListCountTransport(ctx context.Context, arg ListCountTransport
 			&i.OrderTransport.DateCreated,
 			&i.TotalCount,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInternalWallet = `-- name: ListInternalWallet :many
+SELECT id, balance, currency
+FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY($1) OR $1 IS NULL) AND
+    ("balance" = ANY($2) OR $2 IS NULL) AND
+    ("balance" >= $3 OR $3 IS NULL) AND
+    ("balance" <= $4 OR $4 IS NULL) AND
+    ("currency" = ANY($5) OR $5 IS NULL)
+)
+ORDER BY "id"
+LIMIT $7::int
+OFFSET $6::int
+`
+
+type ListInternalWalletParams struct {
+	ID          []uuid.UUID `json:"id"`
+	Balance     []int64     `json:"balance"`
+	BalanceFrom null.Int    `json:"balance_from"`
+	BalanceTo   null.Int    `json:"balance_to"`
+	Currency    []string    `json:"currency"`
+	Offset      null.Int32  `json:"offset"`
+	Limit       null.Int32  `json:"limit"`
+}
+
+func (q *Queries) ListInternalWallet(ctx context.Context, arg ListInternalWalletParams) ([]OrderInternalWallet, error) {
+	rows, err := q.db.Query(ctx, listInternalWallet,
+		arg.ID,
+		arg.Balance,
+		arg.BalanceFrom,
+		arg.BalanceTo,
+		arg.Currency,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderInternalWallet{}
+	for rows.Next() {
+		var i OrderInternalWallet
+		if err := rows.Scan(&i.ID, &i.Balance, &i.Currency); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3545,7 +3776,7 @@ type ListRefundParams struct {
 	DateApproved     []null.Time         `json:"date_approved"`
 	DateApprovedFrom null.Time           `json:"date_approved_from"`
 	DateApprovedTo   null.Time           `json:"date_approved_to"`
-	RefundTxID       []null.Int          `json:"refund_tx_id"`
+	RefundTxID       []uuid.NullUUID     `json:"refund_tx_id"`
 	Offset           null.Int32          `json:"offset"`
 	Limit            null.Int32          `json:"limit"`
 }
@@ -3698,7 +3929,7 @@ func (q *Queries) ListRefundDispute(ctx context.Context, arg ListRefundDisputePa
 }
 
 const listTransaction = `-- name: ListTransaction :many
-SELECT id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
+SELECT id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 FROM "order"."transaction"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
@@ -3707,40 +3938,38 @@ WHERE (
     ("note" = ANY($4) OR $4 IS NULL) AND
     ("error" = ANY($5) OR $5 IS NULL) AND
     ("payment_option" = ANY($6) OR $6 IS NULL) AND
-    ("wallet_id" = ANY($7) OR $7 IS NULL) AND
-    ("data" = ANY($8) OR $8 IS NULL) AND
-    ("amount" = ANY($9) OR $9 IS NULL) AND
-    ("amount" >= $10 OR $10 IS NULL) AND
-    ("amount" <= $11 OR $11 IS NULL) AND
-    ("from_currency" = ANY($12) OR $12 IS NULL) AND
-    ("to_currency" = ANY($13) OR $13 IS NULL) AND
-    ("exchange_rate" = ANY($14) OR $14 IS NULL) AND
-    ("exchange_rate" >= $15 OR $15 IS NULL) AND
-    ("exchange_rate" <= $16 OR $16 IS NULL) AND
-    ("reverses_id" = ANY($17) OR $17 IS NULL) AND
-    ("date_created" = ANY($18) OR $18 IS NULL) AND
-    ("date_created" >= $19 OR $19 IS NULL) AND
-    ("date_created" <= $20 OR $20 IS NULL) AND
-    ("date_settled" = ANY($21) OR $21 IS NULL) AND
-    ("date_settled" >= $22 OR $22 IS NULL) AND
-    ("date_settled" <= $23 OR $23 IS NULL) AND
-    ("date_expired" = ANY($24) OR $24 IS NULL) AND
-    ("date_expired" >= $25 OR $25 IS NULL) AND
-    ("date_expired" <= $26 OR $26 IS NULL)
+    ("data" = ANY($7) OR $7 IS NULL) AND
+    ("amount" = ANY($8) OR $8 IS NULL) AND
+    ("amount" >= $9 OR $9 IS NULL) AND
+    ("amount" <= $10 OR $10 IS NULL) AND
+    ("from_currency" = ANY($11) OR $11 IS NULL) AND
+    ("to_currency" = ANY($12) OR $12 IS NULL) AND
+    ("exchange_rate" = ANY($13) OR $13 IS NULL) AND
+    ("exchange_rate" >= $14 OR $14 IS NULL) AND
+    ("exchange_rate" <= $15 OR $15 IS NULL) AND
+    ("reverses_id" = ANY($16) OR $16 IS NULL) AND
+    ("date_created" = ANY($17) OR $17 IS NULL) AND
+    ("date_created" >= $18 OR $18 IS NULL) AND
+    ("date_created" <= $19 OR $19 IS NULL) AND
+    ("date_settled" = ANY($20) OR $20 IS NULL) AND
+    ("date_settled" >= $21 OR $21 IS NULL) AND
+    ("date_settled" <= $22 OR $22 IS NULL) AND
+    ("date_expired" = ANY($23) OR $23 IS NULL) AND
+    ("date_expired" >= $24 OR $24 IS NULL) AND
+    ("date_expired" <= $25 OR $25 IS NULL)
 )
 ORDER BY "id"
-LIMIT $28::int
-OFFSET $27::int
+LIMIT $27::int
+OFFSET $26::int
 `
 
 type ListTransactionParams struct {
-	ID               []int64           `json:"id"`
+	ID               []uuid.UUID       `json:"id"`
 	SessionID        []uuid.UUID       `json:"session_id"`
 	Status           []OrderStatus     `json:"status"`
 	Note             []string          `json:"note"`
 	Error            []null.String     `json:"error"`
 	PaymentOption    []null.String     `json:"payment_option"`
-	WalletID         []uuid.NullUUID   `json:"wallet_id"`
 	Data             []json.RawMessage `json:"data"`
 	Amount           []int64           `json:"amount"`
 	AmountFrom       null.Int          `json:"amount_from"`
@@ -3750,7 +3979,7 @@ type ListTransactionParams struct {
 	ExchangeRate     []pgtype.Numeric  `json:"exchange_rate"`
 	ExchangeRateFrom pgtype.Numeric    `json:"exchange_rate_from"`
 	ExchangeRateTo   pgtype.Numeric    `json:"exchange_rate_to"`
-	ReversesID       []null.Int        `json:"reverses_id"`
+	ReversesID       []uuid.NullUUID   `json:"reverses_id"`
 	DateCreated      []time.Time       `json:"date_created"`
 	DateCreatedFrom  null.Time         `json:"date_created_from"`
 	DateCreatedTo    null.Time         `json:"date_created_to"`
@@ -3772,7 +4001,6 @@ func (q *Queries) ListTransaction(ctx context.Context, arg ListTransactionParams
 		arg.Note,
 		arg.Error,
 		arg.PaymentOption,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.AmountFrom,
@@ -3809,7 +4037,6 @@ func (q *Queries) ListTransaction(ctx context.Context, arg ListTransactionParams
 			&i.Note,
 			&i.Error,
 			&i.PaymentOption,
-			&i.WalletID,
 			&i.Data,
 			&i.Amount,
 			&i.FromCurrency,
@@ -3925,6 +4152,27 @@ func (q *Queries) UpdateCartItem(ctx context.Context, arg UpdateCartItemParams) 
 		&i.SkuID,
 		&i.Quantity,
 	)
+	return i, err
+}
+
+const updateInternalWallet = `-- name: UpdateInternalWallet :one
+UPDATE "order"."internal_wallet"
+SET "balance" = COALESCE($1, "balance"),
+    "currency" = COALESCE($2, "currency")
+WHERE id = $3
+RETURNING id, balance, currency
+`
+
+type UpdateInternalWalletParams struct {
+	Balance  null.Int    `json:"balance"`
+	Currency null.String `json:"currency"`
+	ID       uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateInternalWallet(ctx context.Context, arg UpdateInternalWalletParams) (OrderInternalWallet, error) {
+	row := q.db.QueryRow(ctx, updateInternalWallet, arg.Balance, arg.Currency, arg.ID)
+	var i OrderInternalWallet
+	err := row.Scan(&i.ID, &i.Balance, &i.Currency)
 	return i, err
 }
 
@@ -4194,7 +4442,7 @@ type UpdateRefundParams struct {
 	NullDateApproved  bool                  `json:"null_date_approved"`
 	DateApproved      null.Time             `json:"date_approved"`
 	NullRefundTxID    bool                  `json:"null_refund_tx_id"`
-	RefundTxID        null.Int              `json:"refund_tx_id"`
+	RefundTxID        uuid.NullUUID         `json:"refund_tx_id"`
 	ID                uuid.UUID             `json:"id"`
 }
 
@@ -4308,18 +4556,17 @@ SET "session_id" = COALESCE($1, "session_id"),
     "note" = COALESCE($3, "note"),
     "error" = CASE WHEN $4::bool = TRUE THEN NULL ELSE COALESCE($5, "error") END,
     "payment_option" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "payment_option") END,
-    "wallet_id" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "wallet_id") END,
-    "data" = COALESCE($10, "data"),
-    "amount" = COALESCE($11, "amount"),
-    "from_currency" = COALESCE($12, "from_currency"),
-    "to_currency" = COALESCE($13, "to_currency"),
-    "exchange_rate" = COALESCE($14, "exchange_rate"),
-    "reverses_id" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "reverses_id") END,
-    "date_created" = COALESCE($17, "date_created"),
-    "date_settled" = CASE WHEN $18::bool = TRUE THEN NULL ELSE COALESCE($19, "date_settled") END,
-    "date_expired" = CASE WHEN $20::bool = TRUE THEN NULL ELSE COALESCE($21, "date_expired") END
-WHERE id = $22
-RETURNING id, session_id, status, note, error, payment_option, wallet_id, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
+    "data" = COALESCE($8, "data"),
+    "amount" = COALESCE($9, "amount"),
+    "from_currency" = COALESCE($10, "from_currency"),
+    "to_currency" = COALESCE($11, "to_currency"),
+    "exchange_rate" = COALESCE($12, "exchange_rate"),
+    "reverses_id" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "reverses_id") END,
+    "date_created" = COALESCE($15, "date_created"),
+    "date_settled" = CASE WHEN $16::bool = TRUE THEN NULL ELSE COALESCE($17, "date_settled") END,
+    "date_expired" = CASE WHEN $18::bool = TRUE THEN NULL ELSE COALESCE($19, "date_expired") END
+WHERE id = $20
+RETURNING id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired
 `
 
 type UpdateTransactionParams struct {
@@ -4330,21 +4577,19 @@ type UpdateTransactionParams struct {
 	Error             null.String     `json:"error"`
 	NullPaymentOption bool            `json:"null_payment_option"`
 	PaymentOption     null.String     `json:"payment_option"`
-	NullWalletID      bool            `json:"null_wallet_id"`
-	WalletID          uuid.NullUUID   `json:"wallet_id"`
 	Data              json.RawMessage `json:"data"`
 	Amount            null.Int        `json:"amount"`
 	FromCurrency      null.String     `json:"from_currency"`
 	ToCurrency        null.String     `json:"to_currency"`
 	ExchangeRate      pgtype.Numeric  `json:"exchange_rate"`
 	NullReversesID    bool            `json:"null_reverses_id"`
-	ReversesID        null.Int        `json:"reverses_id"`
+	ReversesID        uuid.NullUUID   `json:"reverses_id"`
 	DateCreated       null.Time       `json:"date_created"`
 	NullDateSettled   bool            `json:"null_date_settled"`
 	DateSettled       null.Time       `json:"date_settled"`
 	NullDateExpired   bool            `json:"null_date_expired"`
 	DateExpired       null.Time       `json:"date_expired"`
-	ID                int64           `json:"id"`
+	ID                uuid.UUID       `json:"id"`
 }
 
 func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (OrderTransaction, error) {
@@ -4356,8 +4601,6 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		arg.Error,
 		arg.NullPaymentOption,
 		arg.PaymentOption,
-		arg.NullWalletID,
-		arg.WalletID,
 		arg.Data,
 		arg.Amount,
 		arg.FromCurrency,
@@ -4380,7 +4623,6 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		&i.Note,
 		&i.Error,
 		&i.PaymentOption,
-		&i.WalletID,
 		&i.Data,
 		&i.Amount,
 		&i.FromCurrency,

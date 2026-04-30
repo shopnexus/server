@@ -3,6 +3,94 @@
 
 
 -- ========================================
+-- Queries for table: order.internal_wallet
+-- ========================================
+
+-- name: GetInternalWallet :one
+SELECT *
+FROM "order"."internal_wallet"
+WHERE ("id" = sqlc.narg('id'));
+
+-- name: CountInternalWallet :one
+SELECT COUNT(*)
+FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
+);
+
+-- name: ListInternalWallet :many
+SELECT *
+FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: ListCountInternalWallet :many
+SELECT sqlc.embed(embed_internal_wallet), COUNT(*) OVER() as total_count
+FROM "order"."internal_wallet" embed_internal_wallet
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
+)
+ORDER BY "id"
+LIMIT sqlc.narg('limit')::int
+OFFSET sqlc.narg('offset')::int;
+
+-- name: CreateInternalWallet :one
+INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateBatchInternalWallet :batchone
+INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateCopyInternalWallet :copyfrom
+INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
+VALUES ($1, $2, $3);
+
+-- name: CreateDefaultInternalWallet :one
+INSERT INTO "order"."internal_wallet" ("id", "currency")
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: CreateCopyDefaultInternalWallet :copyfrom
+INSERT INTO "order"."internal_wallet" ("id", "currency")
+VALUES ($1, $2);
+
+-- name: UpdateInternalWallet :one
+UPDATE "order"."internal_wallet"
+SET "balance" = COALESCE(sqlc.narg('balance'), "balance"),
+    "currency" = COALESCE(sqlc.narg('currency'), "currency")
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: DeleteInternalWallet :exec
+DELETE FROM "order"."internal_wallet"
+WHERE (
+    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
+    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
+    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
+    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
+    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
+);
+
+-- ========================================
 -- Queries for table: order.cart_item
 -- ========================================
 
@@ -263,7 +351,6 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("error" = ANY(sqlc.slice('error')) OR sqlc.slice('error') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -295,7 +382,6 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("error" = ANY(sqlc.slice('error')) OR sqlc.slice('error') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -330,7 +416,6 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("error" = ANY(sqlc.slice('error')) OR sqlc.slice('error') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND
@@ -356,26 +441,26 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateTransaction :one
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateBatchTransaction :batchone
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: CreateCopyTransaction :copyfrom
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_created", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: CreateDefaultTransaction :one
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: CreateCopyDefaultTransaction :copyfrom
-INSERT INTO "order"."transaction" ("session_id", "status", "note", "error", "payment_option", "wallet_id", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
+INSERT INTO "order"."transaction" ("id", "session_id", "status", "note", "error", "payment_option", "data", "amount", "from_currency", "to_currency", "exchange_rate", "reverses_id", "date_settled", "date_expired")
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
 
 -- name: UpdateTransaction :one
@@ -385,7 +470,6 @@ SET "session_id" = COALESCE(sqlc.narg('session_id'), "session_id"),
     "note" = COALESCE(sqlc.narg('note'), "note"),
     "error" = CASE WHEN sqlc.arg('null_error')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('error'), "error") END,
     "payment_option" = CASE WHEN sqlc.arg('null_payment_option')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('payment_option'), "payment_option") END,
-    "wallet_id" = CASE WHEN sqlc.arg('null_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('wallet_id'), "wallet_id") END,
     "data" = COALESCE(sqlc.narg('data'), "data"),
     "amount" = COALESCE(sqlc.narg('amount'), "amount"),
     "from_currency" = COALESCE(sqlc.narg('from_currency'), "from_currency"),
@@ -407,7 +491,6 @@ WHERE (
     ("note" = ANY(sqlc.slice('note')) OR sqlc.slice('note') IS NULL) AND
     ("error" = ANY(sqlc.slice('error')) OR sqlc.slice('error') IS NULL) AND
     ("payment_option" = ANY(sqlc.slice('payment_option')) OR sqlc.slice('payment_option') IS NULL) AND
-    ("wallet_id" = ANY(sqlc.slice('wallet_id')) OR sqlc.slice('wallet_id') IS NULL) AND
     ("data" = ANY(sqlc.slice('data')) OR sqlc.slice('data') IS NULL) AND
     ("amount" = ANY(sqlc.slice('amount')) OR sqlc.slice('amount') IS NULL) AND
     ("amount" >= sqlc.narg('amount_from') OR sqlc.narg('amount_from') IS NULL) AND

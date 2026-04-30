@@ -14,15 +14,15 @@ import (
 // PaymentSession is the domain-layer payment intent: one logical money flow
 // (checkout, confirmation fee, payout). Has 0..N child Transaction rail movements.
 type PaymentSession struct {
-	ID             uuid.UUID           `json:"id"`
-	Kind           string              `json:"kind"`
-	Status         orderdb.OrderStatus `json:"status"`
-	FromID         uuid.NullUUID       `json:"from_id"`
-	ToID           uuid.NullUUID       `json:"to_id"`
-	Note           string              `json:"note"`
-	Currency    string          `json:"currency"`
-	TotalAmount int64           `json:"total_amount"`
-	Data        json.RawMessage `json:"data"`
+	ID          uuid.UUID           `json:"id"`
+	Kind        string              `json:"kind"`
+	Status      orderdb.OrderStatus `json:"status"`
+	FromID      uuid.NullUUID       `json:"from_id"`
+	ToID        uuid.NullUUID       `json:"to_id"`
+	Note        string              `json:"note"`
+	Currency    string              `json:"currency"`
+	TotalAmount int64               `json:"total_amount"`
+	Data        json.RawMessage     `json:"data"`
 
 	DateCreated time.Time `json:"date_created"`
 	DatePaid    null.Time `json:"date_paid"`
@@ -32,13 +32,12 @@ type PaymentSession struct {
 // Transaction is the domain-layer ledger leg: one rail movement within a payment session.
 // Reversals are NEW rows with negative amount + ReversesID pointing to the original.
 type Transaction struct {
-	ID            int64               `json:"id"`
+	ID            uuid.UUID           `json:"id"`
 	SessionID     uuid.UUID           `json:"session_id"`
 	Status        orderdb.OrderStatus `json:"status"`
 	Note          string              `json:"note"`
 	Error         null.String         `json:"error"`
 	PaymentOption null.String         `json:"payment_option"`
-	WalletID      uuid.NullUUID       `json:"wallet_id"`
 	Data          json.RawMessage     `json:"data"`
 
 	Amount       int64           `json:"amount"`
@@ -46,7 +45,7 @@ type Transaction struct {
 	ToCurrency   string          `json:"to_currency"`
 	ExchangeRate decimal.Decimal `json:"exchange_rate"`
 
-	ReversesID null.Int `json:"reverses_id"`
+	ReversesID uuid.NullUUID `json:"reverses_id"`
 
 	DateCreated time.Time `json:"date_created"`
 	DateSettled null.Time `json:"date_settled"`
@@ -56,7 +55,7 @@ type Transaction struct {
 // Transport is the domain-layer representation of a shipping record.
 type Transport struct {
 	ID          int64                   `json:"id"`
-	Option      string                  `json:"option"`
+	OptionID    string                  `json:"option_id"`
 	Status      orderdb.NullOrderStatus `json:"status"`
 	Data        json.RawMessage         `json:"data"`
 	DateCreated time.Time               `json:"date_created"`
@@ -76,10 +75,10 @@ type OrderItem struct {
 	Note      null.String     `json:"note"`
 	SerialIDs json.RawMessage `json:"serial_ids"`
 
-	Quantity         int64  `json:"quantity"`
-	TransportOption  string `json:"transport_option"`
-	SubtotalAmount   int64  `json:"subtotal_amount"`
-	TotalAmount      int64  `json:"total_amount"`
+	Quantity         int64     `json:"quantity"`
+	TransportOption  string    `json:"transport_option"`
+	SubtotalAmount   int64     `json:"subtotal_amount"`
+	TotalAmount      int64     `json:"total_amount"`
 	PaymentSessionID uuid.UUID `json:"payment_session_id"`
 
 	DateCreated   time.Time     `json:"date_created"`
@@ -130,7 +129,7 @@ type Refund struct {
 
 	ApprovedByID uuid.NullUUID `json:"approved_by_id"`
 	DateApproved null.Time     `json:"date_approved"`
-	RefundTxID   null.Int      `json:"refund_tx_id"`
+	RefundTxID   uuid.NullUUID `json:"refund_tx_id"`
 }
 
 // RefundDispute is the domain-layer dispute raised against a refund decision.

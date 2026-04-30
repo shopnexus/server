@@ -5,6 +5,7 @@ import (
 	"time"
 
 	accountmodel "shopnexus-server/internal/module/account/model"
+	"shopnexus-server/internal/provider/payment"
 
 	"github.com/google/uuid"
 )
@@ -22,11 +23,6 @@ const (
 	escrowWindow  = 7 * 24 * time.Hour
 )
 
-// CheckoutWorkflowInput is the payload submitted to CheckoutWorkflow.Run.
-// The session UUID is derived from the workflow ID (ctx.Key()) inside Run —
-// the HTTP transport pre-allocates a UUID, uses its string form as the
-// workflow ID, and passes that ID to restate.Workflow(...).Submit; the
-// workflow then parses ctx.Key() back into the session UUID.
 type CheckoutWorkflowInput struct {
 	Account       accountmodel.AuthenticatedAccount `json:"account"`
 	Items         []CheckoutItem                    `json:"items" validate:"required,min=1,dive"`
@@ -37,17 +33,11 @@ type CheckoutWorkflowInput struct {
 	PaymentOption string                            `json:"payment_option" validate:"max=100"`
 }
 
-// CheckoutWorkflowOutput is the terminal value returned from CheckoutWorkflow.Run.
-// Status is one of "paid", "expired", "cancelled".
 type CheckoutWorkflowOutput struct {
 	Status    string    `json:"status"`
 	SessionID uuid.UUID `json:"session_id"`
 }
 
-// ConfirmWorkflowInput is the payload submitted to ConfirmWorkflow.Run. The
-// confirm-fee session UUID is derived from the workflow ID (ctx.Key()) inside
-// Run — same convention as CheckoutWorkflow so webhooks can route by RefID
-// without a DB lookup.
 type ConfirmWorkflowInput struct {
 	Account       accountmodel.AuthenticatedAccount `json:"account"`
 	ItemIDs       []int64                           `json:"item_ids" validate:"required,min=1,max=1000"`
@@ -57,18 +47,12 @@ type ConfirmWorkflowInput struct {
 	Note          string                            `json:"note" validate:"max=500"`
 }
 
-// ConfirmWorkflowOutput is the terminal value returned from ConfirmWorkflow.Run.
-// Status is one of "confirmed", "expired", "cancelled". OrderID is only set on
-// the success ("confirmed") path.
 type ConfirmWorkflowOutput struct {
 	Status           string    `json:"status"`
 	OrderID          uuid.UUID `json:"order_id,omitempty"`
 	ConfirmSessionID uuid.UUID `json:"confirm_session_id"`
 }
 
-// PayoutInput is the payload submitted to PayoutWorkflow.Run when a confirm
-// settles. It carries everything PayoutWorkflow needs to open the escrow
-// session and schedule the eventual seller credit.
 type PayoutInput struct {
 	OrderID   uuid.UUID `json:"order_id"`
 	SellerID  uuid.UUID `json:"seller_id"`
@@ -76,35 +60,18 @@ type PayoutInput struct {
 	Currency  string    `json:"currency"`
 }
 
-// PayoutOutput is the terminal value returned from PayoutWorkflow.Run.
-// Outcome is one of "released" (escrow expired, seller wallet credited) or
-// "refunded" (a refund was approved before the escrow timer fired and the
-// payout session was cancelled).
 type PayoutOutput struct {
 	OrderID uuid.UUID `json:"order_id"`
 	Outcome string    `json:"outcome"`
 }
 
-// OnPaymentResultParams is the unified payload payment-gateway webhooks send
-// into the Order service. The webhook handler parses RefID (== session UUID
-// string) and dispatches here; OnPaymentResult marks the underlying tx,
-// auto-promotes the session, and signals the owning workflow.
-//
-// TxID is optional: webhooks that already know the gateway-leg tx pass it
-// directly; otherwise OnPaymentResult resolves it from the session by picking
-// the single Pending non-wallet (gateway) tx.
 type OnPaymentResultParams struct {
 	SessionID    uuid.UUID       `json:"session_id" validate:"required"`
-	TxID         int64           `json:"tx_id,omitempty"`
-	Outcome      string          `json:"outcome" validate:"required,oneof=paid failed"`
+	TxID         int64           `json:"tx_id"`
+	Status       payment.Status  `json:"status" validate:"required"`
 	ProviderData json.RawMessage `json:"provider_data,omitempty"`
 }
 
-// RefundSnapshot is a small projection of the refund table used by
-// PayoutWorkflow each iteration to decide whether to release escrow or
-// short-circuit into a refunded outcome. HasActiveRefund flips while a refund
-// is being negotiated; LastRefundApproved becomes true once any refund for
-// this order reaches Success.
 type RefundSnapshot struct {
 	HasActiveRefund    bool `json:"has_active_refund"`
 	LastRefundApproved bool `json:"last_refund_approved"`

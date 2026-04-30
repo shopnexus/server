@@ -17,7 +17,6 @@ import (
 	ordermodel "shopnexus-server/internal/module/order/model"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
 	"shopnexus-server/internal/provider/payment"
-	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
@@ -35,6 +34,7 @@ type OrderBiz interface {
 		params ListBuyerPendingItemsParams,
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error
+	RefundPendingItem(ctx context.Context, params RefundPendingItemParams) error
 
 	// Incoming Items (seller)
 	ListSellerPendingItems(
@@ -57,7 +57,7 @@ type OrderBiz interface {
 
 	// Payment webhook entrypoint — gateway providers and internal callers
 	// route through here. MarkTxSuccess/MarkTxFailed are package-internal helpers.
-	OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error
+	OnPaymentResult(ctx context.Context, params payment.Notification) error
 
 	// Cart
 	GetCart(ctx context.Context, params GetCartParams) ([]ordermodel.CartItem, error)
@@ -102,36 +102,58 @@ type OrderBiz interface {
 	) ([]SellerOrderTimeSeriesPoint, error)
 	GetSellerPendingActions(ctx context.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error)
 	GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error)
+
+	// Internal wallet
+	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
+	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
+	WalletCredit(ctx context.Context, params WalletCreditParams) error
+
+	// Utility
+	InferCurrency(ctx context.Context, accountID uuid.UUID) (string, error)
+
+	// Options
+	GetOptions(ctx context.Context, params GetOptionsParams) ([]sharedmodel.Option, error)
 }
 
 type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 
 // OrderHandler implements the core business logic for the order module.
 type OrderHandler struct {
-	config       *config.Config
-	storage      OrderStorage
-	locker       locker.Client
-	paymentMap   map[string]payment.Client
-	transportMap map[string]transport.Client
-	account      accountbiz.AccountBiz
-	catalog      catalogbiz.CatalogBiz
-	inventory    inventorybiz.InventoryBiz
-	promotion    promotionbiz.PromotionBiz
-	common       commonbiz.CommonBiz
+	config     *config.Config
+	storage    OrderStorage
+	locker     locker.Client
+	account    accountbiz.AccountBiz
+	catalog    catalogbiz.CatalogBiz
+	inventory  inventorybiz.InventoryBiz
+	promotion  promotionbiz.PromotionBiz
+	common     commonbiz.CommonBiz
+	checkoutWf *CheckoutWorkflow
 }
 
 func (b *OrderHandler) ServiceName() string {
 	return "Order"
 }
 
-// PaymentClients returns the registered payment clients.
-func (b *OrderHandler) PaymentClients() map[string]payment.Client {
-	return b.paymentMap
+func (b *OrderHandler) Workflows() []any {
+	return []any{
+		b.checkoutWf,
+	}
 }
 
-// TransportClients returns the registered transport clients.
-func (b *OrderHandler) TransportClients() map[string]transport.Client {
-	return b.transportMap
+type GetOptionsParams struct {
+	Type sharedmodel.OptionType `json:"type"` // empty = all
+}
+
+// GetOptions returns serializable Option configs (payment + transport providers).
+func (b *OrderHandler) GetOptions(ctx context.Context, params GetOptionsParams) ([]sharedmodel.Option, error) {
+	out := make([]sharedmodel.Option, 0)
+	if params.Type == "" || params.Type == sharedmodel.OptionTypePayment {
+		out = append(out, b.paymentConfigs()...)
+	}
+	if params.Type == "" || params.Type == sharedmodel.OptionTypeTransport {
+		out = append(out, b.transportOptions()...)
+	}
+	return out, nil
 }
 
 // NewOrderHandler creates a new OrderHandler with the given dependencies.
@@ -144,16 +166,18 @@ func NewOrderHandler(
 	inventory inventorybiz.InventoryBiz,
 	promotion promotionbiz.PromotionBiz,
 	common commonbiz.CommonBiz,
+	checkoutWf *CheckoutWorkflow,
 ) (*OrderHandler, error) {
 	b := &OrderHandler{
-		config:    cfg,
-		storage:   storage,
-		locker:    locker,
-		account:   account,
-		catalog:   catalog,
-		inventory: inventory,
-		promotion: promotion,
-		common:    common,
+		config:     cfg,
+		storage:    storage,
+		locker:     locker,
+		account:    account,
+		catalog:    catalog,
+		inventory:  inventory,
+		promotion:  promotion,
+		common:     common,
+		checkoutWf: checkoutWf,
 	}
 
 	return b, errors.Join(
@@ -245,12 +269,12 @@ type ListSellerRefundsParams struct {
 }
 
 type CreateBuyerRefundParams struct {
-	Account               accountmodel.AuthenticatedAccount
-	OrderID               uuid.UUID                 `json:"order_id" validate:"required"`
-	Method                orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
-	Reason                string                    `json:"reason" validate:"required,max=500"`
-	Address               string                    `json:"address" validate:"omitempty,max=500"`
-	ReturnTransportOption string                    `json:"return_transport_option" validate:"max=100"`
+	Account      accountmodel.AuthenticatedAccount
+	OrderID      uuid.UUID                 `json:"order_id" validate:"required"`
+	Method       orderdb.OrderRefundMethod `json:"method" validate:"required,validateFn=Valid"`
+	Reason       string                    `json:"reason" validate:"required,max=500"`
+	Address      string                    `json:"address" validate:"omitempty,max=500"`
+	ReturnOption string                    `json:"return_option" validate:"max=100"`
 }
 
 type AcceptRefundStage1Params struct {

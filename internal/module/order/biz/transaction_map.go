@@ -13,18 +13,18 @@ import (
 // mapPaymentSession converts an sqlc OrderPaymentSession row to the domain model.
 func mapPaymentSession(s orderdb.OrderPaymentSession) ordermodel.PaymentSession {
 	return ordermodel.PaymentSession{
-		ID:             s.ID,
-		Kind:           s.Kind,
-		Status:         s.Status,
-		FromID:         s.FromID,
-		ToID:           s.ToID,
-		Note:           s.Note,
+		ID:          s.ID,
+		Kind:        s.Kind,
+		Status:      s.Status,
+		FromID:      s.FromID,
+		ToID:        s.ToID,
+		Note:        s.Note,
 		Currency:    s.Currency,
 		TotalAmount: s.TotalAmount,
 		Data:        s.Data,
 		DateCreated: s.DateCreated,
-		DatePaid:       s.DatePaid,
-		DateExpired:    s.DateExpired,
+		DatePaid:    s.DatePaid,
+		DateExpired: s.DateExpired,
 	}
 }
 
@@ -46,7 +46,6 @@ func mapTransaction(tx orderdb.OrderTransaction) ordermodel.Transaction {
 		Note:          tx.Note,
 		Error:         tx.Error,
 		PaymentOption: tx.PaymentOption,
-		WalletID:      tx.WalletID,
 		Data:          tx.Data,
 		Amount:        tx.Amount,
 		FromCurrency:  tx.FromCurrency,

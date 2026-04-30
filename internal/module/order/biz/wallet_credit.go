@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	restate "github.com/restatedev/sdk-go"
 
-	accountbiz "shopnexus-server/internal/module/account/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
@@ -47,12 +46,14 @@ func (b *OrderHandler) CreditFromSession(
 		return 0, nil
 	}
 
-	if err := b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-		AccountID: params.AccountID,
-		Amount:    settled,
-		Type:      params.CreditType,
-		Reference: fmt.Sprintf("session:%s %s", params.SessionID, params.Reference),
-		Note:      params.Note,
+	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+		return b.walletCredit(rctx, WalletCreditParams{
+			AccountID: params.AccountID,
+			Amount:    settled,
+			Type:      params.CreditType,
+			Reference: fmt.Sprintf("session:%s %s", params.SessionID, params.Reference),
+			Note:      params.Note,
+		})
 	}); err != nil {
 		return 0, sharedmodel.WrapErr("wallet credit from session", err)
 	}

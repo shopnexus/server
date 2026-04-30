@@ -12,7 +12,6 @@ import (
 	"shopnexus-server/internal/infras/ratelimit"
 	orderbiz "shopnexus-server/internal/module/order/biz"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
-	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	authclaims "shopnexus-server/internal/shared/claims"
 	sharedmodel "shopnexus-server/internal/shared/model"
@@ -91,26 +90,23 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.POST("/refunds/:refundID/disputes", h.CreateRefundDispute, rlDispute)
 	g.GET("/refunds/:refundID/disputes", h.ListRefundDisputesByRefund)
 
-	// Payment webhooks — RefID is the session UUID string (== workflow ID).
-	// OnPaymentResult resolves the gateway-leg tx from the session, marks it,
-	// and signals the owning workflow's payment_event promise.
-	onResult := func(ctx context.Context, result payment.WebhookResult) error {
-		sessionID, err := uuid.Parse(result.RefID)
-		if err != nil {
-			return fmt.Errorf("malformed webhook ref id %q: %w", result.RefID, err)
-		}
-		outcome := "failed"
-		if result.Status == payment.StatusSuccess {
-			outcome = "paid"
-		}
-		return biz.OnPaymentResult(ctx, orderbiz.OnPaymentResultParams{
-			SessionID: sessionID,
-			Outcome:   outcome,
-		})
+	// registered tracks webhook idempotency keys returned by WireWebhooks so
+	// providers that share an endpoint (e.g., GHTK express/standard/economy)
+	// only mount their route once.
+	registered := make(map[string]struct{})
+
+	opts, err := handler.GetOptions(context.Background(), orderbiz.GetOptionsParams{Type: sharedmodel.OptionTypePayment})
+	if err != nil {
+		panic(fmt.Errorf("load payment options: %w", err))
 	}
-	for _, client := range handler.PaymentClients() {
-		client.OnResult(onResult)
-		client.InitializeWebhook(e)
+	for _, opt := range opts {
+		client := newPaymentClient(opt)
+		if client == nil {
+			continue
+		}
+		if key := client.WireWebhooks(e, h.biz.OnPaymentResult, registered); key != "" {
+			registered[key] = struct{}{}
+		}
 	}
 
 	// Transport webhooks — use OrderStatus (not OrderTransportStatus)
@@ -125,9 +121,18 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 			Data:       data,
 		})
 	}
-	for _, client := range handler.TransportClients() {
-		client.OnResult(onTransportResult)
-		client.InitializeWebhook(e)
+	transportOpts, err := handler.GetOptions(context.Background(), orderbiz.GetOptionsParams{Type: sharedmodel.OptionTypeTransport})
+	if err != nil {
+		panic(fmt.Errorf("load transport options: %w", err))
+	}
+	for _, opt := range transportOpts {
+		client := newTransportClient(opt)
+		if client == nil {
+			continue
+		}
+		if key := client.WireWebhooks(e, onTransportResult, registered); key != "" {
+			registered[key] = struct{}{}
+		}
 	}
 
 	return h

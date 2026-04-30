@@ -27,12 +27,11 @@ SET "status" = 'Success',
 WHERE "id" = @id AND "status" = 'Pending'
 RETURNING *;
 
--- name: MarkTransactionFailed :one
+-- name: MarkTransactionsFailed :exec
 UPDATE "order"."transaction"
 SET "status" = 'Failed',
     "error" = @error
-WHERE "id" = @id AND "status" = 'Pending'
-RETURNING *;
+WHERE "id" = ANY(sqlc.slice('id')) AND "status" = 'Pending';
 
 -- name: MarkTransactionCancelled :one
 UPDATE "order"."transaction"

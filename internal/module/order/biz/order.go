@@ -240,7 +240,7 @@ func (b *OrderHandler) hydrateOrders(ctx restate.Context, orders []orderdb.Order
 func mapTransport(t orderdb.OrderTransport) ordermodel.Transport {
 	return ordermodel.Transport{
 		ID:          t.ID,
-		Option:      t.Option,
+		OptionID:    t.Option,
 		Status:      t.Status,
 		Data:        t.Data,
 		DateCreated: t.DateCreated,

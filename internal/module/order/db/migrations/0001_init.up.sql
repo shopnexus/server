@@ -17,6 +17,16 @@ CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Cance
 
 -- Tables
 
+CREATE TABLE IF NOT EXISTS "order"."internal_wallet" (
+    "id" UUID NOT NULL, -- Reference "account"."account"
+    "balance" BIGINT NOT NULL DEFAULT 0, -- Internal money balance for the account
+    "currency" VARCHAR(3) NOT NULL, -- Currency of the wallet balance
+
+    CONSTRAINT "internal_wallet_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "internal_wallet_account_id_key" UNIQUE ("account_id"),
+    CONSTRAINT "internal_wallet_balance_non_negative" CHECK ("balance" >= 0)
+);
+
 -- Flat shopping cart: one row per (account, SKU) pair.
 CREATE TABLE IF NOT EXISTS "order"."cart_item" (
     "id" BIGSERIAL NOT NULL,
@@ -31,7 +41,7 @@ CREATE TABLE IF NOT EXISTS "order"."cart_item" (
 -- Payment intent: one logical money flow (checkout, refund, payout, fee).
 -- Mutable status; has 0..N transaction rows below for split-tender support.
 CREATE TABLE IF NOT EXISTS "order"."payment_session" (
-    "id" UUID NOT NULL, -- App-allocated UUID; equals the Restate workflow ID for sessions backed by a workflow
+    "id" UUID NOT NULL, -- App-allocated UUID;
     "kind" TEXT NOT NULL, -- 'buyer-checkout' | 'seller-confirmation-fee' | 'seller-payout'; enum defined in app layer
     "status" "order"."status" NOT NULL,
     "from_id" UUID, -- Account initiating (buyer, seller, NULL = system)
@@ -59,15 +69,14 @@ CREATE INDEX IF NOT EXISTS "payment_session_status_pending_idx" ON "order"."paym
 -- refund leg). Status transitions Pending -> Success/Failed only; Success is terminal.
 -- Reversals are NEW rows with negative amount + reverses_id pointing to the original.
 CREATE TABLE IF NOT EXISTS "order"."transaction" (
-    "id" BIGSERIAL NOT NULL,
+    "id" UUID NOT NULL,
     "session_id" UUID NOT NULL,
     "status" "order"."status" NOT NULL,
     "note" TEXT NOT NULL,
     "error" TEXT,
 
     -- Concrete rail used. Both NULL = internal wallet (system credit / debit)
-    "payment_option" TEXT, -- common.service_option if paid by transfer to system
-    "wallet_id" UUID, -- account.wallet.id if paid via stored card / e-wallet
+    "payment_option" TEXT, -- References common.option (payment)
 
     -- Rail-specific payload: gateway request/response, webhook payload, processor IDs
     "data" JSONB NOT NULL,
@@ -80,7 +89,7 @@ CREATE TABLE IF NOT EXISTS "order"."transaction" (
     "exchange_rate" NUMERIC NOT NULL,
 
     -- Self-FK to the original charge this row reverses; NULL on originals.
-    "reverses_id" BIGINT,
+    "reverses_id" UUID,
 
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_settled" TIMESTAMPTZ(3), -- Set when status reaches Success
@@ -103,10 +112,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS "transaction_reverses_id_unique" ON "order"."t
 CREATE OR REPLACE VIEW "order"."transaction_settled" AS
     SELECT * FROM "order"."transaction" WHERE "status" = 'Success';
 
--- Transport/delivery record. option references common.service_option.id
+-- Transport/delivery record
 CREATE TABLE IF NOT EXISTS "order"."transport" (
     "id" BIGSERIAL NOT NULL,
-    "option" TEXT NOT NULL, -- References common.service_option.id (shipping provider)
+    "option" TEXT NOT NULL, -- References common.option (transport)
     "status" "order"."status" DEFAULT 'Pending',
     "data" JSONB NOT NULL, -- Provider-specific data (tracking number, label URL, webhook events, etc.)
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -199,7 +208,7 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
     -- Stage 2: Seller inspects item and approves refund payment (after transportation)
     "approved_by_id" UUID,
     "date_approved"  TIMESTAMPTZ(3),
-    "refund_tx_id"   BIGINT, -- Negative-amount tx (in item's payment_session) representing the refund credit; convention: single rail (internal wallet)
+    "refund_tx_id"   UUID, -- Negative-amount tx (in item's payment_session) representing the refund credit; convention: single rail (internal wallet)
 
     CONSTRAINT "refund_pkey" PRIMARY KEY ("id"),
 

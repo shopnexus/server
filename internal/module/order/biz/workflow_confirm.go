@@ -3,7 +3,6 @@ package orderbiz
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -13,6 +12,7 @@ import (
 	accountmodel "shopnexus-server/internal/module/account/model"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/saga"
@@ -23,61 +23,37 @@ import (
 	"github.com/samber/lo"
 )
 
-// ConfirmWorkflowHandler is the Restate Workflow that drives a seller's
-// confirm-pending action from "submitted" through
-// "confirmed | expired | cancelled". It is a port of
-// OrderHandler.ConfirmSellerPending: side effects guarded by saga compensators
-// (see saga.go) and the confirm-fee payment outcome awaited via a durable
-// promise + expiry timer.
 type ConfirmWorkflowHandler struct {
 	base *OrderHandler
 }
 
-// NewConfirmWorkflowHandler wraps an OrderHandler so the workflow can reuse
-// every helper (storage, locker, account/catalog/inventory/common clients,
-// payment/transport maps, MarkTxSuccess, CreditFromSession, etc.). The base
-// is held as a named field (not embedded) so reflection-driven Restate
-// registration only sees workflow-typed methods on this struct.
 func NewConfirmWorkflowHandler(base *OrderHandler) *ConfirmWorkflowHandler {
 	return &ConfirmWorkflowHandler{base: base}
 }
-
-// ServiceName registers this struct under "ConfirmWorkflow" for restate.Reflect.
 func (h *ConfirmWorkflowHandler) ServiceName() string { return "ConfirmWorkflow" }
 
-// Run is the workflow body. The HTTP transport allocates a UUID, uses its
-// string form as the workflow ID when calling restate.Workflow(...), and the
-// workflow recovers it via ctx.Key() — the confirm-fee session row is then
-// INSERTed with that exact UUID. Workflow ID == confirm session ID == webhook
-// RefID, so attached callers can read `payment_url` before Run reaches its
-// publish step and webhooks can route directly without a DB lookup.
-//
-// Saga semantics: every committed side effect (confirm-fee session/tx rows,
-// wallet debit) is paired with a Defer() compensator BEFORE the action runs.
-// On the success path we Clear(); on terminal failure / cancel / expiry the
-// LIFO compensators execute via restate.RunVoid (idempotent retry). Order /
-// transport / item-link rows are only created on the paid path, so they
-// never need compensators.
 func (h *ConfirmWorkflowHandler) Run(
 	ctx restate.WorkflowContext,
 	input ConfirmWorkflowInput,
 ) (out ConfirmWorkflowOutput, err error) {
 	defer metrics.TrackHandler("confirm_workflow", "Run", &err)()
 
-	// Workflow ID set at submission time IS the confirm-fee session UUID.
-	// Parse once so every downstream insert / log / webhook routing key uses
-	// the same identifier. A bad workflow ID is a programmer error from the
-	// caller — terminal, no retry.
-	workflowID := restate.Key(ctx)
-	sessionID, err := uuid.Parse(workflowID)
-	if err != nil {
-		return out, restate.TerminalError(sharedmodel.WrapErr("invalid workflow id (expected uuid)", err))
-	}
+	// Workflow ID set at submission time IS the confirm-fee session UUID —
+	// every downstream insert / log / webhook routing key uses it.
+	workflowID := restate.UUID(ctx)
+	sessionID := workflowID
 
 	// Step 1: Validate.
 	if err = validator.Validate(input); err != nil {
 		return out, sharedmodel.WrapErr("validate confirm", err)
 	}
+
+	saga := saga.New(ctx)
+	defer func() {
+		if restate.IsTerminalError(err) {
+			saga.Compensate()
+		}
+	}()
 
 	sellerID := input.Account.ID
 
@@ -116,15 +92,19 @@ func (h *ConfirmWorkflowHandler) Run(
 		paidTotal               int64
 		uniquePaymentSessionIDs = make(map[uuid.UUID]struct{})
 	)
+	// Validation outcome is deterministic over journaled orderItems, so any
+	// failure must be terminal — otherwise Restate would retry the same
+	// invariant violation forever. fmt.Errorf("%w") strips the .Terminal()
+	// marker on ordermodel errors, so we re-wrap with restate.TerminalError.
 	for i, item := range orderItems {
 		if item.OrderID.Valid {
-			return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyConfirmed)
+			return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyConfirmed))
 		}
 		if item.DateCancelled.Valid {
-			return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyCancelled)
+			return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemAlreadyCancelled))
 		}
 		if item.SellerID != sellerID {
-			return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemNotOwnedBySeller)
+			return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemNotOwnedBySeller))
 		}
 		if i == 0 {
 			buyerID = item.AccountID
@@ -132,13 +112,13 @@ func (h *ConfirmWorkflowHandler) Run(
 			transportOption = item.TransportOption
 		} else {
 			if item.AccountID != buyerID {
-				return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameBuyer)
+				return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameBuyer))
 			}
 			if item.Address != address {
-				return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameAddress)
+				return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsNotSameAddress))
 			}
 			if item.TransportOption != transportOption {
-				return out, fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsTransportMismatch)
+				return out, restate.TerminalError(fmt.Errorf("item %d: %w", item.ID, ordermodel.ErrItemsTransportMismatch))
 			}
 		}
 		paidTotal += item.TotalAmount
@@ -195,7 +175,7 @@ func (h *ConfirmWorkflowHandler) Run(
 
 	// Confirm-fee txs are denominated in the seller's currency (the seller
 	// is paying the platform). inferCurrency is cross-module → outside Run.
-	sellerCurrency, err := h.base.inferCurrency(ctx, sellerID)
+	sellerCurrency, err := h.base.InferCurrency(ctx, sellerID)
 	if err != nil {
 		return out, sharedmodel.WrapErr("infer seller currency", err)
 	}
@@ -203,7 +183,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 6: Wallet / gateway split for confirmFeeTotal.
 	var confirmFeeWallet, confirmFeeGateway int64
 	if input.UseWallet && confirmFeeTotal > 0 {
-		balance, balErr := h.base.account.GetWalletBalance(ctx, sellerID)
+		balance, balErr := h.base.GetWalletBalance(ctx, sellerID)
 		if balErr != nil {
 			return out, sharedmodel.WrapErr("get seller wallet balance", balErr)
 		}
@@ -219,61 +199,28 @@ func (h *ConfirmWorkflowHandler) Run(
 		return out, ordermodel.ErrInsufficientWalletBalance.Terminal()
 	}
 
-	// Saga setup. Compensators are registered BEFORE side effects; on err /
-	// cancel / expire we run them LIFO. CreditFromSession is invoked from
-	// this top-level defer (cross-module → can't run inside saga RunVoid).
-	saga := saga.New(ctx)
-	var (
-		cancelled                     bool
-		expired                       bool
-		confirmSessionForCompensation uuid.UUID
-	)
-	defer func() {
-		if err != nil || cancelled || expired {
-			saga.Compensate()
-			if confirmSessionForCompensation != uuid.Nil {
-				if _, ce := h.base.CreditFromSession(ctx, CreditFromSessionParams{
-					SessionID:  confirmSessionForCompensation,
-					AccountID:  sellerID,
-					CreditType: "Refund",
-					Note:       "confirm saga compensation",
-				}); ce != nil {
-					slog.Error("confirm compensation: credit from session", slog.Any("error", ce))
-				}
-			}
-			if err != nil && !restate.IsTerminalError(err) {
-				err = restate.TerminalError(err)
-			}
-		}
-	}()
+	// Step 7: Atomically create payment_session and child txs (Pending) in
+	// one Run. Order / transport / item-link rows are deferred to the
+	// post-paid Run below, so we don't have to compensate them on rollback.
+	// Tx UUIDs are pre-allocated outside the closure: restate.UUID journals
+	// them, so retries reuse the same value and INSERTs are idempotent on
+	// PK conflict.
+	walletTxID := restate.UUID(ctx)
+	gatewayTxID := restate.UUID(ctx)
 
-	// Step 7: Atomically create the confirm-fee session and its child txs.
-	// Order / transport / item-link rows are deferred to the post-paid run
-	// below, so we don't have to compensate them on rollback.
-	type confirmRunResult struct {
-		Session         orderdb.OrderPaymentSession `json:"session"`
-		WalletTx        *orderdb.OrderTransaction   `json:"wallet_tx,omitempty"`
-		GatewayTx       *orderdb.OrderTransaction   `json:"gateway_tx,omitempty"`
-		ConfirmFeeTxIDs []int64                     `json:"confirm_fee_tx_ids"`
-		BlockerTxID     int64                       `json:"blocker_tx_id"`
+	txIDsToFail := make([]uuid.UUID, 0, 2)
+	if confirmFeeWallet > 0 {
+		txIDsToFail = append(txIDsToFail, walletTxID)
 	}
-
-	// Compensator declared BEFORE the Run so a panic mid-Run still triggers
-	// cleanup. MarkPaymentSessionFailed is idempotent on already-final rows.
-	saga.Defer("mark_confirm_session_failed", func(rctx restate.RunContext) error {
-		if confirmSessionForCompensation == uuid.Nil {
-			return nil
-		}
-		if _, e := h.base.storage.Querier().MarkPaymentSessionFailed(rctx, confirmSessionForCompensation); e != nil {
-			return e
-		}
-		return nil
+	if confirmFeeGateway > 0 {
+		txIDsToFail = append(txIDsToFail, gatewayTxID)
+	}
+	saga.Defer("mark_session_and_txs_failed", func(rctx restate.RunContext) error {
+		return markSessionAndTxsFailed(rctx, h.base.storage.Querier(), sessionID, txIDsToFail, "confirm saga compensation")
 	})
 
-	created, err := restate.Run(ctx, func(rctx restate.RunContext) (confirmRunResult, error) {
-		var res confirmRunResult
-
-		session, sErr := h.base.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
+	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+		if _, sErr := h.base.storage.Querier().CreateDefaultPaymentSession(rctx, orderdb.CreateDefaultPaymentSessionParams{
 			ID:          sessionID,
 			Kind:        SessionKindSellerConfirmationFee,
 			Status:      orderdb.OrderStatusPending,
@@ -285,92 +232,83 @@ func (h *ConfirmWorkflowHandler) Run(
 			Data:        json.RawMessage("{}"),
 			DatePaid:    null.Time{},
 			DateExpired: time.Now().Add(paymentExpiry),
-		})
-		if sErr != nil {
-			return res, sharedmodel.WrapErr("db create confirm session", sErr)
+		}); sErr != nil {
+			return sharedmodel.WrapErr("db create confirm session", sErr)
 		}
-		res.Session = session
 
 		if confirmFeeWallet > 0 {
-			tx, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
-				SessionID:     session.ID,
-				Status:        orderdb.OrderStatusPending,
-				Note:          "confirm fee wallet payment",
-				Error:         null.String{},
-				PaymentOption: null.String{},
-				WalletID:      uuid.NullUUID{},
-				Data:          json.RawMessage("{}"),
-				Amount:        confirmFeeWallet,
-				FromCurrency:  sellerCurrency,
-				ToCurrency:    sellerCurrency,
-				ExchangeRate:  mustNumericOne(),
-				ReversesID:    null.Int{},
-				DateSettled:   null.Time{},
-				DateExpired:   null.Time{},
-			})
-			if txErr != nil {
-				return res, sharedmodel.WrapErr("db create confirm_fee wallet tx", txErr)
+			if _, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+				ID:           walletTxID,
+				SessionID:    sessionID,
+				Status:       orderdb.OrderStatusPending,
+				Note:         "confirm fee wallet payment",
+				Data:         json.RawMessage("{}"),
+				Amount:       confirmFeeWallet,
+				FromCurrency: sellerCurrency,
+				ToCurrency:   sellerCurrency,
+				ExchangeRate: mustNumericOne(),
+			}); txErr != nil {
+				return sharedmodel.WrapErr("db create confirm_fee wallet tx", txErr)
 			}
-			res.WalletTx = &tx
-			res.ConfirmFeeTxIDs = append(res.ConfirmFeeTxIDs, tx.ID)
-			res.BlockerTxID = tx.ID
 		}
 
 		if confirmFeeGateway > 0 {
-			tx, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
-				SessionID:     session.ID,
+			if _, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+				ID:            gatewayTxID,
+				SessionID:     sessionID,
 				Status:        orderdb.OrderStatusPending,
 				Note:          "confirm fee gateway payment",
 				Error:         null.String{},
 				PaymentOption: null.StringFrom(input.PaymentOption),
-				WalletID:      toNullUUID(input.WalletID),
 				Data:          json.RawMessage("{}"),
 				Amount:        confirmFeeGateway,
 				FromCurrency:  sellerCurrency,
 				ToCurrency:    sellerCurrency,
 				ExchangeRate:  mustNumericOne(),
-				ReversesID:    null.Int{},
+				ReversesID:    uuid.NullUUID{},
 				DateSettled:   null.Time{},
 				DateExpired:   null.TimeFrom(time.Now().Add(paymentExpiry)),
-			})
-			if txErr != nil {
-				return res, sharedmodel.WrapErr("db create confirm_fee gateway tx", txErr)
+			}); txErr != nil {
+				return sharedmodel.WrapErr("db create confirm_fee gateway tx", txErr)
 			}
-			res.GatewayTx = &tx
-			res.ConfirmFeeTxIDs = append(res.ConfirmFeeTxIDs, tx.ID)
-			res.BlockerTxID = tx.ID // gateway wins as blocker
 		}
 
-		return res, nil
-	})
-	if err != nil {
+		return nil
+	}); err != nil {
 		return out, sharedmodel.WrapErr("create confirm fee session and txs", err)
 	}
-	confirmSessionForCompensation = created.Session.ID
 
-	// Step 8: Wallet debit + mark wallet tx success (cross-module → outside
-	// Run). The credit_wallet compensator must be deferred BEFORE the debit.
-	if confirmFeeWallet > 0 && created.WalletTx != nil {
-		walletTxID := created.WalletTx.ID
-		amount := confirmFeeWallet
-		saga.Defer("credit_wallet", func(rctx restate.RunContext) error {
-			return h.base.account.WalletCredit(rctx, accountbiz.WalletCreditParams{
+	// Step 8: Wallet debit + mark wallet tx success.
+	if confirmFeeWallet > 0 {
+		if _, dErr := restate.Run(ctx, func(rctx restate.RunContext) (WalletDebitResult, error) {
+			return h.base.walletDebit(rctx, WalletDebitParams{
 				AccountID: sellerID,
-				Amount:    amount,
-				Type:      "Refund",
-				Reference: fmt.Sprintf("compensate-tx:%d", walletTxID),
-				Note:      "confirm saga compensation",
+				Amount:    confirmFeeWallet,
+				Reference: fmt.Sprintf("tx:%s", walletTxID),
+				Note:      "confirm fee wallet payment",
 			})
-		})
-		if _, dErr := h.base.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
-			AccountID: sellerID,
-			Amount:    amount,
-			Reference: fmt.Sprintf("tx:%d", walletTxID),
-			Note:      "confirm fee wallet payment",
 		}); dErr != nil {
 			return out, sharedmodel.WrapErr("seller wallet debit", dErr)
 		}
-		if mErr := h.base.markTxSuccess(ctx, markTxSuccessParams{TxID: walletTxID}); mErr != nil {
+		// Arm credit compensator AFTER debit confirmed. walletDebit's DB tx
+		// rolls back on any error → terminal failure means no debit, so
+		// arming earlier would over-credit on saga fire. Compensator goes
+		// straight to CreditInternalWallet to avoid the RunContext/Context
+		// double-wrap (saga.Compensate already runs inside RunVoid).
+		saga.Defer("credit_wallet", func(rctx restate.RunContext) error {
+			_, e := h.base.storage.Querier().CreditInternalWallet(rctx, orderdb.CreditInternalWalletParams{
+				ID:     sellerID,
+				Amount: confirmFeeWallet,
+			})
+			return e
+		})
+		if mErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+			_, e := h.base.storage.Querier().MarkTransactionSuccess(rctx, orderdb.MarkTransactionSuccessParams{
+				ID:          walletTxID,
+				DateSettled: time.Now(),
+			})
+			return e
+		}); mErr != nil {
 			return out, sharedmodel.WrapErr("mark confirm-fee wallet tx success", mErr)
 		}
 	}
@@ -379,10 +317,9 @@ func (h *ConfirmWorkflowHandler) Run(
 	// can return synchronously. The promise must be resolved on every path
 	// (including wallet-only) so attached callers don't hang.
 	url, gErr := h.base.InitGatewayPayment(ctx, InitGatewayPaymentParams{
+		TxID:          gatewayTxID,
 		Amount:        confirmFeeGateway,
 		PaymentOption: input.PaymentOption,
-		BlockerTxID:   created.BlockerTxID,
-		RefID:         workflowID,
 		Description:   fmt.Sprintf("Confirm fee session %s", workflowID),
 	})
 	if gErr != nil {
@@ -392,36 +329,44 @@ func (h *ConfirmWorkflowHandler) Run(
 		return out, sharedmodel.WrapErr("resolve payment url promise", pErr)
 	}
 
-	// Step 10: Wait for payment outcome or expiry. Wallet-only confirms
-	// short-circuit: the wallet leg is already Success, so we resolve the
-	// event promise inline as "paid" before WaitFirst.
-	eventPromise := restate.Promise[PaymentEvent](ctx, "payment_event")
+	// Step 10: Wait for payment outcome, seller cancel, or expiry. Cancel
+	// is a separate promise (matching checkout) because payment.Status has
+	// no `cancelled` value.
+	eventPromise := restate.Promise[payment.Notification](ctx, "payment_event")
+	cancelPromise := restate.Promise[struct{}](ctx, "user_cancel")
 	expiryFut := restate.After(ctx, paymentExpiry)
 
 	if confirmFeeGateway == 0 {
-		_ = eventPromise.Resolve(PaymentEvent{Kind: "paid", TxID: created.BlockerTxID})
+		_ = eventPromise.Resolve(payment.Notification{
+			RefID:  sessionID.String(),
+			Status: payment.StatusSuccess,
+		})
 	}
 
-	done, _ := restate.WaitFirst(ctx, eventPromise, expiryFut)
+	done, _ := restate.WaitFirst(ctx, eventPromise, cancelPromise, expiryFut)
 	switch done {
 	case eventPromise:
 		ev, evErr := eventPromise.Result()
 		if evErr != nil {
 			return out, sharedmodel.WrapErr("read payment event", evErr)
 		}
-		switch ev.Kind {
-		case "paid":
+		switch ev.Status {
+		case payment.StatusSuccess:
 			// fall through to success tail.
-		case "cancelled":
-			cancelled = true
-			return ConfirmWorkflowOutput{Status: "cancelled", ConfirmSessionID: sessionID}, nil
-		case "failed":
+		case payment.StatusFailed, payment.StatusExpired:
 			return out, ordermodel.ErrPaymentFailed.Terminal()
 		default:
-			return out, sharedmodel.WrapErr("unknown payment event kind", ordermodel.ErrPaymentFailed)
+			return out, sharedmodel.WrapErr("unknown payment event status", ordermodel.ErrPaymentFailed)
 		}
+	case cancelPromise:
+		// Inline-compensate before returning non-terminal: rolls back the
+		// confirm-fee Pending session/txs and refunds the seller's wallet
+		// debit. The defer's IsTerminalError check ignores nil err, so
+		// there's no double-compensation on top of this explicit call.
+		saga.Compensate()
+		return ConfirmWorkflowOutput{Status: "cancelled", ConfirmSessionID: sessionID}, nil
 	case expiryFut:
-		expired = true
+		saga.Compensate()
 		return ConfirmWorkflowOutput{Status: "expired", ConfirmSessionID: sessionID}, nil
 	}
 
@@ -453,7 +398,7 @@ func (h *ConfirmWorkflowHandler) Run(
 			TransportID:      trRow.ID,
 			Address:          address,
 			ConfirmedByID:    input.Account.ID,
-			ConfirmSessionID: created.Session.ID,
+			ConfirmSessionID: sessionID,
 			Note:             null.NewString(input.Note, input.Note != ""),
 		})
 		if oErr != nil {
@@ -517,23 +462,18 @@ func (h *ConfirmWorkflowHandler) WaitPaymentURL(
 	return restate.Promise[string](ctx, "payment_url").Result()
 }
 
-// ResolvePayment is the webhook entry point for the Restate side: callers
-// (the payment webhook handler / wallet success path) invoke it to push a
-// terminal PaymentEvent into the workflow's event promise, which Run() races
-// against the expiry timer.
-func (h *ConfirmWorkflowHandler) ResolvePayment(
+// PaymentNotification is called by the payment provider
+func (h *ConfirmWorkflowHandler) PaymentNotification(
 	ctx restate.WorkflowSharedContext,
-	ev PaymentEvent,
+	noti payment.Notification,
 ) error {
-	return restate.Promise[PaymentEvent](ctx, "payment_event").Resolve(ev)
+	return restate.Promise[payment.Notification](ctx, "payment_event").Resolve(noti)
 }
 
-// CancelConfirm lets the seller abort an in-flight confirm. It resolves the
-// event promise with kind="cancelled", which Run() interprets as a terminal
-// rollback (compensators run via the deferred saga).
+// CancelConfirm lets the seller abort an in-flight confirm.
 func (h *ConfirmWorkflowHandler) CancelConfirm(
 	ctx restate.WorkflowSharedContext,
 	_ struct{},
 ) error {
-	return restate.Promise[PaymentEvent](ctx, "payment_event").Resolve(PaymentEvent{Kind: "cancelled"})
+	return restate.Promise[struct{}](ctx, "user_cancel").Resolve(struct{}{})
 }

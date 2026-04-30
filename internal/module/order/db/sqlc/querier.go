@@ -24,9 +24,10 @@ type Querier interface {
 	// Marks item cancelled. The compensating refund transaction (negative amount,
 	// reverses_id pointing to the original payment tx) is inserted separately by biz code.
 	CancelItem(ctx context.Context, arg CancelItemParams) (OrderItem, error)
-	CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64, error)
+	CancelItemsByIDs(ctx context.Context, arg CancelItemsByIDsParams) (int64, error)
 	CountBuyerPendingItems(ctx context.Context, accountID uuid.UUID) (int64, error)
 	CountCartItem(ctx context.Context, arg CountCartItemParams) (int64, error)
+	CountInternalWallet(ctx context.Context, arg CountInternalWalletParams) (int64, error)
 	CountItem(ctx context.Context, arg CountItemParams) (int64, error)
 	CountOrder(ctx context.Context, arg CountOrderParams) (int64, error)
 	CountPaymentSession(ctx context.Context, arg CountPaymentSessionParams) (int64, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	CountTransaction(ctx context.Context, arg CountTransactionParams) (int64, error)
 	CountTransport(ctx context.Context, arg CountTransportParams) (int64, error)
 	CreateBatchCartItem(ctx context.Context, arg []CreateBatchCartItemParams) *CreateBatchCartItemBatchResults
+	CreateBatchInternalWallet(ctx context.Context, arg []CreateBatchInternalWalletParams) *CreateBatchInternalWalletBatchResults
 	CreateBatchItem(ctx context.Context, arg []CreateBatchItemParams) *CreateBatchItemBatchResults
 	CreateBatchOrder(ctx context.Context, arg []CreateBatchOrderParams) *CreateBatchOrderBatchResults
 	CreateBatchPaymentSession(ctx context.Context, arg []CreateBatchPaymentSessionParams) *CreateBatchPaymentSessionBatchResults
@@ -46,6 +48,7 @@ type Querier interface {
 	CreateCartItem(ctx context.Context, arg CreateCartItemParams) (OrderCartItem, error)
 	CreateCopyCartItem(ctx context.Context, arg []CreateCopyCartItemParams) (int64, error)
 	CreateCopyDefaultCartItem(ctx context.Context, arg []CreateCopyDefaultCartItemParams) (int64, error)
+	CreateCopyDefaultInternalWallet(ctx context.Context, arg []CreateCopyDefaultInternalWalletParams) (int64, error)
 	CreateCopyDefaultItem(ctx context.Context, arg []CreateCopyDefaultItemParams) (int64, error)
 	CreateCopyDefaultOrder(ctx context.Context, arg []CreateCopyDefaultOrderParams) (int64, error)
 	CreateCopyDefaultPaymentSession(ctx context.Context, arg []CreateCopyDefaultPaymentSessionParams) (int64, error)
@@ -53,6 +56,7 @@ type Querier interface {
 	CreateCopyDefaultRefundDispute(ctx context.Context, arg []CreateCopyDefaultRefundDisputeParams) (int64, error)
 	CreateCopyDefaultTransaction(ctx context.Context, arg []CreateCopyDefaultTransactionParams) (int64, error)
 	CreateCopyDefaultTransport(ctx context.Context, arg []CreateCopyDefaultTransportParams) (int64, error)
+	CreateCopyInternalWallet(ctx context.Context, arg []CreateCopyInternalWalletParams) (int64, error)
 	CreateCopyItem(ctx context.Context, arg []CreateCopyItemParams) (int64, error)
 	CreateCopyOrder(ctx context.Context, arg []CreateCopyOrderParams) (int64, error)
 	CreateCopyPaymentSession(ctx context.Context, arg []CreateCopyPaymentSessionParams) (int64, error)
@@ -61,6 +65,7 @@ type Querier interface {
 	CreateCopyTransaction(ctx context.Context, arg []CreateCopyTransactionParams) (int64, error)
 	CreateCopyTransport(ctx context.Context, arg []CreateCopyTransportParams) (int64, error)
 	CreateDefaultCartItem(ctx context.Context, arg CreateDefaultCartItemParams) (OrderCartItem, error)
+	CreateDefaultInternalWallet(ctx context.Context, arg CreateDefaultInternalWalletParams) (OrderInternalWallet, error)
 	CreateDefaultItem(ctx context.Context, arg CreateDefaultItemParams) (OrderItem, error)
 	CreateDefaultOrder(ctx context.Context, arg CreateDefaultOrderParams) (OrderOrder, error)
 	CreateDefaultPaymentSession(ctx context.Context, arg CreateDefaultPaymentSessionParams) (OrderPaymentSession, error)
@@ -68,6 +73,7 @@ type Querier interface {
 	CreateDefaultRefundDispute(ctx context.Context, arg CreateDefaultRefundDisputeParams) (OrderRefundDispute, error)
 	CreateDefaultTransaction(ctx context.Context, arg CreateDefaultTransactionParams) (OrderTransaction, error)
 	CreateDefaultTransport(ctx context.Context, arg CreateDefaultTransportParams) (OrderTransport, error)
+	CreateInternalWallet(ctx context.Context, arg CreateInternalWalletParams) (OrderInternalWallet, error)
 	CreateItem(ctx context.Context, arg CreateItemParams) (OrderItem, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (OrderOrder, error)
 	CreatePaymentSession(ctx context.Context, arg CreatePaymentSessionParams) (OrderPaymentSession, error)
@@ -75,7 +81,11 @@ type Querier interface {
 	CreateRefundDispute(ctx context.Context, arg CreateRefundDisputeParams) (OrderRefundDispute, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (OrderTransaction, error)
 	CreateTransport(ctx context.Context, arg CreateTransportParams) (OrderTransport, error)
+	CreditInternalWallet(ctx context.Context, arg CreditInternalWalletParams) (int64, error)
+	// Deducts min(balance, amount). Returns new balance after the deduction.
+	DebitInternalWallet(ctx context.Context, arg DebitInternalWalletParams) (int64, error)
 	DeleteCartItem(ctx context.Context, arg DeleteCartItemParams) error
+	DeleteInternalWallet(ctx context.Context, arg DeleteInternalWalletParams) error
 	DeleteItem(ctx context.Context, arg DeleteItemParams) error
 	DeleteOrder(ctx context.Context, arg DeleteOrderParams) error
 	DeletePaymentSession(ctx context.Context, arg DeletePaymentSessionParams) error
@@ -83,12 +93,17 @@ type Querier interface {
 	DeleteRefundDispute(ctx context.Context, arg DeleteRefundDisputeParams) error
 	DeleteTransaction(ctx context.Context, arg DeleteTransactionParams) error
 	DeleteTransport(ctx context.Context, arg DeleteTransportParams) error
-	// Code generated by pgtempl. DO NOT EDIT.
-	// This file contains all queries for the database schema.
 	// ========================================
 	// Queries for table: order.cart_item
 	// ========================================
 	GetCartItem(ctx context.Context, arg GetCartItemParams) (OrderCartItem, error)
+	GetInternalBalance(ctx context.Context, id uuid.UUID) (int64, error)
+	// Code generated by pgtempl. DO NOT EDIT.
+	// This file contains all queries for the database schema.
+	// ========================================
+	// Queries for table: order.internal_wallet
+	// ========================================
+	GetInternalWallet(ctx context.Context, id uuid.NullUUID) (OrderInternalWallet, error)
 	// ========================================
 	// Queries for table: order.item
 	// ========================================
@@ -128,7 +143,7 @@ type Querier interface {
 	// ========================================
 	// Queries for table: order.transaction
 	// ========================================
-	GetTransaction(ctx context.Context, id null.Int) (OrderTransaction, error)
+	GetTransaction(ctx context.Context, id uuid.NullUUID) (OrderTransaction, error)
 	// ========================================
 	// Queries for table: order.transport
 	// ========================================
@@ -153,6 +168,7 @@ type Querier interface {
 	ListConfirmFeeSiblingsForSession(ctx context.Context, sessionID uuid.UUID) ([]OrderPaymentSession, error)
 	ListCountBuyerOrder(ctx context.Context, arg ListCountBuyerOrderParams) ([]ListCountBuyerOrderRow, error)
 	ListCountCartItem(ctx context.Context, arg ListCountCartItemParams) ([]ListCountCartItemRow, error)
+	ListCountInternalWallet(ctx context.Context, arg ListCountInternalWalletParams) ([]ListCountInternalWalletRow, error)
 	ListCountItem(ctx context.Context, arg ListCountItemParams) ([]ListCountItemRow, error)
 	ListCountOrder(ctx context.Context, arg ListCountOrderParams) ([]ListCountOrderRow, error)
 	ListCountPaymentSession(ctx context.Context, arg ListCountPaymentSessionParams) ([]ListCountPaymentSessionRow, error)
@@ -162,6 +178,7 @@ type Querier interface {
 	ListCountTransaction(ctx context.Context, arg ListCountTransactionParams) ([]ListCountTransactionRow, error)
 	ListCountTransport(ctx context.Context, arg ListCountTransportParams) ([]ListCountTransportRow, error)
 	ListExpiredPendingSessions(ctx context.Context, arg ListExpiredPendingSessionsParams) ([]OrderPaymentSession, error)
+	ListInternalWallet(ctx context.Context, arg ListInternalWalletParams) ([]OrderInternalWallet, error)
 	ListItem(ctx context.Context, arg ListItemParams) ([]OrderItem, error)
 	// Custom item queries
 	// Create/Get/List are auto-generated by pgtempl (CreateDefaultItem / GetItem / ListItem).
@@ -189,9 +206,9 @@ type Querier interface {
 	MarkPaymentSessionCancelled(ctx context.Context, id uuid.UUID) (OrderPaymentSession, error)
 	MarkPaymentSessionFailed(ctx context.Context, id uuid.UUID) (OrderPaymentSession, error)
 	MarkPaymentSessionSuccess(ctx context.Context, arg MarkPaymentSessionSuccessParams) (OrderPaymentSession, error)
-	MarkTransactionCancelled(ctx context.Context, id int64) (OrderTransaction, error)
-	MarkTransactionFailed(ctx context.Context, arg MarkTransactionFailedParams) (OrderTransaction, error)
+	MarkTransactionCancelled(ctx context.Context, id uuid.UUID) (OrderTransaction, error)
 	MarkTransactionSuccess(ctx context.Context, arg MarkTransactionSuccessParams) (OrderTransaction, error)
+	MarkTransactionsFailed(ctx context.Context, arg MarkTransactionsFailedParams) error
 	RejectRefund(ctx context.Context, arg RejectRefundParams) (OrderRefund, error)
 	RemoveCheckoutItem(ctx context.Context, arg RemoveCheckoutItemParams) ([]OrderCartItem, error)
 	// =============================================
@@ -225,6 +242,7 @@ type Querier interface {
 	UnlinkItemsFromOrder(ctx context.Context, orderID uuid.NullUUID) error
 	UpdateCart(ctx context.Context, arg UpdateCartParams) error
 	UpdateCartItem(ctx context.Context, arg UpdateCartItemParams) (OrderCartItem, error)
+	UpdateInternalWallet(ctx context.Context, arg UpdateInternalWalletParams) (OrderInternalWallet, error)
 	UpdateItem(ctx context.Context, arg UpdateItemParams) (OrderItem, error)
 	UpdateOrder(ctx context.Context, arg UpdateOrderParams) (OrderOrder, error)
 	UpdatePaymentSession(ctx context.Context, arg UpdatePaymentSessionParams) (OrderPaymentSession, error)

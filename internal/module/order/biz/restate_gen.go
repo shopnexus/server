@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	restateclient "shopnexus-server/internal/infras/restate"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/provider/payment"
 	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
@@ -29,6 +30,10 @@ func (p *OrderRestateClient) ListBuyerPendingItems(ctx context.Context, params L
 
 func (p *OrderRestateClient) CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "CancelBuyerPending", params)
+}
+
+func (p *OrderRestateClient) RefundPendingItem(ctx context.Context, params RefundPendingItemParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "RefundPendingItem", params)
 }
 
 func (p *OrderRestateClient) ListSellerPendingItems(ctx context.Context, params ListSellerPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
@@ -55,7 +60,7 @@ func (p *OrderRestateClient) ListSellerConfirmed(ctx context.Context, params Lis
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListSellerConfirmed", params)
 }
 
-func (p *OrderRestateClient) OnPaymentResult(ctx context.Context, params OnPaymentResultParams) error {
+func (p *OrderRestateClient) OnPaymentResult(ctx context.Context, params payment.Notification) error {
 	return restateclient.Send(ctx, p.client, serviceName, "OnPaymentResult", params)
 }
 
@@ -137,4 +142,24 @@ func (p *OrderRestateClient) GetSellerPendingActions(ctx context.Context, params
 
 func (p *OrderRestateClient) GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error) {
 	return restateclient.Call[[]SellerTopProduct](ctx, p.client, serviceName, "GetSellerTopProducts", params)
+}
+
+func (p *OrderRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	return restateclient.Call[int64](ctx, p.client, serviceName, "GetWalletBalance", accountID)
+}
+
+func (p *OrderRestateClient) WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error) {
+	return restateclient.Call[WalletDebitResult](ctx, p.client, serviceName, "WalletDebit", params)
+}
+
+func (p *OrderRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
+}
+
+func (p *OrderRestateClient) InferCurrency(ctx context.Context, accountID uuid.UUID) (string, error) {
+	return restateclient.Call[string](ctx, p.client, serviceName, "InferCurrency", accountID)
+}
+
+func (p *OrderRestateClient) GetOptions(ctx context.Context, params GetOptionsParams) ([]sharedmodel.Option, error) {
+	return restateclient.Call[[]sharedmodel.Option](ctx, p.client, serviceName, "GetOptions", params)
 }

@@ -147,6 +147,12 @@ type OrderCartItem struct {
 	Quantity  int64     `json:"quantity"`
 }
 
+type OrderInternalWallet struct {
+	ID       uuid.UUID `json:"id"`
+	Balance  int64     `json:"balance"`
+	Currency string    `json:"currency"`
+}
+
 type OrderItem struct {
 	ID               int64           `json:"id"`
 	OrderID          uuid.NullUUID   `json:"order_id"`
@@ -210,7 +216,7 @@ type OrderRefund struct {
 	RejectionNote null.String       `json:"rejection_note"`
 	ApprovedByID  uuid.NullUUID     `json:"approved_by_id"`
 	DateApproved  null.Time         `json:"date_approved"`
-	RefundTxID    null.Int          `json:"refund_tx_id"`
+	RefundTxID    uuid.NullUUID     `json:"refund_tx_id"`
 }
 
 type OrderRefundDispute struct {
@@ -226,38 +232,36 @@ type OrderRefundDispute struct {
 }
 
 type OrderTransaction struct {
-	ID            int64           `json:"id"`
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`
 }
 
 type OrderTransactionSettled struct {
-	ID            int64           `json:"id"`
+	ID            uuid.UUID       `json:"id"`
 	SessionID     uuid.UUID       `json:"session_id"`
 	Status        OrderStatus     `json:"status"`
 	Note          string          `json:"note"`
 	Error         null.String     `json:"error"`
 	PaymentOption null.String     `json:"payment_option"`
-	WalletID      uuid.NullUUID   `json:"wallet_id"`
 	Data          json.RawMessage `json:"data"`
 	Amount        int64           `json:"amount"`
 	FromCurrency  string          `json:"from_currency"`
 	ToCurrency    string          `json:"to_currency"`
 	ExchangeRate  pgtype.Numeric  `json:"exchange_rate"`
-	ReversesID    null.Int        `json:"reverses_id"`
+	ReversesID    uuid.NullUUID   `json:"reverses_id"`
 	DateCreated   time.Time       `json:"date_created"`
 	DateSettled   null.Time       `json:"date_settled"`
 	DateExpired   null.Time       `json:"date_expired"`

@@ -69,7 +69,7 @@ RETURNING id, account_id, order_id, transport_id, method, reason, address, date_
 
 type ApproveRefundStage2Params struct {
 	ApprovedByID uuid.NullUUID `json:"approved_by_id"`
-	RefundTxID   null.Int      `json:"refund_tx_id"`
+	RefundTxID   uuid.NullUUID `json:"refund_tx_id"`
 	ID           uuid.UUID     `json:"id"`
 }
 

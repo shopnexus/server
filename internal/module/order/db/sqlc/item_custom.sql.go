@@ -54,14 +54,20 @@ func (q *Queries) CancelItem(ctx context.Context, arg CancelItemParams) (OrderIt
 
 const cancelItemsByIDs = `-- name: CancelItemsByIDs :execrows
 UPDATE "order"."item"
-SET "date_cancelled" = CURRENT_TIMESTAMP
-WHERE "id" = ANY($1::BIGINT[])
+SET "date_cancelled" = CURRENT_TIMESTAMP,
+    "cancelled_by_id" = $1
+WHERE "id" = ANY($2::BIGINT[])
   AND "order_id" IS NULL
   AND "date_cancelled" IS NULL
 `
 
-func (q *Queries) CancelItemsByIDs(ctx context.Context, itemIds []int64) (int64, error) {
-	result, err := q.db.Exec(ctx, cancelItemsByIDs, itemIds)
+type CancelItemsByIDsParams struct {
+	CancelledByID uuid.NullUUID `json:"cancelled_by_id"`
+	ItemIds       []int64       `json:"item_ids"`
+}
+
+func (q *Queries) CancelItemsByIDs(ctx context.Context, arg CancelItemsByIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, cancelItemsByIDs, arg.CancelledByID, arg.ItemIds)
 	if err != nil {
 		return 0, err
 	}

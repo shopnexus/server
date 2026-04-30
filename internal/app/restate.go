@@ -28,9 +28,6 @@ import (
 func SetupRestate(
 	cfg *config.Config,
 	orderBiz *orderbiz.OrderHandler,
-	checkoutWf *orderbiz.CheckoutWorkflowHandler,
-	confirmWf *orderbiz.ConfirmWorkflowHandler,
-	payoutWf *orderbiz.PayoutWorkflowHandler,
 	accountBiz *accountbiz.AccountHandler,
 	catalogBiz *catalogbiz.CatalogHandler,
 	commonBiz *commonbiz.CommonHandler,
@@ -49,10 +46,11 @@ func SetupRestate(
 		Bind(restate.Reflect(commonBiz)).
 		Bind(restate.Reflect(inventoryBiz)).
 		Bind(restate.Reflect(orderBiz)).
-		Bind(restate.Reflect(checkoutWf)).
-		Bind(restate.Reflect(confirmWf)).
-		Bind(restate.Reflect(payoutWf)).
 		Bind(restate.Reflect(promotionBiz))
+
+	for _, wf := range orderBiz.Workflows() {
+		srv.Bind(restate.Reflect(wf))
+	}
 
 	go func() {
 		slog.Info("Starting Restate service endpoint", "address", bindAddress)

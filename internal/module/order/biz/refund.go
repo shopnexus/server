@@ -79,7 +79,7 @@ func (b *OrderHandler) CreateBuyerRefund(
 	// Create a placeholder return transport (logistics filled in when seller accepts stage 1).
 	returnTransport, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderTransport, error) {
 		return b.storage.Querier().CreateDefaultTransport(rctx, orderdb.CreateDefaultTransportParams{
-			Option: params.ReturnTransportOption,
+			Option: params.ReturnOption,
 			Data:   json.RawMessage(`{"direction":"return"}`),
 		})
 	})
@@ -188,7 +188,7 @@ func (b *OrderHandler) ApproveRefundStage2(
 	}
 
 	// Infer buyer currency before the durable Run (cross-module call).
-	buyerCurrency, err := b.inferCurrency(ctx, order.BuyerID)
+	buyerCurrency, err := b.InferCurrency(ctx, order.BuyerID)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("infer buyer currency", err)
 	}
@@ -200,10 +200,11 @@ func (b *OrderHandler) ApproveRefundStage2(
 	if err != nil {
 		return zero, sharedmodel.WrapErr("list session txs", err)
 	}
-	var originalTxID null.Int
+	var originalTxID uuid.NullUUID
 	for _, tx := range sessionTxs {
 		if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
-			originalTxID = null.IntFrom(tx.ID)
+			originalTxID.UUID = tx.ID
+			originalTxID.Valid = true
 			break
 		}
 	}
@@ -219,7 +220,6 @@ func (b *OrderHandler) ApproveRefundStage2(
 			Note:          fmt.Sprintf("refund approved for order %s", refund.OrderID),
 			Error:         null.String{},
 			PaymentOption: null.String{},
-			WalletID:      uuid.NullUUID{},
 			Data:          json.RawMessage("{}"),
 			Amount:        -refundAmount,
 			FromCurrency:  buyerCurrency,
@@ -236,7 +236,7 @@ func (b *OrderHandler) ApproveRefundStage2(
 		updated, err := b.storage.Querier().ApproveRefundStage2(rctx, orderdb.ApproveRefundStage2Params{
 			ID:           refund.ID,
 			ApprovedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
-			RefundTxID:   null.IntFrom(refundTx.ID),
+			RefundTxID:   uuid.NullUUID{UUID: refundTx.ID, Valid: true},
 		})
 		if err != nil {
 			return orderdb.OrderRefund{}, sharedmodel.WrapErr("approve stage 2", err)

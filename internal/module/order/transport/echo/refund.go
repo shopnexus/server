@@ -36,12 +36,12 @@ func (h *Handler) CreateBuyerRefund(c echo.Context) error {
 	}
 
 	result, err := h.biz.CreateBuyerRefund(c.Request().Context(), orderbiz.CreateBuyerRefundParams{
-		Account:               claims.Account,
-		OrderID:               req.OrderID,
-		Method:                req.Method,
-		Reason:                req.Reason,
-		Address:               req.Address,
-		ReturnTransportOption: req.ReturnTransportOption,
+		Account:      claims.Account,
+		OrderID:      req.OrderID,
+		Method:       req.Method,
+		Reason:       req.Reason,
+		Address:      req.Address,
+		ReturnOption: req.ReturnTransportOption,
 	})
 	if err != nil {
 		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)

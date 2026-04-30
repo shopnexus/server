@@ -22,38 +22,6 @@ import (
 	"github.com/samber/lo"
 )
 
-// hydrateItems fetches items by IDs and enriches them with product resources.
-func (b *OrderHandler) hydrateItems(ctx restate.Context, itemIDs []int64) ([]ordermodel.OrderItem, error) {
-	if len(itemIDs) == 0 {
-		return []ordermodel.OrderItem{}, nil
-	}
-
-	dbItems, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderItem, error) {
-		return b.storage.Querier().ListItem(ctx, orderdb.ListItemParams{
-			ID: itemIDs,
-		})
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return b.enrichItems(dbItems)
-}
-
-// enrichItems converts DB items to model items (no separate resources enrichment needed here).
-func (b *OrderHandler) enrichItems(dbItems []orderdb.OrderItem) ([]ordermodel.OrderItem, error) {
-	if len(dbItems) == 0 {
-		return []ordermodel.OrderItem{}, nil
-	}
-
-	result := make([]ordermodel.OrderItem, 0, len(dbItems))
-	for _, it := range dbItems {
-		result = append(result, mapOrderItem(it))
-	}
-
-	return result, nil
-}
-
 // ListBuyerPendingItems returns paginated paid pending items for the buyer.
 func (b *OrderHandler) ListBuyerPendingItems(
 	ctx restate.Context,
@@ -95,8 +63,13 @@ func (b *OrderHandler) ListBuyerPendingItems(
 	// Attach the payment session so the FE can branch on its status —
 	// "Awaiting Payment" + Continue Payment when Pending, "Awaiting Seller" when Success.
 	if len(enriched) > 0 {
-		sessionIDs := lo.Uniq(lo.Map(enriched, func(it ordermodel.OrderItem, _ int) uuid.UUID { return it.PaymentSessionID }))
-		sessions, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPaymentSession, error) {
+		sessionIDs := lo.Uniq(lo.Map(
+			enriched,
+			func(it ordermodel.OrderItem, _ int) uuid.UUID { return it.PaymentSessionID },
+		))
+
+		var sessions []orderdb.OrderPaymentSession
+		sessions, err = restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPaymentSession, error) {
 			return b.storage.Querier().ListPaymentSession(ctx, orderdb.ListPaymentSessionParams{ID: sessionIDs})
 		})
 		if err != nil {
@@ -203,18 +176,7 @@ type RefundPendingItemParams struct {
 	PaymentSessionID uuid.UUID
 }
 
-// RefundPendingItem refunds a single paid-but-not-yet-confirmed item
-// without touching its sibling items in the same payment session.
-//
-// Saga ordering: each compensable side effect runs AFTER its compensator is
-// deferred, and the atomic Run (refund tx + cancel item) is placed last so it
-// needs no compensator. If any step fails, the deferred top-level guard fires
-// saga.Compensate() which unwinds LIFO via restate.RunVoid (idempotent retry).
-//
-//	1. find original positive Success tx (read-only, no compensator)
-//	2. release inventory  → defer re-reserve
-//	3. wallet credit      → defer wallet debit
-//	4. refund tx + cancel item (last action, no compensator)
+// RefundPendingItem refunds a single paid item (not yet confirmed)
 func (b *OrderHandler) RefundPendingItem(
 	ctx restate.Context,
 	params RefundPendingItemParams,
@@ -236,26 +198,26 @@ func (b *OrderHandler) RefundPendingItem(
 
 	// Step 1: find the original positive Success tx — refund leg reverses it.
 	// Single original tx per session (no split-tender).
-	var originalTxID null.Int
-	originalTxID, err = restate.Run(ctx, func(rctx restate.RunContext) (null.Int, error) {
+	var originalTxID uuid.NullUUID
+	originalTxID, err = restate.Run(ctx, func(rctx restate.RunContext) (uuid.NullUUID, error) {
 		var txs []orderdb.OrderTransaction
 		txs, err = b.storage.Querier().ListTransactionsBySession(rctx, params.PaymentSessionID)
 		if err != nil {
-			return null.Int{}, err
+			return uuid.NullUUID{}, err
 		}
 		for _, tx := range txs {
 			if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
-				return null.IntFrom(tx.ID), nil
+				return uuid.NullUUID{UUID: tx.ID, Valid: true}, nil
 			}
 		}
-		return null.Int{}, ordermodel.ErrOrderItemNotFound
+		return uuid.NullUUID{}, ordermodel.ErrOrderItemNotFound
 	})
 	if err != nil {
 		return sharedmodel.WrapErr("find original tx", err)
 	}
 
-	// Step 2: release inventory. Compensator re-reserves so cancellation rollback
-	// restores stock state.
+	// Step 2: release inventory
+	// Compensator re-reserves so cancellation rollback
 	sagaTx.Defer("reserve_inventory", func(rctx restate.RunContext) error {
 		_, e := b.inventory.ReserveInventory(rctx, inventorybiz.ReserveInventoryParams{
 			Items: []inventorybiz.ReserveInventoryItem{{
@@ -276,13 +238,11 @@ func (b *OrderHandler) RefundPendingItem(
 		return sharedmodel.WrapErr("release inventory", err)
 	}
 
-	// Step 3: credit only the partial item amount. CreditFromSession would
-	// over-credit (it sums all positive Success txs in the session, ignoring
-	// our negative refund leg). Direct WalletCredit with an item-scoped
-	// Reference is the right primitive for partial refunds.
+	// Step 3: credit only the partial item amount
+	// Compensator debits the same amount
 	creditRef := fmt.Sprintf("partial-refund:item:%d", params.Item.ID)
 	sagaTx.Defer("wallet_debit", func(rctx restate.RunContext) error {
-		_, e := b.account.WalletDebit(rctx, accountbiz.WalletDebitParams{
+		_, e := b.walletDebit(rctx, WalletDebitParams{
 			AccountID: params.Item.AccountID,
 			Amount:    params.Item.TotalAmount,
 			Reference: "rollback:" + creditRef,
@@ -290,19 +250,26 @@ func (b *OrderHandler) RefundPendingItem(
 		})
 		return e
 	})
-	if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
-		AccountID: params.Item.AccountID,
-		Amount:    params.Item.TotalAmount,
-		Type:      "Refund",
-		Reference: creditRef,
-		Note:      "buyer cancel pre-confirm partial refund",
+	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+		return b.walletCredit(rctx, WalletCreditParams{
+			AccountID: params.Item.AccountID,
+			Amount:    params.Item.TotalAmount,
+			Type:      "Refund",
+			Reference: creditRef,
+			Note:      "buyer cancel pre-confirm partial refund",
+		})
 	}); err != nil {
 		return sharedmodel.WrapErr("credit buyer wallet", err)
 	}
 
 	// Step 4 (last, no compensator): atomic refund tx + cancel item.
 	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-		if _, e := b.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+		txStorage, e := b.storage.BeginTx(rctx)
+		if e != nil {
+			return sharedmodel.WrapErr("begin tx", e)
+		}
+
+		if _, e = txStorage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
 			SessionID:    params.PaymentSessionID,
 			Status:       orderdb.OrderStatusSuccess,
 			Note:         "buyer cancel pre-confirm",
@@ -316,15 +283,16 @@ func (b *OrderHandler) RefundPendingItem(
 		}); e != nil {
 			return sharedmodel.WrapErr("db create refund tx", e)
 		}
-		if _, e := b.storage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
+		if _, e = txStorage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
 			CancelledByID: uuid.NullUUID{UUID: params.Item.AccountID, Valid: true},
 			ID:            params.Item.ID,
 		}); e != nil {
 			return sharedmodel.WrapErr("db cancel item", e)
 		}
-		return nil
+
+		return txStorage.Commit(rctx)
 	}); err != nil {
-		return err
+		return sharedmodel.WrapErr("refund tx + cancel item", err)
 	}
 
 	return nil
