@@ -35,6 +35,10 @@ type OrderBiz interface {
 	) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 	CancelBuyerPending(ctx context.Context, params CancelBuyerPendingParams) error
 	RefundPendingItem(ctx context.Context, params RefundPendingItemParams) error
+	ListBuyerPendingOrders(ctx context.Context, params ListBuyerPendingOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListBuyerCompletedOrders(ctx context.Context, params ListBuyerCompletedOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListBuyerCancelledOrders(ctx context.Context, params ListBuyerCancelledOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error)
+	ListBuyerCancelledItems(ctx context.Context, params ListBuyerCancelledItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error)
 
 	// Incoming Items (seller)
 	ListSellerPendingItems(
@@ -203,6 +207,26 @@ type ListBuyerPendingItemsParams struct {
 type CancelBuyerPendingParams struct {
 	AccountID uuid.UUID `validate:"required"`
 	ItemID    int64     `validate:"required"`
+}
+
+type ListBuyerPendingOrdersParams struct {
+	BuyerID uuid.UUID `json:"buyer_id" validate:"required"`
+	sharedmodel.PaginationParams
+}
+
+type ListBuyerCompletedOrdersParams struct {
+	BuyerID uuid.UUID `json:"buyer_id" validate:"required"`
+	sharedmodel.PaginationParams
+}
+
+type ListBuyerCancelledOrdersParams struct {
+	BuyerID uuid.UUID `json:"buyer_id" validate:"required"`
+	sharedmodel.PaginationParams
+}
+
+type ListBuyerCancelledItemsParams struct {
+	AccountID uuid.UUID `json:"account_id" validate:"required"`
+	sharedmodel.PaginationParams
 }
 
 type ListSellerPendingItemsParams struct {

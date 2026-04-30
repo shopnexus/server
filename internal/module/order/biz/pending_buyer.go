@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"github.com/samber/lo"
 )
 
 // ListBuyerPendingItems returns paginated paid pending items for the buyer.
@@ -27,71 +26,21 @@ func (b *OrderHandler) ListBuyerPendingItems(
 	ctx restate.Context,
 	params ListBuyerPendingItemsParams,
 ) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
-	var zero sharedmodel.PaginateResult[ordermodel.OrderItem]
-
 	if err := validator.Validate(params); err != nil {
-		return zero, sharedmodel.WrapErr("validate list pending items", err)
+		return sharedmodel.PaginateResult[ordermodel.OrderItem]{}, sharedmodel.WrapErr("validate list pending items", err)
 	}
-
-	type pendingResult struct {
-		Items []orderdb.OrderItem `json:"items"`
-		Total int64               `json:"total"`
-	}
-
-	dbResult, err := restate.Run(ctx, func(ctx restate.RunContext) (pendingResult, error) {
-		items, err := b.storage.Querier().ListBuyerPendingItems(ctx, params.AccountID)
-		if err != nil {
-			return pendingResult{}, err
-		}
-
-		total, err := b.storage.Querier().CountBuyerPendingItems(ctx, params.AccountID)
-		if err != nil {
-			return pendingResult{}, err
-		}
-
-		return pendingResult{Items: items, Total: total}, nil
-	})
-	if err != nil {
-		return zero, sharedmodel.WrapErr("db list pending items", err)
-	}
-
-	enriched, err := b.enrichItems(dbResult.Items)
-	if err != nil {
-		return zero, sharedmodel.WrapErr("enrich pending items", err)
-	}
-
-	// Attach the payment session so the FE can branch on its status —
-	// "Awaiting Payment" + Continue Payment when Pending, "Awaiting Seller" when Success.
-	if len(enriched) > 0 {
-		sessionIDs := lo.Uniq(lo.Map(
-			enriched,
-			func(it ordermodel.OrderItem, _ int) uuid.UUID { return it.PaymentSessionID },
-		))
-
-		var sessions []orderdb.OrderPaymentSession
-		sessions, err = restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderPaymentSession, error) {
-			return b.storage.Querier().ListPaymentSession(ctx, orderdb.ListPaymentSessionParams{ID: sessionIDs})
-		})
-		if err != nil {
-			return zero, sharedmodel.WrapErr("db fetch payment sessions", err)
-		}
-		sessionMap := lo.KeyBy(sessions, func(s orderdb.OrderPaymentSession) uuid.UUID { return s.ID })
-		for i := range enriched {
-			if s, ok := sessionMap[enriched[i].PaymentSessionID]; ok {
-				mapped := mapPaymentSession(s)
-				enriched[i].PaymentSession = &mapped
+	return b.listBuyerItems(ctx, params.PaginationParams, params.AccountID,
+		func(rctx restate.RunContext, accountID uuid.UUID) ([]orderdb.OrderItem, int64, error) {
+			items, err := b.storage.Querier().ListBuyerPendingItems(rctx, accountID)
+			if err != nil {
+				return nil, 0, err
 			}
-		}
-	}
-
-	var totalVal null.Int64
-	totalVal.SetValid(dbResult.Total)
-
-	return sharedmodel.PaginateResult[ordermodel.OrderItem]{
-		PageParams: params.PaginationParams,
-		Total:      totalVal,
-		Data:       enriched,
-	}, nil
+			total, err := b.storage.Querier().CountBuyerPendingItems(rctx, accountID)
+			if err != nil {
+				return nil, 0, err
+			}
+			return items, total, nil
+		})
 }
 
 // CancelBuyerPending cancels a pre-confirm pending item. Branches on the

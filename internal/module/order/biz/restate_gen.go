@@ -36,6 +36,22 @@ func (p *OrderRestateClient) RefundPendingItem(ctx context.Context, params Refun
 	return restateclient.Send(ctx, p.client, serviceName, "RefundPendingItem", params)
 }
 
+func (p *OrderRestateClient) ListBuyerPendingOrders(ctx context.Context, params ListBuyerPendingOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListBuyerPendingOrders", params)
+}
+
+func (p *OrderRestateClient) ListBuyerCompletedOrders(ctx context.Context, params ListBuyerCompletedOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListBuyerCompletedOrders", params)
+}
+
+func (p *OrderRestateClient) ListBuyerCancelledOrders(ctx context.Context, params ListBuyerCancelledOrdersParams) (sharedmodel.PaginateResult[ordermodel.Order], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.Order]](ctx, p.client, serviceName, "ListBuyerCancelledOrders", params)
+}
+
+func (p *OrderRestateClient) ListBuyerCancelledItems(ctx context.Context, params ListBuyerCancelledItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
+	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListBuyerCancelledItems", params)
+}
+
 func (p *OrderRestateClient) ListSellerPendingItems(ctx context.Context, params ListSellerPendingItemsParams) (sharedmodel.PaginateResult[ordermodel.OrderItem], error) {
 	return restateclient.Call[sharedmodel.PaginateResult[ordermodel.OrderItem]](ctx, p.client, serviceName, "ListSellerPendingItems", params)
 }
