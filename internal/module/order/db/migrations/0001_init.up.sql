@@ -250,3 +250,20 @@ CREATE TABLE IF NOT EXISTS "order"."refund_dispute" (
 CREATE INDEX IF NOT EXISTS "refund_dispute_refund_id_idx" ON "order"."refund_dispute" ("refund_id");
 CREATE INDEX IF NOT EXISTS "refund_dispute_account_id_idx" ON "order"."refund_dispute" ("account_id");
 CREATE INDEX IF NOT EXISTS "refund_dispute_resolved_by_id_idx" ON "order"."refund_dispute" ("resolved_by_id");
+
+-- Order cancellation predicate. Three nullable status columns combine into one
+-- boolean: any of confirm/transport/payout in ('Failed', 'Cancelled') means
+-- the order is cancelled. NULL inputs (e.g. payout session not yet created,
+-- transport row pre-shipment) coerce to FALSE so a missing leg never makes
+-- an active order look cancelled. Used by ListBuyer{Pending,Completed,Cancelled}Orders.
+CREATE OR REPLACE FUNCTION "order".is_cancelled(
+    confirm_status   "order"."status",
+    transport_status "order"."status",
+    payout_status    "order"."status"
+) RETURNS BOOLEAN
+LANGUAGE SQL IMMUTABLE
+AS $$
+    SELECT COALESCE(confirm_status   IN ('Failed', 'Cancelled'), FALSE)
+        OR COALESCE(transport_status IN ('Failed', 'Cancelled'), FALSE)
+        OR COALESCE(payout_status    IN ('Failed', 'Cancelled'), FALSE);
+$$;
