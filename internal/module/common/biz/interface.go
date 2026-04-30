@@ -27,6 +27,7 @@ type CommonBiz interface {
 	// Option
 	ListOption(ctx context.Context, params ListOptionParams) ([]sharedmodel.Option, error)
 	UpsertOptions(ctx context.Context, params UpsertOptionsParams) error
+	DeleteOptions(ctx context.Context, params DeleteOptionParams) error
 
 	// Resource
 	UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error)

@@ -20,6 +20,10 @@ type UpsertOptionsParams struct {
 	Configs  []sharedmodel.Option `json:"configs"  validate:"required"`
 }
 
+type DeleteOptionParams struct {
+	IDs []string `json:"ids" validate:"required,min=1"`
+}
+
 // UpsertOptions persists a batch of service options (insert or update by ID).
 func (b *CommonHandler) UpsertOptions(ctx restate.Context, params UpsertOptionsParams) error {
 	return b.upsertOptions(ctx, params)
@@ -48,6 +52,20 @@ func (b *CommonHandler) upsertOptions(ctx context.Context, params UpsertOptionsP
 		}); err != nil {
 			return sharedmodel.WrapErr("db upsert option", err)
 		}
+	}
+	return nil
+}
+
+// DeleteOptions deletes options by ID. Idempotent — missing IDs are silently
+// ignored at the SQL layer (DELETE … WHERE id = ANY(...)).
+func (b *CommonHandler) DeleteOptions(ctx restate.Context, params DeleteOptionParams) error {
+	if err := validator.Validate(params); err != nil {
+		return sharedmodel.WrapErr("validate delete options", err)
+	}
+	if err := b.storage.Querier().DeleteOption(ctx, commondb.DeleteOptionParams{
+		ID: params.IDs,
+	}); err != nil {
+		return sharedmodel.WrapErr("db delete option", err)
 	}
 	return nil
 }

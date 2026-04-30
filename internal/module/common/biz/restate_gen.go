@@ -36,6 +36,10 @@ func (p *CommonRestateClient) UpsertOptions(ctx context.Context, params UpsertOp
 	return restateclient.Send(ctx, p.client, serviceName, "UpsertOptions", params)
 }
 
+func (p *CommonRestateClient) DeleteOptions(ctx context.Context, params DeleteOptionParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "DeleteOptions", params)
+}
+
 func (p *CommonRestateClient) UpdateResources(ctx context.Context, params UpdateResourcesParams) ([]commonmodel.Resource, error) {
 	return restateclient.Call[[]commonmodel.Resource](ctx, p.client, serviceName, "UpdateResources", params)
 }

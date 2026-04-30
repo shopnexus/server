@@ -32,3 +32,31 @@ func (h *Handler) ListServiceOption(c echo.Context) error {
 
 	return response.FromDTO(c.Response().Writer, http.StatusOK, result)
 }
+
+func (h *Handler) UpsertOptions(c echo.Context) error {
+	var req commonbiz.UpsertOptionsParams
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := h.biz.UpsertOptions(c.Request().Context(), req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromMessage(c.Response().Writer, http.StatusOK, "Options upserted")
+}
+
+func (h *Handler) DeleteOptions(c echo.Context) error {
+	var req commonbiz.DeleteOptionParams
+	if err := c.Bind(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, err)
+	}
+	if err := h.biz.DeleteOptions(c.Request().Context(), req); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromMessage(c.Response().Writer, http.StatusOK, "Options deleted")
+}
