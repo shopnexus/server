@@ -41,7 +41,7 @@ func main() {
 	defer pool.Close()
 
 	// Load product data
-	data, err := os.ReadFile("data.json")
+	data, err := os.ReadFile("assets/data.json")
 	if err != nil {
 		log.Fatalf("failed to read data.json: %v", err)
 	}
