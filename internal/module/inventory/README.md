@@ -2,8 +2,6 @@
 
 Stock management with serial number tracking and audit trail. Provides reserve/release operations consumed by the order module during checkout and cancellation.
 
-**Handler**: `InventoryHandler` | **Interface**: `InventoryBiz` | **Restate service**: `"Inventory"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->
@@ -12,6 +10,9 @@ erDiagram
 "inventory.serial" }o--|| "inventory.stock" : "stock_id"
 "inventory.stock_history" }o--|| "inventory.stock" : "stock_id"
 
+"inventory.idempotency" {
+  uuid key
+}
 "inventory.serial" {
   text id
   bigint stock_id

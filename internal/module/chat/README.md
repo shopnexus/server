@@ -2,8 +2,6 @@
 
 Messaging between any two accounts. REST API for conversation management, message sending, and message history.
 
-**Handler**: `ChatHandler` | **Interface**: `ChatBiz` | **Restate service**: `"Chat"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->

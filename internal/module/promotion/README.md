@@ -2,8 +2,6 @@
 
 Manages promotional campaigns and computes promoted prices for the order/checkout flow. Supports multiple discount types with group-based stacking rules.
 
-**Handler**: `PromotionHandler` | **Interface**: `PromotionBiz` | **Restate service**: `"Promotion"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->

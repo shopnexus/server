@@ -2,8 +2,6 @@
 
 Product catalog with SPU/SKU model, categories, tags, comments/reviews, hybrid search, and personalized recommendations.
 
-**Handler**: `CatalogHandler` | **Interface**: `CatalogBiz` | **Restate service**: `"Catalog"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->

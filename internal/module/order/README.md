@@ -2,8 +2,6 @@
 
 Manages the full order lifecycle: cart, checkout, seller confirmation, payment, delivery, cancellation, and refunds. The most complex module in the system — orchestrates inventory, transport, payment, and promotion modules.
 
-**Handler**: `OrderHandler` | **Interface**: `OrderBiz` | **Restate service**: `"Order"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->
@@ -86,7 +84,7 @@ erDiagram
   text rejection_note
   uuid approved_by_id
   timestamptz date_approved
-  bigint refund_tx_id
+  uuid refund_tx_id
 }
 "order.refund_dispute" {
   uuid id
@@ -100,37 +98,35 @@ erDiagram
   timestamptz date_resolved
 }
 "order.transaction" {
-  bigint id
+  uuid id
   uuid session_id
   status status
   text note
   text error
   text payment_option
-  uuid wallet_id
   jsonb data
   bigint amount
   varchar(3) from_currency
   varchar(3) to_currency
   numeric exchange_rate
-  bigint reverses_id
+  uuid reverses_id
   timestamptz date_created
   timestamptz date_settled
   timestamptz date_expired
 }
 "order.transaction_settled" {
-  bigint id
+  uuid id
   uuid session_id
   status status
   text note
   text error
   text payment_option
-  uuid wallet_id
   jsonb data
   bigint amount
   varchar(3) from_currency
   varchar(3) to_currency
   numeric exchange_rate
-  bigint reverses_id
+  uuid reverses_id
   timestamptz date_created
   timestamptz date_settled
   timestamptz date_expired

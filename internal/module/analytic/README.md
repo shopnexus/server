@@ -2,8 +2,6 @@
 
 Tracks user interactions and computes real-time product popularity scores. Interactions are recorded via Restate durable execution, then fanned out to popularity scoring and catalog recommendation updates using fire-and-forget calls.
 
-**Handler**: `AnalyticHandler` | **Interface**: `AnalyticBiz` | **Restate service**: `"Analytic"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->

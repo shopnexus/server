@@ -2,16 +2,26 @@
 
 Shared infrastructure services: resource management, object storage, service options registry, geocoding, and server-sent events.
 
-**Handler**: `CommonHandler` | **Interface**: `CommonBiz` | **Restate service**: `"Common"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->
 ```mermaid
 erDiagram
 "common.resource_reference" }o--|| "common.resource" : "rs_id"
-"common.service_option" }o--|o "common.resource" : "logo_rs_id"
+"common.option" }o--|o "common.resource" : "logo_rs_id"
 
+"common.option" {
+  varchar(100) id
+  uuid owner_id
+  boolean is_enabled
+  text name
+  text description
+  integer priority
+  uuid logo_rs_id
+  jsonb data
+  text type
+  text provider
+}
 "common.resource" {
   uuid id
   uuid uploaded_by_id
@@ -29,17 +39,6 @@ erDiagram
   resource_ref_type ref_type
   uuid ref_id
   integer order
-}
-"common.service_option" {
-  varchar(100) id
-  text category
-  text provider
-  boolean is_enabled
-  text name
-  text description
-  integer priority
-  jsonb config
-  uuid logo_rs_id
 }
 ```
 <!--END_SECTION:mermaid-->
@@ -105,6 +104,7 @@ Use the `ConvertAmount` biz method for backend-side cross-currency math.
 Frontend reads the snapshot via `GET /api/v1/common/currencies/rates`.
 
 Config keys (under `app.exchange`):
+
 - `base` — storage base currency (USD)
 - `supported` — whitelist of supported codes
 - `refreshInterval` — cron interval

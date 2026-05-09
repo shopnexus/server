@@ -2,8 +2,6 @@
 
 Handles user identity, authentication, and account-related data. Accounts are **unified** — any account can act as both buyer and seller. There are no separate customer/vendor account types.
 
-**Handler**: `AccountHandler` | **Interface**: `AccountBiz` | **Restate service**: `"Account"`
-
 ## ER Diagram
 
 <!--START_SECTION:mermaid-->
@@ -70,7 +68,7 @@ erDiagram
   boolean email_verified
   boolean phone_verified
   timestamptz date_created
-  bigint balance
+  bigint internal_balance
   varchar(2) country
   uuid default_contact_id
   uuid default_wallet_id
