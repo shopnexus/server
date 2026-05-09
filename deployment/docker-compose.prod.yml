@@ -1,7 +1,6 @@
 volumes:
   postgres-data:
   redis-data:
-  nats-data:
   es-data:
   minio-data:
   milvus-data:
@@ -89,32 +88,6 @@ services:
           cpus: "0.25"
           memory: 256M
 
-  nats:
-    container_name: shopnexus-nats-prod
-    image: nats:latest
-    # Production: Don't expose ports externally, only internal network access
-    # ports:
-    #   - "4222:4222"
-    command: ["--jetstream", "--store_dir", "/data"]
-    volumes:
-      - nats-data:/data
-    healthcheck:
-      test: ["CMD", "nats-server", "--signal", "ldm"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
-    restart: always
-    # Production: Add resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 512M
-        reservations:
-          cpus: "0.25"
-          memory: 128M
-
   minio:
     container_name: shopnexus-minio-prod
     image: quay.io/minio/minio
@@ -194,8 +167,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      nats:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
