@@ -25,6 +25,7 @@ go.work.sum
 .env
 config/config.*.yml
 !config/config.default.yml
+**/config.dev.yml
 
 .vscode/
 .idea/
@@ -32,7 +33,6 @@ config/config.*.yml
 node_modules/
 
 tmp/
-tmpclaude*
 internal/module/embedding
 
 # Compiled tool binaries
@@ -43,4 +43,8 @@ erdiagram
 /pgtempl
 /erdiagram
 
-.claude
+
+latex
+typst
+docs
+example
