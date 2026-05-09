@@ -5,7 +5,7 @@
 A marketplace backend in Go — **microservices in a monorepo**, orchestrated by [Restate](https://restate.dev) durable execution.
 
 > Development timeline: [timeline.md](assets/timeline.md)
-> 
+>
 > Code convention: [convention.md](assets/convention.md)
 
 ## Architecture
@@ -14,22 +14,22 @@ Eight vertical-slice modules, each owning their database schema, business logic,
 
 ## Request Flow
 
-```mermaid
-flowchart LR
-    Client([Client]) -->|request| HTTP["HTTP Transport"]
-    HTTP -->|calls| Proxy["Biz Proxy\n(generated)"]
-    Proxy -->|HTTP| Ingress["Restate\nIngress"]
-    Ingress -->|routes to| Service["Service Handler"]
-    Service -->|"restate.Run()"| Store["Store\n(DB / external)"]
-```
+Every call goes through a **proxy interface** that mirrors each service's method signatures — callers invoke it as if it were the service itself, while the proxy forwards the request over HTTP to the Restate ingress, which then routes it to the target service.
 
-Cross-service calls follow the exact same path — Service A doesn't call Service B directly, it goes through the proxy and Restate ingress:
+![flow1.jpg](assets/flow1.png)
 
-```mermaid
-flowchart LR
-    ServiceA["Service A"] -->|calls| ProxyB["Service B Proxy\n(generated)"]
-    ProxyB -->|HTTP| Ingress["Restate\nIngress"]
-    Ingress -->|routes to| ServiceB["Service B"]
+Cross-service calls take the exact same path — Service A never calls Service B directly. Both external traffic and inter-service calls fan in through the proxy and the Restate ingress, so durability, retries, and observability apply uniformly to every call in the system.
+
+![flow2.jpg](assets/flow2.png)
+
+For example, the order module depends on `InventoryBiz` as an **interface**, so the call site reads like an ordinary in-process method call:
+
+```go
+// Module "order" calling to "inventory" through the proxy interface
+inventories, err := orderbiz.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
+    OrderID: order.ID,
+    Items:   items,
+})
 ```
 
 ## Restate Durable Execution
