@@ -2,11 +2,11 @@
 
 ## 29-8-2025 First request only take 10ms
 
-![img.png](assets/img.png)
+![img.png](img.png)
 
 #### N+1 query btw but still blazingly fast
 
-![img.png](assets/img2.png)
+![img.png](img2.png)
 
 ## 4-9-2025 Found a way to write better queries with sqlc.slice
 
@@ -22,13 +22,13 @@ WHERE (
 
 ## 5-9-2025 List products with calculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
 
-![img.png](assets/img3.png)
+![img.png](img3.png)
 
 ## 8-9-2025 Custom type need to be registered to pgx (pgxpool.go)
 
 Any custom DB types made with CREATE TYPE need to be registered with pgx.
 <https://github.com/kyleconroy/sqlc/issues/2116>
-![img.png](assets/img4.png)
+![img.png](img4.png)
 
 ## 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods
 
@@ -96,9 +96,9 @@ Also when finding subcribers, I can search globally by "OrderCreated*" or "Order
 - Elasticsearch is great, but vector databases are the future.
 - After certain days with elasticsearch, found it is not suitable for vector search.
 - As I remember, I was using model MGTE (alibaba) storing 200rows took 8mb of storage
-![img.png](assets/img5.png)
+![img.png](img5.png)
 - Inserting into milvus took 60seconds per 100 products
-![img.png](assets/img6.png)
+![img.png](img6.png)
 
 ## 7-10-2025 Refactor payment and transport with better interface
 
@@ -164,7 +164,7 @@ Add transaction callback to storage interface to reduce boilerplate code when us
 - With this approach, you can pass the preferStorage from outer biz layer to inner biz layer when both layers need to use transaction. Eg: CreateComment which calls UpdateResources atomically.
 - You can choose to have a nested transaction by setting allowNestedTx (default: false) to true in NewTxQueries.
 
-![img.png](assets/img7.png)
+![img.png](img7.png)
 
 ## 8-11-2025 Use errors.Join instead of my own errutil.Some
 
@@ -195,7 +195,7 @@ err := errutil.Some(err1, err2, err3)
 - Now support register all custom types for encode plans in pgxpool instead of hardcoded type names (internal/infras/pg/pg.go)
 - Remove the global config.GetConfig() calls, pass the config struct to each service biz layer instead for better testability and reduce coupling
 
-![alt text](assets/img8.png)
+![alt text](img8.png)
 
 ## 1-12-2025 Database per service
 
@@ -227,84 +227,28 @@ The big architecture shift: instead of direct function calls between modules, ev
 - Auto-generate Restate HTTP proxy clients from interface definitions (`cmd/genrestate`)
 - Rename: `XxxClient` → `XxxBiz` (interface), `XxxBiz` → `XxxHandler` (struct)
 
-![alt text](assets/img9.png)
+![alt text](img9.png)
 
-## 27-3-2026 Massive schema and API refactor
+## 27-3-2026 The big merge: customer and vendor become one account
 
-- Merge customer/vendor into single account (any account can both buy and sell)
-- Decouple checkout from order creation (checkout → pending items → seller confirms → order created)
-- Add notifications system (in-app notifications via Restate fire-and-forget)
-- Add geocoding with Nominatim (OpenStreetMap) for address search
-- Add LLM package with Client interface supporting Python/OpenAI/Bedrock providers
-- Wrap all bare error returns with context across all biz handlers
+I had two account types — `customer` and `vendor` — with separate auth, separate profile tables, separate dashboards. Realised that was over-engineered: a marketplace should let any account both buy and sell. So I merged them.
 
-<!-- image: screenshot of the new checkout flow (pending items → confirm → order) -->
+- One `account` table, one auth flow. Orders carry `buyer_id` and `seller_id` per transaction.
+- Decoupled checkout from order creation: checkout now produces *pending items*, seller confirms, *then* the order exists.
+- In-app notifications via Restate `ServiceSend` (durable fire-and-forget, no MQ needed).
+- Geocoding via Nominatim (OpenStreetMap), so address search doesn't need a paid API.
+- An `LLM` package with a `Client` interface — Python backend, OpenAI, AWS Bedrock all swappable.
 
-## 28-3-2026 Rewrite all module READMEs with auto-generated Mermaid diagrams
+Boring but worth it: wrapped every bare `return err` with context (`fmt.Errorf("get account: %w", err)`). Paid off two weeks later when I was tracing a refund bug.
 
-- Add script to generate Mermaid ER diagrams from migration SQL files
-- Each module README now has an auto-generated schema diagram
-- Restructure infras → provider (geocoding, payment, transport)
+## 30-3-2026 Payment provider self-registration
 
-## 30-3-2026 The big feature sprint
-
-### Remove brand concept
-
-- Brand was over-engineering, replaced with a "Brand" specification entry on products
-- Delete brand table, queries, biz, transport, and all FE references
-
-### Fix Restate error propagation
-
-One of the trickiest bugs: HTTP status codes were being lost when errors crossed Restate service boundaries. A 409 Conflict from inventory became a 500 Internal Server Error at the API layer.
-
-- Parse error messages from Restate JSON responses to extract original error text
-- Preserve HTTP status codes in terminal errors across service calls
-- Fix `WrapErr` to not duplicate `[CODE]` prefix when wrapping terminal errors
-
-### Enrich product detail page
-
-- Add total sold count (from inventory stock taken)
-- Add vendor stats (product count, average rating, total sold, response rate)
-- Add stock status, price range, share button (Web Share API), tags display
-- Wire wishlist (add/remove favorite)
-- Buy Now confirmation dialog with price breakdown
-
-<!-- image: screenshot of the enriched product detail page -->
-
-### Seller product management
-
-- Product edit page with dirty tracking (`useDirty` hook) for PATCH-only updates
-- Shared `ProductSPUForm` component for create/edit with `formKey` for Quill remount
-- Stock management dialog with serial support (auto-generate vs custom IDs)
-- Stale embedding/metadata badges on product listing
-
-<!-- image: screenshot of the seller product edit page with stock dialog -->
-
-### Fix resource reference deletion bug
-
-Critical bug: `DeleteResourceReference` was called without `RefID` filter, causing `nil` RefID to match ALL rows via `$4 IS NULL` SQL clause. After creating a product with 4 images, it would delete ALL resource references in the system.
-
-### Optimize search sync
-
-- Search sync cron now rechecks `is_stale_embedding`/`is_stale_metadata` before processing
-- Stale flags only cleared after successful embedding + Milvus upsert
-- Strip HTML from descriptions before embedding using `x/net/html` tokenizer
-
-### Seed data overhaul
-
-- Refactor seed into 6 files with proper transaction support (per product)
-- 5 vendor accounts with bcrypt passwords and faker profiles
-- 3-12 enriched reviews per product with multiple reviewers
-
-### Redesign payment client interface
-
-Major payment system redesign with provider self-registration pattern:
+Refactored payments around one interface, with each provider registering its own webhook routes:
 
 ```go
 type Client interface {
     Config() sharedmodel.OptionConfig
     Create(ctx, CreateParams) (CreateResult, error)
-    Get(ctx, providerID) (PaymentInfo, error)
     OnResult(fn ResultHandler)
     InitializeWebhook(e *echo.Echo)
     Charge(ctx, ChargeParams) (ChargeResult, error)
@@ -313,35 +257,77 @@ type Client interface {
 }
 ```
 
-- Each provider registers its own webhook route via `OnResult` + `InitializeWebhook`
-- Add SePay payment gateway (Vietnamese hosted checkout with HMAC-SHA256 signing)
-- Add stub card payment provider for future credit/debit card support
-- `Charge`/`Refund`/`Tokenize` for saved card payments (interface ready, processor TBD)
-- Remove COD payment
+Added SePay (Vietnamese hosted checkout, HMAC-SHA256), kept VNPay, dropped COD. `Tokenize` opens the door to saved cards — `PayOrders` now branches on a `pm:` prefix (saved card) vs a redirect-provider slug.
 
-### Payment method refactor
+Smaller wins on the same day: stripped HTML from product descriptions before embedding (using `x/net/html`); only clear the `is_stale_*` flag *after* both embedding generation *and* Milvus upsert succeed (a successful embedding + failed Milvus was leaving the flag clean and the data dirty).
 
-- Buyers can save credit/debit cards (tokenized) for one-click payments
-- `PayOrders` branches on `pm:` prefix (card charge) vs redirect option slug
-- Auto-refund to original card when refund is confirmed
-- Payment method selector dialog on buyer order pages (saved cards + redirect providers)
-- Redirect URLs now open in new tab with "Complete Payment" re-open button
-- Store redirect URL in payment `data` JSONB for re-opening
+## 5-4-2026 Milvus redesign: scalar filters, drop the Postgres re-filter
 
-<!-- image: screenshot of the payment method selector dialog -->
+Old pipeline: vector search in Milvus → list of IDs → re-filter in Postgres for category/price/availability → return. Two round-trips, and the Postgres step often shrunk results below the requested page size.
 
-### Wire product images everywhere
+New pipeline: filters live as scalar fields *in Milvus*, hybrid search returns final results in one call, no Postgres re-filter.
 
-- All 6 order/item pages (seller orders, seller order detail, incoming items, buyer orders, buyer order detail, pending items) now show product images instead of Package icon placeholder
+Embeddings enriched too — the SPU's embedding now includes its category path and tags, not just title + description. Search for "leather jacket" now matches a product tagged `leather` even if the word never appears in the description.
 
-### Search and filter APIs
+Also added `WithTimeout(d)` to the Milvus client. Previously a Milvus outage caused 22-second handler hangs because the default deadline was effectively infinite.
 
-- Add server-side search to incoming items (ILIKE on sku_name)
-- Add server-side search + status filter to seller orders
-- FE debounced search passed to API instead of client-side filtering
+## 12-4-2026 Pay-first checkout (escrow flow)
 
-### Milvus timeout
+Old flow: buyer clicks Buy → order created (pending) → seller confirms → buyer pays. Problem: sellers were confirming orders that buyers never paid for. Inventory got reserved for nothing.
 
-- Add `WithTimeout(d)` fluent API to Milvus client
-- All Milvus operations (Query, Search, HybridSearch) respect timeout
-- Prevents 22s hangs when Milvus is down (now fails in 5s)
+New flow: buyer pays *first* into escrow → seller confirms → funds release on delivery. Seller rejects → buyer auto-refunded.
+
+Deep change. Had to:
+
+- Add a wallet/balance system on `account` (escrow needs somewhere to sit).
+- Rewrite checkout, confirm, reject, timeout flows.
+- Introduce a saga helper so a half-confirmed order with a paid-but-not-released payment unwinds cleanly:
+
+```go
+err = saga.Defer(ctx, func(ctx restate.Context) error {
+    return refundToWallet(ctx, sessionID)
+})
+```
+
+If anything after that line errors out, deferred compensators run in reverse order. Saga is the right pattern for "almost-succeeded transactions."
+
+Also had to update the thesis (yes, this is a thesis project). Six chapters of activity diagrams needed to reflect the new flow. That hurt more than the code.
+
+## 22-4-2026 Transaction ledger and 2-stage refund
+
+Old refund model: partial refund mutated the original transaction. Lost history, hard to audit.
+
+New model: a transaction *ledger*. Every payment, refund, payout, dispute is its own row. 2-stage refund: buyer requests → seller approves (or auto-approves after timeout) → wallet credited → optional gateway refund. Either party can open a dispute with a required note.
+
+Schema-side: `order.transaction` becomes append-only, `reverses_id` links a refund back to the original payment, delivery → escrow timer → payout release (durably scheduled via Restate). Migration script processes orders in batches and validates totals match before/after — no drift.
+
+## 26-4-2026 Multi-currency from scratch
+
+The system had been single-currency (VND, hardcoded). Time to fix that.
+
+- Every monetary column gets a `currency` companion (CHAR(3), ISO 4217).
+- Storage base is USD — internal math always in USD, display converts to the reader's preferred currency.
+- `profile.preferred_currency` for buyers; `account.country` (with the country's primary currency) for sellers.
+- Exchange rate cron pulls from frankfurter.app hourly, snapshots into `common.exchange_rate`. Migrated to currencyapi.com later for higher request limits.
+- At checkout, the FX rate is *snapshotted* into the order. A cross-currency order keeps its conversion rate forever, even if the rate moves the next day.
+- Sellers can only list products in their country's currency. Buyers can pay in any supported currency; the wallet handles the conversion.
+
+Found out monetary precision matters. Stored as `bigint` of *minor units × 10^decimals*. Used `x/text/currency` to look up decimals per ISO code (yen has 0, dinar has 3, dollar has 2). Divided all existing data by 1e9 in a migration to align to the new scale.
+
+Multi-currency wallet: one account holds balances in multiple currencies. Refunds credit back to the *original* currency, not the buyer's preferred display currency.
+
+## 30-4-2026 Workflow refactor: every order step is a Restate workflow
+
+The order flow was a tangle of methods calling each other across modules. Pay → confirm → ship → deliver → release. Each step needed idempotency, retry, compensator on failure. Biz layer was 60% boilerplate, 40% logic.
+
+Refactored everything into Restate workflows:
+
+- `CheckoutWorkflow` — buyer clicks pay → payment session created.
+- `ConfirmWorkflow` — seller confirms → transport booked + escrow held.
+- `PayoutWorkflow` — delivery confirmed (or escrow timer fires) → seller paid.
+
+Each workflow owns its journal, compensators, retry policy. Biz methods became thin: receive request, start workflow, return.
+
+Saga compensators live in `internal/shared/saga`. A tiny helper that registers a `func(restate.Context) error` to run on error. Compensators run in reverse order, and they're allowed to be idempotent on missing keys (since the compensated step may not have run).
+
+Webhook indirection: `OnPaymentResult` is a biz method that *signals* into the running workflow rather than mutating state directly. That made the payment-race bug structurally impossible — the workflow is the only thing allowed to advance the session.
