@@ -2,11 +2,11 @@
 
 ## 29-8-2025 First request only take 10ms
 
-![img.png](images/img.png)
+![img.png](assets/img.png)
 
 #### N+1 query btw but still blazingly fast
 
-![img.png](images/img2.png)
+![img.png](assets/img2.png)
 
 ## 4-9-2025 Found a way to write better queries with sqlc.slice
 
@@ -22,13 +22,13 @@ WHERE (
 
 ## 5-9-2025 List products with calculated sale price (from many nested queries into 6 flat queries) only take 20ms for 10 products
 
-![img.png](images/img3.png)
+![img.png](assets/img3.png)
 
 ## 8-9-2025 Custom type need to be registered to pgx (pgxpool.go)
 
 Any custom DB types made with CREATE TYPE need to be registered with pgx.
 <https://github.com/kyleconroy/sqlc/issues/2116>
-![img.png](images/img4.png)
+![img.png](assets/img4.png)
 
 ## 13-9-2025 Nice integration of enum fields between validator/v10 validation and sqlc-generated Valid() methods
 
@@ -96,9 +96,9 @@ Also when finding subcribers, I can search globally by "OrderCreated*" or "Order
 - Elasticsearch is great, but vector databases are the future.
 - After certain days with elasticsearch, found it is not suitable for vector search.
 - As I remember, I was using model MGTE (alibaba) storing 200rows took 8mb of storage
-![img.png](images/img5.png)
+![img.png](assets/img5.png)
 - Inserting into milvus took 60seconds per 100 products
-![img.png](images/img6.png)
+![img.png](assets/img6.png)
 
 ## 7-10-2025 Refactor payment and transport with better interface
 
@@ -164,7 +164,7 @@ Add transaction callback to storage interface to reduce boilerplate code when us
 - With this approach, you can pass the preferStorage from outer biz layer to inner biz layer when both layers need to use transaction. Eg: CreateComment which calls UpdateResources atomically.
 - You can choose to have a nested transaction by setting allowNestedTx (default: false) to true in NewTxQueries.
 
-![img.png](images/img7.png)
+![img.png](assets/img7.png)
 
 ## 8-11-2025 Use errors.Join instead of my own errutil.Some
 
@@ -195,7 +195,7 @@ err := errutil.Some(err1, err2, err3)
 - Now support register all custom types for encode plans in pgxpool instead of hardcoded type names (internal/infras/pg/pg.go)
 - Remove the global config.GetConfig() calls, pass the config struct to each service biz layer instead for better testability and reduce coupling
 
-![alt text](images/img8.png)
+![alt text](assets/img8.png)
 
 ## 1-12-2025 Database per service
 
@@ -227,7 +227,7 @@ The big architecture shift: instead of direct function calls between modules, ev
 - Auto-generate Restate HTTP proxy clients from interface definitions (`cmd/genrestate`)
 - Rename: `XxxClient` → `XxxBiz` (interface), `XxxBiz` → `XxxHandler` (struct)
 
-![alt text](images/img9.png)
+![alt text](assets/img9.png)
 
 ## 27-3-2026 Massive schema and API refactor
 

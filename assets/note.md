@@ -25,3 +25,5 @@
 - đổi lại đống provider ko cho dynamic register webhook nữa, vì cần phát triển lên gateway -> webhook cần đc setup static /webhook/unipile/{accountID} kiểu thế
 
 - move toàn bộ model trong shared/model ra folder riêng của nó (pagination, err, ..)
+
+- thêm idempotency key vào database (table riêng), làm 1 cái wrapper helper để hộ trợ exactly once, hiện tại restate journal data là exactly once, nhưng side effect trong restate.Run là at least once
