@@ -5,7 +5,8 @@
 A marketplace backend in Go — **microservices in a monorepo**, orchestrated by [Restate](https://restate.dev) durable execution.
 
 > Development timeline: [timeline.md](assets/timeline.md)
-> Code conventions: [convention.md](assets/convention.md)
+> 
+> Code convention: [convention.md](assets/convention.md)
 
 ## Architecture
 
