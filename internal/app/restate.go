@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"shopnexus-server/config"
+	appconfig "shopnexus-server/internal/app/config"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	analyticbiz "shopnexus-server/internal/module/analytic/biz"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
@@ -26,7 +26,7 @@ import (
 )
 
 func SetupRestate(
-	cfg *config.Config,
+	cfg *appconfig.Config,
 	orderBiz *orderbiz.OrderHandler,
 	accountBiz *accountbiz.AccountHandler,
 	catalogBiz *catalogbiz.CatalogHandler,
@@ -35,6 +35,11 @@ func SetupRestate(
 	promotionBiz *promotionbiz.PromotionHandler,
 	analyticBiz *analyticbiz.AnalyticHandler,
 	chatBiz *chatbiz.ChatHandler,
+
+	// workflows
+	checkoutWf *orderbiz.CheckoutWorkflow,
+	confirmWf *orderbiz.ConfirmWorkflow,
+	payoutWf *orderbiz.PayoutWorkflow,
 ) {
 	bindAddress := fmt.Sprintf(":%s", cfg.Restate.ServicePort)
 
@@ -46,11 +51,10 @@ func SetupRestate(
 		Bind(restate.Reflect(commonBiz)).
 		Bind(restate.Reflect(inventoryBiz)).
 		Bind(restate.Reflect(orderBiz)).
-		Bind(restate.Reflect(promotionBiz))
-
-	for _, wf := range orderBiz.Workflows() {
-		srv.Bind(restate.Reflect(wf))
-	}
+		Bind(restate.Reflect(promotionBiz)).
+		Bind(restate.Reflect(checkoutWf)).
+		Bind(restate.Reflect(confirmWf)).
+		Bind(restate.Reflect(payoutWf))
 
 	go func() {
 		slog.Info("Starting Restate service endpoint", "address", bindAddress)
