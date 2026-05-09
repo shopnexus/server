@@ -8,9 +8,20 @@ A marketplace backend in Go — **microservices in a monorepo**, orchestrated by
 >
 > Code convention: [convention.md](assets/convention.md)
 
-## Architecture
+## Why?
 
-Eight vertical-slice modules, each owning their database schema, business logic, and HTTP transport. Modules communicate through Restate durable execution — every cross-module call is an HTTP request to the Restate ingress, giving exactly-once delivery and automatic retries. Each module can be deployed as a standalone service by pointing its Restate registration to a different host.
+### Why microservice in a monorepo?
+
+*Many repos are hard to manage*.
+> Imagine 100hr+ on configuring things on each repo :D
+
+Splitting into many repos means configuring shared dependency versions across each project — staying in one repo sidesteps that. The microservice shape is still there (separate schemas, cross-module calls over the Restate ingress), so promoting a module to its own deployment later is a config change, not a refactor.
+
+### Why Restate?
+
+*Orchestration over choreography*.
+
+The flow runs linearly top-to-bottom, which is easier to debug than tracing events across handlers. In practice it's the message queue between modules — failures retry indefinitely with backoff (no message dropped, no DLQ needed) — and the journal makes those retries durable.
 
 ## Request Flow
 
@@ -22,56 +33,24 @@ Cross-service calls take the exact same path — Service A never calls Service B
 
 ![flow2.jpg](assets/flow2.jpg)
 
-For example, the order module depends on `InventoryBiz` as an **interface**, so the call site reads like an ordinary in-process method call:
+For example, the order service depends on `Inventory` as an **interface**, so the call site reads like an ordinary in-process method call:
 
 ```go
-// Module "order" calling to "inventory" through the proxy interface
+// Service "order" calling to "inventory" through the proxy interface
 inventories, err := orderbiz.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
     OrderID: order.ID,
     Items:   items,
 })
 ```
 
-## Restate Durable Execution
-
-All business logic methods use `restate.Context` instead of `context.Context`. This is required for Restate's `Reflect()` registration and enables:
-
-- **Durable side effects**: DB writes inside `restate.Run()` closures are journaled and replay-safe. If the process crashes mid-execution, Restate replays the journal and skips already-completed steps.
-- **Cross-module RPC**: calls between modules go through auto-generated proxy clients (`XxxRestateClient`), which are HTTP calls to the Restate ingress. This makes every cross-module call durable and retryable.
-- **Fire-and-forget**: `restate.ServiceSend(ctx, "ServiceName", "MethodName").Send(params)` for asynchronous work like notifications and analytics tracking — durable, exactly-once delivery.
-- **Terminal errors**: client-facing errors (validation, not found, conflict) use `.Terminal()` to prevent Restate from retrying them.
-
-## Tooling
-
-- **[pgx/v5](https://github.com/jackc/pgx)** as the PostgreSQL driver, wrapped in `pgsqlc.Storage[T]` for connection pooling and transaction support.
-- **[SQLC](https://sqlc.dev)** generates type-safe Go structs and query methods from SQL. Config in `sqlc.yaml`. Uses `guregu/null/v6` for nullable types.
-- **pgtempl** (`cmd/pgtempl/`) generates SQLC query templates from migration files, producing CRUD queries automatically. Custom queries go in `*_custom.sql` files (not overwritten by pgtempl).
-
-## Distributed Locking
+## Distributed Lock (Redis)
 
 ```go
-unlock := b.locker.Lock(ctx, "order:payment:123")
+unlock := b.locker.Lock(ctx, "order:123")
 defer unlock()
 ```
 
-- **Auto-renewal**: a background goroutine extends the TTL every `ttl/2`, so long-running handlers never lose the lock. The `unlock()` func stops the goroutine and DELs the key.
-- **TTL** is configured once via `locker.Config{TTL: 30 * time.Second}` at construction time, not per call.
-
-### Choosing a lock key
-
-Lock by the **entity that owns the mutation**, not the entity being mutated. Three questions:
-
-1. **Who causes the mutation?** Lock by the actor's scope — `sellerID`, `paymentID`, `refundID`. Not by individual rows being modified.
-2. **Batch or single?** If the operation takes a batch of entities (e.g., seller confirms multiple items), the lock scope must contain all of them. Locking per-item in a batch risks deadlock when two requests lock items in different order.
-3. **Would any request need multiple locks?** If yes, escalate to a coarser scope (e.g., items → seller) to eliminate circular-wait deadlocks. Only use fine-grained locks when coarse locking is a measured bottleneck.
-
-```go
-func handler() {
-  unlock := b.locker.Lock(ctx, fmt.Sprintf("order:seller-pending:%s", params.Account.ID))
-  defer unlock()
-  // Logic
-}
-```
+Currently I only implement basic Redis lock/unlock, but while working on it I noticed a problem: if the handler takes too long, the lock TTL could expire mid-execution. To handle this, I added a background goroutine that extends the TTL every ttl/2, so long-running handlers never lose the lock. Calling unlock() stops the goroutine and DELs the key.
 
 ## Modules
 
@@ -80,10 +59,18 @@ Each module has its own README with ER diagrams, domain concepts, flows, and end
 | Module                                       | Description                                                            |
 | -------------------------------------------- | ---------------------------------------------------------------------- |
 | [`account`](internal/module/account/)        | Auth, profiles, contacts, favorites, payment methods, notifications    |
-| [`catalog`](internal/module/catalog/)        | Products (SPU/SKU), categories, tags, comments, hybrid search          |
+| [`catalog`](internal/module/catalog/)        | Products, categories, tags, comments, hybrid search                    |
 | [`order`](internal/module/order/)            | Cart, checkout, pending items, seller confirmation, payment, refunds   |
 | [`inventory`](internal/module/inventory/)    | Stock management, serial tracking, audit history                       |
 | [`promotion`](internal/module/promotion/)    | Discounts, ship discounts, scheduling, group-based price stacking      |
 | [`analytic`](internal/module/analytic/)      | Interaction tracking, weighted product popularity scoring              |
-| [`chat`](internal/module/chat/)              | REST messaging, conversations, read receipts                           |
+| [`chat`](internal/module/chat/)              | Messaging, conversations, read receipts                                |
 | [`common`](internal/module/common/)          | Resource/file management, object storage, service options, SSE         |
+
+## Tools
+
+- **[pgx/v5](https://github.com/jackc/pgx)** as the PostgreSQL driver, wrapped in `pgsqlc.Storage[T]` for connection pooling and transaction support.
+- **[SQLC](https://sqlc.dev)** generates type-safe Go structs and query methods from SQL. Config in `sqlc.yaml`. Uses `guregu/null/v6` for nullable types.
+- **pgtempl** (`cmd/pgtempl/`) generates SQLC query templates from migration files, producing CRUD queries automatically.
+- **genrestate** (`cmd/genrestate/`) generates Restate service definitions and proxy interfaces from Go interface definitions.
+- **migrate** (`cmd/migrate/`) manages database migrations. Migration files are in `<module>/db/migrations/` with the format `<version>_<description>.sql`.
