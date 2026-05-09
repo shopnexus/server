@@ -17,9 +17,6 @@ import (
 )
 
 // validTransitions defines which OrderStatus transitions are allowed on the transport table.
-// Delivered is mapped to OrderStatusSuccess; terminal states may not transition further.
-// In-transit provider states (LabelCreated, InTransit, OutForDelivery) all map to
-// OrderStatusProcessing before the caller sends them here.
 var validTransitions = map[orderdb.OrderStatus]map[orderdb.OrderStatus]bool{
 	orderdb.OrderStatusPending: {
 		orderdb.OrderStatusProcessing: true, // LabelCreated / InTransit / OutForDelivery
@@ -37,12 +34,7 @@ var validTransitions = map[orderdb.OrderStatus]map[orderdb.OrderStatus]bool{
 	orderdb.OrderStatusCancelled: {},
 }
 
-// OnTransportResult updates a transport record's status and data field. When
-// transport reaches OrderStatusSuccess (Delivered) it signals each affected
-// order's PayoutWorkflow via OnRefundChanged so the in-flight workflow can
-// re-evaluate its release-escrow timer; when transport fails or is cancelled
-// it fires the corresponding buyer/seller notifications. Called by the
-// transport-provider webhook bridge (transport/echo).
+// OnTransportResult updates a transport record's status and data field.
 func (b *OrderHandler) OnTransportResult(ctx restate.Context, params OnTransportResultParams) error {
 	if err := validator.Validate(params); err != nil {
 		return sharedmodel.WrapErr("validate on transport result", err)
@@ -77,7 +69,7 @@ func (b *OrderHandler) OnTransportResult(ctx restate.Context, params OnTransport
 			dataJSON = json.RawMessage("{}")
 		}
 
-		if _, err := b.storage.Querier().UpdateTransportStatusByID(ctx, orderdb.UpdateTransportStatusByIDParams{
+		if _, err = b.storage.Querier().UpdateTransportStatusByID(ctx, orderdb.UpdateTransportStatusByIDParams{
 			ID:     tr.ID,
 			Status: orderdb.NullOrderStatus{OrderStatus: params.Status, Valid: true},
 			Data:   dataJSON,
@@ -97,29 +89,25 @@ func (b *OrderHandler) OnTransportResult(ctx restate.Context, params OnTransport
 	// Step 2: If Delivered (Success), fetch orders on this transport and signal
 	// PayoutWorkflow so it can re-arm / wake up its escrow-release evaluation.
 	if params.Status == orderdb.OrderStatusSuccess {
-		orders, err := restate.Run(ctx, func(ctx restate.RunContext) ([]orderdb.OrderOrder, error) {
-			return b.storage.Querier().ListOrdersByTransportID(ctx, fetched.TransportID)
+		order, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderOrder, error) {
+			return b.storage.Querier().GetOrderByTransportID(ctx, fetched.TransportID)
 		})
 		if err != nil {
-			return sharedmodel.WrapErr("list orders by transport", err)
+			return sharedmodel.WrapErr("fetch order by transport ID", err)
 		}
-		for _, o := range orders {
-			restate.WorkflowSend(ctx, "PayoutWorkflow", o.ID.String(), "OnRefundChanged").
-				Send(struct{}{})
-			// Notify buyer about delivery.
-			meta, _ := json.Marshal(map[string]string{
-				"tracking_id": fetched.TrackingID,
-				"order_id":    o.ID.String(),
-			})
-			restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
-				AccountID: o.BuyerID,
-				Type:      accountmodel.NotiTransportDelivered,
-				Channel:   accountmodel.ChannelInApp,
-				Title:     "Đơn hàng đã được giao",
-				Content:   "Đơn hàng của bạn đã được giao thành công.",
-				Metadata:  meta,
-			})
-		}
+		// Notify buyer about delivery.
+		meta, _ := json.Marshal(map[string]string{
+			"tracking_id": fetched.TrackingID,
+			"order_id":    order.ID.String(),
+		})
+		restate.ServiceSend(ctx, "Account", "CreateNotification").Send(accountbiz.CreateNotificationParams{
+			AccountID: order.BuyerID,
+			Type:      accountmodel.NotiTransportDelivered,
+			Channel:   accountmodel.ChannelInApp,
+			Title:     "Đơn hàng đã được giao",
+			Content:   "Đơn hàng của bạn đã được giao thành công.",
+			Metadata:  meta,
+		})
 		return nil
 	}
 
@@ -145,7 +133,7 @@ func (b *OrderHandler) OnTransportResult(ctx restate.Context, params OnTransport
 		}, nil
 	})
 	if fetchErr != nil {
-		slog.Warn("skip notifications: could not fetch transport order info",
+		b.logger.Warn("skip notifications: could not fetch transport order info",
 			slog.String("tracking_id", params.TrackingID),
 			slog.Any("error", fetchErr))
 		return nil

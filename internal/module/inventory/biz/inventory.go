@@ -6,6 +6,7 @@ import (
 	"shopnexus-server/internal/infras/metrics"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
+	"shopnexus-server/internal/shared/idempotency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/validator"
 
@@ -273,6 +274,7 @@ type ReserveInventoryResult struct {
 }
 
 type ReserveInventoryParams struct {
+	idempotency.Keys
 	Items []ReserveInventoryItem
 }
 
@@ -290,10 +292,21 @@ func (b *InventoryHandler) ReserveInventory(
 		metrics.InventoryReservesTotal.WithLabelValues(result).Add(float64(len(params.Items)))
 	}()
 
+	txStorage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return nil, sharedmodel.WrapErr("begin transaction", err)
+	}
+	defer txStorage.Rollback(ctx)
+
+	if err = params.Keys.Apply(ctx, txStorage.Querier()); err != nil {
+		return nil, sharedmodel.WrapErr("check idempotency keys", err)
+	}
+
 	for _, item := range params.Items {
-		stock, err := b.getStockByRef(ctx, b.storage, item.RefType, item.RefID)
+		var stock inventorydb.InventoryStock
+		stock, err = b.getStockByRef(ctx, txStorage, item.RefType, item.RefID)
 		if err != nil {
-			return nil, err
+			return nil, sharedmodel.WrapErr("db get stock", err)
 		}
 
 		label := item.DisplayName
@@ -305,13 +318,13 @@ func (b *InventoryHandler) ReserveInventory(
 			return nil, inventorymodel.ErrOutOfStock.Fmt(label, item.Amount, stock.Stock).Terminal()
 		}
 
-		// Adjust inventory and check rows affected
-		rowsAffected, err := b.storage.Querier().AdjustInventory(ctx, inventorydb.AdjustInventoryParams{
+		var rowsAffected int64
+		rowsAffected, err = txStorage.Querier().AdjustInventory(ctx, inventorydb.AdjustInventoryParams{
 			StockID: stock.ID,
 			Amount:  item.Amount,
 		})
 		if err != nil {
-			return nil, err
+			return nil, sharedmodel.WrapErr("db adjust inventory", err)
 		}
 		if rowsAffected == 0 {
 			return nil, inventorymodel.ErrOutOfStockRace.Fmt(label).Terminal()
@@ -322,35 +335,39 @@ func (b *InventoryHandler) ReserveInventory(
 			RefID:   item.RefID,
 		}
 
-		// If serial is required, reserve available serials
 		if stock.SerialRequired {
-			serials, err := b.storage.Querier().GetAvailableSerials(ctx, inventorydb.GetAvailableSerialsParams{
+			var serials []inventorydb.GetAvailableSerialsRow
+			serials, err = txStorage.Querier().GetAvailableSerials(ctx, inventorydb.GetAvailableSerialsParams{
 				StockID: stock.ID,
 				Amount:  int32(item.Amount),
 			})
 			if err != nil {
-				return nil, err
+				return nil, sharedmodel.WrapErr("db get available serials", err)
 			}
 
 			if len(serials) != int(item.Amount) {
 				return nil, inventorymodel.ErrSerialShortage.Fmt(len(serials), label, item.Amount).Terminal()
 			}
 
-			serialIDs := lo.Map(serials, func(s inventorydb.GetAvailableSerialsRow, _ int) string {
-				return s.ID
+			serialIDs := lo.Map(serials, func(row inventorydb.GetAvailableSerialsRow, _ int) string {
+				return row.ID
 			})
 
-			if err = b.storage.Querier().UpdateSerialStatus(ctx, inventorydb.UpdateSerialStatusParams{
+			if err = txStorage.Querier().UpdateSerialStatus(ctx, inventorydb.UpdateSerialStatusParams{
 				ID:     serialIDs,
 				Status: inventorydb.InventoryStatusTaken,
 			}); err != nil {
-				return nil, err
+				return nil, sharedmodel.WrapErr("db update serial status", err)
 			}
 
 			result.SerialIDs = serialIDs
 		}
 
 		results = append(results, result)
+	}
+
+	if err = txStorage.Commit(ctx); err != nil {
+		return nil, sharedmodel.WrapErr("commit transaction", err)
 	}
 
 	return results, nil

@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/locker"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	catalogbiz "shopnexus-server/internal/module/catalog/biz"
 	commonbiz "shopnexus-server/internal/module/common/biz"
 	inventorybiz "shopnexus-server/internal/module/inventory/biz"
+	orderconfig "shopnexus-server/internal/module/order/config"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
 	promotionbiz "shopnexus-server/internal/module/promotion/biz"
@@ -103,41 +104,46 @@ type OrderBiz interface {
 	GetSellerPendingActions(ctx context.Context, params GetSellerPendingActionsParams) (SellerPendingActions, error)
 	GetSellerTopProducts(ctx context.Context, params GetSellerTopProductsParams) ([]SellerTopProduct, error)
 
-	// Internal wallet
-	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
-	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
-	WalletCredit(ctx context.Context, params WalletCreditParams) error
-
 	// Utility
 	InferCurrency(ctx context.Context, accountID uuid.UUID) (string, error)
 
 	// Options
 	GetOptions(ctx context.Context, params GetOptionsParams) ([]sharedmodel.Option, error)
+
+	// Multi-attempt payment URL: tells the caller whether the session has a
+	// reusable Pending+not-expired gateway URL, or whether the workflow needs
+	// to be signaled to spawn a fresh attempt. The echo handler combines this
+	// with a workflow.RequestNewPaymentURL call when no reusable URL exists.
+	GetReusableGatewayURL(ctx context.Context, sessionID uuid.UUID) (ReusableGatewayURLState, error)
+}
+
+// ReusableGatewayURLState reports the latest gateway-payment state for a
+// payment_session. SessionTerminated=true means the session is in a final
+// state (Cancelled/Failed/Success) — caller should 410 Gone. ReusableURL
+// non-empty means there's a Pending+not-expired tx; reuse it. Both empty
+// means caller should signal the workflow to spawn the next attempt.
+type ReusableGatewayURLState struct {
+	SessionTerminated bool   `json:"session_terminated"`
+	ReusableURL       string `json:"reusable_url"`
 }
 
 type OrderStorage = pgsqlc.Storage[*orderdb.Queries]
 
 // OrderHandler implements the core business logic for the order module.
 type OrderHandler struct {
-	config     *config.Config
-	storage    OrderStorage
-	locker     locker.Client
-	account    accountbiz.AccountBiz
-	catalog    catalogbiz.CatalogBiz
-	inventory  inventorybiz.InventoryBiz
-	promotion  promotionbiz.PromotionBiz
-	common     commonbiz.CommonBiz
-	checkoutWf *CheckoutWorkflow
+	cfg       *orderconfig.Config
+	logger    *slog.Logger
+	storage   OrderStorage
+	locker    locker.Client
+	account   accountbiz.AccountBiz
+	catalog   catalogbiz.CatalogBiz
+	inventory inventorybiz.InventoryBiz
+	promotion promotionbiz.PromotionBiz
+	common    commonbiz.CommonBiz
 }
 
 func (b *OrderHandler) ServiceName() string {
 	return "Order"
-}
-
-func (b *OrderHandler) Workflows() []any {
-	return []any{
-		b.checkoutWf,
-	}
 }
 
 type GetOptionsParams struct {
@@ -158,7 +164,8 @@ func (b *OrderHandler) GetOptions(ctx context.Context, params GetOptionsParams) 
 
 // NewOrderHandler creates a new OrderHandler with the given dependencies.
 func NewOrderHandler(
-	cfg *config.Config,
+	cfg *orderconfig.Config,
+	logger *slog.Logger,
 	storage OrderStorage,
 	locker locker.Client,
 	account accountbiz.AccountBiz,
@@ -166,18 +173,17 @@ func NewOrderHandler(
 	inventory inventorybiz.InventoryBiz,
 	promotion promotionbiz.PromotionBiz,
 	common commonbiz.CommonBiz,
-	checkoutWf *CheckoutWorkflow,
 ) (*OrderHandler, error) {
 	b := &OrderHandler{
-		config:     cfg,
-		storage:    storage,
-		locker:     locker,
-		account:    account,
-		catalog:    catalog,
-		inventory:  inventory,
-		promotion:  promotion,
-		common:     common,
-		checkoutWf: checkoutWf,
+		cfg:       cfg,
+		logger:    logger,
+		storage:   storage,
+		locker:    locker,
+		account:   account,
+		catalog:   catalog,
+		inventory: inventory,
+		promotion: promotion,
+		common:    common,
 	}
 
 	return b, errors.Join(

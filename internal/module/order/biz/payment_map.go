@@ -21,10 +21,10 @@ func (b *OrderHandler) SetupPaymentMap() error {
 
 	go func() {
 		if err := b.common.UpsertOptions(context.Background(), commonbiz.UpsertOptionsParams{
-			Category: string(sharedmodel.OptionTypePayment),
-			Configs:  configs,
+			Type:    string(sharedmodel.OptionTypePayment),
+			Configs: configs,
 		}); err != nil {
-			slog.Warn("register payment options", slog.Any("error", err))
+			b.logger.Warn("register payment options", slog.Any("error", err))
 		}
 	}()
 
@@ -32,7 +32,7 @@ func (b *OrderHandler) SetupPaymentMap() error {
 }
 
 // paymentFactory routes a payment Option to its provider-specific constructor.
-func paymentFactory(cfg sharedmodel.Option) payment.Client {
+func (b *OrderHandler) paymentFactory(cfg sharedmodel.Option) payment.Client {
 	switch cfg.Provider {
 	case "vnpay":
 		return vnpay.NewClient(cfg)
@@ -41,7 +41,7 @@ func paymentFactory(cfg sharedmodel.Option) payment.Client {
 	case "card":
 		return card.NewClient(cfg)
 	default:
-		slog.Warn("unknown payment provider", "provider", cfg.Provider, "id", cfg.ID)
+		b.logger.Warn("unknown payment provider", "provider", cfg.Provider, "id", cfg.ID)
 		return nil
 	}
 }
@@ -49,7 +49,7 @@ func paymentFactory(cfg sharedmodel.Option) payment.Client {
 func (b *OrderHandler) paymentConfigs() []sharedmodel.Option {
 	var configs []sharedmodel.Option
 
-	vnpayCfg := b.config.App.Vnpay
+	vnpayCfg := b.cfg.Vnpay
 	for _, method := range []string{vnpay.MethodQR, vnpay.MethodBank, vnpay.MethodATM} {
 		data, _ := json.Marshal(vnpay.Data{
 			TmnCode:    vnpayCfg.TmnCode,
@@ -66,7 +66,7 @@ func (b *OrderHandler) paymentConfigs() []sharedmodel.Option {
 		})
 	}
 
-	if c := b.config.App.Sepay; c.MerchantID != "" {
+	if c := b.cfg.Sepay; c.MerchantID != "" {
 		data, _ := json.Marshal(sepay.Data{
 			MerchantID:   c.MerchantID,
 			SecretKey:    c.SecretKey,
@@ -85,7 +85,7 @@ func (b *OrderHandler) paymentConfigs() []sharedmodel.Option {
 		})
 	}
 
-	if c := b.config.App.CardPayment; c.Provider != "" {
+	if c := b.cfg.CardPayment; c.Provider != "" {
 		data, _ := json.Marshal(card.Data{
 			Processor: c.Provider,
 			SecretKey: c.SecretKey,
@@ -108,7 +108,7 @@ func (b *OrderHandler) paymentConfigs() []sharedmodel.Option {
 func (b *OrderHandler) getPaymentClient(option string) (payment.Client, error) {
 	for _, cfg := range b.paymentConfigs() {
 		if cfg.ID == option {
-			if client := paymentFactory(cfg); client != nil {
+			if client := b.paymentFactory(cfg); client != nil {
 				return client, nil
 			}
 			break

@@ -43,7 +43,9 @@ func (b *OrderHandler) CreateRefundDispute(
 	}
 
 	result, err := restate.Run(ctx, func(ctx restate.RunContext) (disputeRunResult, error) {
-		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+		refund, err := b.storage.Querier().GetRefund(ctx, orderdb.GetRefundParams{
+			ID: uuid.NullUUID{UUID: params.RefundID, Valid: true},
+		})
 		if err != nil {
 			return disputeRunResult{}, sharedmodel.WrapErr("get refund", err)
 		}
@@ -54,7 +56,9 @@ func (b *OrderHandler) CreateRefundDispute(
 		}
 
 		// Fetch the order to determine seller identity (all items in an order share one seller).
-		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: refund.OrderID, Valid: true},
+		})
 		if err != nil {
 			return disputeRunResult{}, sharedmodel.WrapErr("get order", err)
 		}
@@ -145,11 +149,15 @@ func (b *OrderHandler) ListRefundDisputes(
 		// Verify caller is buyer or seller before listing.
 		type authCheck struct{}
 		_, err := restate.Run(ctx, func(ctx restate.RunContext) (authCheck, error) {
-			refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: params.RefundID.UUID, Valid: true})
+			refund, err := b.storage.Querier().GetRefund(ctx, orderdb.GetRefundParams{
+				ID: uuid.NullUUID{UUID: params.RefundID.UUID, Valid: true},
+			})
 			if err != nil {
 				return authCheck{}, sharedmodel.WrapErr("get refund", err)
 			}
-			order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+			order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+				ID: uuid.NullUUID{UUID: refund.OrderID, Valid: true},
+			})
 			if err != nil {
 				return authCheck{}, sharedmodel.WrapErr("get order", err)
 			}
@@ -224,12 +232,16 @@ func (b *OrderHandler) GetRefundDispute(
 			return disputeResult{}, ordermodel.ErrDisputeNotFound.Terminal()
 		}
 
-		refund, err := b.storage.Querier().GetRefund(ctx, uuid.NullUUID{UUID: dispute.RefundID, Valid: true})
+		refund, err := b.storage.Querier().GetRefund(ctx, orderdb.GetRefundParams{
+			ID: uuid.NullUUID{UUID: dispute.RefundID, Valid: true},
+		})
 		if err != nil {
 			return disputeResult{}, sharedmodel.WrapErr("get refund", err)
 		}
 
-		order, err := b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+		order, err := b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: refund.OrderID, Valid: true},
+		})
 		if err != nil {
 			return disputeResult{}, sharedmodel.WrapErr("get order", err)
 		}

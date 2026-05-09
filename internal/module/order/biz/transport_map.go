@@ -19,10 +19,10 @@ func (b *OrderHandler) SetupTransportMap() error {
 
 	go func() {
 		if err := b.common.UpsertOptions(context.Background(), commonbiz.UpsertOptionsParams{
-			Category: string(sharedmodel.OptionTypeTransport),
-			Configs:  configs,
+			Type:    string(sharedmodel.OptionTypeTransport),
+			Configs: configs,
 		}); err != nil {
-			slog.Warn("register transport options", slog.Any("error", err))
+			b.logger.Warn("register transport options", slog.Any("error", err))
 		}
 	}()
 
@@ -30,12 +30,12 @@ func (b *OrderHandler) SetupTransportMap() error {
 }
 
 // transportFactory routes a transport Option to its provider-specific constructor.
-func transportFactory(cfg sharedmodel.Option) transport.Client {
+func (b *OrderHandler) transportFactory(cfg sharedmodel.Option) transport.Client {
 	switch cfg.Provider {
 	case "ghtk":
 		return ghtk.NewClient(cfg)
 	default:
-		slog.Warn("unknown transport provider", "provider", cfg.Provider, "id", cfg.ID)
+		b.logger.Warn("unknown transport provider", "provider", cfg.Provider, "id", cfg.ID)
 		return nil
 	}
 }
@@ -43,7 +43,7 @@ func transportFactory(cfg sharedmodel.Option) transport.Client {
 func (b *OrderHandler) transportOptions() []sharedmodel.Option {
 	var configs []sharedmodel.Option
 
-	ghtkCfg := b.config.App.GHTK
+	ghtkCfg := b.cfg.GHTK
 	for _, method := range []string{ghtk.ServiceExpress, ghtk.ServiceStandard, ghtk.ServiceEconomy} {
 		data, _ := json.Marshal(ghtk.Data{
 			Method:   method,
@@ -70,7 +70,7 @@ func (b *OrderHandler) transportOptions() []sharedmodel.Option {
 func (b *OrderHandler) getTransportClient(option string) (transport.Client, error) {
 	for _, cfg := range b.transportOptions() {
 		if cfg.ID == option {
-			if client := transportFactory(cfg); client != nil {
+			if client := b.transportFactory(cfg); client != nil {
 				return client, nil
 			}
 			break

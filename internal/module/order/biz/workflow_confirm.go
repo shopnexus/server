@@ -23,16 +23,16 @@ import (
 	"github.com/samber/lo"
 )
 
-type ConfirmWorkflowHandler struct {
+type ConfirmWorkflow struct {
 	base *OrderHandler
 }
 
-func NewConfirmWorkflowHandler(base *OrderHandler) *ConfirmWorkflowHandler {
-	return &ConfirmWorkflowHandler{base: base}
+func NewConfirmWorkflow(base *OrderHandler) *ConfirmWorkflow {
+	return &ConfirmWorkflow{base: base}
 }
-func (h *ConfirmWorkflowHandler) ServiceName() string { return "ConfirmWorkflow" }
+func (h *ConfirmWorkflow) ServiceName() string { return "ConfirmWorkflow" }
 
-func (h *ConfirmWorkflowHandler) Run(
+func (h *ConfirmWorkflow) Run(
 	ctx restate.WorkflowContext,
 	input ConfirmWorkflowInput,
 ) (out ConfirmWorkflowOutput, err error) {
@@ -40,7 +40,7 @@ func (h *ConfirmWorkflowHandler) Run(
 
 	// Workflow ID set at submission time IS the confirm-fee session UUID —
 	// every downstream insert / log / webhook routing key uses it.
-	workflowID := restate.UUID(ctx)
+	workflowID := uuid.MustParse(restate.Key(ctx))
 	sessionID := workflowID
 
 	// Step 1: Validate.
@@ -49,6 +49,12 @@ func (h *ConfirmWorkflowHandler) Run(
 	}
 
 	saga := saga.New(ctx)
+	// Reject WaitPaymentURL on terminal failure so the synchronous HTTP
+	// caller doesn't hang when Run dies before the gateway loop ever
+	// resolves payment_url_1. No-op if already resolved.
+	saga.Defer("reject_payment_url", func(_ restate.Context) error {
+		return restate.Promise[string](ctx, "payment_url_1").Reject(err)
+	})
 	defer func() {
 		if restate.IsTerminalError(err) {
 			saga.Compensate()
@@ -183,7 +189,7 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Step 6: Wallet / gateway split for confirmFeeTotal.
 	var confirmFeeWallet, confirmFeeGateway int64
 	if input.UseWallet && confirmFeeTotal > 0 {
-		balance, balErr := h.base.GetWalletBalance(ctx, sellerID)
+		balance, balErr := h.base.account.GetWalletBalance(ctx, sellerID)
 		if balErr != nil {
 			return out, sharedmodel.WrapErr("get seller wallet balance", balErr)
 		}
@@ -205,18 +211,15 @@ func (h *ConfirmWorkflowHandler) Run(
 	// Tx UUIDs are pre-allocated outside the closure: restate.UUID journals
 	// them, so retries reuse the same value and INSERTs are idempotent on
 	// PK conflict.
+	// Wallet tx ID is pre-allocated (single-shot). Gateway txs are minted
+	// per attempt inside the retry loop below, so the compensator marks every
+	// still-Pending child tx by session_id rather than tracking IDs.
 	walletTxID := restate.UUID(ctx)
-	gatewayTxID := restate.UUID(ctx)
 
-	txIDsToFail := make([]uuid.UUID, 0, 2)
-	if confirmFeeWallet > 0 {
-		txIDsToFail = append(txIDsToFail, walletTxID)
-	}
-	if confirmFeeGateway > 0 {
-		txIDsToFail = append(txIDsToFail, gatewayTxID)
-	}
-	saga.Defer("mark_session_and_txs_failed", func(rctx restate.RunContext) error {
-		return markSessionAndTxsFailed(rctx, h.base.storage.Querier(), sessionID, txIDsToFail, "confirm saga compensation")
+	saga.Defer("mark_session_and_txs_failed", func(ctx restate.Context) error {
+		return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+			return markSessionAndAllPendingFailed(rctx, h.base.storage.Querier(), sessionID, "confirm saga compensation")
+		})
 	})
 
 	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
@@ -231,7 +234,7 @@ func (h *ConfirmWorkflowHandler) Run(
 			TotalAmount: confirmFeeTotal,
 			Data:        json.RawMessage("{}"),
 			DatePaid:    null.Time{},
-			DateExpired: time.Now().Add(paymentExpiry),
+			DateExpired: time.Now().Add(sessionExpiry),
 		}); sErr != nil {
 			return sharedmodel.WrapErr("db create confirm session", sErr)
 		}
@@ -252,27 +255,7 @@ func (h *ConfirmWorkflowHandler) Run(
 			}
 		}
 
-		if confirmFeeGateway > 0 {
-			if _, txErr := h.base.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
-				ID:            gatewayTxID,
-				SessionID:     sessionID,
-				Status:        orderdb.OrderStatusPending,
-				Note:          "confirm fee gateway payment",
-				Error:         null.String{},
-				PaymentOption: null.StringFrom(input.PaymentOption),
-				Data:          json.RawMessage("{}"),
-				Amount:        confirmFeeGateway,
-				FromCurrency:  sellerCurrency,
-				ToCurrency:    sellerCurrency,
-				ExchangeRate:  mustNumericOne(),
-				ReversesID:    uuid.NullUUID{},
-				DateSettled:   null.Time{},
-				DateExpired:   null.TimeFrom(time.Now().Add(paymentExpiry)),
-			}); txErr != nil {
-				return sharedmodel.WrapErr("db create confirm_fee gateway tx", txErr)
-			}
-		}
-
+		// Gateway txs are minted per-attempt below.
 		return nil
 	}); err != nil {
 		return out, sharedmodel.WrapErr("create confirm fee session and txs", err)
@@ -280,27 +263,25 @@ func (h *ConfirmWorkflowHandler) Run(
 
 	// Step 8: Wallet debit + mark wallet tx success.
 	if confirmFeeWallet > 0 {
-		if _, dErr := restate.Run(ctx, func(rctx restate.RunContext) (WalletDebitResult, error) {
-			return h.base.walletDebit(rctx, WalletDebitParams{
-				AccountID: sellerID,
-				Amount:    confirmFeeWallet,
-				Reference: fmt.Sprintf("tx:%s", walletTxID),
-				Note:      "confirm fee wallet payment",
-			})
+		if _, dErr := h.base.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
+			AccountID: sellerID,
+			Amount:    confirmFeeWallet,
+			Reference: fmt.Sprintf("tx:%s", walletTxID),
+			Note:      "confirm fee wallet payment",
 		}); dErr != nil {
 			return out, sharedmodel.WrapErr("seller wallet debit", dErr)
 		}
-		// Arm credit compensator AFTER debit confirmed. walletDebit's DB tx
-		// rolls back on any error → terminal failure means no debit, so
-		// arming earlier would over-credit on saga fire. Compensator goes
-		// straight to CreditInternalWallet to avoid the RunContext/Context
-		// double-wrap (saga.Compensate already runs inside RunVoid).
-		saga.Defer("credit_wallet", func(rctx restate.RunContext) error {
-			_, e := h.base.storage.Querier().CreditInternalWallet(rctx, orderdb.CreditInternalWalletParams{
-				ID:     sellerID,
-				Amount: confirmFeeWallet,
+		// Arm credit compensator AFTER debit confirmed. WalletDebit is atomic
+		// (single CTE under FOR UPDATE) → terminal failure means no debit,
+		// so arming earlier would over-credit on saga fire.
+		saga.Defer("credit_wallet", func(ctx restate.Context) error {
+			return h.base.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+				AccountID: sellerID,
+				Amount:    confirmFeeWallet,
+				Type:      "Refund",
+				Reference: fmt.Sprintf("tx:%s", walletTxID),
+				Note:      "saga compensate: confirm fee wallet debit",
 			})
-			return e
 		})
 		if mErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
 			_, e := h.base.storage.Querier().MarkTransactionSuccess(rctx, orderdb.MarkTransactionSuccessParams{
@@ -313,61 +294,25 @@ func (h *ConfirmWorkflowHandler) Run(
 		}
 	}
 
-	// Step 9: Initiate gateway payment + publish payment_url so HTTP attach
-	// can return synchronously. The promise must be resolved on every path
-	// (including wallet-only) so attached callers don't hang.
-	url, gErr := h.base.InitGatewayPayment(ctx, InitGatewayPaymentParams{
-		TxID:          gatewayTxID,
-		Amount:        confirmFeeGateway,
-		PaymentOption: input.PaymentOption,
-		Description:   fmt.Sprintf("Confirm fee session %s", workflowID),
-	})
-	if gErr != nil {
-		return out, gErr
-	}
-	if pErr := restate.Promise[string](ctx, "payment_url").Resolve(url); pErr != nil {
-		return out, sharedmodel.WrapErr("resolve payment url promise", pErr)
-	}
-
-	// Step 10: Wait for payment outcome, seller cancel, or expiry. Cancel
-	// is a separate promise (matching checkout) because payment.Status has
-	// no `cancelled` value.
-	eventPromise := restate.Promise[payment.Notification](ctx, "payment_event")
-	cancelPromise := restate.Promise[struct{}](ctx, "user_cancel")
-	expiryFut := restate.After(ctx, paymentExpiry)
-
-	if confirmFeeGateway == 0 {
-		_ = eventPromise.Resolve(payment.Notification{
-			RefID:  sessionID.String(),
-			Status: payment.StatusSuccess,
-		})
-	}
-
-	done, _ := restate.WaitFirst(ctx, eventPromise, cancelPromise, expiryFut)
-	switch done {
-	case eventPromise:
-		ev, evErr := eventPromise.Result()
-		if evErr != nil {
-			return out, sharedmodel.WrapErr("read payment event", evErr)
+	// Step 9–10: Gateway payment loop (skipped for wallet-only). Shared with
+	// CheckoutWorkflow via runGatewayPaymentLoop in payment_gateway.go.
+	if confirmFeeGateway > 0 {
+		if err = h.base.runGatewayPaymentLoop(ctx, gatewayPaymentLoopParams{
+			SessionID:       sessionID,
+			WorkflowID:      workflowID,
+			SessionDeadline: time.Now().Add(sessionExpiry),
+			NotePrefix:      "confirm fee gateway payment",
+			Description:     fmt.Sprintf("Confirm fee session %s", workflowID),
+			PaymentOption:   input.PaymentOption,
+			Amount:          confirmFeeGateway,
+			FromCurrency:    sellerCurrency,
+			ToCurrency:      sellerCurrency,
+			ExchangeRate:    mustNumericOne(),
+			ErrCancelled:    ordermodel.ErrConfirmCancelled,
+			ErrExpired:      ordermodel.ErrConfirmExpired,
+		}); err != nil {
+			return out, err
 		}
-		switch ev.Status {
-		case payment.StatusSuccess:
-			// fall through to success tail.
-		case payment.StatusFailed, payment.StatusExpired:
-			return out, ordermodel.ErrPaymentFailed.Terminal()
-		default:
-			return out, sharedmodel.WrapErr("unknown payment event status", ordermodel.ErrPaymentFailed)
-		}
-	case cancelPromise:
-		// Inline-compensate before returning non-terminal: rolls back the
-		// confirm-fee Pending session/txs and refunds the seller's wallet
-		// debit. The defer's IsTerminalError check ignores nil err, so
-		// there's no double-compensation on top of this explicit call.
-		saga.Compensate()
-		return ConfirmWorkflowOutput{Status: "cancelled", ConfirmSessionID: sessionID}, nil
-	case expiryFut:
-		saga.Compensate()
-		return ConfirmWorkflowOutput{Status: "expired", ConfirmSessionID: sessionID}, nil
 	}
 
 	// Step 11: Paid path — clear saga and atomically create transport,
@@ -451,27 +396,48 @@ func (h *ConfirmWorkflowHandler) Run(
 	}, nil
 }
 
-// WaitPaymentURL blocks the caller until Run() resolves the `payment_url`
-// promise. Used by the HTTP transport to turn the async workflow submission
-// into a sync response carrying the gateway redirect (or an empty string for
-// wallet-only confirms).
-func (h *ConfirmWorkflowHandler) WaitPaymentURL(
+// WaitPaymentURL blocks until Run resolves the FIRST attempt's URL. Used by
+// the sync /seller/pending/confirm HTTP handler. Subsequent retries go
+// through RequestNewPaymentURL.
+func (h *ConfirmWorkflow) WaitPaymentURL(
 	ctx restate.WorkflowSharedContext,
 	_ struct{},
 ) (string, error) {
-	return restate.Promise[string](ctx, "payment_url").Result()
+	return restate.Promise[string](ctx, "payment_url_1").Result()
 }
 
-// PaymentNotification is called by the payment provider
-func (h *ConfirmWorkflowHandler) PaymentNotification(
+// RequestNewPaymentURL is the multi-attempt entry point. Caller has already
+// verified the latest gateway tx is Failed/expired. We resolve the current
+// attempt's retry promise (idempotent) so Run advances to attempt+1, then
+// block on the new URL.
+func (h *ConfirmWorkflow) RequestNewPaymentURL(
+	ctx restate.WorkflowSharedContext,
+	_ struct{},
+) (string, error) {
+	attempt, err := restate.Get[int](ctx, "payment_attempt")
+	if err != nil {
+		return "", sharedmodel.WrapErr("read payment_attempt state", err)
+	}
+	if attempt < 1 {
+		return "", ordermodel.ErrConfirmExpired.Terminal()
+	}
+	_ = restate.Promise[struct{}](ctx, fmt.Sprintf("retry_%d", attempt)).Resolve(struct{}{})
+	return restate.Promise[string](ctx, fmt.Sprintf("payment_url_%d", attempt+1)).Result()
+}
+
+// PaymentNotification is called by the payment provider via OrderHandler.
+// OnPaymentResult. The webhook's RefID is the gateway tx UUID — we key the
+// promise by it so late webhooks for already-Failed prior attempts are
+// silently no-ops.
+func (h *ConfirmWorkflow) PaymentNotification(
 	ctx restate.WorkflowSharedContext,
 	noti payment.Notification,
 ) error {
-	return restate.Promise[payment.Notification](ctx, "payment_event").Resolve(noti)
+	return restate.Promise[payment.Notification](ctx, "payment_event_"+noti.RefID).Resolve(noti)
 }
 
 // CancelConfirm lets the seller abort an in-flight confirm.
-func (h *ConfirmWorkflowHandler) CancelConfirm(
+func (h *ConfirmWorkflow) CancelConfirm(
 	ctx restate.WorkflowSharedContext,
 	_ struct{},
 ) error {

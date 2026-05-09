@@ -28,9 +28,7 @@ func (a *AccountHandler) CreateClaims(account accountdb.AccountAccount) accountm
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewString(),
-			Issuer:    a.config.App.Name,
 			Subject:   account.ID.String(),
-			Audience:  []string{a.config.App.Name},
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.tokenDuration)),
 		},
@@ -58,9 +56,7 @@ func (a *AccountHandler) CreateRefreshClaims(account accountdb.AccountAccount) a
 			Number: account.Number,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    a.config.App.Name,
 			Subject:   account.ID.String(),
-			Audience:  []string{a.config.App.Name},
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.refreshTokenDuration)),
 		},
@@ -258,7 +254,7 @@ type RefreshResult struct {
 // Refresh validates a refresh token and issues new access and refresh tokens.
 func (a *AccountHandler) Refresh(ctx restate.Context, refreshToken string) (RefreshResult, error) {
 	var zero RefreshResult
-	claims, err := authclaims.ValidateAccessToken(a.config.App.JWT.RefreshSecret, refreshToken)
+	claims, err := authclaims.ValidateAccessToken(string(a.refreshSecret), refreshToken)
 	if err != nil {
 		return zero, sharedmodel.WrapErr("validate refresh token", err)
 	}

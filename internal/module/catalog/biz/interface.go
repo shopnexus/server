@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
 	"shopnexus-server/internal/infras/milvus"
 	restateclient "shopnexus-server/internal/infras/restate"
 	accountbiz "shopnexus-server/internal/module/account/biz"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
+	catalogconfig "shopnexus-server/internal/module/catalog/config"
 	catalogdb "shopnexus-server/internal/module/catalog/db/sqlc"
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
@@ -85,7 +85,8 @@ type CatalogStorage = pgsqlc.Storage[*catalogdb.Queries]
 
 // CatalogHandler implements the core business logic for the catalog module.
 type CatalogHandler struct {
-	config        *config.Config
+	cfg           *catalogconfig.Config
+	logger        *slog.Logger
 	cache         cache.Client
 	restateClient *restateclient.Client
 	storage       CatalogStorage
@@ -109,7 +110,8 @@ type CatalogHandler struct {
 
 // NewCatalogHandler creates a new CatalogHandler with the given dependencies.
 func NewCatalogHandler(
-	cfg *config.Config,
+	cfg *catalogconfig.Config,
+	logger *slog.Logger,
 	storage CatalogStorage,
 	cache cache.Client,
 	restateClient *restateclient.Client,
@@ -121,7 +123,8 @@ func NewCatalogHandler(
 	llmClient llm.Client,
 ) *CatalogHandler {
 	b := &CatalogHandler{
-		config:        cfg,
+		cfg:           cfg,
+		logger:        logger,
 		cache:         cache,
 		restateClient: restateClient,
 		storage:       storage,
@@ -132,18 +135,18 @@ func NewCatalogHandler(
 
 		milvus:       milvusClient.WithTimeout(5 * time.Second),
 		llm:          llmClient,
-		denseWeight:  cfg.App.Search.DenseWeight,
-		sparseWeight: cfg.App.Search.SparseWeight,
-		batchSize:    cfg.App.Search.InteractionBatchSize,
+		denseWeight:  cfg.Search.DenseWeight,
+		sparseWeight: cfg.Search.SparseWeight,
+		batchSize:    cfg.Search.InteractionBatchSize,
 	}
 
 	// Setup Milvus collections
 	if err := b.SetupMilvusCollections(context.Background()); err != nil {
-		slog.Error("Failed to setup Milvus collections", "error", err)
+		b.logger.Error("Failed to setup Milvus collections", "error", err)
 	}
 
 	if err := b.SetupCron(); err != nil {
-		slog.Error("Failed to setup cron", "error", err)
+		b.logger.Error("Failed to setup cron", "error", err)
 	}
 
 	return b

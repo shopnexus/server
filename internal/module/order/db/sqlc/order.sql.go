@@ -12,6 +12,28 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+const getOrderByTransportID = `-- name: GetOrderByTransportID :one
+SELECT o.id, o.buyer_id, o.seller_id, o.transport_id, o.address, o.date_created, o.confirmed_by_id, o.confirm_session_id, o.note FROM "order"."order" o
+WHERE o.transport_id = $1
+`
+
+func (q *Queries) GetOrderByTransportID(ctx context.Context, transportID int64) (OrderOrder, error) {
+	row := q.db.QueryRow(ctx, getOrderByTransportID, transportID)
+	var i OrderOrder
+	err := row.Scan(
+		&i.ID,
+		&i.BuyerID,
+		&i.SellerID,
+		&i.TransportID,
+		&i.Address,
+		&i.DateCreated,
+		&i.ConfirmedByID,
+		&i.ConfirmSessionID,
+		&i.Note,
+	)
+	return i, err
+}
+
 const hasPurchasedSku = `-- name: HasPurchasedSku :one
 SELECT EXISTS(
     SELECT 1 FROM "order".item i
@@ -81,40 +103,6 @@ func (q *Queries) ListCountSellerOrder(ctx context.Context, arg ListCountSellerO
 			&i.OrderOrder.ConfirmSessionID,
 			&i.OrderOrder.Note,
 			&i.TotalCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOrdersByTransportID = `-- name: ListOrdersByTransportID :many
-SELECT id, buyer_id, seller_id, transport_id, address, date_created, confirmed_by_id, confirm_session_id, note FROM "order"."order" WHERE "transport_id" = $1
-`
-
-func (q *Queries) ListOrdersByTransportID(ctx context.Context, transportID int64) ([]OrderOrder, error) {
-	rows, err := q.db.Query(ctx, listOrdersByTransportID, transportID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []OrderOrder{}
-	for rows.Next() {
-		var i OrderOrder
-		if err := rows.Scan(
-			&i.ID,
-			&i.BuyerID,
-			&i.SellerID,
-			&i.TransportID,
-			&i.Address,
-			&i.DateCreated,
-			&i.ConfirmedByID,
-			&i.ConfirmSessionID,
-			&i.Note,
 		); err != nil {
 			return nil, err
 		}

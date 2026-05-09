@@ -14,7 +14,8 @@ LEFT JOIN "order"."payment_session" ps_payout
 LEFT JOIN "order"."transport" t ON t."id" = embed_order."transport_id"
 WHERE embed_order."buyer_id" = @buyer_id
   AND NOT "order".is_cancelled(ps_confirm."status", t."status", ps_payout."status")
-  AND COALESCE(ps_payout."status", 'Pending'::"order"."status") <> 'Success'
+  AND ps_payout."status" <> 'Success'
+  AND t."status" IS DISTINCT FROM 'Success'
 ORDER BY embed_order."date_created" DESC
 LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
@@ -28,7 +29,6 @@ LEFT JOIN "order"."payment_session" ps_payout
        ON ps_payout."id" = embed_order."id" AND ps_payout."kind" = 'seller-payout'
 LEFT JOIN "order"."transport" t ON t."id" = embed_order."transport_id"
 WHERE embed_order."buyer_id" = @buyer_id
-  AND ps_payout."status" = 'Success'
   AND NOT "order".is_cancelled(ps_confirm."status", t."status", ps_payout."status")
 ORDER BY embed_order."date_created" DESC
 LIMIT sqlc.narg('limit')::int

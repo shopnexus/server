@@ -102,7 +102,7 @@ SET "status" = COALESCE(sqlc.narg('status'), "status"),
     "username" = CASE WHEN sqlc.arg('null_username')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('username'), "username") END,
     "password" = CASE WHEN sqlc.arg('null_password')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('password'), "password") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteAccount :exec
@@ -149,6 +149,9 @@ WHERE (
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("internal_balance" = ANY(sqlc.slice('internal_balance')) OR sqlc.slice('internal_balance') IS NULL) AND
+    ("internal_balance" >= sqlc.narg('internal_balance_from') OR sqlc.narg('internal_balance_from') IS NULL) AND
+    ("internal_balance" <= sqlc.narg('internal_balance_to') OR sqlc.narg('internal_balance_to') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
 );
@@ -171,6 +174,9 @@ WHERE (
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("internal_balance" = ANY(sqlc.slice('internal_balance')) OR sqlc.slice('internal_balance') IS NULL) AND
+    ("internal_balance" >= sqlc.narg('internal_balance_from') OR sqlc.narg('internal_balance_from') IS NULL) AND
+    ("internal_balance" <= sqlc.narg('internal_balance_to') OR sqlc.narg('internal_balance_to') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
 )
@@ -196,6 +202,9 @@ WHERE (
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("internal_balance" = ANY(sqlc.slice('internal_balance')) OR sqlc.slice('internal_balance') IS NULL) AND
+    ("internal_balance" >= sqlc.narg('internal_balance_from') OR sqlc.narg('internal_balance_from') IS NULL) AND
+    ("internal_balance" <= sqlc.narg('internal_balance_to') OR sqlc.narg('internal_balance_to') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
 )
@@ -204,18 +213,18 @@ LIMIT sqlc.narg('limit')::int
 OFFSET sqlc.narg('offset')::int;
 
 -- name: CreateProfile :one
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "internal_balance", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "internal_balance", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: CreateCopyProfile :copyfrom
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "internal_balance", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 -- name: CreateDefaultProfile :one
 INSERT INTO "account"."profile" ("id", "gender", "name", "date_of_birth", "avatar_rs_id", "country", "default_contact_id", "default_wallet_id")
@@ -237,9 +246,10 @@ SET "gender" = CASE WHEN sqlc.arg('null_gender')::bool = TRUE THEN NULL ELSE COA
     "phone_verified" = COALESCE(sqlc.narg('phone_verified'), "phone_verified"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "country" = COALESCE(sqlc.narg('country'), "country"),
+    "internal_balance" = COALESCE(sqlc.narg('internal_balance'), "internal_balance"),
     "default_contact_id" = CASE WHEN sqlc.arg('null_default_contact_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_contact_id'), "default_contact_id") END,
     "default_wallet_id" = CASE WHEN sqlc.arg('null_default_wallet_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('default_wallet_id'), "default_wallet_id") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteProfile :exec
@@ -259,6 +269,9 @@ WHERE (
     ("date_created" >= sqlc.narg('date_created_from') OR sqlc.narg('date_created_from') IS NULL) AND
     ("date_created" <= sqlc.narg('date_created_to') OR sqlc.narg('date_created_to') IS NULL) AND
     ("country" = ANY(sqlc.slice('country')) OR sqlc.slice('country') IS NULL) AND
+    ("internal_balance" = ANY(sqlc.slice('internal_balance')) OR sqlc.slice('internal_balance') IS NULL) AND
+    ("internal_balance" >= sqlc.narg('internal_balance_from') OR sqlc.narg('internal_balance_from') IS NULL) AND
+    ("internal_balance" <= sqlc.narg('internal_balance_to') OR sqlc.narg('internal_balance_to') IS NULL) AND
     ("default_contact_id" = ANY(sqlc.slice('default_contact_id')) OR sqlc.slice('default_contact_id') IS NULL) AND
     ("default_wallet_id" = ANY(sqlc.slice('default_wallet_id')) OR sqlc.slice('default_wallet_id') IS NULL)
 );
@@ -378,7 +391,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "address" = COALESCE(sqlc.narg('address'), "address"),
     "latitude" = COALESCE(sqlc.narg('latitude'), "latitude"),
     "longitude" = COALESCE(sqlc.narg('longitude'), "longitude")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteContact :exec
@@ -521,7 +534,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_sent" = CASE WHEN sqlc.arg('null_date_sent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_sent'), "date_sent") END,
     "date_scheduled" = CASE WHEN sqlc.arg('null_date_scheduled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_scheduled'), "date_scheduled") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteNotification :exec
@@ -625,7 +638,7 @@ UPDATE "account"."favorite"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteFavorite :exec

@@ -15,10 +15,10 @@ WHERE account_id = @account_id AND is_read = false;
 
 -- name: MarkNotificationRead :exec
 UPDATE "account"."notification"
-SET is_read = true, date_updated = NOW()
+SET is_read = true
 WHERE id = ANY(sqlc.slice('id')) AND account_id = @account_id AND is_read = false;
 
 -- name: MarkAllNotificationRead :exec
 UPDATE "account"."notification"
-SET is_read = true, date_updated = NOW()
+SET is_read = true
 WHERE account_id = @account_id AND is_read = false;

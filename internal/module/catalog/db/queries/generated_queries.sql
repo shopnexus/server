@@ -75,7 +75,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = COALESCE(sqlc.narg('description'), "description"),
     "parent_id" = CASE WHEN sqlc.arg('null_parent_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('parent_id'), "parent_id") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteCategory :exec
@@ -223,7 +223,7 @@ SET "slug" = COALESCE(sqlc.narg('slug'), "slug"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteProductSpu :exec
@@ -360,7 +360,7 @@ SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "package_details" = COALESCE(sqlc.narg('package_details'), "package_details"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_deleted" = CASE WHEN sqlc.arg('null_date_deleted')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_deleted'), "date_deleted") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteProductSku :exec
@@ -455,7 +455,7 @@ UPDATE "catalog"."tag"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "name" = COALESCE(sqlc.narg('name'), "name"),
     "description" = CASE WHEN sqlc.arg('null_description')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('description'), "description") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteTag :exec
@@ -536,7 +536,7 @@ VALUES ($1, $2);
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE(sqlc.narg('spu_id'), "spu_id"),
     "tag" = COALESCE(sqlc.narg('tag'), "tag")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteProductSpuTag :exec
@@ -678,7 +678,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "score" = COALESCE(sqlc.narg('score'), "score"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteComment :exec
@@ -804,7 +804,7 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "is_stale_metadata" = COALESCE(sqlc.narg('is_stale_metadata'), "is_stale_metadata"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteSearchSync :exec

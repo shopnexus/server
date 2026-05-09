@@ -314,9 +314,9 @@ func (b *CreateBatchNotificationBatchResults) Close() error {
 }
 
 const createBatchProfile = `-- name: CreateBatchProfile :batchone
-INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, default_contact_id, default_wallet_id
+INSERT INTO "account"."profile" ("id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "internal_balance", "default_contact_id", "default_wallet_id")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, internal_balance, default_contact_id, default_wallet_id
 `
 
 type CreateBatchProfileBatchResults struct {
@@ -336,6 +336,7 @@ type CreateBatchProfileParams struct {
 	PhoneVerified    bool              `json:"phone_verified"`
 	DateCreated      time.Time         `json:"date_created"`
 	Country          string            `json:"country"`
+	InternalBalance  int64             `json:"internal_balance"`
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }
@@ -354,6 +355,7 @@ func (q *Queries) CreateBatchProfile(ctx context.Context, arg []CreateBatchProfi
 			a.PhoneVerified,
 			a.DateCreated,
 			a.Country,
+			a.InternalBalance,
 			a.DefaultContactID,
 			a.DefaultWalletID,
 		}
@@ -385,6 +387,7 @@ func (b *CreateBatchProfileBatchResults) QueryRow(f func(int, AccountProfile, er
 			&i.PhoneVerified,
 			&i.DateCreated,
 			&i.Country,
+			&i.InternalBalance,
 			&i.DefaultContactID,
 			&i.DefaultWalletID,
 		)

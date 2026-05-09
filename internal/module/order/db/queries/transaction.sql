@@ -33,6 +33,23 @@ SET "status" = 'Failed',
     "error" = @error
 WHERE "id" = ANY(sqlc.slice('id')) AND "status" = 'Pending';
 
+-- name: MarkPendingTxsFailedBySession :exec
+-- Saga-compensator for multi-attempt sessions: mark every still-Pending tx
+-- in the session as Failed. Idempotent (only Pending rows are touched).
+UPDATE "order"."transaction"
+SET "status" = 'Failed',
+    "error" = @error
+WHERE "session_id" = @session_id AND "status" = 'Pending';
+
+-- name: GetLatestGatewayTxBySession :one
+-- Find the most recent gateway-rail tx for a session (any status). Used by
+-- the "ensure payment URL" endpoint to decide reuse vs trigger-new-attempt.
+-- Gateway rail = payment_option IS NOT NULL (wallet txs are NULL).
+SELECT * FROM "order"."transaction"
+WHERE "session_id" = @session_id AND "payment_option" IS NOT NULL
+ORDER BY "date_created" DESC
+LIMIT 1;
+
 -- name: MarkTransactionCancelled :one
 UPDATE "order"."transaction"
 SET "status" = 'Cancelled'

@@ -19,19 +19,21 @@ FROM "common"."option"
 WHERE (
     ("id" = ANY($1) OR $1 IS NULL) AND
     ("is_enabled" = ANY($2) OR $2 IS NULL) AND
-    ("type" = ANY($3) OR $3 IS NULL)
+    ("type" = ANY($3) OR $3 IS NULL) AND
+    ("owner_id" IS NULL OR "owner_id" = $4)
 )
 ORDER BY "priority", "id" ASC
-LIMIT $5
-OFFSET $4
+LIMIT $6
+OFFSET $5
 `
 
 type ListSortedOptionParams struct {
-	ID        []string    `json:"id"`
-	IsEnabled []bool      `json:"is_enabled"`
-	Type      []string    `json:"type"`
-	Offset    pgtype.Int4 `json:"offset"`
-	Limit     pgtype.Int4 `json:"limit"`
+	ID        []string      `json:"id"`
+	IsEnabled []bool        `json:"is_enabled"`
+	Type      []string      `json:"type"`
+	AccountID uuid.NullUUID `json:"account_id"`
+	Offset    pgtype.Int4   `json:"offset"`
+	Limit     pgtype.Int4   `json:"limit"`
 }
 
 func (q *Queries) ListSortedOption(ctx context.Context, arg ListSortedOptionParams) ([]CommonOption, error) {
@@ -39,6 +41,7 @@ func (q *Queries) ListSortedOption(ctx context.Context, arg ListSortedOptionPara
 		arg.ID,
 		arg.IsEnabled,
 		arg.Type,
+		arg.AccountID,
 		arg.Offset,
 		arg.Limit,
 	)

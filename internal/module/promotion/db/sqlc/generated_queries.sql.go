@@ -1343,7 +1343,7 @@ SET "code" = COALESCE($1, "code"),
     "date_ended" = CASE WHEN $15::bool = TRUE THEN NULL ELSE COALESCE($16, "date_ended") END,
     "date_created" = COALESCE($17, "date_created"),
     "date_updated" = COALESCE($18, "date_updated")
-WHERE id = $19
+WHERE "id" = $19
 RETURNING id, code, owner_id, type, title, description, is_enabled, budget, auto_apply, "group", data, date_started, date_ended, date_created, date_updated
 `
 
@@ -1417,7 +1417,7 @@ UPDATE "promotion"."ref"
 SET "promotion_id" = COALESCE($1, "promotion_id"),
     "ref_type" = COALESCE($2, "ref_type"),
     "ref_id" = COALESCE($3, "ref_id")
-WHERE id = $4
+WHERE "id" = $4
 RETURNING id, promotion_id, ref_type, ref_id
 `
 
@@ -1453,7 +1453,7 @@ SET "promotion_id" = COALESCE($1, "promotion_id"),
     "duration" = COALESCE($4, "duration"),
     "next_run_at" = CASE WHEN $5::bool = TRUE THEN NULL ELSE COALESCE($6, "next_run_at") END,
     "last_run_at" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "last_run_at") END
-WHERE id = $9
+WHERE "id" = $9
 RETURNING id, promotion_id, timezone, cron_rule, duration, next_run_at, last_run_at
 `
 

@@ -261,7 +261,7 @@ func (b *CatalogHandler) ListProductCard(
 
 		results, err := b.Search(ctx, searchParams)
 		if err != nil {
-			slog.Error("failed to search products",
+			b.logger.Error("failed to search products",
 				slog.String("query", params.Search.String),
 				slog.Any("error", err),
 			)
@@ -417,7 +417,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(
 		fmt.Sprintf(catalogmodel.CacheKeyRecommendOffset, params.Account.ID),
 		&feedOffset,
 	); err != nil {
-		slog.Error("failed to get feed offset for account",
+		b.logger.Error("failed to get feed offset for account",
 			slog.String("account_id", params.Account.ID.String()),
 			slog.Any("error", err),
 		)
@@ -443,7 +443,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(
 			Limit:   catalogmodel.CacheRecommendSize,
 		})
 		if err != nil {
-			slog.Error("failed to get recommendations for account",
+			b.logger.Error("failed to get recommendations for account",
 				slog.String("account_id", params.Account.ID.String()),
 				slog.Any("error", err),
 			)
@@ -456,7 +456,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(
 			ctx,
 			fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, params.Account.ID),
 		); err != nil {
-			slog.Error(
+			b.logger.Error(
 				"failed to reset feed offset for account",
 				slog.String("account_id", params.Account.ID.String()),
 				slog.Any("error", err),
@@ -483,7 +483,7 @@ func (b *CatalogHandler) ListRecommendedProductCard(
 		feedOffset,
 		0,
 	); err != nil {
-		slog.Error(
+		b.logger.Error(
 			"failed to update feed offset for account",
 			slog.String("account_id", params.Account.ID.String()),
 			slog.Any("error", err),

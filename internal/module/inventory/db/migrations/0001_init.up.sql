@@ -63,3 +63,11 @@ CREATE TABLE IF NOT EXISTS "inventory"."stock_history" (
 );
 CREATE INDEX IF NOT EXISTS "stock_history_stock_id_idx" ON "inventory"."stock_history" ("stock_id");
 CREATE INDEX IF NOT EXISTS "stock_history_date_created_idx" ON "inventory"."stock_history" ("date_created");
+
+-- Saga idempotency ledger. Caller-provided keys mark whether a compensable
+-- side effect has been committed. Forward path claims; compensator consumes.
+CREATE TABLE IF NOT EXISTS "inventory"."idempotency" (
+    "key" UUID NOT NULL,
+
+    CONSTRAINT "idempotency_pkey" PRIMARY KEY ("key")
+);

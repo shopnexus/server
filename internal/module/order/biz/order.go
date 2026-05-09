@@ -19,7 +19,9 @@ func (b *OrderHandler) GetBuyerOrder(ctx restate.Context, orderID uuid.UUID) (or
 	var zero ordermodel.Order
 
 	order, err := restate.Run(ctx, func(ctx restate.RunContext) (orderdb.OrderOrder, error) {
-		return b.storage.Querier().GetOrder(ctx, uuid.NullUUID{UUID: orderID, Valid: true})
+		return b.storage.Querier().GetOrder(ctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: orderID, Valid: true},
+		})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get order", err)
@@ -86,4 +88,3 @@ func (b *OrderHandler) ListSellerConfirmed(
 		Data:       orders,
 	}, nil
 }
-

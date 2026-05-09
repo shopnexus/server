@@ -147,12 +147,6 @@ type OrderCartItem struct {
 	Quantity  int64     `json:"quantity"`
 }
 
-type OrderInternalWallet struct {
-	ID       uuid.UUID `json:"id"`
-	Balance  int64     `json:"balance"`
-	Currency string    `json:"currency"`
-}
-
 type OrderItem struct {
 	ID               int64           `json:"id"`
 	OrderID          uuid.NullUUID   `json:"order_id"`

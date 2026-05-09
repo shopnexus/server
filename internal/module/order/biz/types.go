@@ -19,7 +19,14 @@ const (
 )
 
 const (
+	// paymentExpiry bounds a single gateway payment attempt — i.e. how long the
+	// user has to complete one VNPay/Momo redirect before that URL is considered
+	// dead. Multi-attempt sessions can spawn another attempt (up to sessionExpiry).
 	paymentExpiry = 30 * time.Minute
+	// sessionExpiry bounds the entire checkout/confirm session across all retry
+	// attempts. Once it elapses, the session is failed via saga regardless of
+	// whether the buyer is mid-attempt.
+	sessionExpiry = 24 * time.Hour
 	escrowWindow  = 7 * 24 * time.Hour
 )
 

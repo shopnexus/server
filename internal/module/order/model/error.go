@@ -97,6 +97,10 @@ var (
 	ErrPaymentTimeout         = sharedmodel.NewError(http.StatusConflict, "payment_timeout", "payment session expired")
 	ErrPaymentFailed          = sharedmodel.NewError(http.StatusPaymentRequired, "payment_failed", "payment failed")
 	ErrSellerConfirmTimeout   = sharedmodel.NewError(http.StatusConflict, "seller_confirm_timeout", "seller confirmation expired")
+	ErrCheckoutCancelled      = sharedmodel.NewError(http.StatusConflict, "checkout_cancelled", "checkout cancelled by buyer")
+	ErrCheckoutExpired        = sharedmodel.NewError(http.StatusConflict, "checkout_expired", "checkout session expired")
+	ErrConfirmCancelled       = sharedmodel.NewError(http.StatusConflict, "confirm_cancelled", "confirmation cancelled by buyer")
+	ErrConfirmExpired         = sharedmodel.NewError(http.StatusConflict, "confirm_expired", "confirmation session expired")
 
 	ErrUnknownPaymentOption = sharedmodel.NewError(http.StatusBadRequest, "unknown_payment_option", "Unknown payment option: %s")
 

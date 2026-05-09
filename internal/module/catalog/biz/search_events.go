@@ -49,7 +49,7 @@ func (b *CatalogHandler) AddInteraction(ctx restate.Context, params analyticmode
 			ctx,
 			fmt.Sprintf(catalogmodel.CacheKeyRecommendProduct, ev.AccountID.UUID.String()),
 		); err != nil {
-			slog.Error(
+			b.logger.Error(
 				"failed to reset feed offset for account",
 				slog.String("account_id", ev.AccountID.UUID.String()),
 				slog.Any("error", err),

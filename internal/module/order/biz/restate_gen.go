@@ -156,22 +156,14 @@ func (p *OrderRestateClient) GetSellerTopProducts(ctx context.Context, params Ge
 	return restateclient.Call[[]SellerTopProduct](ctx, p.client, serviceName, "GetSellerTopProducts", params)
 }
 
-func (p *OrderRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {
-	return restateclient.Call[int64](ctx, p.client, serviceName, "GetWalletBalance", accountID)
-}
-
-func (p *OrderRestateClient) WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error) {
-	return restateclient.Call[WalletDebitResult](ctx, p.client, serviceName, "WalletDebit", params)
-}
-
-func (p *OrderRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
-	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
-}
-
 func (p *OrderRestateClient) InferCurrency(ctx context.Context, accountID uuid.UUID) (string, error) {
 	return restateclient.Call[string](ctx, p.client, serviceName, "InferCurrency", accountID)
 }
 
 func (p *OrderRestateClient) GetOptions(ctx context.Context, params GetOptionsParams) ([]sharedmodel.Option, error) {
 	return restateclient.Call[[]sharedmodel.Option](ctx, p.client, serviceName, "GetOptions", params)
+}
+
+func (p *OrderRestateClient) GetReusableGatewayURL(ctx context.Context, sessionID uuid.UUID) (ReusableGatewayURLState, error) {
+	return restateclient.Call[ReusableGatewayURLState](ctx, p.client, serviceName, "GetReusableGatewayURL", sessionID)
 }

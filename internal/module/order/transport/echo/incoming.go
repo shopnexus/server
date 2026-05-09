@@ -110,6 +110,43 @@ func (h *Handler) ConfirmSellerPending(c echo.Context) error {
 }
 
 // CancelConfirmSellerPending signals ConfirmWorkflow.CancelConfirm so Run()
+// EnsureConfirmPaymentURL is the multi-attempt entry point for seller
+// confirms. Mirrors EnsureBuyerCheckoutPaymentURL: returns the latest
+// reusable URL when alive, otherwise signals ConfirmWorkflow.
+// RequestNewPaymentURL to mint the next attempt and waits for its URL.
+func (h *Handler) EnsureConfirmPaymentURL(c echo.Context) error {
+	sessionIDRaw := c.Param("sessionID")
+	sessionID, err := uuid.Parse(sessionIDRaw)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, fmt.Errorf("invalid session id: %w", err))
+	}
+
+	if _, err := authclaims.GetClaims(c.Request()); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	ctx := c.Request().Context()
+
+	state, err := h.biz.GetReusableGatewayURL(ctx, sessionID)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	if state.SessionTerminated {
+		return response.FromError(c.Response().Writer, http.StatusGone, fmt.Errorf("confirm session is no longer active"))
+	}
+	if state.ReusableURL != "" {
+		return response.FromDTO(c.Response().Writer, http.StatusOK, EnsurePaymentURLResponse{PaymentURL: state.ReusableURL})
+	}
+
+	url, err := ingress.Workflow[struct{}, string](
+		h.ingress, "ConfirmWorkflow", sessionIDRaw, "RequestNewPaymentURL",
+	).Request(ctx, struct{}{})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, EnsurePaymentURLResponse{PaymentURL: url})
+}
+
 // unwinds through its saga compensators (rolling back any wallet hold and
 // gateway-side intent).
 func (h *Handler) CancelConfirmSellerPending(c echo.Context) error {

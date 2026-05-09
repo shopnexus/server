@@ -11,12 +11,14 @@ type FactoryFunc[Client any] func(sharedmodel.Option) Client
 // with a factory per Option.Type that decodes Option.Data into the
 // provider-specific config struct.
 type Map[Client any] struct {
+	logger    *slog.Logger
 	Clients   map[string]Client
 	factories map[sharedmodel.OptionType]FactoryFunc[Client]
 }
 
-func NewMap[Client any]() *Map[Client] {
+func NewMap[Client any](logger *slog.Logger) *Map[Client] {
 	return &Map[Client]{
+		logger:    logger,
 		Clients:   make(map[string]Client),
 		factories: make(map[sharedmodel.OptionType]FactoryFunc[Client]),
 	}
@@ -37,11 +39,11 @@ func (m *Map[Client]) Add(configs ...sharedmodel.Option) {
 	for _, cfg := range configs {
 		factory, ok := m.factories[cfg.Type]
 		if !ok {
-			slog.Warn("no factory registered for option type", "type", cfg.Type, "id", cfg.ID)
+			m.logger.Warn("no factory registered for option type", "type", cfg.Type, "id", cfg.ID)
 			continue
 		}
 		if _, exists := m.Clients[cfg.ID]; exists {
-			slog.Warn("client with this ID already exists and will be overwritten", "id", cfg.ID)
+			m.logger.Warn("client with this ID already exists and will be overwritten", "id", cfg.ID)
 		}
 		m.Clients[cfg.ID] = factory(cfg)
 	}

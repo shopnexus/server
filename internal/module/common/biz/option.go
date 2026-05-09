@@ -2,7 +2,9 @@ package commonbiz
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/google/uuid"
 	restate "github.com/restatedev/sdk-go"
 
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
@@ -13,11 +15,29 @@ import (
 type ListOptionParams struct {
 	Type      []string `validate:"required"`
 	IsEnabled []bool   `validate:"omitempty,dive"`
+	// AccountID identifies the requester. Zero (uuid.NullUUID{}) for anonymous callers;
+	// when valid, items whose OwnerID matches are flagged Owned=true in the response.
+	AccountID uuid.NullUUID
+}
+
+// OptionListItem is the response shape for ListOption.
+// OwnerID is intentionally hidden; ownership is exposed via the Owned flag.
+type OptionListItem struct {
+	ID          string                 `json:"id"`
+	Type        sharedmodel.OptionType `json:"type"`
+	Provider    string                 `json:"provider"`
+	IsEnabled   bool                   `json:"is_enabled"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Priority    int32                  `json:"priority"`
+	LogoRsID    uuid.NullUUID          `json:"logo_rs_id"`
+	Data        json.RawMessage        `json:"data"`
+	Owned       bool                   `json:"owned"`
 }
 
 type UpsertOptionsParams struct {
-	Category string               `json:"category" validate:"required"`
-	Configs  []sharedmodel.Option `json:"configs"  validate:"required"`
+	Type    string               `json:"type" validate:"required"`
+	Configs []sharedmodel.Option `json:"configs"  validate:"required"`
 }
 
 type DeleteOptionParams struct {
@@ -38,6 +58,10 @@ func (b *CommonHandler) upsertOptions(ctx context.Context, params UpsertOptionsP
 
 	q := b.storage.Querier()
 	for _, cfg := range params.Configs {
+		data := cfg.Data
+		if len(data) == 0 {
+			data = []byte("{}")
+		}
 		if err := q.UpsertOption(ctx, commondb.UpsertOptionParams{
 			ID:          cfg.ID,
 			OwnerID:     cfg.OwnerID,
@@ -46,8 +70,8 @@ func (b *CommonHandler) upsertOptions(ctx context.Context, params UpsertOptionsP
 			Description: cfg.Description,
 			Priority:    cfg.Priority,
 			LogoRsID:    cfg.LogoRsID,
-			Data:        cfg.Data,
-			Type:        string(cfg.Type),
+			Data:        data,
+			Type:        params.Type,
 			Provider:    cfg.Provider,
 		}); err != nil {
 			return sharedmodel.WrapErr("db upsert option", err)
@@ -71,10 +95,11 @@ func (b *CommonHandler) DeleteOptions(ctx restate.Context, params DeleteOptionPa
 }
 
 // ListOption returns active service options filtered by category.
+// Each item is tagged Owned=true when its OwnerID matches params.AccountID.
 func (b *CommonHandler) ListOption(
 	ctx restate.Context,
 	params ListOptionParams,
-) ([]sharedmodel.Option, error) {
+) ([]OptionListItem, error) {
 	if err := validator.Validate(params); err != nil {
 		return nil, sharedmodel.WrapErr("validate list service option", err)
 	}
@@ -82,24 +107,26 @@ func (b *CommonHandler) ListOption(
 	dbOptions, err := b.storage.Querier().ListSortedOption(ctx, commondb.ListSortedOptionParams{
 		Type:      params.Type,
 		IsEnabled: params.IsEnabled,
+		AccountID: params.AccountID,
 	})
 	if err != nil {
 		return nil, sharedmodel.WrapErr("db list service option", err)
 	}
 
-	var result []sharedmodel.Option
+	var result []OptionListItem
 	for _, opts := range dbOptions {
-		result = append(result, sharedmodel.Option{
+		owned := params.AccountID.Valid && opts.OwnerID.Valid && opts.OwnerID.UUID == params.AccountID.UUID
+		result = append(result, OptionListItem{
 			ID:          opts.ID,
-			OwnerID:     opts.OwnerID,
 			Type:        sharedmodel.OptionType(opts.Type),
-			IsEnabled:   opts.IsEnabled,
 			Provider:    opts.Provider,
+			IsEnabled:   opts.IsEnabled,
 			Name:        opts.Name,
 			Description: opts.Description,
 			Priority:    opts.Priority,
 			LogoRsID:    opts.LogoRsID,
 			Data:        opts.Data,
+			Owned:       owned,
 		})
 	}
 

@@ -733,7 +733,7 @@ SET "buyer_id" = COALESCE($1, "buyer_id"),
     "seller_id" = COALESCE($2, "seller_id"),
     "last_message_at" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "last_message_at") END,
     "date_created" = COALESCE($5, "date_created")
-WHERE id = $6
+WHERE "id" = $6
 RETURNING id, buyer_id, seller_id, last_message_at, date_created
 `
 
@@ -775,7 +775,7 @@ SET "conversation_id" = COALESCE($1, "conversation_id"),
     "status" = COALESCE($5, "status"),
     "data" = CASE WHEN $6::bool = TRUE THEN NULL ELSE COALESCE($7, "data") END,
     "date_created" = COALESCE($8, "date_created")
-WHERE id = $9
+WHERE "id" = $9
 RETURNING id, conversation_id, sender_id, type, content, status, data, date_created
 `
 

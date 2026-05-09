@@ -973,7 +973,7 @@ SET "account_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "accoun
     "user_agent" = CASE WHEN $10::bool = TRUE THEN NULL ELSE COALESCE($11, "user_agent") END,
     "ip_address" = CASE WHEN $12::bool = TRUE THEN NULL ELSE COALESCE($13, "ip_address") END,
     "date_created" = COALESCE($14, "date_created")
-WHERE id = $15
+WHERE "id" = $15
 RETURNING id, account_id, session_id, event_type, ref_type, ref_id, metadata, user_agent, ip_address, date_created
 `
 
@@ -1038,7 +1038,7 @@ SET "score" = COALESCE($1, "score"),
     "cart_count" = COALESCE($5, "cart_count"),
     "review_count" = COALESCE($6, "review_count"),
     "date_updated" = COALESCE($7, "date_updated")
-WHERE id = $8
+WHERE "id" = $8
 RETURNING id, score, view_count, purchase_count, favorite_count, cart_count, review_count, date_updated
 `
 

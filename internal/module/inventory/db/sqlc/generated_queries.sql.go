@@ -1011,7 +1011,7 @@ UPDATE "inventory"."serial"
 SET "stock_id" = COALESCE($1, "stock_id"),
     "status" = COALESCE($2, "status"),
     "date_created" = COALESCE($3, "date_created")
-WHERE id = $4
+WHERE "id" = $4
 RETURNING id, stock_id, status, date_created
 `
 
@@ -1047,7 +1047,7 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "taken" = COALESCE($4, "taken"),
     "serial_required" = COALESCE($5, "serial_required"),
     "date_created" = COALESCE($6, "date_created")
-WHERE id = $7
+WHERE "id" = $7
 RETURNING id, ref_type, ref_id, stock, taken, serial_required, date_created
 `
 
@@ -1089,7 +1089,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE($1, "stock_id"),
     "change" = COALESCE($2, "change"),
     "date_created" = COALESCE($3, "date_created")
-WHERE id = $4
+WHERE "id" = $4
 RETURNING id, stock_id, change, date_created
 `
 

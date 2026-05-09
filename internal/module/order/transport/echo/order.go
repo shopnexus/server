@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/ratelimit"
 	orderbiz "shopnexus-server/internal/module/order/biz"
+	orderconfig "shopnexus-server/internal/module/order/config"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	"shopnexus-server/internal/provider/transport"
 	authclaims "shopnexus-server/internal/shared/claims"
@@ -30,7 +30,7 @@ type Handler struct {
 }
 
 // NewHandler registers order module routes and returns the handler.
-func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory, cfg *config.Config) *Handler {
+func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHandler, rl *ratelimit.Factory, cfg *orderconfig.Config) *Handler {
 	h := &Handler{
 		biz:     biz,
 		ingress: ingress.NewClient(cfg.Restate.IngressAddress),
@@ -52,6 +52,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	// Buyer - Pending
 	g.POST("/buyer/checkout", h.BuyerCheckout, rlCheckout)
 	g.POST("/buyer/checkout/:sessionID/cancel", h.CancelBuyerCheckout)
+	g.POST("/buyer/checkout/:sessionID/payment-url", h.EnsureBuyerCheckoutPaymentURL, rlCheckout)
 	g.GET("/buyer/pending-items", h.ListBuyerPendingItems)
 	g.GET("/buyer/pending-orders", h.ListBuyerPendingOrders)
 	g.DELETE("/buyer/pending-items/:id", h.CancelBuyerPending)
@@ -76,6 +77,7 @@ func NewHandler(e *echo.Echo, biz orderbiz.OrderBiz, handler *orderbiz.OrderHand
 	g.GET("/seller/pending", h.ListSellerPendingItems)
 	g.POST("/seller/pending/confirm", h.ConfirmSellerPending)
 	g.POST("/seller/pending/confirm/:sessionID/cancel", h.CancelConfirmSellerPending)
+	g.POST("/seller/pending/confirm/:sessionID/payment-url", h.EnsureConfirmPaymentURL, rlCheckout)
 	g.POST("/seller/pending/reject", h.RejectSellerPending)
 
 	// Seller - Confirmed
@@ -316,9 +318,50 @@ func (h *Handler) BuyerCheckout(c echo.Context) error {
 	})
 }
 
-// CancelBuyerCheckout signals CheckoutWorkflow.CancelCheckout for the given
-// session, which resolves the workflow's payment_event promise with
-// kind="cancelled" so Run() unwinds via its saga compensators.
+// EnsurePaymentURLResponse is the envelope for the multi-attempt
+// payment-URL endpoints. Same shape for buyer checkout + seller confirm.
+type EnsurePaymentURLResponse struct {
+	PaymentURL string `json:"payment_url"`
+}
+
+// EnsureBuyerCheckoutPaymentURL is the multi-attempt entry point. Returns
+// the latest reusable gateway URL when the current attempt is still alive,
+// otherwise signals CheckoutWorkflow.RequestNewPaymentURL to mint the next
+// attempt and waits for its URL. 410 if the session is already terminal.
+func (h *Handler) EnsureBuyerCheckoutPaymentURL(c echo.Context) error {
+	sessionIDRaw := c.Param("sessionID")
+	sessionID, err := uuid.Parse(sessionIDRaw)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusBadRequest, fmt.Errorf("invalid session id: %w", err))
+	}
+
+	if _, err := authclaims.GetClaims(c.Request()); err != nil {
+		return response.FromError(c.Response().Writer, http.StatusUnauthorized, err)
+	}
+
+	ctx := c.Request().Context()
+
+	state, err := h.biz.GetReusableGatewayURL(ctx, sessionID)
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	if state.SessionTerminated {
+		return response.FromError(c.Response().Writer, http.StatusGone, fmt.Errorf("checkout session is no longer active"))
+	}
+	if state.ReusableURL != "" {
+		return response.FromDTO(c.Response().Writer, http.StatusOK, EnsurePaymentURLResponse{PaymentURL: state.ReusableURL})
+	}
+
+	url, err := ingress.Workflow[struct{}, string](
+		h.ingress, "CheckoutWorkflow", sessionIDRaw, "RequestNewPaymentURL",
+	).Request(ctx, struct{}{})
+	if err != nil {
+		return response.FromError(c.Response().Writer, http.StatusInternalServerError, err)
+	}
+	return response.FromDTO(c.Response().Writer, http.StatusOK, EnsurePaymentURLResponse{PaymentURL: url})
+}
+
+// CancelBuyerCheckout signals CheckoutWorkflow.CancelCheckout
 func (h *Handler) CancelBuyerCheckout(c echo.Context) error {
 	sessionID := c.Param("sessionID")
 	if _, err := uuid.Parse(sessionID); err != nil {

@@ -43,3 +43,25 @@ func markSessionAndTxsFailed(
 	}
 	return nil
 }
+
+// markSessionAndAllPendingFailed is the saga-compensator body for multi-attempt
+// sessions where individual gateway tx IDs aren't pre-allocated (each attempt
+// generates its own). Marks the session + every still-Pending child tx as
+// Failed by session_id. Idempotent on already-final rows.
+func markSessionAndAllPendingFailed(
+	ctx context.Context,
+	q orderdb.Querier,
+	sessionID uuid.UUID,
+	reason string,
+) error {
+	if _, e := q.MarkPaymentSessionFailed(ctx, sessionID); e != nil {
+		return sharedmodel.WrapErr("mark session failed", e)
+	}
+	if e := q.MarkPendingTxsFailedBySession(ctx, orderdb.MarkPendingTxsFailedBySessionParams{
+		SessionID: sessionID,
+		Error:     null.StringFrom(reason),
+	}); e != nil {
+		return sharedmodel.WrapErr("mark txs failed by session", e)
+	}
+	return nil
+}

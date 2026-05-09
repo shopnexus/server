@@ -25,6 +25,7 @@ import (
 	"shopnexus-server/internal/provider/payment"
 	"shopnexus-server/internal/provider/transport"
 	sharedcurrency "shopnexus-server/internal/shared/currency"
+	"shopnexus-server/internal/shared/idempotency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/saga"
 	"shopnexus-server/internal/shared/validator"
@@ -46,13 +47,31 @@ type CheckoutWorkflow struct {
 	common    commonbiz.CommonBiz
 }
 
+func NewCheckoutWorkflow(
+	base *OrderHandler,
+	storage OrderStorage,
+	account accountbiz.AccountBiz,
+	catalog catalogbiz.CatalogBiz,
+	inventory inventorybiz.InventoryBiz,
+	common commonbiz.CommonBiz,
+) *CheckoutWorkflow {
+	return &CheckoutWorkflow{
+		base:      base,
+		storage:   storage,
+		account:   account,
+		catalog:   catalog,
+		inventory: inventory,
+		common:    common,
+	}
+}
+
 func (h *CheckoutWorkflow) Run(
 	ctx restate.WorkflowContext,
 	input CheckoutWorkflowInput,
 ) (out CheckoutWorkflowOutput, err error) {
 	defer metrics.TrackHandler("checkout_workflow", "Run", &err)()
 
-	workflowID := restate.UUID(ctx)
+	workflowID := uuid.MustParse(restate.Key(ctx))
 	sessionID := workflowID
 
 	// Step 1: Validate.
@@ -69,6 +88,11 @@ func (h *CheckoutWorkflow) Run(
 			saga.Compensate()
 		}
 	}()
+
+	// Reject WaitPaymentURL on terminal failure so the synchronous HTTP
+	saga.Defer("reject_payment_url", func(_ restate.Context) error {
+		return restate.Promise[string](ctx, "payment_url_1").Reject(err)
+	})
 
 	// Step 1.5: Load buyer profile and enforce address country match.
 	buyerProfile, err := h.account.GetProfile(ctx, accountbiz.GetProfileParams{
@@ -170,9 +194,7 @@ func (h *CheckoutWorkflow) Run(
 		return commonbiz.ConvertAmountPure(amount, sellerCurrency, buyerCurrency, fxSnapshot.Rates)
 	}
 
-	// Step 3: Remove items from cart (skip on BuyNow). The compensator
-	// re-inserts the (account, sku, qty) tuples with the original quantities
-	// captured here — the DELETE has already happened by the time it runs.
+	// Step 3: Remove items from cart (skip on BuyNow)
 	if !input.BuyNow {
 		restoreAccountIDs := make([]uuid.UUID, len(input.Items))
 		restoreSkuIDs := make([]uuid.UUID, len(input.Items))
@@ -182,11 +204,13 @@ func (h *CheckoutWorkflow) Run(
 			restoreSkuIDs[i] = item.SkuID
 			restoreQuantities[i] = item.Quantity
 		}
-		saga.Defer("restore_cart", func(rctx restate.RunContext) error {
-			return h.storage.Querier().RestoreCheckoutItems(rctx, orderdb.RestoreCheckoutItemsParams{
-				AccountIds: restoreAccountIDs,
-				SkuIds:     restoreSkuIDs,
-				Quantities: restoreQuantities,
+		saga.Defer("restore_cart", func(ctx restate.Context) error {
+			return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+				return h.storage.Querier().RestoreCheckoutItems(rctx, orderdb.RestoreCheckoutItemsParams{
+					AccountIds: restoreAccountIDs,
+					SkuIds:     restoreSkuIDs,
+					Quantities: restoreQuantities,
+				})
 			})
 		})
 		if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
@@ -201,8 +225,12 @@ func (h *CheckoutWorkflow) Run(
 	}
 
 	// Step 4: Reserve inventory.
-	saga.Defer("release_inventory", func(rctx restate.RunContext) error {
-		return h.inventory.ReleaseInventory(rctx, inventorybiz.ReleaseInventoryParams{
+	// Saga key paired across forward (Reserve, claims) and compensator (Release, consumes)
+	// so a failure or partial commit unwinds without double-incrementing stock.
+	reserveKey := restate.UUID(ctx)
+	saga.Defer("release_inventory", func(ctx restate.Context) error {
+		return h.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+			Keys: idempotency.Keys{ConsumeKey: reserveKey},
 			Items: lo.Map(input.Items, func(item CheckoutItem, _ int) inventorybiz.ReleaseInventoryItem {
 				return inventorybiz.ReleaseInventoryItem{
 					RefType: inventorydb.InventoryStockRefTypeProductSku,
@@ -213,6 +241,7 @@ func (h *CheckoutWorkflow) Run(
 		})
 	})
 	inventories, err := h.inventory.ReserveInventory(ctx, inventorybiz.ReserveInventoryParams{
+		Keys: idempotency.Keys{ClaimKey: reserveKey},
 		Items: lo.Map(input.Items, func(item CheckoutItem, _ int) inventorybiz.ReserveInventoryItem {
 			var displayName string
 			if sku, ok := skuMap[item.SkuID]; ok {
@@ -304,7 +333,7 @@ func (h *CheckoutWorkflow) Run(
 	// Step 7: Wallet / gateway split.
 	var internalWalletAmount, gatewayAmount int64
 	if input.UseWallet && total > 0 {
-		balance, balErr := h.base.GetWalletBalance(ctx, input.Account.ID)
+		balance, balErr := h.base.account.GetWalletBalance(ctx, input.Account.ID)
 		if balErr != nil {
 			return out, sharedmodel.WrapErr("get wallet balance", balErr)
 		}
@@ -316,23 +345,20 @@ func (h *CheckoutWorkflow) Run(
 		return out, ordermodel.ErrInsufficientWalletBalance.Terminal()
 	}
 
-	// Step 8: Atomically create payment_session, child txs (Pending), and
-	// order items in a single restate.Run.
+	// Step 8: Atomically create payment_session, the wallet tx (if any),
+	// and order items in a single restate.Run. Gateway txs are NOT created
+	// here — they're inserted per-attempt inside the retry loop below, so
+	// each retry mints a fresh tx with its own gateway URL.
 	internalWalletTxID := restate.UUID(ctx)
-	gatewayTxID := restate.UUID(ctx)
 
-	// Compensator: mark payment_session and every tx Failed. Both UPDATEs
-	// guard on `status = 'Pending'`, so re-running on already-final rows is
-	// a no-op (saga retries the compensator until it succeeds).
-	txIDsToFail := make([]uuid.UUID, 0, 2)
-	if internalWalletAmount > 0 {
-		txIDsToFail = append(txIDsToFail, internalWalletTxID)
-	}
-	if gatewayAmount > 0 {
-		txIDsToFail = append(txIDsToFail, gatewayTxID)
-	}
-	saga.Defer("mark_session_and_txs_failed", func(rctx restate.RunContext) error {
-		return markSessionAndTxsFailed(rctx, h.storage.Querier(), sessionID, txIDsToFail, "checkout saga compensation")
+	// Compensator: mark payment_session + every still-Pending child tx as
+	// Failed by session_id. Multi-attempt sessions can spawn N gateway txs
+	// across the loop, so the compensator can't track IDs explicitly —
+	// session-wide marking catches them all idempotently.
+	saga.Defer("mark_session_and_txs_failed", func(ctx restate.Context) error {
+		return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+			return markSessionAndAllPendingFailed(rctx, h.storage.Querier(), sessionID, "checkout saga compensation")
+		})
 	})
 
 	// Result fields aren't needed downstream (the workflow drives the rest
@@ -356,7 +382,7 @@ func (h *CheckoutWorkflow) Run(
 			TotalAmount: total,
 			Data:        json.RawMessage("{}"),
 			DatePaid:    null.Time{},
-			DateExpired: time.Now().Add(paymentExpiry),
+			DateExpired: time.Now().Add(sessionExpiry),
 		})
 		if sErr != nil {
 			return res, sharedmodel.WrapErr("db create payment session", sErr)
@@ -384,26 +410,7 @@ func (h *CheckoutWorkflow) Run(
 			}
 		}
 
-		if gatewayAmount > 0 {
-			if _, txErr := h.storage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
-				ID:            gatewayTxID,
-				SessionID:     sessionID,
-				Status:        orderdb.OrderStatusPending,
-				Note:          "checkout gateway payment",
-				Error:         null.String{},
-				PaymentOption: null.StringFrom(input.PaymentOption),
-				Data:          json.RawMessage("{}"),
-				Amount:        gatewayAmount,
-				FromCurrency:  buyerCurrency,
-				ToCurrency:    buyerCurrency,
-				ExchangeRate:  exchangeRateNumeric,
-				ReversesID:    uuid.NullUUID{},
-				DateSettled:   null.Time{},
-				DateExpired:   null.TimeFrom(time.Now().Add(paymentExpiry)),
-			}); txErr != nil {
-				return res, sharedmodel.WrapErr("db create gateway tx", txErr)
-			}
-		}
+		// Gateway txs are minted per-attempt below, not here.
 
 		for _, checkoutItem := range input.Items {
 			sku := skuMap[checkoutItem.SkuID]
@@ -460,29 +467,26 @@ func (h *CheckoutWorkflow) Run(
 	// Step 9: Internal wallet payment. The wallet tx was created Pending in
 	// step 8; we mark it Success after the debit acknowledges.
 	if internalWalletAmount > 0 {
-		if _, dErr := restate.Run(ctx, func(rctx restate.RunContext) (WalletDebitResult, error) {
-			return h.base.walletDebit(rctx, WalletDebitParams{
-				AccountID: input.Account.ID,
-				Amount:    internalWalletAmount,
-				Reference: fmt.Sprintf("tx:%s", internalWalletTxID),
-				Note:      "checkout internal wallet",
-			})
+		if _, dErr := h.base.account.WalletDebit(ctx, accountbiz.WalletDebitParams{
+			AccountID: input.Account.ID,
+			Amount:    internalWalletAmount,
+			Reference: fmt.Sprintf("tx:%s", internalWalletTxID),
+			Note:      "checkout internal wallet",
 		}); dErr != nil {
 			return out, sharedmodel.WrapErr("debit internal wallet", dErr)
 		}
-		// Arm credit compensator AFTER debit confirmed. walletDebit uses a
-		// DB tx that rolls back on any error → terminal failure means no
-		// debit happened, so registering before would over-credit on saga
-		// fire. The compensator goes straight to the storage layer because
-		// saga.Compensate is already inside RunVoid; double-wrapping
-		// (WalletCredit's own RunVoid) fails the RunContext type check.
+		// Arm credit compensator AFTER debit confirmed. WalletDebit is atomic
+		// (single CTE under FOR UPDATE) → terminal failure means no debit
+		// happened, so registering before would over-credit on saga fire.
 		// TODO: xem lại step này, vì đang ko đc hỗ trợ idempotency => có thể double credit/debit
-		saga.Defer("credit_internal_wallet", func(rctx restate.RunContext) error {
-			_, e := h.storage.Querier().CreditInternalWallet(rctx, orderdb.CreditInternalWalletParams{
-				ID:     input.Account.ID,
-				Amount: internalWalletAmount,
+		saga.Defer("credit_internal_wallet", func(ctx restate.Context) error {
+			return h.base.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+				AccountID: input.Account.ID,
+				Amount:    internalWalletAmount,
+				Type:      "Refund",
+				Reference: fmt.Sprintf("tx:%s", internalWalletTxID),
+				Note:      "saga compensate: checkout wallet debit",
 			})
-			return e
 		})
 		if mErr := restate.RunVoid(ctx, func(rctx restate.RunContext) error {
 			_, e := h.storage.Querier().MarkTransactionSuccess(rctx, orderdb.MarkTransactionSuccessParams{
@@ -495,54 +499,27 @@ func (h *CheckoutWorkflow) Run(
 		}
 	}
 
-	// Step 10: Initiate gateway payment + publish payment_url
-	url, gErr := h.base.InitGatewayPayment(ctx, InitGatewayPaymentParams{
-		TxID:          gatewayTxID,
-		Amount:        gatewayAmount,
-		PaymentOption: input.PaymentOption,
-		Description:   fmt.Sprintf("Checkout session %s", workflowID),
-	})
-	if gErr != nil {
-		return out, gErr
-	}
-	if pErr := restate.Promise[string](ctx, "payment_url").Resolve(url); pErr != nil {
-		return out, sharedmodel.WrapErr("resolve payment url promise", pErr)
-	}
-
-	// Step 11: Wait for payment outcome, buyer cancel, or expiry
-	paymentPromise := restate.Promise[payment.Notification](ctx, "payment_event")
-	cancelPromise := restate.Promise[struct{}](ctx, "user_cancel")
-	expiryFut := restate.After(ctx, paymentExpiry)
-
-	// Wallet-only path: no gateway leg to wait on, short-circuit the promise
-	// with the session UUID (RefID convention) so the wait below resolves
-	// immediately on the success branch.
-	if gatewayAmount == 0 {
-		_ = paymentPromise.Resolve(payment.Notification{
-			RefID:  sessionID.String(),
-			Status: payment.StatusSuccess,
-		})
-	}
-
-	done, _ := restate.WaitFirst(ctx, paymentPromise, cancelPromise, expiryFut)
-	switch done {
-	case paymentPromise:
-		ev, evErr := paymentPromise.Result()
-		if evErr != nil {
-			return out, sharedmodel.WrapErr("read payment event", evErr)
+	// Step 10–11: Gateway payment loop (skipped for wallet-only). Mints a
+	// fresh gateway tx per attempt, resolves payment_url_<attempt>, lazy-
+	// retries on attempt expiry. Shared with ConfirmWorkflow via
+	// runGatewayPaymentLoop in payment_gateway.go.
+	if gatewayAmount > 0 {
+		if err = h.base.runGatewayPaymentLoop(ctx, gatewayPaymentLoopParams{
+			SessionID:       sessionID,
+			WorkflowID:      workflowID,
+			SessionDeadline: time.Now().Add(sessionExpiry),
+			NotePrefix:      "checkout gateway payment",
+			Description:     fmt.Sprintf("Checkout session %s", workflowID),
+			PaymentOption:   input.PaymentOption,
+			Amount:          gatewayAmount,
+			FromCurrency:    buyerCurrency,
+			ToCurrency:      buyerCurrency,
+			ExchangeRate:    exchangeRateNumeric,
+			ErrCancelled:    ordermodel.ErrCheckoutCancelled,
+			ErrExpired:      ordermodel.ErrCheckoutExpired,
+		}); err != nil {
+			return out, err
 		}
-		switch ev.Status {
-		case payment.StatusSuccess:
-			// fall through to success tail.
-		case payment.StatusFailed, payment.StatusExpired:
-			return out, ordermodel.ErrPaymentFailed.Terminal()
-		default:
-			return out, sharedmodel.WrapErr("unknown payment event status", ordermodel.ErrPaymentFailed)
-		}
-	case cancelPromise:
-		return CheckoutWorkflowOutput{Status: "cancelled", SessionID: sessionID}, nil
-	case expiryFut:
-		return CheckoutWorkflowOutput{Status: "expired", SessionID: sessionID}, nil
 	}
 
 	// Step 12: Success tail — clear saga, fan out side effects.
@@ -581,20 +558,45 @@ func (h *CheckoutWorkflow) Run(
 	return CheckoutWorkflowOutput{Status: "paid", SessionID: sessionID}, nil
 }
 
-// WaitPaymentURL blocks the caller until the `payment_url` promise resolves
+// WaitPaymentURL blocks until Run resolves the FIRST attempt's URL. Used by
+// the sync /buyer/checkout HTTP handler to bridge the async workflow submit
+// into a redirect response. Subsequent retries go through RequestNewPaymentURL.
 func (h *CheckoutWorkflow) WaitPaymentURL(
 	ctx restate.WorkflowSharedContext,
 	_ struct{},
 ) (string, error) {
-	return restate.Promise[string](ctx, "payment_url").Result()
+	return restate.Promise[string](ctx, "payment_url_1").Result()
 }
 
-// PaymentNotification is called by the payment provider
+// RequestNewPaymentURL is the multi-attempt entry point. Caller (the
+// /buyer/checkout/:sessionID/payment-url echo endpoint) has already verified
+// the latest gateway tx is Failed/expired before calling this. We resolve the
+// current attempt's retry promise (idempotent) so Run advances to attempt+1,
+// then block on the new URL. If the user races us, double-resolve is silent.
+func (h *CheckoutWorkflow) RequestNewPaymentURL(
+	ctx restate.WorkflowSharedContext,
+	_ struct{},
+) (string, error) {
+	attempt, err := restate.Get[int](ctx, "payment_attempt")
+	if err != nil {
+		return "", sharedmodel.WrapErr("read payment_attempt state", err)
+	}
+	if attempt < 1 {
+		return "", ordermodel.ErrCheckoutExpired.Terminal()
+	}
+	_ = restate.Promise[struct{}](ctx, fmt.Sprintf("retry_%d", attempt)).Resolve(struct{}{})
+	return restate.Promise[string](ctx, fmt.Sprintf("payment_url_%d", attempt+1)).Result()
+}
+
+// PaymentNotification is called by the payment provider via OrderHandler.
+// OnPaymentResult. The webhook's RefID is the gateway tx UUID — we key the
+// promise by it so late webhooks for already-Failed prior attempts are
+// silently no-ops (no-one's awaiting the old key).
 func (h *CheckoutWorkflow) PaymentNotification(
 	ctx restate.WorkflowSharedContext,
-	ev payment.Notification,
+	noti payment.Notification,
 ) error {
-	return restate.Promise[payment.Notification](ctx, "payment_event").Resolve(ev)
+	return restate.Promise[payment.Notification](ctx, "payment_event_"+noti.RefID).Resolve(noti)
 }
 
 // CancelCheckout lets the buyer abort an in-flight checkout

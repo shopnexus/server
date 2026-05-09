@@ -111,7 +111,7 @@ SET "account_id" = CASE WHEN sqlc.arg('null_account_id')::bool = TRUE THEN NULL 
     "user_agent" = CASE WHEN sqlc.arg('null_user_agent')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('user_agent'), "user_agent") END,
     "ip_address" = CASE WHEN sqlc.arg('null_ip_address')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('ip_address'), "ip_address") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteInteraction :exec
@@ -264,7 +264,7 @@ SET "score" = COALESCE(sqlc.narg('score'), "score"),
     "cart_count" = COALESCE(sqlc.narg('cart_count'), "cart_count"),
     "review_count" = COALESCE(sqlc.narg('review_count'), "review_count"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteProductPopularity :exec

@@ -105,7 +105,7 @@ SET "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "taken" = COALESCE(sqlc.narg('taken'), "taken"),
     "serial_required" = COALESCE(sqlc.narg('serial_required'), "serial_required"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteStock :exec
@@ -205,7 +205,7 @@ UPDATE "inventory"."serial"
 SET "stock_id" = COALESCE(sqlc.narg('stock_id'), "stock_id"),
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteSerial :exec
@@ -304,7 +304,7 @@ UPDATE "inventory"."stock_history"
 SET "stock_id" = COALESCE(sqlc.narg('stock_id'), "stock_id"),
     "change" = COALESCE(sqlc.narg('change'), "change"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteStockHistory :exec

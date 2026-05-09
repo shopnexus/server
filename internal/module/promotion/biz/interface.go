@@ -2,6 +2,7 @@ package promotionbiz
 
 import (
 	"context"
+	"log/slog"
 
 	catalogmodel "shopnexus-server/internal/module/catalog/model"
 	promotiondb "shopnexus-server/internal/module/promotion/db/sqlc"
@@ -35,6 +36,7 @@ type PromotionStorage = pgsqlc.Storage[*promotiondb.Queries]
 
 // PromotionHandler implements the core business logic for the promotion module.
 type PromotionHandler struct {
+	logger  *slog.Logger
 	storage PromotionStorage
 }
 
@@ -43,6 +45,9 @@ func (b *PromotionHandler) ServiceName() string {
 }
 
 // NewPromotionHandler creates a new PromotionHandler with the given dependencies.
-func NewPromotionHandler(storage PromotionStorage) *PromotionHandler {
-	return &PromotionHandler{storage: storage}
+func NewPromotionHandler(logger *slog.Logger, storage PromotionStorage) *PromotionHandler {
+	return &PromotionHandler{
+		logger:  logger,
+		storage: storage,
+	}
 }

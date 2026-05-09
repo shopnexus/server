@@ -44,6 +44,12 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (AccountNotification, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (AccountProfile, error)
 	CreateSignupProfile(ctx context.Context, arg CreateSignupProfileParams) (AccountProfile, error)
+	CreditInternalBalance(ctx context.Context, arg CreditInternalBalanceParams) (int64, error)
+	// Atomic debit. Locks the row, deducts min(balance, amount), returns
+	// (old, new). Single-statement so concurrent debits serialize correctly —
+	// the previous "SELECT then UPDATE inside BeginTx" pattern misreported
+	// "deducted" under contention because it had no FOR UPDATE.
+	DebitInternalBalance(ctx context.Context, arg DebitInternalBalanceParams) (DebitInternalBalanceRow, error)
 	DeleteAccount(ctx context.Context, arg DeleteAccountParams) error
 	DeleteContact(ctx context.Context, arg DeleteContactParams) error
 	DeleteFavorite(ctx context.Context, arg DeleteFavoriteParams) error
@@ -64,6 +70,7 @@ type Querier interface {
 	// Queries for table: account.favorite
 	// ========================================
 	GetFavorite(ctx context.Context, arg GetFavoriteParams) (AccountFavorite, error)
+	GetInternalBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
 	// ========================================
 	// Queries for table: account.notification
 	// ========================================

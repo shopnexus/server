@@ -17,16 +17,6 @@ CREATE TYPE "order"."status" AS ENUM ('Pending', 'Processing', 'Success', 'Cance
 
 -- Tables
 
-CREATE TABLE IF NOT EXISTS "order"."internal_wallet" (
-    "id" UUID NOT NULL, -- Reference "account"."account"
-    "balance" BIGINT NOT NULL DEFAULT 0, -- Internal money balance for the account
-    "currency" VARCHAR(3) NOT NULL, -- Currency of the wallet balance
-
-    CONSTRAINT "internal_wallet_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "internal_wallet_account_id_key" UNIQUE ("account_id"),
-    CONSTRAINT "internal_wallet_balance_non_negative" CHECK ("balance" >= 0)
-);
-
 -- Flat shopping cart: one row per (account, SKU) pair.
 CREATE TABLE IF NOT EXISTS "order"."cart_item" (
     "id" BIGSERIAL NOT NULL,
@@ -138,6 +128,7 @@ CREATE TABLE IF NOT EXISTS "order"."order" (
     "note" TEXT, -- Seller note
 
     CONSTRAINT "order_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "order_transport_id_key" UNIQUE ("transport_id"),
 
     CONSTRAINT "order_transport_id_fkey" FOREIGN KEY ("transport_id")
         REFERENCES "order"."transport" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,
@@ -211,6 +202,7 @@ CREATE TABLE IF NOT EXISTS "order"."refund" (
     "refund_tx_id"   UUID, -- Negative-amount tx (in item's payment_session) representing the refund credit; convention: single rail (internal wallet)
 
     CONSTRAINT "refund_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "refund_transport_id" UNIQUE ("transport_id"),
 
     CONSTRAINT "refund_order_id_fkey" FOREIGN KEY ("order_id")
         REFERENCES "order"."order" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,

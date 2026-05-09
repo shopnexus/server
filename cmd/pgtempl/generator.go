@@ -12,6 +12,13 @@ type Generator struct {
 
 // Generate returns all queries for one table, joined with "\n\n".
 func (g *Generator) Generate(table *Table) string {
+	// Key-only tables (only PK columns) are dedup ledgers (idempotency keys,
+	// processed-event sets). Generic CRUD is meaningless for them; rely on
+	// hand-written queries to define the operations.
+	if len(table.UpdatableColumns()) == 0 {
+		return ""
+	}
+
 	var queries []string
 
 	queries = append(queries, g.generateGet(table))
@@ -23,7 +30,9 @@ func (g *Generator) Generate(table *Table) string {
 	queries = append(queries, g.generateCreateCopy(table))
 	queries = append(queries, g.generateCreateDefault(table))
 	queries = append(queries, g.generateCreateCopyDefault(table))
-	queries = append(queries, g.generateUpdate(table))
+	if upd := g.generateUpdate(table); upd != "" {
+		queries = append(queries, upd)
+	}
 	queries = append(queries, g.generateDelete(table))
 
 	return strings.Join(queries, "\n\n")
@@ -129,10 +138,11 @@ func (g *Generator) generateList(table *Table) string {
 	where := filterWhereClause(table)
 
 	return fmt.Sprintf(
-		"-- name: %s :many\nSELECT *\nFROM %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
+		"-- name: %s :many\nSELECT *\nFROM %s\n%s\nORDER BY %s\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
 		name,
 		table.FullName(),
 		where,
+		pkOrderBy(table),
 	)
 }
 
@@ -143,13 +153,27 @@ func (g *Generator) generateListCount(table *Table) string {
 	embedAlias := "embed_" + table.Name
 
 	return fmt.Sprintf(
-		"-- name: %s :many\nSELECT sqlc.embed(%s), COUNT(*) OVER() as total_count\nFROM %s %s\n%s\nORDER BY \"id\"\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
+		"-- name: %s :many\nSELECT sqlc.embed(%s), COUNT(*) OVER() as total_count\nFROM %s %s\n%s\nORDER BY %s\nLIMIT sqlc.narg('limit')::int\nOFFSET sqlc.narg('offset')::int;",
 		name,
 		embedAlias,
 		table.FullName(),
 		embedAlias,
 		where,
+		pkOrderBy(table),
 	)
+}
+
+// pkOrderBy returns the ORDER BY column list using the table's primary key.
+// Falls back to "id" when no PK is declared, preserving prior behavior.
+func pkOrderBy(table *Table) string {
+	if len(table.PrimaryKeys) == 0 {
+		return `"id"`
+	}
+	parts := make([]string, 0, len(table.PrimaryKeys))
+	for _, c := range table.PrimaryKeys {
+		parts = append(parts, c.Quoted())
+	}
+	return strings.Join(parts, ", ")
 }
 
 // columnList returns quoted column names joined with ", ".
@@ -229,6 +253,9 @@ func (g *Generator) generateCreateCopyDefault(table *Table) string {
 func (g *Generator) generateUpdate(table *Table) string {
 	name := g.queryName("Update", table)
 	cols := table.UpdatableColumns()
+	if len(cols) == 0 {
+		return ""
+	}
 
 	var setClauses []string
 	for _, col := range cols {
@@ -252,8 +279,12 @@ func (g *Generator) generateUpdate(table *Table) string {
 
 	setStr := strings.Join(setClauses, ",\n    ")
 
-	return fmt.Sprintf("-- name: %s :one\nUPDATE %s\nSET %s\nWHERE id = sqlc.arg('id')\nRETURNING *;",
-		name, table.FullName(), setStr)
+	pkName := "id"
+	if len(table.PrimaryKeys) > 0 {
+		pkName = table.PrimaryKeys[0].Name
+	}
+	return fmt.Sprintf("-- name: %s :one\nUPDATE %s\nSET %s\nWHERE %q = sqlc.arg('%s')\nRETURNING *;",
+		name, table.FullName(), setStr, pkName, pkName)
 }
 
 // generateDelete builds the DELETE query.

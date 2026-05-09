@@ -65,4 +65,6 @@ func WrapErr(msg string, err error) error {
 var (
 	ErrValidation     = NewError(http.StatusBadRequest, "validation", "%s")
 	ErrEntityNotFound = NewError(http.StatusNotFound, "entity_not_found", "%s not found")
+
+	ErrDuplicateIdempotencyKey = NewError(http.StatusConflict, "duplicate_idempotency_key", "idempotency key already claimed")
 )

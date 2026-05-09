@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -68,7 +67,7 @@ func (b *CommonHandler) ForwardGeocode(ctx restate.Context, params ForwardGeocod
 
 		if result.Address != "" {
 			if err := b.cache.Set(ctx, cacheKey, result, forwardGeocodeCacheTTL); err != nil {
-				slog.Warn("forward geocode cache set failed", "err", err)
+				b.logger.Warn("forward geocode cache set failed", "err", err)
 			}
 		}
 

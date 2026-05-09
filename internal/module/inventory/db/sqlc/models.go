@@ -134,6 +134,10 @@ func AllInventoryStockRefTypeValues() []InventoryStockRefType {
 	}
 }
 
+type InventoryIdempotency struct {
+	Key uuid.UUID `json:"key"`
+}
+
 type InventorySerial struct {
 	ID          string          `json:"id"`
 	StockID     int64           `json:"stock_id"`

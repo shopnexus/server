@@ -18,17 +18,17 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-type PayoutWorkflowHandler struct {
+type PayoutWorkflow struct {
 	base *OrderHandler
 }
 
-func NewPayoutWorkflowHandler(base *OrderHandler) *PayoutWorkflowHandler {
-	return &PayoutWorkflowHandler{base: base}
+func NewPayoutWorkflow(base *OrderHandler) *PayoutWorkflow {
+	return &PayoutWorkflow{base: base}
 }
 
-func (h *PayoutWorkflowHandler) ServiceName() string { return "PayoutWorkflow" }
+func (h *PayoutWorkflow) ServiceName() string { return "PayoutWorkflow" }
 
-func (h *PayoutWorkflowHandler) Run(
+func (h *PayoutWorkflow) Run(
 	ctx restate.WorkflowContext,
 	input PayoutInput,
 ) (out PayoutOutput, err error) {
@@ -43,23 +43,27 @@ func (h *PayoutWorkflowHandler) Run(
 		}
 	}()
 
-	// Step 1: open the seller-payout session + Pending payout tx. UUIDs are
-	// pre-allocated outside the Run so they're journaled by restate.UUID and
+	// Step 1: open the seller-payout session + Pending payout tx. sessionID
+	// equals the workflow key (= order ID) so DB row identity matches the
+	// Restate workflow identity. payoutTxID is independent (multiple txs may
+	// exist per session in future); pre-allocated via restate.UUID so it's
 	// stable across replays — the INSERT becomes idempotent on PK conflict.
-	sessionID := restate.UUID(ctx)
+	sessionID := uuid.MustParse(restate.Key(ctx))
 	payoutTxID := restate.UUID(ctx)
 
 	// Compensator: mark the payout session + tx Failed if anything later in
 	// the workflow terminally fails. Both queries guard on status='Pending'
 	// so they no-op once the row reaches a final state — safe to retry.
-	saga.Defer("mark_session_and_txs_failed", func(rctx restate.RunContext) error {
-		return markSessionAndTxsFailed(
-			rctx,
-			h.base.storage.Querier(),
-			sessionID,
-			[]uuid.UUID{payoutTxID},
-			"payout saga compensation",
-		)
+	saga.Defer("mark_session_and_txs_failed", func(ctx restate.Context) error {
+		return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+			return markSessionAndTxsFailed(
+				rctx,
+				h.base.storage.Querier(),
+				sessionID,
+				[]uuid.UUID{payoutTxID},
+				"payout saga compensation",
+			)
+		})
 	})
 	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
 		if _, sErr := h.base.storage.Querier().CreateDefaultPaymentSession(
@@ -166,14 +170,12 @@ func (h *PayoutWorkflowHandler) Run(
 			// no-ops on the now-Success rows, so a terminal failure of the
 			// wallet credit below does NOT auto-revert the marks — operator
 			// intervention is required for that gap.
-			if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-				return h.base.walletCredit(rctx, WalletCreditParams{
-					AccountID: input.SellerID,
-					Amount:    input.PaidTotal,
-					Type:      "Payout",
-					Reference: fmt.Sprintf("payout-session:%s", sessionID),
-					Note:      "escrow released",
-				})
+			if err = h.base.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
+				AccountID: input.SellerID,
+				Amount:    input.PaidTotal,
+				Type:      "Payout",
+				Reference: fmt.Sprintf("payout-session:%s", sessionID),
+				Note:      "escrow released",
 			}); err != nil {
 				return out, sharedmodel.WrapErr("seller wallet credit", err)
 			}
@@ -195,12 +197,16 @@ func (h *PayoutWorkflowHandler) Run(
 		// If both the signal hasn't fired and the deadline already passed,
 		// loop immediately — the switch above will handle the release path.
 		if len(futs) > 1 {
-			_, _ = restate.WaitFirst(ctx, futs...)
+			if _, werr := restate.WaitFirst(ctx, futs...); werr != nil {
+				return out, werr
+			}
 		} else {
 			// Only the signal is left to wait on. This branch is hit when the
 			// deadline has passed but a refund is still active, so we wait
 			// indefinitely for the refund to settle one way or the other.
-			_, _ = signal.Result()
+			if _, sErr := signal.Result(); sErr != nil {
+				return out, sErr
+			}
 		}
 	}
 }
@@ -209,7 +215,7 @@ func (h *PayoutWorkflowHandler) Run(
 // every time a refund row for this order transitions state. It resolves the
 // promise the Run loop is currently blocked on, identified by the iteration
 // counter we persist in K/V state.
-func (h *PayoutWorkflowHandler) OnRefundChanged(
+func (h *PayoutWorkflow) OnRefundChanged(
 	ctx restate.WorkflowSharedContext,
 	_ struct{},
 ) error {

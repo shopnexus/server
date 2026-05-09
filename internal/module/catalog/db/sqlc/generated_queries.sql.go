@@ -2694,7 +2694,7 @@ UPDATE "catalog"."category"
 SET "name" = COALESCE($1, "name"),
     "description" = COALESCE($2, "description"),
     "parent_id" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "parent_id") END
-WHERE id = $5
+WHERE "id" = $5
 RETURNING id, name, description, parent_id
 `
 
@@ -2736,7 +2736,7 @@ SET "account_id" = COALESCE($1, "account_id"),
     "score" = COALESCE($9, "score"),
     "date_created" = COALESCE($10, "date_created"),
     "date_updated" = COALESCE($11, "date_updated")
-WHERE id = $12
+WHERE "id" = $12
 RETURNING id, account_id, order_id, ref_type, ref_id, body, upvote, downvote, score, date_created, date_updated
 `
 
@@ -2796,7 +2796,7 @@ SET "spu_id" = COALESCE($1, "spu_id"),
     "package_details" = COALESCE($5, "package_details"),
     "date_created" = COALESCE($6, "date_created"),
     "date_deleted" = CASE WHEN $7::bool = TRUE THEN NULL ELSE COALESCE($8, "date_deleted") END
-WHERE id = $9
+WHERE "id" = $9
 RETURNING id, spu_id, price, shared_packaging, attributes, package_details, date_created, date_deleted
 `
 
@@ -2852,7 +2852,7 @@ SET "slug" = COALESCE($1, "slug"),
     "date_created" = COALESCE($11, "date_created"),
     "date_updated" = COALESCE($12, "date_updated"),
     "date_deleted" = CASE WHEN $13::bool = TRUE THEN NULL ELSE COALESCE($14, "date_deleted") END
-WHERE id = $15
+WHERE "id" = $15
 RETURNING id, number, slug, account_id, category_id, featured_sku_id, name, description, is_enabled, currency, specifications, date_created, date_updated, date_deleted
 `
 
@@ -2916,7 +2916,7 @@ const updateProductSpuTag = `-- name: UpdateProductSpuTag :one
 UPDATE "catalog"."product_spu_tag"
 SET "spu_id" = COALESCE($1, "spu_id"),
     "tag" = COALESCE($2, "tag")
-WHERE id = $3
+WHERE "id" = $3
 RETURNING id, spu_id, tag
 `
 
@@ -2941,7 +2941,7 @@ SET "ref_type" = COALESCE($1, "ref_type"),
     "is_stale_metadata" = COALESCE($4, "is_stale_metadata"),
     "date_created" = COALESCE($5, "date_created"),
     "date_updated" = COALESCE($6, "date_updated")
-WHERE id = $7
+WHERE "id" = $7
 RETURNING id, ref_type, ref_id, is_stale_embedding, is_stale_metadata, date_created, date_updated
 `
 
@@ -2983,7 +2983,7 @@ UPDATE "catalog"."tag"
 SET "account_id" = COALESCE($1, "account_id"),
     "name" = COALESCE($2, "name"),
     "description" = CASE WHEN $3::bool = TRUE THEN NULL ELSE COALESCE($4, "description") END
-WHERE id = $5
+WHERE "id" = $5
 RETURNING id, account_id, name, description
 `
 

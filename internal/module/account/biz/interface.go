@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"shopnexus-server/config"
+	accountconfig "shopnexus-server/internal/module/account/config"
 	accountdb "shopnexus-server/internal/module/account/db/sqlc"
 	accountmodel "shopnexus-server/internal/module/account/model"
 	commonbiz "shopnexus-server/internal/module/common/biz"
@@ -28,6 +28,11 @@ type AccountBiz interface {
 	ListProfile(ctx context.Context, params ListProfileParams) (sharedmodel.PaginateResult[accountmodel.Profile], error)
 	UpdateProfile(ctx context.Context, params UpdateProfileParams) (accountmodel.Profile, error)
 	UpdateCountry(ctx context.Context, params UpdateCountryParams) error
+
+	// Internal wallet (profile.internal_balance)
+	GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error)
+	WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error)
+	WalletCredit(ctx context.Context, params WalletCreditParams) error
 
 	// Account
 	SuspendAccount(ctx context.Context, params SuspendAccountParams) error
@@ -69,7 +74,6 @@ type AccountHandler struct {
 	refreshTokenDuration time.Duration
 	refreshSecret        []byte
 
-	config  *config.Config
 	storage AccountStorage
 	common  commonbiz.CommonBiz
 }
@@ -80,19 +84,17 @@ func (b *AccountHandler) ServiceName() string {
 
 // NewAccountHandler creates a new AccountHandler with the given dependencies.
 func NewAccountHandler(
-	config *config.Config,
+	cfg *accountconfig.Config,
 	storage AccountStorage,
 	common commonbiz.CommonBiz,
 ) *AccountHandler {
 	return &AccountHandler{
-		tokenDuration:        time.Duration(config.App.JWT.AccessTokenDuration * int64(time.Second)),
-		jwtSecret:            []byte(config.App.JWT.Secret),
-		refreshTokenDuration: time.Duration(config.App.JWT.RefreshTokenDuration * int64(time.Second)),
-		refreshSecret:        []byte(config.App.JWT.RefreshSecret),
+		tokenDuration:        time.Duration(cfg.JWT.AccessTokenDuration * int64(time.Second)),
+		jwtSecret:            []byte(cfg.JWT.Secret),
+		refreshTokenDuration: time.Duration(cfg.JWT.RefreshTokenDuration * int64(time.Second)),
+		refreshSecret:        []byte(cfg.JWT.RefreshSecret),
 
-		config:  config,
 		storage: storage,
 		common:  common,
 	}
 }
-

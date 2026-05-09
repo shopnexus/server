@@ -8,7 +8,6 @@ import (
 	restateclient "shopnexus-server/internal/infras/restate"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	"shopnexus-server/internal/provider/geocoding"
-	sharedmodel "shopnexus-server/internal/shared/model"
 )
 
 const serviceName = "Common"
@@ -28,8 +27,8 @@ func (p *CommonRestateClient) GetFileURL(ctx context.Context, params GetFileURLP
 	return restateclient.Call[string](ctx, p.client, serviceName, "GetFileURL", params)
 }
 
-func (p *CommonRestateClient) ListOption(ctx context.Context, params ListOptionParams) ([]sharedmodel.Option, error) {
-	return restateclient.Call[[]sharedmodel.Option](ctx, p.client, serviceName, "ListOption", params)
+func (p *CommonRestateClient) ListOption(ctx context.Context, params ListOptionParams) ([]OptionListItem, error) {
+	return restateclient.Call[[]OptionListItem](ctx, p.client, serviceName, "ListOption", params)
 }
 
 func (p *CommonRestateClient) UpsertOptions(ctx context.Context, params UpsertOptionsParams) error {

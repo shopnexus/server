@@ -4,7 +4,8 @@ FROM "common"."option"
 WHERE (
     ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
     ("is_enabled" = ANY(sqlc.slice('is_enabled')) OR sqlc.slice('is_enabled') IS NULL) AND
-    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL)
+    ("type" = ANY(sqlc.slice('type')) OR sqlc.slice('type') IS NULL) AND
+    ("owner_id" IS NULL OR "owner_id" = sqlc.narg('account_id'))
 )
 ORDER BY "priority", "id" ASC
 LIMIT sqlc.narg('limit')

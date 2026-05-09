@@ -33,6 +33,33 @@ func (q *Queries) AdjustInventory(ctx context.Context, arg AdjustInventoryParams
 	return result.RowsAffected(), nil
 }
 
+const claimIdempotencyKey = `-- name: ClaimIdempotencyKey :execrows
+INSERT INTO "inventory"."idempotency" ("key")
+VALUES ($1)
+ON CONFLICT ("key") DO NOTHING
+`
+
+func (q *Queries) ClaimIdempotencyKey(ctx context.Context, key uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, claimIdempotencyKey, key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const consumeIdempotencyKey = `-- name: ConsumeIdempotencyKey :execrows
+DELETE FROM "inventory"."idempotency"
+WHERE "key" = $1
+`
+
+func (q *Queries) ConsumeIdempotencyKey(ctx context.Context, key uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, consumeIdempotencyKey, key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAvailableSerials = `-- name: GetAvailableSerials :many
 SELECT id, stock_id
 FROM "inventory"."serial"

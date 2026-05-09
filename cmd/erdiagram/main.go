@@ -15,7 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"shopnexus-server/config"
+	accountconfig "shopnexus-server/internal/module/account/config"
 	"sort"
 	"strings"
 )
@@ -105,7 +105,11 @@ func main() {
 }
 
 func loadSchema() Schema {
-	dsn := config.GetConfig().Postgres.Url
+	cfg, err := accountconfig.NewConfig()
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+	dsn := cfg.Postgres.Url
 
 	out, err := exec.Command("tbls", "out", "-t", "json", dsn).Output()
 	if err != nil {

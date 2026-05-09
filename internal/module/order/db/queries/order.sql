@@ -7,9 +7,6 @@ WHERE "seller_id" = @seller_id
 ORDER BY "date_created" DESC
 LIMIT @limit_count::INTEGER OFFSET @offset_count::INTEGER;
 
--- name: ListOrdersByTransportID :many
-SELECT * FROM "order"."order" WHERE "transport_id" = @transport_id;
-
 -- name: ListCountSellerOrder :many
 SELECT sqlc.embed(embed_order), COUNT(*) OVER() as total_count
 FROM "order"."order" embed_order
@@ -45,3 +42,7 @@ SELECT EXISTS(
       AND i.sku_id = ANY(@sku_ids::UUID[])
       AND i.date_cancelled IS NULL
 ) AS is_valid;
+
+-- name: GetOrderByTransportID :one
+SELECT o.* FROM "order"."order" o
+WHERE o.transport_id = @transport_id;

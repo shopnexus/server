@@ -14,6 +14,39 @@ import (
 	null "github.com/guregu/null/v6"
 )
 
+const getLatestGatewayTxBySession = `-- name: GetLatestGatewayTxBySession :one
+SELECT id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired FROM "order"."transaction"
+WHERE "session_id" = $1 AND "payment_option" IS NOT NULL
+ORDER BY "date_created" DESC
+LIMIT 1
+`
+
+// Find the most recent gateway-rail tx for a session (any status). Used by
+// the "ensure payment URL" endpoint to decide reuse vs trigger-new-attempt.
+// Gateway rail = payment_option IS NOT NULL (wallet txs are NULL).
+func (q *Queries) GetLatestGatewayTxBySession(ctx context.Context, sessionID uuid.UUID) (OrderTransaction, error) {
+	row := q.db.QueryRow(ctx, getLatestGatewayTxBySession, sessionID)
+	var i OrderTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.Note,
+		&i.Error,
+		&i.PaymentOption,
+		&i.Data,
+		&i.Amount,
+		&i.FromCurrency,
+		&i.ToCurrency,
+		&i.ExchangeRate,
+		&i.ReversesID,
+		&i.DateCreated,
+		&i.DateSettled,
+		&i.DateExpired,
+	)
+	return i, err
+}
+
 const listTransactionsByIDs = `-- name: ListTransactionsByIDs :many
 SELECT id, session_id, status, note, error, payment_option, data, amount, from_currency, to_currency, exchange_rate, reverses_id, date_created, date_settled, date_expired FROM "order"."transaction" WHERE "id" = ANY($1::BIGINT[])
 `
@@ -182,6 +215,25 @@ func (q *Queries) ListTransactionsBySession(ctx context.Context, sessionID uuid.
 		return nil, err
 	}
 	return items, nil
+}
+
+const markPendingTxsFailedBySession = `-- name: MarkPendingTxsFailedBySession :exec
+UPDATE "order"."transaction"
+SET "status" = 'Failed',
+    "error" = $1
+WHERE "session_id" = $2 AND "status" = 'Pending'
+`
+
+type MarkPendingTxsFailedBySessionParams struct {
+	Error     null.String `json:"error"`
+	SessionID uuid.UUID   `json:"session_id"`
+}
+
+// Saga-compensator for multi-attempt sessions: mark every still-Pending tx
+// in the session as Failed. Idempotent (only Pending rows are touched).
+func (q *Queries) MarkPendingTxsFailedBySession(ctx context.Context, arg MarkPendingTxsFailedBySessionParams) error {
+	_, err := q.db.Exec(ctx, markPendingTxsFailedBySession, arg.Error, arg.SessionID)
+	return err
 }
 
 const markTransactionCancelled = `-- name: MarkTransactionCancelled :one

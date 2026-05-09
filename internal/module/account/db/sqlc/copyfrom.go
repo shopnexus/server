@@ -377,6 +377,7 @@ func (r iteratorForCreateCopyProfile) Values() ([]interface{}, error) {
 		r.rows[0].PhoneVerified,
 		r.rows[0].DateCreated,
 		r.rows[0].Country,
+		r.rows[0].InternalBalance,
 		r.rows[0].DefaultContactID,
 		r.rows[0].DefaultWalletID,
 	}, nil
@@ -387,5 +388,5 @@ func (r iteratorForCreateCopyProfile) Err() error {
 }
 
 func (q *Queries) CreateCopyProfile(ctx context.Context, arg []CreateCopyProfileParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyProfile{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"account", "profile"}, []string{"id", "gender", "name", "description", "date_of_birth", "avatar_rs_id", "email_verified", "phone_verified", "date_created", "country", "internal_balance", "default_contact_id", "default_wallet_id"}, &iteratorForCreateCopyProfile{rows: arg})
 }

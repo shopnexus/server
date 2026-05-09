@@ -4,6 +4,7 @@ import (
 	"shopnexus-server/internal/infras/metrics"
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	inventorymodel "shopnexus-server/internal/module/inventory/model"
+	"shopnexus-server/internal/shared/idempotency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 )
 
 type ReleaseInventoryParams struct {
+	idempotency.Keys
 	Items []ReleaseInventoryItem
 }
 
@@ -20,25 +22,35 @@ type ReleaseInventoryItem struct {
 	Amount  int64
 }
 
-func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseInventoryParams) error {
-	var err error
+func (b *InventoryHandler) ReleaseInventory(ctx restate.Context, params ReleaseInventoryParams) (err error) {
 	defer metrics.TrackHandler("inventory", "ReleaseInventory", &err)()
 
-	_, err = restate.Run(ctx, func(ctx restate.RunContext) (any, error) {
-		for _, item := range params.Items {
-			rows, err := b.storage.Querier().ReleaseInventory(ctx, inventorydb.ReleaseInventoryParams{
-				RefID:   item.RefID,
-				RefType: item.RefType,
-				Amount:  item.Amount,
-			})
-			if err != nil {
-				return nil, sharedmodel.WrapErr("release inventory", err)
-			}
-			if rows == 0 {
-				return nil, inventorymodel.ErrInsufficientReservedInventory.Terminal()
-			}
+	txStorage, err := b.storage.BeginTx(ctx)
+	if err != nil {
+		return sharedmodel.WrapErr("begin transaction", err)
+	}
+	defer txStorage.Rollback(ctx)
+
+	if err = params.Keys.Apply(ctx, txStorage.Querier()); err != nil {
+		return sharedmodel.WrapErr("check idempotency keys", err)
+	}
+
+	for _, item := range params.Items {
+		rows, e := txStorage.Querier().ReleaseInventory(ctx, inventorydb.ReleaseInventoryParams{
+			RefID:   item.RefID,
+			RefType: item.RefType,
+			Amount:  item.Amount,
+		})
+		if e != nil {
+			return sharedmodel.WrapErr("release inventory", e)
 		}
-		return nil, nil
-	})
-	return err
+		if rows == 0 {
+			return inventorymodel.ErrInsufficientReservedInventory.Terminal()
+		}
+	}
+
+	if err = txStorage.Commit(ctx); err != nil {
+		return sharedmodel.WrapErr("commit transaction", err)
+	}
+	return nil
 }

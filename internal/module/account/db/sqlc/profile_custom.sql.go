@@ -14,7 +14,7 @@ import (
 const createSignupProfile = `-- name: CreateSignupProfile :one
 INSERT INTO "account"."profile" ("id", "country", "name")
 VALUES ($1, $2, $3)
-RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, default_contact_id, default_wallet_id
+RETURNING id, gender, name, description, date_of_birth, avatar_rs_id, email_verified, phone_verified, date_created, country, internal_balance, default_contact_id, default_wallet_id
 `
 
 type CreateSignupProfileParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) CreateSignupProfile(ctx context.Context, arg CreateSignupProfi
 		&i.PhoneVerified,
 		&i.DateCreated,
 		&i.Country,
+		&i.InternalBalance,
 		&i.DefaultContactID,
 		&i.DefaultWalletID,
 	)
@@ -78,7 +79,7 @@ func (q *Queries) SetAccountDefaultContact(ctx context.Context, arg SetAccountDe
 const updateProfileCountry = `-- name: UpdateProfileCountry :execrows
 UPDATE "account"."profile"
 SET "country" = $1
-WHERE "id" = $2 AND "balance" = 0
+WHERE "id" = $2 AND "internal_balance" = 0
 `
 
 type UpdateProfileCountryParams struct {

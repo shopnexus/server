@@ -3,7 +3,6 @@ package commonbiz
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"slices"
 	"time"
 
@@ -75,11 +74,11 @@ func ConvertAmountPure(amount int64, from, to string, ratesFromUSD map[string]de
 // (before the first cron refresh completes) or cache error, returns an
 // empty Rates map with correct metadata — callers fail-open.
 func (b *CommonHandler) GetExchangeRates(ctx restate.Context, _ GetExchangeRatesParams) (commonmodel.ExchangeRateSnapshot, error) {
-	base := b.config.App.Exchange.Base
+	base := b.cfg.Exchange.Base
 
 	var snap commonmodel.ExchangeRateSnapshot
 	if err := b.cache.Get(ctx, exchangeRateCacheKey(base), &snap); err != nil {
-		slog.Warn("exchange cache get failed", "base", base, "err", err)
+		b.logger.Warn("exchange cache get failed", "base", base, "err", err)
 	}
 
 	// Cache miss leaves snap at zero value — Rates will be nil.
@@ -87,7 +86,7 @@ func (b *CommonHandler) GetExchangeRates(ctx restate.Context, _ GetExchangeRates
 		snap.Rates = map[string]decimal.Decimal{}
 	}
 	snap.Base = base
-	snap.Supported = b.config.App.Exchange.Supported
+	snap.Supported = b.cfg.Exchange.Supported
 	return snap, nil
 }
 
@@ -104,7 +103,7 @@ func (b *CommonHandler) ConvertAmount(ctx restate.Context, p ConvertAmountParams
 // Returns an error tuple to conform to the Restate proxy calling convention
 // for interface methods; lookup itself never fails.
 func (b *CommonHandler) IsSupportedCurrency(_ restate.Context, currency string) (bool, error) {
-	return slices.Contains(b.config.App.Exchange.Supported, currency), nil
+	return slices.Contains(b.cfg.Exchange.Supported, currency), nil
 }
 
 // RefreshExchangeRates fetches the latest rates from the provider and
@@ -114,9 +113,9 @@ func (b *CommonHandler) RefreshExchangeRates(ctx context.Context) error {
 	if b.exchange == nil {
 		return fmt.Errorf("exchange: no provider configured")
 	}
-	base := b.config.App.Exchange.Base
-	targets := make([]string, 0, len(b.config.App.Exchange.Supported))
-	for _, c := range b.config.App.Exchange.Supported {
+	base := b.cfg.Exchange.Base
+	targets := make([]string, 0, len(b.cfg.Exchange.Supported))
+	for _, c := range b.cfg.Exchange.Supported {
 		if c != base {
 			targets = append(targets, c)
 		}
@@ -146,7 +145,7 @@ func (b *CommonHandler) RefreshExchangeRates(ctx context.Context) error {
 // SetupExchangeCron starts the rate refresh goroutine. Mirrors the
 // catalog search sync pattern. Safe to call once; non-blocking.
 func (b *CommonHandler) SetupExchangeCron() {
-	interval := b.config.App.Exchange.RefreshInterval
+	interval := b.cfg.Exchange.RefreshInterval
 	if interval <= 0 {
 		interval = 6 * time.Hour
 	}
@@ -154,9 +153,9 @@ func (b *CommonHandler) SetupExchangeCron() {
 }
 
 func (b *CommonHandler) exchangeCronLoop(ctx context.Context, interval time.Duration) {
-	slog.Info("exchange rate cron starting", "interval", interval)
+	b.logger.Info("exchange rate cron starting", "interval", interval)
 	if err := b.RefreshExchangeRates(ctx); err != nil {
-		slog.Warn("initial exchange refresh failed", "err", err)
+		b.logger.Warn("initial exchange refresh failed", "err", err)
 	}
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
@@ -166,7 +165,7 @@ func (b *CommonHandler) exchangeCronLoop(ctx context.Context, interval time.Dura
 			return
 		case <-tick.C:
 			if err := b.RefreshExchangeRates(ctx); err != nil {
-				slog.Warn("periodic exchange refresh failed", "err", err)
+				b.logger.Warn("periodic exchange refresh failed", "err", err)
 			}
 		}
 	}

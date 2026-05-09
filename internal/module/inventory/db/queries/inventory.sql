@@ -35,3 +35,12 @@ OFFSET sqlc.narg('offset')::int;
 UPDATE "inventory"."stock"
 SET "stock" = "stock" + @amount, "taken" = "taken" - @amount
 WHERE "ref_id" = @ref_id AND "ref_type" = @ref_type AND "taken" >= @amount;
+
+-- name: ClaimIdempotencyKey :execrows
+INSERT INTO "inventory"."idempotency" ("key")
+VALUES (@key)
+ON CONFLICT ("key") DO NOTHING;
+
+-- name: ConsumeIdempotencyKey :execrows
+DELETE FROM "inventory"."idempotency"
+WHERE "key" = @key;

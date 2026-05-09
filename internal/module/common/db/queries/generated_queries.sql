@@ -107,7 +107,7 @@ SET "uploaded_by_id" = CASE WHEN sqlc.arg('null_uploaded_by_id')::bool = TRUE TH
     "metadata" = COALESCE(sqlc.narg('metadata'), "metadata"),
     "checksum" = CASE WHEN sqlc.arg('null_checksum')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('checksum'), "checksum") END,
     "created_at" = COALESCE(sqlc.narg('created_at'), "created_at")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteResource :exec
@@ -211,7 +211,7 @@ SET "rs_id" = COALESCE(sqlc.narg('rs_id'), "rs_id"),
     "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id"),
     "order" = COALESCE(sqlc.narg('order'), "order")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteResourceReference :exec
@@ -329,7 +329,7 @@ SET "owner_id" = CASE WHEN sqlc.arg('null_owner_id')::bool = TRUE THEN NULL ELSE
     "data" = COALESCE(sqlc.narg('data'), "data"),
     "type" = COALESCE(sqlc.narg('type'), "type"),
     "provider" = COALESCE(sqlc.narg('provider'), "provider")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteOption :exec

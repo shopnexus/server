@@ -3,15 +3,15 @@ package commonbiz
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
+	commonconfig "shopnexus-server/internal/module/common/config"
 	commondb "shopnexus-server/internal/module/common/db/sqlc"
 	commonmodel "shopnexus-server/internal/module/common/model"
 	"shopnexus-server/internal/provider/exchange"
 	"shopnexus-server/internal/provider/geocoding"
-	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/pgsqlc"
 
 	"github.com/google/uuid"
@@ -25,7 +25,7 @@ type CommonBiz interface {
 	GetFileURL(ctx context.Context, params GetFileURLParams) (string, error)
 
 	// Option
-	ListOption(ctx context.Context, params ListOptionParams) ([]sharedmodel.Option, error)
+	ListOption(ctx context.Context, params ListOptionParams) ([]OptionListItem, error)
 	UpsertOptions(ctx context.Context, params UpsertOptionsParams) error
 	DeleteOptions(ctx context.Context, params DeleteOptionParams) error
 
@@ -60,7 +60,8 @@ type SSEClient struct {
 
 // CommonHandler implements shared business logic used across modules.
 type CommonHandler struct {
-	config   *config.Config
+	cfg      *commonconfig.Config
+	logger   *slog.Logger
 	storage  CommonStorage
 	cache    cache.Client
 	geocoder geocoding.Client
@@ -77,14 +78,16 @@ func (b *CommonHandler) ServiceName() string {
 
 // NewcommonBiz creates a new CommonHandler with the given dependencies.
 func NewcommonBiz(
-	cfg *config.Config,
+	cfg *commonconfig.Config,
+	logger *slog.Logger,
 	storage CommonStorage,
 	cacheClient cache.Client,
 	geocoder geocoding.Client,
 	exchangeClient exchange.Client,
 ) (*CommonHandler, error) {
 	b := &CommonHandler{
-		config:     cfg,
+		cfg:        cfg,
+		logger:     logger,
 		storage:    storage,
 		cache:      cacheClient,
 		geocoder:   geocoder,

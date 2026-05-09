@@ -52,6 +52,18 @@ func (p *AccountRestateClient) UpdateCountry(ctx context.Context, params UpdateC
 	return restateclient.Send(ctx, p.client, serviceName, "UpdateCountry", params)
 }
 
+func (p *AccountRestateClient) GetWalletBalance(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	return restateclient.Call[int64](ctx, p.client, serviceName, "GetWalletBalance", accountID)
+}
+
+func (p *AccountRestateClient) WalletDebit(ctx context.Context, params WalletDebitParams) (WalletDebitResult, error) {
+	return restateclient.Call[WalletDebitResult](ctx, p.client, serviceName, "WalletDebit", params)
+}
+
+func (p *AccountRestateClient) WalletCredit(ctx context.Context, params WalletCreditParams) error {
+	return restateclient.Send(ctx, p.client, serviceName, "WalletCredit", params)
+}
+
 func (p *AccountRestateClient) SuspendAccount(ctx context.Context, params SuspendAccountParams) error {
 	return restateclient.Send(ctx, p.client, serviceName, "SuspendAccount", params)
 }

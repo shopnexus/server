@@ -247,6 +247,7 @@ type AccountProfile struct {
 	PhoneVerified    bool              `json:"phone_verified"`
 	DateCreated      time.Time         `json:"date_created"`
 	Country          string            `json:"country"`
+	InternalBalance  int64             `json:"internal_balance"`
 	DefaultContactID uuid.NullUUID     `json:"default_contact_id"`
 	DefaultWalletID  uuid.NullUUID     `json:"default_wallet_id"`
 }

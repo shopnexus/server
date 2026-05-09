@@ -33,7 +33,9 @@ func (b *OrderHandler) CreateBuyerRefund(
 
 	// Validate order ownership.
 	if _, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderOrder, error) {
-		o, e := b.storage.Querier().GetOrder(rctx, uuid.NullUUID{UUID: params.OrderID, Valid: true})
+		o, e := b.storage.Querier().GetOrder(rctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: params.OrderID, Valid: true},
+		})
 		if e != nil {
 			return orderdb.OrderOrder{}, sharedmodel.WrapErr("get order", e)
 		}
@@ -143,7 +145,9 @@ func (b *OrderHandler) ApproveRefundStage2(
 	var zero ordermodel.Refund
 
 	refund, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderRefund, error) {
-		return b.storage.Querier().GetRefund(rctx, uuid.NullUUID{UUID: params.RefundID, Valid: true})
+		return b.storage.Querier().GetRefund(rctx, orderdb.GetRefundParams{
+			ID: uuid.NullUUID{UUID: params.RefundID, Valid: true},
+		})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get refund", err)
@@ -154,7 +158,9 @@ func (b *OrderHandler) ApproveRefundStage2(
 
 	// Fetch order so we can authorise the seller and learn the buyer ID.
 	order, err := restate.Run(ctx, func(rctx restate.RunContext) (orderdb.OrderOrder, error) {
-		return b.storage.Querier().GetOrder(rctx, uuid.NullUUID{UUID: refund.OrderID, Valid: true})
+		return b.storage.Querier().GetOrder(rctx, orderdb.GetOrderParams{
+			ID: uuid.NullUUID{UUID: refund.OrderID, Valid: true},
+		})
 	})
 	if err != nil {
 		return zero, sharedmodel.WrapErr("get order", err)

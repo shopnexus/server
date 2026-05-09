@@ -91,7 +91,7 @@ SET "buyer_id" = COALESCE(sqlc.narg('buyer_id'), "buyer_id"),
     "seller_id" = COALESCE(sqlc.narg('seller_id'), "seller_id"),
     "last_message_at" = CASE WHEN sqlc.arg('null_last_message_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_message_at'), "last_message_at") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteConversation :exec
@@ -203,7 +203,7 @@ SET "conversation_id" = COALESCE(sqlc.narg('conversation_id'), "conversation_id"
     "status" = COALESCE(sqlc.narg('status'), "status"),
     "data" = CASE WHEN sqlc.arg('null_data')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('data'), "data") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteMessage :exec

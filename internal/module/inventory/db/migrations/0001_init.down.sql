@@ -15,6 +15,7 @@ DROP INDEX IF EXISTS "serial_active_stock_id_idx";
 DROP INDEX IF EXISTS "serial_stock_id_idx";
 
 -- Tables (child tables first)
+DROP TABLE IF EXISTS "inventory"."idempotency";
 DROP TABLE IF EXISTS "inventory"."stock_history";
 DROP TABLE IF EXISTS "inventory"."serial";
 DROP TABLE IF EXISTS "inventory"."stock";

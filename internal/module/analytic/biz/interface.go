@@ -2,8 +2,8 @@ package analyticbiz
 
 import (
 	"context"
+	"log/slog"
 
-	"shopnexus-server/config"
 	analyticconfig "shopnexus-server/internal/module/analytic/config"
 	analyticdb "shopnexus-server/internal/module/analytic/db/sqlc"
 	analyticmodel "shopnexus-server/internal/module/analytic/model"
@@ -40,6 +40,7 @@ type AnalyticStorage = pgsqlc.Storage[*analyticdb.Queries]
 
 // AnalyticHandler implements the core business logic for the analytic module.
 type AnalyticHandler struct {
+	logger            *slog.Logger
 	storage           AnalyticStorage
 	promotion         promotionbiz.PromotionBiz
 	popularityWeights map[analyticmodel.Event]float64
@@ -51,13 +52,15 @@ func (b *AnalyticHandler) ServiceName() string {
 
 // NewAnalyticHandler creates a new AnalyticHandler with the given dependencies.
 func NewAnalyticHandler(
-	config *config.Config,
+	cfg *analyticconfig.Config,
+	logger *slog.Logger,
 	storage AnalyticStorage,
 	promotionBiz promotionbiz.PromotionBiz,
 ) *AnalyticHandler {
 	return &AnalyticHandler{
+		logger:            logger,
 		storage:           storage,
 		promotion:         promotionBiz,
-		popularityWeights: analyticconfig.DefaultPopularityWeights().WeightMap(),
+		popularityWeights: cfg.PopularityWeights.WeightMap(),
 	}
 }

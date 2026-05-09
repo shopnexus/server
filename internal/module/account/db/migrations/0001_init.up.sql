@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS "account"."profile" (
     "date_created" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     "country" VARCHAR(2) NOT NULL, -- Explicit for money currency, can only updated when balance is zero
+    "internal_balance" BIGINT NOT NULL DEFAULT 0,
 
     -- Default
     "default_contact_id" UUID,
@@ -58,7 +59,7 @@ CREATE TABLE IF NOT EXISTS "account"."profile" (
     CONSTRAINT "profile_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "profile_avatar_rs_id_key" UNIQUE ("avatar_rs_id"),
     CONSTRAINT "profile_country_format" CHECK ("country" ~ '^[A-Z]{2}$'),
-    CONSTRAINT "profile_balance_non_negative" CHECK ("balance" >= 0),
+    CONSTRAINT "profile_internal_balance_non_negative" CHECK ("internal_balance" >= 0),
 
     -- profile shares the same PK as account (1-1 relationship)
     CONSTRAINT "profile_id_fkey" FOREIGN KEY ("id")

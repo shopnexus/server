@@ -3,7 +3,6 @@ package catalogbiz
 import (
 	"context"
 	"log"
-	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -32,12 +31,12 @@ type embeddingResult struct {
 
 // SetupCron starts background goroutines for metadata and embedding sync loops.
 func (b *CatalogHandler) SetupCron() error {
-	metadataInterval := b.config.App.Search.MetadataSyncInterval
+	metadataInterval := b.cfg.Search.MetadataSyncInterval
 	if metadataInterval <= 0 {
 		metadataInterval = time.Second
 	}
 
-	embeddingInterval := b.config.App.Search.EmbeddingSyncInterval
+	embeddingInterval := b.cfg.Search.EmbeddingSyncInterval
 	if embeddingInterval <= 0 {
 		embeddingInterval = time.Second
 	}
@@ -114,15 +113,15 @@ func (b *CatalogHandler) syncStaleEntities(ctx context.Context, metadataOnly boo
 		switch refType {
 		case catalogdb.CatalogSearchSyncRefTypeProductSpu:
 			if err := b.syncProducts(ctx, rows, metadataOnly); err != nil {
-				slog.Error("sync products", "error", err)
+				b.logger.Error("sync products", "error", err)
 			}
 		case catalogdb.CatalogSearchSyncRefTypeCategory:
 			if err := b.syncCategories(ctx, rows, metadataOnly); err != nil {
-				slog.Error("sync categories", "error", err)
+				b.logger.Error("sync categories", "error", err)
 			}
 		case catalogdb.CatalogSearchSyncRefTypeTag:
 			if err := b.syncTags(ctx, rows, metadataOnly); err != nil {
-				slog.Error("sync tags", "error", err)
+				b.logger.Error("sync tags", "error", err)
 			}
 		}
 	}

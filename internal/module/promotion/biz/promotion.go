@@ -3,7 +3,6 @@ package promotionbiz
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -291,13 +290,13 @@ func mapPromotion(p promotiondb.PromotionPromotion, refs []promotiondb.Promotion
 
 // parseDiscountData unmarshals JSONB data into DiscountData.
 // Returns nil on empty/invalid data and logs a warning.
-func parseDiscountData(promoID uuid.UUID, data json.RawMessage) *DiscountData {
+func (s *PromotionHandler) parseDiscountData(promoID uuid.UUID, data json.RawMessage) *DiscountData {
 	if len(data) == 0 {
 		return nil
 	}
 	var d DiscountData
 	if err := json.Unmarshal(data, &d); err != nil {
-		slog.Warn("failed to parse promotion data",
+		s.logger.Warn("failed to parse promotion data",
 			"promotion_id", promoID,
 			"error", err,
 		)

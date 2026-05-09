@@ -1,7 +1,7 @@
 -- name: UpdateProfileCountry :execrows
 UPDATE "account"."profile"
 SET "country" = @country
-WHERE "id" = @id AND "balance" = 0;
+WHERE "id" = @id AND "internal_balance" = 0;
 
 -- name: CreateSignupProfile :one
 INSERT INTO "account"."profile" ("id", "country", "name")

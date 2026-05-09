@@ -149,7 +149,7 @@ SET "code" = COALESCE(sqlc.narg('code'), "code"),
     "date_ended" = CASE WHEN sqlc.arg('null_date_ended')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_ended'), "date_ended") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_updated" = COALESCE(sqlc.narg('date_updated'), "date_updated")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeletePromotion :exec
@@ -255,7 +255,7 @@ UPDATE "promotion"."ref"
 SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
     "ref_type" = COALESCE(sqlc.narg('ref_type'), "ref_type"),
     "ref_id" = COALESCE(sqlc.narg('ref_id'), "ref_id")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteRef :exec
@@ -370,7 +370,7 @@ SET "promotion_id" = COALESCE(sqlc.narg('promotion_id'), "promotion_id"),
     "duration" = COALESCE(sqlc.narg('duration'), "duration"),
     "next_run_at" = CASE WHEN sqlc.arg('null_next_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('next_run_at'), "next_run_at") END,
     "last_run_at" = CASE WHEN sqlc.arg('null_last_run_at')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('last_run_at'), "last_run_at") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteSchedule :exec

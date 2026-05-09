@@ -1,21 +1,25 @@
 package saga
 
 import (
-	"log/slog"
+	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
 )
 
 // Saga collects compensators in append order and runs them LIFO on failure.
-// Each compensator is wrapped in restate.RunVoid → Restate retries idempotently
-// on failure. The compensators slice lives in Go memory; on workflow replay it
-// is rebuilt deterministically because every action between Defer() calls is
-// itself wrapped in restate.Run, so journal replay restores the slice to the
-// exact state it had at the crash point.
 //
-// Works with both Workflow handlers (restate.WorkflowContext is-a Context) and
-// Service handlers (restate.Context). The compensator body always receives a
-// RunContext.
+// Compensation semantics:
+//   - Compensators run STRICTLY SEQUENTIALLY in LIFO order.
+//   - If any compensator returns an error, Compensate STOPS immediately and
+//     returns that error — remaining compensators are NOT skipped, they stay
+//     pending for the next retry.
+//   - Compensator bodies are expected to wrap durable side-effects in
+//     restate.Run(...) so already-succeeded steps are journaled and skipped on
+//     replay. The next retry will resume from the failed step.
+//   - Returning a non-terminal error from the workflow handler causes Restate
+//     to retry the handler indefinitely, which re-invokes Compensate via the
+//     defer/WrapError path; successful compensators replay from journal,
+//     failed ones run again.
 type Saga struct {
 	ctx          restate.Context
 	compensators []step
@@ -23,7 +27,7 @@ type Saga struct {
 
 type step struct {
 	name string
-	fn   func(restate.RunContext) error
+	fn   func(restate.Context) error
 }
 
 // New creates an empty saga bound to the given Restate context.
@@ -33,22 +37,37 @@ func New(ctx restate.Context) *Saga {
 }
 
 // Defer appends a compensator. Call BEFORE performing the action it compensates.
-func (s *Saga) Defer(name string, fn func(restate.RunContext) error) {
+func (s *Saga) Defer(name string, fn func(restate.Context) error) {
 	s.compensators = append(s.compensators, step{name: name, fn: fn})
 }
 
-// Compensate runs all deferred compensators LIFO. Each runs in restate.RunVoid
-// so Restate retries indefinitely on failure (compensators must be idempotent).
-func (s *Saga) Compensate() {
-	for i := len(s.compensators) - 1; i >= 0; i-- {
-		step := s.compensators[i]
-		if err := restate.RunVoid(s.ctx, func(rctx restate.RunContext) error {
-			return step.fn(rctx)
-		}, restate.WithName("compensate:"+step.name)); err != nil {
-			slog.Error("saga compensate", slog.String("step", step.name), slog.Any("error", err))
+// Compensate runs all deferred compensators LIFO, returning the first error if any.
+func (s *Saga) Compensate() error {
+	for len(s.compensators) > 0 {
+		i := len(s.compensators) - 1
+		c := s.compensators[i]
+		if err := c.fn(s.ctx); err != nil {
+			return fmt.Errorf("saga compensate %s: %w", c.name, err)
 		}
+		// Pop only on success — keep failed step at the tail for retry.
+		s.compensators = s.compensators[:i]
 	}
+	return nil
 }
 
 // Clear drops all pending compensators. Call on the success exit path.
 func (s *Saga) Clear() { s.compensators = nil }
+
+func (s *Saga) Wrap(fn func() error) error {
+	if err := fn(); err != nil {
+		if restate.IsTerminalError(err) {
+			if cErr := s.Compensate(); cErr != nil {
+				return fmt.Errorf("workflow error: %w; compensate error: %w", err, cErr)
+			}
+		}
+
+		return err
+	}
+
+	return nil
+}

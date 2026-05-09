@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"shopnexus-server/config"
+	accountconfig "shopnexus-server/internal/module/account/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,7 +15,11 @@ import (
 )
 
 func main() {
-	dbURL := config.GetConfig().Postgres.Url
+	cfg, err := accountconfig.NewConfig()
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+	dbURL := cfg.Postgres.Url
 	moduleFlag := flag.String("module", "", "module to migrate (if empty, migrate all modules)")
 	downFlag := flag.Bool("down", false, "run down migrations (rollback) instead of up")
 	forceFlag := flag.Int("force", -1, "force set migration version (use to fix dirty state, e.g. -force 1)")

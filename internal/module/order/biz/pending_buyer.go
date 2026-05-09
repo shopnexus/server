@@ -13,6 +13,7 @@ import (
 	inventorydb "shopnexus-server/internal/module/inventory/db/sqlc"
 	orderdb "shopnexus-server/internal/module/order/db/sqlc"
 	ordermodel "shopnexus-server/internal/module/order/model"
+	"shopnexus-server/internal/shared/idempotency"
 	sharedmodel "shopnexus-server/internal/shared/model"
 	"shopnexus-server/internal/shared/saga"
 	"shopnexus-server/internal/shared/validator"
@@ -125,124 +126,125 @@ type RefundPendingItemParams struct {
 	PaymentSessionID uuid.UUID
 }
 
-// RefundPendingItem refunds a single paid item (not yet confirmed)
+// RefundPendingItem refunds a single paid item (not yet confirmed).
 func (b *OrderHandler) RefundPendingItem(
 	ctx restate.Context,
 	params RefundPendingItemParams,
 ) error {
-	var err error
-
 	sagaTx := saga.New(ctx)
-	defer func() {
-		if err != nil {
-			sagaTx.Compensate()
-		}
-	}()
 
-	var buyerCurrency string
-	buyerCurrency, err = b.InferCurrency(ctx, params.Item.AccountID)
-	if err != nil {
-		return sharedmodel.WrapErr("infer buyer currency", err)
-	}
-
-	// Step 1: find the original positive Success tx — refund leg reverses it.
-	// Single original tx per session (no split-tender).
-	var originalTxID uuid.NullUUID
-	originalTxID, err = restate.Run(ctx, func(rctx restate.RunContext) (uuid.NullUUID, error) {
-		var txs []orderdb.OrderTransaction
-		txs, err = b.storage.Querier().ListTransactionsBySession(rctx, params.PaymentSessionID)
+	return sagaTx.Wrap(func() error {
+		var err error
+		var buyerCurrency string
+		buyerCurrency, err = b.InferCurrency(ctx, params.Item.AccountID)
 		if err != nil {
-			return uuid.NullUUID{}, err
+			return sharedmodel.WrapErr("infer buyer currency", err)
 		}
-		for _, tx := range txs {
-			if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
-				return uuid.NullUUID{UUID: tx.ID, Valid: true}, nil
+
+		// Step 1: find the original positive Success tx — refund leg reverses it.
+		// Single original tx per session (no split-tender).
+		var originalTxID uuid.NullUUID
+		originalTxID, err = restate.Run(ctx, func(rctx restate.RunContext) (uuid.NullUUID, error) {
+			var txs []orderdb.OrderTransaction
+			txs, err = b.storage.Querier().ListTransactionsBySession(rctx, params.PaymentSessionID)
+			if err != nil {
+				return uuid.NullUUID{}, err
 			}
+			for _, tx := range txs {
+				if tx.Status == orderdb.OrderStatusSuccess && tx.Amount > 0 && !tx.ReversesID.Valid {
+					return uuid.NullUUID{UUID: tx.ID, Valid: true}, nil
+				}
+			}
+			return uuid.NullUUID{}, ordermodel.ErrOrderItemNotFound
+		})
+		if err != nil {
+			return sharedmodel.WrapErr("find original tx", err)
 		}
-		return uuid.NullUUID{}, ordermodel.ErrOrderItemNotFound
-	})
-	if err != nil {
-		return sharedmodel.WrapErr("find original tx", err)
-	}
 
-	// Step 2: release inventory
-	// Compensator re-reserves so cancellation rollback
-	sagaTx.Defer("reserve_inventory", func(rctx restate.RunContext) error {
-		_, e := b.inventory.ReserveInventory(rctx, inventorybiz.ReserveInventoryParams{
-			Items: []inventorybiz.ReserveInventoryItem{{
+		// Step 2: release inventory
+		// Saga key paired across forward (Release, claims) and compensator (Reserve, consumes).
+		releaseKey := restate.UUID(ctx)
+		sagaTx.Defer("reserve_inventory", func(ctx restate.Context) error {
+			return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+				_, e := b.inventory.ReserveInventory(rctx, inventorybiz.ReserveInventoryParams{
+					Keys: idempotency.Keys{ConsumeKey: releaseKey},
+					Items: []inventorybiz.ReserveInventoryItem{{
+						RefType: inventorydb.InventoryStockRefTypeProductSku,
+						RefID:   params.Item.SkuID,
+						Amount:  params.Item.Quantity,
+					}},
+				})
+				return e
+			})
+		})
+		if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
+			Keys: idempotency.Keys{ClaimKey: releaseKey},
+			Items: []inventorybiz.ReleaseInventoryItem{{
 				RefType: inventorydb.InventoryStockRefTypeProductSku,
 				RefID:   params.Item.SkuID,
 				Amount:  params.Item.Quantity,
 			}},
-		})
-		return e
-	})
-	if err = b.inventory.ReleaseInventory(ctx, inventorybiz.ReleaseInventoryParams{
-		Items: []inventorybiz.ReleaseInventoryItem{{
-			RefType: inventorydb.InventoryStockRefTypeProductSku,
-			RefID:   params.Item.SkuID,
-			Amount:  params.Item.Quantity,
-		}},
-	}); err != nil {
-		return sharedmodel.WrapErr("release inventory", err)
-	}
+		}); err != nil {
+			return sharedmodel.WrapErr("release inventory", err)
+		}
 
-	// Step 3: credit only the partial item amount
-	// Compensator debits the same amount
-	creditRef := fmt.Sprintf("partial-refund:item:%d", params.Item.ID)
-	sagaTx.Defer("wallet_debit", func(rctx restate.RunContext) error {
-		_, e := b.walletDebit(rctx, WalletDebitParams{
-			AccountID: params.Item.AccountID,
-			Amount:    params.Item.TotalAmount,
-			Reference: "rollback:" + creditRef,
-			Note:      "rollback partial refund credit",
+		// Step 3: credit only the partial item amount
+		// Compensator debits the same amount
+		creditRef := fmt.Sprintf("partial-refund:item:%d", params.Item.ID)
+		sagaTx.Defer("wallet_debit", func(ctx restate.Context) error {
+			return restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+				_, e := b.account.WalletDebit(rctx, accountbiz.WalletDebitParams{
+					AccountID: params.Item.AccountID,
+					Amount:    params.Item.TotalAmount,
+					Reference: "rollback:" + creditRef,
+					Note:      "rollback partial refund credit",
+				})
+				return e
+			})
 		})
-		return e
-	})
-	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-		return b.walletCredit(rctx, WalletCreditParams{
+		if err = b.account.WalletCredit(ctx, accountbiz.WalletCreditParams{
 			AccountID: params.Item.AccountID,
 			Amount:    params.Item.TotalAmount,
 			Type:      "Refund",
 			Reference: creditRef,
 			Note:      "buyer cancel pre-confirm partial refund",
-		})
-	}); err != nil {
-		return sharedmodel.WrapErr("credit buyer wallet", err)
-	}
-
-	// Step 4 (last, no compensator): atomic refund tx + cancel item.
-	if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
-		txStorage, e := b.storage.BeginTx(rctx)
-		if e != nil {
-			return sharedmodel.WrapErr("begin tx", e)
+		}); err != nil {
+			return sharedmodel.WrapErr("credit buyer wallet", err)
 		}
 
-		if _, e = txStorage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
-			SessionID:    params.PaymentSessionID,
-			Status:       orderdb.OrderStatusSuccess,
-			Note:         "buyer cancel pre-confirm",
-			Data:         json.RawMessage("{}"),
-			Amount:       -params.Item.TotalAmount,
-			FromCurrency: buyerCurrency,
-			ToCurrency:   buyerCurrency,
-			ExchangeRate: mustNumericOne(),
-			ReversesID:   originalTxID,
-			DateSettled:  null.TimeFrom(time.Now()),
-		}); e != nil {
-			return sharedmodel.WrapErr("db create refund tx", e)
-		}
-		if _, e = txStorage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
-			CancelledByID: uuid.NullUUID{UUID: params.Item.AccountID, Valid: true},
-			ID:            params.Item.ID,
-		}); e != nil {
-			return sharedmodel.WrapErr("db cancel item", e)
+		// Step 4 (last, no compensator): atomic refund tx + cancel item.
+		if err = restate.RunVoid(ctx, func(rctx restate.RunContext) error {
+			txStorage, e := b.storage.BeginTx(rctx)
+			if e != nil {
+				return sharedmodel.WrapErr("begin tx", e)
+			}
+
+			if _, e = txStorage.Querier().CreateDefaultTransaction(rctx, orderdb.CreateDefaultTransactionParams{
+				SessionID:    params.PaymentSessionID,
+				Status:       orderdb.OrderStatusSuccess,
+				Note:         "buyer cancel pre-confirm",
+				Data:         json.RawMessage("{}"),
+				Amount:       -params.Item.TotalAmount,
+				FromCurrency: buyerCurrency,
+				ToCurrency:   buyerCurrency,
+				ExchangeRate: mustNumericOne(),
+				ReversesID:   originalTxID,
+				DateSettled:  null.TimeFrom(time.Now()),
+			}); e != nil {
+				return sharedmodel.WrapErr("db create refund tx", e)
+			}
+			if _, e = txStorage.Querier().CancelItem(rctx, orderdb.CancelItemParams{
+				CancelledByID: uuid.NullUUID{UUID: params.Item.AccountID, Valid: true},
+				ID:            params.Item.ID,
+			}); e != nil {
+				return sharedmodel.WrapErr("db cancel item", e)
+			}
+
+			return txStorage.Commit(rctx)
+		}); err != nil {
+			return sharedmodel.WrapErr("refund tx + cancel item", err)
 		}
 
-		return txStorage.Commit(rctx)
-	}); err != nil {
-		return sharedmodel.WrapErr("refund tx + cancel item", err)
-	}
-
-	return nil
+		return nil
+	})
 }

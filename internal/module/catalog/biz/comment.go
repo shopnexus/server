@@ -139,7 +139,7 @@ func (b *CatalogHandler) ListComment(
 		for _, oid := range lo.Uniq(orderIDs) {
 			order, err := restate.Service[orderEnrich](ctx, "Order", "GetBuyerOrder").Request(oid)
 			if err != nil {
-				slog.Warn(
+				b.logger.Warn(
 					"fetch order for comment enrichment",
 					slog.String("order_id", oid.String()),
 					slog.Any("error", err),

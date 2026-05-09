@@ -174,12 +174,16 @@ func writeSingleFile(tables []*Table, gen *Generator, outputDir string, singleFi
 	)
 
 	for _, t := range tables {
+		content := gen.Generate(t)
+		if content == "" {
+			fmt.Printf("Skipping table (key-only): %s.%s\n", t.Schema, t.Name)
+			continue
+		}
 		header := fmt.Sprintf(
 			"-- ========================================\n-- Queries for table: %s.%s\n-- ========================================",
 			t.Schema,
 			t.Name,
 		)
-		content := gen.Generate(t)
 		sections = append(sections, header+"\n\n"+content)
 		fmt.Printf("Generated queries for table: %s.%s\n", t.Schema, t.Name)
 	}

@@ -18,7 +18,7 @@ func NewHandler(e *echo.Echo, biz commonbiz.CommonBiz, handler *commonbiz.Common
 	api := e.Group("/api/v1/common")
 
 	api.POST("/files", h.UploadFile)
-	api.GET("/option", h.ListServiceOption)
+	api.GET("/option", h.ListOption)
 	api.POST("/option", h.UpsertOptions)
 	api.DELETE("/option", h.DeleteOptions)
 	api.POST("/geocode/reverse", h.ReverseGeocode)

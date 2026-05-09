@@ -25,8 +25,8 @@ import (
 // nothing is cached here.
 func (b *CommonHandler) SetupObjectStore() error {
 	return b.upsertOptions(context.Background(), UpsertOptionsParams{
-		Category: string(sharedmodel.OptionTypeObjectStore),
-		Configs:  b.objectstoreConfigs(),
+		Type:    string(sharedmodel.OptionTypeObjectStore),
+		Configs: b.objectstoreConfigs(),
 	})
 }
 
@@ -51,7 +51,7 @@ func (b *CommonHandler) objectstoreConfigs() []sharedmodel.Option {
 
 // getPlaceholderURL returns the configured 404 placeholder image URL, if any.
 func (b *CommonHandler) getPlaceholderURL() string {
-	return b.config.Filestore.Placeholder404Url
+	return b.cfg.Filestore.Placeholder404Url
 }
 
 // mustGetObjectStore builds a fresh object-store client per call.
@@ -60,14 +60,14 @@ func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
 	switch provider {
 	case "s3":
 		s3, err := objs3.NewClient(objs3.S3Config{
-			AccessKeyID:     b.config.Filestore.S3.AccessKeyID,
-			SecretAccessKey: b.config.Filestore.S3.SecretAccessKey,
-			Region:          b.config.Filestore.S3.Region,
-			Bucket:          b.config.Filestore.S3.Bucket,
-			CloudfrontURL:   b.config.Filestore.S3.CloudfrontURL,
+			AccessKeyID:     b.cfg.Filestore.S3.AccessKeyID,
+			SecretAccessKey: b.cfg.Filestore.S3.SecretAccessKey,
+			Region:          b.cfg.Filestore.S3.Region,
+			Bucket:          b.cfg.Filestore.S3.Bucket,
+			CloudfrontURL:   b.cfg.Filestore.S3.CloudfrontURL,
 		})
 		if err != nil {
-			slog.Warn("init s3 objectstore", slog.Any("error", err))
+			b.logger.Warn("init s3 objectstore", slog.Any("error", err))
 			return b.mustGetObjectStore("local")
 		}
 		return s3
@@ -76,7 +76,7 @@ func (b *CommonHandler) mustGetObjectStore(provider string) objectstore.Client {
 	default:
 		local, err := objlocal.NewClient(objlocal.LocalConfig{Root: "./tmp/uploads", BaseURL: ""})
 		if err != nil {
-			slog.Warn("init local objectstore", slog.Any("error", err))
+			b.logger.Warn("init local objectstore", slog.Any("error", err))
 			return nil
 		}
 		return local
@@ -110,7 +110,7 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 		return zero, sharedmodel.WrapErr("invalid upload params", err)
 	}
 
-	store := b.mustGetObjectStore(b.config.Filestore.Type)
+	store := b.mustGetObjectStore(b.cfg.Filestore.Type)
 	myKey := fmt.Sprintf("%s_%s", uuid.New().String(), params.Filename)
 
 	objectKey, err := store.Upload(ctx, myKey, params.File, params.Private)
@@ -119,7 +119,7 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 	}
 
 	resource, err := b.storage.Querier().CreateDefaultResource(ctx, commondb.CreateDefaultResourceParams{
-		Provider:     b.config.Filestore.Type,
+		Provider:     b.cfg.Filestore.Type,
 		ObjectKey:    objectKey,
 		UploadedByID: uuid.NullUUID{UUID: params.Account.ID, Valid: true},
 		Mime:         params.ContentType,
@@ -137,7 +137,7 @@ func (b *CommonHandler) UploadFile(ctx context.Context, params UploadFileParams)
 
 	return UploadFileResult{
 		ResourceID: resource.ID,
-		Provider:   b.config.Filestore.Type,
+		Provider:   b.cfg.Filestore.Type,
 		ObjectKey:  objectKey,
 		URL:        url,
 	}, nil
@@ -161,7 +161,7 @@ func (b *CommonHandler) GetFileURL(ctx restate.Context, params GetFileURLParams)
 func (b *CommonHandler) mustGetFileURL(ctx context.Context, provider string, objectKey string) string {
 	url, err := b.mustGetObjectStore(provider).GetURL(ctx, objectKey)
 	if err != nil {
-		slog.Error(
+		b.logger.Error(
 			"failed to get file url for object key",
 			slog.String("object_key", objectKey),
 			slog.String("provider", provider),

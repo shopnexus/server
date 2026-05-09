@@ -3,94 +3,6 @@
 
 
 -- ========================================
--- Queries for table: order.internal_wallet
--- ========================================
-
--- name: GetInternalWallet :one
-SELECT *
-FROM "order"."internal_wallet"
-WHERE ("id" = sqlc.narg('id'));
-
--- name: CountInternalWallet :one
-SELECT COUNT(*)
-FROM "order"."internal_wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
-);
-
--- name: ListInternalWallet :many
-SELECT *
-FROM "order"."internal_wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: ListCountInternalWallet :many
-SELECT sqlc.embed(embed_internal_wallet), COUNT(*) OVER() as total_count
-FROM "order"."internal_wallet" embed_internal_wallet
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
-)
-ORDER BY "id"
-LIMIT sqlc.narg('limit')::int
-OFFSET sqlc.narg('offset')::int;
-
--- name: CreateInternalWallet :one
-INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateBatchInternalWallet :batchone
-INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
-VALUES ($1, $2, $3)
-RETURNING *;
-
--- name: CreateCopyInternalWallet :copyfrom
-INSERT INTO "order"."internal_wallet" ("id", "balance", "currency")
-VALUES ($1, $2, $3);
-
--- name: CreateDefaultInternalWallet :one
-INSERT INTO "order"."internal_wallet" ("id", "currency")
-VALUES ($1, $2)
-RETURNING *;
-
--- name: CreateCopyDefaultInternalWallet :copyfrom
-INSERT INTO "order"."internal_wallet" ("id", "currency")
-VALUES ($1, $2);
-
--- name: UpdateInternalWallet :one
-UPDATE "order"."internal_wallet"
-SET "balance" = COALESCE(sqlc.narg('balance'), "balance"),
-    "currency" = COALESCE(sqlc.narg('currency'), "currency")
-WHERE id = sqlc.arg('id')
-RETURNING *;
-
--- name: DeleteInternalWallet :exec
-DELETE FROM "order"."internal_wallet"
-WHERE (
-    ("id" = ANY(sqlc.slice('id')) OR sqlc.slice('id') IS NULL) AND
-    ("balance" = ANY(sqlc.slice('balance')) OR sqlc.slice('balance') IS NULL) AND
-    ("balance" >= sqlc.narg('balance_from') OR sqlc.narg('balance_from') IS NULL) AND
-    ("balance" <= sqlc.narg('balance_to') OR sqlc.narg('balance_to') IS NULL) AND
-    ("currency" = ANY(sqlc.slice('currency')) OR sqlc.slice('currency') IS NULL)
-);
-
--- ========================================
 -- Queries for table: order.cart_item
 -- ========================================
 
@@ -169,7 +81,7 @@ UPDATE "order"."cart_item"
 SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "sku_id" = COALESCE(sqlc.narg('sku_id'), "sku_id"),
     "quantity" = COALESCE(sqlc.narg('quantity'), "quantity")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteCartItem :exec
@@ -306,7 +218,7 @@ SET "kind" = COALESCE(sqlc.narg('kind'), "kind"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_paid" = CASE WHEN sqlc.arg('null_date_paid')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_paid'), "date_paid") END,
     "date_expired" = COALESCE(sqlc.narg('date_expired'), "date_expired")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeletePaymentSession :exec
@@ -479,7 +391,7 @@ SET "session_id" = COALESCE(sqlc.narg('session_id'), "session_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "date_settled" = CASE WHEN sqlc.arg('null_date_settled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_settled'), "date_settled") END,
     "date_expired" = CASE WHEN sqlc.arg('null_date_expired')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_expired'), "date_expired") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteTransaction :exec
@@ -595,7 +507,7 @@ SET "option" = COALESCE(sqlc.narg('option'), "option"),
     "status" = CASE WHEN sqlc.arg('null_status')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('status'), "status") END,
     "data" = COALESCE(sqlc.narg('data'), "data"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteTransport :exec
@@ -617,7 +529,7 @@ WHERE (
 -- name: GetOrder :one
 SELECT *
 FROM "order"."order"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("transport_id" = sqlc.narg('transport_id'));
 
 -- name: CountOrder :one
 SELECT COUNT(*)
@@ -709,7 +621,7 @@ SET "buyer_id" = COALESCE(sqlc.narg('buyer_id'), "buyer_id"),
     "confirmed_by_id" = COALESCE(sqlc.narg('confirmed_by_id'), "confirmed_by_id"),
     "confirm_session_id" = COALESCE(sqlc.narg('confirm_session_id'), "confirm_session_id"),
     "note" = CASE WHEN sqlc.arg('null_note')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('note'), "note") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteOrder :exec
@@ -887,7 +799,7 @@ SET "order_id" = CASE WHEN sqlc.arg('null_order_id')::bool = TRUE THEN NULL ELSE
     "date_cancelled" = CASE WHEN sqlc.arg('null_date_cancelled')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_cancelled'), "date_cancelled") END,
     "cancelled_by_id" = CASE WHEN sqlc.arg('null_cancelled_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('cancelled_by_id'), "cancelled_by_id") END,
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created")
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteItem :exec
@@ -930,7 +842,7 @@ WHERE (
 -- name: GetRefund :one
 SELECT *
 FROM "order"."refund"
-WHERE ("id" = sqlc.narg('id'));
+WHERE ("id" = sqlc.narg('id')) OR ("transport_id" = sqlc.narg('transport_id'));
 
 -- name: CountRefund :one
 SELECT COUNT(*)
@@ -1058,7 +970,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "approved_by_id" = CASE WHEN sqlc.arg('null_approved_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('approved_by_id'), "approved_by_id") END,
     "date_approved" = CASE WHEN sqlc.arg('null_date_approved')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_approved'), "date_approved") END,
     "refund_tx_id" = CASE WHEN sqlc.arg('null_refund_tx_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('refund_tx_id'), "refund_tx_id") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteRefund :exec
@@ -1192,7 +1104,7 @@ SET "account_id" = COALESCE(sqlc.narg('account_id'), "account_id"),
     "date_created" = COALESCE(sqlc.narg('date_created'), "date_created"),
     "resolved_by_id" = CASE WHEN sqlc.arg('null_resolved_by_id')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('resolved_by_id'), "resolved_by_id") END,
     "date_resolved" = CASE WHEN sqlc.arg('null_date_resolved')::bool = TRUE THEN NULL ELSE COALESCE(sqlc.narg('date_resolved'), "date_resolved") END
-WHERE id = sqlc.arg('id')
+WHERE "id" = sqlc.arg('id')
 RETURNING *;
 
 -- name: DeleteRefundDispute :exec

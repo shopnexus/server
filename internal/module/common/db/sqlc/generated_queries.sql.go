@@ -1202,7 +1202,7 @@ SET "owner_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "owner_id
     "data" = COALESCE($9, "data"),
     "type" = COALESCE($10, "type"),
     "provider" = COALESCE($11, "provider")
-WHERE id = $12
+WHERE "id" = $12
 RETURNING id, owner_id, is_enabled, name, description, priority, logo_rs_id, data, type, provider
 `
 
@@ -1262,7 +1262,7 @@ SET "uploaded_by_id" = CASE WHEN $1::bool = TRUE THEN NULL ELSE COALESCE($2, "up
     "metadata" = COALESCE($7, "metadata"),
     "checksum" = CASE WHEN $8::bool = TRUE THEN NULL ELSE COALESCE($9, "checksum") END,
     "created_at" = COALESCE($10, "created_at")
-WHERE id = $11
+WHERE "id" = $11
 RETURNING id, uploaded_by_id, provider, object_key, mime, size, metadata, checksum, created_at
 `
 
@@ -1315,7 +1315,7 @@ SET "rs_id" = COALESCE($1, "rs_id"),
     "ref_type" = COALESCE($2, "ref_type"),
     "ref_id" = COALESCE($3, "ref_id"),
     "order" = COALESCE($4, "order")
-WHERE id = $5
+WHERE "id" = $5
 RETURNING id, rs_id, ref_type, ref_id, "order"
 `
 

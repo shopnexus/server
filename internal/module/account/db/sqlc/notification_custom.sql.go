@@ -82,7 +82,7 @@ func (q *Queries) ListNotificationByAccount(ctx context.Context, arg ListNotific
 
 const markAllNotificationRead = `-- name: MarkAllNotificationRead :exec
 UPDATE "account"."notification"
-SET is_read = true, date_updated = NOW()
+SET is_read = true
 WHERE account_id = $1 AND is_read = false
 `
 
@@ -93,7 +93,7 @@ func (q *Queries) MarkAllNotificationRead(ctx context.Context, accountID uuid.UU
 
 const markNotificationRead = `-- name: MarkNotificationRead :exec
 UPDATE "account"."notification"
-SET is_read = true, date_updated = NOW()
+SET is_read = true
 WHERE id = ANY($1) AND account_id = $2 AND is_read = false
 `
 

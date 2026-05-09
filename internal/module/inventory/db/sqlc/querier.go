@@ -7,11 +7,14 @@ package inventorydb
 import (
 	"context"
 
+	"github.com/google/uuid"
 	null "github.com/guregu/null/v6"
 )
 
 type Querier interface {
 	AdjustInventory(ctx context.Context, arg AdjustInventoryParams) (int64, error)
+	ClaimIdempotencyKey(ctx context.Context, key uuid.UUID) (int64, error)
+	ConsumeIdempotencyKey(ctx context.Context, key uuid.UUID) (int64, error)
 	CountSerial(ctx context.Context, arg CountSerialParams) (int64, error)
 	CountStock(ctx context.Context, arg CountStockParams) (int64, error)
 	CountStockHistory(ctx context.Context, arg CountStockHistoryParams) (int64, error)

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"shopnexus-server/config"
 	"shopnexus-server/internal/infras/cache"
 	accountmodel "shopnexus-server/internal/module/account/model"
 
@@ -20,7 +19,20 @@ const (
 	tokenCacheDuration = 5 * 60 * time.Second
 )
 
-var claimsCache = cache.NewInMemoryClient()
+var (
+	claimsCache = cache.NewInMemoryClient()
+
+	// jwtSecret is the access-token signing secret. Set once at startup by the
+	// account module's fx provider via SetSecret. Read in GetClaimsByHeader.
+	// This package-level state replaces the old global config.GetConfig() call —
+	// transport handlers all over the codebase still call GetClaims(r) without
+	// taking a dependency, so we trade pure DI for a single-write/many-reads var.
+	jwtSecret string
+)
+
+// SetSecret injects the access-token secret. Called by the account module
+// during fx wiring; must be called before any GetClaims/GetClaimsByHeader call.
+func SetSecret(secret string) { jwtSecret = secret }
 
 // GetClaimsByHeader retrieves and validates JWT claims from the token, using an in-memory cache.
 func GetClaimsByHeader(header http.Header) (accountmodel.Claims, error) {
@@ -37,7 +49,7 @@ func GetClaimsByHeader(header http.Header) (accountmodel.Claims, error) {
 	}
 
 	// If not in cache, validate token and store in cache
-	claims, err := ValidateAccessToken(config.GetConfig().App.JWT.Secret, strings.TrimPrefix(token, tokenPrefix))
+	claims, err := ValidateAccessToken(jwtSecret, strings.TrimPrefix(token, tokenPrefix))
 	if err != nil {
 		return accountmodel.Claims{}, err
 	}

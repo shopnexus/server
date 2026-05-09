@@ -1,7 +1,6 @@
 package analyticbiz
 
 import (
-	"log/slog"
 	"time"
 
 	restate "github.com/restatedev/sdk-go"
@@ -60,7 +59,7 @@ func (b *AnalyticHandler) CreateInteraction(ctx restate.Context, params CreateIn
 				restate.ServiceSend(ctx, "Analytic", "HandlePopularityEvent").Send(event)
 				restate.ServiceSend(ctx, "Catalog", "AddInteraction").Send(event)
 			} else {
-				slog.Error("create analytic interaction: %w", "error", err)
+				b.logger.Error("create analytic interaction: %w", "error", err)
 			}
 		})
 
