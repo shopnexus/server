@@ -16,11 +16,11 @@ Eight vertical-slice modules, each owning their database schema, business logic,
 
 Every call goes through a **proxy interface** that mirrors each service's method signatures — callers invoke it as if it were the service itself, while the proxy forwards the request over HTTP to the Restate ingress, which then routes it to the target service.
 
-![flow1.jpg](assets/flow1.png)
+![flow1.jpg](assets/flow1.jpg)
 
 Cross-service calls take the exact same path — Service A never calls Service B directly. Both external traffic and inter-service calls fan in through the proxy and the Restate ingress, so durability, retries, and observability apply uniformly to every call in the system.
 
-![flow2.jpg](assets/flow2.png)
+![flow2.jpg](assets/flow2.jpg)
 
 For example, the order module depends on `InventoryBiz` as an **interface**, so the call site reads like an ordinary in-process method call:
 
