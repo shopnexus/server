@@ -1,4 +1,14 @@
-appName: shopnexus
+log:
+  level: debug
+  format: json
+  addSource: true
+  timeFormat: "2006-01-02 15:04:05"
+
+restate:
+  ingressAddress: "http://localhost:8080"
+  adminAddress: "http://localhost:9470"
+  serviceHost: "http://host.docker.internal"
+  servicePort: "8082"
 
 postgres:
   host: localhost
@@ -18,20 +28,8 @@ redis:
   password: "peaksehopnexuspassword"
   db: 0
 
-log:
-  level: debug
-  format: json
-  addSource: true
-  timeFormat: "2006-01-02 15:04:05"
-
 jwt:
   secret: supersecretkey123
   accessTokenDuration: 3600
   refreshTokenDuration: 1209600
   refreshSecret: superrefreshsecret456
-
-restate:
-  ingressAddress: "http://localhost:8080"
-  adminAddress: "http://localhost:9470"
-  serviceHost: "http://host.docker.internal"
-  servicePort: "8082"
