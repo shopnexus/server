@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
 // App is the assembled server.
@@ -23,7 +24,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
-	return &App{Handler: mux}, nil
+	return &App{Handler: httpx.Trace(httpx.AccessLog(log)(mux))}, nil
 }
 
 // Close releases what New opened.

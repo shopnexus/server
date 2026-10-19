@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/telemetry"
 )
 
 func main() {
@@ -35,7 +37,17 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+	shutdownTelemetry, err := telemetry.Setup(ctx, cfg, version())
+	if err != nil {
+		return fmt.Errorf("telemetry: %w", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownTelemetry(ctx)
+	}()
+	log := telemetry.NewLogger(os.Stdout, cfg.LogFormat, cfg.LogLevel)
+	slog.SetDefault(log)
 
 	a, err := app.New(ctx, cfg, log)
 	if err != nil {
@@ -78,4 +90,18 @@ func run() error {
 	}
 	log.Info("shutdown complete")
 	return nil
+}
+
+// version is the VCS revision the binary was built from, or "dev".
+func version() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "dev"
+	}
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" && len(s.Value) >= 7 {
+			return s.Value[:7]
+		}
+	}
+	return "dev"
 }
