@@ -1,4 +1,4 @@
-.PHONY: up down run migrate lint mock
+.PHONY: up down run migrate lint mock test-up test-down test-unit test-int test-e2e test
 
 up:
 	docker compose up -d --wait
@@ -18,3 +18,23 @@ lint:
 
 mock:
 	docker compose --profile mock up -d prism
+
+TEST_DATABASE_URL ?= postgres://server2:server2@localhost:56433/server2_test?sslmode=disable
+export TEST_DATABASE_URL
+
+test-up:
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-down:
+	docker compose -f docker-compose.test.yml down -v
+
+test-unit:
+	go test -short -race ./...
+
+test-int:
+	go test -race ./internal/...
+
+test-e2e:
+	go test -race ./e2e/...
+
+test: test-unit test-int test-e2e

@@ -1,0 +1,28 @@
+# Infrastructure the test suites own, apart from the development stack, so a
+# test run never wipes development data. Its own project name keeps a
+# `down -v` here from reaching the development containers. Ports sit one above
+# the development ones so both stacks run at once.
+#
+# NATS is absent on purpose: tests start an in-process server per test.
+name: shopnexus-server2-test
+
+services:
+  postgres:
+    image: postgres:19rc1
+    environment:
+      POSTGRES_USER: server2
+      POSTGRES_PASSWORD: server2
+      POSTGRES_DB: server2_test
+    ports:
+      - "56433:5432"
+    # Data on tmpfs: fast, and `down` really resets it. Postgres 19 keeps its
+    # data directory under /var/lib/postgresql/19/docker, inside this mount.
+    # Sized explicitly; an uncapped tmpfs defaults to half the host's RAM.
+    tmpfs:
+      - /var/lib/postgresql:size=1g
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U server2 -d server2_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
