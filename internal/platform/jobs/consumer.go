@@ -3,7 +3,9 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -17,6 +19,10 @@ import (
 
 // headerDeadline carries Enqueue's Deadline as RFC 3339.
 const headerDeadline = "Deadline"
+
+// maxInFlight bounds messages a consumer holds unacknowledged, retries
+// waiting out their backoff included.
+const maxInFlight = 10_000
 
 // HandleOptions configures one consumer. Zero values take the defaults.
 type HandleOptions struct {
@@ -54,8 +60,11 @@ func Handle[M Message](ctx context.Context, js jetstream.JetStream, log *slog.Lo
 		FilterSubject: subject,
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		// AckWait covers a handler that crashes and never answers.
-		AckWait:       max(opts.BackOff[0], 30*time.Second),
-		MaxAckPending: opts.Concurrency,
+		AckWait: max(opts.BackOff[0], 30*time.Second),
+		// JetStream counts a message waiting out a NakWithDelay as pending,
+		// so a cap equal to Concurrency would let failing messages block new
+		// ones. The semaphore below limits how many run at once.
+		MaxAckPending: maxInFlight,
 		MaxDeliver:    opts.MaxDeliver,
 	})
 	if err != nil {
@@ -98,7 +107,7 @@ func Handle[M Message](ctx context.Context, js jetstream.JetStream, log *slog.Lo
 			return
 		}
 
-		if err := fn(ctx, m); err != nil {
+		if err := callSafely(ctx, fn, m); err != nil {
 			step := min(int(meta.NumDelivered), len(opts.BackOff)) - 1
 			log.WarnContext(ctx, "job failed", "subject", subject, "attempt", meta.NumDelivered, "err", err)
 			span.RecordError(err)
@@ -137,4 +146,15 @@ func (c natsCarrier) Keys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// callSafely runs fn and turns a panic into an error, so one bad message is
+// retried and dead-lettered instead of taking the process down.
+func callSafely[M any](ctx context.Context, fn func(context.Context, M) error, m M) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			err = fmt.Errorf("handler panic: %v\n%s", v, debug.Stack())
+		}
+	}()
+	return fn(ctx, m)
 }

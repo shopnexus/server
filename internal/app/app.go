@@ -128,7 +128,7 @@ func (a *App) startJobs(ctx context.Context, cfg config.Config, log *slog.Logger
 	a.stop = stop
 	relay := jobs.NewRelay(a.pool, js, log)
 	a.wg.Go(func() { relay.Run(bg) })
-	a.wg.Go(func() { jobs.RunDLQ(bg, nc, js, log) })
+	a.wg.Go(func() { jobs.RunDLQ(bg, js, log) })
 
 	smsSender := sms.LogSender{Log: log}
 	stopSMS, err := jobs.Handle(ctx, js, log, jobs.HandleOptions{Durable: "sms-sender"},

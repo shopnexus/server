@@ -91,10 +91,10 @@ func TestHandleRetriesWithBackoff(t *testing.T) {
 }
 
 func TestHandleMovesExhaustedMessagesToDLQ(t *testing.T) {
-	nc, js := consumerSetup(t)
+	_, js := consumerSetup(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go RunDLQ(ctx, nc, js, discard)
+	go RunDLQ(ctx, js, discard)
 
 	var calls atomic.Int32
 	handle(t, js, HandleOptions{BackOff: []time.Duration{20 * time.Millisecond}, MaxDeliver: 3},
@@ -188,5 +188,128 @@ func TestHandleContinuesTheEnqueueTrace(t *testing.T) {
 	eventually(t, 5*time.Second, func() bool { return len(rec.Ended()) == 1 })
 	if got := rec.Ended()[0].SpanContext().TraceID().String(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
 		t.Fatalf("consumer span trace %s; the enqueue trace was lost", got)
+	}
+}
+
+func TestHandlerPanicIsRetriedNotFatal(t *testing.T) {
+	_, js := consumerSetup(t)
+	var calls atomic.Int32
+	handle(t, js, HandleOptions{BackOff: []time.Duration{20 * time.Millisecond}, MaxDeliver: 5},
+		func(context.Context, ping) error {
+			if calls.Add(1) == 1 {
+				var m map[string]int
+				m["boom"] = 1 // nil map write: panics
+			}
+			return nil
+		})
+	publish(t, js, `{"n":1}`, nil)
+	eventually(t, 5*time.Second, func() bool { return calls.Load() == 2 })
+	eventually(t, 5*time.Second, func() bool { return streamMsgs(t, js) == 0 })
+}
+
+// Messages waiting out a backoff must not hold the slots new messages need.
+func TestRetriesDoNotStarveNewMessages(t *testing.T) {
+	_, js := consumerSetup(t)
+	good := make(chan struct{})
+	handle(t, js, HandleOptions{Concurrency: 2, BackOff: []time.Duration{5 * time.Second}, MaxDeliver: 5},
+		func(_ context.Context, p ping) error {
+			if p.N == 0 {
+				return errors.New("vendor rejects this number")
+			}
+			close(good)
+			return nil
+		})
+	publish(t, js, `{"n":0}`, nil)
+	publish(t, js, `{"n":0}`, nil)
+	time.Sleep(200 * time.Millisecond) // both failed once and wait 5 s
+	publish(t, js, `{"n":1}`, nil)
+
+	select {
+	case <-good:
+	case <-time.After(2 * time.Second):
+		t.Fatal("a good message waited behind messages in backoff")
+	}
+}
+
+func exhaust(t *testing.T, js jetstream.JetStream, durable string) {
+	t.Helper()
+	handle(t, js, HandleOptions{Durable: durable, BackOff: []time.Duration{10 * time.Millisecond}, MaxDeliver: 2},
+		func(context.Context, ping) error { return errors.New("always fails") })
+}
+
+func dlqCount(t *testing.T, js jetstream.JetStream) uint64 {
+	t.Helper()
+	s, err := js.Stream(context.Background(), "DLQ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, _ := s.Info(context.Background())
+	return info.State.Msgs
+}
+
+func TestTwoDLQCopiersCopyOnce(t *testing.T) {
+	_, js := consumerSetup(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go RunDLQ(ctx, js, discard)
+	go RunDLQ(ctx, js, discard)
+	exhaust(t, js, "pinger")
+	for range 5 {
+		publish(t, js, `{"n":3}`, nil)
+	}
+	eventually(t, 10*time.Second, func() bool { return dlqCount(t, js) >= 5 && streamMsgs(t, js) == 0 })
+	time.Sleep(300 * time.Millisecond)
+	if n := dlqCount(t, js); n != 5 {
+		t.Fatalf("DLQ holds %d messages, want 5", n)
+	}
+}
+
+func TestDLQCopierStartedLateStillCopies(t *testing.T) {
+	_, js := consumerSetup(t)
+	exhaust(t, js, "pinger")
+	publish(t, js, `{"n":3}`, nil)
+	time.Sleep(500 * time.Millisecond) // the advisory fires with no copier running
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go RunDLQ(ctx, js, discard)
+	eventually(t, 10*time.Second, func() bool { return dlqCount(t, js) == 1 && streamMsgs(t, js) == 0 })
+}
+
+type evtPing struct {
+	N int `json:"n"`
+}
+
+func (evtPing) Subject() string { return "evt.test.ping" }
+
+func TestDLQLeavesEventsForOtherListeners(t *testing.T) {
+	_, js := consumerSetup(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go RunDLQ(ctx, js, discard)
+
+	stop, err := Handle(context.Background(), js, discard,
+		HandleOptions{Durable: "failing-listener", BackOff: []time.Duration{10 * time.Millisecond}, MaxDeliver: 2},
+		func(context.Context, evtPing) error { return errors.New("fails") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	if _, err := js.Publish(context.Background(), "evt.test.ping", []byte(`{"n":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+
+	got := make(chan struct{}, 1)
+	stop2, err := Handle(context.Background(), js, discard, HandleOptions{Durable: "late-listener"},
+		func(context.Context, evtPing) error { got <- struct{}{}; return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop2)
+	select {
+	case <-got:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the event was deleted for every listener")
 	}
 }
