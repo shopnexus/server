@@ -1,0 +1,81 @@
+// Command server runs the shopnexus API.
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/shopnexus/server2/internal/app"
+	"github.com/shopnexus/server2/internal/platform/config"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	if err := config.LoadDotEnv(".env"); err != nil {
+		return err
+	}
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("config:\n%w", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+
+	a, err := app.New(ctx, cfg, log)
+	if err != nil {
+		return err
+	}
+
+	srv := &http.Server{
+		Addr:              cfg.HTTPAddr,
+		Handler:           a.Handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	serveErr := make(chan error, 1)
+	go func() {
+		log.Info("listening", "addr", cfg.HTTPAddr)
+		serveErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serveErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			a.Close(context.Background())
+			return err
+		}
+	case <-ctx.Done():
+		log.Info("shutting down")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	err = srv.Shutdown(shutdownCtx)
+	if cerr := a.Close(shutdownCtx); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("shutdown complete")
+	return nil
+}
