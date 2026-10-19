@@ -11,6 +11,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -57,7 +58,9 @@ func streamMsgs(t *testing.T, js jetstream.JetStream) uint64 {
 func pending(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
 	var n int
-	pool.QueryRow(context.Background(), "SELECT count(*) FROM outbox WHERE published_at IS NULL").Scan(&n)
+	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM outbox WHERE published_at IS NULL").Scan(&n); err != nil {
+		return -1 // a killed pooled connection fails once; ask again
+	}
 	return n
 }
 
@@ -192,4 +195,33 @@ func decodeN(t *testing.T, data []byte) int {
 		t.Fatalf("payload %s: %v", data, err)
 	}
 	return p.N
+}
+
+// TestRelayRecoversWhenItsSessionDies models a Postgres restart mid-publish:
+// the relay's own connection is killed and it must take a new one.
+func TestRelayRecoversWhenItsSessionDies(t *testing.T) {
+	pool, js := setup(t)
+	Enqueue(context.Background(), pool, ping{N: 1})
+	Enqueue(context.Background(), pool, ping{N: 2})
+
+	killer, err := pgx.Connect(context.Background(), pool.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer killer.Close(context.Background())
+
+	r := NewRelay(pool, js, discard)
+	var killed atomic.Bool
+	r.afterPublish = func(uuid.UUID) error {
+		if killed.CompareAndSwap(false, true) {
+			killer.Exec(context.Background(),
+				"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()")
+		}
+		return nil
+	}
+	startRelay(t, r)
+	eventually(t, 15*time.Second, func() bool { return pending(t, pool) == 0 })
+	if n := streamMsgs(t, js); n != 2 {
+		t.Fatalf("stream holds %d messages, want 2", n)
+	}
 }

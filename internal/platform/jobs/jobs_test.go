@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,5 +98,28 @@ func TestEnqueueDeadline(t *testing.T) {
 	}
 	if got := rows(t, pool); got[0].deadline == nil || !got[0].deadline.Equal(d) {
 		t.Fatalf("deadline %v", got[0].deadline)
+	}
+}
+
+type badSubject struct{}
+
+func (badSubject) Subject() string { return "sms.send" } // no cmd./evt. prefix
+
+type bigPayload struct {
+	Blob string `json:"blob"`
+}
+
+func (bigPayload) Subject() string { return "cmd.test.big" }
+
+func TestEnqueueRefusesMessagesJetStreamWouldReject(t *testing.T) {
+	pool := pgtest.New(t)
+	if err := Enqueue(context.Background(), pool, badSubject{}); err == nil {
+		t.Error("subject outside cmd.>/evt.> accepted")
+	}
+	if err := Enqueue(context.Background(), pool, bigPayload{Blob: strings.Repeat("x", 1<<20)}); err == nil {
+		t.Error("payload over the NATS limit accepted")
+	}
+	if n := len(rows(t, pool)); n != 0 {
+		t.Fatalf("%d rows written", n)
 	}
 }

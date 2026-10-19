@@ -15,6 +15,13 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
+func init() {
+	// kin-openapi validates only a few formats by default; the spec relies on
+	// these as shape rules too.
+	openapi3.DefineStringFormatValidator("uuid", openapi3.NewRegexpFormatValidator(openapi3.FormatOfStringForUUIDOfRFC9562)) // v1-v8; ids are v7
+	openapi3.DefineStringFormatValidator("email", openapi3.NewRegexpFormatValidator(openapi3.FormatOfStringForEmail))
+}
+
 // MaxBodyBytes caps every request body.
 const MaxBodyBytes = 1 << 20
 
@@ -88,9 +95,11 @@ func (s *statusOverride) WriteHeader(int) { s.ResponseWriter.WriteHeader(s.statu
 // error with a field entry per problem, or malformed_json for a body that
 // does not parse. A field's problem is the schema keyword it broke
 // (minLength, required, additionalProperties, ...).
+//
+// The kin-openapi error is not kept as the cause: it embeds the request value,
+// which may be a password or an OTP code, and causes are logged.
 func toAppError(err error) error {
 	out := *errInvalidRequest
-	out.Err = err
 	add := func(name, problem string) {
 		out = *out.WithField(name, problem)
 	}
@@ -109,9 +118,7 @@ func toAppError(err error) error {
 		}
 		var parseErr *openapi3filter.ParseError
 		if errors.As(reqErr.Err, &parseErr) {
-			m := *ErrMalformedJSON
-			m.Err = err
-			return &m
+			return ErrMalformedJSON
 		}
 		field := "body"
 		if reqErr.Parameter != nil {

@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -36,6 +37,14 @@ func Deadline(t time.Time) Option {
 	return func(o *enqueueOptions) { o.deadline = &t }
 }
 
+// validSubject is what the CMD and EVT streams accept. A row the relay can
+// never publish would stall every row behind it, so Enqueue refuses it.
+var validSubject = regexp.MustCompile(`^(cmd|evt)(\.[a-z0-9_]+)+$`)
+
+// maxPayload stays under NATS's default 1 MB max_payload, leaving room for
+// headers.
+const maxPayload = 900 << 10
+
 const insertOutbox = `INSERT INTO outbox (subject, payload, headers, deadline) VALUES ($1, $2, $3, $4)`
 
 // Enqueue writes m to the outbox on q. Run it inside the transaction that
@@ -45,9 +54,15 @@ func Enqueue(ctx context.Context, q postgres.Querier, m Message, opts ...Option)
 	for _, opt := range opts {
 		opt(&o)
 	}
+	if !validSubject.MatchString(m.Subject()) {
+		return fmt.Errorf("enqueue: subject %q must look like cmd.x.y or evt.x.y", m.Subject())
+	}
 	payload, err := json.Marshal(m)
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", m.Subject(), err)
+	}
+	if len(payload) > maxPayload {
+		return fmt.Errorf("enqueue %s: payload of %d bytes exceeds %d", m.Subject(), len(payload), maxPayload)
 	}
 	headers := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, headers)

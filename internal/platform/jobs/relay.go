@@ -96,6 +96,13 @@ func (r *Relay) lead(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return nil
 			}
+			// Only a JetStream refusal is retried on this connection. A
+			// database error or a dead session ends leadership, so Run takes
+			// a fresh connection instead of looping on a closed one.
+			var pe *publishError
+			if !errors.As(err, &pe) || conn.Conn().IsClosed() {
+				return err
+			}
 			r.log.WarnContext(ctx, "relay publish failed; retrying", "err", err, "in", backoff)
 			if !sleep(ctx, backoff) {
 				return nil
@@ -172,7 +179,7 @@ func (r *Relay) publish(ctx context.Context, conn *pgx.Conn, p pendingRow) error
 		msg.Header.Set(headerDeadline, p.deadline.UTC().Format(time.RFC3339Nano))
 	}
 	if _, err := r.js.PublishMsg(ctx, msg, jetstream.WithMsgID(p.id.String())); err != nil {
-		return err
+		return &publishError{err}
 	}
 	if r.afterPublish != nil {
 		if err := r.afterPublish(p.id); err != nil {
@@ -182,6 +189,13 @@ func (r *Relay) publish(ctx context.Context, conn *pgx.Conn, p pendingRow) error
 	_, err := conn.Exec(ctx, "UPDATE outbox SET published_at = now() WHERE id = $1", p.id)
 	return err
 }
+
+// publishError marks a failure on the JetStream side, the one kind of error
+// the relay retries on the same connection.
+type publishError struct{ err error }
+
+func (e *publishError) Error() string { return "publish: " + e.err.Error() }
+func (e *publishError) Unwrap() error { return e.err }
 
 // cleanup deletes published rows older than 7 days, 1000 at a time.
 func (r *Relay) cleanup(ctx context.Context, conn *pgx.Conn) {

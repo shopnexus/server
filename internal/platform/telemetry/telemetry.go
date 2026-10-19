@@ -1,6 +1,6 @@
 // Package telemetry sets up logs, traces and metrics. Everything is exported
-// over OTLP/HTTP to the endpoint in config; with no endpoint, only the W3C
-// propagator is installed and the global providers stay no-ops.
+// over OTLP/HTTP to the endpoint in config; with no endpoint, spans still get
+// ids but nothing leaves the process.
 package telemetry
 
 import (
@@ -27,15 +27,18 @@ import (
 // trace-context propagator. The returned function flushes and stops them.
 func Setup(ctx context.Context, cfg config.Config, version string) (shutdown func(context.Context) error, err error) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
-	if cfg.OTLPEndpoint == "" {
-		return func(context.Context) error { return nil }, nil
-	}
-
 	res := resource.NewSchemaless(
 		semconv.ServiceName(cfg.ServiceName),
 		semconv.ServiceVersion(version),
 		semconv.DeploymentEnvironmentName(cfg.Env),
 	)
+	if cfg.OTLPEndpoint == "" {
+		// No exporter, but a real provider: spans still get ids, so logs,
+		// error bodies and the Trace-Id header stay correlated.
+		tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res))
+		otel.SetTracerProvider(tp)
+		return tp.Shutdown, nil
+	}
 
 	traceExp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(cfg.OTLPEndpoint+"/v1/traces"))
 	if err != nil {

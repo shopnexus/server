@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"net/http"
@@ -116,5 +117,75 @@ func TestPathOutsideSpecPassesThrough(t *testing.T) {
 	body, _ := io.ReadAll(rec.Body)
 	if rec.Code != 404 {
 		t.Fatalf("%d %s", rec.Code, body)
+	}
+}
+
+func TestValidationNeverLogsTheBody(t *testing.T) {
+	useRecorder(t)
+	doc, _ := openapi3.NewLoader().LoadFromData([]byte(thingsSpec))
+	var logs bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	validate, _ := ValidateRequests(doc, log)
+	h := Trace(validate(NewRouter()))
+
+	rec := post(t, h, `{"name":"ab","extra":"hunter2-otp-583920"}`)
+	if rec.Code != 400 {
+		t.Fatalf("%d", rec.Code)
+	}
+	if strings.Contains(logs.String(), "hunter2") || strings.Contains(rec.Body.String(), "hunter2") {
+		t.Fatalf("request value leaked\nlog: %s\nbody: %s", logs.String(), rec.Body.String())
+	}
+}
+
+const formatsSpec = `
+openapi: 3.2.0
+info: {title: t, version: "1"}
+paths:
+  /items/{id}:
+    get:
+      operationId: getItem
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: ok}
+  /contacts:
+    post:
+      operationId: addContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: string, format: email}
+      responses:
+        "201": {description: created}
+`
+
+func TestFormatsAreValidated(t *testing.T) {
+	useRecorder(t)
+	doc, err := openapi3.NewLoader().LoadFromData([]byte(formatsSpec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	validate, _ := ValidateRequests(doc, slog.New(slog.DiscardHandler))
+	r := NewRouter()
+	r.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(200) })
+	r.HandleFunc("POST /contacts", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(201) })
+	h := Trace(validate(r))
+
+	if rec := serve(h, httptest.NewRequest("GET", "/items/not-a-uuid", nil)); rec.Code != 400 {
+		t.Errorf("bad uuid: %d", rec.Code)
+	}
+	if rec := serve(h, httptest.NewRequest("GET", "/items/01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b", nil)); rec.Code != 200 {
+		t.Errorf("good uuid: %d", rec.Code)
+	}
+	for body, want := range map[string]int{`{"email":"not-an-email"}`: 400, `{"email":"linh@example.com"}`: 201} {
+		req := httptest.NewRequest("POST", "/contacts", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if rec := serve(h, req); rec.Code != want {
+			t.Errorf("%s: %d, want %d", body, rec.Code, want)
+		}
 	}
 }
