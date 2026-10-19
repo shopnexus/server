@@ -4,7 +4,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/postgres"
@@ -25,8 +25,12 @@ var migrationFS fs.FS = migrations.FS
 // App is the assembled server.
 type App struct {
 	Handler http.Handler
+	router  *httpx.Router
 	pool    *pgxpool.Pool
 }
+
+// Routes lists every registered route, for the route-versus-spec test.
+func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 
 // New builds the server for cfg. It refuses to start while migrations are
 // pending, so the server never runs against an older schema.
@@ -51,30 +55,41 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		return nil, fmt.Errorf("migrations pending: %s; run make migrate", strings.Join(names, ", "))
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeStatus(w, http.StatusOK, "ok")
+	doc, err := api.Load()
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("load api spec: %w", err)
+	}
+	validate, err := httpx.ValidateRequests(doc, log)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	a.router = httpx.NewRouter()
+	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		httpx.Respond(w, r, http.StatusOK, status{"ok"})
 	})
-	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if err := a.ready(r.Context()); err != nil {
 			log.WarnContext(r.Context(), "not ready", "err", err)
-			writeStatus(w, http.StatusServiceUnavailable, "unavailable")
+			httpx.Respond(w, r, http.StatusServiceUnavailable, status{"unavailable"})
 			return
 		}
-		writeStatus(w, http.StatusOK, "ok")
+		httpx.Respond(w, r, http.StatusOK, status{"ok"})
 	})
-	a.Handler = httpx.Trace(httpx.AccessLog(log)(mux))
+
+	// Trace is outermost so a panic's 500 still carries a trace id.
+	a.Handler = httpx.Trace(httpx.Recover(log)(httpx.AccessLog(log)(validate(a.router))))
 	return a, nil
+}
+
+type status struct {
+	Status string `json:"status"`
 }
 
 func (a *App) ready(ctx context.Context) error {
 	return a.pool.Ping(ctx)
-}
-
-func writeStatus(w http.ResponseWriter, code int, status string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"status": status})
 }
 
 // Close releases what New opened.

@@ -1,0 +1,15 @@
+openapi: 3.2.0
+info:
+  title: shopnexus API
+  version: 0.1.0
+  description: |
+    The contract between shopnexus clients and server2. Code satisfies this
+    document: requests are validated against it at runtime, and the e2e suite
+    validates every response against it.
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    $ref: "paths/system.yaml#/healthz"
+  /readyz:
+    $ref: "paths/system.yaml#/readyz"

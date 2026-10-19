@@ -1,0 +1,26 @@
+Error:
+  description: The body of every error response.
+  type: object
+  additionalProperties: false
+  required: [error]
+  properties:
+    error:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id]
+      properties:
+        code:
+          type: string
+          description: Stable, snake_case; clients map it to their own text.
+          example: invalid_request
+        message:
+          type: string
+          description: English, for developers.
+        fields:
+          type: object
+          description: One entry per invalid field, keyed by its JSON path.
+          additionalProperties:
+            type: string
+        trace_id:
+          type: string
+          description: Equals the Trace-Id response header.

@@ -1,0 +1,30 @@
+healthz:
+  get:
+    operationId: getHealthz
+    summary: "Liveness: the process is up."
+    tags: [system]
+    responses:
+      "200":
+        description: The process is serving.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/system.yaml#/Status"
+readyz:
+  get:
+    operationId: getReadyz
+    summary: "Readiness: the process can reach its dependencies."
+    tags: [system]
+    responses:
+      "200":
+        description: Postgres and NATS answer.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/system.yaml#/Status"
+      "503":
+        description: A dependency does not answer.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/system.yaml#/Status"
