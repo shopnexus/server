@@ -17,7 +17,8 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/testdb"
+	"github.com/shopnexus/server2/internal/platform/natstest"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 var (
@@ -41,14 +42,21 @@ func run(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e: TEST_DATABASE_URL is not set: run `make test-up` and use `make test-e2e`")
 		return 1
 	}
-	pool, drop, err := testdb.NewForMain(url)
+	pool, drop, err := pgtest.NewForMain(url)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
 	defer drop()
 
-	cfg := config.Config{DatabaseURL: pool.Config().ConnString()}
+	natsURL, stopNATS, err := natstest.StartForMain()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	defer stopNATS()
+
+	cfg := config.Config{DatabaseURL: pool.Config().ConnString(), NATSURL: natsURL}
 	a, err := app.New(context.Background(), cfg, discard)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)

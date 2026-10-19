@@ -8,13 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/testdb"
 )
 
 func withTable(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	if _, err := pool.Exec(context.Background(),
 		"CREATE TABLE items (id uuid PRIMARY KEY DEFAULT uuidv7(), name text CONSTRAINT items_name_key UNIQUE)"); err != nil {
 		t.Fatal(err)

@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/testdb"
 )
 
 func files(m map[string]string) fstest.MapFS {
@@ -71,7 +71,7 @@ func appliedVersions(t *testing.T, pool *pgxpool.Pool) []int {
 }
 
 func TestMigrateAppliesAll(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	applied, err := postgres.Migrate(context.Background(), pool, files(twoMigrations))
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestMigrateAppliesAll(t *testing.T) {
 }
 
 func TestMigrateTwiceAppliesNothing(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	fsys := files(twoMigrations)
 	if _, err := postgres.Migrate(context.Background(), pool, fsys); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestMigrateTwiceAppliesNothing(t *testing.T) {
 }
 
 func TestMigrateDetectsEditedMigration(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	if _, err := postgres.Migrate(context.Background(), pool, files(twoMigrations)); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestMigrateDetectsEditedMigration(t *testing.T) {
 }
 
 func TestMigrateFailureRollsBackThatMigration(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	_, err := postgres.Migrate(context.Background(), pool, files(map[string]string{
 		"0001_a.sql": "CREATE TABLE a (id int);",
 		"0002_b.sql": "CREATE TABLE b (id int); CREATE TABLE broken (;",
@@ -133,7 +133,7 @@ func TestMigrateFailureRollsBackThatMigration(t *testing.T) {
 }
 
 func TestMigrateConcurrentCallsApplyOnce(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	fsys := files(twoMigrations)
 	var wg sync.WaitGroup
 	errs := make([]error, 4)
@@ -152,7 +152,7 @@ func TestMigrateConcurrentCallsApplyOnce(t *testing.T) {
 }
 
 func TestPendingListsUnapplied(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	if _, err := postgres.Migrate(context.Background(), pool, files(map[string]string{"0001_a.sql": "CREATE TABLE a (id int);"})); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestPendingListsUnapplied(t *testing.T) {
 }
 
 func TestPendingOnEmptyDatabase(t *testing.T) {
-	pool := testdb.Empty(t)
+	pool := pgtest.Empty(t)
 	pending, err := postgres.Pending(context.Background(), pool, files(twoMigrations))
 	if err != nil || len(pending) != 2 {
 		t.Fatalf("pending %d, err %v", len(pending), err)

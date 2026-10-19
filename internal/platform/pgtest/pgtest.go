@@ -1,6 +1,8 @@
-// Package testdb gives each test its own migrated Postgres database, cloned
-// from a template in milliseconds, on the test stack only.
-package testdb
+// Package pgtest gives each test its own migrated Postgres database, cloned
+// from a template in milliseconds, on the test stack only. Under
+// `go test -short` tests that need Postgres skip; without -short a missing
+// TEST_DATABASE_URL fails them, so a broken setup is never mistaken for a pass.
+package pgtest
 
 import (
 	"context"
@@ -9,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -16,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -42,11 +44,25 @@ func guard(adminURL string) error {
 	return nil
 }
 
+// URL returns TEST_DATABASE_URL, the admin connection to the test stack's
+// Postgres.
+func URL(t testing.TB) string {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("needs Postgres; skipped under -short")
+	}
+	u := os.Getenv("TEST_DATABASE_URL")
+	if u == "" {
+		t.Fatal("TEST_DATABASE_URL is not set: run `make test-up` and use `make test-int`")
+	}
+	return u
+}
+
 // New returns a pool on a fresh database with every migration applied. The
 // database is dropped when the test ends.
 func New(t testing.TB) *pgxpool.Pool {
 	t.Helper()
-	pool, drop, err := NewForMain(testenv.DatabaseURL(t))
+	pool, drop, err := NewForMain(URL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +73,7 @@ func New(t testing.TB) *pgxpool.Pool {
 // Empty returns a pool on a fresh database with no migrations applied.
 func Empty(t testing.TB) *pgxpool.Pool {
 	t.Helper()
-	pool, drop, err := create(testenv.DatabaseURL(t), "template0")
+	pool, drop, err := create(URL(t), "template0")
 	if err != nil {
 		t.Fatal(err)
 	}

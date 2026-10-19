@@ -7,7 +7,8 @@ import (
 
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/testdb"
+	"github.com/shopnexus/server2/internal/platform/natstest"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 func TestHealthz(t *testing.T) {
@@ -23,7 +24,8 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestReadyzDown(t *testing.T) {
-	cfg := config.Config{DatabaseURL: testdb.New(t).Config().ConnString()}
+	nc, _ := natstest.Start(t)
+	cfg := config.Config{DatabaseURL: pgtest.New(t).Config().ConnString(), NATSURL: nc.ConnectedUrl()}
 	a, err := app.New(context.Background(), cfg, discard)
 	if err != nil {
 		t.Fatal(err)

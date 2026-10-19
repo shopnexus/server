@@ -9,8 +9,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/testdb"
 )
 
 func TestTracerRecordsQuerySpan(t *testing.T) {
@@ -20,7 +20,7 @@ func TestTracerRecordsQuerySpan(t *testing.T) {
 	otel.SetTracerProvider(tp)
 	t.Cleanup(func() { otel.SetTracerProvider(prev) })
 
-	url := testdb.Empty(t).Config().ConnString()
+	url := pgtest.Empty(t).Config().ConnString()
 	pool, err := postgres.NewPool(context.Background(), url)
 	if err != nil {
 		t.Fatal(err)
