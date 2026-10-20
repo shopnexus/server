@@ -17,8 +17,8 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/natstest"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/restatetest"
 )
 
 var (
@@ -49,15 +49,16 @@ func run(m *testing.M) int {
 	}
 	defer drop()
 
-	natsURL, stopNATS, err := natstest.StartForMain()
+	ingressURL, adminURL, err := restatetest.URLsForMain()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
-	defer stopNATS()
-
-	cfg := config.Config{DatabaseURL: pool.Config().ConnString(), NATSURL: natsURL}
-	a, err := app.New(context.Background(), cfg, discard)
+	cfg := config.Config{
+		DatabaseURL: pool.Config().ConnString(),
+		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+	}
+	a, err := app.New(context.Background(), cfg, discard, app.WithRestatePrefix(restatetest.Prefix()))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1

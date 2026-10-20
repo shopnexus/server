@@ -4,24 +4,22 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/jobs"
 	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/migrations"
@@ -32,16 +30,33 @@ var migrationFS fs.FS = migrations.FS
 
 // App is the assembled server.
 type App struct {
-	Handler http.Handler
-	router  *httpx.Router
-	pool    *pgxpool.Pool
-	nc      *nats.Conn
-
-	// Background work (relay, DLQ, consumers) stops when stop is called.
-	stop      context.CancelFunc
-	wg        sync.WaitGroup
-	consumers []func()
+	Handler  http.Handler
+	router   *httpx.Router
+	pool     *pgxpool.Pool
+	cfg      config.Config
+	opts     options
+	ingress  *ingress.Client
+	endpoint *restatex.Endpoint
 }
+
+// Option changes how New builds the app.
+type Option func(*options)
+
+type options struct {
+	sms           sms.Sender
+	email         email.Sender
+	restatePrefix string
+}
+
+// WithSMSSender replaces the log sender; E2E tests read codes from theirs.
+func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } }
+
+// WithEmailSender replaces the log sender.
+func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
+
+// WithRestatePrefix prefixes every Restate service name, so tests sharing one
+// Restate server do not route to each other's endpoints.
+func WithRestatePrefix(p string) Option { return func(o *options) { o.restatePrefix = p } }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -49,12 +64,16 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 // New builds the server for cfg and starts its background work. It refuses to
 // start while migrations are pending, so the server never runs against an
 // older schema.
-func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
+func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (*App, error) {
+	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
-	a := &App{pool: pool}
+	a := &App{pool: pool, cfg: cfg, opts: o, ingress: ingress.NewClient(cfg.Restate.IngressURL)}
 
 	pending, err := postgres.Pending(ctx, pool, migrationFS)
 	if err != nil {
@@ -68,11 +87,6 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			names[i] = m.File()
 		}
 		return nil, fmt.Errorf("migrations pending: %s; run make migrate", strings.Join(names, ", "))
-	}
-
-	if err := a.startJobs(ctx, cfg, log); err != nil {
-		a.Close(context.Background())
-		return nil, err
 	}
 
 	doc, err := api.Load()
@@ -99,6 +113,11 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		httpx.Respond(w, r, http.StatusOK, status{"ok"})
 	})
 
+	if err := a.startRestate(ctx, cfg, log, nil); err != nil {
+		a.Close(context.Background())
+		return nil, err
+	}
+
 	// Trace is outermost so a panic's 500 still carries a trace id.
 	a.Handler = httpx.Trace(httpx.Recover(log)(httpx.AccessLog(log)(validate(a.router))))
 	return a, nil
@@ -108,95 +127,47 @@ type status struct {
 	Status string `json:"status"`
 }
 
-// startJobs connects to NATS, creates the streams, and starts the relay, the
-// dead-letter copier and one consumer per command.
-func (a *App) startJobs(ctx context.Context, cfg config.Config, log *slog.Logger) error {
-	nc, err := connectNATS(ctx, cfg.NATSURL, log)
+// startRestate serves defs and registers them, retrying for up to 30 s while
+// the Restate server starts. With no services there is nothing to serve.
+func (a *App) startRestate(ctx context.Context, cfg config.Config, log *slog.Logger, defs []restate.ServiceDefinition) error {
+	if len(defs) == 0 {
+		return nil
+	}
+	ep, err := restatex.Serve(cfg.Restate.ListenAddr, defs...)
 	if err != nil {
-		return err
+		return fmt.Errorf("restate endpoint: %w", err)
 	}
-	a.nc = nc
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return err
+	a.endpoint = ep
+	url := cfg.Restate.EndpointURL
+	if url == "" {
+		url = ep.URL()
 	}
-	if err := jobs.EnsureStreams(ctx, js); err != nil {
-		return fmt.Errorf("jetstream streams: %w", err)
-	}
-
-	bg, stop := context.WithCancel(context.Background())
-	a.stop = stop
-	relay := jobs.NewRelay(a.pool, js, log)
-	a.wg.Go(func() { relay.Run(bg) })
-	a.wg.Go(func() { jobs.RunDLQ(bg, js, log) })
-
-	smsSender := sms.LogSender{Log: log}
-	stopSMS, err := jobs.Handle(ctx, js, log, jobs.HandleOptions{Durable: "sms-sender"},
-		func(ctx context.Context, c sms.SendCommand) error { return smsSender.Send(ctx, c.To, c.Text) })
-	if err != nil {
-		return err
-	}
-	a.consumers = append(a.consumers, stopSMS)
-
-	emailSender := email.LogSender{Log: log}
-	stopEmail, err := jobs.Handle(ctx, js, log, jobs.HandleOptions{Durable: "email-sender"},
-		func(ctx context.Context, c email.SendCommand) error {
-			return emailSender.Send(ctx, c.To, c.Title, c.Body)
-		})
-	if err != nil {
-		return err
-	}
-	a.consumers = append(a.consumers, stopEmail)
-	return nil
-}
-
-// connectNATS retries for up to 30 s, so the server can start while the
-// broker is still coming up.
-func connectNATS(ctx context.Context, url string, log *slog.Logger) (*nats.Conn, error) {
-	var err error
 	for attempt := range 15 {
-		var nc *nats.Conn
-		nc, err = nats.Connect(url, nats.Name("server2"), nats.MaxReconnects(-1))
-		if err == nil {
-			return nc, nil
+		if err = restatex.Register(ctx, cfg.Restate.AdminURL, url); err == nil {
+			return nil
 		}
-		log.WarnContext(ctx, "nats not reachable yet", "attempt", attempt+1, "err", err)
+		log.WarnContext(ctx, "restate not reachable yet", "attempt", attempt+1, "err", err)
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return nil, fmt.Errorf("connect to nats: %w", err)
+	return err
 }
 
 func (a *App) ready(ctx context.Context) error {
-	if a.nc == nil || a.nc.Status() != nats.CONNECTED {
-		return errors.New("nats not connected")
+	if err := a.pool.Ping(ctx); err != nil {
+		return err
 	}
-	return a.pool.Ping(ctx)
+	return restatex.Healthy(ctx, a.cfg.Restate.AdminURL)
 }
 
-// Close stops background work and releases what New opened.
+// Close stops the Restate endpoint and closes the pool.
 func (a *App) Close(ctx context.Context) error {
-	a.stopBackground()
-	if a.nc != nil {
-		a.nc.Close()
+	if a.endpoint != nil {
+		a.endpoint.Close(ctx)
 	}
 	a.pool.Close()
 	return nil
-}
-
-// stopBackground stops consumers, the relay and the DLQ copier and waits for
-// them. It runs before the pool closes: the relay holds a connection for its
-// lock, and pgxpool.Close waits for every connection to come back.
-func (a *App) stopBackground() {
-	for _, stop := range a.consumers {
-		stop()
-	}
-	a.consumers = nil
-	if a.stop != nil {
-		a.stop()
-	}
-	a.wg.Wait()
 }

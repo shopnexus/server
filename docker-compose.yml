@@ -1,9 +1,9 @@
 # Development stack. The server itself runs on the host (`make run`).
 #
-#   make up                     postgres, nats, and otel-lgtm (profile obs, on via .env)
+#   make up                     postgres, restate, and otel-lgtm (profile obs, on via .env)
 #   make mock                   prism serving api/openapi.yaml
 #
-# Ports sit in the 562xx-564xx range so this stack runs beside ai-portal and
+# Ports sit in the 564xx-565xx range so this stack runs beside ai-portal and
 # the old shopnexus server.
 name: shopnexus-server2
 
@@ -26,16 +26,19 @@ services:
       timeout: 3s
       retries: 30
 
-  # The nats image is built FROM scratch: no shell for a healthcheck. The
-  # server retries its connection at start instead.
-  nats:
-    image: nats:2.15.1
-    command: ["-js", "-sd", "/data", "-m", "8222"]
-    ports:
-      - "56222:4222"
-      - "56822:8222"
+  restate:
+    image: restatedev/restate:1.8.0
+    # Host network: ufw drops container-to-host traffic, and Restate must call
+    # the server's endpoint on the host. Every port binds to 127.0.0.1.
+    network_mode: host
+    environment:
+      RESTATE_BASE_DIR: /restate-data
+      RESTATE_INGRESS__BIND_ADDRESS: 127.0.0.1:56580
+      RESTATE_ADMIN__BIND_ADDRESS: 127.0.0.1:56570
+      RESTATE_BIND_ADDRESS: 127.0.0.1:56560
+      RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56560
     volumes:
-      - nats:/data
+      - restate:/restate-data
 
   otel-lgtm:
     image: grafana/otel-lgtm:0.37.0
@@ -59,5 +62,5 @@ services:
 
 volumes:
   postgres:
-  nats:
+  restate:
   lgtm:

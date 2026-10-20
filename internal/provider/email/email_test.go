@@ -21,7 +21,4 @@ func TestLogSenderWritesMessage(t *testing.T) {
 			t.Fatalf("log %q lacks %q", buf.String(), want)
 		}
 	}
-	if (email.SendCommand{}).Subject() != "cmd.email.send" {
-		t.Fatal("subject")
-	}
 }

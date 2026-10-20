@@ -1,0 +1,90 @@
+// Package restatex serves this process's Restate services and registers them
+// with the Restate server.
+package restatex
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strings"
+	"time"
+
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/server"
+)
+
+// Endpoint is the HTTP/1.1 server Restate calls to run handlers.
+type Endpoint struct {
+	srv *http.Server
+	ln  net.Listener
+}
+
+// Serve binds defs and serves them on addr; "127.0.0.1:0" picks a free port.
+func Serve(addr string, defs ...restate.ServiceDefinition) (*Endpoint, error) {
+	r := server.NewRestate().Bidirectional(false)
+	for _, d := range defs {
+		r = r.Bind(d)
+	}
+	h, err := r.Handler()
+	if err != nil {
+		return nil, err
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	e := &Endpoint{srv: &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}, ln: ln}
+	go e.srv.Serve(ln)
+	return e, nil
+}
+
+// URL is the address Restate calls when RESTATE_ENDPOINT_URL is empty.
+func (e *Endpoint) URL() string { return "http://" + e.ln.Addr().String() }
+
+func (e *Endpoint) Close(ctx context.Context) error { return e.srv.Shutdown(ctx) }
+
+// Register asks the Restate server at adminURL to discover the services
+// served at endpointURL, replacing an earlier registration of the same names.
+// HTTP/1.1 is used because the endpoint is a standard library server.
+func Register(ctx context.Context, adminURL, endpointURL string) error {
+	body, err := json.Marshal(map[string]any{"uri": endpointURL, "force": true, "use_http_11": true})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(adminURL, "/")+"/deployments", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("register restate endpoint: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode/100 != 2 {
+		msg, _ := io.ReadAll(io.LimitReader(res.Body, 4<<10))
+		return fmt.Errorf("register restate endpoint: %s: %s", res.Status, msg)
+	}
+	return nil
+}
+
+// Healthy reports whether the Restate admin API answers.
+func Healthy(ctx context.Context, adminURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(adminURL, "/")+"/health", nil)
+	if err != nil {
+		return err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("restate admin health: %s", res.Status)
+	}
+	return nil
+}

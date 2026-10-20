@@ -19,7 +19,4 @@ func TestLogSenderWritesMessage(t *testing.T) {
 	if !strings.Contains(buf.String(), "+84901234567") || !strings.Contains(buf.String(), "583920") {
 		t.Fatalf("log %q", buf.String())
 	}
-	if (sms.SendCommand{}).Subject() != "cmd.sms.send" {
-		t.Fatal("subject")
-	}
 }

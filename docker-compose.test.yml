@@ -3,7 +3,8 @@
 # `down -v` here from reaching the development containers. Ports sit one above
 # the development ones so both stacks run at once.
 #
-# NATS is absent on purpose: tests start an in-process server per test.
+# Restate runs on the host network, like the development one, so it can
+# call endpoints that test processes serve on 127.0.0.1.
 name: shopnexus-server2-test
 
 services:
@@ -26,3 +27,16 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  restate:
+    image: restatedev/restate:1.8.0
+    network_mode: host
+    environment:
+      RESTATE_BASE_DIR: /restate-data
+      RESTATE_INGRESS__BIND_ADDRESS: 127.0.0.1:56581
+      RESTATE_ADMIN__BIND_ADDRESS: 127.0.0.1:56571
+      RESTATE_BIND_ADDRESS: 127.0.0.1:56561
+      RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56561
+    tmpfs:
+      - /restate-data:size=512m
+    mem_limit: 768m

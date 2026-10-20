@@ -21,6 +21,9 @@ mock:
 
 TEST_DATABASE_URL ?= postgres://server2:server2@localhost:56433/server2_test?sslmode=disable
 export TEST_DATABASE_URL
+TEST_RESTATE_INGRESS_URL ?= http://127.0.0.1:56581
+TEST_RESTATE_ADMIN_URL ?= http://127.0.0.1:56571
+export TEST_RESTATE_INGRESS_URL TEST_RESTATE_ADMIN_URL
 
 test-up:
 	docker compose -f docker-compose.test.yml up -d --wait

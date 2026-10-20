@@ -12,8 +12,9 @@ func lookup(env map[string]string) func(string) string {
 
 func required() map[string]string {
 	return map[string]string{
-		"DATABASE_URL": "postgres://db",
-		"NATS_URL":     "nats://nats",
+		"DATABASE_URL":        "postgres://db",
+		"RESTATE_INGRESS_URL": "http://restate:8080",
+		"RESTATE_ADMIN_URL":   "http://restate:9070",
 	}
 }
 
@@ -24,7 +25,10 @@ func TestLoadAllSet(t *testing.T) {
 		"LOG_LEVEL":                   "debug",
 		"LOG_FORMAT":                  "text",
 		"DATABASE_URL":                "postgres://db",
-		"NATS_URL":                    "nats://nats",
+		"RESTATE_INGRESS_URL":         "http://restate:8080",
+		"RESTATE_ADMIN_URL":           "http://restate:9070",
+		"RESTATE_LISTEN_ADDR":         "127.0.0.1:9999",
+		"RESTATE_ENDPOINT_URL":        "http://host:9999",
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
 		"SERVICE_NAME":                "svc",
 	}
@@ -33,12 +37,15 @@ func TestLoadAllSet(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	want := Config{
-		Env:          "dev",
-		HTTPAddr:     ":9090",
-		LogLevel:     slog.LevelDebug,
-		LogFormat:    "text",
-		DatabaseURL:  "postgres://db",
-		NATSURL:      "nats://nats",
+		Env:         "dev",
+		HTTPAddr:    ":9090",
+		LogLevel:    slog.LevelDebug,
+		LogFormat:   "text",
+		DatabaseURL: "postgres://db",
+		Restate: RestateConfig{
+			IngressURL: "http://restate:8080", AdminURL: "http://restate:9070",
+			ListenAddr: "127.0.0.1:9999", EndpointURL: "http://host:9999",
+		},
 		OTLPEndpoint: "http://otel:4318",
 		ServiceName:  "svc",
 	}
@@ -53,7 +60,8 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if got.HTTPAddr != ":8080" || got.LogLevel != slog.LevelInfo || got.LogFormat != "json" ||
-		got.ServiceName != "server2" || got.Env != "prod" || got.OTLPEndpoint != "" {
+		got.ServiceName != "server2" || got.Env != "prod" || got.OTLPEndpoint != "" ||
+		got.Restate.ListenAddr != "127.0.0.1:9080" || got.Restate.EndpointURL != "" {
 		t.Fatalf("defaults: %+v", got)
 	}
 }
@@ -63,7 +71,7 @@ func TestLoadListsEveryMissingVariable(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error")
 	}
-	for _, name := range []string{"DATABASE_URL", "NATS_URL"} {
+	for _, name := range []string{"DATABASE_URL", "RESTATE_INGRESS_URL", "RESTATE_ADMIN_URL"} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("error %q does not name %s", err, name)
 		}

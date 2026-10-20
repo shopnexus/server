@@ -1,31 +1,29 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/jobs"
-	"github.com/shopnexus/server2/internal/platform/natstest"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
-	"github.com/shopnexus/server2/internal/provider/sms"
+	"github.com/shopnexus/server2/internal/platform/restatetest"
 )
 
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
-	nc, _ := natstest.Start(t)
-	return config.Config{DatabaseURL: pgtest.New(t).Config().ConnString(), NATSURL: nc.ConnectedUrl()}
+	ingressURL, adminURL := restatetest.URLs(t)
+	return config.Config{
+		DatabaseURL: pgtest.New(t).Config().ConnString(),
+		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+	}
 }
 
 func newApp(t *testing.T) *App {
@@ -35,7 +33,7 @@ func newApp(t *testing.T) *App {
 
 func newAppWithLog(t *testing.T, log *slog.Logger) *App {
 	t.Helper()
-	a, err := New(context.Background(), testConfig(t), log)
+	a, err := New(context.Background(), testConfig(t), log, WithRestatePrefix(restatetest.Prefix()))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -62,7 +60,6 @@ func TestReadyz(t *testing.T) {
 	if code, _ := get(a, "/readyz"); code != http.StatusOK {
 		t.Fatalf("up: %d", code)
 	}
-	a.stopBackground() // the relay holds a pooled connection
 	a.pool.Close()
 	if code, _ := get(a, "/readyz"); code != http.StatusServiceUnavailable {
 		t.Fatalf("down: %d", code)
@@ -83,43 +80,15 @@ func TestNewRefusesPendingMigrations(t *testing.T) {
 	}
 }
 
-// syncBuffer is a bytes.Buffer safe for the logger's goroutines.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
-func TestSMSJobReachesSender(t *testing.T) {
-	var logs syncBuffer
-	a := newAppWithLog(t, slog.New(slog.NewTextHandler(&logs, nil)))
-	if err := jobs.Enqueue(context.Background(), a.pool, sms.SendCommand{To: "+84901234567", Text: "code 583920"}); err != nil {
+func TestReadyzRestateDown(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Restate.AdminURL = "http://127.0.0.1:1"
+	a, err := New(context.Background(), cfg, discard())
+	if err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(5 * time.Second)
-	for !strings.Contains(logs.String(), "583920") {
-		if time.Now().After(deadline) {
-			t.Fatalf("sms never reached the sender; logs:\n%s", logs.String())
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-}
-
-func TestReadyzNATSDown(t *testing.T) {
-	a := newApp(t)
-	a.nc.Close()
-	if code, _ := get(a, "/readyz"); code != http.StatusServiceUnavailable {
-		t.Fatalf("nats down: %d", code)
+	t.Cleanup(func() { a.Close(context.Background()) })
+	if code, body := get(a, "/readyz"); code != http.StatusServiceUnavailable {
+		t.Fatalf("got %d %q", code, body)
 	}
 }

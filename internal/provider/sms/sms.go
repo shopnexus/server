@@ -12,14 +12,6 @@ type Sender interface {
 	Send(ctx context.Context, to, text string) error
 }
 
-// SendCommand is the job that asks a consumer to send one message.
-type SendCommand struct {
-	To   string `json:"to"`
-	Text string `json:"text"`
-}
-
-func (SendCommand) Subject() string { return "cmd.sms.send" }
-
 // LogSender writes messages to the log instead of sending them. Development
 // only: it is the one place an OTP code may appear in a log.
 type LogSender struct{ Log *slog.Logger }

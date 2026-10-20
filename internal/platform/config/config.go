@@ -17,9 +17,18 @@ type Config struct {
 	LogLevel     slog.Level // LOG_LEVEL: debug | info | warn | error
 	LogFormat    string     // LOG_FORMAT: text | json
 	DatabaseURL  string     // DATABASE_URL
-	NATSURL      string     // NATS_URL
 	OTLPEndpoint string     // OTEL_EXPORTER_OTLP_ENDPOINT; empty disables export
 	ServiceName  string     // SERVICE_NAME
+	Restate      RestateConfig
+}
+
+// RestateConfig says where the Restate server is and how it reaches this
+// process.
+type RestateConfig struct {
+	IngressURL  string // RESTATE_INGRESS_URL
+	AdminURL    string // RESTATE_ADMIN_URL
+	ListenAddr  string // RESTATE_LISTEN_ADDR: where this process serves its Restate endpoint
+	EndpointURL string // RESTATE_ENDPOINT_URL: how Restate reaches it; empty means http://ListenAddr
 }
 
 // Load builds a Config from getenv. It reports every missing or invalid
@@ -48,11 +57,16 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	cfg := Config{
-		Env:          oneOf("APP_ENV", "prod", "dev", "test", "prod"),
-		HTTPAddr:     get("HTTP_ADDR", ":8080"),
-		LogFormat:    oneOf("LOG_FORMAT", "json", "text", "json"),
-		DatabaseURL:  need("DATABASE_URL"),
-		NATSURL:      need("NATS_URL"),
+		Env:         oneOf("APP_ENV", "prod", "dev", "test", "prod"),
+		HTTPAddr:    get("HTTP_ADDR", ":8080"),
+		LogFormat:   oneOf("LOG_FORMAT", "json", "text", "json"),
+		DatabaseURL: need("DATABASE_URL"),
+		Restate: RestateConfig{
+			IngressURL:  need("RESTATE_INGRESS_URL"),
+			AdminURL:    need("RESTATE_ADMIN_URL"),
+			ListenAddr:  get("RESTATE_LISTEN_ADDR", "127.0.0.1:9080"),
+			EndpointURL: get("RESTATE_ENDPOINT_URL", ""),
+		},
 		OTLPEndpoint: get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 		ServiceName:  get("SERVICE_NAME", "server2"),
 	}
