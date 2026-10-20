@@ -28,3 +28,35 @@ otp:
         $ref: "../responses/common.yaml#/Unprocessable"
       "429":
         $ref: "../responses/common.yaml#/TooManyRequests"
+otpVerify:
+  post:
+    operationId: verifyOtp
+    summary: Sign in, or sign up on first use, with a code.
+    tags: [auth]
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/OTPVerifyRequest"
+    responses:
+      "200":
+        description: Signed in.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/SignIn"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
+      "409":
+        $ref: "../responses/common.yaml#/Conflict"
+      "422":
+        description: invalid_code (details.attempts_left), code_expired or code_locked.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

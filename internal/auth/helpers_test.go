@@ -6,7 +6,9 @@ import (
 	"net/netip"
 	"sync"
 	"time"
+	"uuid"
 
+	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/platform/config"
 )
@@ -48,4 +50,44 @@ type emailInbox struct{ *inbox }
 
 func (e emailInbox) Send(ctx context.Context, to, _, body string) error {
 	return e.inbox.Send(ctx, to, body)
+}
+
+// fakeAccounts stands in for module account behind AccountPort.
+type fakeAccounts struct {
+	mu     sync.Mutex
+	status map[uuid.UUID]account.Status
+}
+
+func newFakeAccounts() *fakeAccounts { return &fakeAccounts{status: map[uuid.UUID]account.Status{}} }
+
+func (f *fakeAccounts) Create(_ context.Context, id uuid.UUID, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.status[id]; !ok {
+		f.status[id] = account.StatusActive
+	}
+	return nil
+}
+
+func (f *fakeAccounts) Delete(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.status, id)
+	return nil
+}
+
+func (f *fakeAccounts) Status(_ context.Context, id uuid.UUID) (account.Status, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	st, ok := f.status[id]
+	if !ok {
+		return "", account.ErrNotFound
+	}
+	return st, nil
+}
+
+func (f *fakeAccounts) suspend(id uuid.UUID) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.status[id] = account.StatusSuspended
 }

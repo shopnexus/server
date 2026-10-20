@@ -1,6 +1,12 @@
 package e2e
 
-import "testing"
+import (
+	"context"
+	"reflect"
+	"sync"
+	"testing"
+	"uuid"
+)
 
 func TestOTPSendDeliversACode(t *testing.T) {
 	phone := newPhone()
@@ -58,5 +64,104 @@ func TestOTPSendRejectsBadRequests(t *testing.T) {
 		map[string]string{"kind": "phone", "destination": newPhone(), "purpose": "login"}, newIP())
 	if e := errorOf(t, res); res.Status != 400 || e.Fields["Idempotency-Key"] == "" {
 		t.Fatalf("no Idempotency-Key: %d %s", res.Status, res.Body)
+	}
+}
+
+func TestSignUpThenSignIn(t *testing.T) {
+	first, phone := newAccount(t)
+	if !first.Account.IsNew || first.TokenType != "Bearer" || first.AccessToken == "" || first.RefreshToken == "" {
+		t.Fatalf("%+v", first)
+	}
+	if second := signInWith(t, phone); second.Account.ID != first.Account.ID || second.Account.IsNew {
+		t.Fatalf("second %+v", second.Account)
+	}
+}
+
+func TestSignInIgnoresPhoneFormat(t *testing.T) {
+	phone := newPhone() // +849xxxxxxxx
+	a := signInWith(t, "0"+phone[3:])
+	b := signInWith(t, "+84 "+phone[3:5]+" "+phone[5:8]+" "+phone[8:])
+	if a.Account.ID != b.Account.ID || !a.Account.IsNew || b.Account.IsNew {
+		t.Fatalf("%+v, %+v", a.Account, b.Account)
+	}
+}
+
+func TestSignInReplayedKeyGetsTheSameAccount(t *testing.T) {
+	id, code := requestCode(t, newPhone())
+	key := newKey()
+	a := verifyCode(t, id, code, key)
+	b := verifyCode(t, id, code, key)
+	sa, sb := decode[signIn](t, a), decode[signIn](t, b)
+	if a.Status != 200 || b.Status != 200 || sa.Account != sb.Account || sb.RefreshToken == sa.RefreshToken {
+		t.Fatalf("a %d %s, b %d %s", a.Status, a.Body, b.Status, b.Body)
+	}
+}
+
+func TestVerifyWrongCode(t *testing.T) {
+	id, code := requestCode(t, newPhone())
+	res := verifyCode(t, id, wrongCode(code))
+	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_code" || e.Details["attempts_left"] != float64(4) {
+		t.Fatalf("status %d: %s", res.Status, res.Body)
+	}
+}
+
+func TestVerifyUnknownChallenge(t *testing.T) {
+	if res := verifyCode(t, uuid.NewV7().String(), "123456"); res.Status != 422 || errorOf(t, res).Code != "code_expired" {
+		t.Fatalf("status %d: %s", res.Status, res.Body)
+	}
+}
+
+func TestVerifyBadShape(t *testing.T) {
+	if res := verifyCode(t, uuid.NewV7().String(), "12345"); res.Status != 400 || errorOf(t, res).Fields["code"] != "pattern" {
+		t.Fatalf("status %d: %s", res.Status, res.Body)
+	}
+}
+
+func TestVerifySuspendedAccount(t *testing.T) {
+	acc, phone := newAccount(t)
+	if _, err := db.Exec(context.Background(),
+		`UPDATE accounts SET status = 'suspended', suspend_reason = 'e2e' WHERE id = $1`, acc.Account.ID); err != nil {
+		t.Fatal(err)
+	}
+	id, code := requestCode(t, phone)
+	if res := verifyCode(t, id, code); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
+		t.Fatalf("status %d: %s", res.Status, res.Body)
+	}
+}
+
+// TestVerifyParallelGuesses fires 30 wrong guesses at one challenge with
+// separate keys. Every reply is 422 or 409, and the challenge ends with at
+// most five counted attempts.
+func TestVerifyParallelGuesses(t *testing.T) {
+	id, code := requestCode(t, newPhone())
+	statuses := make(chan int, 30)
+	var wg sync.WaitGroup
+	for range 30 {
+		wg.Go(func() { statuses <- verifyCodeStatus(id, wrongCode(code)) })
+	}
+	wg.Wait()
+	close(statuses)
+	for s := range statuses {
+		if s != 422 && s != 409 {
+			t.Fatalf("status %d", s)
+		}
+	}
+	var attempts int
+	db.QueryRow(context.Background(), `SELECT attempts FROM otp_challenges WHERE id = $1`, id).Scan(&attempts)
+	if attempts > 5 {
+		t.Fatalf("attempts %d", attempts)
+	}
+}
+
+// TestOTPSendRepliesAlikeForKnownAndUnknown is the enumeration test.
+func TestOTPSendRepliesAlikeForKnownAndUnknown(t *testing.T) {
+	_, known := newAccount(t)
+	db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE key = $1`, "dest:"+known)
+	a, b := sendOTP(t, "phone", known), sendOTP(t, "phone", newPhone())
+	ka, kb := decode[map[string]any](t, a), decode[map[string]any](t, b)
+	delete(ka, "challenge_id")
+	delete(kb, "challenge_id")
+	if a.Status != b.Status || !reflect.DeepEqual(ka, kb) {
+		t.Fatalf("known %d %s, unknown %d %s", a.Status, a.Body, b.Status, b.Body)
 	}
 }

@@ -41,10 +41,12 @@ type Keys struct {
 func Services(prefix string, p Ports, k Keys) []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(OTP{Prefix: prefix, Quotas: p.Quotas, Challenges: p.Challenges, Codes: k.Codes, SMS: p.SMS, Email: p.Email}),
+		restate.Reflect(SignIn{Prefix: prefix, Challenges: p.Challenges, Credentials: p.Credentials, Accounts: p.Accounts}),
 	}
 }
 
 // Routes registers auth's HTTP handlers.
 func Routes(r *httpx.Router, p Ports, k Keys, rs Restate, trusted []netip.Prefix, now func() time.Time, log *slog.Logger) {
 	r.Handle("POST /v1/auth/otp", OTPSendHandler(rs, trusted, log))
+	r.Handle("POST /v1/auth/otp/verify", SignInHandler(rs, p.Challenges, k.Codes, p.Sessions, k.Signer, now, log))
 }

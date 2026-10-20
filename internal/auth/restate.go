@@ -30,3 +30,7 @@ func clock(ctx restate.Context) (time.Time, error) {
 
 // newID returns a journaled UUID: the same on every replay.
 func newID(ctx restate.Context) uuid.UUID { return uuid.UUID(restate.UUID(ctx)) }
+
+func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
+	return ingress.Service[SignInInput, SignInResult](r.Client, r.Prefix+"SignIn", "Run")
+}

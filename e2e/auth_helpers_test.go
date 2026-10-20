@@ -1,11 +1,16 @@
 package e2e
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
+	"net/http"
 	"testing"
 	"uuid"
+
+	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
 // newPhone returns a fresh mobile number, so tests never share a
@@ -56,4 +61,90 @@ func sendOTP(t *testing.T, kind, dest string, headers ...[2]string) Response {
 	return call(t, server, "POST", "/v1/auth/otp",
 		map[string]string{"kind": kind, "destination": dest, "purpose": "login"},
 		append([][2]string{newIP(), newKey()}, headers...)...)
+}
+
+type signIn struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	Account      struct {
+		ID    string `json:"id"`
+		IsNew bool   `json:"is_new"`
+	} `json:"account"`
+}
+
+func bearer(token string) [2]string { return [2]string{"Authorization", "Bearer " + token} }
+
+func wrongCode(code string) string {
+	if code == "000000" {
+		return "000001"
+	}
+	return "000000"
+}
+
+// requestCode sends a code to a phone typed any way and returns the challenge
+// and the code. Earlier sends to that phone are pushed back a minute in its
+// quota, so a test can ask again without waiting 45 s.
+func requestCode(t *testing.T, typed string) (string, string) {
+	t.Helper()
+	p, err := contact.ParsePhone(typed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(context.Background(), `
+UPDATE otp_quotas SET sent_at = ARRAY(SELECT s - interval '1 minute' FROM unnest(sent_at) s)
+WHERE key = $1`, "dest:"+p.Value()); err != nil {
+		t.Fatal(err)
+	}
+	n := box.count(p.Value())
+	res := sendOTP(t, "phone", typed)
+	if res.Status != 200 {
+		t.Fatalf("send: %d %s", res.Status, res.Body)
+	}
+	return decode[challenge](t, res).ChallengeID, box.code(t, p.Value(), n+1)
+}
+
+func verifyCode(t *testing.T, challengeID, code string, headers ...[2]string) Response {
+	t.Helper()
+	return call(t, server, "POST", "/v1/auth/otp/verify",
+		map[string]string{"challenge_id": challengeID, "code": code, "device_name": "e2e"},
+		append([][2]string{newKey()}, headers...)...)
+}
+
+// verifyCodeStatus posts one guess and returns the status without touching t,
+// so goroutines can call it. It records the status for the coverage check as
+// call does, and skips response validation, so its caller checks statuses.
+func verifyCodeStatus(challengeID, code string) int {
+	body, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "code": code})
+	req, _ := http.NewRequest("POST", server+"/v1/auth/otp/verify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", uuid.NewV7().String())
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0
+	}
+	res.Body.Close()
+	mu.Lock()
+	if seen["verifyOtp"] == nil {
+		seen["verifyOtp"] = map[int]bool{}
+	}
+	seen["verifyOtp"][res.StatusCode] = true
+	mu.Unlock()
+	return res.StatusCode
+}
+
+func signInWith(t *testing.T, typed string) signIn {
+	t.Helper()
+	id, code := requestCode(t, typed)
+	res := verifyCode(t, id, code)
+	if res.Status != 200 {
+		t.Fatalf("verify: %d %s", res.Status, res.Body)
+	}
+	return decode[signIn](t, res)
+}
+
+func newAccount(t *testing.T) (signIn, string) {
+	t.Helper()
+	phone := newPhone()
+	return signInWith(t, phone), phone
 }

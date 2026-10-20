@@ -25,3 +25,59 @@ OTPChallenge:
     resend_after:
       type: integer
       description: Seconds before another code may be requested for this destination.
+OTPVerifyRequest:
+  type: object
+  additionalProperties: false
+  required: [challenge_id, code]
+  properties:
+    challenge_id:
+      type: string
+      format: uuid
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
+    device_name:
+      type: string
+      maxLength: 100
+      description: Shown in the list of signed-in devices.
+Tokens:
+  type: object
+  additionalProperties: false
+  required: [access_token, access_token_expires_at, refresh_token, token_type]
+  properties:
+    access_token:
+      type: string
+    access_token_expires_at:
+      type: string
+      format: date-time
+    refresh_token:
+      type: string
+    token_type:
+      type: string
+      enum: [Bearer]
+SignIn:
+  type: object
+  additionalProperties: false
+  required: [access_token, access_token_expires_at, refresh_token, token_type, account]
+  properties:
+    access_token:
+      type: string
+    access_token_expires_at:
+      type: string
+      format: date-time
+    refresh_token:
+      type: string
+    token_type:
+      type: string
+      enum: [Bearer]
+    account:
+      type: object
+      additionalProperties: false
+      required: [id, is_new]
+      properties:
+        id:
+          type: string
+          format: uuid
+        is_new:
+          type: boolean
+          description: True when this sign-in created the account; the app then asks for a profile.
