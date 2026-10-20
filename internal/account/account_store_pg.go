@@ -29,8 +29,16 @@ SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend
 FROM accounts WHERE id = $1`
 
 func (pgStore) Get(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error) {
+	return scanAccount(ctx, q, getAccount, id)
+}
+
+func (pgStore) GetForUpdate(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error) {
+	return scanAccount(ctx, q, getAccount+" FOR UPDATE", id)
+}
+
+func scanAccount(ctx context.Context, q postgres.Querier, sql string, id uuid.UUID) (Account, error) {
 	var a Account
-	err := q.QueryRow(ctx, getAccount, id).Scan(
+	err := q.QueryRow(ctx, sql, id).Scan(
 		&a.id, &a.displayName, &a.status, &a.suspendedUntil, &a.suspendReason, &a.createdAt, &a.updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNotFound

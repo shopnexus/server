@@ -38,6 +38,11 @@ func (s *MemStore) Get(_ context.Context, _ postgres.Querier, id uuid.UUID) (acc
 	return a, nil
 }
 
+// GetForUpdate is Get: a MemStore has no concurrent transactions to lock out.
+func (s *MemStore) GetForUpdate(ctx context.Context, q postgres.Querier, id uuid.UUID) (account.Account, error) {
+	return s.Get(ctx, q, id)
+}
+
 func (s *MemStore) Update(_ context.Context, _ postgres.Querier, a account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

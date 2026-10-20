@@ -14,6 +14,10 @@ type Store interface {
 	Insert(ctx context.Context, q postgres.Querier, a *Account) error
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error)
+	// GetForUpdate is Get with the row locked until q's transaction ends. A
+	// use case that reads, changes and writes the account uses it, or a
+	// concurrent write between its read and its Update is lost.
+	GetForUpdate(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error)
 	// Update writes every field of a; ErrNotFound for an unknown id.
 	Update(ctx context.Context, q postgres.Querier, a Account) error
 }

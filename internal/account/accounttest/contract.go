@@ -58,6 +58,21 @@ func RunStoreContract(t *testing.T, newStore func(t *testing.T) (account.Store, 
 		}
 	})
 
+	t.Run("get for update reads like get", func(t *testing.T) {
+		s, q := newStore(t)
+		a, _ := account.New("Linh", now)
+		if err := s.Insert(ctx, q, &a); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.GetForUpdate(ctx, q, a.ID())
+		if err != nil || got.ID() != a.ID() || got.DisplayName() != "Linh" {
+			t.Fatalf("%+v %v", got, err)
+		}
+		if _, err := s.GetForUpdate(ctx, q, uuid.NewV7()); !errors.Is(err, account.ErrNotFound) {
+			t.Fatalf("unknown: %v", err)
+		}
+	})
+
 	t.Run("update round-trips suspension", func(t *testing.T) {
 		s, q := newStore(t)
 		a, _ := account.New("Linh", now)
