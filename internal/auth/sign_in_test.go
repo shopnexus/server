@@ -134,3 +134,30 @@ func TestVerifyChallengeRetryReturnsTheSavedOutcome(t *testing.T) {
 		t.Fatalf("the retry counted the guess again: attempts %d", got.Attempts())
 	}
 }
+
+// A refused guess that changes nothing must leave no trace a retry could
+// mistake for its own write.
+func TestVerifyChallengeRetryOfARefusedGuess(t *testing.T) {
+	ctx := context.Background()
+	s := otptest.NewChallenges()
+
+	expired, code := stored(t, s, "0901234567", now)
+	w := uuid.NewV7()
+	late := now.Add(otp.CodeTTL)
+	for range 2 {
+		if _, err := auth.VerifyChallenge(ctx, s, expired.ID(), hashOf(expired, code), late, w); !errors.Is(err, otp.ErrCodeExpired) {
+			t.Errorf("expired code, then its retry: %v", err)
+		}
+	}
+
+	used, code := stored(t, s, "0907654321", now)
+	if _, err := auth.VerifyChallenge(ctx, s, used.ID(), hashOf(used, code), now, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	w = uuid.NewV7()
+	for range 2 {
+		if _, err := auth.VerifyChallenge(ctx, s, used.ID(), hashOf(used, wrong(code)), now, w); !errors.Is(err, otp.ErrCodeExpired) {
+			t.Errorf("wrong code on a used challenge, then its retry: %v", err)
+		}
+	}
+}

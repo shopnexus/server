@@ -72,22 +72,40 @@ func (c Challenge) CreatedAt() time.Time         { return c.createdAt }
 func (c Challenge) ConsumedAt() *time.Time       { return c.consumedAt }
 func (c Challenge) WriteID() uuid.UUID           { return c.writeID }
 
-// Verify checks codeHash at now. A wrong code counts an attempt, so the
-// caller saves the challenge whether Verify passes or not.
-func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
+// Open returns nil while c accepts a guess at now: not used, not expired and
+// not locked.
+func (c Challenge) Open(now time.Time) error {
 	switch {
 	case c.consumedAt != nil, !now.Before(c.expiresAt):
 		return ErrCodeExpired
 	case c.attempts >= MaxAttempts:
 		return ErrCodeLocked
 	}
-	if !hmac.Equal(codeHash, c.codeHash) {
-		c.attempts++
-		if c.attempts >= MaxAttempts {
-			return ErrCodeLocked
-		}
-		return ErrInvalidCode.WithDetail("attempts_left", MaxAttempts-c.attempts)
-	}
-	c.consumedAt = &now
 	return nil
+}
+
+// Verify takes a guess at now. A challenge that is not Open refuses it and
+// does not change. Otherwise a wrong code counts an attempt and a right one
+// consumes c, and the caller saves c either way.
+func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
+	if err := c.Open(now); err != nil {
+		return err
+	}
+	if hmac.Equal(codeHash, c.codeHash) {
+		c.consumedAt = &now
+	} else {
+		c.attempts++
+	}
+	return c.Verdict()
+}
+
+// Verdict is what the last counted guess decided: nil when it consumed c.
+func (c Challenge) Verdict() error {
+	switch {
+	case c.consumedAt != nil:
+		return nil
+	case c.attempts >= MaxAttempts:
+		return ErrCodeLocked
+	}
+	return ErrInvalidCode.WithDetail("attempts_left", MaxAttempts-c.attempts)
 }

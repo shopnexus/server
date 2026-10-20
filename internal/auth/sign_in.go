@@ -13,10 +13,15 @@ import (
 )
 
 // VerifyChallenge checks a code hash against a login challenge and saves the
-// attempt before it answers, so a wrong code stays counted. A write that loses
+// counted guess before it answers, so a wrong code stays counted. A guess
+// the challenge refuses changes nothing and is not saved. A write that loses
 // a race returns ErrTryAgain whether the code was right or wrong, and that
-// attempt is not counted.
-func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid.UUID, codeHash []byte, now time.Time, writeID uuid.UUID) (contact.Address, error) {
+// guess is not counted.
+//
+// stepWrite is the step's journaled write ID. A retried step whose save
+// already committed finds it on the challenge and reports that guess's
+// verdict instead of counting the code again.
+func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid.UUID, codeHash []byte, now time.Time, stepWrite uuid.UUID) (contact.Address, error) {
 	c, err := challenges.Get(ctx, id)
 	if errors.Is(err, otp.ErrNotFound) {
 		return contact.Address{}, otp.ErrCodeExpired
@@ -27,10 +32,8 @@ func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid
 	if c.Purpose() != otp.PurposeLogin {
 		return contact.Address{}, otp.ErrCodeExpired
 	}
-	if c.WriteID() == writeID {
-		// A retried step whose save already committed: report what that run
-		// decided instead of judging the code again.
-		return c.Destination(), savedOutcome(c)
+	if c.WriteID() == stepWrite {
+		return c.Destination(), c.Verdict()
 	}
 	newest, err := challenges.IsNewest(ctx, c)
 	if err != nil {
@@ -39,14 +42,17 @@ func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid
 	if !newest {
 		return contact.Address{}, otp.ErrCodeExpired
 	}
-	verifyErr := c.Verify(codeHash, now)
-	if err := challenges.Save(ctx, &c, writeID); err != nil {
+	if err := c.Open(now); err != nil {
+		return contact.Address{}, err
+	}
+	verdict := c.Verify(codeHash, now)
+	if err := challenges.Save(ctx, &c, stepWrite); err != nil {
 		if errors.Is(err, otp.ErrConflict) {
 			return contact.Address{}, ErrTryAgain
 		}
 		return contact.Address{}, err
 	}
-	return c.Destination(), verifyErr
+	return c.Destination(), verdict
 }
 
 // SignInExisting lets an existing account in: it refuses a suspended account
@@ -73,16 +79,4 @@ func SignInExisting(ctx context.Context, accounts AccountPort, creds credentials
 		return err
 	}
 	return nil
-}
-
-// savedOutcome is the result a committed Verify left on c.
-func savedOutcome(c otp.Challenge) error {
-	switch {
-	case c.ConsumedAt() != nil:
-		return nil
-	case c.Attempts() >= otp.MaxAttempts:
-		return otp.ErrCodeLocked
-	default:
-		return otp.ErrInvalidCode.WithDetail("attempts_left", otp.MaxAttempts-c.Attempts())
-	}
 }
