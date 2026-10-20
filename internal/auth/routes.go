@@ -50,4 +50,9 @@ func Routes(r *httpx.Router, p Ports, k Keys, rs Restate, trusted []netip.Prefix
 	r.Handle("POST /v1/auth/otp", OTPSendHandler(rs, trusted, log))
 	r.Handle("POST /v1/auth/otp/verify", SignInHandler(rs, p.Challenges, k.Codes, p.Sessions, k.Signer, now, log))
 	r.Handle("POST /v1/auth/refresh", RefreshHandler(p.Sessions, p.Accounts, k.Signer, now, log))
+	protect := RequireAuth(k.Verifier, now, log)
+	r.Handle("POST /v1/auth/logout", protect(LogoutHandler(p.Sessions, now, log)))
+	r.Handle("POST /v1/auth/logout-all", protect(LogoutAllHandler(p.Sessions, now, log)))
+	r.Handle("GET /v1/auth/sessions", protect(ListSessionsHandler(p.Sessions, now, log)))
+	r.Handle("DELETE /v1/auth/sessions/{id}", protect(RemoveSessionHandler(p.Sessions, now, log)))
 }

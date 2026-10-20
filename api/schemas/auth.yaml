@@ -90,3 +90,35 @@ RefreshRequest:
       type: string
       minLength: 1
       maxLength: 200
+Session:
+  type: object
+  additionalProperties: false
+  required: [id, device_name, created_at, last_used_at, current]
+  properties:
+    id:
+      type: string
+      format: uuid
+    device_name:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    last_used_at:
+      type: string
+      format: date-time
+    current:
+      type: boolean
+      description: True for the session the request was made with.
+SessionList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Session"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more sessions follow; pass it as cursor.

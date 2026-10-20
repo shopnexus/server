@@ -19,6 +19,14 @@ paths:
     $ref: "paths/auth.yaml#/otpVerify"
   /v1/auth/refresh:
     $ref: "paths/auth.yaml#/refresh"
+  /v1/auth/logout:
+    $ref: "paths/auth.yaml#/logout"
+  /v1/auth/logout-all:
+    $ref: "paths/auth.yaml#/logoutAll"
+  /v1/auth/sessions:
+    $ref: "paths/auth.yaml#/sessions"
+  /v1/auth/sessions/{id}:
+    $ref: "paths/auth.yaml#/session"
   /v1/accounts/me:
     $ref: "paths/account.yaml#/me"
 components:

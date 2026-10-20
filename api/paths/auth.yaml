@@ -85,3 +85,85 @@ refresh:
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
+logout:
+  post:
+    operationId: logout
+    summary: Sign out the session this request was made with.
+    description: The access token keeps working until it expires, at most 15 minutes; the app discards it.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Signed out.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+logoutAll:
+  post:
+    operationId: logoutAll
+    summary: Sign out every session of the account.
+    description: Needs a sign-in within the last 15 minutes.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Every session is signed out.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "428":
+        $ref: "../responses/common.yaml#/PreconditionRequired"
+sessions:
+  get:
+    operationId: listSessions
+    summary: List signed-in devices, newest first.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+    responses:
+      "200":
+        description: One page of sessions.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/SessionList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+session:
+  delete:
+    operationId: deleteSession
+    summary: Sign one device out.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Signed out.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
