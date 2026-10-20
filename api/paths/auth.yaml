@@ -60,3 +60,28 @@ otpVerify:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+refresh:
+  post:
+    operationId: refreshSession
+    summary: Rotate the refresh token and get a new access token.
+    description: A refresh token works once. Presenting it again, or two refreshes racing with one token, signs the session out.
+    tags: [auth]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/RefreshRequest"
+    responses:
+      "200":
+        description: New tokens.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/Tokens"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"

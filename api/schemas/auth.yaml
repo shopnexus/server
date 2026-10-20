@@ -81,3 +81,12 @@ SignIn:
         is_new:
           type: boolean
           description: True when this sign-in created the account; the app then asks for a profile.
+RefreshRequest:
+  type: object
+  additionalProperties: false
+  required: [refresh_token]
+  properties:
+    refresh_token:
+      type: string
+      minLength: 1
+      maxLength: 200

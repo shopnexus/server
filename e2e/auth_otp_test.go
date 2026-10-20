@@ -95,6 +95,9 @@ func TestSignInReplayedKeyGetsTheSameAccount(t *testing.T) {
 	if a.Status != 200 || b.Status != 200 || sa.Account != sb.Account || sb.RefreshToken == sa.RefreshToken {
 		t.Fatalf("a %d %s, b %d %s", a.Status, a.Body, b.Status, b.Body)
 	}
+	if res := refresh(t, sb.RefreshToken); res.Status != 200 {
+		t.Fatalf("the replay's refresh token: %d %s", res.Status, res.Body)
+	}
 }
 
 func TestVerifyWrongCode(t *testing.T) {

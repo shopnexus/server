@@ -49,4 +49,5 @@ func Services(prefix string, p Ports, k Keys) []restate.ServiceDefinition {
 func Routes(r *httpx.Router, p Ports, k Keys, rs Restate, trusted []netip.Prefix, now func() time.Time, log *slog.Logger) {
 	r.Handle("POST /v1/auth/otp", OTPSendHandler(rs, trusted, log))
 	r.Handle("POST /v1/auth/otp/verify", SignInHandler(rs, p.Challenges, k.Codes, p.Sessions, k.Signer, now, log))
+	r.Handle("POST /v1/auth/refresh", RefreshHandler(p.Sessions, p.Accounts, k.Signer, now, log))
 }
