@@ -158,6 +158,7 @@ func (a *App) routeModules(cfg config.Config, log *slog.Logger) []restate.Servic
 	}
 	rs := auth.Restate{Client: a.ingress, Prefix: a.opts.restatePrefix}
 	auth.Routes(a.router, ports, keys, rs, cfg.TrustedProxies, time.Now, log)
+	account.Routes(a.router, accounts, time.Now, log, auth.RequireAuth(keys.Verifier, time.Now, log))
 	return auth.Services(a.opts.restatePrefix, ports, keys)
 }
 

@@ -17,6 +17,8 @@ paths:
     $ref: "paths/auth.yaml#/otp"
   /v1/auth/otp/verify:
     $ref: "paths/auth.yaml#/otpVerify"
+  /v1/accounts/me:
+    $ref: "paths/account.yaml#/me"
 components:
   securitySchemes:
     bearerAuth:
