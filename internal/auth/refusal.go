@@ -24,9 +24,13 @@ type Refusal struct {
 func refuse(err error) (*Refusal, error) {
 	var ae *apperr.Error
 	if errors.As(err, &ae) {
-		return &Refusal{Kind: ae.Kind, Code: ae.Code, Message: ae.Message, Details: ae.Details}, nil
+		return refusalOf(ae), nil
 	}
 	return nil, err
+}
+
+func refusalOf(e *apperr.Error) *Refusal {
+	return &Refusal{Kind: e.Kind, Code: e.Code, Message: e.Message, Details: e.Details}
 }
 
 // Err turns the refusal back into the error httpx writes; nil stays nil.

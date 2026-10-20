@@ -42,12 +42,12 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 		return SessionPage{}, err
 	}
 	page := SessionPage{Items: []SessionItem{}}
-	for i, v := range rows {
-		if i == limit {
-			next := rows[limit-1].ID
-			page.NextCursor = &next
-			break
-		}
+	if len(rows) > limit {
+		rows = rows[:limit]
+		next := rows[limit-1].ID
+		page.NextCursor = &next
+	}
+	for _, v := range rows {
 		page.Items = append(page.Items, SessionItem{ID: v.ID, DeviceName: v.DeviceName, CreatedAt: v.CreatedAt,
 			LastUsedAt: v.LastUsedAt, Current: v.ID == p.SessionID})
 	}

@@ -57,7 +57,8 @@ func New(id uuid.UUID, purpose Purpose, dest contact.Address, ip netip.Addr, cod
 // Restore rebuilds a stored challenge. Stores only.
 func Restore(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uuid.UUID, codeHash []byte, attempts int,
 	ip netip.Addr, expiresAt, createdAt time.Time, consumedAt *time.Time, writeID uuid.UUID) Challenge {
-	return Challenge{id, purpose, dest, accountID, codeHash, attempts, ip, expiresAt, createdAt, consumedAt, writeID}
+	return Challenge{id: id, purpose: purpose, dest: dest, accountID: accountID, codeHash: codeHash, attempts: attempts,
+		ip: ip, expiresAt: expiresAt, createdAt: createdAt, consumedAt: consumedAt, writeID: writeID}
 }
 
 func (c Challenge) ID() uuid.UUID                { return c.id }

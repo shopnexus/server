@@ -46,9 +46,9 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 	if err != nil {
 		return OTPSendResult{}, err
 	}
-	destWrite, ipWrite := newID(ctx, at), newID(ctx, at)
+	admitWrite := newID(ctx, at)
 	refusal, err := restate.Run(ctx, func(rc restate.RunContext) (*Refusal, error) {
-		return refuse(AdmitOTP(rc, s.Quotas, dest, in.IP, at, destWrite, ipWrite))
+		return refuse(AdmitOTP(rc, s.Quotas, dest, in.IP, at, admitWrite))
 	})
 	if err != nil || refusal != nil {
 		return OTPSendResult{Refusal: refusal}, err
@@ -58,11 +58,11 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 		return OTPSendResult{}, err
 	}
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		if err := SendCode(rc, s.SMS, s.Email, s.Codes, c, time.Now()); err != nil {
-			return err
+		sent, err := SendCode(rc, s.SMS, s.Email, s.Codes, c, time.Now())
+		if sent && err == nil {
+			otpSent.Add(rc, 1, metric.WithAttributes(attribute.String("kind", string(dest.Kind()))))
 		}
-		otpSent.Add(rc, 1, metric.WithAttributes(attribute.String("kind", string(dest.Kind()))))
-		return nil
+		return err
 	}); err != nil {
 		return OTPSendResult{}, err
 	}

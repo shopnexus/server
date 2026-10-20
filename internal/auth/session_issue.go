@@ -22,9 +22,6 @@ func IssueSession(ctx context.Context, sessions session.Store, signer session.Si
 		if s, err = sessions.Get(ctx, id); err != nil {
 			return session.Tokens{}, err
 		}
-		if s.AccountID() != accountID {
-			return session.Tokens{}, errors.New("issue session: id belongs to another account")
-		}
 		// A replay must not bring back a session that was signed out since.
 		if err := s.Usable(now); err != nil {
 			return session.Tokens{}, err
@@ -37,9 +34,5 @@ func IssueSession(ctx context.Context, sessions session.Store, signer session.Si
 			return session.Tokens{}, err
 		}
 	}
-	access, exp, err := signer.Sign(accountID, id, s.AuthTime(), now)
-	if err != nil {
-		return session.Tokens{}, err
-	}
-	return session.Tokens{AccessToken: access, AccessTokenExpiresAt: exp, RefreshToken: refresh, TokenType: "Bearer"}, nil
+	return signer.Tokens(s, refresh, now)
 }

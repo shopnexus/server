@@ -42,11 +42,14 @@ func LogoutAll(ctx context.Context, sessions session.Store, p authn.Principal, n
 // RemoveSession signs one of the caller's devices out.
 func RemoveSession(ctx context.Context, sessions session.Store, p authn.Principal, id uuid.UUID, now time.Time) error {
 	s, err := sessions.Get(ctx, id)
-	if errors.Is(err, session.ErrNotFound) || (err == nil && s.AccountID() != p.AccountID) {
+	if errors.Is(err, session.ErrNotFound) {
 		return ErrSessionNotFound
 	}
 	if err != nil {
 		return err
+	}
+	if s.AccountID() != p.AccountID {
+		return ErrSessionNotFound
 	}
 	return revoke(ctx, sessions, id, now)
 }

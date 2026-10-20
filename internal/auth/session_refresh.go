@@ -52,11 +52,7 @@ func Refresh(ctx context.Context, sessions session.Store, accounts AccountPort, 
 		}
 		return session.Tokens{}, err
 	}
-	access, exp, err := signer.Sign(s.AccountID(), s.ID(), s.AuthTime(), now)
-	if err != nil {
-		return session.Tokens{}, err
-	}
-	return session.Tokens{AccessToken: access, AccessTokenExpiresAt: exp, RefreshToken: next, TokenType: "Bearer"}, nil
+	return signer.Tokens(s, next, now)
 }
 
 // reused revokes a session whose refresh token two parties hold, records the

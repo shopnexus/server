@@ -17,20 +17,20 @@ type MemStore struct {
 
 func NewMemStore() *MemStore { return &MemStore{rows: map[uuid.UUID]account.Account{}} }
 
-func us(t time.Time) time.Time { return t.Truncate(time.Microsecond) }
+func micros(t time.Time) time.Time { return t.Truncate(time.Microsecond) }
 
-// withWriteID copies a as stored. Status at the zero time is the stored
-// status: only a suspension whose end has passed reads differently.
-func withWriteID(a account.Account, w uuid.UUID) account.Account {
-	return account.Restore(a.ID(), a.DisplayName(), a.Status(time.Time{}), a.SuspendedUntil(), a.SuspendReason(), w,
-		us(a.CreatedAt()), us(a.UpdatedAt()))
+// asStored returns a as Postgres keeps it: times at microsecond precision
+// and write ID w.
+func asStored(a account.Account, w uuid.UUID) account.Account {
+	return account.Restore(a.ID(), a.DisplayName(), a.StoredStatus(), a.SuspendedUntil(), a.SuspendReason(), w,
+		micros(a.CreatedAt()), micros(a.UpdatedAt()))
 }
 
 func (s *MemStore) Create(_ context.Context, a account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.rows[a.ID()]; !ok {
-		s.rows[a.ID()] = withWriteID(a, a.WriteID())
+		s.rows[a.ID()] = asStored(a, a.WriteID())
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (s *MemStore) Save(_ context.Context, a *account.Account, writeID uuid.UUID
 	if !ok || (cur.WriteID() != a.WriteID() && cur.WriteID() != writeID) {
 		return account.ErrConflict
 	}
-	*a = withWriteID(*a, writeID)
+	*a = asStored(*a, writeID)
 	s.rows[a.ID()] = *a
 	return nil
 }

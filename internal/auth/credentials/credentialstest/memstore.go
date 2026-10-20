@@ -17,7 +17,9 @@ type MemStore struct {
 
 func NewMemStore() *MemStore { return &MemStore{rows: map[uuid.UUID]credentials.Credentials{}} }
 
-func normalise(c credentials.Credentials, w uuid.UUID) credentials.Credentials {
+// asStored returns c as Postgres keeps it: times at microsecond precision
+// and write ID w.
+func asStored(c credentials.Credentials, w uuid.UUID) credentials.Credentials {
 	var ids []credentials.Identity
 	for _, i := range c.Identities() {
 		used := i.LastUsedAt()
@@ -53,7 +55,7 @@ func (s *MemStore) Create(_ context.Context, c credentials.Credentials) error {
 		return credentials.ErrTaken
 	}
 	if _, ok := s.rows[c.AccountID()]; !ok {
-		s.rows[c.AccountID()] = normalise(c, c.WriteID())
+		s.rows[c.AccountID()] = asStored(c, c.WriteID())
 	}
 	return nil
 }
@@ -68,17 +70,17 @@ func (s *MemStore) Get(_ context.Context, accountID uuid.UUID) (credentials.Cred
 	return c, nil
 }
 
-func (s *MemStore) FindAccount(_ context.Context, kind credentials.Kind, value string) (uuid.UUID, uuid.UUID, error) {
+func (s *MemStore) FindIdentity(_ context.Context, kind credentials.Kind, value string) (credentials.IdentityRef, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for acc, c := range s.rows {
 		for _, i := range c.Identities() {
 			if i.Kind() == kind && i.Value() == value {
-				return acc, i.ID(), nil
+				return credentials.IdentityRef{AccountID: acc, IdentityID: i.ID()}, nil
 			}
 		}
 	}
-	return uuid.UUID{}, uuid.UUID{}, credentials.ErrNotFound
+	return credentials.IdentityRef{}, credentials.ErrNotFound
 }
 
 func (s *MemStore) Save(_ context.Context, c *credentials.Credentials, writeID uuid.UUID) error {
@@ -91,7 +93,7 @@ func (s *MemStore) Save(_ context.Context, c *credentials.Credentials, writeID u
 	if s.takenByOther(*c) {
 		return credentials.ErrTaken
 	}
-	*c = normalise(*c, writeID)
+	*c = asStored(*c, writeID)
 	s.rows[c.AccountID()] = *c
 	return nil
 }

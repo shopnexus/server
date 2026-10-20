@@ -85,15 +85,15 @@ SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_i
 	return c, rows.Err()
 }
 
-func (s pgStore) FindAccount(ctx context.Context, kind Kind, value string) (uuid.UUID, uuid.UUID, error) {
-	var accountID, identityID uuid.UUID
+func (s pgStore) FindIdentity(ctx context.Context, kind Kind, value string) (IdentityRef, error) {
+	var ref IdentityRef
 	err := s.db.QueryRow(ctx, `SELECT account_id, id FROM identities WHERE kind = @kind AND value = @value`,
 		pgx.StrictNamedArgs{"kind": kind, "value": value}).
-		Scan(&accountID, &identityID)
+		Scan(&ref.AccountID, &ref.IdentityID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.UUID{}, uuid.UUID{}, ErrNotFound
+		return IdentityRef{}, ErrNotFound
 	}
-	return accountID, identityID, err
+	return ref, err
 }
 
 func (s pgStore) Save(ctx context.Context, c *Credentials, writeID uuid.UUID) error {

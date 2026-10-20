@@ -21,7 +21,11 @@ type Restate struct {
 }
 
 func (r Restate) OTP() ingress.Requester[OTPSendInput, OTPSendResult] {
-	return ingress.Service[OTPSendInput, OTPSendResult](r.Client, r.Prefix+"OTP", "Send")
+	return ingress.Service[OTPSendInput, OTPSendResult](r.Client, OTP{Prefix: r.Prefix}.ServiceName(), "Send")
+}
+
+func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
+	return ingress.Service[SignInInput, SignInResult](r.Client, SignIn{Prefix: r.Prefix}.ServiceName(), "Run")
 }
 
 // clock returns the time from a journaled step, so a replay sees the same time.
@@ -44,8 +48,4 @@ func newID(ctx restate.Context, at time.Time) uuid.UUID {
 	id[6] = 0x70 | id[6]&0x0f
 	id[8] = 0x80 | id[8]&0x3f
 	return id
-}
-
-func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
-	return ingress.Service[SignInInput, SignInResult](r.Client, r.Prefix+"SignIn", "Run")
 }

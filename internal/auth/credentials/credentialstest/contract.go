@@ -37,11 +37,11 @@ func RunStoreContract(t *testing.T, newStore func(t *testing.T) (credentials.Sto
 		if err != nil || got.WriteID() != acc || len(got.Identities()) != 1 || got.Identities()[0].Value() != "+84901234567" {
 			t.Fatalf("got %+v %v", got, err)
 		}
-		gotAcc, gotID, err := s.FindAccount(ctx, credentials.Phone, "+84901234567")
-		if err != nil || gotAcc != acc || gotID != c.Identities()[0].ID() {
-			t.Fatalf("find: %s %s %v", gotAcc, gotID, err)
+		ref, err := s.FindIdentity(ctx, credentials.Phone, "+84901234567")
+		if err != nil || ref != (credentials.IdentityRef{AccountID: acc, IdentityID: c.Identities()[0].ID()}) {
+			t.Fatalf("find: %+v %v", ref, err)
 		}
-		if _, _, err := s.FindAccount(ctx, credentials.Email, "+84901234567"); !errors.Is(err, credentials.ErrNotFound) {
+		if _, err := s.FindIdentity(ctx, credentials.Email, "+84901234567"); !errors.Is(err, credentials.ErrNotFound) {
 			t.Fatalf("find by the wrong kind: %v", err)
 		}
 	})

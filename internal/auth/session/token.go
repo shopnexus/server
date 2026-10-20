@@ -41,16 +41,26 @@ func NewSigner(cfg config.AuthConfig) Signer {
 	return Signer{kid: cfg.JWTKeyID, key: cfg.JWTKey, issuer: cfg.Issuer, audience: cfg.Audience}
 }
 
-// Sign returns an access token valid AccessTTL from now, and its expiry.
-func (s Signer) Sign(accountID, sessionID uuid.UUID, authTime, now time.Time) (string, time.Time, error) {
+// Tokens signs an access token for x and pairs it with refresh, x's current
+// refresh token.
+func (s Signer) Tokens(x Session, refresh string, now time.Time) (Tokens, error) {
+	access, exp, err := s.Sign(x, now)
+	if err != nil {
+		return Tokens{}, err
+	}
+	return Tokens{AccessToken: access, AccessTokenExpiresAt: exp, RefreshToken: refresh, TokenType: "Bearer"}, nil
+}
+
+// Sign returns an access token for x valid AccessTTL from now, and its expiry.
+func (s Signer) Sign(x Session, now time.Time) (string, time.Time, error) {
 	exp := now.Add(AccessTTL)
 	t := jwt.NewWithClaims(jwt.SigningMethodEdDSA, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: accountID.String(),
+			Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.accountID.String(),
 			IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
 		},
-		SessionID: sessionID.String(),
-		AuthTime:  authTime.Unix(),
+		SessionID: x.id.String(),
+		AuthTime:  x.authTime.Unix(),
 	})
 	t.Header["kid"] = s.kid
 	signed, err := t.SignedString(s.key)

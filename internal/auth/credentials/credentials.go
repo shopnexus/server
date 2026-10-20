@@ -29,6 +29,12 @@ var (
 // KindOf maps a contact kind to the identity kind of the same name.
 func KindOf(a contact.Address) Kind { return Kind(a.Kind()) }
 
+// IdentityRef names an identity and the account holding it.
+type IdentityRef struct {
+	AccountID  uuid.UUID `json:"account_id"`
+	IdentityID uuid.UUID `json:"identity_id"`
+}
+
 // Identity is one verified way to sign in.
 type Identity struct {
 	id         uuid.UUID
@@ -46,7 +52,7 @@ func NewIdentity(id uuid.UUID, a contact.Address, now time.Time) Identity {
 
 // RestoreIdentity rebuilds a stored identity. Stores only.
 func RestoreIdentity(id uuid.UUID, kind Kind, value string, lastUsedAt *time.Time, createdAt time.Time) Identity {
-	return Identity{id, kind, value, lastUsedAt, createdAt}
+	return Identity{id: id, kind: kind, value: value, lastUsedAt: lastUsedAt, createdAt: createdAt}
 }
 
 func (i Identity) ID() uuid.UUID          { return i.id }
@@ -71,7 +77,7 @@ func New(accountID uuid.UUID, first Identity, now time.Time) Credentials {
 
 // Restore rebuilds stored credentials. Stores only.
 func Restore(accountID uuid.UUID, identities []Identity, writeID uuid.UUID, updatedAt time.Time) Credentials {
-	return Credentials{accountID, identities, writeID, updatedAt}
+	return Credentials{accountID: accountID, identities: identities, writeID: writeID, updatedAt: updatedAt}
 }
 
 func (c Credentials) AccountID() uuid.UUID   { return c.accountID }

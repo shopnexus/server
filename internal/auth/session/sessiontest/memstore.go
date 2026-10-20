@@ -19,16 +19,18 @@ type MemStore struct {
 
 func NewMemStore() *MemStore { return &MemStore{rows: map[uuid.UUID]session.Session{}} }
 
-func us(t time.Time) time.Time { return t.Truncate(time.Microsecond) }
+func micros(t time.Time) time.Time { return t.Truncate(time.Microsecond) }
 
-func normalise(s session.Session, w uuid.UUID) session.Session {
+// asStored returns s as Postgres keeps it: times at microsecond precision
+// and write ID w.
+func asStored(s session.Session, w uuid.UUID) session.Session {
 	revoked := s.RevokedAt()
 	if revoked != nil {
-		v := us(*revoked)
+		v := micros(*revoked)
 		revoked = &v
 	}
-	return session.Restore(s.ID(), s.AccountID(), s.RefreshHash(), s.PrevRefreshHash(), s.DeviceName(), us(s.AuthTime()),
-		us(s.CreatedAt()), us(s.LastUsedAt()), us(s.ExpiresAt()), revoked, w)
+	return session.Restore(s.ID(), s.AccountID(), s.RefreshHash(), s.PrevRefreshHash(), s.DeviceName(), micros(s.AuthTime()),
+		micros(s.CreatedAt()), micros(s.LastUsedAt()), micros(s.ExpiresAt()), revoked, w)
 }
 
 func (m *MemStore) Create(_ context.Context, s session.Session) (bool, error) {
@@ -37,7 +39,7 @@ func (m *MemStore) Create(_ context.Context, s session.Session) (bool, error) {
 	if _, ok := m.rows[s.ID()]; ok {
 		return false, nil
 	}
-	m.rows[s.ID()] = normalise(s, s.WriteID())
+	m.rows[s.ID()] = asStored(s, s.WriteID())
 	return true, nil
 }
 
@@ -73,7 +75,7 @@ func (m *MemStore) Save(_ context.Context, s *session.Session, writeID uuid.UUID
 	if !ok || (cur.WriteID() != s.WriteID() && cur.WriteID() != writeID) {
 		return session.ErrConflict
 	}
-	*s = normalise(*s, writeID)
+	*s = asStored(*s, writeID)
 	m.rows[s.ID()] = *s
 	return nil
 }
@@ -84,7 +86,7 @@ func (m *MemStore) RevokeAll(_ context.Context, accountID uuid.UUID, now time.Ti
 	for id, s := range m.rows {
 		if s.AccountID() == accountID && s.RevokedAt() == nil {
 			s.Revoke(now)
-			m.rows[id] = normalise(s, uuid.NewV7())
+			m.rows[id] = asStored(s, uuid.NewV7())
 		}
 	}
 	return nil

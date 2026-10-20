@@ -25,24 +25,26 @@ var (
 	ErrOTPLimit   = apperr.New(apperr.KindRateLimited, "otp_limit", "too many codes requested; try again later")
 )
 
-const resendAfter = 45 * time.Second
-
 var (
-	destinationRules = []otp.Rule{{Window: resendAfter, Max: 1}, {Window: time.Hour, Max: 5}}
+	// resend refuses with ErrOTPTooSoon; every other rule with ErrOTPLimit.
+	resend           = otp.Rule{Window: 45 * time.Second, Max: 1}
+	destinationRules = []otp.Rule{resend, {Window: time.Hour, Max: 5}}
 	addressRules     = []otp.Rule{{Window: time.Hour, Max: 20}}
 )
 
 // AdmitOTP spends one send from the client address's quota, then the
 // destination's. The address goes first, so an address over its limit cannot
-// spend the quota of the numbers it names. destWrite and ipWrite are the
-// step's journaled write IDs: a retried step finds them on quotas it already
-// saved and does not count the send again.
-func AdmitOTP(ctx context.Context, quotas otp.QuotaStore, dest contact.Address, ip netip.Addr, now time.Time, destWrite, ipWrite uuid.UUID) error {
-	if err := admit(ctx, quotas, addressKey(ip), now, addressRules, ipWrite); err != nil {
+// spend the quota of the numbers it names. stepWrite is the step's journaled
+// write ID: a retried step finds it on the quotas it already saved and does
+// not count the send again.
+func AdmitOTP(ctx context.Context, quotas otp.QuotaStore, dest contact.Address, ip netip.Addr, now time.Time, stepWrite uuid.UUID) error {
+	if err := admit(ctx, quotas, addressKey(ip), now, addressRules, stepWrite); err != nil {
 		return err
 	}
-	return admit(ctx, quotas, "dest:"+dest.Value(), now, destinationRules, destWrite)
+	return admit(ctx, quotas, destinationKey(dest), now, destinationRules, stepWrite)
 }
+
+func destinationKey(dest contact.Address) string { return "dest:" + dest.Value() }
 
 // addressKey limits an IPv6 client by its /64, the block one host usually
 // holds.
@@ -68,7 +70,7 @@ func admit(ctx context.Context, quotas otp.QuotaStore, key string, now time.Time
 		}
 		rule, wait, ok := q.Admit(now, rules...)
 		if !ok {
-			if rule.Window == resendAfter {
+			if rule == resend {
 				return ErrOTPTooSoon.WithDetail("retry_after", int(math.Ceil(wait.Seconds())))
 			}
 			return ErrOTPLimit
@@ -86,16 +88,17 @@ func NewChallenge(codes otp.Codes, id uuid.UUID, purpose otp.Purpose, dest conta
 	return otp.New(id, purpose, dest, ip, codes.Hash(dest, codes.For(id)), now)
 }
 
-// SendCode sends a challenge's code, unless it has expired by now.
-func SendCode(ctx context.Context, smsSender sms.Sender, emailSender email.Sender, codes otp.Codes, c otp.Challenge, now time.Time) error {
+// SendCode sends a challenge's code and reports whether it did: a challenge
+// that has expired by now is not sent.
+func SendCode(ctx context.Context, smsSender sms.Sender, emailSender email.Sender, codes otp.Codes, c otp.Challenge, now time.Time) (bool, error) {
 	if !now.Before(c.ExpiresAt()) {
-		return nil
+		return false, nil
 	}
 	text := "Mã xác thực shopnexus: " + codes.For(c.ID()) + ". Mã hết hạn sau 5 phút. Không chia sẻ mã này với ai."
 	if c.Destination().Kind() == contact.Email {
-		return emailSender.Send(ctx, c.Destination().Value(), "Mã xác thực shopnexus", text)
+		return true, emailSender.Send(ctx, c.Destination().Value(), "Mã xác thực shopnexus", text)
 	}
-	return smsSender.Send(ctx, c.Destination().Value(), text)
+	return true, smsSender.Send(ctx, c.Destination().Value(), text)
 }
 
 type OTPSendRequest struct {
@@ -139,6 +142,6 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, OTPSendResponse{ChallengeID: res.ChallengeID, ResendAfter: int(resendAfter.Seconds())})
+		httpx.Respond(w, r, http.StatusOK, OTPSendResponse{ChallengeID: res.ChallengeID, ResendAfter: int(resend.Window.Seconds())})
 	})
 }

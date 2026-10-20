@@ -24,7 +24,8 @@ func keys(kid string) config.AuthConfig {
 func TestSignThenVerify(t *testing.T) {
 	k := keys("current")
 	acc, sid, authTime := uuid.NewV7(), uuid.NewV7(), now.Add(-time.Hour)
-	token, exp, err := session.NewSigner(k).Sign(acc, sid, authTime, now)
+	s, _ := session.New(sid, acc, "", authTime, now)
+	token, exp, err := session.NewSigner(k).Sign(s, now)
 	if err != nil || !exp.Equal(now.Add(session.AccessTTL)) {
 		t.Fatalf("%v %v", exp, err)
 	}
@@ -37,7 +38,7 @@ func TestSignThenVerify(t *testing.T) {
 func TestVerifyRejects(t *testing.T) {
 	k := keys("current")
 	signer, verifier := session.NewSigner(k), session.NewVerifier(k)
-	good, _, _ := signer.Sign(uuid.NewV7(), uuid.NewV7(), now, now)
+	good, _, _ := signer.Sign(anySession(), now)
 	claims := session.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer: k.Issuer, Audience: jwt.ClaimStrings{k.Audience}, Subject: uuid.NewV7().String(),
@@ -51,7 +52,7 @@ func TestVerifyRejects(t *testing.T) {
 	swap := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	swap.Header["kid"] = k.JWTKeyID
 	swapToken, _ := swap.SignedString([]byte(k.JWTKey.Public().(ed25519.PublicKey)))
-	forged, _, _ := session.NewSigner(keys("current")).Sign(uuid.NewV7(), uuid.NewV7(), now, now)
+	forged, _, _ := session.NewSigner(keys("current")).Sign(anySession(), now)
 	parts := strings.Split(good, ".")
 	parts[1] = base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"` + uuid.NewV7().String() + `"}`))
 	wrongAud, wrongIss := k, k
@@ -86,7 +87,7 @@ func TestVerifyRejects(t *testing.T) {
 func TestVerifierKeyRotation(t *testing.T) {
 	old, current := keys("old"), keys("new")
 	current.JWTPrevKeyID, current.JWTPrevKey = old.JWTKeyID, old.JWTKey.Public().(ed25519.PublicKey)
-	oldToken, _, _ := session.NewSigner(old).Sign(uuid.NewV7(), uuid.NewV7(), now, now)
+	oldToken, _, _ := session.NewSigner(old).Sign(anySession(), now)
 	if _, err := session.NewVerifier(current).Verify(oldToken, now); err != nil {
 		t.Fatalf("token from the previous key: %v", err)
 	}
@@ -95,8 +96,13 @@ func TestVerifierKeyRotation(t *testing.T) {
 	if _, err := session.NewVerifier(withoutPrev).Verify(oldToken, now); !errors.Is(err, session.ErrInvalidToken) {
 		t.Fatalf("previous key dropped: %v", err)
 	}
-	ghost, _, _ := session.NewSigner(keys("ghost")).Sign(uuid.NewV7(), uuid.NewV7(), now, now)
+	ghost, _, _ := session.NewSigner(keys("ghost")).Sign(anySession(), now)
 	if _, err := session.NewVerifier(current).Verify(ghost, now); !errors.Is(err, session.ErrInvalidToken) {
 		t.Fatalf("unknown kid: %v", err)
 	}
+}
+
+func anySession() session.Session {
+	s, _ := session.New(uuid.NewV7(), uuid.NewV7(), "", now, now)
+	return s
 }

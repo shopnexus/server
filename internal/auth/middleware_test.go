@@ -15,8 +15,9 @@ import (
 
 func TestRequireAuth(t *testing.T) {
 	acc, sid := uuid.NewV7(), uuid.NewV7()
-	valid, _, _ := session.NewSigner(testKeys).Sign(acc, sid, now, now)
-	expired, _, _ := session.NewSigner(testKeys).Sign(acc, sid, now, now.Add(-20*time.Minute))
+	s, _ := session.New(sid, acc, "", now, now)
+	valid, _, _ := session.NewSigner(testKeys).Sign(s, now)
+	expired, _, _ := session.NewSigner(testKeys).Sign(s, now.Add(-20*time.Minute))
 	var seen authn.Principal
 	h := auth.RequireAuth(session.NewVerifier(testKeys), func() time.Time { return now }, discard)(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

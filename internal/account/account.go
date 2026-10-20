@@ -63,6 +63,10 @@ func (a Account) CreatedAt() time.Time       { return a.createdAt }
 func (a Account) UpdatedAt() time.Time       { return a.updatedAt }
 func (a Account) WriteID() uuid.UUID         { return a.writeID }
 
+// StoredStatus is the status as stored, before Status applies a suspension's
+// end. Stores only.
+func (a Account) StoredStatus() Status { return a.status }
+
 // Status reports the status in force at now. A suspension whose end has
 // passed reads as active even though the stored row still says suspended.
 func (a Account) Status(now time.Time) Status {

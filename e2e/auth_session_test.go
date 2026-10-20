@@ -92,7 +92,8 @@ func TestLogoutAll(t *testing.T) {
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
 	p, _ := session.NewVerifier(keys).Verify(second.AccessToken, time.Now())
-	stale, _, _ := session.NewSigner(keys).Sign(p.AccountID, p.SessionID, time.Now().Add(-20*time.Minute), time.Now())
+	s, _ := session.New(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
+	stale, _, _ := session.NewSigner(keys).Sign(s, time.Now())
 	if res := call(t, server, "POST", "/v1/auth/logout-all", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
 		t.Fatalf("stale sign-in: %d %s", res.Status, res.Body)
 	}

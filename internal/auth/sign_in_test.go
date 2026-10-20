@@ -97,14 +97,14 @@ func TestSignInExisting(t *testing.T) {
 	accounts.Create(ctx, acc, "")
 	creds.Create(ctx, credentials.New(acc, credentials.NewIdentity(identID, phone(t, "0901234567"), now), now))
 
-	if err := auth.SignInExisting(ctx, accounts, creds, acc, identID, now.Add(time.Hour), uuid.NewV7()); err != nil {
+	if err := auth.SignInExisting(ctx, accounts, creds, credentials.IdentityRef{AccountID: acc, IdentityID: identID}, now.Add(time.Hour), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if c, _ := creds.Get(ctx, acc); !c.Identities()[0].LastUsedAt().Equal(now.Add(time.Hour)) {
 		t.Fatalf("last used %v", c.Identities()[0].LastUsedAt())
 	}
 	accounts.suspend(acc)
-	if err := auth.SignInExisting(ctx, accounts, creds, acc, identID, now, uuid.NewV7()); !errors.Is(err, account.ErrSuspended) {
+	if err := auth.SignInExisting(ctx, accounts, creds, credentials.IdentityRef{AccountID: acc, IdentityID: identID}, now, uuid.NewV7()); !errors.Is(err, account.ErrSuspended) {
 		t.Fatalf("suspended: %v", err)
 	}
 }
