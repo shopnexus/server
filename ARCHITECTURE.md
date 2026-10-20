@@ -238,3 +238,27 @@ no database.
 security rules and the testing matrix, and to point here for code shape,
 transactions and durability instead of repeating them. Plan 2 is then written
 again from both.
+
+### Restate in practice
+
+Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
+
+- The durable flows are Restate services invoked with the client's
+  `Idempotency-Key`. A repeated key returns the first result and runs no step
+  again, which is all this phase needs from a workflow.
+- Restate runs with `network_mode: host` on 127.0.0.1 ports: 56580 ingress,
+  56570 admin and 56560 node in development, one higher in tests. The
+  development machine's ufw drops container-to-host traffic.
+- At start the server serves its services on `RESTATE_LISTEN_ADDR` and
+  registers `RESTATE_ENDPOINT_URL` through the admin API with
+  `use_http_11`, because the endpoint is a standard library HTTP/1.1 server.
+- A business refusal travels in the result as a `Refusal`. The ingress turns
+  a terminal error into a 500 carrying only a message.
+- An OTP code is `HMAC(OTP_KEY, "otp-code:" ‖ challenge_id) mod 10^6`. The
+  send step recomputes it on a retry, and it is never stored or journaled.
+  The verify handler loads the challenge and sends `SignIn` the code's hash.
+  A check of the journal after a manual sign-in on 2026-10-20 found the phone
+  number and the code hash, and no code or token.
+- Tests prefix every service name per registration, because test packages
+  share one Restate server and a name routes to one endpoint.
+
