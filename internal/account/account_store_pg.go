@@ -16,21 +16,23 @@ func NewPGStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
 const createAccount = `
 INSERT INTO accounts (id, display_name, status, write_id, created_at, updated_at)
-VALUES ($1, NULLIF($2, ''), $3, $4, $5, $5)
+VALUES (@id, NULLIF(@display_name, ''), @status, @write_id, @now, @now)
 ON CONFLICT (id) DO NOTHING`
 
 func (s pgStore) Create(ctx context.Context, a Account) error {
-	_, err := s.db.Exec(ctx, createAccount, a.id, a.displayName, a.status, a.writeID, a.createdAt)
+	_, err := s.db.Exec(ctx, createAccount, pgx.StrictNamedArgs{
+		"id": a.id, "display_name": a.displayName, "status": a.status, "write_id": a.writeID, "now": a.createdAt,
+	})
 	return err
 }
 
 const getAccount = `
 SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend_reason, ''), write_id, created_at, updated_at
-FROM accounts WHERE id = $1`
+FROM accounts WHERE id = @id`
 
 func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Account, error) {
 	var a Account
-	err := s.db.QueryRow(ctx, getAccount, id).Scan(&a.id, &a.displayName, &a.status, &a.suspendedUntil,
+	err := s.db.QueryRow(ctx, getAccount, pgx.StrictNamedArgs{"id": id}).Scan(&a.id, &a.displayName, &a.status, &a.suspendedUntil,
 		&a.suspendReason, &a.writeID, &a.createdAt, &a.updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNotFound
@@ -40,13 +42,16 @@ func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Account, error) {
 
 const saveAccount = `
 UPDATE accounts
-SET display_name = NULLIF($3, ''), status = $4, suspended_until = $5, suspend_reason = NULLIF($6, ''),
-    updated_at = $7, write_id = $8
-WHERE id = $1 AND (write_id = $2 OR write_id = $8)`
+SET display_name = NULLIF(@display_name, ''), status = @status, suspended_until = @suspended_until,
+    suspend_reason = NULLIF(@suspend_reason, ''), updated_at = @updated_at, write_id = @write_id
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func (s pgStore) Save(ctx context.Context, a *Account, writeID uuid.UUID) error {
-	tag, err := s.db.Exec(ctx, saveAccount, a.id, a.writeID, a.displayName, a.status, a.suspendedUntil,
-		a.suspendReason, a.updatedAt, writeID)
+	tag, err := s.db.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
+		"id": a.id, "read_write_id": a.writeID, "write_id": writeID,
+		"display_name": a.displayName, "status": a.status, "suspended_until": a.suspendedUntil,
+		"suspend_reason": a.suspendReason, "updated_at": a.updatedAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -58,6 +63,6 @@ func (s pgStore) Save(ctx context.Context, a *Account, writeID uuid.UUID) error 
 }
 
 func (s pgStore) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = $1`, id)
+	_, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
 	return err
 }

@@ -16,7 +16,7 @@ func NewQuotaPGStore(db *pgxpool.Pool) QuotaStore { return quotaPG{db} }
 
 func (s quotaPG) Get(ctx context.Context, key string) (Quota, error) {
 	q := Quota{key: key}
-	err := s.db.QueryRow(ctx, `SELECT sent_at, write_id FROM otp_quotas WHERE key = $1`, key).Scan(&q.sentAt, &q.writeID)
+	err := s.db.QueryRow(ctx, `SELECT sent_at, write_id FROM otp_quotas WHERE key = @key`, pgx.StrictNamedArgs{"key": key}).Scan(&q.sentAt, &q.writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Quota{key: key}, nil
 	}
@@ -27,16 +27,18 @@ func (s quotaPG) Get(ctx context.Context, key string) (Quota, error) {
 // never saved carries the zero UUID, which no row holds, so two first saves
 // of one key conflict.
 const saveQuota = `
-INSERT INTO otp_quotas (key, sent_at, write_id) VALUES ($1, $2, $4)
+INSERT INTO otp_quotas (key, sent_at, write_id) VALUES (@key, @sent_at, @write_id)
 ON CONFLICT (key) DO UPDATE SET sent_at = EXCLUDED.sent_at, write_id = EXCLUDED.write_id
-WHERE otp_quotas.write_id = $3 OR otp_quotas.write_id = $4`
+WHERE otp_quotas.write_id = @read_write_id OR otp_quotas.write_id = @write_id`
 
 func (s quotaPG) Save(ctx context.Context, q *Quota, writeID uuid.UUID) error {
 	sentAt := q.sentAt
 	if sentAt == nil {
 		sentAt = []time.Time{}
 	}
-	tag, err := s.db.Exec(ctx, saveQuota, q.key, sentAt, q.writeID, writeID)
+	tag, err := s.db.Exec(ctx, saveQuota, pgx.StrictNamedArgs{
+		"key": q.key, "sent_at": sentAt, "read_write_id": q.writeID, "write_id": writeID,
+	})
 	if err != nil {
 		return err
 	}

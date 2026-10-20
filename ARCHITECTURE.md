@@ -108,9 +108,16 @@ counter. `Get` returns it as T. `Save` picks a new ID N (from
 `newID(ctx, at)` in a workflow, so a retry sends the same N) and runs:
 
 ```sql
-UPDATE ... SET ..., write_id = $N
-WHERE id = $id AND (write_id = $T OR write_id = $N)
+UPDATE ... SET ..., write_id = @write_id
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 ```
+
+Stores pass parameters as `pgx.StrictNamedArgs` with `@name` placeholders.
+Positional `$1` placeholders are not used. The strict variant fails the query
+when a name in the SQL has no value or a value has no name; plain
+`pgx.NamedArgs` binds a misspelled name as NULL, and a NULL `write_id` turns
+every save into `ErrConflict`. In SQL, `@read_write_id` is T and `@write_id`
+is N.
 
 A normal write finds T. A retry after a crash-after-commit finds N and writes
 the same values again. A write by anyone else leaves M, so the stale write
@@ -195,8 +202,8 @@ Two kinds of call skip the aggregate:
   device list is `sessions.ListActive(accountID, cursor, limit)`.
 - A bulk change that only moves a one-way flag may run as one set-based
   statement that also changes each row's `write_id`. `logout-all` is
-  `UPDATE sessions SET revoked_at = $now, write_id = gen_random_uuid() WHERE
-  account_id = $1 AND revoked_at IS NULL`. Loading and saving each session
+  `UPDATE sessions SET revoked_at = @now, write_id = uuidv7() WHERE
+  account_id = @account_id AND revoked_at IS NULL`. Loading and saving each session
   would cost one transaction per device and protect no rule.
 
 The access token is checked by signature and expiry only; the middleware reads

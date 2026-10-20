@@ -37,6 +37,8 @@ services:
       RESTATE_ADMIN__BIND_ADDRESS: 127.0.0.1:56571
       RESTATE_BIND_ADDRESS: 127.0.0.1:56561
       RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56561
+      # The tmpfs counts toward mem_limit; RocksDB sizes itself for a server.
+      RESTATE_ROCKSDB_TOTAL_MEMORY_SIZE: 256MB
     tmpfs:
       - /restate-data:size=512m
-    mem_limit: 768m
+    mem_limit: 1536m

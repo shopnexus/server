@@ -17,7 +17,7 @@ func NewPGStore(db *pgxpool.Pool) Store { return pgStore{db} }
 // keeps another account's identity untouched, and then no row comes back.
 const upsertIdentity = `
 INSERT INTO identities (id, account_id, kind, value, last_used_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES (@id, @account_id, @kind, @value, @last_used_at, @created_at)
 ON CONFLICT (kind, value) DO UPDATE SET last_used_at = EXCLUDED.last_used_at
 WHERE identities.account_id = EXCLUDED.account_id
 RETURNING account_id`
@@ -25,7 +25,10 @@ RETURNING account_id`
 func upsertIdentities(ctx context.Context, tx pgx.Tx, accountID uuid.UUID, ids []Identity) error {
 	for _, i := range ids {
 		var owner uuid.UUID
-		err := tx.QueryRow(ctx, upsertIdentity, i.id, accountID, i.kind, i.value, i.lastUsedAt, i.createdAt).Scan(&owner)
+		err := tx.QueryRow(ctx, upsertIdentity, pgx.StrictNamedArgs{
+			"id": i.id, "account_id": accountID, "kind": i.kind, "value": i.value,
+			"last_used_at": i.lastUsedAt, "created_at": i.createdAt,
+		}).Scan(&owner)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrTaken
 		}
@@ -43,8 +46,9 @@ func (s pgStore) Create(ctx context.Context, c Credentials) error {
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `
-INSERT INTO credentials (account_id, write_id, updated_at) VALUES ($1, $2, $3)
-ON CONFLICT (account_id) DO NOTHING`, c.accountID, c.writeID, c.updatedAt); err != nil {
+INSERT INTO credentials (account_id, write_id, updated_at) VALUES (@account_id, @write_id, @updated_at)
+ON CONFLICT (account_id) DO NOTHING`,
+		pgx.StrictNamedArgs{"account_id": c.accountID, "write_id": c.writeID, "updated_at": c.updatedAt}); err != nil {
 		return err
 	}
 	if err := upsertIdentities(ctx, tx, c.accountID, c.identities); err != nil {
@@ -55,7 +59,8 @@ ON CONFLICT (account_id) DO NOTHING`, c.accountID, c.writeID, c.updatedAt); err 
 
 func (s pgStore) Get(ctx context.Context, accountID uuid.UUID) (Credentials, error) {
 	c := Credentials{accountID: accountID}
-	err := s.db.QueryRow(ctx, `SELECT write_id, updated_at FROM credentials WHERE account_id = $1`, accountID).
+	err := s.db.QueryRow(ctx, `SELECT write_id, updated_at FROM credentials WHERE account_id = @account_id`,
+		pgx.StrictNamedArgs{"account_id": accountID}).
 		Scan(&c.writeID, &c.updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Credentials{}, ErrNotFound
@@ -64,7 +69,8 @@ func (s pgStore) Get(ctx context.Context, accountID uuid.UUID) (Credentials, err
 		return Credentials{}, err
 	}
 	rows, err := s.db.Query(ctx, `
-SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_id = $1 ORDER BY created_at, id`, accountID)
+SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_id = @account_id ORDER BY created_at, id`,
+		pgx.StrictNamedArgs{"account_id": accountID})
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -81,7 +87,8 @@ SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_i
 
 func (s pgStore) FindAccount(ctx context.Context, kind Kind, value string) (uuid.UUID, uuid.UUID, error) {
 	var accountID, identityID uuid.UUID
-	err := s.db.QueryRow(ctx, `SELECT account_id, id FROM identities WHERE kind = $1 AND value = $2`, kind, value).
+	err := s.db.QueryRow(ctx, `SELECT account_id, id FROM identities WHERE kind = @kind AND value = @value`,
+		pgx.StrictNamedArgs{"kind": kind, "value": value}).
 		Scan(&accountID, &identityID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.UUID{}, uuid.UUID{}, ErrNotFound
@@ -96,8 +103,10 @@ func (s pgStore) Save(ctx context.Context, c *Credentials, writeID uuid.UUID) er
 	}
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `
-UPDATE credentials SET write_id = $3, updated_at = $4
-WHERE account_id = $1 AND (write_id = $2 OR write_id = $3)`, c.accountID, c.writeID, writeID, c.updatedAt)
+UPDATE credentials SET write_id = @write_id, updated_at = @updated_at
+WHERE account_id = @account_id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
+		"account_id": c.accountID, "read_write_id": c.writeID, "write_id": writeID, "updated_at": c.updatedAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -108,7 +117,8 @@ WHERE account_id = $1 AND (write_id = $2 OR write_id = $3)`, c.accountID, c.writ
 	for n, i := range c.identities {
 		keep[n] = i.id
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = $1 AND NOT (id = ANY($2))`, c.accountID, keep); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
+		pgx.StrictNamedArgs{"account_id": c.accountID, "keep": keep}); err != nil {
 		return err
 	}
 	if err := upsertIdentities(ctx, tx, c.accountID, c.identities); err != nil {

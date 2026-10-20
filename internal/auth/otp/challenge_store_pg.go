@@ -18,18 +18,21 @@ func NewChallengePGStore(db *pgxpool.Pool) ChallengeStore { return challengePG{d
 
 const createChallenge = `
 INSERT INTO otp_challenges (id, purpose, kind, destination, account_id, code_hash, ip, expires_at, created_at, write_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES (@id, @purpose, @kind, @destination, @account_id, @code_hash, @ip, @expires_at, @created_at, @write_id)
 ON CONFLICT (id) DO NOTHING`
 
 func (s challengePG) Create(ctx context.Context, c Challenge) error {
-	_, err := s.db.Exec(ctx, createChallenge, c.id, c.purpose, c.dest.Kind(), c.dest.Value(), c.accountID,
-		c.codeHash, c.ip, c.expiresAt, c.createdAt, c.writeID)
+	_, err := s.db.Exec(ctx, createChallenge, pgx.StrictNamedArgs{
+		"id": c.id, "purpose": c.purpose, "kind": c.dest.Kind(), "destination": c.dest.Value(),
+		"account_id": c.accountID, "code_hash": c.codeHash, "ip": c.ip,
+		"expires_at": c.expiresAt, "created_at": c.createdAt, "write_id": c.writeID,
+	})
 	return err
 }
 
 const getChallenge = `
 SELECT id, purpose, kind, destination, account_id, code_hash, attempts, ip, expires_at, created_at, consumed_at, write_id
-FROM otp_challenges WHERE id = $1`
+FROM otp_challenges WHERE id = @id`
 
 func (s challengePG) Get(ctx context.Context, id uuid.UUID) (Challenge, error) {
 	var (
@@ -38,7 +41,7 @@ func (s challengePG) Get(ctx context.Context, id uuid.UUID) (Challenge, error) {
 		dest string
 		ip   netip.Prefix
 	)
-	err := s.db.QueryRow(ctx, getChallenge, id).Scan(&c.id, &c.purpose, &kind, &dest, &c.accountID, &c.codeHash,
+	err := s.db.QueryRow(ctx, getChallenge, pgx.StrictNamedArgs{"id": id}).Scan(&c.id, &c.purpose, &kind, &dest, &c.accountID, &c.codeHash,
 		&c.attempts, &ip, &c.expiresAt, &c.createdAt, &c.consumedAt, &c.writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Challenge{}, ErrNotFound
@@ -51,11 +54,14 @@ func (s challengePG) Get(ctx context.Context, id uuid.UUID) (Challenge, error) {
 }
 
 const saveChallenge = `
-UPDATE otp_challenges SET attempts = $3, consumed_at = $4, write_id = $5
-WHERE id = $1 AND (write_id = $2 OR write_id = $5)`
+UPDATE otp_challenges SET attempts = @attempts, consumed_at = @consumed_at, write_id = @write_id
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func (s challengePG) Save(ctx context.Context, c *Challenge, writeID uuid.UUID) error {
-	tag, err := s.db.Exec(ctx, saveChallenge, c.id, c.writeID, c.attempts, c.consumedAt, writeID)
+	tag, err := s.db.Exec(ctx, saveChallenge, pgx.StrictNamedArgs{
+		"id": c.id, "read_write_id": c.writeID, "write_id": writeID,
+		"attempts": c.attempts, "consumed_at": c.consumedAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -69,10 +75,12 @@ func (s challengePG) Save(ctx context.Context, c *Challenge, writeID uuid.UUID) 
 const isNewest = `
 SELECT NOT EXISTS (
     SELECT 1 FROM otp_challenges
-    WHERE destination = $1 AND purpose = $2 AND (created_at, id) > ($3, $4))`
+    WHERE destination = @destination AND purpose = @purpose AND (created_at, id) > (@created_at, @id))`
 
 func (s challengePG) IsNewest(ctx context.Context, c Challenge) (bool, error) {
 	var newest bool
-	err := s.db.QueryRow(ctx, isNewest, c.dest.Value(), c.purpose, c.createdAt, c.id).Scan(&newest)
+	err := s.db.QueryRow(ctx, isNewest, pgx.StrictNamedArgs{
+		"destination": c.dest.Value(), "purpose": c.purpose, "created_at": c.createdAt, "id": c.id,
+	}).Scan(&newest)
 	return newest, err
 }
