@@ -6,58 +6,58 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-
-	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type pgStore struct{}
+type pgStore struct{ db *pgxpool.Pool }
 
-// NewPGStore returns the Postgres implementation of Store.
-func NewPGStore() Store { return pgStore{} }
+// NewPGStore returns the Postgres Store.
+func NewPGStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
-const insertAccount = `
-INSERT INTO accounts (display_name, status, created_at, updated_at)
-VALUES (NULLIF($1, ''), $2, $3, $3)
-RETURNING id, created_at`
+const createAccount = `
+INSERT INTO accounts (id, display_name, status, write_id, created_at, updated_at)
+VALUES ($1, NULLIF($2, ''), $3, $4, $5, $5)
+ON CONFLICT (id) DO NOTHING`
 
-func (pgStore) Insert(ctx context.Context, q postgres.Querier, a *Account) error {
-	return q.QueryRow(ctx, insertAccount, a.displayName, a.status, a.createdAt).Scan(&a.id, &a.createdAt)
+func (s pgStore) Create(ctx context.Context, a Account) error {
+	_, err := s.db.Exec(ctx, createAccount, a.id, a.displayName, a.status, a.writeID, a.createdAt)
+	return err
 }
 
 const getAccount = `
-SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend_reason, ''), created_at, updated_at
+SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend_reason, ''), write_id, created_at, updated_at
 FROM accounts WHERE id = $1`
 
-func (pgStore) Get(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error) {
-	return scanAccount(ctx, q, getAccount, id)
-}
-
-func (pgStore) GetForUpdate(ctx context.Context, q postgres.Querier, id uuid.UUID) (Account, error) {
-	return scanAccount(ctx, q, getAccount+" FOR UPDATE", id)
-}
-
-func scanAccount(ctx context.Context, q postgres.Querier, sql string, id uuid.UUID) (Account, error) {
+func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Account, error) {
 	var a Account
-	err := q.QueryRow(ctx, sql, id).Scan(
-		&a.id, &a.displayName, &a.status, &a.suspendedUntil, &a.suspendReason, &a.createdAt, &a.updatedAt)
+	err := s.db.QueryRow(ctx, getAccount, id).Scan(&a.id, &a.displayName, &a.status, &a.suspendedUntil,
+		&a.suspendReason, &a.writeID, &a.createdAt, &a.updatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNotFound
 	}
 	return a, err
 }
 
-const updateAccount = `
+const saveAccount = `
 UPDATE accounts
-SET display_name = NULLIF($2, ''), status = $3, suspended_until = $4, suspend_reason = NULLIF($5, ''), updated_at = $6
-WHERE id = $1`
+SET display_name = NULLIF($3, ''), status = $4, suspended_until = $5, suspend_reason = NULLIF($6, ''),
+    updated_at = $7, write_id = $8
+WHERE id = $1 AND (write_id = $2 OR write_id = $8)`
 
-func (pgStore) Update(ctx context.Context, q postgres.Querier, a Account) error {
-	tag, err := q.Exec(ctx, updateAccount, a.id, a.displayName, a.status, a.suspendedUntil, a.suspendReason, a.updatedAt)
+func (s pgStore) Save(ctx context.Context, a *Account, writeID uuid.UUID) error {
+	tag, err := s.db.Exec(ctx, saveAccount, a.id, a.writeID, a.displayName, a.status, a.suspendedUntil,
+		a.suspendReason, a.updatedAt, writeID)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+		return ErrConflict
 	}
+	a.writeID = writeID
 	return nil
+}
+
+func (s pgStore) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = $1`, id)
+	return err
 }

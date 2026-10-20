@@ -7,11 +7,9 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account"
-	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
-// MemStore is an in-memory account.Store for use case tests. The contract
-// suite runs against it and against the Postgres store, so the two agree.
+// MemStore is an in-memory account.Store for use case tests.
 type MemStore struct {
 	mu   sync.Mutex
 	rows map[uuid.UUID]account.Account
@@ -19,16 +17,25 @@ type MemStore struct {
 
 func NewMemStore() *MemStore { return &MemStore{rows: map[uuid.UUID]account.Account{}} }
 
-func (s *MemStore) Insert(_ context.Context, _ postgres.Querier, a *account.Account) error {
+func us(t time.Time) time.Time { return t.Truncate(time.Microsecond) }
+
+// withWriteID copies a as stored. Status at the zero time is the stored
+// status: only a suspension whose end has passed reads differently.
+func withWriteID(a account.Account, w uuid.UUID) account.Account {
+	return account.Restore(a.ID(), a.DisplayName(), a.Status(time.Time{}), a.SuspendedUntil(), a.SuspendReason(), w,
+		us(a.CreatedAt()), us(a.UpdatedAt()))
+}
+
+func (s *MemStore) Create(_ context.Context, a account.Account) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	created := a.CreatedAt().Truncate(time.Microsecond)
-	*a = account.Restore(uuid.NewV7(), a.DisplayName(), a.Status(a.CreatedAt()), nil, "", created, created)
-	s.rows[a.ID()] = *a
+	if _, ok := s.rows[a.ID()]; !ok {
+		s.rows[a.ID()] = withWriteID(a, a.WriteID())
+	}
 	return nil
 }
 
-func (s *MemStore) Get(_ context.Context, _ postgres.Querier, id uuid.UUID) (account.Account, error) {
+func (s *MemStore) Get(_ context.Context, id uuid.UUID) (account.Account, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.rows[id]
@@ -38,17 +45,21 @@ func (s *MemStore) Get(_ context.Context, _ postgres.Querier, id uuid.UUID) (acc
 	return a, nil
 }
 
-// GetForUpdate is Get: a MemStore has no concurrent transactions to lock out.
-func (s *MemStore) GetForUpdate(ctx context.Context, q postgres.Querier, id uuid.UUID) (account.Account, error) {
-	return s.Get(ctx, q, id)
-}
-
-func (s *MemStore) Update(_ context.Context, _ postgres.Querier, a account.Account) error {
+func (s *MemStore) Save(_ context.Context, a *account.Account, writeID uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.rows[a.ID()]; !ok {
-		return account.ErrNotFound
+	cur, ok := s.rows[a.ID()]
+	if !ok || (cur.WriteID() != a.WriteID() && cur.WriteID() != writeID) {
+		return account.ErrConflict
 	}
-	s.rows[a.ID()] = a
+	*a = withWriteID(*a, writeID)
+	s.rows[a.ID()] = *a
+	return nil
+}
+
+func (s *MemStore) Delete(_ context.Context, id uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.rows, id)
 	return nil
 }

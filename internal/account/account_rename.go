@@ -9,62 +9,49 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
-type AccountRenameInput struct {
+// Rename sets the display name. It is a write, so a suspended account gets
+// ErrSuspended even while its access token is still valid.
+func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now time.Time) (View, error) {
+	a, err := accounts.Get(ctx, id)
+	if err != nil {
+		return View{}, err
+	}
+	if err := a.CanWrite(now); err != nil {
+		return View{}, err
+	}
+	if err := a.SetDisplayName(name, now); err != nil {
+		return View{}, err
+	}
+	if err := accounts.Save(ctx, &a, uuid.NewV7()); err != nil {
+		return View{}, err
+	}
+	return viewOf(a, now), nil
+}
+
+type RenameRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
-// AccountRename sets the display name. It is a write, so a suspended account
-// gets ErrSuspended even while its access token is still valid.
-type AccountRename struct {
-	Store Store
-	Tx    postgres.TxRunner
-	Now   func() time.Time
-}
-
-func (uc AccountRename) Execute(ctx context.Context, id uuid.UUID, in AccountRenameInput) (AccountView, error) {
-	var out AccountView
-	err := uc.Tx.InTx(ctx, func(q postgres.Querier) error {
-		a, err := uc.Store.GetForUpdate(ctx, q, id)
-		if err != nil {
-			return err
-		}
-		now := uc.Now()
-		if err := a.CanWrite(now); err != nil {
-			return err
-		}
-		if err := a.SetDisplayName(in.DisplayName, now); err != nil {
-			return err
-		}
-		if err := uc.Store.Update(ctx, q, a); err != nil {
-			return err
-		}
-		out = viewOf(a, now)
-		return nil
-	})
-	return out, err
-}
-
 // PATCH /v1/accounts/me
-func (uc AccountRename) Handler(log *slog.Logger) http.Handler {
+func RenameHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := authn.From(r.Context())
 		if !ok {
 			httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 			return
 		}
-		in, err := httpx.Decode[AccountRenameInput](r)
+		in, err := httpx.Decode[RenameRequest](r)
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		out, err := uc.Execute(r.Context(), p.AccountID, in)
+		v, err := Rename(r.Context(), accounts, p.AccountID, in.DisplayName, now())
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, out)
+		httpx.Respond(w, r, http.StatusOK, v)
 	})
 }

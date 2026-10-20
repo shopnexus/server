@@ -4,25 +4,26 @@ import (
 	"context"
 	"time"
 	"uuid"
-
-	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
-// AccountCreate inserts an active account. auth runs it on q inside the
-// transaction that writes the first sign-in method, so it has no handler and
-// opens no transaction.
-type AccountCreate struct {
-	Store Store
-	Now   func() time.Time
+// Create inserts an active account with the caller's id. Creating the same
+// id twice does nothing, so a retried Restate step is safe.
+func Create(ctx context.Context, accounts Store, id uuid.UUID, displayName string, now time.Time) error {
+	a, err := New(id, displayName, now)
+	if err != nil {
+		return err
+	}
+	return accounts.Create(ctx, a)
 }
 
-func (uc AccountCreate) Execute(ctx context.Context, q postgres.Querier, displayName string) (uuid.UUID, error) {
-	a, err := New(displayName, uc.Now())
+// Delete removes an account. The sign-up compensation is its only caller.
+func Delete(ctx context.Context, accounts Store, id uuid.UUID) error { return accounts.Delete(ctx, id) }
+
+// StatusOf returns the status in force at now.
+func StatusOf(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (Status, error) {
+	a, err := accounts.Get(ctx, id)
 	if err != nil {
-		return uuid.UUID{}, err
+		return "", err
 	}
-	if err := uc.Store.Insert(ctx, q, &a); err != nil {
-		return uuid.UUID{}, err
-	}
-	return a.ID(), nil
+	return a.Status(now), nil
 }
