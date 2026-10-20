@@ -21,6 +21,10 @@ Error:
           description: One entry per invalid field, keyed by its JSON path.
           additionalProperties:
             type: string
+        details:
+          type: object
+          description: Values a client acts on, such as attempts_left or retry_after.
+          additionalProperties: true
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

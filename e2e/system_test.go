@@ -28,6 +28,7 @@ func TestReadyzDown(t *testing.T) {
 	cfg := config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Auth:        keys,
 	}
 	a, err := app.New(context.Background(), cfg, discard)
 	if err != nil {

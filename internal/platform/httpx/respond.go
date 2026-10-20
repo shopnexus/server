@@ -35,6 +35,7 @@ type errorPayload struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
 	Fields  map[string]string `json:"fields,omitempty"`
+	Details map[string]any    `json:"details,omitempty"`
 	TraceID string            `json:"trace_id"`
 }
 
@@ -60,7 +61,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, log *slog.Logger, err er
 		log.WarnContext(r.Context(), "request refused", "code", ae.Code, "err", ae.Err)
 	}
 	Respond(w, r, status, map[string]errorPayload{"error": {
-		Code: ae.Code, Message: ae.Message, Fields: ae.Fields, TraceID: traceID,
+		Code: ae.Code, Message: ae.Message, Fields: ae.Fields, Details: ae.Details, TraceID: traceID,
 	}})
 }
 

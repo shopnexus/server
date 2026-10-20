@@ -52,7 +52,7 @@ func (uc AccountRename) Handler(log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := authn.From(r.Context())
 		if !ok {
-			httpx.WriteError(w, r, log, ErrNoPrincipal)
+			httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 			return
 		}
 		in, err := httpx.Decode[AccountRenameInput](r)

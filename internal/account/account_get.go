@@ -33,7 +33,7 @@ func (uc AccountGet) Handler(log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := authn.From(r.Context())
 		if !ok {
-			httpx.WriteError(w, r, log, ErrNoPrincipal)
+			httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 			return
 		}
 		out, err := uc.Execute(r.Context(), p.AccountID)

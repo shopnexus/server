@@ -7,7 +7,13 @@ import (
 	"context"
 	"time"
 	"uuid"
+
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
+
+// ErrUnauthenticated answers a request that needs a signed-in caller and has
+// none.
+var ErrUnauthenticated = apperr.New(apperr.KindUnauthenticated, "unauthenticated", "sign in first")
 
 // Principal is the signed-in caller.
 type Principal struct {

@@ -1,4 +1,4 @@
-.PHONY: up down run migrate lint mock test-up test-down test-unit test-int test-e2e test
+.PHONY: up down run migrate keys lint mock test-up test-down test-unit test-int test-e2e test
 
 up:
 	docker compose up -d --wait
@@ -11,6 +11,9 @@ run:
 
 migrate:
 	go run ./cmd/migrate
+
+keys:
+	@grep -q '^OTP_KEY=' .env 2>/dev/null && { echo ".env already has keys"; exit 1; } || go run ./cmd/keygen >> .env
 
 lint:
 	go vet ./...

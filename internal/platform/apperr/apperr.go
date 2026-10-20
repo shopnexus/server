@@ -27,6 +27,7 @@ type Error struct {
 	Code    string
 	Message string
 	Fields  map[string]string
+	Details map[string]any // values the client acts on: attempts_left, retry_after
 	Err     error
 }
 
@@ -60,5 +61,16 @@ func (e *Error) WithField(name, problem string) *Error {
 		c.Fields = map[string]string{}
 	}
 	c.Fields[name] = problem
+	return &c
+}
+
+// WithDetail returns a copy of e with one more detail.
+func (e *Error) WithDetail(name string, value any) *Error {
+	c := *e
+	c.Details = maps.Clone(e.Details)
+	if c.Details == nil {
+		c.Details = map[string]any{}
+	}
+	c.Details[name] = value
 	return &c
 }

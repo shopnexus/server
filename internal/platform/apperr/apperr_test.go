@@ -51,3 +51,14 @@ func TestWithFieldCopies(t *testing.T) {
 		t.Fatalf("a %v b %v", a.Fields, b.Fields)
 	}
 }
+
+func TestWithDetailCopies(t *testing.T) {
+	base := apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
+	got := base.WithDetail("attempts_left", 4)
+	if got.Details["attempts_left"] != 4 || base.Details != nil || !errors.Is(got, base) {
+		t.Fatalf("copy %v, base %v", got.Details, base.Details)
+	}
+	if again := got.WithDetail("retry_after", 9); len(got.Details) != 1 || len(again.Details) != 2 {
+		t.Fatalf("got %v, again %v", got.Details, again.Details)
+	}
+}

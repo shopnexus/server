@@ -23,6 +23,7 @@ func testConfig(t *testing.T) config.Config {
 	return config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Auth:        config.NewAuthKeys(),
 	}
 }
 
@@ -90,5 +91,13 @@ func TestReadyzRestateDown(t *testing.T) {
 	t.Cleanup(func() { a.Close(context.Background()) })
 	if code, body := get(a, "/readyz"); code != http.StatusServiceUnavailable {
 		t.Fatalf("got %d %q", code, body)
+	}
+}
+
+func TestNewRefusesMissingKeys(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Auth = config.AuthConfig{}
+	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "make keys") {
+		t.Fatalf("err %v", err)
 	}
 }

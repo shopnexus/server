@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"slices"
 	"strconv"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/app"
@@ -25,6 +28,8 @@ var (
 	// server is the base URL of the app every test shares.
 	server  string
 	discard = slog.New(slog.DiscardHandler)
+	db      *pgxpool.Pool          // the e2e database, for setup a test cannot do over HTTP
+	keys    = config.NewAuthKeys() // the server's keys, so tests can mint tokens
 )
 
 func TestMain(m *testing.M) {
@@ -48,6 +53,7 @@ func run(m *testing.M) int {
 		return 1
 	}
 	defer drop()
+	db = pool
 
 	ingressURL, adminURL, err := restatetest.URLsForMain()
 	if err != nil {
@@ -57,6 +63,9 @@ func run(m *testing.M) int {
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
 		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Auth:        keys,
+		// Tests set X-Forwarded-For, so each gets its own per-address quota.
+		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
 	a, err := app.New(context.Background(), cfg, discard, app.WithRestatePrefix(restatetest.Prefix()))
 	if err != nil {

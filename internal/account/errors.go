@@ -9,6 +9,3 @@ var (
 	ErrSuspendReason = apperr.New(apperr.KindInvalid, "suspend_reason_required", "a suspension needs a reason")
 	ErrSuspendUntil  = apperr.New(apperr.KindInvalid, "suspend_until_in_past", "a suspension cannot end in the past")
 )
-
-// ErrNoPrincipal moves to platform/authn when plan 2 adds the auth middleware.
-var ErrNoPrincipal = apperr.New(apperr.KindUnauthenticated, "unauthenticated", "sign in first")

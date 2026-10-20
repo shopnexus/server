@@ -4,6 +4,8 @@ package app
 
 import (
 	"context"
+	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -65,6 +67,9 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 // start while migrations are pending, so the server never runs against an
 // older schema.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (*App, error) {
+	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize || len(cfg.Auth.OTPKey) < 32 {
+		return nil, errors.New("auth keys missing from config; run make keys")
+	}
 	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}}
 	for _, opt := range opts {
 		opt(&o)

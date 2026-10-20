@@ -136,3 +136,18 @@ func TestRouterRecordsRoutes(t *testing.T) {
 		t.Fatalf("dispatch %d", rec.Code)
 	}
 }
+
+func TestWriteErrorIncludesDetails(t *testing.T) {
+	rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "invalid_code", "no match").WithDetail("attempts_left", 4))
+	var body struct {
+		Error struct {
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Error.Details["attempts_left"] != float64(4) {
+		t.Fatalf("%s %v", rec.Body.String(), err)
+	}
+	if rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "x", "y")); strings.Contains(rec.Body.String(), "details") {
+		t.Fatalf("empty details written: %s", rec.Body.String())
+	}
+}
