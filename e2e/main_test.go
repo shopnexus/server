@@ -30,6 +30,7 @@ var (
 	discard = slog.New(slog.DiscardHandler)
 	db      *pgxpool.Pool          // the e2e database, for setup a test cannot do over HTTP
 	keys    = config.NewAuthKeys() // the server's keys, so tests can mint tokens
+	box     = newInbox()           // every SMS and email the server sends
 )
 
 func TestMain(m *testing.M) {
@@ -67,7 +68,8 @@ func run(m *testing.M) int {
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
-	a, err := app.New(context.Background(), cfg, discard, app.WithRestatePrefix(restatetest.Prefix()))
+	a, err := app.New(context.Background(), cfg, discard, app.WithRestatePrefix(restatetest.Prefix()),
+		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1

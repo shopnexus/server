@@ -13,7 +13,7 @@ import (
 
 // FS holds openapi.yaml and the files it references.
 //
-//go:embed openapi.yaml paths schemas
+//go:embed openapi.yaml paths schemas responses parameters
 var FS embed.FS
 
 // Load reads openapi.yaml and its $refs from FS and validates the document.

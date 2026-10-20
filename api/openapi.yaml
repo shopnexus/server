@@ -13,3 +13,11 @@ paths:
     $ref: "paths/system.yaml#/healthz"
   /readyz:
     $ref: "paths/system.yaml#/readyz"
+  /v1/auth/otp:
+    $ref: "paths/auth.yaml#/otp"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,30 @@
+otp:
+  post:
+    operationId: sendOtp
+    summary: Send a one-time code to a phone or email.
+    description: |
+      The reply is the same whether or not an account uses the destination.
+      Limits: one code per destination per 45 seconds, five per destination
+      per hour, twenty per client address per hour.
+    tags: [auth]
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/OTPSendRequest"
+    responses:
+      "200":
+        description: The code is on its way.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/OTPChallenge"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "422":
+        $ref: "../responses/common.yaml#/Unprocessable"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"

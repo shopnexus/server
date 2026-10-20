@@ -1,0 +1,48 @@
+BadRequest:
+  description: "The request does not match the API description (invalid_request, malformed_json)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+Unauthorized:
+  description: "No valid credentials (unauthenticated, invalid_token, or a refresh code)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+Forbidden:
+  description: "The account is suspended (account_suspended)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+NotFound:
+  description: "No such resource for this caller."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+Conflict:
+  description: "The request collided with another (try_again)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+Unprocessable:
+  description: "Well formed, but a rule refuses it."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+PreconditionRequired:
+  description: "The caller must prove who they are again first (reauth_required)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+TooManyRequests:
+  description: "Rate limited; details.retry_after gives seconds to wait when known."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"

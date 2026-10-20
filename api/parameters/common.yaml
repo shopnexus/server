@@ -1,0 +1,8 @@
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: A new UUID per user action, reused when the app retries that action. A repeated key returns the first result.
+  schema:
+    type: string
+    format: uuid

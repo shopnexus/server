@@ -18,6 +18,11 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server2/api"
+	"github.com/shopnexus/server2/internal/account"
+	"github.com/shopnexus/server2/internal/auth"
+	"github.com/shopnexus/server2/internal/auth/credentials"
+	"github.com/shopnexus/server2/internal/auth/otp"
+	"github.com/shopnexus/server2/internal/auth/session"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/postgres"
@@ -118,7 +123,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		httpx.Respond(w, r, http.StatusOK, status{"ok"})
 	})
 
-	if err := a.startRestate(ctx, cfg, log, nil); err != nil {
+	defs := a.routeModules(cfg, log)
+	if err := a.startRestate(ctx, cfg, log, defs); err != nil {
 		a.Close(context.Background())
 		return nil, err
 	}
@@ -130,6 +136,29 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 
 type status struct {
 	Status string `json:"status"`
+}
+
+// routeModules builds the modules' adapters, registers their routes and
+// returns their Restate services.
+func (a *App) routeModules(cfg config.Config, log *slog.Logger) []restate.ServiceDefinition {
+	accounts := account.NewPGStore(a.pool)
+	ports := auth.Ports{
+		Accounts:    account.Client{Store: accounts, Now: time.Now},
+		Challenges:  otp.NewChallengePGStore(a.pool),
+		Quotas:      otp.NewQuotaPGStore(a.pool),
+		Credentials: credentials.NewPGStore(a.pool),
+		Sessions:    session.NewPGStore(a.pool),
+		SMS:         a.opts.sms,
+		Email:       a.opts.email,
+	}
+	keys := auth.Keys{
+		Codes:    otp.NewCodes(cfg.Auth.OTPKey),
+		Signer:   session.NewSigner(cfg.Auth),
+		Verifier: session.NewVerifier(cfg.Auth),
+	}
+	rs := auth.Restate{Client: a.ingress, Prefix: a.opts.restatePrefix}
+	auth.Routes(a.router, ports, keys, rs, cfg.TrustedProxies, time.Now, log)
+	return auth.Services(a.opts.restatePrefix, ports, keys)
 }
 
 // startRestate serves defs and registers them, retrying for up to 30 s while

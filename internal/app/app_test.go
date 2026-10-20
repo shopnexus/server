@@ -82,13 +82,10 @@ func TestNewRefusesPendingMigrations(t *testing.T) {
 }
 
 func TestReadyzRestateDown(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Restate.AdminURL = "http://127.0.0.1:1"
-	a, err := New(context.Background(), cfg, discard())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { a.Close(context.Background()) })
+	a := newApp(t)
+	// The app registered its services at start; readiness now asks an admin
+	// API that no longer answers.
+	a.cfg.Restate.AdminURL = "http://127.0.0.1:1"
 	if code, body := get(a, "/readyz"); code != http.StatusServiceUnavailable {
 		t.Fatalf("got %d %q", code, body)
 	}
