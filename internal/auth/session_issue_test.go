@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"uuid"
 
@@ -27,5 +28,19 @@ func TestIssueSessionCreatesThenRotates(t *testing.T) {
 	}
 	if s, err := sessions.FindByRefresh(ctx, session.HashRefresh(again.RefreshToken)); err != nil || s.ID() != id {
 		t.Fatalf("the replay's token does not refresh: %v", err)
+	}
+}
+
+func TestIssueSessionRefusesASignedOutSession(t *testing.T) {
+	ctx, sessions, signer := context.Background(), sessiontest.NewMemStore(), session.NewSigner(testKeys)
+	id, acc := uuid.NewV7(), uuid.NewV7()
+	if _, err := auth.IssueSession(ctx, sessions, signer, id, acc, "", now); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := sessions.Get(ctx, id)
+	s.Revoke(now)
+	sessions.Save(ctx, &s, uuid.NewV7())
+	if _, err := auth.IssueSession(ctx, sessions, signer, id, acc, "", now); !errors.Is(err, session.ErrRevoked) {
+		t.Fatalf("replay after sign-out: %v", err)
 	}
 }

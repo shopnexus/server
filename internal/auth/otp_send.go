@@ -32,23 +32,39 @@ var (
 	addressRules     = []otp.Rule{{Window: time.Hour, Max: 20}}
 )
 
-// AdmitOTP spends one send from the destination's quota, then the address's.
-// A destination quota spent before the address refuses stays spent.
-func AdmitOTP(ctx context.Context, quotas otp.QuotaStore, dest contact.Address, ip netip.Addr, now time.Time) error {
-	if err := admit(ctx, quotas, "dest:"+dest.Value(), now, destinationRules); err != nil {
+// AdmitOTP spends one send from the client address's quota, then the
+// destination's. The address goes first, so an address over its limit cannot
+// spend the quota of the numbers it names. destWrite and ipWrite are the
+// step's journaled write IDs: a retried step finds them on quotas it already
+// saved and does not count the send again.
+func AdmitOTP(ctx context.Context, quotas otp.QuotaStore, dest contact.Address, ip netip.Addr, now time.Time, destWrite, ipWrite uuid.UUID) error {
+	if err := admit(ctx, quotas, addressKey(ip), now, addressRules, ipWrite); err != nil {
 		return err
 	}
-	return admit(ctx, quotas, "ip:"+ip.String(), now, addressRules)
+	return admit(ctx, quotas, "dest:"+dest.Value(), now, destinationRules, destWrite)
+}
+
+// addressKey limits an IPv6 client by its /64, the block one host usually
+// holds.
+func addressKey(ip netip.Addr) string {
+	if ip.Is4() {
+		return "ip:" + ip.String()
+	}
+	p, _ := ip.Prefix(64)
+	return "ip:" + p.String()
 }
 
 // admit retries a lost race three times, so parallel sends behind one NAT do
-// not get a spurious 429. It runs inside restate.Run, where a fresh write ID
-// per attempt is allowed.
-func admit(ctx context.Context, quotas otp.QuotaStore, key string, now time.Time, rules []otp.Rule) error {
+// not get a spurious 429. A lost race writes nothing, so the retry reuses
+// writeID.
+func admit(ctx context.Context, quotas otp.QuotaStore, key string, now time.Time, rules []otp.Rule, writeID uuid.UUID) error {
 	for range 3 {
 		q, err := quotas.Get(ctx, key)
 		if err != nil {
 			return err
+		}
+		if q.WriteID() == writeID {
+			return nil
 		}
 		rule, wait, ok := q.Admit(now, rules...)
 		if !ok {
@@ -57,7 +73,7 @@ func admit(ctx context.Context, quotas otp.QuotaStore, key string, now time.Time
 			}
 			return ErrOTPLimit
 		}
-		if err := quotas.Save(ctx, &q, uuid.NewV7()); !errors.Is(err, otp.ErrConflict) {
+		if err := quotas.Save(ctx, &q, writeID); !errors.Is(err, otp.ErrConflict) {
 			return err
 		}
 	}

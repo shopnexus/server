@@ -46,13 +46,14 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 	if err != nil {
 		return OTPSendResult{}, err
 	}
+	destWrite, ipWrite := newID(ctx, at), newID(ctx, at)
 	refusal, err := restate.Run(ctx, func(rc restate.RunContext) (*Refusal, error) {
-		return refuse(AdmitOTP(rc, s.Quotas, dest, in.IP, at))
+		return refuse(AdmitOTP(rc, s.Quotas, dest, in.IP, at, destWrite, ipWrite))
 	})
 	if err != nil || refusal != nil {
 		return OTPSendResult{Refusal: refusal}, err
 	}
-	c := NewChallenge(s.Codes, newID(ctx), in.Purpose, dest, in.IP, at)
+	c := NewChallenge(s.Codes, newID(ctx, at), in.Purpose, dest, in.IP, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Challenges.Create(rc, c) }); err != nil {
 		return OTPSendResult{}, err
 	}

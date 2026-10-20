@@ -43,16 +43,41 @@ type otpEnv struct {
 	box *inbox
 }
 
+// quotaCommitThenFail commits a quota and then reports a retryable error
+// once.
+type quotaCommitThenFail struct {
+	otp.QuotaStore
+	failed atomic.Bool
+}
+
+func (q *quotaCommitThenFail) Save(ctx context.Context, quota *otp.Quota, w uuid.UUID) error {
+	if err := q.QuotaStore.Save(ctx, quota, w); err != nil {
+		return err
+	}
+	if !q.failed.Swap(true) {
+		return errors.New("connection reset after commit")
+	}
+	return nil
+}
+
 func startOTP(t *testing.T, wrap func(otp.ChallengeStore) otp.ChallengeStore) *otpEnv {
+	return startOTPWith(t, wrap, nil)
+}
+
+func startOTPWith(t *testing.T, wrap func(otp.ChallengeStore) otp.ChallengeStore, wrapQuotas func(otp.QuotaStore) otp.QuotaStore) *otpEnv {
 	t.Helper()
 	db := pgtest.New(t)
 	challenges := otp.NewChallengePGStore(db)
 	if wrap != nil {
 		challenges = wrap(challenges)
 	}
+	var quotas otp.QuotaStore = otp.NewQuotaPGStore(db)
+	if wrapQuotas != nil {
+		quotas = wrapQuotas(quotas)
+	}
 	b := &inbox{}
 	prefix := restatetest.Prefix()
-	svc := auth.OTP{Prefix: prefix, Quotas: otp.NewQuotaPGStore(db), Challenges: challenges, Codes: codes(), SMS: b, Email: emailInbox{b}}
+	svc := auth.OTP{Prefix: prefix, Quotas: quotas, Challenges: challenges, Codes: codes(), SMS: b, Email: emailInbox{b}}
 	client := restatetest.Start(t, restate.Reflect(svc))
 	return &otpEnv{rs: auth.Restate{Client: client, Prefix: prefix}, db: db, box: b}
 }
@@ -135,5 +160,18 @@ func TestOTPSendCapsOneAddress(t *testing.T) {
 	wg.Wait()
 	if failed.Load() > 0 || sent.Load() > 20 || sent.Load() == 0 || len(e.box.all()) != int(sent.Load()) {
 		t.Fatalf("failed %d, sent %d, messages %d", failed.Load(), sent.Load(), len(e.box.all()))
+	}
+}
+
+func TestOTPSendSurvivesQuotaCommitThenFail(t *testing.T) {
+	e := startOTPWith(t, nil, func(q otp.QuotaStore) otp.QuotaStore { return &quotaCommitThenFail{QuotaStore: q} })
+	res := e.send(t, "0901234567", "203.0.113.7", uuid.NewV7().String())
+	if res.Refusal != nil || len(e.box.all()) != 1 {
+		t.Fatalf("result %+v, messages %d", res, len(e.box.all()))
+	}
+	var sends int
+	e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = 'dest:+84901234567'`).Scan(&sends)
+	if sends != 1 {
+		t.Fatalf("destination quota counted %d sends", sends)
 	}
 }

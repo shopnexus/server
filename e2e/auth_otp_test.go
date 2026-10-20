@@ -168,3 +168,37 @@ func TestOTPSendRepliesAlikeForKnownAndUnknown(t *testing.T) {
 		t.Fatalf("known %d %s, unknown %d %s", a.Status, a.Body, b.Status, b.Body)
 	}
 }
+
+// TestVerifyReusedKeyWithAnotherChallengeIsRefused: a repeated
+// Idempotency-Key must not hand out the first caller's session to a request
+// for another challenge with a wrong code.
+func TestVerifyReusedKeyWithAnotherChallengeIsRefused(t *testing.T) {
+	victimID, victimCode := requestCode(t, newPhone())
+	key := newKey()
+	victim := decode[signIn](t, verifyCode(t, victimID, victimCode, key))
+	attackerID, attackerCode := requestCode(t, newPhone())
+	res := verifyCode(t, attackerID, wrongCode(attackerCode), key)
+	if res.Status == 200 && decode[signIn](t, res).Account.ID == victim.Account.ID {
+		t.Fatalf("another challenge with a wrong code got the victim's account: %s", res.Body)
+	}
+	if res.Status != 422 {
+		t.Fatalf("status %d: %s", res.Status, res.Body)
+	}
+}
+
+// TestVerifyReplayAfterLogoutIsRefused: replaying the verify request of a
+// signed-out session must not bring the session back.
+func TestVerifyReplayAfterLogoutIsRefused(t *testing.T) {
+	id, code := requestCode(t, newPhone())
+	key := newKey()
+	first := decode[signIn](t, verifyCode(t, id, code, key))
+	if res := call(t, server, "POST", "/v1/auth/logout", nil, bearer(first.AccessToken)); res.Status != 204 {
+		t.Fatalf("logout %d", res.Status)
+	}
+	if res := verifyCode(t, id, wrongCode(code), key); res.Status != 422 {
+		t.Fatalf("replay with a wrong code: %d %s", res.Status, res.Body)
+	}
+	if res := verifyCode(t, id, code, key); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
+		t.Fatalf("replay with the right code: %d %s", res.Status, res.Body)
+	}
+}

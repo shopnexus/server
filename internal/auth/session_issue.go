@@ -25,6 +25,10 @@ func IssueSession(ctx context.Context, sessions session.Store, signer session.Si
 		if s.AccountID() != accountID {
 			return session.Tokens{}, errors.New("issue session: id belongs to another account")
 		}
+		// A replay must not bring back a session that was signed out since.
+		if err := s.Usable(now); err != nil {
+			return session.Tokens{}, err
+		}
 		refresh = s.Rotate(now)
 		if err := sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
 			if errors.Is(err, session.ErrConflict) {

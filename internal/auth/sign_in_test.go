@@ -108,3 +108,29 @@ func TestSignInExisting(t *testing.T) {
 		t.Fatalf("suspended: %v", err)
 	}
 }
+
+// A Restate retry runs the step again with the same write ID after the first
+// run committed. It must report what the first run decided, not apply the
+// guess again.
+func TestVerifyChallengeRetryReturnsTheSavedOutcome(t *testing.T) {
+	ctx := context.Background()
+	s := otptest.NewChallenges()
+	c, code := stored(t, s, "0901234567", now)
+	w := uuid.NewV7()
+	if _, err := auth.VerifyChallenge(ctx, s, c.ID(), hashOf(c, code), now, w); err != nil {
+		t.Fatal(err)
+	}
+	if dest, err := auth.VerifyChallenge(ctx, s, c.ID(), hashOf(c, code), now, w); err != nil || dest.Value() != "+84901234567" {
+		t.Fatalf("retry of a right code: %v %v", dest, err)
+	}
+
+	bad, badCode := stored(t, s, "0907654321", now)
+	w = uuid.NewV7()
+	auth.VerifyChallenge(ctx, s, bad.ID(), hashOf(bad, wrong(badCode)), now, w)
+	if _, err := auth.VerifyChallenge(ctx, s, bad.ID(), hashOf(bad, wrong(badCode)), now, w); !errors.Is(err, otp.ErrInvalidCode) {
+		t.Fatalf("retry of a wrong code: %v", err)
+	}
+	if got, _ := s.Get(ctx, bad.ID()); got.Attempts() != 1 {
+		t.Fatalf("the retry counted the guess again: attempts %d", got.Attempts())
+	}
+}

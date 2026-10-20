@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -29,10 +30,11 @@ type SignInInput struct {
 // SignInResult names the account and the session the handler issues tokens
 // for. Tokens never enter Restate.
 type SignInResult struct {
-	AccountID uuid.UUID `json:"account_id"`
-	IsNew     bool      `json:"is_new"`
-	SessionID uuid.UUID `json:"session_id"`
-	Refusal   *Refusal  `json:"refusal,omitempty"`
+	ChallengeID uuid.UUID `json:"challenge_id"`
+	AccountID   uuid.UUID `json:"account_id"`
+	IsNew       bool      `json:"is_new"`
+	SessionID   uuid.UUID `json:"session_id"`
+	Refusal     *Refusal  `json:"refusal,omitempty"`
 }
 
 // SignIn verifies a code and finds or creates the account. Creating one is a
@@ -64,7 +66,7 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 	if err != nil {
 		return SignInResult{}, err
 	}
-	verifyWrite := newID(ctx)
+	verifyWrite := newID(ctx, at)
 	v, err := restate.Run(ctx, func(rc restate.RunContext) (verified, error) {
 		dest, err := VerifyChallenge(rc, s.Challenges, in.ChallengeID, in.CodeHash, at, verifyWrite)
 		r, err := refuse(err)
@@ -85,20 +87,20 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 	if err != nil {
 		return SignInResult{}, err
 	}
-	sessionID := newID(ctx)
+	sessionID := newID(ctx, at)
 
 	if h.Found {
-		markWrite := newID(ctx)
+		markWrite := newID(ctx, at)
 		refusal, err := restate.Run(ctx, func(rc restate.RunContext) (*Refusal, error) {
 			return refuse(SignInExisting(rc, s.Accounts, s.Credentials, h.AccountID, h.IdentityID, at, markWrite))
 		})
 		if err != nil || refusal != nil {
 			return SignInResult{Refusal: refusal}, err
 		}
-		return SignInResult{AccountID: h.AccountID, SessionID: sessionID}, nil
+		return SignInResult{ChallengeID: in.ChallengeID, AccountID: h.AccountID, SessionID: sessionID}, nil
 	}
 
-	accountID, identityID := newID(ctx), newID(ctx)
+	accountID, identityID := newID(ctx, at), newID(ctx, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Accounts.Create(rc, accountID, "") }); err != nil {
 		return SignInResult{}, err
 	}
@@ -118,7 +120,7 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 		r, _ := refuse(ErrTryAgain)
 		return SignInResult{Refusal: r}, nil
 	}
-	return SignInResult{AccountID: accountID, IsNew: true, SessionID: sessionID}, nil
+	return SignInResult{ChallengeID: in.ChallengeID, AccountID: accountID, IsNew: true, SessionID: sessionID}, nil
 }
 
 type SignInRequest struct {
@@ -175,6 +177,12 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 	}
 	if err != nil {
 		return SignInResponse{}, err
+	}
+	// Restate answers a repeated Idempotency-Key with the first result,
+	// whatever this request carries. Only the request that matches it, the
+	// same challenge and its code, gets the session.
+	if res.ChallengeID != in.ChallengeID || !hmac.Equal(codes.Hash(c.Destination(), in.Code), c.CodeHash()) {
+		return SignInResponse{}, otp.ErrCodeExpired
 	}
 	tokens, err := IssueSession(r.Context(), sessions, signer, res.SessionID, res.AccountID, in.DeviceName, now())
 	if err != nil {

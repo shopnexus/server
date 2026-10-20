@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/binary"
 	"time"
 	"uuid"
 
@@ -28,8 +29,22 @@ func clock(ctx restate.Context) (time.Time, error) {
 	return restate.Run(ctx, func(restate.RunContext) (time.Time, error) { return time.Now(), nil })
 }
 
-// newID returns a journaled UUID: the same on every replay.
-func newID(ctx restate.Context) uuid.UUID { return uuid.UUID(restate.UUID(ctx)) }
+// newID returns a UUIDv7 for at. Its random bits come from the invocation's
+// deterministic generator, so a replay mints the same ID, and IDs still sort
+// by creation time as the spec's cursors assume. restate.UUID gives version 4.
+func newID(ctx restate.Context, at time.Time) uuid.UUID {
+	var id uuid.UUID
+	ms := uint64(at.UnixMilli())
+	for i := range 6 {
+		id[i] = byte(ms >> (40 - 8*i))
+	}
+	r := restate.Rand(ctx)
+	binary.BigEndian.PutUint64(id[6:14], r.Uint64())
+	binary.BigEndian.PutUint16(id[14:16], uint16(r.Uint64()))
+	id[6] = 0x70 | id[6]&0x0f
+	id[8] = 0x80 | id[8]&0x3f
+	return id
+}
 
 func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
 	return ingress.Service[SignInInput, SignInResult](r.Client, r.Prefix+"SignIn", "Run")

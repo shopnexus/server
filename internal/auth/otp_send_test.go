@@ -31,17 +31,17 @@ func TestAdmitSpacingAndHourlyCap(t *testing.T) {
 	q, dest, ctx := otptest.NewQuotas(), phone(t, "0901234567"), context.Background()
 	at := now
 	for i := range 5 {
-		if err := auth.AdmitOTP(ctx, q, dest, clientIP, at); err != nil {
+		if err := auth.AdmitOTP(ctx, q, dest, clientIP, at, uuid.NewV7(), uuid.NewV7()); err != nil {
 			t.Fatalf("send %d: %v", i+1, err)
 		}
-		err := auth.AdmitOTP(ctx, q, dest, clientIP, at.Add(44*time.Second))
+		err := auth.AdmitOTP(ctx, q, dest, clientIP, at.Add(44*time.Second), uuid.NewV7(), uuid.NewV7())
 		var ae *apperr.Error
 		if !errors.Is(err, auth.ErrOTPTooSoon) || !errors.As(err, &ae) || ae.Details["retry_after"] != 1 {
 			t.Fatalf("at 44 s: %v", err)
 		}
 		at = at.Add(45 * time.Second)
 	}
-	if err := auth.AdmitOTP(ctx, q, dest, clientIP, at); !errors.Is(err, auth.ErrOTPLimit) {
+	if err := auth.AdmitOTP(ctx, q, dest, clientIP, at, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, auth.ErrOTPLimit) {
 		t.Fatalf("sixth send: %v", err)
 	}
 }
@@ -49,14 +49,14 @@ func TestAdmitSpacingAndHourlyCap(t *testing.T) {
 func TestAdmitCapsOneAddress(t *testing.T) {
 	q, ctx := otptest.NewQuotas(), context.Background()
 	for i := range 20 {
-		if err := auth.AdmitOTP(ctx, q, phone(t, fmt.Sprintf("09%08d", i)), clientIP, now); err != nil {
+		if err := auth.AdmitOTP(ctx, q, phone(t, fmt.Sprintf("09%08d", i)), clientIP, now, uuid.NewV7(), uuid.NewV7()); err != nil {
 			t.Fatalf("send %d: %v", i+1, err)
 		}
 	}
-	if err := auth.AdmitOTP(ctx, q, phone(t, "0987654321"), clientIP, now); !errors.Is(err, auth.ErrOTPLimit) {
+	if err := auth.AdmitOTP(ctx, q, phone(t, "0987654321"), clientIP, now, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, auth.ErrOTPLimit) {
 		t.Fatalf("21st: %v", err)
 	}
-	if err := auth.AdmitOTP(ctx, q, phone(t, "0987654322"), netip.MustParseAddr("198.51.100.1"), now); err != nil {
+	if err := auth.AdmitOTP(ctx, q, phone(t, "0987654322"), netip.MustParseAddr("198.51.100.1"), now, uuid.NewV7(), uuid.NewV7()); err != nil {
 		t.Fatalf("another address: %v", err)
 	}
 }
@@ -77,10 +77,10 @@ func (l *losing) Save(ctx context.Context, q *otp.Quota, w uuid.UUID) error {
 
 func TestAdmitRetriesConflicts(t *testing.T) {
 	ctx := context.Background()
-	if err := auth.AdmitOTP(ctx, &losing{otptest.NewQuotas(), 2}, phone(t, "0901234567"), clientIP, now); err != nil {
+	if err := auth.AdmitOTP(ctx, &losing{otptest.NewQuotas(), 2}, phone(t, "0901234567"), clientIP, now, uuid.NewV7(), uuid.NewV7()); err != nil {
 		t.Fatalf("two conflicts: %v", err)
 	}
-	if err := auth.AdmitOTP(ctx, &losing{otptest.NewQuotas(), 3}, phone(t, "0901234567"), clientIP, now); !errors.Is(err, auth.ErrOTPLimit) {
+	if err := auth.AdmitOTP(ctx, &losing{otptest.NewQuotas(), 3}, phone(t, "0901234567"), clientIP, now, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, auth.ErrOTPLimit) {
 		t.Fatalf("three conflicts: %v", err)
 	}
 }
@@ -109,5 +109,51 @@ func TestSendCode(t *testing.T) {
 	expired := auth.NewChallenge(codes(), uuid.NewV7(), otp.PurposeLogin, phone(t, "0901234567"), clientIP, now)
 	if err := auth.SendCode(ctx, b, emailInbox{b}, codes(), expired, now.Add(otp.CodeTTL)); err != nil || len(b.all()) != 2 {
 		t.Fatalf("expired challenge sent: %v, %d messages", err, len(b.all()))
+	}
+}
+
+// A retried admit step carries the same write IDs; a quota already holding
+// one was saved by this step, so the send is not counted twice.
+func TestAdmitRetryCountsOnce(t *testing.T) {
+	q, dest, ctx := otptest.NewQuotas(), phone(t, "0901234567"), context.Background()
+	dw, iw := uuid.NewV7(), uuid.NewV7()
+	for range 2 {
+		if err := auth.AdmitOTP(ctx, q, dest, clientIP, now, dw, iw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, _ := q.Get(ctx, "dest:"+dest.Value()); len(got.SentAt()) != 1 {
+		t.Fatalf("sends counted %d", len(got.SentAt()))
+	}
+}
+
+// IPv6 clients are limited per /64, the block one host usually holds.
+func TestAdmitKeysIPv6ByPrefix(t *testing.T) {
+	q, ctx := otptest.NewQuotas(), context.Background()
+	for i := range 20 {
+		ip := netip.MustParseAddr(fmt.Sprintf("2001:db8:1:2::%x", i+1))
+		if err := auth.AdmitOTP(ctx, q, phone(t, fmt.Sprintf("09%08d", i)), ip, now, uuid.NewV7(), uuid.NewV7()); err != nil {
+			t.Fatalf("send %d: %v", i+1, err)
+		}
+	}
+	other := netip.MustParseAddr("2001:db8:1:2:ffff::1")
+	if err := auth.AdmitOTP(ctx, q, phone(t, "0987654321"), other, now, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, auth.ErrOTPLimit) {
+		t.Fatalf("21st from the same /64: %v", err)
+	}
+}
+
+// An address over its limit must not spend the quota of the numbers it
+// names, or one machine could lock anyone out of sign-in.
+func TestAdmitChecksTheAddressFirst(t *testing.T) {
+	q, ctx := otptest.NewQuotas(), context.Background()
+	for i := range 20 {
+		auth.AdmitOTP(ctx, q, phone(t, fmt.Sprintf("09%08d", i)), clientIP, now, uuid.NewV7(), uuid.NewV7())
+	}
+	victim := phone(t, "0987654321")
+	if err := auth.AdmitOTP(ctx, q, victim, clientIP, now, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, auth.ErrOTPLimit) {
+		t.Fatalf("over the limit: %v", err)
+	}
+	if err := auth.AdmitOTP(ctx, q, victim, netip.MustParseAddr("198.51.100.9"), now, uuid.NewV7(), uuid.NewV7()); err != nil {
+		t.Fatalf("the victim from their own address: %v", err)
 	}
 }

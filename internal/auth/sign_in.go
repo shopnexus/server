@@ -27,6 +27,11 @@ func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid
 	if c.Purpose() != otp.PurposeLogin {
 		return contact.Address{}, otp.ErrCodeExpired
 	}
+	if c.WriteID() == writeID {
+		// A retried step whose save already committed: report what that run
+		// decided instead of judging the code again.
+		return c.Destination(), savedOutcome(c)
+	}
 	newest, err := challenges.IsNewest(ctx, c)
 	if err != nil {
 		return contact.Address{}, err
@@ -68,4 +73,16 @@ func SignInExisting(ctx context.Context, accounts AccountPort, creds credentials
 		return err
 	}
 	return nil
+}
+
+// savedOutcome is the result a committed Verify left on c.
+func savedOutcome(c otp.Challenge) error {
+	switch {
+	case c.ConsumedAt() != nil:
+		return nil
+	case c.Attempts() >= otp.MaxAttempts:
+		return otp.ErrCodeLocked
+	default:
+		return otp.ErrInvalidCode.WithDetail("attempts_left", otp.MaxAttempts-c.Attempts())
+	}
 }

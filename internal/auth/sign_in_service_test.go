@@ -49,7 +49,29 @@ func (takenCredentials) Create(context.Context, credentials.Credentials) error {
 	return credentials.ErrTaken
 }
 
+// verifyCommitThenFail commits a challenge's attempt and then reports a
+// retryable error once.
+type verifyCommitThenFail struct {
+	otp.ChallengeStore
+	failed atomic.Bool
+}
+
+func (v *verifyCommitThenFail) Save(ctx context.Context, c *otp.Challenge, w uuid.UUID) error {
+	if err := v.ChallengeStore.Save(ctx, c, w); err != nil {
+		return err
+	}
+	if !v.failed.Swap(true) {
+		return errors.New("connection reset after commit")
+	}
+	return nil
+}
+
 func startSignIn(t *testing.T, wrapAccounts func(auth.AccountPort) auth.AccountPort, wrapCreds func(credentials.Store) credentials.Store) *signInEnv {
+	return startSignInWith(t, wrapAccounts, wrapCreds, nil)
+}
+
+func startSignInWith(t *testing.T, wrapAccounts func(auth.AccountPort) auth.AccountPort, wrapCreds func(credentials.Store) credentials.Store,
+	wrapChallenges func(otp.ChallengeStore) otp.ChallengeStore) *signInEnv {
 	t.Helper()
 	db := pgtest.New(t)
 	var accounts auth.AccountPort = account.Client{Store: account.NewPGStore(db), Now: time.Now}
@@ -60,9 +82,14 @@ func startSignIn(t *testing.T, wrapAccounts func(auth.AccountPort) auth.AccountP
 	if wrapCreds != nil {
 		creds = wrapCreds(creds)
 	}
-	challenges := otp.NewChallengePGStore(db)
+	var challenges otp.ChallengeStore = otp.NewChallengePGStore(db)
+	direct := challenges
+	if wrapChallenges != nil {
+		challenges = wrapChallenges(challenges)
+	}
 	prefix := restatetest.Prefix()
 	client := restatetest.Start(t, restate.Reflect(auth.SignIn{Prefix: prefix, Challenges: challenges, Credentials: creds, Accounts: accounts}))
+	challenges = direct
 	return &signInEnv{rs: auth.Restate{Client: client, Prefix: prefix}, db: db, challenges: challenges}
 }
 
@@ -131,5 +158,29 @@ func TestSignInWrongCodeIsRefused(t *testing.T) {
 	}
 	if got, _ := e.challenges.Get(context.Background(), c.ID()); got.Attempts() != 1 {
 		t.Fatalf("attempts %d", got.Attempts())
+	}
+}
+
+func TestSignInSurvivesVerifyCommitThenFail(t *testing.T) {
+	e := startSignInWith(t, nil, nil, func(s otp.ChallengeStore) otp.ChallengeStore { return &verifyCommitThenFail{ChallengeStore: s} })
+	if res := e.run(t, "0901234567", uuid.NewV7().String()); res.Refusal != nil || !res.IsNew {
+		t.Fatalf("the right code after a retried verify step: %+v", res)
+	}
+}
+
+// IDs minted inside Restate are UUIDv7, so ids sort by creation time as the
+// spec's cursors assume.
+func TestSignInMintsV7IDs(t *testing.T) {
+	e := startSignIn(t, nil, nil)
+	first := e.run(t, "0901234567", uuid.NewV7().String())
+	time.Sleep(2 * time.Millisecond)
+	second := e.run(t, "0901234567", uuid.NewV7().String())
+	for _, id := range []uuid.UUID{first.AccountID, first.SessionID, second.SessionID} {
+		if id[6]>>4 != 7 {
+			t.Fatalf("%s is version %d", id, id[6]>>4)
+		}
+	}
+	if second.SessionID.Compare(first.SessionID) <= 0 {
+		t.Fatal("a later session sorts first")
 	}
 }

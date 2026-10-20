@@ -61,8 +61,10 @@ refresh keep working when Restate is down.
   is a workflow with a saga. Each step registers its compensation before it
   runs. Compensations run in reverse on a terminal error, each inside
   `restate.Run` so a replay does not repeat one that already ran.
-- Every step inside `restate.Run` is idempotent. IDs come from
-  `restate.UUID(ctx)` before the step, and inserts use
+- Every step inside `restate.Run` is idempotent. IDs are minted before the
+  step by `newID(ctx, at)`, a UUIDv7 built from the journaled clock and the
+  invocation's deterministic random generator (`restate.UUID` gives version
+  4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
 - A workflow ID comes from the client's `Idempotency-Key` or from a business
@@ -97,13 +99,13 @@ ingress and wait for its result. Module account offers an adapter
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
 | `Challenge` | `otp_challenges` | adds `write_id` |
 
-IDs are chosen by the caller before the insert: `restate.UUID(ctx)` inside a
+IDs are chosen by the caller before the insert: `newID(ctx, at)` inside a
 workflow, `uuid.NewV7()` in a direct use case. `uuidv7()` stays as the column
 default. `Create` inserts with `ON CONFLICT (id) DO NOTHING`.
 
 `write_id` is the ID of the last write to an aggregate and replaces a version
 counter. `Get` returns it as T. `Save` picks a new ID N (from
-`restate.UUID(ctx)` in a workflow, so a retry sends the same N) and runs:
+`newID(ctx, at)` in a workflow, so a retry sends the same N) and runs:
 
 ```sql
 UPDATE ... SET ..., write_id = $N
@@ -127,12 +129,15 @@ workflow so Restate refuses a duplicate submission.
 
 Workflow `OTPSend`, run once per `Idempotency-Key`:
 
-1. Admit the request against two `Quota` aggregates, `dest:<destination>`
-   and `ip:<address>`, in table `otp_quotas(key PK, write_id, sent_at
-   timestamptz[])`. `Quota.Admit(now, rule)` holds the limits: one code per
+1. Admit the request against two `Quota` aggregates, `ip:<address>` first
+   and then `dest:<destination>`, in table `otp_quotas(key PK, write_id,
+   sent_at timestamptz[])`. An IPv6 address is keyed by its /64. The address
+   goes first so an address over its limit cannot spend the quota of the
+   numbers it names. `Quota.Admit(now, rule)` holds the limits: one code per
    destination per 45 s, five per destination per hour, twenty per address per
-   hour. Parallel requests conflict on `write_id`; the losers get 429. A quota
-   that admitted a request stays spent even when a later step fails.
+   hour. Parallel requests conflict on `write_id` and retry; after three lost
+   races the request gets 429. A quota that admitted a request stays spent
+   even when a later step fails.
 2. `restate.Run`: create the `Challenge`.
 3. `restate.Run`: send the SMS or email through `sms.Sender` or `email.Sender`.
 4. Return `challenge_id`; the HTTP handler waits for it.
@@ -151,7 +156,7 @@ Workflow `SignIn` returns `{account_id, is_new}`:
    and ends the workflow with `invalid_code`; nothing needs compensating.
 2. `restate.Run`: find the identity in `Credentials`.
    - Found: check the account status, mark the identity used.
-   - Not found: take `accountID := restate.UUID(ctx)`, register the
+   - Not found: take `accountID := newID(ctx, at)`, register the
      compensation `account.Delete`, create the `Account`, then create the
      `Credentials` with the identity. If that fails, the compensation deletes
      the account.
@@ -261,4 +266,15 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
   number and the code hash, and no code or token.
 - Tests prefix every service name per registration, because test packages
   share one Restate server and a name routes to one endpoint.
+- A retried step reruns its whole closure, `Get` included, after its first
+  run may have committed. Every step that saves an aggregate therefore checks
+  first whether the aggregate already carries the step's journaled write ID;
+  when it does, the step returns the outcome that write left (a quota counts
+  the send once, a challenge reports the verdict it saved) instead of
+  applying the change again.
+- Restate answers a repeated `Idempotency-Key` with the first result,
+  whatever the new request carries. The verify handler therefore issues tokens
+  only when the result names the request's challenge and the request's code
+  hashes to the challenge's `code_hash`, and a replay never revives a session
+  that was signed out since.
 

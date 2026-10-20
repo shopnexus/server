@@ -50,6 +50,12 @@ otpVerify:
               $ref: "../schemas/auth.yaml#/SignIn"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        description: A replayed Idempotency-Key whose session was signed out since (session_revoked, session_expired).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
       "409":
