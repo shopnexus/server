@@ -1,10 +1,10 @@
 # server2 architecture
 
-The redesign of 2026-10-20 replaces parts of
-`~/shopnexus/specs/2026-10-19-server2-foundation-design.md`. Where the two
-disagree, this file wins until the spec is rewritten. Plan 2
-(`~/shopnexus/plans/2026-10-20-server2-plan2-otp-sessions.md`) was written for
-the old design and is on hold.
+`~/shopnexus/specs/2026-10-19-server2-foundation-design.md` holds scope,
+endpoints, auth flows, security rules and the testing matrix, and points here
+for code shape, transactions and durability. Where the two disagree, this file
+wins. Plan 2 (`~/shopnexus/plans/2026-10-20-server2-plan2-redesign-otp.md`)
+built the OTP sign-in and sessions on this design.
 
 The code takes from two branches of the old `server` repository.
 `origin/microservice-ready` reads top to bottom with few layers.
@@ -19,13 +19,15 @@ until the user approves them.
 
 ### Infrastructure
 
-Postgres and Restate (server 1.8.0, Go SDK v1.1.0). Restate replaces the
-outbox, the relay, JetStream and NATS; package `jobs` is removed.
+Postgres and Restate (server 1.8.0, Go SDK v1.1.0). Restate replaced the
+outbox, the relay, JetStream and NATS. `/readyz` checks Postgres and the
+Restate admin health endpoint.
 
 ### Use cases
 
 A use case is a plain function that takes ports and parameters:
-`func AccountRename(ctx context.Context, accounts Store, now time.Time, id uuid.UUID, name string) (Account, error)`.
+`func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now time.Time) (View, error)`
+in package account.
 A port is an interface; real and fake adapters implement it. Another module's
 use case reaches a caller through a port the caller declares. Business code
 takes no functions as arguments: no update callbacks, no transaction closures.
@@ -34,8 +36,10 @@ takes no functions as arguments: no update callbacks, no transaction closures.
 
 A transaction lives inside an adapter method and covers one aggregate.
 Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
-when the aggregate changed since it was read. A conflict reply to an OTP guess must not reveal whether
-the guess was right. `write_id` (below) is the column that detects it.
+when the aggregate changed since it was read, and `write_id` (below) is the
+column that detects it. A use case that loses the race answers
+`apperr.ErrTryAgain` (409 `try_again`) in every module. A conflict reply to an
+OTP guess must not reveal whether the guess was right.
 
 ### Aggregates in auth and account
 
@@ -51,27 +55,30 @@ constraint holds it.
 
 ### Durable flows
 
-Only flows that need durability run as Restate workflows. Other use cases are
+Only flows that need durability run as Restate services. Other use cases are
 called directly from HTTP handlers with `context.Context`, so reads and
 refresh keep working when Restate is down.
 
-- OTP send is a workflow keyed by the client's `Idempotency-Key`. One
-  `restate.Run` stores the challenge, the next sends the SMS or email.
-- A flow that touches two aggregates (sign-up: `Account`, then `Credentials`)
-  is a workflow with a saga. Each step registers its compensation before it
-  runs. Compensations run in reverse on a terminal error, each inside
-  `restate.Run` so a replay does not repeat one that already ran.
+- The client's `Idempotency-Key` is the idempotency key of the invocation. A
+  repeated key returns the first result and runs no step again.
+- OTP send is service `OTP`. One `restate.Run` admits the send against the
+  quotas, the next stores the challenge, the next sends the SMS or email.
+- Sign-up touches two aggregates, `Account` and then `Credentials`, so
+  service `SignIn` runs it as a saga. When `Credentials.Create` returns
+  `ErrTaken`, because another sign-up took the identity between the lookup
+  and the insert, a step deletes the account and the client gets
+  `try_again`. Restate retries every other failure, so no step ends the
+  saga with a terminal error.
 - Every step inside `restate.Run` is idempotent. IDs are minted before the
   step by `newID(ctx, at)`, a UUIDv7 built from the journaled clock and the
   invocation's deterministic random generator (`restate.UUID` gives version
   4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
-- A workflow ID comes from the client's `Idempotency-Key` or from a business
-  key, never from `uuid.New()`. Restate refuses a second submission of the same
-  key.
-- Workflows live in `*_workflow.go` files of their module and are the only code
-  that passes closures, to `restate.Run`.
+- A Restate service lives in a `*_service.go` file of its module, and is the
+  only code that passes closures, to `restate.Run`. The use cases it calls
+  and the HTTP handler that invokes it sit in the matching use-case file
+  (`otp_send.go`, `sign_in.go`).
 
 ### Module layout
 
@@ -86,7 +93,7 @@ internal/account/
 ```
 
 One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
-HTTP handlers either call a use case or call a workflow through the Restate
+HTTP handlers either call a use case or call a Restate service through the
 ingress and wait for its result. Module account offers an adapter
 (`account.Client`) that implements the ports other modules declare.
 
@@ -100,12 +107,13 @@ ingress and wait for its result. Module account offers an adapter
 | `Challenge` | `otp_challenges` | adds `write_id` |
 
 IDs are chosen by the caller before the insert: `newID(ctx, at)` inside a
-workflow, `uuid.NewV7()` in a direct use case. `uuidv7()` stays as the column
-default. `Create` inserts with `ON CONFLICT (id) DO NOTHING`.
+Restate service, `uuid.NewV7()` in a direct use case. Only `accounts.id` keeps
+`uuidv7()` as a column default. `Create` inserts with
+`ON CONFLICT (id) DO NOTHING`.
 
 `write_id` is the ID of the last write to an aggregate and replaces a version
 counter. `Get` returns it as T. `Save` picks a new ID N (from
-`newID(ctx, at)` in a workflow, so a retry sends the same N) and runs:
+`newID(ctx, at)` in a Restate service, so a retry sends the same N) and runs:
 
 ```sql
 UPDATE ... SET ..., write_id = @write_id
@@ -126,15 +134,15 @@ it to the same value.
 
 Accepted risk: when a step commits, the process dies before Restate journals
 the result, and another writer commits before the retry, the retry gets
-`ErrConflict` although its change landed. The workflow handles it like any
+`ErrConflict` although its change landed. The service handles it like any
 conflict: read again and decide.
 
 `write_id` differs from the client's `Idempotency-Key`, which names a whole
-workflow so Restate refuses a duplicate submission.
+invocation so Restate runs it once.
 
 ### OTP send
 
-Workflow `OTPSend`, run once per `Idempotency-Key`:
+Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
 
 1. Admit the request against two `Quota` aggregates, `ip:<address>` first
    and then `dest:<destination>`, in table `otp_quotas(key PK, write_id,
@@ -142,8 +150,9 @@ Workflow `OTPSend`, run once per `Idempotency-Key`:
    goes first so an address over its limit cannot spend the quota of the
    numbers it names. `Quota.Admit(now, rule)` holds the limits: one code per
    destination per 45 s, five per destination per hour, twenty per address per
-   hour. Parallel requests conflict on `write_id` and retry; after three lost
-   races the request gets 429. A quota that admitted a request stays spent
+   hour. Both quotas are saved with the step's one write ID. Parallel requests
+   conflict on `write_id` and retry; after three lost races the request gets
+   429. A quota that admitted a request stays spent
    even when a later step fails.
 2. `restate.Run`: create the `Challenge`.
 3. `restate.Run`: send the SMS or email through `sms.Sender` or `email.Sender`.
@@ -151,26 +160,28 @@ Workflow `OTPSend`, run once per `Idempotency-Key`:
 
 ### Idempotency-Key
 
-Every endpoint that starts a workflow requires an `Idempotency-Key` header (a
-UUID) and uses it as the workflow ID. A repeated key attaches to the first
-run and returns its result, so a retried tap gets the same answer.
+Every endpoint that invokes a Restate service requires an `Idempotency-Key`
+header (a UUID) and passes it as the invocation's idempotency key. A repeated
+key attaches to the first run and returns its result, so a retried tap gets
+the same answer.
 
 ### OTP verify and sign-up
 
-Workflow `SignIn` returns `{account_id, is_new}`:
+Service `SignIn`, handler `Run`, returns the challenge ID, the account ID,
+`is_new` and a session ID:
 
-1. `restate.Run`: load the challenge, `Verify`, `Save`. A wrong code is saved
-   and ends the workflow with `invalid_code`; nothing needs compensating.
+1. `restate.Run`: load the challenge. When `Open` refuses it (used, expired
+   or locked), return that refusal and save nothing. Otherwise `Verify` and
+   `Save`: a wrong code is saved and ends the run with `invalid_code`.
 2. `restate.Run`: find the identity in `Credentials`.
    - Found: check the account status, mark the identity used.
-   - Not found: take `accountID := newID(ctx, at)`, register the
-     compensation `account.Delete`, create the `Account`, then create the
-     `Credentials` with the identity. If that fails, the compensation deletes
-     the account.
+   - Not found: create the `Account` with `accountID := newID(ctx, at)`, then
+     the `Credentials` with the identity. `ErrTaken` from the second step
+     deletes the account (see Durable flows).
 
-Tokens never enter Restate: its journal and workflow outputs are stored and
+Tokens never enter Restate: its journal and invocation results are stored and
 readable through the Restate admin API. The HTTP handler issues the session
-after the workflow returns, with a session ID the workflow chose. When the
+after the service returns, with the session ID the service chose. When the
 same `Idempotency-Key` comes back, that session already exists, so the handler
 rotates its refresh token and returns new tokens for the same session.
 
@@ -199,7 +210,7 @@ it (another account's session is 404), `Revoke` and `Save`, retrying once on
 Two kinds of call skip the aggregate:
 
 - A read returns view structs from a query and never loads an entity. The
-  device list is `sessions.ListActive(accountID, cursor, limit)`.
+  device list is `sessions.ListActive(accountID, now, cursor, limit)`.
 - A bulk change that only moves a one-way flag may run as one set-based
   statement that also changes each row's `write_id`. `logout-all` is
   `UPDATE sessions SET revoked_at = @now, write_id = uuidv7() WHERE
@@ -217,9 +228,9 @@ no database.
 - Adapters: one contract suite per port, run against the fake and Postgres.
   It covers `write_id`: a stale T conflicts, and a second `Save` with the same N
   succeeds.
-- Workflows: integration tests against a Restate server from the test stack,
-  with the endpoint served in-process. One named test per workflow makes an
-  adapter commit and then fail once with a retryable error. Restate retries the
+- Restate services: integration tests against a Restate server from the test
+  stack, with the endpoint served in-process. One named test per service
+  makes an adapter commit and then fail once with a retryable error. Restate retries the
   step, and the test checks that no row is duplicated and the compensation ran
   at most once.
 - E2E: the server in-process (HTTP and Restate endpoint), Restate and Postgres
@@ -227,37 +238,10 @@ no database.
   captured by a fake sender. The four OpenAPI conformance tests from plan 1
   run unchanged on top of it.
 
-### Changes to the code from plan 1
-
-- Removed: `internal/platform/jobs`, `natstest`, NATS in both Compose files,
-  the outbox migration, `SendCommand` types in `provider/sms` and
-  `provider/email` (their `Sender` ports stay), the relay and JetStream
-  metrics.
-- Migrations are squashed into new files that already contain `write_id`.
-  Nothing is deployed, so `make down` with volumes and a fresh migrate is the
-  whole cost.
-- Added: Restate 1.8.0 in both Compose files, with ingress and admin ports in
-  the 565xx range, and config `RESTATE_INGRESS_URL`, `RESTATE_ADMIN_URL`,
-  `RESTATE_LISTEN_ADDR` and `RESTATE_ENDPOINT_URL` (how Restate reaches this
-  process; the server registers it with the admin API at start). `/readyz` checks Postgres and the Restate admin
-  health endpoint.
-- Module account is rewritten as functions with ports.
-
-### Spec and plan
-
-`ARCHITECTURE.md` keeps the architecture rules. The spec in
-`~/shopnexus/specs/` is rewritten to keep scope, endpoints, auth flows,
-security rules and the testing matrix, and to point here for code shape,
-transactions and durability instead of repeating them. Plan 2 is then written
-again from both.
-
 ### Restate in practice
 
 Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
 
-- The durable flows are Restate services invoked with the client's
-  `Idempotency-Key`. A repeated key returns the first result and runs no step
-  again, which is all this phase needs from a workflow.
 - Restate runs with `network_mode: host` on 127.0.0.1 ports: 56580 ingress,
   56570 admin and 56560 node in development, one higher in tests. The
   development machine's ufw drops container-to-host traffic.
@@ -271,14 +255,17 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
   The verify handler loads the challenge and sends `SignIn` the code's hash.
   A check of the journal after a manual sign-in on 2026-10-20 found the phone
   number and the code hash, and no code or token.
-- Tests prefix every service name per registration, because test packages
-  share one Restate server and a name routes to one endpoint.
+- `RESTATE_SERVICE_PREFIX` (`config.RestateConfig.ServicePrefix`) goes before
+  every service name. Test packages share one Restate server and a name
+  routes to one endpoint, so `restatetest.Config` gives every registration a
+  fresh prefix.
 - A retried step reruns its whole closure, `Get` included, after its first
   run may have committed. Every step that saves an aggregate therefore checks
   first whether the aggregate already carries the step's journaled write ID;
   when it does, the step returns the outcome that write left (a quota counts
-  the send once, a challenge reports the verdict it saved) instead of
-  applying the change again.
+  the send once, a challenge reports its `Verdict`) instead of applying the
+  change again. A step that changes nothing saves nothing, so it leaves no
+  write ID a retry could take for its own.
 - Restate answers a repeated `Idempotency-Key` with the first result,
   whatever the new request carries. The verify handler therefore issues tokens
   only when the result names the request's challenge and the request's code

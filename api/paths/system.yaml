@@ -17,7 +17,7 @@ readyz:
     tags: [system]
     responses:
       "200":
-        description: Postgres and NATS answer.
+        description: Postgres and Restate answer.
         content:
           application/json:
             schema:

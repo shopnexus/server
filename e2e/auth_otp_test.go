@@ -122,10 +122,7 @@ func TestVerifyBadShape(t *testing.T) {
 
 func TestVerifySuspendedAccount(t *testing.T) {
 	acc, phone := newAccount(t)
-	if _, err := db.Exec(context.Background(),
-		`UPDATE accounts SET status = 'suspended', suspend_reason = 'e2e' WHERE id = $1`, acc.Account.ID); err != nil {
-		t.Fatal(err)
-	}
+	suspend(t, acc.Account.ID)
 	id, code := requestCode(t, phone)
 	if res := verifyCode(t, id, code); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
@@ -159,7 +156,7 @@ func TestVerifyParallelGuesses(t *testing.T) {
 // TestOTPSendRepliesAlikeForKnownAndUnknown is the enumeration test.
 func TestOTPSendRepliesAlikeForKnownAndUnknown(t *testing.T) {
 	_, known := newAccount(t)
-	db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE key = $1`, "dest:"+known)
+	forgetSends(t, known)
 	a, b := sendOTP(t, "phone", known), sendOTP(t, "phone", newPhone())
 	ka, kb := decode[map[string]any](t, a), decode[map[string]any](t, b)
 	delete(ka, "challenge_id")

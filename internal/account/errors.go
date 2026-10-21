@@ -1,10 +1,14 @@
 package account
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import (
+	"errors"
+
+	"github.com/shopnexus/server2/internal/platform/apperr"
+)
 
 var (
 	ErrNotFound      = apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
-	ErrConflict      = apperr.New(apperr.KindConflict, "conflict", "the account changed meanwhile; try again")
+	ErrConflict      = errors.New("account: changed meanwhile")
 	ErrSuspended     = apperr.New(apperr.KindForbidden, "account_suspended", "account is suspended")
 	ErrInvalidName   = apperr.New(apperr.KindInvalid, "invalid_display_name", "display name must be 1 to 50 characters")
 	ErrSuspendReason = apperr.New(apperr.KindInvalid, "suspend_reason_required", "a suspension needs a reason")

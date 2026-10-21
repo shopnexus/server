@@ -5,24 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
-// newPhone returns a fresh mobile number, so tests never share a
-// destination's quota.
-func newPhone() string { return fmt.Sprintf("+849%08d", rand.IntN(100_000_000)) }
+// seq numbers the phones, emails and addresses tests make up, so no two
+// tests share a quota. The database is new each run.
+var seq atomic.Int64
 
-func newEmail() string { return fmt.Sprintf("e2e-%d@example.com", rand.Int64()) }
+// newPhone returns a fresh mobile number.
+func newPhone() string { return fmt.Sprintf("+8499%07d", seq.Add(1)) }
 
-// newIP returns an X-Forwarded-For header with a fresh address, so tests
-// never share an address's quota.
+func newEmail() string { return fmt.Sprintf("e2e-%d@example.com", seq.Add(1)) }
+
+// newIP returns an X-Forwarded-For header with a fresh address in
+// 198.18.0.0/15.
 func newIP() [2]string {
-	return [2]string{"X-Forwarded-For", fmt.Sprintf("198.18.%d.%d", rand.IntN(256), rand.IntN(256))}
+	n := seq.Add(1)
+	return [2]string{"X-Forwarded-For", fmt.Sprintf("198.%d.%d.%d", 18+n>>16&1, n>>8&255, n&255)}
 }
 
 // newKey returns a fresh Idempotency-Key header.
@@ -82,20 +87,35 @@ func wrongCode(code string) string {
 	return "000000"
 }
 
-// requestCode sends a code to a phone typed any way and returns the challenge
-// and the code. Earlier sends to that phone are pushed back a minute in its
-// quota, so a test can ask again without waiting 45 s.
+// forgetSends empties the send quota of a normalised destination, so a test
+// can ask for another code without waiting 45 s.
+func forgetSends(t *testing.T, dest string) {
+	t.Helper()
+	if _, err := db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE key = @key`,
+		pgx.StrictNamedArgs{"key": "dest:" + dest}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// suspend marks an account suspended, as an admin would.
+func suspend(t *testing.T, accountID string) {
+	t.Helper()
+	if _, err := db.Exec(context.Background(),
+		`UPDATE accounts SET status = 'suspended', suspend_reason = 'e2e' WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": accountID}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// requestCode forgets earlier sends to a phone typed any way, sends it a code
+// and returns the challenge and the code.
 func requestCode(t *testing.T, typed string) (string, string) {
 	t.Helper()
 	p, err := contact.ParsePhone(typed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(context.Background(), `
-UPDATE otp_quotas SET sent_at = ARRAY(SELECT s - interval '1 minute' FROM unnest(sent_at) s)
-WHERE key = $1`, "dest:"+p.Value()); err != nil {
-		t.Fatal(err)
-	}
+	forgetSends(t, p.Value())
 	n := box.count(p.Value())
 	res := sendOTP(t, "phone", typed)
 	if res.Status != 200 {
@@ -124,12 +144,7 @@ func verifyCodeStatus(challengeID, code string) int {
 		return 0
 	}
 	res.Body.Close()
-	mu.Lock()
-	if seen["verifyOtp"] == nil {
-		seen["verifyOtp"] = map[int]bool{}
-	}
-	seen["verifyOtp"][res.StatusCode] = true
-	mu.Unlock()
+	record("verifyOtp", res.StatusCode)
 	return res.StatusCode
 }
 

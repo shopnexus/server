@@ -18,6 +18,7 @@ const (
 	KindForbidden                        // 403
 	KindRateLimited                      // 429
 	KindPreconditionRequired             // 428
+	KindTooLarge                         // 413: the request body is over the limit
 )
 
 // Error is a business error. Code is stable and snake_case; Message is English
@@ -30,6 +31,10 @@ type Error struct {
 	Details map[string]any // values the client acts on: attempts_left, retry_after
 	Err     error
 }
+
+// ErrTryAgain answers a write that lost a race with another write to the
+// same aggregate. Every module uses it, so a client handles one code.
+var ErrTryAgain = New(KindConflict, "try_again", "the request collided with another; try again")
 
 // New returns an Error without fields or cause.
 func New(kind Kind, code, message string) *Error {

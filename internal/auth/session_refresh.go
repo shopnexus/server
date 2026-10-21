@@ -103,6 +103,6 @@ func RefreshHandler(sessions session.Store, accounts AccountPort, signer session
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, out)
+		httpx.Respond(w, http.StatusOK, out)
 	})
 }

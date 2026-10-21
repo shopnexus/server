@@ -24,10 +24,9 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestReadyzDown(t *testing.T) {
-	ingressURL, adminURL := restatetest.URLs(t)
 	cfg := config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
-		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Restate:     restatetest.Config(t),
 		Auth:        keys,
 	}
 	a, err := app.New(context.Background(), cfg, discard)

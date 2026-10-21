@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/credentials"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/auth/session"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,7 +24,7 @@ import (
 // VerifyChallenge checks a code hash against a login challenge and saves the
 // counted guess before it answers, so a wrong code stays counted. A guess
 // the challenge refuses changes nothing and is not saved. A write that loses
-// a race returns ErrTryAgain whether the code was right or wrong, and that
+// a race returns apperr.ErrTryAgain whether the code was right or wrong, and that
 // guess is not counted.
 //
 // stepWrite is the step's journaled write ID. A retried step whose save
@@ -56,7 +57,7 @@ func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid
 	verdict := c.Verify(codeHash, now)
 	if err := challenges.Save(ctx, &c, stepWrite); err != nil {
 		if errors.Is(err, otp.ErrConflict) {
-			return contact.Address{}, ErrTryAgain
+			return contact.Address{}, apperr.ErrTryAgain
 		}
 		return contact.Address{}, err
 	}
@@ -118,7 +119,7 @@ func SignInHandler(rs Restate, challenges otp.ChallengeStore, codes otp.Codes, s
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, res)
+		httpx.Respond(w, http.StatusOK, res)
 	})
 }
 

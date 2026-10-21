@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
@@ -19,10 +18,9 @@ func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
-	ingressURL, adminURL := restatetest.URLs(t)
 	return config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
-		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Restate:     restatetest.Config(t),
 		Auth:        config.NewAuthKeys(),
 	}
 }
@@ -34,7 +32,7 @@ func newApp(t *testing.T) *App {
 
 func newAppWithLog(t *testing.T, log *slog.Logger) *App {
 	t.Helper()
-	a, err := New(context.Background(), testConfig(t), log, WithRestatePrefix(restatetest.Prefix()))
+	a, err := New(context.Background(), testConfig(t), log)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -68,11 +66,6 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestNewRefusesPendingMigrations(t *testing.T) {
-	// migrations/ may hold no files yet; give New one it has not applied.
-	prev := migrationFS
-	migrationFS = fstest.MapFS{"0001_a.sql": {Data: []byte("CREATE TABLE a (id int);")}}
-	t.Cleanup(func() { migrationFS = prev })
-
 	cfg := testConfig(t)
 	cfg.DatabaseURL = pgtest.Empty(t).Config().ConnString()
 	_, err := New(context.Background(), cfg, discard())
@@ -85,7 +78,7 @@ func TestReadyzRestateDown(t *testing.T) {
 	a := newApp(t)
 	// The app registered its services at start; readiness now asks an admin
 	// API that no longer answers.
-	a.cfg.Restate.AdminURL = "http://127.0.0.1:1"
+	a.adminURL = "http://127.0.0.1:1"
 	if code, body := get(a, "/readyz"); code != http.StatusServiceUnavailable {
 		t.Fatalf("got %d %q", code, body)
 	}

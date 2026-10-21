@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/auth/credentials"
 	"github.com/shopnexus/server2/internal/auth/otp"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
@@ -112,7 +113,7 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Accounts.Delete(rc, accountID) }); err != nil {
 			return SignInResult{}, err
 		}
-		return SignInResult{Refusal: refusalOf(ErrTryAgain)}, nil
+		return SignInResult{Refusal: refusalOf(apperr.ErrTryAgain)}, nil
 	}
 	return SignInResult{ChallengeID: in.ChallengeID, AccountID: accountID, IsNew: true, SessionID: sessionID}, nil
 }

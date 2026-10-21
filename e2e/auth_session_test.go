@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -49,7 +48,7 @@ func TestRefreshRefusals(t *testing.T) {
 		t.Fatalf("empty body: %d %s", res.Status, res.Body)
 	}
 	acc, _ := newAccount(t)
-	db.Exec(context.Background(), `UPDATE accounts SET status = 'suspended', suspend_reason = 'e2e' WHERE id = $1`, acc.Account.ID)
+	suspend(t, acc.Account.ID)
 	if res := refresh(t, acc.RefreshToken); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
 		t.Fatalf("suspended: %d %s", res.Status, res.Body)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/auth/otp"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
@@ -36,7 +37,7 @@ func TestVerifyChallengeUnderParallelGuesses(t *testing.T) {
 		switch {
 		case errors.Is(err, otp.ErrInvalidCode):
 			invalid++
-		case errors.Is(err, otp.ErrCodeLocked), errors.Is(err, auth.ErrTryAgain):
+		case errors.Is(err, otp.ErrCodeLocked), errors.Is(err, apperr.ErrTryAgain):
 		default:
 			t.Fatalf("unexpected %v", err)
 		}

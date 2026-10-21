@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/credentials/credentialstest"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/auth/otp/otptest"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 // stored creates a login challenge in s and returns it with its code.
@@ -84,7 +85,7 @@ func TestVerifyChallengeConflictSaysTryAgainForAnyCode(t *testing.T) {
 	s := otptest.NewChallenges()
 	c, code := stored(t, s, "0901234567", now)
 	for _, guess := range []string{code, wrong(code)} {
-		if _, err := auth.VerifyChallenge(context.Background(), racing{s}, c.ID(), hashOf(c, guess), now, uuid.NewV7()); !errors.Is(err, auth.ErrTryAgain) {
+		if _, err := auth.VerifyChallenge(context.Background(), racing{s}, c.ID(), hashOf(c, guess), now, uuid.NewV7()); !errors.Is(err, apperr.ErrTryAgain) {
 			t.Fatalf("guess %s: %v", guess, err)
 		}
 	}

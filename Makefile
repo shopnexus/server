@@ -43,4 +43,6 @@ test-int:
 test-e2e:
 	go test -race ./e2e/...
 
-test: test-unit test-int test-e2e
+# One run of every package; test-unit and test-int are the quicker subsets.
+test:
+	go test -race ./...

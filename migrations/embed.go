@@ -4,9 +4,7 @@ package migrations
 
 import "embed"
 
-// FS holds every file in this directory. The pattern is "*" rather than
-// "*.sql" so the package compiles before the first migration exists;
-// postgres.LoadMigrations reads only NNNN_name.sql files.
+// FS holds the migration files.
 //
-//go:embed *
+//go:embed *.sql
 var FS embed.FS

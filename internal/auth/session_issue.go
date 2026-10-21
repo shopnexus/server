@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/auth/session"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 // IssueSession starts session id and signs its first access token. When the
@@ -29,7 +30,7 @@ func IssueSession(ctx context.Context, sessions session.Store, signer session.Si
 		refresh = s.Rotate(now)
 		if err := sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
 			if errors.Is(err, session.ErrConflict) {
-				return session.Tokens{}, ErrTryAgain
+				return session.Tokens{}, apperr.ErrTryAgain
 			}
 			return session.Tokens{}, err
 		}

@@ -99,7 +99,7 @@ func TestWriteErrorHidesUnexpectedErrors(t *testing.T) {
 
 func TestRespondWritesJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
-	Respond(rec, httptest.NewRequest("GET", "/", nil), http.StatusCreated, map[string]int{"n": 1})
+	Respond(rec, http.StatusCreated, map[string]int{"n": 1})
 	if rec.Code != 201 || rec.Header().Get("Content-Type") != "application/json" || rec.Body.String() != `{"n":1}`+"\n" {
 		t.Fatalf("%d %q %q", rec.Code, rec.Header().Get("Content-Type"), rec.Body.String())
 	}
@@ -119,6 +119,9 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "kaboom") || !strings.Contains(logs.String(), "goroutine") {
 		t.Fatalf("log lacks panic value or stack: %s", logs.String())
+	}
+	if n := strings.Count(logs.String(), "\n"); n != 1 {
+		t.Fatalf("the panic was logged %d times: %s", n, logs.String())
 	}
 }
 

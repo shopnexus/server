@@ -142,6 +142,6 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, OTPSendResponse{ChallengeID: res.ChallengeID, ResendAfter: int(resend.Window.Seconds())})
+		httpx.Respond(w, http.StatusOK, OTPSendResponse{ChallengeID: res.ChallengeID, ResendAfter: int(resend.Window.Seconds())})
 	})
 }

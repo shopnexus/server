@@ -7,7 +7,6 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -32,27 +31,21 @@ import (
 	"github.com/shopnexus/server2/migrations"
 )
 
-// migrationFS is the schema New checks against; tests replace it.
-var migrationFS fs.FS = migrations.FS
-
 // App is the assembled server.
 type App struct {
 	Handler  http.Handler
 	router   *httpx.Router
 	pool     *pgxpool.Pool
-	cfg      config.Config
-	opts     options
-	ingress  *ingress.Client
 	endpoint *restatex.Endpoint
+	adminURL string
 }
 
 // Option changes how New builds the app.
 type Option func(*options)
 
 type options struct {
-	sms           sms.Sender
-	email         email.Sender
-	restatePrefix string
+	sms   sms.Sender
+	email email.Sender
 }
 
 // WithSMSSender replaces the log sender; E2E tests read codes from theirs.
@@ -61,17 +54,14 @@ func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } 
 // WithEmailSender replaces the log sender.
 func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
 
-// WithRestatePrefix prefixes every Restate service name, so tests sharing one
-// Restate server do not route to each other's endpoints.
-func WithRestatePrefix(p string) Option { return func(o *options) { o.restatePrefix = p } }
-
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 
 // New builds the server for cfg and starts its background work. It refuses to
 // start while migrations are pending, so the server never runs against an
 // older schema.
-func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (*App, error) {
+func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
+	// config.Load checks the keys too; this catches a Config built by hand.
 	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize || len(cfg.Auth.OTPKey) < 32 {
 		return nil, errors.New("auth keys missing from config; run make keys")
 	}
@@ -83,49 +73,38 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, err
 	}
-	a := &App{pool: pool, cfg: cfg, opts: o, ingress: ingress.NewClient(cfg.Restate.IngressURL)}
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL}
+	defer func() {
+		if err != nil {
+			a.Close(context.Background())
+		}
+	}()
 
-	pending, err := postgres.Pending(ctx, pool, migrationFS)
-	if err != nil {
-		pool.Close()
+	if err := checkMigrations(ctx, pool); err != nil {
 		return nil, err
 	}
-	if len(pending) > 0 {
-		pool.Close()
-		names := make([]string, len(pending))
-		for i, m := range pending {
-			names[i] = m.File()
-		}
-		return nil, fmt.Errorf("migrations pending: %s; run make migrate", strings.Join(names, ", "))
-	}
-
 	doc, err := api.Load()
 	if err != nil {
-		a.Close(context.Background())
 		return nil, fmt.Errorf("load api spec: %w", err)
 	}
 	validate, err := httpx.ValidateRequests(doc, log)
 	if err != nil {
-		a.Close(context.Background())
 		return nil, err
 	}
 
-	a.router = httpx.NewRouter()
 	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		httpx.Respond(w, r, http.StatusOK, status{"ok"})
+		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
 	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if err := a.ready(r.Context()); err != nil {
 			log.WarnContext(r.Context(), "not ready", "err", err)
-			httpx.Respond(w, r, http.StatusServiceUnavailable, status{"unavailable"})
+			httpx.Respond(w, http.StatusServiceUnavailable, status{"unavailable"})
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, status{"ok"})
+		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
-
-	defs := a.routeModules(cfg, log)
-	if err := a.startRestate(ctx, cfg, log, defs); err != nil {
-		a.Close(context.Background())
+	defs := routeModules(a.router, pool, cfg, o, log)
+	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
 
@@ -138,47 +117,65 @@ type status struct {
 	Status string `json:"status"`
 }
 
+func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	pending, err := postgres.Pending(ctx, pool, migrations.FS)
+	if err != nil || len(pending) == 0 {
+		return err
+	}
+	names := make([]string, len(pending))
+	for i, m := range pending {
+		names[i] = m.File()
+	}
+	return fmt.Errorf("migrations pending: %s; run make migrate", strings.Join(names, ", "))
+}
+
 // routeModules builds the modules' adapters, registers their routes and
 // returns their Restate services.
-func (a *App) routeModules(cfg config.Config, log *slog.Logger) []restate.ServiceDefinition {
-	accounts := account.NewPGStore(a.pool)
+func routeModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) []restate.ServiceDefinition {
+	accounts := account.NewPGStore(pool)
 	ports := auth.Ports{
 		Accounts:    account.Client{Store: accounts, Now: time.Now},
-		Challenges:  otp.NewChallengePGStore(a.pool),
-		Quotas:      otp.NewQuotaPGStore(a.pool),
-		Credentials: credentials.NewPGStore(a.pool),
-		Sessions:    session.NewPGStore(a.pool),
-		SMS:         a.opts.sms,
-		Email:       a.opts.email,
+		Challenges:  otp.NewChallengePGStore(pool),
+		Quotas:      otp.NewQuotaPGStore(pool),
+		Credentials: credentials.NewPGStore(pool),
+		Sessions:    session.NewPGStore(pool),
+		SMS:         o.sms,
+		Email:       o.email,
 	}
 	keys := auth.Keys{
 		Codes:    otp.NewCodes(cfg.Auth.OTPKey),
 		Signer:   session.NewSigner(cfg.Auth),
 		Verifier: session.NewVerifier(cfg.Auth),
 	}
-	rs := auth.Restate{Client: a.ingress, Prefix: a.opts.restatePrefix}
-	auth.Routes(a.router, ports, keys, rs, cfg.TrustedProxies, time.Now, log)
-	account.Routes(a.router, accounts, time.Now, log, auth.RequireAuth(keys.Verifier, time.Now, log))
-	return auth.Services(a.opts.restatePrefix, ports, keys)
+	prefix := cfg.Restate.ServicePrefix
+	rs := auth.Restate{Client: ingress.NewClient(cfg.Restate.IngressURL), Prefix: prefix}
+	auth.Routes(router, ports, keys, rs, cfg.TrustedProxies, time.Now, log)
+	account.Routes(router, accounts, time.Now, log, auth.RequireAuth(keys.Verifier, time.Now, log))
+	return auth.Services(prefix, ports, keys)
 }
 
-// startRestate serves defs and registers them, retrying for up to 30 s while
-// the Restate server starts. With no services there is nothing to serve.
-func (a *App) startRestate(ctx context.Context, cfg config.Config, log *slog.Logger, defs []restate.ServiceDefinition) error {
-	if len(defs) == 0 {
-		return nil
-	}
-	ep, err := restatex.Serve(cfg.Restate.ListenAddr, defs...)
+// startRestate serves defs and registers them with Restate.
+func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
+	ep, err := restatex.Serve(cfg.ListenAddr, defs...)
 	if err != nil {
-		return fmt.Errorf("restate endpoint: %w", err)
+		return nil, fmt.Errorf("restate endpoint: %w", err)
 	}
-	a.endpoint = ep
-	url := cfg.Restate.EndpointURL
+	url := cfg.EndpointURL
 	if url == "" {
 		url = ep.URL()
 	}
+	if err := register(ctx, cfg.AdminURL, url, log); err != nil {
+		ep.Close(context.Background())
+		return nil, err
+	}
+	return ep, nil
+}
+
+// register retries for up to 30 s while the Restate server starts.
+func register(ctx context.Context, adminURL, url string, log *slog.Logger) error {
+	var err error
 	for attempt := range 15 {
-		if err = restatex.Register(ctx, cfg.Restate.AdminURL, url); err == nil {
+		if err = restatex.Register(ctx, adminURL, url); err == nil {
 			return nil
 		}
 		log.WarnContext(ctx, "restate not reachable yet", "attempt", attempt+1, "err", err)
@@ -195,7 +192,7 @@ func (a *App) ready(ctx context.Context) error {
 	if err := a.pool.Ping(ctx); err != nil {
 		return err
 	}
-	return restatex.Healthy(ctx, a.cfg.Restate.AdminURL)
+	return restatex.Healthy(ctx, a.adminURL)
 }
 
 // Close stops the Restate endpoint and closes the pool.

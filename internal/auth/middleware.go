@@ -31,12 +31,3 @@ func RequireAuth(v session.Verifier, now func() time.Time, log *slog.Logger) fun
 		})
 	}
 }
-
-// principal returns the caller of a route behind RequireAuth, or writes 401.
-func principal(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Principal, bool) {
-	p, ok := authn.From(r.Context())
-	if !ok {
-		httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
-	}
-	return p, ok
-}

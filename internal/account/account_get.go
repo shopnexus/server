@@ -7,7 +7,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
@@ -35,9 +34,8 @@ func Get(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (View
 // GET /v1/accounts/me
 func GetHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, ok := authn.From(r.Context())
+		p, ok := httpx.Caller(w, r, log)
 		if !ok {
-			httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 			return
 		}
 		v, err := Get(r.Context(), accounts, p.AccountID, now())
@@ -45,6 +43,15 @@ func GetHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Han
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, v)
+		httpx.Respond(w, http.StatusOK, v)
 	})
+}
+
+// StatusOf returns the status in force at now.
+func StatusOf(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (Status, error) {
+	a, err := accounts.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return a.Status(now), nil
 }

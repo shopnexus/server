@@ -1,3 +1,5 @@
+// Package postgres opens the pgx pool, runs migrations and traces every
+// query. Transactions belong to the stores that need them.
 package postgres
 
 import (

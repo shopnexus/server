@@ -14,7 +14,7 @@ import (
 )
 
 // Respond writes body as JSON with status.
-func Respond(w http.ResponseWriter, r *http.Request, status int, body any) {
+func Respond(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(body)
@@ -29,6 +29,7 @@ var statusOf = map[apperr.Kind]int{
 	apperr.KindForbidden:            http.StatusForbidden,
 	apperr.KindRateLimited:          http.StatusTooManyRequests,
 	apperr.KindPreconditionRequired: http.StatusPreconditionRequired,
+	apperr.KindTooLarge:             http.StatusRequestEntityTooLarge,
 }
 
 type errorPayload struct {
@@ -52,16 +53,20 @@ func WriteError(w http.ResponseWriter, r *http.Request, log *slog.Logger, err er
 	}
 	if !ok {
 		log.ErrorContext(r.Context(), "request failed", "err", err)
-		Respond(w, r, http.StatusInternalServerError, map[string]errorPayload{"error": {
-			Code: "internal", Message: "internal error", TraceID: traceID,
-		}})
+		writeInternal(w, traceID)
 		return
 	}
 	if ae.Err != nil {
 		log.WarnContext(r.Context(), "request refused", "code", ae.Code, "err", ae.Err)
 	}
-	Respond(w, r, status, map[string]errorPayload{"error": {
+	Respond(w, status, map[string]errorPayload{"error": {
 		Code: ae.Code, Message: ae.Message, Fields: ae.Fields, Details: ae.Details, TraceID: traceID,
+	}})
+}
+
+func writeInternal(w http.ResponseWriter, traceID string) {
+	Respond(w, http.StatusInternalServerError, map[string]errorPayload{"error": {
+		Code: "internal", Message: "internal error", TraceID: traceID,
 	}})
 }
 
@@ -78,7 +83,7 @@ func Recover(log *slog.Logger) func(http.Handler) http.Handler {
 					panic(v)
 				}
 				log.ErrorContext(r.Context(), "panic", "value", fmt.Sprint(v), "stack", string(debug.Stack()))
-				WriteError(w, r, log, fmt.Errorf("panic: %v", v))
+				writeInternal(w, trace.SpanContextFromContext(r.Context()).TraceID().String())
 			}()
 			next.ServeHTTP(w, r)
 		})

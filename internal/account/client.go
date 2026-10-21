@@ -16,7 +16,8 @@ func (c Client) Create(ctx context.Context, id uuid.UUID, displayName string) er
 	return Create(ctx, c.Store, id, displayName, c.Now())
 }
 
-func (c Client) Delete(ctx context.Context, id uuid.UUID) error { return Delete(ctx, c.Store, id) }
+// Delete removes an account; see Store.Delete.
+func (c Client) Delete(ctx context.Context, id uuid.UUID) error { return c.Store.Delete(ctx, id) }
 
 func (c Client) Status(ctx context.Context, id uuid.UUID) (Status, error) {
 	return StatusOf(ctx, c.Store, id, c.Now())

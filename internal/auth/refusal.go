@@ -6,10 +6,6 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
-// ErrTryAgain answers a request that collided with another write. It reads
-// the same whether the collided OTP guess was right or wrong.
-var ErrTryAgain = apperr.New(apperr.KindConflict, "try_again", "the request collided with another; try again")
-
 // Refusal is a business error carried in a Restate result. The ingress turns
 // a terminal error into a bare 500, so refusals travel as data.
 type Refusal struct {

@@ -1,8 +1,13 @@
 package e2e
 
 import (
-	"context"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
+	"uuid"
+
+	"github.com/shopnexus/server2/internal/auth/session"
 )
 
 type accountView struct {
@@ -25,6 +30,51 @@ func TestAccountMeNeedsAToken(t *testing.T) {
 	}
 	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer("junk")); res.Status != 401 || errorOf(t, res).Code != "invalid_token" {
 		t.Fatalf("junk token: %d %s", res.Status, res.Body)
+	}
+}
+
+// A valid token for an account that does not exist, which no sign-in issues,
+// gets 404 on both methods.
+func TestAccountMeUnknownAccount(t *testing.T) {
+	s, _ := session.New(uuid.NewV7(), uuid.NewV7(), "", time.Now(), time.Now())
+	token, _, _ := session.NewSigner(keys).Sign(s, time.Now())
+	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(token)); res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
+		t.Fatalf("get: %d %s", res.Status, res.Body)
+	}
+	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(token))
+	if res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
+		t.Fatalf("patch: %d %s", res.Status, res.Body)
+	}
+}
+
+// Parallel renames of one account race on its write_id. Each gets 200 or
+// 409 try_again, and at least one wins.
+func TestAccountRenameRace(t *testing.T) {
+	acc, _ := newAccount(t)
+	statuses := make(chan int, 30)
+	var wg sync.WaitGroup
+	for i := range 30 {
+		wg.Go(func() {
+			res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": fmt.Sprint("Linh ", i)}, bearer(acc.AccessToken))
+			if res.Status == 409 && errorOf(t, res).Code != "try_again" {
+				t.Errorf("409 with %s", res.Body)
+			}
+			statuses <- res.Status
+		})
+	}
+	wg.Wait()
+	close(statuses)
+	won := 0
+	for s := range statuses {
+		if s != 200 && s != 409 {
+			t.Fatalf("status %d", s)
+		}
+		if s == 200 {
+			won++
+		}
+	}
+	if won == 0 {
+		t.Fatal("no rename won")
 	}
 }
 
@@ -55,10 +105,7 @@ func TestAccountRename(t *testing.T) {
 // writes stop at once.
 func TestAccountRenameWhileSuspended(t *testing.T) {
 	acc, _ := newAccount(t)
-	if _, err := db.Exec(context.Background(),
-		`UPDATE accounts SET status = 'suspended', suspend_reason = 'e2e' WHERE id = $1`, acc.Account.ID); err != nil {
-		t.Fatal(err)
-	}
+	suspend(t, acc.Account.ID)
 	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(acc.AccessToken)); res.Status != 403 {
 		t.Fatalf("rename: %d %s", res.Status, res.Body)
 	}

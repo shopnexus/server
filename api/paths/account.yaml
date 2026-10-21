@@ -14,6 +14,8 @@ me:
               $ref: "../schemas/account.yaml#/Account"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
   patch:
     operationId: updateMyAccount
     summary: Change the display name.
@@ -39,5 +41,9 @@ me:
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+      "409":
+        $ref: "../responses/common.yaml#/Conflict"
       "422":
         $ref: "../responses/common.yaml#/Unprocessable"

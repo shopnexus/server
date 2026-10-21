@@ -13,6 +13,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
@@ -37,6 +38,25 @@ func URLs(t testing.TB) (string, string) {
 		t.Fatal(err)
 	}
 	return ingressURL, adminURL
+}
+
+// ConfigForMain returns the test stack's Restate config with a fresh service
+// prefix and a free local port for the endpoint.
+func ConfigForMain() (config.RestateConfig, error) {
+	ingressURL, adminURL, err := URLsForMain()
+	return config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
+		ServicePrefix: Prefix()}, err
+}
+
+// Config is ConfigForMain for one test; it skips under -short like URLs.
+func Config(t testing.TB) config.RestateConfig {
+	t.Helper()
+	URLs(t)
+	cfg, err := ConfigForMain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
 }
 
 // Prefix returns a fresh service-name prefix. Test packages run in parallel

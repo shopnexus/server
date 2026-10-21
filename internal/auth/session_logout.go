@@ -79,7 +79,7 @@ func RemoveSessionHandler(sessions session.Store, now func() time.Time, log *slo
 // because it is HTTP plumbing; the use cases above take none.
 func noContent(log *slog.Logger, do func(*http.Request, authn.Principal) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, ok := principal(w, r, log)
+		p, ok := httpx.Caller(w, r, log)
 		if !ok {
 			return
 		}

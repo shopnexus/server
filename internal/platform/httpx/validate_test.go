@@ -55,7 +55,7 @@ func thingsServer(t *testing.T) http.Handler {
 			WriteError(w, req, log, err)
 			return
 		}
-		Respond(w, req, http.StatusCreated, in)
+		Respond(w, http.StatusCreated, in)
 	})
 	return Trace(validate(r))
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 func seed(t *testing.T, s account.Store) uuid.UUID {
@@ -86,10 +87,11 @@ func (conflicting) Save(context.Context, *account.Account, uuid.UUID) error {
 	return account.ErrConflict
 }
 
+// A lost race reaches the client as try_again, the code auth uses too.
 func TestRenameReportsAConflict(t *testing.T) {
 	s := accounttest.NewMemStore()
 	id := seed(t, s)
-	if _, err := account.Rename(context.Background(), conflicting{s}, id, "Minh", now); !errors.Is(err, account.ErrConflict) {
+	if _, err := account.Rename(context.Background(), conflicting{s}, id, "Minh", now); !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("err %v", err)
 	}
 }

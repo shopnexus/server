@@ -27,7 +27,7 @@ const MaxBodyBytes = 1 << 20
 
 var (
 	errInvalidRequest = apperr.New(apperr.KindBadRequest, "invalid_request", "request does not match the API description")
-	errBodyTooLarge   = &apperr.Error{Kind: apperr.KindBadRequest, Code: "body_too_large", Message: "request body exceeds 1 MB"}
+	errBodyTooLarge   = apperr.New(apperr.KindTooLarge, "body_too_large", "request body exceeds 1 MB")
 )
 
 // ValidateRequests checks each request against its operation in doc before
@@ -59,7 +59,7 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 				if err != nil {
 					var tooLarge *http.MaxBytesError
 					if errors.As(err, &tooLarge) {
-						writeStatus(w, r, log, errBodyTooLarge, http.StatusRequestEntityTooLarge)
+						WriteError(w, r, log, errBodyTooLarge)
 						return
 					}
 					WriteError(w, r, log, err)
@@ -77,19 +77,6 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 		})
 	}, nil
 }
-
-// writeStatus writes e with a status its kind does not map to (413).
-func writeStatus(w http.ResponseWriter, r *http.Request, log *slog.Logger, e *apperr.Error, status int) {
-	rec := &statusOverride{ResponseWriter: w, status: status}
-	WriteError(rec, r, log, e)
-}
-
-type statusOverride struct {
-	http.ResponseWriter
-	status int
-}
-
-func (s *statusOverride) WriteHeader(int) { s.ResponseWriter.WriteHeader(s.status) }
 
 // toAppError turns kin-openapi's validation errors into one invalid_request
 // error with a field entry per problem, or malformed_json for a body that

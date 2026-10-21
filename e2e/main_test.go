@@ -56,19 +56,19 @@ func run(m *testing.M) int {
 	defer drop()
 	db = pool
 
-	ingressURL, adminURL, err := restatetest.URLsForMain()
+	restateCfg, err := restatetest.ConfigForMain()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
-		Restate:     config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0"},
+		Restate:     restateCfg,
 		Auth:        keys,
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
-	a, err := app.New(context.Background(), cfg, discard, app.WithRestatePrefix(restatetest.Prefix()),
+	a, err := app.New(context.Background(), cfg, discard,
 		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)

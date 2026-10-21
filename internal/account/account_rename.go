@@ -2,12 +2,13 @@ package account
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
@@ -25,6 +26,9 @@ func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now 
 		return View{}, err
 	}
 	if err := accounts.Save(ctx, &a, uuid.NewV7()); err != nil {
+		if errors.Is(err, ErrConflict) {
+			return View{}, apperr.ErrTryAgain
+		}
 		return View{}, err
 	}
 	return viewOf(a, now), nil
@@ -37,9 +41,8 @@ type RenameRequest struct {
 // PATCH /v1/accounts/me
 func RenameHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, ok := authn.From(r.Context())
+		p, ok := httpx.Caller(w, r, log)
 		if !ok {
-			httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 			return
 		}
 		in, err := httpx.Decode[RenameRequest](r)
@@ -52,6 +55,6 @@ func RenameHandler(accounts Store, now func() time.Time, log *slog.Logger) http.
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, v)
+		httpx.Respond(w, http.StatusOK, v)
 	})
 }

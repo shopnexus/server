@@ -141,9 +141,6 @@ func template(adminURL string) (string, error) {
 // create clones tpl into a new database and returns a pool on it and a
 // function that drops it.
 func create(adminURL, tpl string) (*pgxpool.Pool, func(), error) {
-	if err := guard(adminURL); err != nil {
-		return nil, nil, err
-	}
 	// Database names cannot be bind parameters. rand.Text is base32
 	// (A-Z, 2-7), so the lower-cased name needs no quoting.
 	name := "t_" + strings.ToLower(rand.Text()[:16])

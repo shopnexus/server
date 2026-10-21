@@ -47,6 +47,9 @@ type RestateConfig struct {
 	AdminURL    string // RESTATE_ADMIN_URL
 	ListenAddr  string // RESTATE_LISTEN_ADDR: where this process serves its Restate endpoint
 	EndpointURL string // RESTATE_ENDPOINT_URL: how Restate reaches it; empty means http://ListenAddr
+	// ServicePrefix (RESTATE_SERVICE_PREFIX) goes before every service name,
+	// so servers sharing one Restate server, as tests do, keep apart.
+	ServicePrefix string
 }
 
 // Load builds a Config from getenv. It reports every missing or invalid
@@ -98,26 +101,25 @@ func Load(getenv func(string) string) (Config, error) {
 		LogFormat:   oneOf("LOG_FORMAT", "json", "text", "json"),
 		DatabaseURL: need("DATABASE_URL"),
 		Restate: RestateConfig{
-			IngressURL:  need("RESTATE_INGRESS_URL"),
-			AdminURL:    need("RESTATE_ADMIN_URL"),
-			ListenAddr:  get("RESTATE_LISTEN_ADDR", "127.0.0.1:9080"),
-			EndpointURL: get("RESTATE_ENDPOINT_URL", ""),
+			IngressURL:    need("RESTATE_INGRESS_URL"),
+			AdminURL:      need("RESTATE_ADMIN_URL"),
+			ListenAddr:    get("RESTATE_LISTEN_ADDR", "127.0.0.1:9080"),
+			EndpointURL:   get("RESTATE_ENDPOINT_URL", ""),
+			ServicePrefix: get("RESTATE_SERVICE_PREFIX", ""),
 		},
 		Auth: AuthConfig{
 			OTPKey:       decodeKey("OTP_KEY", 32, false),
 			JWTKeyID:     need("JWT_KEY_ID"),
 			JWTPrevKeyID: getenv("JWT_PREVIOUS_KEY_ID"),
-			Issuer:       get("JWT_ISSUER", "server2"),
-			Audience:     get("JWT_AUDIENCE", "shopnexus-app"),
+			Issuer:       get("JWT_ISSUER", defaultIssuer),
+			Audience:     get("JWT_AUDIENCE", defaultAudience),
 		},
 		OTLPEndpoint: get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 		ServiceName:  get("SERVICE_NAME", "server2"),
 	}
 
-	level := oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")
-	if err := cfg.LogLevel.UnmarshalText([]byte(level)); err != nil {
-		cfg.LogLevel = slog.LevelInfo
-	}
+	// oneOf has checked the value, so it parses.
+	_ = cfg.LogLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")))
 
 	for _, s := range strings.Split(getenv("TRUSTED_PROXIES"), ",") {
 		if s = strings.TrimSpace(s); s == "" {

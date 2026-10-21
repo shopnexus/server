@@ -57,7 +57,7 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 // GET /v1/auth/sessions
 func ListSessionsHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, ok := principal(w, r, log)
+		p, ok := httpx.Caller(w, r, log)
 		if !ok {
 			return
 		}
@@ -85,6 +85,6 @@ func ListSessionsHandler(sessions session.Store, now func() time.Time, log *slog
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		httpx.Respond(w, r, http.StatusOK, page)
+		httpx.Respond(w, http.StatusOK, page)
 	})
 }

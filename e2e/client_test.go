@@ -33,6 +33,16 @@ func loadSpec() error {
 	return err
 }
 
+// record notes that op answered status, for the coverage check.
+func record(op string, status int) {
+	mu.Lock()
+	defer mu.Unlock()
+	if seen[op] == nil {
+		seen[op] = map[int]bool{}
+	}
+	seen[op][status] = true
+}
+
 func observed(op string, status int) bool {
 	mu.Lock()
 	defer mu.Unlock()
@@ -97,12 +107,7 @@ func call(t *testing.T, base, method, path string, body any, headers ...[2]strin
 		t.Fatalf("%s %s → %d does not match the spec: %v\nbody: %s", method, path, resp.StatusCode, err, respBody)
 	}
 
-	mu.Lock()
-	if seen[route.Operation.OperationID] == nil {
-		seen[route.Operation.OperationID] = map[int]bool{}
-	}
-	seen[route.Operation.OperationID][resp.StatusCode] = true
-	mu.Unlock()
+	record(route.Operation.OperationID, resp.StatusCode)
 
 	return Response{Status: resp.StatusCode, Header: resp.Header, Body: respBody}
 }
