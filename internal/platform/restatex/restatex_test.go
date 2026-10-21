@@ -53,8 +53,7 @@ func TestServeRegisterAndCall(t *testing.T) {
 }
 
 func TestHealthy(t *testing.T) {
-	_, admin := restatetest.URLs(t)
-	if err := restatex.Healthy(context.Background(), admin); err != nil {
+	if err := restatex.Healthy(context.Background(), restatetest.Config(t).AdminURL); err != nil {
 		t.Fatal(err)
 	}
 	if err := restatex.Healthy(context.Background(), "http://127.0.0.1:1"); err == nil {

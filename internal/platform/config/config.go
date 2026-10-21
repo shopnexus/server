@@ -80,7 +80,7 @@ func Load(getenv func(string) string) (Config, error) {
 	decodeKey := func(key string, size int, exact bool) []byte {
 		v := getenv(key)
 		if v == "" {
-			errs = append(errs, fmt.Errorf("%s is required; run make keys", key))
+			errs = append(errs, fmt.Errorf("%s is required; make run adds it to .env", key))
 			return nil
 		}
 		b, err := base64.StdEncoding.DecodeString(v)

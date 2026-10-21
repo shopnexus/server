@@ -1,48 +1,28 @@
-.PHONY: up down run migrate keys lint mock test-up test-down test-unit test-int test-e2e test
+.PHONY: run test down
 
-up:
-	docker compose up -d --wait
+TEST_STACK := docker compose -f docker-compose.test.yml
 
-down:
-	docker compose down
-
+# Starts the development stack and the server. On first use it copies
+# .env.example to .env and adds fresh keys; migrations apply every time.
 run:
+	@test -f .env || cp .env.example .env
+	@grep -q '^OTP_KEY=' .env || go run ./cmd/keygen >> .env
+	docker compose up -d --wait
+	go run ./cmd/migrate
 	go run ./cmd/server
 
-migrate:
-	go run ./cmd/migrate
-
-keys:
-	@grep -q '^OTP_KEY=' .env 2>/dev/null && { echo ".env already has keys"; exit 1; } || go run ./cmd/keygen >> .env
-
-lint:
+# Runs every test, go vet and gofmt against the test stack. Restate is
+# recreated each time: its journal lives in tmpfs and grows with every run.
+test:
+	$(TEST_STACK) up -d --wait
+	$(TEST_STACK) up -d --wait --force-recreate restate
+	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done
+	go test -race ./...
 	go vet ./...
 	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 
-mock:
-	docker compose --profile mock up -d prism
-
-TEST_DATABASE_URL ?= postgres://server2:server2@localhost:56433/server2_test?sslmode=disable
-export TEST_DATABASE_URL
-TEST_RESTATE_INGRESS_URL ?= http://127.0.0.1:56581
-TEST_RESTATE_ADMIN_URL ?= http://127.0.0.1:56571
-export TEST_RESTATE_INGRESS_URL TEST_RESTATE_ADMIN_URL
-
-test-up:
-	docker compose -f docker-compose.test.yml up -d --wait
-
-test-down:
-	docker compose -f docker-compose.test.yml down -v
-
-test-unit:
-	go test -short -race ./...
-
-test-int:
-	go test -race ./internal/...
-
-test-e2e:
-	go test -race ./e2e/...
-
-# One run of every package; test-unit and test-int are the quicker subsets.
-test:
-	go test -race ./...
+# Stops both stacks. The development database is kept; the test stack's is
+# in tmpfs and goes.
+down:
+	docker compose down
+	$(TEST_STACK) down

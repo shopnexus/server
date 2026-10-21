@@ -63,7 +63,7 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
 	// config.Load checks the keys too; this catches a Config built by hand.
 	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize || len(cfg.Auth.OTPKey) < 32 {
-		return nil, errors.New("auth keys missing from config; run make keys")
+		return nil, errors.New("auth keys missing from config; run make run, which adds them to .env")
 	}
 	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}}
 	for _, opt := range opts {
@@ -126,7 +126,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	for i, m := range pending {
 		names[i] = m.File()
 	}
-	return fmt.Errorf("migrations pending: %s; run make migrate", strings.Join(names, ", "))
+	return fmt.Errorf("migrations pending: %s; run go run ./cmd/migrate or make run", strings.Join(names, ", "))
 }
 
 // routeModules builds the modules' adapters, registers their routes and

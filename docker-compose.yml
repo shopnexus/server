@@ -1,7 +1,5 @@
-# Development stack. The server itself runs on the host (`make run`).
-#
-#   make up                     postgres, restate, and otel-lgtm (profile obs, on via .env)
-#   make mock                   prism serving api/openapi.yaml
+# Development stack: postgres, restate, and otel-lgtm (profile obs, on via
+# .env). `make run` starts it and runs the server on the host.
 #
 # Ports sit in the 564xx-565xx range so this stack runs beside ai-portal and
 # the old shopnexus server.
@@ -49,16 +47,6 @@ services:
       - "56318:4318"
     volumes:
       - lgtm:/data
-
-  prism:
-    image: stoplight/prism:5.15.10
-    profiles: [mock]
-    # -m false: multiprocess mode crashes in 5.15.10 (TypeError on isPrimary).
-    command: ["mock", "-m", "false", "-h", "0.0.0.0", "/api/openapi.yaml"]
-    ports:
-      - "56400:4010"
-    volumes:
-      - ./api:/api:ro
 
 volumes:
   postgres:

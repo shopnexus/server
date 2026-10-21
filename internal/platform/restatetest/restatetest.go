@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -17,46 +16,34 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
-// URLsForMain returns the test stack's ingress and admin URLs.
-func URLsForMain() (string, string, error) {
-	ingressURL, adminURL := os.Getenv("TEST_RESTATE_INGRESS_URL"), os.Getenv("TEST_RESTATE_ADMIN_URL")
-	if ingressURL == "" || adminURL == "" {
-		return "", "", errors.New("TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL are not set: run `make test-up` and use make")
-	}
-	return ingressURL, adminURL, nil
+// URLs returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, or the
+// test stack's when they are unset.
+func URLs() (string, string) {
+	return getenv("TEST_RESTATE_INGRESS_URL", "http://127.0.0.1:56581"), getenv("TEST_RESTATE_ADMIN_URL", "http://127.0.0.1:56571")
 }
 
-// URLs skips the test under -short and fails it when the test stack's URLs
-// are missing.
-func URLs(t testing.TB) (string, string) {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("needs Restate")
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	ingressURL, adminURL, err := URLsForMain()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ingressURL, adminURL
+	return def
 }
 
 // ConfigForMain returns the test stack's Restate config with a fresh service
 // prefix and a free local port for the endpoint.
-func ConfigForMain() (config.RestateConfig, error) {
-	ingressURL, adminURL, err := URLsForMain()
+func ConfigForMain() config.RestateConfig {
+	ingressURL, adminURL := URLs()
 	return config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
-		ServicePrefix: Prefix()}, err
+		ServicePrefix: Prefix()}
 }
 
-// Config is ConfigForMain for one test; it skips under -short like URLs.
+// Config is ConfigForMain for one test, which it skips under -short.
 func Config(t testing.TB) config.RestateConfig {
 	t.Helper()
-	URLs(t)
-	cfg, err := ConfigForMain()
-	if err != nil {
-		t.Fatal(err)
+	if testing.Short() {
+		t.Skip("needs Restate")
 	}
-	return cfg
+	return ConfigForMain()
 }
 
 // Prefix returns a fresh service-name prefix. Test packages run in parallel
@@ -72,7 +59,10 @@ func Prefix() string {
 // stack's Restate and returns an ingress client.
 func Start(t testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
 	t.Helper()
-	ingressURL, adminURL := URLs(t)
+	if testing.Short() {
+		t.Skip("needs Restate")
+	}
+	ingressURL, adminURL := URLs()
 	ep, err := restatex.Serve("127.0.0.1:0", defs...)
 	if err != nil {
 		t.Fatal(err)

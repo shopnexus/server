@@ -69,7 +69,7 @@ func TestNewRefusesPendingMigrations(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.DatabaseURL = pgtest.Empty(t).Config().ConnString()
 	_, err := New(context.Background(), cfg, discard())
-	if err == nil || !strings.Contains(err.Error(), "make migrate") {
+	if err == nil || !strings.Contains(err.Error(), "cmd/migrate") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestReadyzRestateDown(t *testing.T) {
 func TestNewRefusesMissingKeys(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Auth = config.AuthConfig{}
-	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "make keys") {
+	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "make run") {
 		t.Fatalf("err %v", err)
 	}
 }

@@ -13,7 +13,7 @@ const (
 	defaultAudience = "shopnexus-app"
 )
 
-// NewAuthKeys returns fresh random keys. `make keys` prints them for .env;
+// NewAuthKeys returns fresh random keys. `make run` adds them to .env;
 // tests use them directly.
 func NewAuthKeys() AuthConfig {
 	otpKey := make([]byte, 32)
