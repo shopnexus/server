@@ -1,6 +1,7 @@
 package otp
 
 import (
+	"encoding/json"
 	"slices"
 	"time"
 	"uuid"
@@ -25,6 +26,26 @@ func NewQuota(key string) Quota { return Quota{key: key} }
 // RestoreQuota rebuilds a stored quota. Stores only.
 func RestoreQuota(key string, sentAt []time.Time, writeID uuid.UUID) Quota {
 	return Quota{key: key, sentAt: sentAt, writeID: writeID}
+}
+
+// quotaJSON is how a Restate step journals a quota it loaded.
+type quotaJSON struct {
+	Key     string      `json:"key"`
+	SentAt  []time.Time `json:"sent_at"`
+	WriteID uuid.UUID   `json:"write_id"`
+}
+
+func (q Quota) MarshalJSON() ([]byte, error) {
+	return json.Marshal(quotaJSON{q.key, q.sentAt, q.writeID})
+}
+
+func (q *Quota) UnmarshalJSON(b []byte) error {
+	var j quotaJSON
+	if err := json.Unmarshal(b, &j); err != nil {
+		return err
+	}
+	*q = RestoreQuota(j.Key, j.SentAt, j.WriteID)
+	return nil
 }
 
 func (q Quota) Key() string         { return q.key }

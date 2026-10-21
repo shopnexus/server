@@ -91,10 +91,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]Migration, 
 		return nil, err
 	}
 	defer conn.Release()
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", migrateLock); err != nil {
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock}); err != nil {
 		return nil, err
 	}
-	defer conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", migrateLock)
+	defer conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock})
 
 	if _, err := conn.Exec(ctx, createTable); err != nil {
 		return nil, err
@@ -108,8 +108,8 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]Migration, 
 			if _, err := tx.Exec(ctx, m.SQL); err != nil {
 				return err
 			}
-			_, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",
-				m.Version, m.Name, m.Checksum[:])
+			_, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name, checksum) VALUES (@version, @name, @checksum)",
+				pgx.StrictNamedArgs{"version": m.Version, "name": m.Name, "checksum": m.Checksum[:]})
 			return err
 		})
 		if err != nil {

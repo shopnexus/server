@@ -9,8 +9,8 @@ import (
 
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/auth/session"
-	"github.com/shopnexus/server2/internal/auth/session/sessiontest"
 	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 // devices issues sessions for acc and returns the principal of each.
@@ -37,8 +37,9 @@ func revokedIn(t *testing.T, s session.Store, id uuid.UUID) bool {
 }
 
 func TestLogoutRevokesOnlyThisSession(t *testing.T) {
-	s, acc := sessiontest.NewMemStore(), uuid.NewV7()
-	ps := devices(t, s, acc, 2, now)
+	db := pgtest.New(t)
+	s := session.NewPGStore(db)
+	ps := devices(t, s, newAccount(t, db), 2, now)
 	if err := auth.Logout(context.Background(), s, ps[1], now); err != nil {
 		t.Fatal(err)
 	}
@@ -48,9 +49,10 @@ func TestLogoutRevokesOnlyThisSession(t *testing.T) {
 }
 
 func TestLogoutAllNeedsRecentSignIn(t *testing.T) {
-	s, acc := sessiontest.NewMemStore(), uuid.NewV7()
-	ps := devices(t, s, acc, 2, now)
-	other := devices(t, s, uuid.NewV7(), 1, now)
+	db := pgtest.New(t)
+	s := session.NewPGStore(db)
+	ps := devices(t, s, newAccount(t, db), 2, now)
+	other := devices(t, s, newAccount(t, db), 1, now)
 	if err := auth.LogoutAll(context.Background(), s, ps[0], now.Add(15*time.Minute+time.Second)); !errors.Is(err, auth.ErrReauthRequired) {
 		t.Fatalf("stale sign-in: %v", err)
 	}
@@ -63,9 +65,10 @@ func TestLogoutAllNeedsRecentSignIn(t *testing.T) {
 }
 
 func TestRemoveSessionChecksTheOwner(t *testing.T) {
-	s := sessiontest.NewMemStore()
-	mine := devices(t, s, uuid.NewV7(), 2, now)
-	theirs := devices(t, s, uuid.NewV7(), 1, now)
+	db := pgtest.New(t)
+	s := session.NewPGStore(db)
+	mine := devices(t, s, newAccount(t, db), 2, now)
+	theirs := devices(t, s, newAccount(t, db), 1, now)
 	if err := auth.RemoveSession(context.Background(), s, mine[0], theirs[0].SessionID, now); !errors.Is(err, auth.ErrSessionNotFound) || revokedIn(t, s, theirs[0].SessionID) {
 		t.Fatalf("another account's session: %v", err)
 	}

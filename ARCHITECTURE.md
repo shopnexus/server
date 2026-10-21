@@ -9,8 +9,8 @@ built the OTP sign-in and sessions on this design.
 The code takes from two branches of the old `server` repository.
 `origin/microservice-ready` reads top to bottom with few layers.
 `origin/cleancode` has hand-written SQL repositories, idempotent inserts and
-Restate workflows split by phase. server2 adds rich entities, OpenAPI-first
-contracts and contract tests.
+Restate workflows split by phase. server2 adds rich entities and
+OpenAPI-first contracts.
 
 ## Decided
 
@@ -28,9 +28,17 @@ Restate admin health endpoint.
 A use case is a plain function that takes ports and parameters:
 `func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now time.Time) (View, error)`
 in package account.
-A port is an interface; real and fake adapters implement it. Another module's
-use case reaches a caller through a port the caller declares. Business code
-takes no functions as arguments: no update callbacks, no transaction closures.
+A port is an interface, implemented by the Postgres adapter; a test wraps
+that adapter to inject a fault. Another module's use case reaches a caller
+through a port the caller declares. Business code takes no functions as
+arguments: no update callbacks, no transaction closures.
+
+Code is a function by default: a use case, an HTTP handler, an entity
+method. A type with methods exists only where something needs one: an
+adapter, because a port is an interface, and a Restate service, because the
+SDK binds a struct.
+A flow that runs as a Restate service is written in the service handler
+itself (see Durable flows), so it is not a separate use case.
 
 ### Transactions and concurrency
 
@@ -61,8 +69,21 @@ refresh keep working when Restate is down.
 
 - The client's `Idempotency-Key` is the idempotency key of the invocation. A
   repeated key returns the first result and runs no step again.
-- OTP send is service `OTP`. One `restate.Run` admits the send against the
-  quotas, the next stores the challenge, the next sends the SMS or email.
+- OTP send is service `OTP`. It admits the send against the quotas, stores
+  the challenge and sends the SMS or email.
+- A `restate.Run` step only reads or writes a store, so any error it returns
+  is a fault that Restate retries. Every business decision is taken in the
+  handler between steps, on values a step returned and the journal kept.
+  Code outside a step uses only those values: a step that saves an entity
+  saves a copy, so a field `Save` sets on the first run, such as the write
+  ID, never differs from a replay. A replay takes the same decisions, and a
+  retried `Save` lands the same row because the row already carries its
+  write ID. Entities that a step returns have `MarshalJSON` for the journal.
+- A business refusal leaves the service as data, `Refused *apperr.Error` in
+  the result. Restate retries an error, and its ingress keeps only the code
+  and message of a terminal one, which would lose `code` and `details`.
+- A service takes `Now func() time.Time`, read once per invocation through a
+  journaled step (`clock`), so tests move time by hand.
 - Sign-up touches two aggregates, `Account` and then `Credentials`, so
   service `SignIn` runs it as a saga. When `Credentials.Create` returns
   `ErrTaken`, because another sign-up took the identity between the lookup
@@ -76,9 +97,8 @@ refresh keep working when Restate is down.
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
 - A Restate service lives in a `*_service.go` file of its module, and is the
-  only code that passes closures, to `restate.Run`. The use cases it calls
-  and the HTTP handler that invokes it sit in the matching use-case file
-  (`otp_send.go`, `sign_in.go`).
+  only code that passes closures, to `restate.Run`. The HTTP handler that
+  invokes it sits in the matching file (`otp_send.go`, `sign_in.go`).
 
 ### Module layout
 
@@ -86,11 +106,14 @@ refresh keep working when Restate is down.
 internal/account/
   account.go              entity: rules, write_id
   account_store.go        port
-  account_store_pg.go     adapter: hand-written SQL, one transaction per method
+  account_store_pg.go     adapter: hand-written SQL, one transaction per method,
+                          methods in the port's order (Create, Get, Find..., Save, Delete)
+  account_store_pg_test.go
   account_rename.go       use case and its HTTP handler
   routes.go               binds adapters to handlers
-  accounttest/            fake and contract suite
 ```
+
+Every aggregate's files follow this layout.
 
 One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
 HTTP handlers either call a use case or call a Restate service through the
@@ -120,7 +143,8 @@ UPDATE ... SET ..., write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 ```
 
-Stores pass parameters as `pgx.StrictNamedArgs` with `@name` placeholders.
+Every SQL statement passes parameters as `pgx.StrictNamedArgs` with `@name`
+placeholders, in stores, migrations and tests alike.
 Positional `$1` placeholders are not used. The strict variant fails the query
 when a name in the SQL has no value or a value has no name; plain
 `pgx.NamedArgs` binds a misspelled name as NULL, and a NULL `write_id` turns
@@ -150,10 +174,10 @@ Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
    goes first so an address over its limit cannot spend the quota of the
    numbers it names. `Quota.Admit(now, rule)` holds the limits: one code per
    destination per 45 s, five per destination per hour, twenty per address per
-   hour. Both quotas are saved with the step's one write ID. Parallel requests
-   conflict on `write_id` and retry; after three lost races the request gets
-   429. A quota that admitted a request stays spent
-   even when a later step fails.
+   hour. Each quota is read in one step, judged by `Admit` between steps and
+   saved in the next step. Parallel requests conflict on `write_id` and read
+   again; after three lost races the request gets 429. A quota that admitted
+   a request stays spent even when a later step fails.
 2. `restate.Run`: create the `Challenge`.
 3. `restate.Run`: send the SMS or email through `sms.Sender` or `email.Sender`.
 4. Return `challenge_id`; the HTTP handler waits for it.
@@ -170,11 +194,16 @@ the same answer.
 Service `SignIn`, handler `Run`, returns the challenge ID, the account ID,
 `is_new` and a session ID:
 
-1. `restate.Run`: load the challenge. When `Open` refuses it (used, expired
-   or locked), return that refusal and save nothing. Otherwise `Verify` and
-   `Save`: a wrong code is saved and ends the run with `invalid_code`.
-2. `restate.Run`: find the identity in `Credentials`.
-   - Found: check the account status, mark the identity used.
+1. A step loads the challenge and whether it is the newest for its
+   destination. Between steps: an unknown, replaced or non-login challenge
+   is `code_expired`, and when `Open` refuses it (used, expired or locked)
+   the run ends with that refusal and saves nothing. Otherwise `Verify`
+   counts the guess, the next step saves it, and a wrong code ends the run
+   with `invalid_code`. A save that loses a race gets `try_again` for a
+   right and a wrong code alike.
+2. A step finds the identity in `Credentials`.
+   - Found: a step reads the account status (suspended ends the run), and
+     the next step marks the identity used, ignoring a lost race.
    - Not found: create the `Account` with `accountID := newID(ctx, at)`, then
      the `Credentials` with the identity. `ErrTaken` from the second step
      deletes the account (see Durable flows).
@@ -222,17 +251,23 @@ no database.
 
 ### Testing
 
-- Entities: unit tests.
-- Use cases: unit tests with fakes from `<module>test/`. A test passes only
-  the ports its use case takes.
-- Adapters: one contract suite per port, run against the fake and Postgres.
-  It covers `write_id`: a stale T conflicts, and a second `Save` with the same N
-  succeeds.
+There are no in-memory fakes. Anything that touches a store is tested on
+Postgres: `pgtest.New(t)` clones a migrated template database per test. A
+fake would copy Postgres behaviour (microsecond timestamps, the `write_id`
+rule, `ON CONFLICT`, `UNIQUE (kind, value)`) and need a contract suite to
+prove the copy. `go test -short` runs only what needs no database.
+
+- Entities: unit tests, no database. The business rules live here.
+- Adapters: tests on Postgres, including `write_id`: a stale T conflicts,
+  and a second `Save` with the same N succeeds.
+- Use cases: tests on Postgres. A test passes only the ports its use case
+  takes, and wraps an adapter when it needs a conflict or a failure.
 - Restate services: integration tests against a Restate server from the test
-  stack, with the endpoint served in-process. One named test per service
-  makes an adapter commit and then fail once with a retryable error. Restate retries the
-  step, and the test checks that no row is duplicated and the compensation ran
-  at most once.
+  stack, with the endpoint served in-process and a hand-moved clock. They
+  hold the flow's business rules, since the flow lives in the handler. Tests
+  make a store commit and then fail once with a retryable error; Restate
+  retries the step, and the test checks that no row is duplicated, no send
+  is counted twice and the compensation ran at most once.
 - E2E: the server in-process (HTTP and Restate endpoint), Restate and Postgres
   from the test stack, the deployment registered in `TestMain`, SMS and email
   captured by a fake sender. The four OpenAPI conformance tests from plan 1
@@ -248,8 +283,6 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
 - At start the server serves its services on `RESTATE_LISTEN_ADDR` and
   registers `RESTATE_ENDPOINT_URL` through the admin API with
   `use_http_11`, because the endpoint is a standard library HTTP/1.1 server.
-- A business refusal travels in the result as a `Refusal`. The ingress turns
-  a terminal error into a 500 carrying only a message.
 - An OTP code is `HMAC(OTP_KEY, "otp-code:" ‖ challenge_id) mod 10^6`. The
   send step recomputes it on a retry, and it is never stored or journaled.
   The verify handler loads the challenge and sends `SignIn` the code's hash.
@@ -259,13 +292,12 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
   every service name. Test packages share one Restate server and a name
   routes to one endpoint, so `restatetest.Config` gives every registration a
   fresh prefix.
-- A retried step reruns its whole closure, `Get` included, after its first
-  run may have committed. Every step that saves an aggregate therefore checks
-  first whether the aggregate already carries the step's journaled write ID;
-  when it does, the step returns the outcome that write left (a quota counts
-  the send once, a challenge reports its `Verdict`) instead of applying the
-  change again. A step that changes nothing saves nothing, so it leaves no
-  write ID a retry could take for its own.
+- Plan 2 first judged inside a step. A retried step then applied its change
+  again (finding I1 of the plan 2 review: a spurious `otp_too_soon` or
+  `code_expired`). The fix had each step look for its own write ID and
+  rebuild the verdict, and that check reported an expired code as
+  `invalid_code` and a wrong code on a used challenge as a success. The read,
+  decide, save split replaced both on 2026-10-21.
 - Restate answers a repeated `Idempotency-Key` with the first result,
   whatever the new request carries. The verify handler therefore issues tokens
   only when the result names the request's challenge and the request's code

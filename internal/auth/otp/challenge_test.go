@@ -1,8 +1,10 @@
 package otp_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/netip"
+	"reflect"
 	"testing"
 	"time"
 	"uuid"
@@ -59,5 +61,23 @@ func TestVerifyExpired(t *testing.T) {
 	c := challenge(t)
 	if err := c.Verify([]byte("wrong"), now.Add(otp.CodeTTL)); !errors.Is(err, otp.ErrCodeExpired) || c.Attempts() != 0 {
 		t.Fatalf("%v, attempts %d", err, c.Attempts())
+	}
+}
+
+// A Restate step journals the challenge it loaded; the copy read back must be
+// the same challenge.
+func TestChallengeJSONRoundTrip(t *testing.T) {
+	c := challenge(t)
+	c.Verify([]byte("wrong"), now)
+	b, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back otp.Challenge
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(back, c) {
+		t.Fatalf("got %+v, want %+v", back, c)
 	}
 }

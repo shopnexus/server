@@ -1,6 +1,8 @@
 package otp_test
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -40,5 +42,21 @@ func TestQuotaHourlyCap(t *testing.T) {
 	}
 	if len(q.SentAt()) > 5 {
 		t.Fatalf("sends older than the longest window kept: %d", len(q.SentAt()))
+	}
+}
+
+func TestQuotaJSONRoundTrip(t *testing.T) {
+	q := otp.NewQuota("dest:+84901234567")
+	q.Admit(now, otp.Rule{Window: time.Hour, Max: 5})
+	b, err := json.Marshal(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back otp.Quota
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(back, q) {
+		t.Fatalf("got %+v, want %+v", back, q)
 	}
 }

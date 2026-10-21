@@ -44,17 +44,6 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
 }
 
-// Restore rebuilds an account from stored fields. It is for stores and test
-// fakes; business code uses New.
-func Restore(id uuid.UUID, displayName string, status Status, suspendedUntil *time.Time, suspendReason string,
-	writeID uuid.UUID, createdAt, updatedAt time.Time) Account {
-	return Account{
-		id: id, displayName: displayName, status: status,
-		suspendedUntil: suspendedUntil, suspendReason: suspendReason,
-		writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
-	}
-}
-
 func (a Account) ID() uuid.UUID              { return a.id }
 func (a Account) DisplayName() string        { return a.displayName }
 func (a Account) SuspendReason() string      { return a.suspendReason }
@@ -62,10 +51,6 @@ func (a Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
 func (a Account) CreatedAt() time.Time       { return a.createdAt }
 func (a Account) UpdatedAt() time.Time       { return a.updatedAt }
 func (a Account) WriteID() uuid.UUID         { return a.writeID }
-
-// StoredStatus is the status as stored, before Status applies a suspension's
-// end. Stores only.
-func (a Account) StoredStatus() Status { return a.status }
 
 // Status reports the status in force at now. A suspension whose end has
 // passed reads as active even though the stored row still says suspended.

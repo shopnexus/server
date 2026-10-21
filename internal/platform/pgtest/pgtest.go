@@ -38,24 +38,28 @@ func guard(adminURL string) error {
 		return fmt.Errorf("refusing: unparsable TEST_DATABASE_URL: %w", err)
 	}
 	if u.Port() != testPort || u.Path != "/"+testName {
-		return fmt.Errorf("refusing to create test databases on %s%s: want port %s and database %s (make test-up)",
+		return fmt.Errorf("refusing to create test databases on %s%s: want port %s and database %s (make test)",
 			u.Host, u.Path, testPort, testName)
 	}
 	return nil
 }
 
-// URL returns TEST_DATABASE_URL, the admin connection to the test stack's
-// Postgres.
+// AdminURL is TEST_DATABASE_URL, or the test stack's Postgres when it is
+// unset.
+func AdminURL() string {
+	if u := os.Getenv("TEST_DATABASE_URL"); u != "" {
+		return u
+	}
+	return "postgres://server2:server2@localhost:" + testPort + "/" + testName + "?sslmode=disable"
+}
+
+// URL returns AdminURL, and skips the test under -short.
 func URL(t testing.TB) string {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("needs Postgres; skipped under -short")
 	}
-	u := os.Getenv("TEST_DATABASE_URL")
-	if u == "" {
-		t.Fatal("TEST_DATABASE_URL is not set: run `make test-up` and use `make test-int`")
-	}
-	return u
+	return AdminURL()
 }
 
 // New returns a pool on a fresh database with every migration applied. The
@@ -106,7 +110,8 @@ func template(adminURL string) (string, error) {
 
 	err = withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
 		var exists bool
-		if err := conn.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)", name).Scan(&exists); err != nil {
+		if err := conn.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = @name)",
+			pgx.StrictNamedArgs{"name": name}).Scan(&exists); err != nil {
 			return err
 		}
 		if exists {
@@ -176,10 +181,10 @@ func withAdmin(adminURL string, fn func(context.Context, *pgx.Conn) error) error
 		return err
 	}
 	defer conn.Close(ctx)
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", cloneLock); err != nil {
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock}); err != nil {
 		return err
 	}
-	defer conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", cloneLock)
+	defer conn.Exec(ctx, "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock})
 	return fn(ctx, conn)
 }
 

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"uuid"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func TestOTPSendDeliversACode(t *testing.T) {
@@ -147,7 +149,7 @@ func TestVerifyParallelGuesses(t *testing.T) {
 		}
 	}
 	var attempts int
-	db.QueryRow(context.Background(), `SELECT attempts FROM otp_challenges WHERE id = $1`, id).Scan(&attempts)
+	db.QueryRow(context.Background(), `SELECT attempts FROM otp_challenges WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&attempts)
 	if attempts > 5 {
 		t.Fatalf("attempts %d", attempts)
 	}

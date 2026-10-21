@@ -1,7 +1,15 @@
 package auth
 
+// The Restate services in this package follow one rule. A restate.Run step
+// only reads or writes a store, so any error it returns is a fault Restate
+// retries. Every business decision is taken between steps, on values a step
+// returned and the journal kept, and code outside a step uses only those
+// values. A replay therefore takes the same decisions, and a retried write
+// lands the same row: Save accepts a row that already carries its write ID.
+
 import (
 	"encoding/binary"
+	"errors"
 	"time"
 	"uuid"
 
@@ -28,9 +36,18 @@ func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
 	return ingress.Service[SignInInput, SignInResult](r.Client, SignIn{Prefix: r.Prefix}.ServiceName(), "Run")
 }
 
-// clock returns the time from a journaled step, so a replay sees the same time.
-func clock(ctx restate.Context) (time.Time, error) {
-	return restate.Run(ctx, func(restate.RunContext) (time.Time, error) { return time.Now(), nil })
+// clock returns now() from a journaled step, so a replay sees the same time.
+func clock(ctx restate.Context, now func() time.Time) (time.Time, error) {
+	return restate.Run(ctx, func(restate.RunContext) (time.Time, error) { return now(), nil })
+}
+
+// ignore returns err unless it is target. A step uses it for an outcome it
+// reports as data, such as a lost race.
+func ignore(err, target error) error {
+	if errors.Is(err, target) {
+		return nil
+	}
+	return err
 }
 
 // newID returns a UUIDv7 for at. Its random bits come from the invocation's

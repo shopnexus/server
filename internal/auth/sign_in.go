@@ -10,85 +10,12 @@ import (
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
-	"github.com/shopnexus/server2/internal/account"
-	"github.com/shopnexus/server2/internal/auth/credentials"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/auth/session"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
-
-// VerifyChallenge checks a code hash against a login challenge and saves the
-// counted guess before it answers, so a wrong code stays counted. A guess
-// the challenge refuses changes nothing and is not saved. A write that loses
-// a race returns apperr.ErrTryAgain whether the code was right or wrong, and that
-// guess is not counted.
-//
-// stepWrite is the step's journaled write ID. A retried step whose save
-// already committed finds it on the challenge and reports that guess's
-// verdict instead of counting the code again.
-func VerifyChallenge(ctx context.Context, challenges otp.ChallengeStore, id uuid.UUID, codeHash []byte, now time.Time, stepWrite uuid.UUID) (contact.Address, error) {
-	c, err := challenges.Get(ctx, id)
-	if errors.Is(err, otp.ErrNotFound) {
-		return contact.Address{}, otp.ErrCodeExpired
-	}
-	if err != nil {
-		return contact.Address{}, err
-	}
-	if c.Purpose() != otp.PurposeLogin {
-		return contact.Address{}, otp.ErrCodeExpired
-	}
-	if c.WriteID() == stepWrite {
-		return c.Destination(), c.Verdict()
-	}
-	newest, err := challenges.IsNewest(ctx, c)
-	if err != nil {
-		return contact.Address{}, err
-	}
-	if !newest {
-		return contact.Address{}, otp.ErrCodeExpired
-	}
-	if err := c.Open(now); err != nil {
-		return contact.Address{}, err
-	}
-	verdict := c.Verify(codeHash, now)
-	if err := challenges.Save(ctx, &c, stepWrite); err != nil {
-		if errors.Is(err, otp.ErrConflict) {
-			return contact.Address{}, apperr.ErrTryAgain
-		}
-		return contact.Address{}, err
-	}
-	return c.Destination(), verdict
-}
-
-// SignInExisting lets an existing account in: it refuses a suspended account
-// and records the identity's use. Only a person who just proved they hold the
-// identity gets here, so account_suspended is safe to reveal.
-func SignInExisting(ctx context.Context, accounts AccountPort, creds credentials.Store, ref credentials.IdentityRef, now time.Time, stepWrite uuid.UUID) error {
-	st, err := accounts.Status(ctx, ref.AccountID)
-	if err != nil {
-		return err
-	}
-	if st == account.StatusSuspended {
-		return account.ErrSuspended
-	}
-	c, err := creds.Get(ctx, ref.AccountID)
-	if err != nil {
-		return err
-	}
-	if err := c.MarkUsed(ref.IdentityID, now); err != nil {
-		return err
-	}
-	// last_used_at is a hint for the dormant check; losing it to a concurrent
-	// sign-in of the same account costs nothing.
-	if err := creds.Save(ctx, &c, stepWrite); err != nil && !errors.Is(err, credentials.ErrConflict) {
-		return err
-	}
-	return nil
-}
 
 type SignInRequest struct {
 	ChallengeID uuid.UUID `json:"challenge_id"`
@@ -140,11 +67,11 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 	hash := codes.Hash(c.Destination(), in.Code)
 	res, err := rs.SignIn().Request(ctx, SignInInput{ChallengeID: in.ChallengeID, CodeHash: hash},
 		restate.WithIdempotencyKey(r.Header.Get("Idempotency-Key")))
-	if err == nil {
-		err = res.Refusal.Err()
-	}
 	if err != nil {
 		return SignInResponse{}, err
+	}
+	if res.Refused != nil {
+		return SignInResponse{}, res.Refused
 	}
 	// Restate answers a repeated Idempotency-Key with the first result,
 	// whatever this request carries. Only the request that matches it, the

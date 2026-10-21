@@ -2,15 +2,22 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/netip"
 	"sync"
+	"sync/atomic"
+	"testing"
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account"
+	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
 var (
@@ -52,42 +59,87 @@ func (e emailInbox) Send(ctx context.Context, to, _, body string) error {
 	return e.inbox.Send(ctx, to, body)
 }
 
-// fakeAccounts stands in for module account behind AccountPort.
-type fakeAccounts struct {
-	mu     sync.Mutex
-	status map[uuid.UUID]account.Status
+// accountsOn is module account's adapter on db, reading statuses at now.
+func accountsOn(db *pgxpool.Pool) auth.AccountPort {
+	return account.Client{Store: account.NewPGStore(db), Now: func() time.Time { return now }}
 }
 
-func newFakeAccounts() *fakeAccounts { return &fakeAccounts{status: map[uuid.UUID]account.Status{}} }
-
-func (f *fakeAccounts) Create(_ context.Context, id uuid.UUID, _ string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if _, ok := f.status[id]; !ok {
-		f.status[id] = account.StatusActive
+// newAccount creates an active account in db and returns its ID.
+func newAccount(t *testing.T, db *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	id := uuid.NewV7()
+	if err := accountsOn(db).Create(context.Background(), id, ""); err != nil {
+		t.Fatal(err)
 	}
-	return nil
+	return id
 }
 
-func (f *fakeAccounts) Delete(_ context.Context, id uuid.UUID) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.status, id)
-	return nil
-}
-
-func (f *fakeAccounts) Status(_ context.Context, id uuid.UUID) (account.Status, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	st, ok := f.status[id]
-	if !ok {
-		return "", account.ErrNotFound
+// suspendAccount marks an account suspended, as an admin would.
+func suspendAccount(t *testing.T, db *pgxpool.Pool, id uuid.UUID) {
+	t.Helper()
+	if _, err := db.Exec(context.Background(),
+		`UPDATE accounts SET status = 'suspended', suspend_reason = 'test' WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": id}); err != nil {
+		t.Fatal(err)
 	}
-	return st, nil
 }
 
-func (f *fakeAccounts) suspend(id uuid.UUID) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.status[id] = account.StatusSuspended
+// testClock is a service's Now that a test moves by hand.
+type testClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func newClock() *testClock { return &testClock{t: now} }
+
+func (c *testClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.t
+}
+
+func (c *testClock) Add(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.t = c.t.Add(d)
+}
+
+func phone(t *testing.T, raw string) contact.Address {
+	t.Helper()
+	a, err := contact.ParsePhone(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+// stored creates a login challenge in s and returns it with its code.
+func stored(t *testing.T, s otp.ChallengeStore, raw string, at time.Time) (otp.Challenge, string) {
+	t.Helper()
+	c := auth.NewChallenge(codes(), uuid.NewV7(), otp.PurposeLogin, phone(t, raw), clientIP, at)
+	if err := s.Create(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+	return c, codes().For(c.ID())
+}
+
+func hashOf(c otp.Challenge, code string) []byte { return codes().Hash(c.Destination(), code) }
+
+// wrong returns a six-digit code that is not code.
+func wrong(code string) string {
+	if code == "000000" {
+		return "000001"
+	}
+	return "000000"
+}
+
+// commitThenFail reports a retryable error once after fn committed, as when
+// the process dies before Restate journals the step.
+type commitThenFail struct{ failed atomic.Bool }
+
+func (c *commitThenFail) after(err error) error {
+	if err == nil && !c.failed.Swap(true) {
+		return errors.New("connection reset after commit")
+	}
+	return err
 }

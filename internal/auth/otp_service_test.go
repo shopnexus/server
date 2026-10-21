@@ -2,14 +2,15 @@ package auth_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	restate "github.com/restatedev/sdk-go"
 
@@ -20,82 +21,50 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatetest"
 )
 
-// commitThenFail commits a challenge and then reports a retryable error once,
-// as when the process dies before Restate journals the step.
-type commitThenFail struct {
-	otp.ChallengeStore
-	failed atomic.Bool
-}
-
-func (c *commitThenFail) Create(ctx context.Context, ch otp.Challenge) error {
-	if err := c.ChallengeStore.Create(ctx, ch); err != nil {
-		return err
-	}
-	if !c.failed.Swap(true) {
-		return errors.New("connection reset after commit")
-	}
-	return nil
-}
-
 type otpEnv struct {
-	rs  auth.Restate
-	db  *pgxpool.Pool
-	box *inbox
+	rs    auth.Restate
+	db    *pgxpool.Pool
+	box   *inbox
+	clock *testClock
 }
 
-// quotaCommitThenFail commits a quota and then reports a retryable error
-// once.
-type quotaCommitThenFail struct {
-	otp.QuotaStore
-	failed atomic.Bool
-}
-
-func (q *quotaCommitThenFail) Save(ctx context.Context, quota *otp.Quota, w uuid.UUID) error {
-	if err := q.QuotaStore.Save(ctx, quota, w); err != nil {
-		return err
-	}
-	if !q.failed.Swap(true) {
-		return errors.New("connection reset after commit")
-	}
-	return nil
-}
-
-func startOTP(t *testing.T, wrap func(otp.ChallengeStore) otp.ChallengeStore) *otpEnv {
-	return startOTPWith(t, wrap, nil)
-}
-
-func startOTPWith(t *testing.T, wrap func(otp.ChallengeStore) otp.ChallengeStore, wrapQuotas func(otp.QuotaStore) otp.QuotaStore) *otpEnv {
+// startOTP serves the OTP service on Postgres stores; each change may wrap a
+// store before the service is registered.
+func startOTP(t *testing.T, changes ...func(*auth.OTP)) *otpEnv {
 	t.Helper()
 	db := pgtest.New(t)
-	challenges := otp.NewChallengePGStore(db)
-	if wrap != nil {
-		challenges = wrap(challenges)
+	b, clock := &inbox{}, newClock()
+	svc := auth.OTP{Prefix: restatetest.Prefix(), Quotas: otp.NewQuotaPGStore(db), Challenges: otp.NewChallengePGStore(db),
+		Codes: codes(), SMS: b, Email: emailInbox{b}, Now: clock.Now}
+	for _, change := range changes {
+		change(&svc)
 	}
-	var quotas otp.QuotaStore = otp.NewQuotaPGStore(db)
-	if wrapQuotas != nil {
-		quotas = wrapQuotas(quotas)
-	}
-	b := &inbox{}
-	prefix := restatetest.Prefix()
-	svc := auth.OTP{Prefix: prefix, Quotas: quotas, Challenges: challenges, Codes: codes(), SMS: b, Email: emailInbox{b}}
 	client := restatetest.Start(t, restate.Reflect(svc))
-	return &otpEnv{rs: auth.Restate{Client: client, Prefix: prefix}, db: db, box: b}
+	return &otpEnv{rs: auth.Restate{Client: client, Prefix: svc.Prefix}, db: db, box: b, clock: clock}
 }
 
-func (e *otpEnv) trySend(raw, ip, key string) (auth.OTPSendResult, error) {
+func (e *otpEnv) trySend(raw, ip string) (auth.OTPSendResult, error) {
 	dest, _ := contact.ParsePhone(raw)
 	return e.rs.OTP().Request(context.Background(),
 		auth.OTPSendInput{Kind: dest.Kind(), Destination: dest.Value(), Purpose: otp.PurposeLogin, IP: netipOf(ip)},
-		restate.WithIdempotencyKey(key))
+		restate.WithIdempotencyKey(uuid.NewV7().String()))
 }
 
-func (e *otpEnv) send(t *testing.T, raw, ip, key string) auth.OTPSendResult {
+func (e *otpEnv) send(t *testing.T, raw, ip string) auth.OTPSendResult {
 	t.Helper()
-	res, err := e.trySend(raw, ip, key)
+	res, err := e.trySend(raw, ip)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return res
+}
+
+// refusedWith fails t unless res was refused with code.
+func refusedWith(t *testing.T, res auth.OTPSendResult, code string) {
+	t.Helper()
+	if res.Refused == nil || res.Refused.Code != code {
+		t.Fatalf("want %s, got %+v", code, res)
+	}
 }
 
 func (e *otpEnv) rows(t *testing.T) int {
@@ -104,55 +73,65 @@ func (e *otpEnv) rows(t *testing.T) int {
 	return n
 }
 
+func (e *otpEnv) sends(t *testing.T, key string) int {
+	var n int
+	e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = @key`,
+		pgx.StrictNamedArgs{"key": key}).Scan(&n)
+	return n
+}
+
 func TestOTPServiceStoresAndSends(t *testing.T) {
-	e := startOTP(t, nil)
-	res := e.send(t, "0901234567", "203.0.113.7", uuid.NewV7().String())
+	e := startOTP(t)
+	res := e.send(t, "0901234567", "203.0.113.7")
 	msgs := e.box.all()
-	if res.Refusal != nil || e.rows(t) != 1 || len(msgs) != 1 || msgs[0].To != "+84901234567" ||
+	if res.Refused != nil || e.rows(t) != 1 || len(msgs) != 1 || msgs[0].To != "+84901234567" ||
 		!strings.Contains(msgs[0].Text, codes().For(res.ChallengeID)) {
 		t.Fatalf("result %+v, rows %d, messages %+v", res, e.rows(t), msgs)
 	}
 }
 
 func TestOTPServiceReplayedKey(t *testing.T) {
-	e := startOTP(t, nil)
+	e := startOTP(t)
 	key := uuid.NewV7().String()
-	a := e.send(t, "0901234567", "203.0.113.7", key)
-	b := e.send(t, "0901234567", "203.0.113.7", key)
-	if a.ChallengeID != b.ChallengeID || e.rows(t) != 1 || len(e.box.all()) != 1 {
-		t.Fatalf("a %+v, b %+v, rows %d, messages %d", a, b, e.rows(t), len(e.box.all()))
+	in := auth.OTPSendInput{Kind: contact.Phone, Destination: "+84901234567", Purpose: otp.PurposeLogin, IP: clientIP}
+	a, err1 := e.rs.OTP().Request(context.Background(), in, restate.WithIdempotencyKey(key))
+	b, err2 := e.rs.OTP().Request(context.Background(), in, restate.WithIdempotencyKey(key))
+	if err1 != nil || err2 != nil || a.ChallengeID != b.ChallengeID || e.rows(t) != 1 || len(e.box.all()) != 1 {
+		t.Fatalf("a %+v %v, b %+v %v, rows %d, messages %d", a, err1, b, err2, e.rows(t), len(e.box.all()))
 	}
 }
 
-func TestOTPServiceRefusesTooSoon(t *testing.T) {
-	e := startOTP(t, nil)
-	e.send(t, "0901234567", "203.0.113.7", uuid.NewV7().String())
-	if res := e.send(t, "0901234567", "198.51.100.1", uuid.NewV7().String()); res.Refusal == nil || res.Refusal.Code != "otp_too_soon" {
-		t.Fatalf("%+v", res)
+func TestOTPSendSpacingAndHourlyCap(t *testing.T) {
+	e := startOTP(t)
+	for i := range 5 {
+		if res := e.send(t, "0901234567", "203.0.113.7"); res.Refused != nil {
+			t.Fatalf("send %d: %+v", i+1, res.Refused)
+		}
+		e.clock.Add(44 * time.Second)
+		res := e.send(t, "0901234567", "198.51.100.1")
+		refusedWith(t, res, "otp_too_soon")
+		if res.Refused.Details["retry_after"] != float64(1) {
+			t.Fatalf("retry_after %v", res.Refused.Details["retry_after"])
+		}
+		e.clock.Add(time.Second)
 	}
-}
-
-func TestOTPSendSurvivesCommitThenFail(t *testing.T) {
-	e := startOTP(t, func(s otp.ChallengeStore) otp.ChallengeStore { return &commitThenFail{ChallengeStore: s} })
-	res := e.send(t, "0901234567", "203.0.113.7", uuid.NewV7().String())
-	if res.Refusal != nil || e.rows(t) != 1 || len(e.box.all()) != 1 {
-		t.Fatalf("result %+v, rows %d, messages %d", res, e.rows(t), len(e.box.all()))
-	}
+	refusedWith(t, e.send(t, "0901234567", "203.0.113.7"), "otp_limit")
 }
 
 // TestOTPSendCapsOneAddress is the SMS-pumping test: 40 parallel sends from
-// one address to 40 numbers let at most 20 codes out.
+// one address to 40 numbers let at most 20 codes out, and another address
+// still gets through.
 func TestOTPSendCapsOneAddress(t *testing.T) {
-	e := startOTP(t, nil)
+	e := startOTP(t)
 	var wg sync.WaitGroup
 	var sent, failed atomic.Int32
 	for i := range 40 {
 		wg.Go(func() {
-			res, err := e.trySend(fmt.Sprintf("09%08d", i), "203.0.113.7", uuid.NewV7().String())
+			res, err := e.trySend(fmt.Sprintf("09%08d", i), "203.0.113.7")
 			switch {
 			case err != nil:
 				failed.Add(1)
-			case res.Refusal == nil:
+			case res.Refused == nil:
 				sent.Add(1)
 			}
 		})
@@ -161,17 +140,99 @@ func TestOTPSendCapsOneAddress(t *testing.T) {
 	if failed.Load() > 0 || sent.Load() > 20 || sent.Load() == 0 || len(e.box.all()) != int(sent.Load()) {
 		t.Fatalf("failed %d, sent %d, messages %d", failed.Load(), sent.Load(), len(e.box.all()))
 	}
+	if res := e.send(t, "0987654322", "198.51.100.1"); res.Refused != nil {
+		t.Fatalf("another address: %+v", res.Refused)
+	}
 }
 
+// IPv6 clients are limited per /64, the block one host usually holds.
+func TestOTPSendKeysIPv6ByPrefix(t *testing.T) {
+	e := startOTP(t)
+	for i := range 20 {
+		if res := e.send(t, fmt.Sprintf("09%08d", i), fmt.Sprintf("2001:db8:1:2::%x", i+1)); res.Refused != nil {
+			t.Fatalf("send %d: %+v", i+1, res.Refused)
+		}
+	}
+	refusedWith(t, e.send(t, "0987654321", "2001:db8:1:2:ffff::1"), "otp_limit")
+}
+
+// An address over its limit must not spend the quota of the numbers it
+// names, or one machine could lock anyone out of sign-in.
+func TestOTPSendChecksTheAddressFirst(t *testing.T) {
+	e := startOTP(t)
+	for i := range 20 {
+		e.send(t, fmt.Sprintf("09%08d", i), "203.0.113.7")
+	}
+	refusedWith(t, e.send(t, "0987654321", "203.0.113.7"), "otp_limit")
+	if res := e.send(t, "0987654321", "198.51.100.9"); res.Refused != nil {
+		t.Fatalf("the victim from their own address: %+v", res.Refused)
+	}
+}
+
+// losing makes the first n quota saves lose a race.
+type losing struct {
+	otp.QuotaStore
+	n atomic.Int32
+}
+
+func (l *losing) Save(ctx context.Context, q *otp.Quota, w uuid.UUID) error {
+	if l.n.Add(-1) >= 0 {
+		return otp.ErrConflict
+	}
+	return l.QuotaStore.Save(ctx, q, w)
+}
+
+func TestOTPSendRetriesLostRaces(t *testing.T) {
+	for _, c := range []struct {
+		lost    int32
+		refused bool
+	}{{2, false}, {3, true}} {
+		e := startOTP(t, func(s *auth.OTP) {
+			l := &losing{QuotaStore: s.Quotas}
+			l.n.Store(c.lost)
+			s.Quotas = l
+		})
+		if res := e.send(t, "0901234567", "203.0.113.7"); (res.Refused != nil) != c.refused {
+			t.Fatalf("%d lost races: %+v", c.lost, res)
+		}
+	}
+}
+
+type challengeCommitThenFail struct {
+	otp.ChallengeStore
+	commitThenFail
+}
+
+func (c *challengeCommitThenFail) Create(ctx context.Context, ch otp.Challenge) error {
+	return c.after(c.ChallengeStore.Create(ctx, ch))
+}
+
+func TestOTPSendSurvivesCommitThenFail(t *testing.T) {
+	e := startOTP(t, func(s *auth.OTP) { s.Challenges = &challengeCommitThenFail{ChallengeStore: s.Challenges} })
+	res := e.send(t, "0901234567", "203.0.113.7")
+	if res.Refused != nil || e.rows(t) != 1 || len(e.box.all()) != 1 {
+		t.Fatalf("result %+v, rows %d, messages %d", res, e.rows(t), len(e.box.all()))
+	}
+}
+
+type quotaCommitThenFail struct {
+	otp.QuotaStore
+	commitThenFail
+}
+
+func (q *quotaCommitThenFail) Save(ctx context.Context, quota *otp.Quota, w uuid.UUID) error {
+	return q.after(q.QuotaStore.Save(ctx, quota, w))
+}
+
+// A quota save that committed and then failed runs again; the send is still
+// counted once in each quota.
 func TestOTPSendSurvivesQuotaCommitThenFail(t *testing.T) {
-	e := startOTPWith(t, nil, func(q otp.QuotaStore) otp.QuotaStore { return &quotaCommitThenFail{QuotaStore: q} })
-	res := e.send(t, "0901234567", "203.0.113.7", uuid.NewV7().String())
-	if res.Refusal != nil || len(e.box.all()) != 1 {
+	e := startOTP(t, func(s *auth.OTP) { s.Quotas = &quotaCommitThenFail{QuotaStore: s.Quotas} })
+	res := e.send(t, "0901234567", "203.0.113.7")
+	if res.Refused != nil || len(e.box.all()) != 1 {
 		t.Fatalf("result %+v, messages %d", res, len(e.box.all()))
 	}
-	var sends int
-	e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = 'dest:+84901234567'`).Scan(&sends)
-	if sends != 1 {
-		t.Fatalf("destination quota counted %d sends", sends)
+	if a, d := e.sends(t, "ip:203.0.113.7"), e.sends(t, "dest:+84901234567"); a != 1 || d != 1 {
+		t.Fatalf("address quota counted %d sends, destination %d", a, d)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math"
 	"net/http"
 	"net/netip"
 	"time"
@@ -32,18 +31,6 @@ var (
 	addressRules     = []otp.Rule{{Window: time.Hour, Max: 20}}
 )
 
-// AdmitOTP spends one send from the client address's quota, then the
-// destination's. The address goes first, so an address over its limit cannot
-// spend the quota of the numbers it names. stepWrite is the step's journaled
-// write ID: a retried step finds it on the quotas it already saved and does
-// not count the send again.
-func AdmitOTP(ctx context.Context, quotas otp.QuotaStore, dest contact.Address, ip netip.Addr, now time.Time, stepWrite uuid.UUID) error {
-	if err := admit(ctx, quotas, addressKey(ip), now, addressRules, stepWrite); err != nil {
-		return err
-	}
-	return admit(ctx, quotas, destinationKey(dest), now, destinationRules, stepWrite)
-}
-
 func destinationKey(dest contact.Address) string { return "dest:" + dest.Value() }
 
 // addressKey limits an IPv6 client by its /64, the block one host usually
@@ -54,32 +41,6 @@ func addressKey(ip netip.Addr) string {
 	}
 	p, _ := ip.Prefix(64)
 	return "ip:" + p.String()
-}
-
-// admit retries a lost race three times, so parallel sends behind one NAT do
-// not get a spurious 429. A lost race writes nothing, so the retry reuses
-// writeID.
-func admit(ctx context.Context, quotas otp.QuotaStore, key string, now time.Time, rules []otp.Rule, writeID uuid.UUID) error {
-	for range 3 {
-		q, err := quotas.Get(ctx, key)
-		if err != nil {
-			return err
-		}
-		if q.WriteID() == writeID {
-			return nil
-		}
-		rule, wait, ok := q.Admit(now, rules...)
-		if !ok {
-			if rule == resend {
-				return ErrOTPTooSoon.WithDetail("retry_after", int(math.Ceil(wait.Seconds())))
-			}
-			return ErrOTPLimit
-		}
-		if err := quotas.Save(ctx, &q, writeID); !errors.Is(err, otp.ErrConflict) {
-			return err
-		}
-	}
-	return ErrOTPLimit
 }
 
 // NewChallenge builds the challenge for id. Its code is derived from id, so
@@ -135,11 +96,12 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 		res, err := rs.OTP().Request(ctx,
 			OTPSendInput{Kind: dest.Kind(), Destination: dest.Value(), Purpose: in.Purpose, IP: ip},
 			restate.WithIdempotencyKey(r.Header.Get("Idempotency-Key")))
-		if err == nil {
-			err = res.Refusal.Err()
-		}
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
+			return
+		}
+		if res.Refused != nil {
+			httpx.WriteError(w, r, log, res.Refused)
 			return
 		}
 		httpx.Respond(w, http.StatusOK, OTPSendResponse{ChallengeID: res.ChallengeID, ResendAfter: int(resend.Window.Seconds())})

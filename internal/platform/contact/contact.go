@@ -4,6 +4,7 @@
 package contact
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/mail"
@@ -26,10 +27,28 @@ var (
 )
 
 // Address is a normalised phone number or email address. Only the Parse
-// functions and Restore build one.
+// functions, Restore and UnmarshalJSON build one.
 type Address struct {
 	kind  Kind
 	value string
+}
+
+type addressJSON struct {
+	Kind  Kind   `json:"kind"`
+	Value string `json:"value"`
+}
+
+// MarshalJSON lets a Restate step return an Address.
+func (a Address) MarshalJSON() ([]byte, error) { return json.Marshal(addressJSON{a.kind, a.value}) }
+
+// UnmarshalJSON reads what MarshalJSON wrote; the value was normalised then.
+func (a *Address) UnmarshalJSON(b []byte) error {
+	var j addressJSON
+	if err := json.Unmarshal(b, &j); err != nil {
+		return err
+	}
+	*a = Address{j.Kind, j.Value}
+	return nil
 }
 
 // vnMobile is +84, a mobile prefix (3, 5, 7, 8, 9) and eight digits. Other

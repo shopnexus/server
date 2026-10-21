@@ -4,6 +4,7 @@ package otp
 
 import (
 	"crypto/hmac"
+	"encoding/json"
 	"errors"
 	"net/netip"
 	"time"
@@ -61,6 +62,36 @@ func Restore(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uui
 		ip: ip, expiresAt: expiresAt, createdAt: createdAt, consumedAt: consumedAt, writeID: writeID}
 }
 
+// challengeJSON is how a Restate step journals a challenge it loaded.
+type challengeJSON struct {
+	ID         uuid.UUID       `json:"id"`
+	Purpose    Purpose         `json:"purpose"`
+	Dest       contact.Address `json:"dest"`
+	AccountID  *uuid.UUID      `json:"account_id,omitempty"`
+	CodeHash   []byte          `json:"code_hash"`
+	Attempts   int             `json:"attempts"`
+	IP         netip.Addr      `json:"ip"`
+	ExpiresAt  time.Time       `json:"expires_at"`
+	CreatedAt  time.Time       `json:"created_at"`
+	ConsumedAt *time.Time      `json:"consumed_at,omitempty"`
+	WriteID    uuid.UUID       `json:"write_id"`
+}
+
+func (c Challenge) MarshalJSON() ([]byte, error) {
+	return json.Marshal(challengeJSON{c.id, c.purpose, c.dest, c.accountID, c.codeHash, c.attempts, c.ip,
+		c.expiresAt, c.createdAt, c.consumedAt, c.writeID})
+}
+
+func (c *Challenge) UnmarshalJSON(b []byte) error {
+	var j challengeJSON
+	if err := json.Unmarshal(b, &j); err != nil {
+		return err
+	}
+	*c = Restore(j.ID, j.Purpose, j.Dest, j.AccountID, j.CodeHash, j.Attempts, j.IP, j.ExpiresAt, j.CreatedAt,
+		j.ConsumedAt, j.WriteID)
+	return nil
+}
+
 func (c Challenge) ID() uuid.UUID                { return c.id }
 func (c Challenge) Purpose() Purpose             { return c.purpose }
 func (c Challenge) Destination() contact.Address { return c.dest }
@@ -97,11 +128,11 @@ func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
 	} else {
 		c.attempts++
 	}
-	return c.Verdict()
+	return c.verdict()
 }
 
-// Verdict is what the last counted guess decided: nil when it consumed c.
-func (c Challenge) Verdict() error {
+// verdict is what the last counted guess decided: nil when it consumed c.
+func (c Challenge) verdict() error {
 	switch {
 	case c.consumedAt != nil:
 		return nil

@@ -6,13 +6,15 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/auth"
-	"github.com/shopnexus/server2/internal/auth/session/sessiontest"
+	"github.com/shopnexus/server2/internal/auth/session"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 func TestListSessionsPagesNewestFirst(t *testing.T) {
-	s, acc := sessiontest.NewMemStore(), uuid.NewV7()
-	ps := devices(t, s, acc, 2, now)
-	devices(t, s, uuid.NewV7(), 1, now)
+	db := pgtest.New(t)
+	s := session.NewPGStore(db)
+	ps := devices(t, s, newAccount(t, db), 2, now)
+	devices(t, s, newAccount(t, db), 1, now)
 	ctx := context.Background()
 
 	all, err := auth.ListSessions(ctx, s, ps[1], uuid.UUID{}, 0, now)

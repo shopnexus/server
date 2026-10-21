@@ -51,14 +51,6 @@ func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (S
 		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), writeID: id}, token
 }
 
-// Restore rebuilds a stored session. Stores only.
-func Restore(id, accountID uuid.UUID, refreshHash, prevRefreshHash []byte, deviceName string,
-	authTime, createdAt, lastUsedAt, expiresAt time.Time, revokedAt *time.Time, writeID uuid.UUID) Session {
-	return Session{id: id, accountID: accountID, refreshHash: refreshHash, prevRefreshHash: prevRefreshHash,
-		deviceName: deviceName, authTime: authTime, createdAt: createdAt, lastUsedAt: lastUsedAt, expiresAt: expiresAt,
-		revokedAt: revokedAt, writeID: writeID}
-}
-
 func (s Session) ID() uuid.UUID           { return s.id }
 func (s Session) AccountID() uuid.UUID    { return s.accountID }
 func (s Session) RefreshHash() []byte     { return s.refreshHash }

@@ -50,11 +50,6 @@ func NewIdentity(id uuid.UUID, a contact.Address, now time.Time) Identity {
 	return Identity{id: id, kind: KindOf(a), value: a.Value(), lastUsedAt: &now, createdAt: now}
 }
 
-// RestoreIdentity rebuilds a stored identity. Stores only.
-func RestoreIdentity(id uuid.UUID, kind Kind, value string, lastUsedAt *time.Time, createdAt time.Time) Identity {
-	return Identity{id: id, kind: kind, value: value, lastUsedAt: lastUsedAt, createdAt: createdAt}
-}
-
 func (i Identity) ID() uuid.UUID          { return i.id }
 func (i Identity) Kind() Kind             { return i.kind }
 func (i Identity) Value() string          { return i.value }
@@ -73,11 +68,6 @@ type Credentials struct {
 // first write ID is the account ID.
 func New(accountID uuid.UUID, first Identity, now time.Time) Credentials {
 	return Credentials{accountID: accountID, identities: []Identity{first}, writeID: accountID, updatedAt: now}
-}
-
-// Restore rebuilds stored credentials. Stores only.
-func Restore(accountID uuid.UUID, identities []Identity, writeID uuid.UUID, updatedAt time.Time) Credentials {
-	return Credentials{accountID: accountID, identities: identities, writeID: writeID, updatedAt: updatedAt}
 }
 
 func (c Credentials) AccountID() uuid.UUID   { return c.accountID }

@@ -3,7 +3,10 @@
 // status codes.
 package apperr
 
-import "maps"
+import (
+	"errors"
+	"maps"
+)
 
 // Kind classifies an error by what the caller can do about it.
 type Kind int
@@ -23,18 +26,29 @@ const (
 
 // Error is a business error. Code is stable and snake_case; Message is English
 // for developers; Err is a cause that is logged and never sent to clients.
+// The JSON form lets a Restate service return it as data; Err stays out.
 type Error struct {
-	Kind    Kind
-	Code    string
-	Message string
-	Fields  map[string]string
-	Details map[string]any // values the client acts on: attempts_left, retry_after
-	Err     error
+	Kind    Kind              `json:"kind"`
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"`
+	Details map[string]any    `json:"details,omitempty"` // values the client acts on: attempts_left, retry_after
+	Err     error             `json:"-"`
 }
 
 // ErrTryAgain answers a write that lost a race with another write to the
 // same aggregate. Every module uses it, so a client handles one code.
 var ErrTryAgain = New(KindConflict, "try_again", "the request collided with another; try again")
+
+// From returns the *Error in err's chain. Any other error becomes a
+// KindInternal Error, which the HTTP layer answers with a 500.
+func From(err error) *Error {
+	var e *Error
+	if errors.As(err, &e) {
+		return e
+	}
+	return &Error{Kind: KindInternal, Code: "internal", Message: err.Error()}
+}
 
 // New returns an Error without fields or cause.
 func New(kind Kind, code, message string) *Error {

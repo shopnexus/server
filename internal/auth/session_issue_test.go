@@ -8,12 +8,13 @@ import (
 
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/auth/session"
-	"github.com/shopnexus/server2/internal/auth/session/sessiontest"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 func TestIssueSessionCreatesThenRotates(t *testing.T) {
-	ctx, sessions, signer := context.Background(), sessiontest.NewMemStore(), session.NewSigner(testKeys)
-	id, acc := uuid.NewV7(), uuid.NewV7()
+	db := pgtest.New(t)
+	ctx, sessions, signer := context.Background(), session.NewPGStore(db), session.NewSigner(testKeys)
+	id, acc := uuid.NewV7(), newAccount(t, db)
 	first, err := auth.IssueSession(ctx, sessions, signer, id, acc, "Pixel 9", now)
 	if err != nil {
 		t.Fatal(err)
@@ -32,8 +33,9 @@ func TestIssueSessionCreatesThenRotates(t *testing.T) {
 }
 
 func TestIssueSessionRefusesASignedOutSession(t *testing.T) {
-	ctx, sessions, signer := context.Background(), sessiontest.NewMemStore(), session.NewSigner(testKeys)
-	id, acc := uuid.NewV7(), uuid.NewV7()
+	db := pgtest.New(t)
+	ctx, sessions, signer := context.Background(), session.NewPGStore(db), session.NewSigner(testKeys)
+	id, acc := uuid.NewV7(), newAccount(t, db)
 	if _, err := auth.IssueSession(ctx, sessions, signer, id, acc, "", now); err != nil {
 		t.Fatal(err)
 	}

@@ -8,15 +8,17 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/auth/session"
-	"github.com/shopnexus/server2/internal/auth/session/sessiontest"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 type refreshEnv struct {
-	sessions *sessiontest.MemStore
-	accounts *fakeAccounts
+	db       *pgxpool.Pool
+	sessions session.Store
+	accounts auth.AccountPort
 	acc      uuid.UUID
 	sid      uuid.UUID
 	token    string
@@ -24,8 +26,8 @@ type refreshEnv struct {
 
 func newRefreshEnv(t *testing.T) *refreshEnv {
 	t.Helper()
-	e := &refreshEnv{sessions: sessiontest.NewMemStore(), accounts: newFakeAccounts(), acc: uuid.NewV7(), sid: uuid.NewV7()}
-	e.accounts.Create(context.Background(), e.acc, "")
+	db := pgtest.New(t)
+	e := &refreshEnv{db: db, sessions: session.NewPGStore(db), accounts: accountsOn(db), acc: newAccount(t, db), sid: uuid.NewV7()}
 	tokens, err := auth.IssueSession(context.Background(), e.sessions, session.NewSigner(testKeys), e.sid, e.acc, "Pixel 9", now)
 	if err != nil {
 		t.Fatal(err)
@@ -81,20 +83,20 @@ func TestRefreshRefusals(t *testing.T) {
 	if _, err := e.refresh(e.token, now.Add(session.IdleLimit)); !errors.Is(err, session.ErrExpired) {
 		t.Fatalf("idle: %v", err)
 	}
-	e.accounts.suspend(e.acc)
+	suspendAccount(t, e.db, e.acc)
 	if _, err := e.refresh(e.token, now); !errors.Is(err, account.ErrSuspended) || !e.revoked(t) {
 		t.Fatalf("suspended: %v", err)
 	}
 }
 
 // losingSave behaves as if another refresh with the same token saved first.
-type losingSave struct{ *sessiontest.MemStore }
+type losingSave struct{ session.Store }
 
 func (l losingSave) Save(ctx context.Context, s *session.Session, w uuid.UUID) error {
 	if s.RevokedAt() == nil {
 		return session.ErrConflict
 	}
-	return l.MemStore.Save(ctx, s, w)
+	return l.Store.Save(ctx, s, w)
 }
 
 func TestRefreshThatLosesARaceRevokes(t *testing.T) {
