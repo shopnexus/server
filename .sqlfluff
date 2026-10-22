@@ -1,0 +1,10 @@
+[sqlfluff]
+dialect = postgres
+max_line_length = 120
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:layout:type:data_type]
+spacing_before = align
+align_within = create_table_statement
