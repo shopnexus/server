@@ -14,6 +14,7 @@ import (
 )
 
 func TestRequireAuth(t *testing.T) {
+	t.Parallel()
 	acc, sid := uuid.NewV7(), uuid.NewV7()
 	s, _ := session.New(sid, acc, "", now, now)
 	valid, _, _ := session.NewSigner(testKeys).Sign(s, now)
@@ -39,7 +40,7 @@ func TestRequireAuth(t *testing.T) {
 		{"BEARER " + valid, 204, ""},
 		{"Bearer" + valid, 401, "unauthenticated"},
 	} {
-		r := httptest.NewRequest(http.MethodGet, "/x", nil)
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", http.NoBody)
 		if c.header != "" {
 			r.Header.Set("Authorization", c.header)
 		}

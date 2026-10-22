@@ -16,6 +16,7 @@ import (
 // shows how long that took. The same table finds nothing in HMAC hashes,
 // whose key is not in the dump.
 func TestSHA256CodesFallToATable(t *testing.T) {
+	t.Parallel()
 	dest, _ := contact.ParsePhone("0901234567")
 	codes := otp.NewCodes([]byte("a-key-that-is-not-in-the-database"))
 	plain, keyed := map[[32]byte]bool{}, map[[32]byte]bool{}

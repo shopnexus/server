@@ -48,20 +48,20 @@ func ConfigForMain() (config.RestateConfig, error) {
 	}
 	ingressURL, adminURL := URLs()
 	return config.RestateConfig{
-		IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
+		IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0", EndpointURL: "",
 		ServicePrefix: Prefix(), IdentityKey: key,
 	}, nil
 }
 
 // Config is ConfigForMain for one test, which it skips under -short.
-func Config(t testing.TB) config.RestateConfig {
-	t.Helper()
+func Config(tb testing.TB) config.RestateConfig {
+	tb.Helper()
 	if testing.Short() {
-		t.Skip("needs Restate")
+		tb.Skip("needs Restate")
 	}
 	cfg, err := ConfigForMain()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return cfg
 }
@@ -77,22 +77,22 @@ func Prefix() string {
 
 // Start serves defs on a free local port, registers them with the test
 // stack's Restate and returns an ingress client.
-func Start(t testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
-	t.Helper()
-	cfg := Config(t)
-	ep, err := restatex.Serve(cfg.ListenAddr, cfg.IdentityKey, defs...)
+func Start(tb testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
+	tb.Helper()
+	cfg := Config(tb)
+	ep, err := restatex.Serve(tb.Context(), cfg.ListenAddr, cfg.IdentityKey, defs...)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		if err := ep.Close(context.Background()); err != nil {
-			t.Error(err)
+			tb.Error(err)
 		}
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := restatex.Register(ctx, cfg.AdminURL, ep.URL()); err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return ingress.NewClient(cfg.IngressURL)
 }

@@ -8,6 +8,7 @@ import (
 )
 
 func TestClientIP(t *testing.T) {
+	t.Parallel()
 	proxies := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}
 	cases := []struct {
 		name    string
@@ -28,7 +29,8 @@ func TestClientIP(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			r := httptest.NewRequest(http.MethodGet, "/", nil)
+			t.Parallel()
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 			r.RemoteAddr = c.remote
 			for _, v := range c.xff {
 				r.Header.Add("X-Forwarded-For", v)

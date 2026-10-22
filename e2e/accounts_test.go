@@ -17,6 +17,7 @@ type accountView struct {
 }
 
 func TestAccountMe(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken))
 	if v := decode[accountView](t, res); res.Status != 200 || v.ID != acc.Account.ID || v.DisplayName != "" || v.Status != "active" {
@@ -25,6 +26,7 @@ func TestAccountMe(t *testing.T) {
 }
 
 func TestAccountMeNeedsAToken(t *testing.T) {
+	t.Parallel()
 	if res := call(t, server, "GET", "/v1/accounts/me", nil); res.Status != 401 || errorOf(t, res).Code != "unauthenticated" {
 		t.Fatalf("no token: %d %s", res.Status, res.Body)
 	}
@@ -36,6 +38,7 @@ func TestAccountMeNeedsAToken(t *testing.T) {
 // A valid token for an account that does not exist, which no sign-in issues,
 // gets 404 on both methods.
 func TestAccountMeUnknownAccount(t *testing.T) {
+	t.Parallel()
 	s, _ := session.New(uuid.NewV7(), uuid.NewV7(), "", time.Now(), time.Now())
 	token, _, _ := session.NewSigner(keys).Sign(s, time.Now())
 	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(token)); res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
@@ -50,6 +53,7 @@ func TestAccountMeUnknownAccount(t *testing.T) {
 // Parallel renames of one account race on its write_id. Each gets 200 or
 // 409 try_again, and at least one wins.
 func TestAccountRenameRace(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	statuses := make(chan int, 30)
 	var wg sync.WaitGroup
@@ -79,6 +83,7 @@ func TestAccountRenameRace(t *testing.T) {
 }
 
 func TestAccountRename(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "  Linh  "}, bearer(acc.AccessToken))
 	if res.Status != 200 || decode[accountView](t, res).DisplayName != "Linh" {
@@ -104,6 +109,7 @@ func TestAccountRename(t *testing.T) {
 // A suspended person keeps read access until the access token expires;
 // writes stop at once.
 func TestAccountRenameWhileSuspended(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	suspend(t, acc.Account.ID)
 	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(acc.AccessToken)); res.Status != 403 {

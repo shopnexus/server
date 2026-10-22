@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -20,48 +21,52 @@ func Refresh(ctx context.Context, sessions session.Store, accounts AccountPort, 
 	hash := session.HashRefresh(token)
 	s, err := sessions.FindByRefresh(ctx, hash)
 	if errors.Is(err, session.ErrNotFound) {
-		prev, err := sessions.FindByPrevRefresh(ctx, hash)
-		if errors.Is(err, session.ErrNotFound) {
+		prev, prevErr := sessions.FindByPrevRefresh(ctx, hash)
+		if errors.Is(prevErr, session.ErrNotFound) {
 			return session.Tokens{}, session.ErrInvalidRefresh
 		}
-		if err != nil {
-			return session.Tokens{}, err
+		if prevErr != nil {
+			return session.Tokens{}, fmt.Errorf("find session by previous token: %w", prevErr)
 		}
 		return session.Tokens{}, reused(ctx, sessions, prev.ID(), now, "rotated token presented again", log)
 	}
 	if err != nil {
-		return session.Tokens{}, err
+		return session.Tokens{}, fmt.Errorf("find session by token: %w", err)
 	}
-	if err := s.Usable(now); err != nil {
-		return session.Tokens{}, err
+	if err = s.Usable(now); err != nil {
+		return session.Tokens{}, fmt.Errorf("refresh: %w", err)
 	}
 	st, err := accounts.Status(ctx, s.AccountID())
 	if err != nil {
-		return session.Tokens{}, err
+		return session.Tokens{}, fmt.Errorf("get account status: %w", err)
 	}
 	if st == account.StatusSuspended {
-		if err := revoke(ctx, sessions, s.ID(), now); err != nil {
+		if err = revoke(ctx, sessions, s.ID(), now); err != nil {
 			return session.Tokens{}, err
 		}
 		return session.Tokens{}, account.ErrSuspended
 	}
 	next := s.Rotate(now)
-	if err := sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
+	if err = sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
 		if !errors.Is(err, session.ErrConflict) {
-			return session.Tokens{}, err
+			return session.Tokens{}, fmt.Errorf("save session: %w", err)
 		}
 		// The write that won is a concurrent refresh with the same token, or a
 		// sign-out. Only the first means two parties hold the token.
-		cur, err := sessions.Get(ctx, s.ID())
-		if err != nil {
-			return session.Tokens{}, err
+		cur, getErr := sessions.Get(ctx, s.ID())
+		if getErr != nil {
+			return session.Tokens{}, fmt.Errorf("get session: %w", getErr)
 		}
 		if cur.RevokedAt() != nil {
 			return session.Tokens{}, session.ErrRevoked
 		}
 		return session.Tokens{}, reused(ctx, sessions, s.ID(), now, "concurrent refresh", log)
 	}
-	return signer.Tokens(s, next, now)
+	tokens, err := signer.Tokens(s, next, now)
+	if err != nil {
+		return session.Tokens{}, fmt.Errorf("issue tokens: %w", err)
+	}
+	return tokens, nil
 }
 
 // reused revokes a session whose refresh token two parties hold, records the
@@ -82,17 +87,21 @@ func revoke(ctx context.Context, sessions session.Store, id uuid.UUID, now time.
 	for range 2 {
 		var s session.Session
 		if s, err = sessions.Get(ctx, id); err != nil {
-			return err
+			return fmt.Errorf("get session: %w", err)
 		}
 		if s.RevokedAt() != nil {
 			return nil
 		}
 		s.Revoke(now)
-		if err = sessions.Save(ctx, &s, uuid.NewV7()); !errors.Is(err, session.ErrConflict) {
-			return err
+		err = sessions.Save(ctx, &s, uuid.NewV7())
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, session.ErrConflict) {
+			return fmt.Errorf("save session: %w", err)
 		}
 	}
-	return err
+	return fmt.Errorf("revoke session: %w", err)
 }
 
 type RefreshRequest struct {

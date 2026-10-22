@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"errors"
+	"fmt"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -23,7 +24,10 @@ func (s pgStore) Create(ctx context.Context, a Account) error {
 	_, err := s.db.Exec(ctx, createAccount, pgx.StrictNamedArgs{
 		"id": a.id, "display_name": a.displayName, "status": a.status, "write_id": a.writeID, "now": a.createdAt,
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("insert account: %w", err)
+	}
+	return nil
 }
 
 const getAccount = `
@@ -37,7 +41,10 @@ func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Account, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNotFound
 	}
-	return a, err
+	if err != nil {
+		return Account{}, fmt.Errorf("select account: %w", err)
+	}
+	return a, nil
 }
 
 const saveAccount = `
@@ -53,7 +60,7 @@ func (s pgStore) Save(ctx context.Context, a *Account, writeID uuid.UUID) error 
 		"suspend_reason": a.suspendReason, "updated_at": a.updatedAt,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("update account: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrConflict
@@ -63,6 +70,8 @@ func (s pgStore) Save(ctx context.Context, a *Account, writeID uuid.UUID) error 
 }
 
 func (s pgStore) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
-	return err
+	if _, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id}); err != nil {
+		return fmt.Errorf("delete account: %w", err)
+	}
+	return nil
 }

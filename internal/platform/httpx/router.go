@@ -17,7 +17,7 @@ type Router struct {
 	routes []Route
 }
 
-func NewRouter() *Router { return &Router{mux: http.NewServeMux()} }
+func NewRouter() *Router { return &Router{mux: http.NewServeMux(), routes: nil} }
 
 // Handle registers h for a pattern of the form "POST /v1/auth/otp".
 func (r *Router) Handle(pattern string, h http.Handler) {

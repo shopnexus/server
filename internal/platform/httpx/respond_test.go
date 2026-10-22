@@ -39,16 +39,16 @@ func decodeError(t *testing.T, rec *httptest.ResponseRecorder) errorBody {
 // failWith serves err through WriteError behind the trace middleware.
 func failWith(t *testing.T, err error) (*httptest.ResponseRecorder, *bytes.Buffer) {
 	t.Helper()
-	useRecorder(t)
 	var logs bytes.Buffer
 	log := telemetry.NewLogger(&logs, "json", slog.LevelInfo)
 	h := Trace(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, log, err)
 	}))
-	return serve(h, httptest.NewRequest(http.MethodPost, "/x", nil)), &logs
+	return serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/x", http.NoBody)), &logs
 }
 
 func TestWriteErrorMapsKinds(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		kind   apperr.Kind
 		status int
@@ -74,6 +74,7 @@ func TestWriteErrorMapsKinds(t *testing.T) {
 }
 
 func TestWriteErrorUnwrapsAppError(t *testing.T) {
+	t.Parallel()
 	rec, _ := failWith(t, fmt.Errorf("place order: %w", apperr.New(apperr.KindConflict, "phone_taken", "taken").WithField("phone", "taken")))
 	b := decodeError(t, rec)
 	if rec.Code != 409 || b.Error.Code != "phone_taken" || b.Error.Fields["phone"] != "taken" {
@@ -82,6 +83,7 @@ func TestWriteErrorUnwrapsAppError(t *testing.T) {
 }
 
 func TestWriteErrorHidesUnexpectedErrors(t *testing.T) {
+	t.Parallel()
 	secret := `ERROR: duplicate key value violates unique constraint "identities_kind_value_key"`
 	rec, logs := failWith(t, fmt.Errorf("db: %w", errors.New(secret)))
 
@@ -98,6 +100,7 @@ func TestWriteErrorHidesUnexpectedErrors(t *testing.T) {
 }
 
 func TestRespondWritesJSON(t *testing.T) {
+	t.Parallel()
 	rec := httptest.NewRecorder()
 	Respond(rec, http.StatusCreated, map[string]int{"n": 1})
 	if rec.Code != 201 || rec.Header().Get("Content-Type") != "application/json" || rec.Body.String() != `{"n":1}`+"\n" {
@@ -106,13 +109,13 @@ func TestRespondWritesJSON(t *testing.T) {
 }
 
 func TestRecoverTurnsPanicInto500(t *testing.T) {
-	useRecorder(t)
+	t.Parallel()
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
 	h := Trace(Recover(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("kaboom")
 	})))
-	rec := serve(h, httptest.NewRequest(http.MethodGet, "/", nil))
+	rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody))
 
 	if b := decodeError(t, rec); rec.Code != 500 || b.Error.Code != "internal" {
 		t.Fatalf("%d %+v", rec.Code, b)
@@ -126,6 +129,7 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 }
 
 func TestRouterRecordsRoutes(t *testing.T) {
+	t.Parallel()
 	r := NewRouter()
 	r.HandleFunc("GET /a/{id}", func(http.ResponseWriter, *http.Request) {})
 	r.HandleFunc("POST /b", func(http.ResponseWriter, *http.Request) {})
@@ -134,13 +138,14 @@ func TestRouterRecordsRoutes(t *testing.T) {
 		t.Fatalf("routes %v", got)
 	}
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/b", nil))
+	r.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/b", http.NoBody))
 	if rec.Code != 200 {
 		t.Fatalf("dispatch %d", rec.Code)
 	}
 }
 
 func TestWriteErrorIncludesDetails(t *testing.T) {
+	t.Parallel()
 	rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "invalid_code", "no match").WithDetail("attempts_left", 4))
 	var body struct {
 		Error struct {

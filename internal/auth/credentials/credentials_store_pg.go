@@ -3,6 +3,7 @@ package credentials
 import (
 	"context"
 	"errors"
+	"fmt"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -33,26 +34,31 @@ func upsertIdentities(ctx context.Context, tx pgx.Tx, accountID uuid.UUID, ids [
 			return ErrTaken
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("upsert identity: %w", err)
 		}
 	}
 	return nil
 }
 
 func (s pgStore) Create(ctx context.Context, c Credentials) error {
-	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `
 INSERT INTO credentials (account_id, write_id, updated_at) VALUES (@account_id, @write_id, @updated_at)
 ON CONFLICT (account_id) DO NOTHING`,
 			pgx.StrictNamedArgs{"account_id": c.accountID, "write_id": c.writeID, "updated_at": c.updatedAt}); err != nil {
-			return err
+			return fmt.Errorf("insert credentials: %w", err)
 		}
 		return upsertIdentities(ctx, tx, c.accountID, c.identities)
 	})
+	if err != nil {
+		return fmt.Errorf("create credentials: %w", err)
+	}
+	return nil
 }
 
 func (s pgStore) Get(ctx context.Context, accountID uuid.UUID) (Credentials, error) {
-	c := Credentials{accountID: accountID}
+	var c Credentials
+	c.accountID = accountID
 	err := s.db.QueryRow(ctx, `SELECT write_id, updated_at FROM credentials WHERE account_id = @account_id`,
 		pgx.StrictNamedArgs{"account_id": accountID}).
 		Scan(&c.writeID, &c.updatedAt)
@@ -60,23 +66,26 @@ func (s pgStore) Get(ctx context.Context, accountID uuid.UUID) (Credentials, err
 		return Credentials{}, ErrNotFound
 	}
 	if err != nil {
-		return Credentials{}, err
+		return Credentials{}, fmt.Errorf("select credentials: %w", err)
 	}
 	rows, err := s.db.Query(ctx, `
 SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_id = @account_id ORDER BY created_at, id`,
 		pgx.StrictNamedArgs{"account_id": accountID})
 	if err != nil {
-		return Credentials{}, err
+		return Credentials{}, fmt.Errorf("select identities: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var i Identity
 		if err := rows.Scan(&i.id, &i.kind, &i.value, &i.lastUsedAt, &i.createdAt); err != nil {
-			return Credentials{}, err
+			return Credentials{}, fmt.Errorf("scan identity: %w", err)
 		}
 		c.identities = append(c.identities, i)
 	}
-	return c, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Credentials{}, fmt.Errorf("read identities: %w", err)
+	}
+	return c, nil
 }
 
 func (s pgStore) FindIdentity(ctx context.Context, kind Kind, value string) (IdentityRef, error) {
@@ -87,7 +96,10 @@ func (s pgStore) FindIdentity(ctx context.Context, kind Kind, value string) (Ide
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IdentityRef{}, ErrNotFound
 	}
-	return ref, err
+	if err != nil {
+		return IdentityRef{}, fmt.Errorf("select identity: %w", err)
+	}
+	return ref, nil
 }
 
 func (s pgStore) Save(ctx context.Context, c *Credentials, writeID uuid.UUID) error {
@@ -98,7 +110,7 @@ WHERE account_id = @account_id AND (write_id = @read_write_id OR write_id = @wri
 			"account_id": c.accountID, "read_write_id": c.writeID, "write_id": writeID, "updated_at": c.updatedAt,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("update credentials: %w", err)
 		}
 		if tag.RowsAffected() == 0 {
 			return ErrConflict
@@ -109,12 +121,12 @@ WHERE account_id = @account_id AND (write_id = @read_write_id OR write_id = @wri
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
 			pgx.StrictNamedArgs{"account_id": c.accountID, "keep": keep}); err != nil {
-			return err
+			return fmt.Errorf("delete removed identities: %w", err)
 		}
 		return upsertIdentities(ctx, tx, c.accountID, c.identities)
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("save credentials: %w", err)
 	}
 	c.writeID = writeID
 	return nil

@@ -40,14 +40,15 @@ func newAppWithLog(t *testing.T, log *slog.Logger) *App {
 	return a
 }
 
-func get(a *App, path string) (int, string) {
+func get(a *App, path string) (status int, body string) {
 	rec := httptest.NewRecorder()
-	a.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
-	body, _ := io.ReadAll(rec.Body)
-	return rec.Code, string(body)
+	a.Handler.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, http.NoBody))
+	b, _ := io.ReadAll(rec.Body)
+	return rec.Code, string(b)
 }
 
 func TestHealthz(t *testing.T) {
+	t.Parallel()
 	code, body := get(newApp(t), "/healthz")
 	if code != http.StatusOK || body != `{"status":"ok"}`+"\n" {
 		t.Fatalf("got %d %q", code, body)
@@ -55,6 +56,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestReadyz(t *testing.T) {
+	t.Parallel()
 	a := newApp(t)
 	if code, _ := get(a, "/readyz"); code != http.StatusOK {
 		t.Fatalf("up: %d", code)
@@ -66,6 +68,7 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestNewRefusesPendingMigrations(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.DatabaseURL = pgtest.Empty(t).Config().ConnString()
 	_, err := New(context.Background(), cfg, discard())
@@ -75,6 +78,7 @@ func TestNewRefusesPendingMigrations(t *testing.T) {
 }
 
 func TestReadyzRestateDown(t *testing.T) {
+	t.Parallel()
 	a := newApp(t)
 	// The app registered its services at start; readiness now asks an admin
 	// API that no longer answers.
@@ -85,6 +89,7 @@ func TestReadyzRestateDown(t *testing.T) {
 }
 
 func TestNewRefusesMissingKeys(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Auth = config.AuthConfig{}
 	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "make run") {
@@ -95,6 +100,7 @@ func TestNewRefusesMissingKeys(t *testing.T) {
 // The log senders write OTP codes to the log, so production must name real
 // senders.
 func TestNewRefusesLogSendersInProd(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Env = "prod"
 	_, err := New(context.Background(), cfg, discard())

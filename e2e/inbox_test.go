@@ -42,7 +42,7 @@ func (b *inbox) count(to string) int {
 	return len(b.msgs[to])
 }
 
-var codeIn = regexp.MustCompile(`\b[0-9]{6}\b`)
+var codeIn = regexp.MustCompile(`\b\d{6}\b`)
 
 // code returns the code in the nth message to "to", counting from 1.
 func (b *inbox) code(t *testing.T, to string, nth int) string {

@@ -17,7 +17,9 @@ import (
 // promises. newStore also returns a function that creates an account to own
 // rows.
 func TestPGStore(t *testing.T) {
+	t.Parallel()
 	newStore := func(t *testing.T) (session.Store, func() uuid.UUID) {
+		t.Helper()
 		pool := pgtest.New(t)
 		newAccount := func() uuid.UUID {
 			id := uuid.NewV7()
@@ -41,6 +43,7 @@ func TestPGStore(t *testing.T) {
 	}
 
 	t.Run("create, get, find", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		acc := newAccount()
 		sess, token := create(t, s, acc, now)
@@ -66,6 +69,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("rotate, conflict and retry", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		sess, token := create(t, s, newAccount(), now)
 		stale := sess
@@ -92,6 +96,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("revoke all", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		acc, other := newAccount(), newAccount()
 		a, _ := create(t, s, acc, now)
@@ -115,6 +120,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("list active", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		acc, other := newAccount(), newAccount()
 		first, _ := create(t, s, acc, now)

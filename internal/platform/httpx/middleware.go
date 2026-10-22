@@ -19,6 +19,7 @@ import (
 // statusWriter remembers the status code a handler wrote.
 type statusWriter struct {
 	http.ResponseWriter
+
 	status int
 }
 
@@ -33,7 +34,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
-	return w.ResponseWriter.Write(b)
+	return w.ResponseWriter.Write(b) //nolint:wrapcheck // A ResponseWriter wrapper returns the write error as it is.
 }
 
 // Unwrap lets [http.ResponseController] reach Flush and deadlines.
@@ -72,7 +73,7 @@ func Trace(next http.Handler) http.Handler {
 		defer span.End()
 
 		w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
-		sw := &statusWriter{ResponseWriter: w}
+		sw := &statusWriter{ResponseWriter: w, status: 0}
 		// The mux writes Pattern on the request it receives, so read it from r2.
 		r2 := r.WithContext(ctx)
 		next.ServeHTTP(sw, r2)
@@ -99,7 +100,7 @@ func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			sw := &statusWriter{ResponseWriter: w}
+			sw := &statusWriter{ResponseWriter: w, status: 0}
 			next.ServeHTTP(sw, r)
 			log.InfoContext(r.Context(), "request",
 				"method", r.Method,

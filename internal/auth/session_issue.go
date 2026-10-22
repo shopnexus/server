@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -17,23 +18,27 @@ func IssueSession(ctx context.Context, sessions session.Store, signer session.Si
 	s, refresh := session.New(id, accountID, deviceName, now, now)
 	created, err := sessions.Create(ctx, s)
 	if err != nil {
-		return session.Tokens{}, err
+		return session.Tokens{}, fmt.Errorf("create session: %w", err)
 	}
 	if !created {
 		if s, err = sessions.Get(ctx, id); err != nil {
-			return session.Tokens{}, err
+			return session.Tokens{}, fmt.Errorf("get session: %w", err)
 		}
 		// A replay must not bring back a session that was signed out since.
-		if err := s.Usable(now); err != nil {
-			return session.Tokens{}, err
+		if err = s.Usable(now); err != nil {
+			return session.Tokens{}, fmt.Errorf("replayed session: %w", err)
 		}
 		refresh = s.Rotate(now)
-		if err := sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
+		if err = sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
 			if errors.Is(err, session.ErrConflict) {
 				return session.Tokens{}, apperr.ErrTryAgain
 			}
-			return session.Tokens{}, err
+			return session.Tokens{}, fmt.Errorf("save session: %w", err)
 		}
 	}
-	return signer.Tokens(s, refresh, now)
+	tokens, err := signer.Tokens(s, refresh, now)
+	if err != nil {
+		return session.Tokens{}, fmt.Errorf("issue tokens: %w", err)
+	}
+	return tokens, nil
 }

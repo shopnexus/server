@@ -55,34 +55,34 @@ func AdminURL() string {
 }
 
 // URL returns AdminURL, and skips the test under -short.
-func URL(t testing.TB) string {
-	t.Helper()
+func URL(tb testing.TB) string {
+	tb.Helper()
 	if testing.Short() {
-		t.Skip("needs Postgres; skipped under -short")
+		tb.Skip("needs Postgres; skipped under -short")
 	}
 	return AdminURL()
 }
 
 // New returns a pool on a fresh database with every migration applied. The
 // database is dropped when the test ends.
-func New(t testing.TB) *pgxpool.Pool {
-	t.Helper()
-	pool, drop, err := NewForMain(URL(t))
+func New(tb testing.TB) *pgxpool.Pool {
+	tb.Helper()
+	pool, drop, err := NewForMain(URL(tb))
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	t.Cleanup(drop)
+	tb.Cleanup(drop)
 	return pool
 }
 
 // Empty returns a pool on a fresh database with no migrations applied.
-func Empty(t testing.TB) *pgxpool.Pool {
-	t.Helper()
-	pool, drop, err := create(URL(t), "template0")
+func Empty(tb testing.TB) *pgxpool.Pool {
+	tb.Helper()
+	pool, drop, err := create(URL(tb), "template0")
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	t.Cleanup(drop)
+	tb.Cleanup(drop)
 	return pool
 }
 
@@ -99,9 +99,9 @@ func NewForMain(adminURL string) (*pgxpool.Pool, func(), error) {
 // migrations, building it when it does not exist. The name carries a hash of
 // the migrations, so adding one produces a new template.
 func template(adminURL string) (string, error) {
-	migs, err := postgres.LoadMigrations(migrations.FS)
-	if err != nil {
-		return "", err
+	migs, loadErr := postgres.LoadMigrations(migrations.FS)
+	if loadErr != nil {
+		return "", fmt.Errorf("load migrations: %w", loadErr)
 	}
 	h := sha256.New()
 	for _, m := range migs {
@@ -109,11 +109,11 @@ func template(adminURL string) (string, error) {
 	}
 	name := "server2_tpl_" + hex.EncodeToString(h.Sum(nil))[:12]
 
-	err = withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
+	err := withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
 		var exists bool
 		if err := conn.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = @name)",
 			pgx.StrictNamedArgs{"name": name}).Scan(&exists); err != nil {
-			return err
+			return fmt.Errorf("look up template: %w", err)
 		}
 		if exists {
 			return nil
@@ -122,14 +122,14 @@ func template(adminURL string) (string, error) {
 		// dies half way never leaves a broken template behind.
 		building := name + "_building"
 		if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+building+" WITH (FORCE)"); err != nil {
-			return err
+			return fmt.Errorf("drop half-built template: %w", err)
 		}
 		if _, err := conn.Exec(ctx, "CREATE DATABASE "+building+" TEMPLATE template0"); err != nil {
-			return err
+			return fmt.Errorf("create template: %w", err)
 		}
 		pool, err := pgxpool.New(ctx, withDatabase(adminURL, building))
 		if err != nil {
-			return err
+			return fmt.Errorf("connect to template: %w", err)
 		}
 		_, err = postgres.Migrate(ctx, pool, migrations.FS)
 		// CREATE DATABASE ... TEMPLATE fails while anyone is connected to
@@ -138,8 +138,10 @@ func template(adminURL string) (string, error) {
 		if err != nil {
 			return fmt.Errorf("build template: %w", err)
 		}
-		_, err = conn.Exec(ctx, "ALTER DATABASE "+building+" RENAME TO "+name)
-		return err
+		if _, err := conn.Exec(ctx, "ALTER DATABASE "+building+" RENAME TO "+name); err != nil {
+			return fmt.Errorf("rename template: %w", err)
+		}
+		return nil
 	})
 	return name, err
 }
@@ -151,21 +153,32 @@ func create(adminURL, tpl string) (*pgxpool.Pool, func(), error) {
 	// (A-Z, 2-7), so the lower-cased name needs no quoting.
 	name := "t_" + strings.ToLower(rand.Text()[:16])
 	err := withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
-		_, err := conn.Exec(ctx, "CREATE DATABASE "+name+" TEMPLATE "+tpl)
-		return err
+		if _, err := conn.Exec(ctx, "CREATE DATABASE "+name+" TEMPLATE "+tpl); err != nil {
+			return fmt.Errorf("clone template: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("create test database: %w", err)
 	}
-	pool, err := pgxpool.New(context.Background(), withDatabase(adminURL, name))
+	cfg, err := pgxpool.ParseConfig(withDatabase(adminURL, name))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("parse test database URL: %w", err)
+	}
+	// Tests run in parallel, and pgxpool's default of one connection per CPU
+	// would exhaust the test server's max_connections.
+	cfg.MaxConns = 4
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("connect to test database: %w", err)
 	}
 	drop := func() {
 		pool.Close()
 		err := withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
-			_, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
-			return err
+			if _, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
+				return fmt.Errorf("drop test database: %w", err)
+			}
+			return nil
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "pgtest: drop %s: %v\n", name, err)
@@ -176,17 +189,17 @@ func create(adminURL, tpl string) (*pgxpool.Pool, func(), error) {
 
 // withAdmin runs fn on one admin connection holding cloneLock.
 func withAdmin(adminURL string, fn func(context.Context, *pgx.Conn) error) (err error) {
-	if err := guard(adminURL); err != nil {
+	if err = guard(adminURL); err != nil {
 		return err
 	}
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, adminURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("connect as admin: %w", err)
 	}
 	defer func() { err = errors.Join(err, conn.Close(ctx)) }()
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock}); err != nil {
-		return err
+	if _, err = conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock}); err != nil {
+		return fmt.Errorf("take clone lock: %w", err)
 	}
 	defer func() {
 		_, uerr := conn.Exec(ctx, "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock})

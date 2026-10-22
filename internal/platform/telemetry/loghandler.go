@@ -41,7 +41,7 @@ func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
 			slog.String("span_id", sc.SpanID().String()),
 		)
 	}
-	return h.inner.Handle(ctx, r)
+	return h.inner.Handle(ctx, r) //nolint:wrapcheck // A slog.Handler wrapper returns the inner handler's error as it is.
 }
 
 func (h *contextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

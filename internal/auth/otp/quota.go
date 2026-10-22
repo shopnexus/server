@@ -21,7 +21,7 @@ type Quota struct {
 	writeID uuid.UUID // zero until first saved
 }
 
-func NewQuota(key string) Quota { return Quota{key: key} }
+func NewQuota(key string) Quota { return Quota{key: key, sentAt: nil, writeID: uuid.UUID{}} }
 
 // RestoreQuota rebuilds a stored quota. Stores only.
 func RestoreQuota(key string, sentAt []time.Time, writeID uuid.UUID) Quota {

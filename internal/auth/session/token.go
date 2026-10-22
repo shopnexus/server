@@ -17,6 +17,7 @@ import (
 // anyone holding the token can read it.
 type Claims struct {
 	jwt.RegisteredClaims
+
 	SessionID string `json:"sid"`
 	AuthTime  int64  `json:"auth_time"`
 }
@@ -56,13 +57,16 @@ func (s Signer) Sign(x Session, now time.Time) (string, time.Time, error) {
 	exp := now.Add(AccessTTL)
 	t := jwt.NewWithClaims(jwt.SigningMethodEdDSA, Claims{
 		Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.accountID.String(),
-		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
+		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp), NotBefore: nil, ID: "",
 		SessionID: x.id.String(),
 		AuthTime:  x.authTime.Unix(),
 	})
 	t.Header["kid"] = s.kid
 	signed, err := t.SignedString(s.key)
-	return signed, exp, err
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("sign access token: %w", err)
+	}
+	return signed, exp, nil
 }
 
 // Verifier checks access tokens against the current key and, during a key
@@ -87,7 +91,10 @@ func NewVerifier(cfg config.AuthConfig) Verifier {
 func (v Verifier) Verify(token string, now time.Time) (authn.Principal, error) {
 	var c Claims
 	_, err := jwt.ParseWithClaims(token, &c, func(t *jwt.Token) (any, error) {
-		kid, _ := t.Header["kid"].(string)
+		kid, ok := t.Header["kid"].(string)
+		if !ok {
+			return nil, errors.New("no kid header")
+		}
 		key, ok := v.keys[kid]
 		if !ok {
 			return nil, fmt.Errorf("unknown kid %q", kid)

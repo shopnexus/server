@@ -43,6 +43,7 @@ func (e *refreshEnv) refresh(token string, at time.Time) (session.Tokens, error)
 }
 
 func (e *refreshEnv) revoked(t *testing.T) bool {
+	t.Helper()
 	s, err := e.sessions.Get(context.Background(), e.sid)
 	if err != nil {
 		t.Fatal(err)
@@ -51,6 +52,7 @@ func (e *refreshEnv) revoked(t *testing.T) bool {
 }
 
 func TestRefreshRotatesAndKeepsAuthTime(t *testing.T) {
+	t.Parallel()
 	e := newRefreshEnv(t)
 	out, err := e.refresh(e.token, now.Add(time.Hour))
 	if err != nil || out.RefreshToken == e.token {
@@ -67,6 +69,7 @@ func TestRefreshRotatesAndKeepsAuthTime(t *testing.T) {
 }
 
 func TestRefreshReplayRevokes(t *testing.T) {
+	t.Parallel()
 	e := newRefreshEnv(t)
 	next, _ := e.refresh(e.token, now)
 	if _, err := e.refresh(e.token, now); !errors.Is(err, session.ErrRevoked) || !e.revoked(t) {
@@ -78,6 +81,7 @@ func TestRefreshReplayRevokes(t *testing.T) {
 }
 
 func TestRefreshRefusals(t *testing.T) {
+	t.Parallel()
 	e := newRefreshEnv(t)
 	if _, err := e.refresh("rt_nope", now); !errors.Is(err, session.ErrInvalidRefresh) {
 		t.Fatalf("unknown: %v", err)
@@ -102,6 +106,7 @@ func (l losingSave) Save(ctx context.Context, s *session.Session, w uuid.UUID) e
 }
 
 func TestRefreshThatLosesARaceRevokes(t *testing.T) {
+	t.Parallel()
 	e := newRefreshEnv(t)
 	_, err := auth.Refresh(context.Background(), losingSave{e.sessions}, e.accounts, session.NewSigner(testKeys), e.token, now, discard)
 	if !errors.Is(err, session.ErrRevoked) || !e.revoked(t) {
@@ -123,6 +128,7 @@ func (l logoutAllFirst) Save(ctx context.Context, s *session.Session, w uuid.UUI
 // A refresh that loses to logout-all is a signed-out session, not a token two
 // parties hold: no security event is logged.
 func TestRefreshThatLosesToLogoutAllIsNotReuse(t *testing.T) {
+	t.Parallel()
 	e := newRefreshEnv(t)
 	var logs bytes.Buffer
 	log := slog.New(slog.NewTextHandler(&logs, nil))

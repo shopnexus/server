@@ -21,7 +21,7 @@ func NewPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg.ConnConfig.Tracer = tracer{}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open pool: %w", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
@@ -38,20 +38,20 @@ func registerPoolMetrics(pool *pgxpool.Pool) error {
 	m := otel.Meter("github.com/shopnexus/server2/internal/platform/postgres")
 	acquired, err := m.Int64ObservableGauge("db.client.connection.acquired", metric.WithDescription("Connections in use."))
 	if err != nil {
-		return err
+		return fmt.Errorf("create acquired gauge: %w", err)
 	}
 	idle, err := m.Int64ObservableGauge("db.client.connection.idle", metric.WithDescription("Idle connections."))
 	if err != nil {
-		return err
+		return fmt.Errorf("create idle gauge: %w", err)
 	}
 	total, err := m.Int64ObservableGauge("db.client.connection.total", metric.WithDescription("Open connections."))
 	if err != nil {
-		return err
+		return fmt.Errorf("create total gauge: %w", err)
 	}
 	wait, err := m.Float64ObservableCounter("db.client.connection.wait_time", metric.WithUnit("s"),
 		metric.WithDescription("Total time spent waiting to acquire a connection."))
 	if err != nil {
-		return err
+		return fmt.Errorf("create wait counter: %w", err)
 	}
 	_, err = m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
 		s := pool.Stat()
@@ -61,5 +61,8 @@ func registerPoolMetrics(pool *pgxpool.Pool) error {
 		o.ObserveFloat64(wait, s.AcquireDuration().Seconds())
 		return nil
 	}, acquired, idle, total, wait)
-	return err
+	if err != nil {
+		return fmt.Errorf("register pool metrics: %w", err)
+	}
+	return nil
 }

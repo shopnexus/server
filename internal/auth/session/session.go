@@ -45,11 +45,11 @@ type Session struct {
 
 // New starts a session and returns it with its refresh token; only the
 // token's hash is kept. The first write ID is the session ID.
-func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (Session, string) {
+func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (s Session, refreshToken string) {
 	token, hash := NewRefreshToken()
 	return Session{
-		id: id, accountID: accountID, refreshHash: hash, deviceName: deviceName, authTime: authTime,
-		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), writeID: id,
+		id: id, accountID: accountID, refreshHash: hash, prevRefreshHash: nil, deviceName: deviceName, authTime: authTime,
+		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), revokedAt: nil, writeID: id,
 	}, token
 }
 
@@ -93,10 +93,10 @@ func (s *Session) Revoke(now time.Time) {
 }
 
 // NewRefreshToken returns rt_ plus 32 random bytes in base64url, and its hash.
-func NewRefreshToken() (string, []byte) {
+func NewRefreshToken() (token string, hash []byte) {
 	b := make([]byte, 32)
 	rand.Read(b)
-	token := "rt_" + base64.RawURLEncoding.EncodeToString(b)
+	token = "rt_" + base64.RawURLEncoding.EncodeToString(b)
 	return token, HashRefresh(token)
 }
 

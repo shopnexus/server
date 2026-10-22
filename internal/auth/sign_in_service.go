@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -23,6 +24,8 @@ type SignInInput struct {
 // SignInResult names the account and the session the handler issues tokens
 // for. Tokens never enter Restate. A refusal travels as data, as in
 // OTPSendResult.
+//
+//exhaustruct:optional
 type SignInResult struct {
 	ChallengeID uuid.UUID     `json:"challenge_id"`
 	AccountID   uuid.UUID     `json:"account_id"`
@@ -42,7 +45,10 @@ type SignIn struct {
 	Now         func() time.Time
 }
 
-func (s SignIn) ServiceName() string { return s.Prefix + "SignIn" }
+// signInService is the SignIn service's name without the prefix.
+const signInService = "SignIn"
+
+func (s SignIn) ServiceName() string { return s.Prefix + signInService }
 
 // loadedChallenge is the challenge as the verify step read it.
 type loadedChallenge struct {
@@ -68,35 +74,38 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 	// not saved. A guess that loses a race gets try_again whether it was
 	// right or wrong, and is not counted.
 	l, err := restate.Run(ctx, func(rc restate.RunContext) (loadedChallenge, error) {
-		c, err := s.Challenges.Get(rc, in.ChallengeID)
-		if errors.Is(err, otp.ErrNotFound) {
+		c, stepErr := s.Challenges.Get(rc, in.ChallengeID)
+		if errors.Is(stepErr, otp.ErrNotFound) {
 			return loadedChallenge{}, nil
 		}
-		if err != nil {
-			return loadedChallenge{}, err
+		if stepErr != nil {
+			return loadedChallenge{}, fmt.Errorf("get challenge: %w", stepErr)
 		}
-		newest, err := s.Challenges.IsNewest(rc, c)
-		return loadedChallenge{Challenge: c, Found: true, Newest: newest}, err
+		newest, stepErr := s.Challenges.IsNewest(rc, c)
+		if stepErr != nil {
+			return loadedChallenge{}, fmt.Errorf("check newest challenge: %w", stepErr)
+		}
+		return loadedChallenge{Challenge: c, Found: true, Newest: newest}, nil
 	})
 	if err != nil {
-		return SignInResult{}, err
+		return SignInResult{}, fmt.Errorf("load challenge: %w", err)
 	}
 	c := l.Challenge
 	if !l.Found || !l.Newest || c.Purpose() != otp.PurposeLogin {
 		return SignInResult{Refused: otp.ErrCodeExpired}, nil
 	}
-	if err := c.Open(at); err != nil {
+	if err = c.Open(at); err != nil {
 		return SignInResult{Refused: apperr.From(err)}, nil
 	}
 	verdict := c.Verify(in.CodeHash, at)
 	verifyWrite := newID(ctx, at)
 	lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		c := c // Save sets the write ID on its copy; c outside stays as journaled
-		err := s.Challenges.Save(rc, &c, verifyWrite)
-		return errors.Is(err, otp.ErrConflict), ignore(err, otp.ErrConflict)
+		stepErr := s.Challenges.Save(rc, &c, verifyWrite)
+		return errors.Is(stepErr, otp.ErrConflict), ignore(stepErr, otp.ErrConflict)
 	})
 	if err != nil {
-		return SignInResult{}, err
+		return SignInResult{}, fmt.Errorf("save guess: %w", err)
 	}
 	if lost {
 		return SignInResult{Refused: apperr.ErrTryAgain}, nil
@@ -107,14 +116,17 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 	dest := c.Destination()
 
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (foundIdentity, error) {
-		ref, err := s.Credentials.FindIdentity(rc, credentials.KindOf(dest), dest.Value())
-		if errors.Is(err, credentials.ErrNotFound) {
+		ref, stepErr := s.Credentials.FindIdentity(rc, credentials.KindOf(dest), dest.Value())
+		if errors.Is(stepErr, credentials.ErrNotFound) {
 			return foundIdentity{}, nil
 		}
-		return foundIdentity{Ref: ref, Found: err == nil}, err
+		if stepErr != nil {
+			return foundIdentity{}, fmt.Errorf("find identity: %w", stepErr)
+		}
+		return foundIdentity{Ref: ref, Found: true}, nil
 	})
 	if err != nil {
-		return SignInResult{}, err
+		return SignInResult{}, fmt.Errorf("look up identity: %w", err)
 	}
 	sessionID := newID(ctx, at)
 
@@ -125,7 +137,7 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 			return s.Accounts.Status(rc, f.Ref.AccountID)
 		})
 		if err != nil {
-			return SignInResult{}, err
+			return SignInResult{}, fmt.Errorf("get account status: %w", err)
 		}
 		if st == account.StatusSuspended {
 			return SignInResult{Refused: account.ErrSuspended}, nil
@@ -134,37 +146,37 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 		// identity removed meanwhile costs nothing, so the step ignores both.
 		markWrite := newID(ctx, at)
 		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			c, err := s.Credentials.Get(rc, f.Ref.AccountID)
-			if err == nil {
-				err = c.MarkUsed(f.Ref.IdentityID, at)
+			c, stepErr := s.Credentials.Get(rc, f.Ref.AccountID)
+			if stepErr == nil {
+				stepErr = c.MarkUsed(f.Ref.IdentityID, at)
 			}
-			if err == nil {
-				err = ignore(s.Credentials.Save(rc, &c, markWrite), credentials.ErrConflict)
+			if stepErr == nil {
+				stepErr = ignore(s.Credentials.Save(rc, &c, markWrite), credentials.ErrConflict)
 			}
-			return ignore(err, credentials.ErrNotFound)
+			return ignore(stepErr, credentials.ErrNotFound)
 		}); err != nil {
-			return SignInResult{}, err
+			return SignInResult{}, fmt.Errorf("mark identity used: %w", err)
 		}
 		return SignInResult{ChallengeID: in.ChallengeID, AccountID: f.Ref.AccountID, SessionID: sessionID}, nil
 	}
 
 	accountID, identityID := newID(ctx, at), newID(ctx, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Accounts.Create(rc, accountID, "") }); err != nil {
-		return SignInResult{}, err
+		return SignInResult{}, fmt.Errorf("create account: %w", err)
 	}
 	taken, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		c := credentials.New(accountID, credentials.NewIdentity(identityID, dest, at), at)
-		err := s.Credentials.Create(rc, c)
-		return errors.Is(err, credentials.ErrTaken), ignore(err, credentials.ErrTaken)
+		stepErr := s.Credentials.Create(rc, c)
+		return errors.Is(stepErr, credentials.ErrTaken), ignore(stepErr, credentials.ErrTaken)
 	})
 	if err != nil {
-		return SignInResult{}, err
+		return SignInResult{}, fmt.Errorf("create credentials: %w", err)
 	}
 	if taken {
 		// Another sign-up took the identity between the lookup and the
 		// insert: undo the account and let the client try again.
 		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Accounts.Delete(rc, accountID) }); err != nil {
-			return SignInResult{}, err
+			return SignInResult{}, fmt.Errorf("undo account: %w", err)
 		}
 		return SignInResult{Refused: apperr.ErrTryAgain}, nil
 	}

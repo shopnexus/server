@@ -23,6 +23,7 @@ func unset(t *testing.T, key string) {
 	os.Unsetenv(key)
 }
 
+//nolint:paralleltest // The test sets process environment variables.
 func TestLoadDotEnvBasic(t *testing.T) {
 	unset(t, "DOTENV_A")
 	if err := LoadDotEnv(writeEnv(t, "DOTENV_A=1\n")); err != nil {
@@ -33,6 +34,7 @@ func TestLoadDotEnvBasic(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test sets process environment variables.
 func TestLoadDotEnvSkipsCommentsAndBlanks(t *testing.T) {
 	unset(t, "DOTENV_B")
 	if err := LoadDotEnv(writeEnv(t, "# comment\n\n  \nDOTENV_B=2\n")); err != nil {
@@ -43,6 +45,7 @@ func TestLoadDotEnvSkipsCommentsAndBlanks(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test sets process environment variables.
 func TestLoadDotEnvStripsQuotes(t *testing.T) {
 	unset(t, "DOTENV_C")
 	if err := LoadDotEnv(writeEnv(t, `DOTENV_C="x y"`+"\n")); err != nil {
@@ -53,6 +56,7 @@ func TestLoadDotEnvStripsQuotes(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test sets process environment variables.
 func TestLoadDotEnvKeepsEqualsInValue(t *testing.T) {
 	unset(t, "DOTENV_URL")
 	if err := LoadDotEnv(writeEnv(t, "DOTENV_URL=a=b\n")); err != nil {
@@ -74,6 +78,7 @@ func TestLoadDotEnvExistingWins(t *testing.T) {
 }
 
 func TestLoadDotEnvMalformedLine(t *testing.T) {
+	t.Parallel()
 	err := LoadDotEnv(writeEnv(t, "A=1\nB=2\nNOEQUALS\n"))
 	if err == nil || !strings.Contains(err.Error(), "line 3") {
 		t.Fatalf("err = %v, want mention of line 3", err)
@@ -81,6 +86,7 @@ func TestLoadDotEnvMalformedLine(t *testing.T) {
 }
 
 func TestLoadDotEnvMissingFile(t *testing.T) {
+	t.Parallel()
 	if err := LoadDotEnv(filepath.Join(t.TempDir(), "nope")); err != nil {
 		t.Fatalf("missing file: %v", err)
 	}

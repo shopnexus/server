@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 )
@@ -17,7 +18,12 @@ func (c Client) Create(ctx context.Context, id uuid.UUID, displayName string) er
 }
 
 // Delete removes an account; see Store.Delete.
-func (c Client) Delete(ctx context.Context, id uuid.UUID) error { return c.Store.Delete(ctx, id) }
+func (c Client) Delete(ctx context.Context, id uuid.UUID) error {
+	if err := c.Store.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete account: %w", err)
+	}
+	return nil
+}
 
 func (c Client) Status(ctx context.Context, id uuid.UUID) (Status, error) {
 	return StatusOf(ctx, c.Store, id, c.Now())

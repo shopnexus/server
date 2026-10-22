@@ -12,6 +12,7 @@ import (
 
 // Postgres generates the ID; the stdlib [uuid.UUID] scans it and binds it back.
 func TestScanUUIDv7(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, "CREATE TABLE items (id uuid PRIMARY KEY DEFAULT uuidv7(), name text)"); err != nil {

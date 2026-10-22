@@ -18,6 +18,7 @@ import (
 // used five times at once yields at most one success, and afterwards the
 // session no longer refreshes.
 func TestParallelRefreshRevokes(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
 	accounts := account.Client{Store: account.NewPGStore(db), Now: time.Now}

@@ -13,25 +13,36 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - canonicalheader
+    - containedctx
     - copyloopvar
+    - decorder
     - depguard
     - dupl
+    - dupword
     - durationcheck
+    - embeddedstructfieldcheck
     - errname
     - errorlint
     - exhaustive
+    - exhaustruct_v5
     - exptostd
     - fatcontext
     - funcorder
     - gocheckcompilerdirectives
+    - gochecknoinits
     - gochecksumtype
+    - goconst
     - gocritic
     - godoclint
     - godot
+    - godox
     - gomoddirectives
     - goprintffuncname
     - gosec
     - iface
+    - inamedparam
+    - interfacebloat
     - intrange
     - iotamixing
     - makezero
@@ -43,8 +54,12 @@ linters:
     - nilerr
     - nilnesserr
     - nilnil
+    - noctx
     - nolintlint
     - nosprintfhostport
+    - paralleltest
+    - perfsprint
+    - prealloc
     - predeclared
     - reassign
     - recvcheck
@@ -52,6 +67,9 @@ linters:
     - rowserrcheck
     - sloglint
     - sqlclosecheck
+    - tagalign
+    - tagliatelle
+    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -60,6 +78,7 @@ linters:
     - usetesting
     - wastedassign
     - whitespace
+    - wrapcheck
   settings:
     depguard:
       rules:
@@ -77,9 +96,24 @@ linters:
               desc: Use log/slog.
     errcheck:
       check-type-assertions: true
+    exhaustruct_v5:
+      explicit-mode: true
+      enforce-patterns:
+        - ^github\.com/shopnexus/server2/.+
+      allow-empty-returns: true
     funcorder:
       struct-method: false
+    goconst:
+      # pgx.StrictNamedArgs keys repeat the SQL parameter names.
+      ignore-string-values:
+        - ^[a-z_]+$
     gocritic:
+      enable-all: true
+      disabled-checks:
+        # Account, Identity and the other aggregates are passed by value.
+        - hugeParam
+        # Asks for err := where govet's shadow check asks for err =.
+        - sloppyReassign
       settings:
         captLocal:
           paramsOnly: false
@@ -93,8 +127,6 @@ linters:
       enable-all: true
       disable:
         - fieldalignment
-        # Flags every err redeclared in an inner scope.
-        - shadow
     nakedret:
       max-func-lines: 0
     nolintlint:
@@ -115,6 +147,10 @@ linters:
         - name: exported
           disabled: true
         - name: bool-literal-in-expr
+        - name: confusing-naming
+        - name: enforce-switch-style
+        - name: unchecked-type-assertion
+        - name: unnecessary-format
         - name: confusing-results
         - name: constant-logical-expr
         - name: datarace
@@ -132,6 +168,10 @@ linters:
         - name: use-errors-new
         - name: useless-break
         - name: waitgroup-by-value
+    tagliatelle:
+      case:
+        rules:
+          json: snake
     sloglint:
       no-global: all
       context: scope
@@ -141,6 +181,16 @@ linters:
         - -ST1000
         - -ST1016
         - -QF1008
+    wrapcheck:
+      extra-ignore-sigs:
+        # These build an *apperr.Error; there is nothing below it to wrap.
+        - apperr.New(
+        - .WithDetail(
+        - .WithField(
+        # Called from MarshalJSON and UnmarshalJSON. encoding/json names the
+        # type itself and adds field context only to errors it can see.
+        - encoding/json.Marshal(
+        - encoding/json.Unmarshal(
     usetesting:
       os-temp-dir: true
   exclusions:
@@ -148,12 +198,16 @@ linters:
     presets:
       - common-false-positives
     rules:
-      # Tests may ignore Close and Shutdown errors.
+      # Tests may ignore Close errors, repeat literals, build fixtures with
+      # only the fields a case needs, and return errors unwrapped.
       - path: _test\.go
         linters:
           - dupl
           - errcheck
+          - exhaustruct_v5
+          - goconst
           - gosec
+          - wrapcheck
 
 formatters:
   enable:

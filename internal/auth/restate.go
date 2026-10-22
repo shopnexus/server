@@ -10,6 +10,7 @@ package auth
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -29,16 +30,20 @@ type Restate struct {
 }
 
 func (r Restate) OTP() ingress.Requester[OTPSendInput, OTPSendResult] {
-	return ingress.Service[OTPSendInput, OTPSendResult](r.Client, OTP{Prefix: r.Prefix}.ServiceName(), "Send")
+	return ingress.Service[OTPSendInput, OTPSendResult](r.Client, r.Prefix+otpService, "Send")
 }
 
 func (r Restate) SignIn() ingress.Requester[SignInInput, SignInResult] {
-	return ingress.Service[SignInInput, SignInResult](r.Client, SignIn{Prefix: r.Prefix}.ServiceName(), "Run")
+	return ingress.Service[SignInInput, SignInResult](r.Client, r.Prefix+signInService, "Run")
 }
 
 // clock returns now() from a journaled step, so a replay sees the same time.
 func clock(ctx restate.Context, now func() time.Time) (time.Time, error) {
-	return restate.Run(ctx, func(restate.RunContext) (time.Time, error) { return now(), nil })
+	t, err := restate.Run(ctx, func(restate.RunContext) (time.Time, error) { return now(), nil })
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read clock: %w", err)
+	}
+	return t, nil
 }
 
 // ignore returns err unless it is target. A step uses it for an outcome it

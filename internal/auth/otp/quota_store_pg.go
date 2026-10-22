@@ -3,6 +3,7 @@ package otp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -15,12 +16,15 @@ type quotaPG struct{ db *pgxpool.Pool }
 func NewQuotaPGStore(db *pgxpool.Pool) QuotaStore { return quotaPG{db} }
 
 func (s quotaPG) Get(ctx context.Context, key string) (Quota, error) {
-	q := Quota{key: key}
+	q := NewQuota(key)
 	err := s.db.QueryRow(ctx, `SELECT sent_at, write_id FROM otp_quotas WHERE key = @key`, pgx.StrictNamedArgs{"key": key}).Scan(&q.sentAt, &q.writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Quota{key: key}, nil
+		return NewQuota(key), nil
 	}
-	return q, err
+	if err != nil {
+		return Quota{}, fmt.Errorf("select quota: %w", err)
+	}
+	return q, nil
 }
 
 // saveQuota inserts a new quota or updates one whose write_id matches. A quota
@@ -40,7 +44,7 @@ func (s quotaPG) Save(ctx context.Context, q *Quota, writeID uuid.UUID) error {
 		"key": q.key, "sent_at": sentAt, "read_write_id": q.writeID, "write_id": writeID,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("upsert quota: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrConflict

@@ -11,6 +11,7 @@ import (
 )
 
 func TestClientDelegates(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	c := account.Client{Store: s, Now: func() time.Time { return now }}
 	id := uuid.NewV7()

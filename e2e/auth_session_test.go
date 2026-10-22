@@ -18,6 +18,7 @@ func refresh(t *testing.T, token string) Response {
 }
 
 func TestRefreshRotates(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	res := refresh(t, acc.RefreshToken)
 	next := decode[tokens](t, res)
@@ -31,6 +32,7 @@ func TestRefreshRotates(t *testing.T) {
 
 // TestRefreshReplayRevokesTheSession is the spec's replay attack test.
 func TestRefreshReplayRevokesTheSession(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	next := decode[tokens](t, refresh(t, acc.RefreshToken))
 	for _, token := range []string{acc.RefreshToken, next.RefreshToken} {
@@ -41,6 +43,7 @@ func TestRefreshReplayRevokesTheSession(t *testing.T) {
 }
 
 func TestRefreshRefusals(t *testing.T) {
+	t.Parallel()
 	if res := refresh(t, "rt_nope"); res.Status != 401 || errorOf(t, res).Code != "invalid_refresh_token" {
 		t.Fatalf("unknown: %d %s", res.Status, res.Body)
 	}
@@ -72,6 +75,7 @@ func sessionOf(t *testing.T, accessToken string) string {
 }
 
 func TestLogoutRevokesRefresh(t *testing.T) {
+	t.Parallel()
 	acc, _ := newAccount(t)
 	if res := call(t, server, "POST", "/v1/auth/logout", nil, bearer(acc.AccessToken)); res.Status != 204 {
 		t.Fatalf("logout: %d %s", res.Status, res.Body)
@@ -88,6 +92,7 @@ func TestLogoutRevokesRefresh(t *testing.T) {
 }
 
 func TestLogoutAll(t *testing.T) {
+	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
 	p, _ := session.NewVerifier(keys).Verify(second.AccessToken, time.Now())
@@ -110,6 +115,7 @@ func TestLogoutAll(t *testing.T) {
 }
 
 func TestSessionsListAndRemove(t *testing.T) {
+	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
 	res := call(t, server, "GET", "/v1/auth/sessions", nil, bearer(second.AccessToken))
@@ -144,6 +150,7 @@ func TestSessionsListAndRemove(t *testing.T) {
 
 // TestSessionsOfAnotherAccount is the spec's ownership attack test.
 func TestSessionsOfAnotherAccount(t *testing.T) {
+	t.Parallel()
 	a, _ := newAccount(t)
 	b, _ := newAccount(t)
 	aSession := sessionOf(t, a.AccessToken)

@@ -6,6 +6,7 @@ package telemetry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -41,15 +42,15 @@ func Setup(ctx context.Context, cfg config.Config, version string) (shutdown fun
 
 	traceExp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(cfg.OTLPEndpoint+"/v1/traces"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create trace exporter: %w", err)
 	}
 	metricExp, err := otlpmetrichttp.New(ctx, otlpmetrichttp.WithEndpointURL(cfg.OTLPEndpoint+"/v1/metrics"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create metric exporter: %w", err)
 	}
 	logExp, err := otlploghttp.New(ctx, otlploghttp.WithEndpointURL(cfg.OTLPEndpoint+"/v1/logs"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create log exporter: %w", err)
 	}
 
 	// Development samples every request; production sampling comes with deployment.

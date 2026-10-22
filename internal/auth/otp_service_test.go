@@ -92,6 +92,7 @@ func (e *otpEnv) sends(t *testing.T, key string) int {
 }
 
 func TestOTPServiceStoresAndSends(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	res := e.send(t, "0901234567", "203.0.113.7")
 	msgs := e.box.all()
@@ -102,6 +103,7 @@ func TestOTPServiceStoresAndSends(t *testing.T) {
 }
 
 func TestOTPServiceReplayedKey(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	key := uuid.NewV7().String()
 	in := auth.OTPSendInput{Kind: contact.Phone, Destination: "+84901234567", Purpose: otp.PurposeLogin, IP: clientIP}
@@ -113,6 +115,7 @@ func TestOTPServiceReplayedKey(t *testing.T) {
 }
 
 func TestOTPSendSpacingAndHourlyCap(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	for i := range 5 {
 		if res := e.send(t, "0901234567", "203.0.113.7"); res.Refused != nil {
@@ -138,6 +141,7 @@ func TestOTPSendSpacingAndHourlyCap(t *testing.T) {
 // one address to 40 numbers let at most 20 codes out, and another address
 // still gets through.
 func TestOTPSendCapsOneAddress(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	var wg sync.WaitGroup
 	var sent, failed atomic.Int32
@@ -149,6 +153,8 @@ func TestOTPSendCapsOneAddress(t *testing.T) {
 				failed.Add(1)
 			case res.Refused == nil:
 				sent.Add(1)
+			default:
+				// Refused by the quota, which the test expects for most sends.
 			}
 		})
 	}
@@ -163,6 +169,7 @@ func TestOTPSendCapsOneAddress(t *testing.T) {
 
 // IPv6 clients are limited per /64, the block one host usually holds.
 func TestOTPSendKeysIPv6ByPrefix(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	for i := range 20 {
 		if res := e.send(t, fmt.Sprintf("09%08d", i), fmt.Sprintf("2001:db8:1:2::%x", i+1)); res.Refused != nil {
@@ -175,6 +182,7 @@ func TestOTPSendKeysIPv6ByPrefix(t *testing.T) {
 // An address over its limit must not spend the quota of the numbers it
 // names, or one machine could lock anyone out of sign-in.
 func TestOTPSendChecksTheAddressFirst(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t)
 	for i := range 20 {
 		e.send(t, fmt.Sprintf("09%08d", i), "203.0.113.7")
@@ -188,6 +196,7 @@ func TestOTPSendChecksTheAddressFirst(t *testing.T) {
 // losing makes the first n quota saves lose a race.
 type losing struct {
 	otp.QuotaStore
+
 	n atomic.Int32
 }
 
@@ -199,6 +208,7 @@ func (l *losing) Save(ctx context.Context, q *otp.Quota, w uuid.UUID) error {
 }
 
 func TestOTPSendRetriesLostRaces(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		lost    int32
 		refused bool
@@ -224,6 +234,7 @@ func (c *challengeCommitThenFail) Create(ctx context.Context, ch otp.Challenge) 
 }
 
 func TestOTPSendSurvivesCommitThenFail(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t, func(s *auth.OTP) { s.Challenges = &challengeCommitThenFail{ChallengeStore: s.Challenges} })
 	res := e.send(t, "0901234567", "203.0.113.7")
 	if res.Refused != nil || e.rows(t) != 1 || len(e.box.all()) != 1 {
@@ -243,6 +254,7 @@ func (q *quotaCommitThenFail) Save(ctx context.Context, quota *otp.Quota, w uuid
 // A quota save that committed and then failed runs again; the send is still
 // counted once in each quota.
 func TestOTPSendSurvivesQuotaCommitThenFail(t *testing.T) {
+	t.Parallel()
 	e := startOTP(t, func(s *auth.OTP) { s.Quotas = &quotaCommitThenFail{QuotaStore: s.Quotas} })
 	res := e.send(t, "0901234567", "203.0.113.7")
 	if res.Refused != nil || len(e.box.all()) != 1 {

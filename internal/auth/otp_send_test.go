@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewChallengeHashesTheDerivedCode(t *testing.T) {
+	t.Parallel()
 	id, dest := uuid.NewV7(), phone(t, "0901234567")
 	c := auth.NewChallenge(codes(), id, otp.PurposeLogin, dest, clientIP, now)
 	if c.ID() != id || !hmac.Equal(c.CodeHash(), codes().Hash(dest, codes().For(id))) {
@@ -21,6 +22,7 @@ func TestNewChallengeHashesTheDerivedCode(t *testing.T) {
 }
 
 func TestSendCode(t *testing.T) {
+	t.Parallel()
 	ctx, b := context.Background(), &inbox{}
 	email, _ := contact.ParseEmail("linh@gmail.com")
 	for _, dest := range []contact.Address{phone(t, "0901234567"), email} {

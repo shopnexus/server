@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -57,9 +58,15 @@ func SendCode(ctx context.Context, smsSender sms.Sender, emailSender email.Sende
 	}
 	text := "Mã xác thực shopnexus: " + codes.For(c.ID()) + ". Mã hết hạn sau 5 phút. Không chia sẻ mã này với ai."
 	if c.Destination().Kind() == contact.Email {
-		return true, emailSender.Send(ctx, c.Destination().Value(), "Mã xác thực shopnexus", text)
+		if err := emailSender.Send(ctx, c.Destination().Value(), "Mã xác thực shopnexus", text); err != nil {
+			return true, fmt.Errorf("send code by email: %w", err)
+		}
+		return true, nil
 	}
-	return true, smsSender.Send(ctx, c.Destination().Value(), text)
+	if err := smsSender.Send(ctx, c.Destination().Value(), text); err != nil {
+		return true, fmt.Errorf("send code by sms: %w", err)
+	}
+	return true, nil
 }
 
 type OTPSendRequest struct {

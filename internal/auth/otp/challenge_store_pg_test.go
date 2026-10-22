@@ -19,7 +19,11 @@ var ip = netip.MustParseAddr("203.0.113.7")
 // TestPGChallenges checks that the Postgres store behaves as
 // otp.ChallengeStore promises.
 func TestPGChallenges(t *testing.T) {
-	newStore := func(t *testing.T) otp.ChallengeStore { return otp.NewChallengePGStore(pgtest.New(t)) }
+	t.Parallel()
+	newStore := func(t *testing.T) otp.ChallengeStore {
+		t.Helper()
+		return otp.NewChallengePGStore(pgtest.New(t))
+	}
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	phone, _ := contact.ParsePhone("0901234567")
@@ -34,6 +38,7 @@ func TestPGChallenges(t *testing.T) {
 	}
 
 	t.Run("create then get, twice is a no-op", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		c := create(t, s, phone, otp.PurposeLogin, now)
 		if err := s.Create(ctx, otp.New(c.ID(), otp.PurposeLogin, other, ip, []byte("x"), now)); err != nil {
@@ -48,12 +53,14 @@ func TestPGChallenges(t *testing.T) {
 	})
 
 	t.Run("get unknown", func(t *testing.T) {
+		t.Parallel()
 		if _, err := newStore(t).Get(ctx, uuid.NewV7()); !errors.Is(err, otp.ErrNotFound) {
 			t.Fatalf("err %v", err)
 		}
 	})
 
 	t.Run("save, conflict and retry", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		c := create(t, s, phone, otp.PurposeLogin, now)
 		stale := c
@@ -76,6 +83,7 @@ func TestPGChallenges(t *testing.T) {
 	})
 
 	t.Run("newest per destination and purpose", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		first := create(t, s, phone, otp.PurposeLogin, now)
 		second := create(t, s, phone, otp.PurposeLogin, now.Add(time.Second))

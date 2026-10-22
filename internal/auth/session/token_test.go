@@ -22,6 +22,7 @@ func keys(kid string) config.AuthConfig {
 }
 
 func TestSignThenVerify(t *testing.T) {
+	t.Parallel()
 	k := keys("current")
 	acc, sid, authTime := uuid.NewV7(), uuid.NewV7(), now.Add(-time.Hour)
 	s, _ := session.New(sid, acc, "", authTime, now)
@@ -36,6 +37,7 @@ func TestSignThenVerify(t *testing.T) {
 }
 
 func TestVerifyRejects(t *testing.T) {
+	t.Parallel()
 	k := keys("current")
 	signer, verifier := session.NewSigner(k), session.NewVerifier(k)
 	good, _, _ := signer.Sign(anySession(), now)
@@ -83,6 +85,7 @@ func TestVerifyRejects(t *testing.T) {
 }
 
 func TestVerifierKeyRotation(t *testing.T) {
+	t.Parallel()
 	old, current := keys("old"), keys("new")
 	current.JWTPrevKeyID, current.JWTPrevKey = old.JWTKeyID, old.JWTKey.Public().(ed25519.PublicKey)
 	oldToken, _, _ := session.NewSigner(old).Sign(anySession(), now)

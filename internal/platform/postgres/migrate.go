@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -41,7 +42,7 @@ var fileName = regexp.MustCompile(`^(\d{4})_([a-z0-9_]+)\.sql$`)
 func LoadMigrations(fsys fs.FS) ([]Migration, error) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list migrations: %w", err)
 	}
 	var migs []Migration
 	seen := map[int]string{}
@@ -60,7 +61,7 @@ func LoadMigrations(fsys fs.FS) ([]Migration, error) {
 		seen[version] = e.Name()
 		body, err := fs.ReadFile(fsys, e.Name())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read migration: %w", err)
 		}
 		migs = append(migs, Migration{Version: version, Name: m[2], SQL: string(body), Checksum: sha256.Sum256(body)})
 	}
@@ -88,32 +89,34 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) (_ []Migration
 	// migrate and unlock on the same acquired connection.
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("acquire connection: %w", err)
 	}
 	defer conn.Release()
-	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock}); err != nil {
-		return nil, err
+	if _, err = conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock}); err != nil {
+		return nil, fmt.Errorf("take migration lock: %w", err)
 	}
 	defer func() {
 		_, uerr := conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock})
 		err = errors.Join(err, uerr)
 	}()
 
-	if _, err := conn.Exec(ctx, createTable); err != nil {
-		return nil, err
+	if _, err = conn.Exec(ctx, createTable); err != nil {
+		return nil, fmt.Errorf("create schema_migrations: %w", err)
 	}
-	pending, err := pending(ctx, conn.Conn(), migs)
+	pending, err := unapplied(ctx, conn.Conn(), migs)
 	if err != nil {
 		return nil, err
 	}
 	for i, m := range pending {
 		err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 			if _, err := tx.Exec(ctx, m.SQL); err != nil {
-				return err
+				return fmt.Errorf("apply: %w", err)
 			}
-			_, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name, checksum) VALUES (@version, @name, @checksum)",
-				pgx.StrictNamedArgs{"version": m.Version, "name": m.Name, "checksum": m.Checksum[:]})
-			return err
+			if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version, name, checksum) VALUES (@version, @name, @checksum)",
+				pgx.StrictNamedArgs{"version": m.Version, "name": m.Name, "checksum": m.Checksum[:]}); err != nil {
+				return fmt.Errorf("record: %w", err)
+			}
+			return nil
 		})
 		if err != nil {
 			return pending[:i], fmt.Errorf("migration %s: %w", m.File(), err)
@@ -130,35 +133,35 @@ func Pending(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]Migration, 
 	}
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("acquire connection: %w", err)
 	}
 	defer conn.Release()
 	var exists bool
 	if err := conn.QueryRow(ctx, "SELECT to_regclass('schema_migrations') IS NOT NULL").Scan(&exists); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("look up schema_migrations: %w", err)
 	}
 	if !exists {
 		return migs, nil
 	}
-	return pending(ctx, conn.Conn(), migs)
+	return unapplied(ctx, conn.Conn(), migs)
 }
 
-func pending(ctx context.Context, conn *pgx.Conn, migs []Migration) ([]Migration, error) {
+func unapplied(ctx context.Context, conn *pgx.Conn, migs []Migration) ([]Migration, error) {
 	rows, err := conn.Query(ctx, "SELECT version, checksum FROM schema_migrations")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("select applied migrations: %w", err)
 	}
 	applied := map[int][]byte{}
 	for rows.Next() {
 		var v int
 		var sum []byte
 		if err := rows.Scan(&v, &sum); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan applied migration: %w", err)
 		}
 		applied[v] = sum
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read applied migrations: %w", err)
 	}
 
 	var out []Migration
@@ -168,7 +171,7 @@ func pending(ctx context.Context, conn *pgx.Conn, migs []Migration) ([]Migration
 			out = append(out, m)
 			continue
 		}
-		if string(sum) != string(m.Checksum[:]) {
+		if !bytes.Equal(sum, m.Checksum[:]) {
 			return nil, fmt.Errorf("%w: %s", ErrChecksumMismatch, m.File())
 		}
 	}

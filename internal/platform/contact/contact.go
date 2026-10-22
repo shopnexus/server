@@ -53,7 +53,7 @@ func (a *Address) UnmarshalJSON(b []byte) error {
 
 // vnMobile is +84, a mobile prefix (3, 5, 7, 8, 9) and eight digits. Other
 // countries arrive in a later phase.
-var vnMobile = regexp.MustCompile(`^\+84[35789][0-9]{8}$`)
+var vnMobile = regexp.MustCompile(`^\+84[35789]\d{8}$`)
 
 // ParsePhone accepts 0901234567, 84901234567, +84 90 123 4567 and the
 // country code before the trunk 0 (+84 090 123 4567), ignoring spaces, dots,
@@ -73,6 +73,8 @@ func ParsePhone(raw string) (Address, error) {
 		s = "+" + s
 	case strings.HasPrefix(s, "0") && len(s) == 10:
 		s = "+84" + s[1:]
+	default:
+		// vnMobile rejects whatever else is left.
 	}
 	if !vnMobile.MatchString(s) {
 		return Address{}, ErrInvalidPhone

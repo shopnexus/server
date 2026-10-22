@@ -18,7 +18,7 @@ func LoadDotEnv(path string) error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 
 	sc := bufio.NewScanner(bytes.NewReader(data))
@@ -43,5 +43,8 @@ func LoadDotEnv(path string) error {
 			return fmt.Errorf("%s: line %d: %w", path, n, err)
 		}
 	}
-	return sc.Err()
+	if err := sc.Err(); err != nil {
+		return fmt.Errorf("scan %s: %w", path, err)
+	}
+	return nil
 }

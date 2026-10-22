@@ -10,6 +10,7 @@ import (
 )
 
 func TestStatusFollowsTheClock(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
 	a, _ := s.Get(context.Background(), id)

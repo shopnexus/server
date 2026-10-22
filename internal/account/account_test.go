@@ -13,6 +13,7 @@ import (
 var now = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
 
 func TestNewAllowsEmptyName(t *testing.T) {
+	t.Parallel()
 	a, err := account.New(uuid.NewV7(), "", now)
 	if err != nil || a.DisplayName() != "" || a.Status(now) != account.StatusActive {
 		t.Fatalf("%+v %v", a, err)
@@ -20,6 +21,7 @@ func TestNewAllowsEmptyName(t *testing.T) {
 }
 
 func TestNewTrimsName(t *testing.T) {
+	t.Parallel()
 	a, err := account.New(uuid.NewV7(), "  Linh  ", now)
 	if err != nil || a.DisplayName() != "Linh" {
 		t.Fatalf("%q %v", a.DisplayName(), err)
@@ -27,6 +29,7 @@ func TestNewTrimsName(t *testing.T) {
 }
 
 func TestNameLengthCountsRunes(t *testing.T) {
+	t.Parallel()
 	if _, err := account.New(uuid.NewV7(), strings.Repeat("ữ", 50), now); err != nil {
 		t.Fatalf("50 Vietnamese characters rejected: %v", err)
 	}
@@ -36,6 +39,7 @@ func TestNameLengthCountsRunes(t *testing.T) {
 }
 
 func TestSetDisplayName(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "", now)
 	later := now.Add(time.Hour)
 	if err := a.SetDisplayName("Khánh Linh", later); err != nil {
@@ -50,6 +54,7 @@ func TestSetDisplayName(t *testing.T) {
 }
 
 func TestSuspendBlocksWrites(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "Linh", now)
 	if err := a.Suspend("scam", nil, now); err != nil {
 		t.Fatal(err)
@@ -60,6 +65,7 @@ func TestSuspendBlocksWrites(t *testing.T) {
 }
 
 func TestSuspensionWithEndLapses(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "Linh", now)
 	until := now.Add(time.Hour)
 	a.Suspend("spam", &until, now)
@@ -72,6 +78,7 @@ func TestSuspensionWithEndLapses(t *testing.T) {
 }
 
 func TestSuspendNeedsReason(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "Linh", now)
 	if err := a.Suspend("  ", nil, now); !errors.Is(err, account.ErrSuspendReason) {
 		t.Fatalf("err %v", err)
@@ -82,6 +89,7 @@ func TestSuspendNeedsReason(t *testing.T) {
 }
 
 func TestSuspendEndInThePastRejected(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "Linh", now)
 	past := now.Add(-time.Minute)
 	if err := a.Suspend("spam", &past, now); !errors.Is(err, account.ErrSuspendUntil) {
@@ -90,6 +98,7 @@ func TestSuspendEndInThePastRejected(t *testing.T) {
 }
 
 func TestReinstate(t *testing.T) {
+	t.Parallel()
 	a, _ := account.New(uuid.NewV7(), "Linh", now)
 	a.Suspend("scam", nil, now)
 	a.Reinstate(now)
@@ -99,6 +108,7 @@ func TestReinstate(t *testing.T) {
 }
 
 func TestNewStartsWithItsIDAsWriteID(t *testing.T) {
+	t.Parallel()
 	id := uuid.NewV7()
 	a, _ := account.New(id, "Linh", now)
 	if a.ID() != id || a.WriteID() != id {

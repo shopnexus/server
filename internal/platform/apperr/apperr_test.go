@@ -9,6 +9,7 @@ import (
 )
 
 func TestErrorWrapsAndUnwraps(t *testing.T) {
+	t.Parallel()
 	cause := errors.New("db down")
 	e := apperr.New(apperr.KindConflict, "phone_taken", "phone already used")
 	e.Err = cause
@@ -27,6 +28,7 @@ func TestErrorWrapsAndUnwraps(t *testing.T) {
 }
 
 func TestErrorsIsComparesCode(t *testing.T) {
+	t.Parallel()
 	sentinel := apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
 	err := fmt.Errorf("load: %w", sentinel.WithField("id", "unknown"))
 	if !errors.Is(err, sentinel) {
@@ -38,6 +40,7 @@ func TestErrorsIsComparesCode(t *testing.T) {
 }
 
 func TestWithFieldCopies(t *testing.T) {
+	t.Parallel()
 	base := apperr.New(apperr.KindInvalid, "invalid", "bad")
 	a := base.WithField("x", "missing")
 	if base.Fields != nil {
@@ -53,6 +56,7 @@ func TestWithFieldCopies(t *testing.T) {
 }
 
 func TestWithDetailCopies(t *testing.T) {
+	t.Parallel()
 	base := apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
 	got := base.WithDetail("attempts_left", 4)
 	if got.Details["attempts_left"] != 4 || base.Details != nil || !errors.Is(got, base) {

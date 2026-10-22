@@ -12,6 +12,7 @@ import (
 // Without an exporter, spans must still carry real ids, so logs, error bodies
 // and the Trace-Id header stay correlated.
 func TestSetupWithoutEndpointStillMintsTraceIDs(t *testing.T) {
+	t.Parallel()
 	shutdown, err := Setup(context.Background(), config.Config{ServiceName: "t"}, "test")
 	if err != nil {
 		t.Fatal(err)

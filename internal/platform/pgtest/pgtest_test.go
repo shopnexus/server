@@ -6,6 +6,7 @@ import (
 )
 
 func TestGuardRejectsNonTestDatabases(t *testing.T) {
+	t.Parallel()
 	cases := []string{
 		"postgres://server2:server2@localhost:56432/server2?sslmode=disable",     // dev stack
 		"postgres://server2:server2@localhost:56433/server2?sslmode=disable",     // test port, dev name

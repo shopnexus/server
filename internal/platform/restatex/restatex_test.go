@@ -32,6 +32,7 @@ func (c counter) Bump(ctx restate.Context, label string) (string, error) {
 }
 
 func TestServeRegisterAndCall(t *testing.T) {
+	t.Parallel()
 	runs := &atomic.Int32{}
 	svc := counter{prefix: restatetest.Prefix(), runs: runs}
 	client := restatetest.Start(t, restate.Reflect(svc))
@@ -55,6 +56,7 @@ func TestServeRegisterAndCall(t *testing.T) {
 }
 
 func TestHealthy(t *testing.T) {
+	t.Parallel()
 	if err := restatex.Healthy(context.Background(), restatetest.Config(t).AdminURL); err != nil {
 		t.Fatal(err)
 	}
@@ -66,20 +68,25 @@ func TestHealthy(t *testing.T) {
 // The endpoint runs only requests the Restate server signed with the key
 // whose public half it holds.
 func TestServeRejectsUnsignedRequests(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "identity.pem")
 	key, err := restatex.EnsureIdentity(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again, err := restatex.EnsureIdentity(path); err != nil || again != key {
-		t.Fatalf("a second call made another key: %v", err)
+	if again, againErr := restatex.EnsureIdentity(path); againErr != nil || again != key {
+		t.Fatalf("a second call made another key: %v", againErr)
 	}
-	ep, err := restatex.Serve("127.0.0.1:0", key, restate.Reflect(counter{prefix: "t", runs: &atomic.Int32{}}))
+	ep, err := restatex.Serve(t.Context(), "127.0.0.1:0", key, restate.Reflect(counter{prefix: "t", runs: &atomic.Int32{}}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ep.Close(context.Background()) })
-	res, err := http.Get(ep.URL() + "/discover")
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ep.URL()+"/discover", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

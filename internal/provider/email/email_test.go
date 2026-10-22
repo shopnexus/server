@@ -11,6 +11,7 @@ import (
 )
 
 func TestLogSenderWritesMessage(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	s := email.LogSender{Log: slog.New(slog.NewTextHandler(&buf, nil))}
 	if err := s.Send(context.Background(), "linh@example.com", "Mã xác minh", "583920"); err != nil {

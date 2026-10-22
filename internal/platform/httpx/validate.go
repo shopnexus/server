@@ -3,10 +3,12 @@ package httpx
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -15,12 +17,13 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
-func init() {
-	// kin-openapi validates only a few formats by default; the spec relies on
-	// these as shape rules too.
+// defineFormats registers the string formats the spec relies on as shape
+// rules; kin-openapi validates only a few by default. The registry is global
+// to kin-openapi, so it runs once.
+var defineFormats = sync.OnceFunc(func() {
 	openapi3.DefineStringFormatValidator("uuid", openapi3.NewRegexpFormatValidator(openapi3.FormatOfStringForUUIDOfRFC9562)) // v1-v8; ids are v7
 	openapi3.DefineStringFormatValidator("email", openapi3.NewRegexpFormatValidator(openapi3.FormatOfStringForEmail))
-}
+})
 
 // MaxBodyBytes caps every request body.
 const MaxBodyBytes = 1 << 20
@@ -34,12 +37,13 @@ var (
 // the handler runs. Shape rules live only in the spec. Requests to paths the
 // spec does not describe pass through, so the mux answers 404.
 func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) http.Handler, error) {
+	defineFormats()
 	// Match on paths only; the servers list names deployments, not this process.
 	matchDoc := *doc
 	matchDoc.Servers = nil
 	router, err := legacy.NewRouter(&matchDoc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build openapi router: %w", err)
 	}
 	opts := &openapi3filter.Options{
 		MultiError:         true,

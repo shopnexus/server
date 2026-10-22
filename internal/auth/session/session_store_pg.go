@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -24,7 +25,10 @@ func scan(row pgx.Row) (Session, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}
-	return s, err
+	if err != nil {
+		return Session{}, fmt.Errorf("select session: %w", err)
+	}
+	return s, nil
 }
 
 const createSession = `
@@ -37,7 +41,10 @@ func (s pgStore) Create(ctx context.Context, x Session) (bool, error) {
 		"id": x.id, "account_id": x.accountID, "refresh_hash": x.refreshHash, "device_name": x.deviceName,
 		"auth_time": x.authTime, "created_at": x.createdAt, "expires_at": x.expiresAt,
 	})
-	return tag.RowsAffected() == 1, err
+	if err != nil {
+		return false, fmt.Errorf("insert session: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Session, error) {
@@ -65,7 +72,7 @@ func (s pgStore) Save(ctx context.Context, x *Session, writeID uuid.UUID) error 
 		"last_used_at": x.lastUsedAt, "revoked_at": x.revokedAt,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("update session: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrConflict
@@ -78,7 +85,10 @@ func (s pgStore) RevokeAll(ctx context.Context, accountID uuid.UUID, now time.Ti
 	_, err := s.db.Exec(ctx, `
 UPDATE sessions SET revoked_at = @now, write_id = uuidv7()
 WHERE account_id = @account_id AND revoked_at IS NULL`, pgx.StrictNamedArgs{"account_id": accountID, "now": now})
-	return err
+	if err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
+	}
+	return nil
 }
 
 const listActive = `
@@ -98,11 +108,11 @@ func (s pgStore) ListActive(ctx context.Context, accountID uuid.UUID, now time.T
 		"account_id": accountID, "now": now, "idle_since": now.Add(-IdleLimit), "before": cursor, "limit": limit,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("select active sessions: %w", err)
 	}
-	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (View, error) {
-		var v View
-		err := r.Scan(&v.ID, &v.DeviceName, &v.CreatedAt, &v.LastUsedAt)
-		return v, err
-	})
+	views, err := pgx.CollectRows(rows, pgx.RowToStructByPos[View])
+	if err != nil {
+		return nil, fmt.Errorf("read active sessions: %w", err)
+	}
+	return views, nil
 }

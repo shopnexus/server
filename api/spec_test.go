@@ -7,6 +7,7 @@ import (
 )
 
 func TestSpecValid(t *testing.T) {
+	t.Parallel()
 	doc, err := api.Load()
 	if err != nil {
 		t.Fatal(err)

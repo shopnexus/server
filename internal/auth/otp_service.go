@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/netip"
 	"time"
@@ -27,6 +28,8 @@ type OTPSendInput struct {
 
 // OTPSendResult carries a refusal as data: Restate retries an error, and its
 // ingress keeps only a message of a terminal one.
+//
+//exhaustruct:optional
 type OTPSendResult struct {
 	ChallengeID uuid.UUID     `json:"challenge_id"`
 	Refused     *apperr.Error `json:"refused,omitempty"`
@@ -43,7 +46,10 @@ type OTP struct {
 	Now        func() time.Time
 }
 
-func (s OTP) ServiceName() string { return s.Prefix + "OTP" }
+// otpService is the OTP service's name without the prefix.
+const otpService = "OTP"
+
+func (s OTP) ServiceName() string { return s.Prefix + otpService }
 
 func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 	dest := contact.Restore(in.Kind, in.Destination)
@@ -64,7 +70,7 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 
 	c := NewChallenge(s.Codes, newID(ctx, at), in.Purpose, dest, in.IP, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Challenges.Create(rc, c) }); err != nil {
-		return OTPSendResult{}, err
+		return OTPSendResult{}, fmt.Errorf("create challenge: %w", err)
 	}
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		sent, err := SendCode(rc, s.SMS, s.Email, s.Codes, c, s.Now())
@@ -73,7 +79,7 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 		}
 		return err
 	}); err != nil {
-		return OTPSendResult{}, err
+		return OTPSendResult{}, fmt.Errorf("send code: %w", err)
 	}
 	return OTPSendResult{ChallengeID: c.ID()}, nil
 }
@@ -86,7 +92,7 @@ func admit(ctx restate.Context, quotas otp.QuotaStore, key string, at time.Time,
 	for range 3 {
 		q, err := restate.Run(ctx, func(rc restate.RunContext) (otp.Quota, error) { return quotas.Get(rc, key) })
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("load quota: %w", err)
 		}
 		rule, wait, ok := q.Admit(at, rules...)
 		if !ok {
@@ -102,8 +108,11 @@ func admit(ctx restate.Context, quotas otp.QuotaStore, key string, at time.Time,
 			err := quotas.Save(rc, &q, w)
 			return errors.Is(err, otp.ErrConflict), ignore(err, otp.ErrConflict)
 		})
-		if err != nil || !lost {
-			return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("save quota: %w", err)
+		}
+		if !lost {
+			return nil, nil //nolint:nilnil // A nil refusal means the send was admitted.
 		}
 	}
 	// The racing sends finish within a second.

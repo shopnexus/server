@@ -28,6 +28,7 @@ var twoMigrations = map[string]string{
 }
 
 func TestLoadMigrationsSortsByVersion(t *testing.T) {
+	t.Parallel()
 	migs, err := postgres.LoadMigrations(files(map[string]string{
 		"0002_b.sql": "x", "0001_a.sql": "y", "README.md": "ignored", "embed.go": "ignored",
 	}))
@@ -40,6 +41,7 @@ func TestLoadMigrationsSortsByVersion(t *testing.T) {
 }
 
 func TestLoadMigrationsRejectsDuplicateVersion(t *testing.T) {
+	t.Parallel()
 	_, err := postgres.LoadMigrations(files(map[string]string{"0001_a.sql": "x", "0001_b.sql": "y"}))
 	if err == nil || !strings.Contains(err.Error(), "version 1") {
 		t.Fatalf("err = %v", err)
@@ -47,6 +49,7 @@ func TestLoadMigrationsRejectsDuplicateVersion(t *testing.T) {
 }
 
 func TestLoadMigrationsRejectsBadName(t *testing.T) {
+	t.Parallel()
 	_, err := postgres.LoadMigrations(files(map[string]string{"abc.sql": "x"}))
 	if err == nil || !strings.Contains(err.Error(), "abc.sql") {
 		t.Fatalf("err = %v", err)
@@ -71,6 +74,7 @@ func appliedVersions(t *testing.T, pool *pgxpool.Pool) []int {
 }
 
 func TestMigrateAppliesAll(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	applied, err := postgres.Migrate(context.Background(), pool, files(twoMigrations))
 	if err != nil {
@@ -85,6 +89,7 @@ func TestMigrateAppliesAll(t *testing.T) {
 }
 
 func TestMigrateTwiceAppliesNothing(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	fsys := files(twoMigrations)
 	if _, err := postgres.Migrate(context.Background(), pool, fsys); err != nil {
@@ -97,6 +102,7 @@ func TestMigrateTwiceAppliesNothing(t *testing.T) {
 }
 
 func TestMigrateDetectsEditedMigration(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	if _, err := postgres.Migrate(context.Background(), pool, files(twoMigrations)); err != nil {
 		t.Fatal(err)
@@ -114,6 +120,7 @@ func TestMigrateDetectsEditedMigration(t *testing.T) {
 }
 
 func TestMigrateFailureRollsBackThatMigration(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	_, err := postgres.Migrate(context.Background(), pool, files(map[string]string{
 		"0001_a.sql": "CREATE TABLE a (id int);",
@@ -133,6 +140,7 @@ func TestMigrateFailureRollsBackThatMigration(t *testing.T) {
 }
 
 func TestMigrateConcurrentCallsApplyOnce(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	fsys := files(twoMigrations)
 	var wg sync.WaitGroup
@@ -152,6 +160,7 @@ func TestMigrateConcurrentCallsApplyOnce(t *testing.T) {
 }
 
 func TestPendingListsUnapplied(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	if _, err := postgres.Migrate(context.Background(), pool, files(map[string]string{"0001_a.sql": "CREATE TABLE a (id int);"})); err != nil {
 		t.Fatal(err)
@@ -163,6 +172,7 @@ func TestPendingListsUnapplied(t *testing.T) {
 }
 
 func TestPendingOnEmptyDatabase(t *testing.T) {
+	t.Parallel()
 	pool := pgtest.Empty(t)
 	pending, err := postgres.Pending(context.Background(), pool, files(twoMigrations))
 	if err != nil || len(pending) != 2 {

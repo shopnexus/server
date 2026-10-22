@@ -28,17 +28,17 @@ func EnsureIdentity(path string) (string, error) {
 	}
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("generate identity key: %w", err)
 	}
 	der, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("encode identity key: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return "", err
+		return "", fmt.Errorf("create identity key directory: %w", err)
 	}
 	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
-		return "", err
+		return "", fmt.Errorf("write identity key: %w", err)
 	}
 	return IdentityKey(path)
 }
@@ -47,7 +47,7 @@ func EnsureIdentity(path string) (string, error) {
 func IdentityKey(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read identity key: %w", err)
 	}
 	block, _ := pem.Decode(b)
 	if block == nil {

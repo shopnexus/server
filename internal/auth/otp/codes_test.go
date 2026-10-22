@@ -13,7 +13,8 @@ import (
 var key1, key2 = []byte("key-one-key-one-key-one-key-one!"), []byte("key-two-key-two-key-two-key-two!")
 
 func TestCodeIsDerivedFromTheChallenge(t *testing.T) {
-	six := regexp.MustCompile(`^[0-9]{6}$`)
+	t.Parallel()
+	six := regexp.MustCompile(`^\d{6}$`)
 	codes := otp.NewCodes(key1)
 	id := uuid.NewV7()
 	if c := codes.For(id); !six.MatchString(c) || c != codes.For(id) {
@@ -39,6 +40,7 @@ func TestCodeIsDerivedFromTheChallenge(t *testing.T) {
 }
 
 func TestHashBindsKeyAndDestination(t *testing.T) {
+	t.Parallel()
 	a, _ := contact.ParsePhone("0901234567")
 	b, _ := contact.ParsePhone("0907654321")
 	h1, h2 := otp.NewCodes(key1), otp.NewCodes(key2)

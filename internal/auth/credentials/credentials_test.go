@@ -13,6 +13,7 @@ import (
 var now = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
 
 func TestNewCredentials(t *testing.T) {
+	t.Parallel()
 	acc, idID := uuid.NewV7(), uuid.NewV7()
 	phone, _ := contact.ParsePhone("0901234567")
 	c := credentials.New(acc, credentials.NewIdentity(idID, phone, now), now)
@@ -24,6 +25,7 @@ func TestNewCredentials(t *testing.T) {
 }
 
 func TestMarkUsed(t *testing.T) {
+	t.Parallel()
 	phone, _ := contact.ParsePhone("0901234567")
 	id := uuid.NewV7()
 	c := credentials.New(uuid.NewV7(), credentials.NewIdentity(id, phone, now), now)

@@ -11,6 +11,7 @@ import (
 )
 
 func TestParsePhone(t *testing.T) {
+	t.Parallel()
 	for _, in := range []string{
 		"0901234567", "+84901234567", "84901234567", "+84 90 123 4567", "090.123.4567", "090-123-4567", " 0901234567 ",
 		"+84 090 123 4567", "+840901234567", "(090) 123-4567", "(+84) 90 123 4567",
@@ -23,6 +24,7 @@ func TestParsePhone(t *testing.T) {
 }
 
 func TestParsePhoneRejects(t *testing.T) {
+	t.Parallel()
 	for _, in := range []string{
 		"", "0201234567", "090123456", "09012345678", "+14155550100", "+84901234567x", "+84 1234", "phone",
 		"+8400901234567", "((090)) 123 4567x",
@@ -34,6 +36,7 @@ func TestParsePhoneRejects(t *testing.T) {
 }
 
 func TestParseEmail(t *testing.T) {
+	t.Parallel()
 	if a, err := contact.ParseEmail("  Linh.Nguyen@Gmail.COM "); err != nil || a.Value() != "linh.nguyen@gmail.com" || a.Kind() != contact.Email {
 		t.Fatalf("%q %v", a.Value(), err)
 	}
@@ -48,6 +51,7 @@ func TestParseEmail(t *testing.T) {
 }
 
 func TestParseByKind(t *testing.T) {
+	t.Parallel()
 	if a, err := contact.Parse(contact.Email, "A@B.co"); err != nil || a.Value() != "a@b.co" {
 		t.Fatalf("%q %v", a.Value(), err)
 	}
@@ -57,6 +61,7 @@ func TestParseByKind(t *testing.T) {
 }
 
 func TestMaskingAndLogs(t *testing.T) {
+	t.Parallel()
 	phone, _ := contact.ParsePhone("0901234567")
 	email, _ := contact.ParseEmail("linh@gmail.com")
 	if phone.Masked() != "+8490****567" || email.Masked() != "l***@gmail.com" {

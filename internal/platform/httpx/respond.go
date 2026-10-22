@@ -36,8 +36,8 @@ var statusOf = map[apperr.Kind]int{
 type errorPayload struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
-	Fields  map[string]string `json:"fields,omitempty"`
-	Details map[string]any    `json:"details,omitempty"`
+	Fields  map[string]string `json:"fields,omitempty"`  //exhaustruct:optional
+	Details map[string]any    `json:"details,omitempty"` //exhaustruct:optional
 	TraceID string            `json:"trace_id"`
 }
 

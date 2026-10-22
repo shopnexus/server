@@ -114,9 +114,9 @@ func phone(t *testing.T, raw string) contact.Address {
 }
 
 // stored creates a login challenge in s and returns it with its code.
-func stored(t *testing.T, s otp.ChallengeStore, raw string, at time.Time) (otp.Challenge, string) {
+func stored(t *testing.T, s otp.ChallengeStore, raw string, at time.Time) (c otp.Challenge, code string) {
 	t.Helper()
-	c := auth.NewChallenge(codes(), uuid.NewV7(), otp.PurposeLogin, phone(t, raw), clientIP, at)
+	c = auth.NewChallenge(codes(), uuid.NewV7(), otp.PurposeLogin, phone(t, raw), clientIP, at)
 	if err := s.Create(context.Background(), c); err != nil {
 		t.Fatal(err)
 	}

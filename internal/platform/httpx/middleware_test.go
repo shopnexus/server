@@ -60,9 +60,10 @@ func attr(attrs []attribute.KeyValue, key string) (attribute.Value, bool) {
 	return attribute.Value{}, false
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/42", nil))
+	serve(Trace(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	spans := rec.Ended()
 	if len(spans) != 1 {
@@ -80,19 +81,21 @@ func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceRecordsHandlerStatus(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/missing", nil))
+	serve(Trace(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/missing", http.NoBody))
 
 	if v, _ := attr(rec.Ended()[0].Attributes(), "http.response.status_code"); v.AsInt64() != 404 {
 		t.Fatalf("status = %v", v)
 	}
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceContinuesIncomingTrace(t *testing.T) {
 	rec := useRecorder(t)
-	req := httptest.NewRequest(http.MethodGet, "/items/42", nil)
-	req.Header.Set("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody)
+	req.Header.Set("Traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
 	serve(Trace(testMux()), req)
 
 	s := rec.Ended()[0]
@@ -104,9 +107,10 @@ func TestTraceContinuesIncomingTrace(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/nope", nil))
+	serve(Trace(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/nope", http.NoBody))
 
 	s := rec.Ended()[0]
 	if s.Name() != "GET" {
@@ -117,20 +121,22 @@ func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceSetsTraceIDHeader(t *testing.T) {
 	rec := useRecorder(t)
-	resp := serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/42", nil))
+	resp := serve(Trace(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	if got := resp.Header().Get("Trace-Id"); got != rec.Ended()[0].SpanContext().TraceID().String() {
 		t.Fatalf("Trace-Id %q", got)
 	}
 }
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestAccessLogLine(t *testing.T) {
 	rec := useRecorder(t)
 	var buf bytes.Buffer
 	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
-	serve(Trace(AccessLog(log)(testMux())), httptest.NewRequest(http.MethodGet, "/items/42", nil))
+	serve(Trace(AccessLog(log)(testMux())), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	var m map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {

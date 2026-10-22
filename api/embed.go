@@ -4,6 +4,7 @@ package api
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/url"
 	"path"
@@ -25,10 +26,10 @@ func Load() (*openapi3.T, error) {
 	}
 	doc, err := loader.LoadFromURI(&url.URL{Path: "openapi.yaml"})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load openapi.yaml: %w", err)
 	}
 	if err := doc.Validate(loader.Context); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("validate openapi.yaml: %w", err)
 	}
 	return doc, nil
 }

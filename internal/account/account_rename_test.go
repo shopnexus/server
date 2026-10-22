@@ -11,6 +11,7 @@ import (
 )
 
 func TestRename(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
 	if v, err := account.Rename(context.Background(), s, id, " Minh ", now); err != nil || v.DisplayName != "Minh" {
@@ -19,6 +20,7 @@ func TestRename(t *testing.T) {
 }
 
 func TestRenameRefusedWhileSuspended(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
 	a, _ := s.Get(context.Background(), id)
@@ -38,6 +40,7 @@ func (conflicting) Save(context.Context, *account.Account, uuid.UUID) error {
 
 // A lost race reaches the client as try_again, the code auth uses too.
 func TestRenameReportsAConflict(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
 	if _, err := account.Rename(context.Background(), conflicting{s}, id, "Minh", now); !errors.Is(err, apperr.ErrTryAgain) {

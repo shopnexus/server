@@ -11,7 +11,10 @@ import (
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
-func newStore(t *testing.T) account.Store { return account.NewPGStore(pgtest.New(t)) }
+func newStore(t *testing.T) account.Store {
+	t.Helper()
+	return account.NewPGStore(pgtest.New(t))
+}
 
 func seed(t *testing.T, s account.Store) uuid.UUID {
 	t.Helper()
@@ -23,6 +26,7 @@ func seed(t *testing.T, s account.Store) uuid.UUID {
 }
 
 func TestCreateIsIdempotent(t *testing.T) {
+	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
 	if err := account.Create(context.Background(), s, id, "Linh", now); err != nil {
@@ -34,6 +38,7 @@ func TestCreateIsIdempotent(t *testing.T) {
 }
 
 func TestCreateRejectsLongName(t *testing.T) {
+	t.Parallel()
 	err := account.Create(context.Background(), newStore(t), uuid.NewV7(), strings.Repeat("a", 51), now)
 	if !errors.Is(err, account.ErrInvalidName) {
 		t.Fatalf("err %v", err)

@@ -17,7 +17,9 @@ import (
 // promises. newStore also returns a function that creates an account to own
 // rows.
 func TestPGStore(t *testing.T) {
+	t.Parallel()
 	newStore := func(t *testing.T) (credentials.Store, func() uuid.UUID) {
+		t.Helper()
 		pool := pgtest.New(t)
 		newAccount := func() uuid.UUID {
 			id := uuid.NewV7()
@@ -43,6 +45,7 @@ func TestPGStore(t *testing.T) {
 	}
 
 	t.Run("create, get and find", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		acc := newAccount()
 		c := fresh(t, s, acc, phone)
@@ -60,6 +63,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("create twice is a no-op", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		c := fresh(t, s, newAccount(), phone)
 		if err := s.Create(ctx, c); err != nil {
@@ -68,6 +72,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("another account's identity is taken", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		first := fresh(t, s, newAccount(), phone)
 		second := credentials.New(newAccount(), credentials.NewIdentity(uuid.NewV7(), phone, now), now)
@@ -83,6 +88,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("save, conflict and retry", func(t *testing.T) {
+		t.Parallel()
 		s, newAccount := newStore(t)
 		acc := newAccount()
 		fresh(t, s, acc, email)
@@ -107,6 +113,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("get unknown", func(t *testing.T) {
+		t.Parallel()
 		s, _ := newStore(t)
 		if _, err := s.Get(ctx, uuid.NewV7()); !errors.Is(err, credentials.ErrNotFound) {
 			t.Fatalf("err %v", err)

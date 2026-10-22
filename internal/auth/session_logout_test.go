@@ -16,7 +16,7 @@ import (
 // devices issues sessions for acc and returns the principal of each.
 func devices(t *testing.T, s session.Store, acc uuid.UUID, n int, at time.Time) []authn.Principal {
 	t.Helper()
-	var out []authn.Principal
+	out := make([]authn.Principal, 0, n)
 	for range n {
 		id := uuid.NewV7()
 		if _, err := auth.IssueSession(context.Background(), s, session.NewSigner(testKeys), id, acc, "Pixel 9", at); err != nil {
@@ -37,6 +37,7 @@ func revokedIn(t *testing.T, s session.Store, id uuid.UUID) bool {
 }
 
 func TestLogoutRevokesOnlyThisSession(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	s := session.NewPGStore(db)
 	ps := devices(t, s, newAccount(t, db), 2, now)
@@ -49,6 +50,7 @@ func TestLogoutRevokesOnlyThisSession(t *testing.T) {
 }
 
 func TestLogoutAllNeedsRecentSignIn(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	s := session.NewPGStore(db)
 	ps := devices(t, s, newAccount(t, db), 2, now)
@@ -65,6 +67,7 @@ func TestLogoutAllNeedsRecentSignIn(t *testing.T) {
 }
 
 func TestRemoveSessionChecksTheOwner(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	s := session.NewPGStore(db)
 	mine := devices(t, s, newAccount(t, db), 2, now)

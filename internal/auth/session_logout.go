@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -36,7 +37,10 @@ func LogoutAll(ctx context.Context, sessions session.Store, p authn.Principal, n
 	if now.Sub(p.AuthTime) > recentAuth {
 		return ErrReauthRequired
 	}
-	return sessions.RevokeAll(ctx, p.AccountID, now)
+	if err := sessions.RevokeAll(ctx, p.AccountID, now); err != nil {
+		return fmt.Errorf("revoke all sessions: %w", err)
+	}
+	return nil
 }
 
 // RemoveSession signs one of the caller's devices out.
@@ -46,7 +50,7 @@ func RemoveSession(ctx context.Context, sessions session.Store, p authn.Principa
 		return ErrSessionNotFound
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("get session: %w", err)
 	}
 	if s.AccountID() != p.AccountID {
 		return ErrSessionNotFound

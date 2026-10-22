@@ -276,6 +276,34 @@ prove the copy. `go test -short` runs only what needs no database.
   captured by a fake sender. The four OpenAPI conformance tests from plan 1
   run unchanged on top of it.
 
+Every test and subtest calls `t.Parallel()`; paralleltest enforces it. A test
+that sets process environment variables or installs the global OTel tracer
+provider runs serially and says why in its `//nolint:paralleltest` comment.
+The httpx package installs an SDK tracer provider in `TestMain`, so only the
+tests that read recorded spans swap the global.
+
+### Linting
+
+`make test` runs golangci-lint with `.golangci.yml`, which also checks gofumpt
+formatting. The rules that shape the code:
+
+- wrapcheck: an error from another package is returned with context,
+  `fmt.Errorf("get session: %w", err)`. A Restate handler wraps each step's
+  error with the step's name. Code that builds an `*apperr.Error` and
+  `MarshalJSON`/`UnmarshalJSON` methods return errors as they are; so do
+  `http.ResponseWriter` and `slog.Handler` wrappers, with a `nolint` comment.
+- exhaustruct, for this module's types outside tests: a struct literal names
+  every field, zero values included, so a new field shows every constructor
+  that must set it. A field that is legitimately absent carries
+  `//exhaustruct:optional`; `OTPSendResult` and `SignInResult` carry it on
+  the type, since they hold either `Refused` or the other fields.
+- govet shadow: no `err` hides another `err` in scope. Inside a Restate step
+  closure the error is `stepErr`.
+- recvcheck: a type with one pointer-receiver method has only pointer
+  receivers, except `MarshalJSON`, which `json.Marshal` skips on a value
+  otherwise.
+- nolintlint: every `//nolint` names the linter and gives the reason.
+
 ### Restate in practice
 
 Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.

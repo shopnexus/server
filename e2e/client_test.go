@@ -68,7 +68,7 @@ func call(t *testing.T, base, method, path string, body any, headers ...[2]strin
 			t.Fatal(err)
 		}
 	}
-	req, err := http.NewRequest(method, base+path, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(t.Context(), method, base+path, bytes.NewReader(reqBody))
 	if err != nil {
 		t.Fatal(err)
 	}

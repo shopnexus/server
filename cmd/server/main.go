@@ -27,7 +27,7 @@ func main() {
 
 func run() error {
 	if err := config.LoadDotEnv(".env"); err != nil {
-		return err
+		return fmt.Errorf("load .env: %w", err)
 	}
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
@@ -44,16 +44,16 @@ func run() error {
 	log := telemetry.NewLogger(os.Stdout, cfg.LogFormat, cfg.LogLevel)
 	slog.SetDefault(log)
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := shutdownTelemetry(ctx); err != nil {
-			log.Error("telemetry shutdown", "err", err)
+		if flushErr := shutdownTelemetry(flushCtx); flushErr != nil {
+			log.Error("telemetry shutdown", "err", flushErr)
 		}
 	}()
 
 	a, err := app.New(ctx, cfg, log)
 	if err != nil {
-		return err
+		return fmt.Errorf("start app: %w", err)
 	}
 
 	srv := &http.Server{
@@ -72,7 +72,7 @@ func run() error {
 	}()
 
 	select {
-	case err := <-serveErr:
+	case err = <-serveErr:
 		if !errors.Is(err, http.ErrServerClosed) {
 			return errors.Join(err, a.Close(context.Background()))
 		}

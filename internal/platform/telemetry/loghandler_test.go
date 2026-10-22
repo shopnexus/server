@@ -30,6 +30,7 @@ func decode(t *testing.T, buf *bytes.Buffer) map[string]any {
 }
 
 func TestLoggerAddsTraceIDs(t *testing.T) {
+	t.Parallel()
 	ctx, sc := spanContext(t)
 	var buf bytes.Buffer
 	NewLogger(&buf, "json", slog.LevelInfo).InfoContext(ctx, "x")
@@ -41,6 +42,7 @@ func TestLoggerAddsTraceIDs(t *testing.T) {
 }
 
 func TestLoggerWithoutSpanHasNoTraceID(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	NewLogger(&buf, "json", slog.LevelInfo).Info("x")
 
@@ -50,6 +52,7 @@ func TestLoggerWithoutSpanHasNoTraceID(t *testing.T) {
 }
 
 func TestLoggerWithAttrsKeepsTraceIDs(t *testing.T) {
+	t.Parallel()
 	ctx, sc := spanContext(t)
 	var buf bytes.Buffer
 	NewLogger(&buf, "json", slog.LevelInfo).With("k", "v").InfoContext(ctx, "x", "a", 1)
@@ -61,6 +64,7 @@ func TestLoggerWithAttrsKeepsTraceIDs(t *testing.T) {
 }
 
 func TestLoggerRespectsLevel(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	NewLogger(&buf, "json", slog.LevelWarn).Info("x")
 	if buf.Len() != 0 {
@@ -69,6 +73,7 @@ func TestLoggerRespectsLevel(t *testing.T) {
 }
 
 func TestLoggerTextFormat(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	NewLogger(&buf, "text", slog.LevelInfo).Info("hello")
 	if !bytes.Contains(buf.Bytes(), []byte("msg=hello")) {

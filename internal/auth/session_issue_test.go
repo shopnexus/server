@@ -12,6 +12,7 @@ import (
 )
 
 func TestIssueSessionCreatesThenRotates(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	ctx, sessions, signer := context.Background(), session.NewPGStore(db), session.NewSigner(testKeys)
 	id, acc := uuid.NewV7(), newAccount(t, db)
@@ -33,6 +34,7 @@ func TestIssueSessionCreatesThenRotates(t *testing.T) {
 }
 
 func TestIssueSessionRefusesASignedOutSession(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	ctx, sessions, signer := context.Background(), session.NewPGStore(db), session.NewSigner(testKeys)
 	id, acc := uuid.NewV7(), newAccount(t, db)

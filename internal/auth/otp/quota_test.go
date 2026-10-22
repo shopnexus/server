@@ -12,6 +12,7 @@ import (
 var destRules = []otp.Rule{{Window: 45 * time.Second, Max: 1}, {Window: time.Hour, Max: 5}}
 
 func TestQuotaSpacing(t *testing.T) {
+	t.Parallel()
 	q := otp.NewQuota("dest:+84901234567")
 	if _, _, ok := q.Admit(now, destRules...); !ok {
 		t.Fatal("first send refused")
@@ -26,6 +27,7 @@ func TestQuotaSpacing(t *testing.T) {
 }
 
 func TestQuotaHourlyCap(t *testing.T) {
+	t.Parallel()
 	q := otp.NewQuota("dest:+84901234567")
 	at := now
 	for i := range 5 {
@@ -46,6 +48,7 @@ func TestQuotaHourlyCap(t *testing.T) {
 }
 
 func TestQuotaJSONRoundTrip(t *testing.T) {
+	t.Parallel()
 	q := otp.NewQuota("dest:+84901234567")
 	q.Admit(now, otp.Rule{Window: time.Hour, Max: 5})
 	b, err := json.Marshal(q)

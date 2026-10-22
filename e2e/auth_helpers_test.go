@@ -136,7 +136,7 @@ func verifyCode(t *testing.T, challengeID, code string, headers ...[2]string) Re
 // call does, and skips response validation, so its caller checks statuses.
 func verifyCodeStatus(challengeID, code string) int {
 	body, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "code": code})
-	req, _ := http.NewRequest(http.MethodPost, server+"/v1/auth/otp/verify", bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server+"/v1/auth/otp/verify", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", uuid.NewV7().String())
 	res, err := http.DefaultClient.Do(req)
@@ -158,8 +158,8 @@ func signInWith(t *testing.T, typed string) signIn {
 	return decode[signIn](t, res)
 }
 
-func newAccount(t *testing.T) (signIn, string) {
+func newAccount(t *testing.T) (account signIn, phone string) {
 	t.Helper()
-	phone := newPhone()
+	phone = newPhone()
 	return signInWith(t, phone), phone
 }

@@ -3,6 +3,7 @@ package otp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"uuid"
 
@@ -27,7 +28,10 @@ func (s challengePG) Create(ctx context.Context, c Challenge) error {
 		"account_id": c.accountID, "code_hash": c.codeHash, "ip": c.ip,
 		"expires_at": c.expiresAt, "created_at": c.createdAt, "write_id": c.writeID,
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("insert challenge: %w", err)
+	}
+	return nil
 }
 
 const getChallenge = `
@@ -47,7 +51,7 @@ func (s challengePG) Get(ctx context.Context, id uuid.UUID) (Challenge, error) {
 		return Challenge{}, ErrNotFound
 	}
 	if err != nil {
-		return Challenge{}, err
+		return Challenge{}, fmt.Errorf("select challenge: %w", err)
 	}
 	c.dest, c.ip = contact.Restore(kind, dest), ip.Addr()
 	return c, nil
@@ -63,7 +67,7 @@ func (s challengePG) Save(ctx context.Context, c *Challenge, writeID uuid.UUID) 
 		"attempts": c.attempts, "consumed_at": c.consumedAt,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("update challenge: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrConflict
@@ -82,5 +86,8 @@ func (s challengePG) IsNewest(ctx context.Context, c Challenge) (bool, error) {
 	err := s.db.QueryRow(ctx, isNewest, pgx.StrictNamedArgs{
 		"destination": c.dest.Value(), "purpose": c.purpose, "created_at": c.createdAt, "id": c.id,
 	}).Scan(&newest)
-	return newest, err
+	if err != nil {
+		return false, fmt.Errorf("select newest challenge: %w", err)
+	}
+	return newest, nil
 }

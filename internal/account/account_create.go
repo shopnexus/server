@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 )
@@ -13,5 +14,8 @@ func Create(ctx context.Context, accounts Store, id uuid.UUID, displayName strin
 	if err != nil {
 		return err
 	}
-	return accounts.Create(ctx, a)
+	if err := accounts.Create(ctx, a); err != nil {
+		return fmt.Errorf("create account: %w", err)
+	}
+	return nil
 }

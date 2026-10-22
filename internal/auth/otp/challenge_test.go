@@ -23,6 +23,7 @@ func challenge(t *testing.T) otp.Challenge {
 }
 
 func TestNewChallenge(t *testing.T) {
+	t.Parallel()
 	c := challenge(t)
 	if !c.ExpiresAt().Equal(now.Add(otp.CodeTTL)) || c.Attempts() != 0 || c.ConsumedAt() != nil || c.WriteID() != c.ID() {
 		t.Fatalf("%+v", c)
@@ -30,6 +31,7 @@ func TestNewChallenge(t *testing.T) {
 }
 
 func TestVerifyRightCodeConsumes(t *testing.T) {
+	t.Parallel()
 	c := challenge(t)
 	if err := c.Verify([]byte("right"), now.Add(time.Minute)); err != nil || c.ConsumedAt() == nil {
 		t.Fatalf("%v %v", err, c.ConsumedAt())
@@ -40,6 +42,7 @@ func TestVerifyRightCodeConsumes(t *testing.T) {
 }
 
 func TestVerifyWrongCodeCountsAndLocks(t *testing.T) {
+	t.Parallel()
 	c := challenge(t)
 	err := c.Verify([]byte("wrong"), now)
 	var ae *apperr.Error
@@ -58,6 +61,7 @@ func TestVerifyWrongCodeCountsAndLocks(t *testing.T) {
 }
 
 func TestVerifyExpired(t *testing.T) {
+	t.Parallel()
 	c := challenge(t)
 	if err := c.Verify([]byte("wrong"), now.Add(otp.CodeTTL)); !errors.Is(err, otp.ErrCodeExpired) || c.Attempts() != 0 {
 		t.Fatalf("%v, attempts %d", err, c.Attempts())
@@ -67,6 +71,7 @@ func TestVerifyExpired(t *testing.T) {
 // A Restate step journals the challenge it loaded; the copy read back must be
 // the same challenge.
 func TestChallengeJSONRoundTrip(t *testing.T) {
+	t.Parallel()
 	c := challenge(t)
 	c.Verify([]byte("wrong"), now)
 	b, err := json.Marshal(c)

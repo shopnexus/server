@@ -26,7 +26,7 @@ type Endpoint struct {
 // Serve binds defs and serves them on addr; "127.0.0.1:0" picks a free port.
 // With an identityKey from IdentityKey, it runs only requests the Restate
 // server signed.
-func Serve(addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoint, error) {
+func Serve(ctx context.Context, addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoint, error) {
 	r := server.NewRestate().Bidirectional(false)
 	if identityKey != "" {
 		r = r.WithIdentityV1(identityKey)
@@ -36,11 +36,12 @@ func Serve(addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoi
 	}
 	h, err := r.Handler()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build restate handler: %w", err)
 	}
-	ln, err := net.Listen("tcp", addr)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listen on %s: %w", addr, err)
 	}
 	e := &Endpoint{srv: &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}, ln: ln}
 	// Serve returns http.ErrServerClosed after Close. A listener failure
@@ -52,7 +53,12 @@ func Serve(addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoi
 // URL is the address Restate calls when RESTATE_ENDPOINT_URL is empty.
 func (e *Endpoint) URL() string { return "http://" + e.ln.Addr().String() }
 
-func (e *Endpoint) Close(ctx context.Context) error { return e.srv.Shutdown(ctx) }
+func (e *Endpoint) Close(ctx context.Context) error {
+	if err := e.srv.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shut down restate endpoint: %w", err)
+	}
+	return nil
+}
 
 // Register asks the Restate server at adminURL to discover the services
 // served at endpointURL, replacing an earlier registration of the same names.
@@ -64,7 +70,7 @@ func Register(ctx context.Context, adminURL, endpointURL string) error {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(adminURL, "/")+"/deployments", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("build register request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := http.DefaultClient.Do(req)
@@ -81,13 +87,13 @@ func Register(ctx context.Context, adminURL, endpointURL string) error {
 
 // Healthy reports whether the Restate admin API answers.
 func Healthy(ctx context.Context, adminURL string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(adminURL, "/")+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(adminURL, "/")+"/health", http.NoBody)
 	if err != nil {
-		return err
+		return fmt.Errorf("build health request: %w", err)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("restate admin health: %w", err)
 	}
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusOK {

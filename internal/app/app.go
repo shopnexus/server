@@ -77,16 +77,16 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
-	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL}
+	a := &App{Handler: nil, router: httpx.NewRouter(), pool: pool, endpoint: nil, adminURL: cfg.Restate.AdminURL}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))
 		}
 	}()
 
-	if err := checkMigrations(ctx, pool); err != nil {
+	if err = checkMigrations(ctx, pool); err != nil {
 		return nil, err
 	}
 	doc, err := api.Load()
@@ -95,15 +95,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	}
 	validate, err := httpx.ValidateRequests(doc, log)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build request validator: %w", err)
 	}
 
 	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
 	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		if err := a.ready(r.Context()); err != nil {
-			log.WarnContext(r.Context(), "not ready", "err", err)
+		if notReady := a.ready(r.Context()); notReady != nil {
+			log.WarnContext(r.Context(), "not ready", "err", notReady)
 			httpx.Respond(w, http.StatusServiceUnavailable, status{"unavailable"})
 			return
 		}
@@ -125,8 +125,11 @@ type status struct {
 
 func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	pending, err := postgres.Pending(ctx, pool, migrations.FS)
-	if err != nil || len(pending) == 0 {
-		return err
+	if err != nil {
+		return fmt.Errorf("check migrations: %w", err)
+	}
+	if len(pending) == 0 {
+		return nil
 	}
 	names := make([]string, len(pending))
 	for i, m := range pending {
@@ -162,7 +165,7 @@ func routeModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o
 
 // startRestate serves defs and registers them with Restate.
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
-	ep, err := restatex.Serve(cfg.ListenAddr, cfg.IdentityKey, defs...)
+	ep, err := restatex.Serve(ctx, cfg.ListenAddr, cfg.IdentityKey, defs...)
 	if err != nil {
 		return nil, fmt.Errorf("restate endpoint: %w", err)
 	}
@@ -186,25 +189,30 @@ func register(ctx context.Context, adminURL, url string, log *slog.Logger) error
 		log.WarnContext(ctx, "restate not reachable yet", "attempt", attempt+1, "err", err)
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("register restate endpoint: %w", ctx.Err())
 		case <-time.After(2 * time.Second):
 		}
 	}
-	return err
+	return fmt.Errorf("register restate endpoint: %w", err)
 }
 
 func (a *App) ready(ctx context.Context) error {
 	if err := a.pool.Ping(ctx); err != nil {
-		return err
+		return fmt.Errorf("ping postgres: %w", err)
 	}
-	return restatex.Healthy(ctx, a.adminURL)
+	if err := restatex.Healthy(ctx, a.adminURL); err != nil {
+		return fmt.Errorf("check restate: %w", err)
+	}
+	return nil
 }
 
 // Close stops the Restate endpoint and closes the pool.
 func (a *App) Close(ctx context.Context) error {
 	var err error
 	if a.endpoint != nil {
-		err = a.endpoint.Close(ctx)
+		if cerr := a.endpoint.Close(ctx); cerr != nil {
+			err = fmt.Errorf("stop restate endpoint: %w", cerr)
+		}
 	}
 	a.pool.Close()
 	return err

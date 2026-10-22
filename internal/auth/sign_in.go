@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -30,6 +31,7 @@ type SignedInAccount struct {
 
 type SignInResponse struct {
 	session.Tokens
+
 	Account SignedInAccount `json:"account"`
 }
 
@@ -60,7 +62,7 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 		return SignInResponse{}, otp.ErrCodeExpired
 	}
 	if err != nil {
-		return SignInResponse{}, err
+		return SignInResponse{}, fmt.Errorf("get challenge: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), restateTimeout)
 	defer cancel()
@@ -68,7 +70,7 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 	res, err := rs.SignIn().Request(ctx, SignInInput{ChallengeID: in.ChallengeID, CodeHash: hash},
 		restate.WithIdempotencyKey(r.Header.Get("Idempotency-Key")))
 	if err != nil {
-		return SignInResponse{}, err
+		return SignInResponse{}, fmt.Errorf("call SignIn service: %w", err)
 	}
 	if res.Refused != nil {
 		return SignInResponse{}, res.Refused

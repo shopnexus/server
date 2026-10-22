@@ -12,6 +12,7 @@ import (
 )
 
 func TestPrincipalRoundTrip(t *testing.T) {
+	t.Parallel()
 	if _, ok := authn.From(context.Background()); ok {
 		t.Fatal("bare context has a principal")
 	}
@@ -23,6 +24,7 @@ func TestPrincipalRoundTrip(t *testing.T) {
 }
 
 func TestErrUnauthenticated(t *testing.T) {
+	t.Parallel()
 	var e *apperr.Error
 	if !errors.As(authn.ErrUnauthenticated, &e) || e.Kind != apperr.KindUnauthenticated || e.Code != "unauthenticated" {
 		t.Fatalf("%+v", authn.ErrUnauthenticated)

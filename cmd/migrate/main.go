@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -20,16 +21,16 @@ func main() {
 
 func run() error {
 	if err := config.LoadDotEnv(".env"); err != nil {
-		return err
+		return fmt.Errorf("load .env: %w", err)
 	}
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		return fmt.Errorf("DATABASE_URL is required")
+		return errors.New("DATABASE_URL is required")
 	}
 	ctx := context.Background()
 	pool, err := postgres.NewPool(ctx, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pool.Close()
 
@@ -38,7 +39,7 @@ func run() error {
 		fmt.Println("applied", m.File())
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("migrate: %w", err)
 	}
 	if len(applied) == 0 {
 		fmt.Println("no migrations to apply")

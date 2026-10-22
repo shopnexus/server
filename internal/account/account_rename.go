@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -17,7 +18,7 @@ import (
 func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now time.Time) (View, error) {
 	a, err := accounts.Get(ctx, id)
 	if err != nil {
-		return View{}, err
+		return View{}, fmt.Errorf("get account: %w", err)
 	}
 	if err := a.CanWrite(now); err != nil {
 		return View{}, err
@@ -29,7 +30,7 @@ func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now 
 		if errors.Is(err, ErrConflict) {
 			return View{}, apperr.ErrTryAgain
 		}
-		return View{}, err
+		return View{}, fmt.Errorf("save account: %w", err)
 	}
 	return viewOf(a, now), nil
 }

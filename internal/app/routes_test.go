@@ -13,6 +13,7 @@ import (
 // to the same set: an operation without a route is unbuilt, and a route
 // without an operation is undocumented.
 func TestRoutesMatchSpec(t *testing.T) {
+	t.Parallel()
 	doc, err := api.Load()
 	if err != nil {
 		t.Fatal(err)

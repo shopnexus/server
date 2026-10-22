@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -34,8 +35,8 @@ type AuthConfig struct {
 	OTPKey       []byte             // OTP_KEY: base64, at least 32 bytes
 	JWTKeyID     string             // JWT_KEY_ID: the kid of JWTKey
 	JWTKey       ed25519.PrivateKey // JWT_PRIVATE_KEY: base64 of the 32-byte seed
-	JWTPrevKeyID string             // JWT_PREVIOUS_KEY_ID: set during a key change
-	JWTPrevKey   ed25519.PublicKey  // JWT_PREVIOUS_PUBLIC_KEY: base64
+	JWTPrevKeyID string             //exhaustruct:optional JWT_PREVIOUS_KEY_ID: set during a key change
+	JWTPrevKey   ed25519.PublicKey  //exhaustruct:optional JWT_PREVIOUS_PUBLIC_KEY: base64
 	Issuer       string             // JWT_ISSUER
 	Audience     string             // JWT_AUDIENCE
 }
@@ -91,7 +92,7 @@ func Load(getenv func(string) string) (Config, error) {
 		if err != nil || len(b) < size || (exact && len(b) != size) {
 			want := fmt.Sprintf("at least %d", size)
 			if exact {
-				want = fmt.Sprint(size)
+				want = strconv.Itoa(size)
 			}
 			errs = append(errs, fmt.Errorf("%s: want base64 of %s bytes", key, want))
 			return nil
@@ -99,9 +100,32 @@ func Load(getenv func(string) string) (Config, error) {
 		return b
 	}
 
+	var logLevel slog.Level
+	// oneOf has checked the value, so it parses.
+	_ = logLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")))
+
+	var proxies []netip.Prefix
+	for s := range strings.SplitSeq(getenv("TRUSTED_PROXIES"), ",") {
+		if s = strings.TrimSpace(s); s == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %q is not a CIDR", s))
+			continue
+		}
+		proxies = append(proxies, p.Masked())
+	}
+
+	var jwtKey ed25519.PrivateKey
+	if seed := decodeKey("JWT_PRIVATE_KEY", ed25519.SeedSize, true); seed != nil {
+		jwtKey = ed25519.NewKeyFromSeed(seed)
+	}
+
 	cfg := Config{
 		Env:         oneOf("APP_ENV", "prod", "dev", "test", "prod"),
 		HTTPAddr:    get("HTTP_ADDR", ":8080"),
+		LogLevel:    logLevel,
 		LogFormat:   oneOf("LOG_FORMAT", "json", "text", "json"),
 		DatabaseURL: need("DATABASE_URL"),
 		Restate: RestateConfig{
@@ -115,32 +139,16 @@ func Load(getenv func(string) string) (Config, error) {
 		Auth: AuthConfig{
 			OTPKey:       decodeKey("OTP_KEY", 32, false),
 			JWTKeyID:     need("JWT_KEY_ID"),
+			JWTKey:       jwtKey,
 			JWTPrevKeyID: getenv("JWT_PREVIOUS_KEY_ID"),
 			Issuer:       get("JWT_ISSUER", defaultIssuer),
 			Audience:     get("JWT_AUDIENCE", defaultAudience),
 		},
-		OTLPEndpoint: get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		ServiceName:  get("SERVICE_NAME", "server2"),
+		OTLPEndpoint:   get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		ServiceName:    get("SERVICE_NAME", "server2"),
+		TrustedProxies: proxies,
 	}
 
-	// oneOf has checked the value, so it parses.
-	_ = cfg.LogLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")))
-
-	for s := range strings.SplitSeq(getenv("TRUSTED_PROXIES"), ",") {
-		if s = strings.TrimSpace(s); s == "" {
-			continue
-		}
-		p, err := netip.ParsePrefix(s)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %q is not a CIDR", s))
-			continue
-		}
-		cfg.TrustedProxies = append(cfg.TrustedProxies, p.Masked())
-	}
-
-	if seed := decodeKey("JWT_PRIVATE_KEY", ed25519.SeedSize, true); seed != nil {
-		cfg.Auth.JWTKey = ed25519.NewKeyFromSeed(seed)
-	}
 	prevKey := getenv("JWT_PREVIOUS_PUBLIC_KEY")
 	switch {
 	case prevKey == "" && cfg.Auth.JWTPrevKeyID == "":
@@ -157,6 +165,8 @@ func Load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY is required with APP_ENV=prod; make run adds it to .env"))
 	case key != "" && !strings.HasPrefix(key, "publickeyv1_"):
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY must start with publickeyv1_"))
+	default:
+		// Unset outside prod, or set and well formed.
 	}
 
 	return cfg, errors.Join(errs...)

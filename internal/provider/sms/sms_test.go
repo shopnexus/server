@@ -11,6 +11,7 @@ import (
 )
 
 func TestLogSenderWritesMessage(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	s := sms.LogSender{Log: slog.New(slog.NewTextHandler(&buf, nil))}
 	if err := s.Send(context.Background(), "+84901234567", "Mã của bạn: 583920"); err != nil {

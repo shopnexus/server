@@ -8,18 +8,17 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 // TestPGStore checks that the Postgres store behaves as account.Store
 // promises.
 func TestPGStore(t *testing.T) {
-	newStore := func(t *testing.T) account.Store { return account.NewPGStore(pgtest.New(t)) }
+	t.Parallel()
 	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Microsecond)
+	pgNow := time.Now().UTC().Truncate(time.Microsecond)
 	fresh := func(t *testing.T, s account.Store) account.Account {
 		t.Helper()
-		a, err := account.New(uuid.NewV7(), "Linh", now)
+		a, err := account.New(uuid.NewV7(), "Linh", pgNow)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -30,19 +29,21 @@ func TestPGStore(t *testing.T) {
 	}
 
 	t.Run("create then get", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
 		got, err := s.Get(ctx, a.ID())
-		if err != nil || got.ID() != a.ID() || got.DisplayName() != "Linh" || got.Status(now) != account.StatusActive ||
-			got.WriteID() != a.WriteID() || !got.CreatedAt().Equal(now) {
+		if err != nil || got.ID() != a.ID() || got.DisplayName() != "Linh" || got.Status(pgNow) != account.StatusActive ||
+			got.WriteID() != a.WriteID() || !got.CreatedAt().Equal(pgNow) {
 			t.Fatalf("got %+v %v", got, err)
 		}
 	})
 
 	t.Run("create twice keeps the first", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
-		again, _ := account.New(a.ID(), "Other", now)
+		again, _ := account.New(a.ID(), "Other", pgNow)
 		if err := s.Create(ctx, again); err != nil {
 			t.Fatal(err)
 		}
@@ -52,15 +53,17 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("get unknown", func(t *testing.T) {
+		t.Parallel()
 		if _, err := newStore(t).Get(ctx, uuid.NewV7()); !errors.Is(err, account.ErrNotFound) {
 			t.Fatalf("err %v", err)
 		}
 	})
 
 	t.Run("save sets the write id", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
-		a.SetDisplayName("Minh", now)
+		a.SetDisplayName("Minh", pgNow)
 		w := uuid.NewV7()
 		if err := s.Save(ctx, &a, w); err != nil || a.WriteID() != w {
 			t.Fatalf("save: %v, write id %s", err, a.WriteID())
@@ -71,23 +74,25 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("a stale write conflicts", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
 		b, _ := s.Get(ctx, a.ID())
-		a.SetDisplayName("First", now)
+		a.SetDisplayName("First", pgNow)
 		if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
-		b.SetDisplayName("Second", now)
+		b.SetDisplayName("Second", pgNow)
 		if err := s.Save(ctx, &b, uuid.NewV7()); !errors.Is(err, account.ErrConflict) {
 			t.Fatalf("stale save: %v", err)
 		}
 	})
 
 	t.Run("a retried write with the same id succeeds", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
-		a.SetDisplayName("Minh", now)
+		a.SetDisplayName("Minh", pgNow)
 		retry := a
 		w := uuid.NewV7()
 		if err := s.Save(ctx, &a, w); err != nil {
@@ -99,6 +104,7 @@ func TestPGStore(t *testing.T) {
 	})
 
 	t.Run("delete is idempotent", func(t *testing.T) {
+		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
 		for range 2 {

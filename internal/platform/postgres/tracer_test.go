@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
+//nolint:paralleltest // The test installs the global tracer provider.
 func TestTracerRecordsQuerySpan(t *testing.T) {
 	rec := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec))

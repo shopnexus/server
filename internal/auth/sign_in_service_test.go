@@ -75,6 +75,7 @@ func (e *signInEnv) count(t *testing.T, table string) int {
 }
 
 func (e *signInEnv) attempts(t *testing.T, c otp.Challenge) int {
+	t.Helper()
 	got, err := e.challenges.Get(context.Background(), c.ID())
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +92,7 @@ func refused(t *testing.T, res auth.SignInResult, code string) {
 }
 
 func TestSignInCreatesThenFindsTheAccount(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
 	second := e.signIn(t, "+84 90 123 4567")
@@ -101,6 +103,7 @@ func TestSignInCreatesThenFindsTheAccount(t *testing.T) {
 }
 
 func TestSignInReplayedKey(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	key := uuid.NewV7().String()
@@ -113,6 +116,7 @@ func TestSignInReplayedKey(t *testing.T) {
 }
 
 func TestSignInCodeWorksOnce(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	if res := e.guess(t, c, code); res.Refused != nil {
@@ -122,6 +126,7 @@ func TestSignInCodeWorksOnce(t *testing.T) {
 }
 
 func TestSignInWrongCodeIsCounted(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	res := e.guess(t, c, wrong(code))
@@ -132,6 +137,7 @@ func TestSignInWrongCodeIsCounted(t *testing.T) {
 }
 
 func TestSignInLocksAfterFiveWrongCodes(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	for range otp.MaxAttempts - 1 {
@@ -142,6 +148,7 @@ func TestSignInLocksAfterFiveWrongCodes(t *testing.T) {
 }
 
 func TestSignInRefusesStaleChallenges(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	old, oldCode := stored(t, e.challenges, "0901234567", e.clock.Now())
 	stored(t, e.challenges, "0901234567", e.clock.Now().Add(time.Minute))
@@ -168,6 +175,7 @@ func (racingChallenges) Save(context.Context, *otp.Challenge, uuid.UUID) error {
 // A reply to a guess that lost a race must not tell a right code from a
 // wrong one.
 func TestSignInLostRaceSaysTryAgainForAnyCode(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t, func(s *auth.SignIn) { s.Challenges = racingChallenges{s.Challenges} })
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	for _, g := range []string{code, wrong(code)} {
@@ -179,6 +187,7 @@ func TestSignInLostRaceSaysTryAgainForAnyCode(t *testing.T) {
 // whatever the interleaving, no guess succeeds, at most five are counted, and
 // every reply is invalid_code, code_locked or try_again.
 func TestSignInUnderParallelGuesses(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	results := make(chan auth.SignInResult, 50)
@@ -212,6 +221,7 @@ func TestSignInUnderParallelGuesses(t *testing.T) {
 }
 
 func TestSignInRefusesASuspendedAccount(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
 	suspendAccount(t, e.db, first.AccountID)
@@ -219,6 +229,7 @@ func TestSignInRefusesASuspendedAccount(t *testing.T) {
 }
 
 func TestSignInMarksTheIdentityUsed(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
 	e.clock.Add(time.Hour)
@@ -241,6 +252,7 @@ func (a *accountCommitThenFail) Create(ctx context.Context, id uuid.UUID, name s
 }
 
 func TestSignInSurvivesCommitThenFail(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t, func(s *auth.SignIn) { s.Accounts = &accountCommitThenFail{AccountPort: s.Accounts} })
 	res := e.signIn(t, "0901234567")
 	if res.Refused != nil || !res.IsNew || e.count(t, "accounts") != 1 || e.count(t, "credentials") != 1 {
@@ -261,6 +273,7 @@ func (v *verifyCommitThenFail) Save(ctx context.Context, c *otp.Challenge, w uui
 // taken before it, so a right code still signs in and a wrong one is counted
 // once.
 func TestSignInSurvivesVerifyCommitThenFail(t *testing.T) {
+	t.Parallel()
 	for _, right := range []bool{true, false} {
 		e := startSignIn(t, func(s *auth.SignIn) { s.Challenges = &verifyCommitThenFail{ChallengeStore: s.Challenges} })
 		c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
@@ -280,6 +293,7 @@ func TestSignInSurvivesVerifyCommitThenFail(t *testing.T) {
 // A wrong code on a challenge already used is refused before anything is
 // saved, so no retry of that step can mistake it for a counted guess.
 func TestSignInWrongCodeOnAUsedChallenge(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t, func(s *auth.SignIn) { s.Challenges = &verifyCommitThenFail{ChallengeStore: s.Challenges} })
 	c, code := stored(t, e.challenges, "0901234567", e.clock.Now())
 	if res := e.guess(t, c, code); res.Refused != nil {
@@ -296,6 +310,7 @@ func (takenCredentials) Create(context.Context, credentials.Credentials) error {
 }
 
 func TestSignInCompensatesWhenTheIdentityIsTaken(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t, func(s *auth.SignIn) { s.Credentials = takenCredentials{s.Credentials} })
 	res := e.signIn(t, "0901234567")
 	refused(t, res, "try_again")
@@ -307,6 +322,7 @@ func TestSignInCompensatesWhenTheIdentityIsTaken(t *testing.T) {
 // IDs minted inside Restate are UUIDv7, so ids sort by creation time as the
 // spec's cursors assume.
 func TestSignInMintsV7IDs(t *testing.T) {
+	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
 	e.clock.Add(time.Second)

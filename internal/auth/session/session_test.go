@@ -14,6 +14,7 @@ import (
 var now = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
 
 func TestNewSession(t *testing.T) {
+	t.Parallel()
 	id, acc := uuid.NewV7(), uuid.NewV7()
 	s, token := session.New(id, acc, "Pixel 9", now.Add(-time.Minute), now)
 	if !strings.HasPrefix(token, "rt_") || len(token) != 3+43 || !bytes.Equal(s.RefreshHash(), session.HashRefresh(token)) {
@@ -26,6 +27,7 @@ func TestNewSession(t *testing.T) {
 }
 
 func TestRotateKeepsThePreviousHash(t *testing.T) {
+	t.Parallel()
 	s, first := session.New(uuid.NewV7(), uuid.NewV7(), "", now, now)
 	second := s.Rotate(now.Add(time.Hour))
 	if second == first || !bytes.Equal(s.RefreshHash(), session.HashRefresh(second)) ||
@@ -35,6 +37,7 @@ func TestRotateKeepsThePreviousHash(t *testing.T) {
 }
 
 func TestUsable(t *testing.T) {
+	t.Parallel()
 	s, _ := session.New(uuid.NewV7(), uuid.NewV7(), "", now, now)
 	if err := s.Usable(now); err != nil {
 		t.Fatal(err)

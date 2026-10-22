@@ -11,6 +11,7 @@ import (
 )
 
 func TestListSessionsPagesNewestFirst(t *testing.T) {
+	t.Parallel()
 	db := pgtest.New(t)
 	s := session.NewPGStore(db)
 	ps := devices(t, s, newAccount(t, db), 2, now)

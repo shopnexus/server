@@ -34,6 +34,7 @@ func required() map[string]string {
 }
 
 func TestLoadAllSet(t *testing.T) {
+	t.Parallel()
 	prev := NewAuthKeys()
 	env := required()
 	maps.Copy(env, map[string]string{
@@ -86,6 +87,7 @@ func TestLoadAllSet(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
+	t.Parallel()
 	got, err := Load(lookup(required()))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -99,6 +101,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadListsEveryMissingVariable(t *testing.T) {
+	t.Parallel()
 	_, err := Load(lookup(nil))
 	if err == nil {
 		t.Fatal("want error")
@@ -111,6 +114,7 @@ func TestLoadListsEveryMissingVariable(t *testing.T) {
 }
 
 func TestLoadRejectsBadValues(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		key, value string
 		mentions   []string
@@ -121,6 +125,7 @@ func TestLoadRejectsBadValues(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.key, func(t *testing.T) {
+			t.Parallel()
 			env := required()
 			env[c.key] = c.value
 			_, err := Load(lookup(env))
@@ -137,6 +142,7 @@ func TestLoadRejectsBadValues(t *testing.T) {
 }
 
 func TestLoadRejectsBadKeys(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		set     map[string]string
@@ -154,6 +160,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			env := required()
 			maps.Copy(env, c.set)
 			if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), c.mention) {
@@ -164,6 +171,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 }
 
 func TestNewAuthKeysRoundTrip(t *testing.T) {
+	t.Parallel()
 	keys := NewAuthKeys()
 	env := required()
 	for line := range strings.Lines(keys.Env()) {
@@ -181,6 +189,7 @@ func TestNewAuthKeysRoundTrip(t *testing.T) {
 
 // Production refuses unsigned Restate requests, so it needs the key.
 func TestLoadProdNeedsTheRestateIdentityKey(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"", "not-a-key"} {
 		env := required()
 		env["RESTATE_IDENTITY_KEY"] = key

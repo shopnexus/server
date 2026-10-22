@@ -11,6 +11,7 @@ import (
 )
 
 func TestOTPSendDeliversACode(t *testing.T) {
+	t.Parallel()
 	phone := newPhone()
 	res := sendOTP(t, "phone", phone)
 	if c := decode[challenge](t, res); res.Status != 200 || c.ChallengeID == "" || c.ResendAfter != 45 {
@@ -22,6 +23,7 @@ func TestOTPSendDeliversACode(t *testing.T) {
 }
 
 func TestOTPSendEmail(t *testing.T) {
+	t.Parallel()
 	addr := newEmail()
 	if res := sendOTP(t, "email", addr); res.Status != 200 {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
@@ -30,6 +32,7 @@ func TestOTPSendEmail(t *testing.T) {
 }
 
 func TestOTPSendTooSoon(t *testing.T) {
+	t.Parallel()
 	phone := newPhone()
 	sendOTP(t, "phone", phone)
 	res := sendOTP(t, "phone", phone)
@@ -39,6 +42,7 @@ func TestOTPSendTooSoon(t *testing.T) {
 }
 
 func TestOTPSendLimitPerAddress(t *testing.T) {
+	t.Parallel()
 	ip := newIP()
 	for i := range 20 {
 		if res := sendOTP(t, "phone", newPhone(), ip); res.Status != 200 {
@@ -51,12 +55,14 @@ func TestOTPSendLimitPerAddress(t *testing.T) {
 }
 
 func TestOTPSendRejectsALandline(t *testing.T) {
+	t.Parallel()
 	if res := sendOTP(t, "phone", "0201234567"); res.Status != 422 || errorOf(t, res).Code != "invalid_phone" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
 }
 
 func TestOTPSendRejectsBadRequests(t *testing.T) {
+	t.Parallel()
 	res := call(t, server, "POST", "/v1/auth/otp",
 		map[string]string{"kind": "phone", "destination": newPhone(), "purpose": "add_identity"}, newIP(), newKey())
 	if e := errorOf(t, res); res.Status != 400 || e.Fields["purpose"] == "" {
@@ -70,6 +76,7 @@ func TestOTPSendRejectsBadRequests(t *testing.T) {
 }
 
 func TestSignUpThenSignIn(t *testing.T) {
+	t.Parallel()
 	first, phone := newAccount(t)
 	if !first.Account.IsNew || first.TokenType != "Bearer" || first.AccessToken == "" || first.RefreshToken == "" {
 		t.Fatalf("%+v", first)
@@ -80,6 +87,7 @@ func TestSignUpThenSignIn(t *testing.T) {
 }
 
 func TestSignInIgnoresPhoneFormat(t *testing.T) {
+	t.Parallel()
 	phone := newPhone() // +849xxxxxxxx
 	a := signInWith(t, "0"+phone[3:])
 	b := signInWith(t, "+84 "+phone[3:5]+" "+phone[5:8]+" "+phone[8:])
@@ -89,6 +97,7 @@ func TestSignInIgnoresPhoneFormat(t *testing.T) {
 }
 
 func TestSignInReplayedKeyGetsTheSameAccount(t *testing.T) {
+	t.Parallel()
 	id, code := requestCode(t, newPhone())
 	key := newKey()
 	a := verifyCode(t, id, code, key)
@@ -103,6 +112,7 @@ func TestSignInReplayedKeyGetsTheSameAccount(t *testing.T) {
 }
 
 func TestVerifyWrongCode(t *testing.T) {
+	t.Parallel()
 	id, code := requestCode(t, newPhone())
 	res := verifyCode(t, id, wrongCode(code))
 	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_code" || e.Details["attempts_left"] != float64(4) {
@@ -111,18 +121,21 @@ func TestVerifyWrongCode(t *testing.T) {
 }
 
 func TestVerifyUnknownChallenge(t *testing.T) {
+	t.Parallel()
 	if res := verifyCode(t, uuid.NewV7().String(), "123456"); res.Status != 422 || errorOf(t, res).Code != "code_expired" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
 }
 
 func TestVerifyBadShape(t *testing.T) {
+	t.Parallel()
 	if res := verifyCode(t, uuid.NewV7().String(), "12345"); res.Status != 400 || errorOf(t, res).Fields["code"] != "pattern" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
 }
 
 func TestVerifySuspendedAccount(t *testing.T) {
+	t.Parallel()
 	acc, phone := newAccount(t)
 	suspend(t, acc.Account.ID)
 	id, code := requestCode(t, phone)
@@ -135,6 +148,7 @@ func TestVerifySuspendedAccount(t *testing.T) {
 // separate keys. Every reply is 422 or 409, and the challenge ends with at
 // most five counted attempts.
 func TestVerifyParallelGuesses(t *testing.T) {
+	t.Parallel()
 	id, code := requestCode(t, newPhone())
 	statuses := make(chan int, 30)
 	var wg sync.WaitGroup
@@ -157,6 +171,7 @@ func TestVerifyParallelGuesses(t *testing.T) {
 
 // TestOTPSendRepliesAlikeForKnownAndUnknown is the enumeration test.
 func TestOTPSendRepliesAlikeForKnownAndUnknown(t *testing.T) {
+	t.Parallel()
 	_, known := newAccount(t)
 	forgetSends(t, known)
 	a, b := sendOTP(t, "phone", known), sendOTP(t, "phone", newPhone())
@@ -172,6 +187,7 @@ func TestOTPSendRepliesAlikeForKnownAndUnknown(t *testing.T) {
 // Idempotency-Key must not hand out the first caller's session to a request
 // for another challenge with a wrong code.
 func TestVerifyReusedKeyWithAnotherChallengeIsRefused(t *testing.T) {
+	t.Parallel()
 	victimID, victimCode := requestCode(t, newPhone())
 	key := newKey()
 	victim := decode[signIn](t, verifyCode(t, victimID, victimCode, key))
@@ -188,6 +204,7 @@ func TestVerifyReusedKeyWithAnotherChallengeIsRefused(t *testing.T) {
 // TestVerifyReplayAfterLogoutIsRefused: replaying the verify request of a
 // signed-out session must not bring the session back.
 func TestVerifyReplayAfterLogoutIsRefused(t *testing.T) {
+	t.Parallel()
 	id, code := requestCode(t, newPhone())
 	key := newKey()
 	first := decode[signIn](t, verifyCode(t, id, code, key))

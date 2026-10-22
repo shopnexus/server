@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -28,7 +29,7 @@ type SessionItem struct {
 
 type SessionPage struct {
 	Items      []SessionItem `json:"items"`
-	NextCursor *uuid.UUID    `json:"next_cursor,omitempty"`
+	NextCursor *uuid.UUID    `json:"next_cursor,omitempty"` //exhaustruct:optional
 }
 
 // ListSessions lists the caller's devices, newest first. A zero cursor starts
@@ -39,7 +40,7 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 	}
 	rows, err := sessions.ListActive(ctx, p.AccountID, now, cursor, limit+1)
 	if err != nil {
-		return SessionPage{}, err
+		return SessionPage{}, fmt.Errorf("list sessions: %w", err)
 	}
 	page := SessionPage{Items: []SessionItem{}}
 	if len(rows) > limit {

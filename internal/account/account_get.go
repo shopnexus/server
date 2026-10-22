@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -26,7 +27,7 @@ func viewOf(a Account, now time.Time) View {
 func Get(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (View, error) {
 	a, err := accounts.Get(ctx, id)
 	if err != nil {
-		return View{}, err
+		return View{}, fmt.Errorf("get account: %w", err)
 	}
 	return viewOf(a, now), nil
 }
@@ -51,7 +52,7 @@ func GetHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Han
 func StatusOf(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (Status, error) {
 	a, err := accounts.Get(ctx, id)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get account: %w", err)
 	}
 	return a.Status(now), nil
 }
